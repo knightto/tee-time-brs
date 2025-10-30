@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tee Time Sign-up</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Tee Time Sign-up</h1>
+    </header>
+
+    <main>
+        <section class="admin-panel">
+            <h2>Create New Event</h2>
+            <form id="create-event-form">
+                <div class="form-group">
+                    <label for="eventName">Event Name:</label>
+                    <input type="text" id="eventName" required>
+                </div>
+                <div class="form-group">
+                    <label for="course">Course:</label>
+                    <input type="text" id="course" required>
+                </div>
+                <div class="form-group">
+                    <label for="date">Date:</label>
+                    <input type="date" id="date" required>
+                </div>
+                <div class="form-group">
+                    <label for="startTime">First Tee Time:</label>
+                    <input type="time" id="startTime" required>
+                </div>
+                <div class="form-group">
+                    <label for="numTeeTimes">Number of Tee Times:</label>
+                    <input type="number" id="numTeeTimes" min="1" value="10" required>
+                </div>
+                <button type="submit">Create Event</button>
+            </form>
+        </section>
+
+        <hr>
+
+        <section class="events-list">
+            <h2>Upcoming Events</h2>
+            <div id="events-container">
+                </div>
+        </section>
+    </main>
+
+    <div id="add-player-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <span class="close-button">&times;</span>
+            <h3>Add Player to Tee Time</h3>
+            <form id="add-player-form">
+                <input type="hidden" id="modal-event-id">
+                <input type="hidden" id="modal-teetime-id">
+                <div class="form-group">
+                    <label for="playerName">Player Name:</label>
+                    <input type="text" id="playerName" required>
+                </div>
+                <button type="submit">Add Player</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

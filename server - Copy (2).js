@@ -4,14 +4,14 @@ require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const path = require('path');
-const cors = require('cors'); 
+const cors = require('cors'); // Ensure cors is included if you use separate domains
 const Event = require('./models/Event'); // Import our Event model
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 // --- Middleware ---
-app.use(cors()); 
+app.use(cors()); // Allow cross-origin requests
 app.use(express.json()); 
 app.use(express.static(path.join(__dirname, 'public'))); 
 
@@ -30,7 +30,7 @@ mongoose.connect(mongoURI, {
 // GET all events (No change)
 app.get('/api/events', async (req, res) => {
     try {
-        const events = await Event.find().sort({ date: 1 }); 
+        const events = await Event.find().sort({ date: 1 }); // Find all, sort by date
         res.json(events);
     } catch (err) {
         res.status(500).json({ message: err.message });
@@ -51,6 +51,7 @@ app.post('/api/events', async (req, res) => {
             time: formattedTime,
             players: []
         });
+        // Increment by 10 minutes for the next tee time
         currentTime.setMinutes(currentTime.getMinutes() + 10);
     }
     // --- End of tee time logic ---
@@ -58,7 +59,7 @@ app.post('/api/events', async (req, res) => {
     const event = new Event({
         course,
         eventName,
-        date, 
+        date,
         teeTimes: newTeeTimes
     });
 
@@ -88,12 +89,6 @@ app.put('/api/events/:eventId/teetimes/:teeTimeId/add', async (req, res) => {
             return res.status(400).json({ message: 'This tee time is full.' });
         }
         
-        // Check for duplicate player name
-        const existingPlayer = teeTime.players.find(p => p.name.toLowerCase() === playerName.toLowerCase());
-        if (existingPlayer) {
-             return res.status(400).json({ message: 'Player is already registered for this tee time.' });
-        }
-        
         teeTime.players.push({ name: playerName });
         
         await event.save();
@@ -103,7 +98,7 @@ app.put('/api/events/:eventId/teetimes/:teeTimeId/add', async (req, res) => {
     }
 });
 
-// REMOVE a player from a tee time (Fixed in previous step)
+// REMOVE a player from a tee time (No change)
 app.delete('/api/events/:eventId/teetimes/:teeTimeId/players/:playerId', async (req, res) => {
     try {
         const event = await Event.findById(req.params.eventId);
@@ -111,9 +106,8 @@ app.delete('/api/events/:eventId/teetimes/:teeTimeId/players/:playerId', async (
 
         const teeTime = event.teeTimes.id(req.params.teeTimeId);
         if (!teeTime) return res.status(404).json({ message: 'Tee time not found.' });
-        
-        // Use .pull() to remove the subdocument by ID
-        teeTime.players.pull(req.params.playerId); 
+
+        teeTime.players.id(req.params.playerId).remove();
         
         await event.save();
         res.json(event);
@@ -122,7 +116,7 @@ app.delete('/api/events/:eventId/teetimes/:teeTimeId/players/:playerId', async (
     }
 });
 
-// DELETE an entire event (No change)
+// *** NEW: DELETE an entire event ***
 app.delete('/api/events/:eventId', async (req, res) => {
     try {
         const event = await Event.findByIdAndDelete(req.params.eventId);
@@ -131,40 +125,10 @@ app.delete('/api/events/:eventId', async (req, res) => {
             return res.status(404).json({ message: 'Event not found.' });
         }
         
+        // Respond with a success message or the deleted document
         res.json({ message: 'Event successfully deleted.', deletedEvent: event });
     } catch (err) {
         res.status(500).json({ message: err.message });
-    }
-});
-
-// *** NEW: UPDATE/EDIT an entire event (Name and Course) ***
-app.put('/api/events/:eventId', async (req, res) => {
-    const { eventName, course } = req.body;
-    
-    // Only allow specific fields to be updated
-    const updateData = {};
-    if (eventName) updateData.eventName = eventName;
-    if (course) updateData.course = course;
-
-    // Reject if no data is provided
-    if (Object.keys(updateData).length === 0) {
-        return res.status(400).json({ message: 'No valid fields provided for update (only eventName and course can be modified).' });
-    }
-
-    try {
-        const updatedEvent = await Event.findByIdAndUpdate(
-            req.params.eventId,
-            { $set: updateData },
-            { new: true, runValidators: true } // Return the new document and run Mongoose schema validators
-        );
-        
-        if (!updatedEvent) {
-            return res.status(404).json({ message: 'Event not found.' });
-        }
-        
-        res.json(updatedEvent);
-    } catch (err) {
-        res.status(400).json({ message: err.message });
     }
 });
 

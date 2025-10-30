@@ -56,13 +56,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }).join('');
 
                 eventElement.innerHTML = `
-                    <div class="event-header">
-                        <h3>${event.eventName}</h3>
-                        <div class="event-actions">
-                            <button class="edit-event-btn" data-event-id="${event._id}" data-event-name="${event.eventName}" data-course="${event.course}">Edit Event</button>
-                            <button class="delete-event-btn" data-event-id="${event._id}">Delete Event</button>
-                        </div>
-                    </div>
+                    <h3>${event.eventName}</h3>
                     <p class="event-details">${event.course} | ${eventDate}</p>
                     <div class="tee-time-container">${teeTimesHtml}</div>
                 `;
@@ -75,11 +69,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- Event Handlers ---
+    // --- Event Listeners ---
 
-    // 1. Create Event Form (No Change)
+    // 1. Create Event Form
     createEventForm.addEventListener('submit', async (e) => {
-        e.preventDefault(); 
+        e.preventDefault(); // Stop form from reloading page
         
         const eventData = {
             eventName: document.getElementById('eventName').value,
@@ -101,22 +95,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(errData.message || 'Failed to create event.');
             }
 
-            createEventForm.reset(); 
-            loadEvents(); 
+            createEventForm.reset(); // Clear the form
+            loadEvents(); // Reload all events
         } catch (error) {
             console.error('Error creating event:', error);
             alert(`Error: ${error.message}`);
         }
     });
 
-    // 2. Click Handling (for Add/Remove/Delete/Edit buttons)
+    // 2. Click Handling (for Add/Remove buttons)
     eventsContainer.addEventListener('click', (e) => {
         const eventCard = e.target.closest('.event-card');
         if (!eventCard) return;
         
         const eventId = eventCard.dataset.eventId;
 
-        // Handle "Add Player" click 
+        // Handle "Add Player" click
         if (e.target.classList.contains('add-player')) {
             const teeTimeId = e.target.dataset.teetimeId;
             openAddPlayerModal(eventId, teeTimeId);
@@ -131,23 +125,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 removePlayer(eventId, teeTimeId, playerId);
             }
         }
-        
-        // Handle "Delete Event" click
-        if (e.target.classList.contains('delete-event-btn')) {
-            if (confirm(`Are you sure you want to permanently delete event: ${eventId}?`)) {
-                deleteEvent(eventId);
-            }
-        }
-
-        // *** NEW: Handle "Edit Event" click ***
-        if (e.target.classList.contains('edit-event-btn')) {
-            const eventName = e.target.dataset.eventName;
-            const course = e.target.dataset.course;
-            editEventPrompt(eventId, eventName, course);
-        }
     });
 
-    // 3. Add Player Modal Form (No Change)
+    // 3. Add Player Modal Form
     addPlayerForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const eventId = modalEventId.value;
@@ -169,99 +149,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             closeModal();
-            loadEvents();
+            loadEvents(); // Reload events to show the new player
         } catch (error) {
             console.error('Error adding player:', error);
             alert(`Error: ${error.message}`);
         }
     });
 
-    // --- API Call Functions ---
-
-    // Remove Player API Call (No Change)
-    const removePlayer = async (eventId, teeTimeId, playerId) => {
-        try {
-            const response = await fetch(`/api/events/${eventId}/teetimes/${teeTimeId}/players/${playerId}`, {
-                method: 'DELETE'
-            });
-
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.message || 'Failed to remove player.');
-            }
-            
-            loadEvents(); 
-        } catch (error) {
-            console.error('Error removing player:', error);
-            alert(`Error: ${error.message}`);
-        }
-    };
-    
-    // Delete Event API Call (No Change)
-    const deleteEvent = async (eventId) => {
-        try {
-            const response = await fetch(`/api/events/${eventId}`, {
-                method: 'DELETE'
-            });
-
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.message || 'Failed to delete event.');
-            }
-            
-            alert('Event successfully deleted!');
-            loadEvents(); 
-        } catch (error) {
-            console.error('Error deleting event:', error);
-            alert(`Error: ${error.message}`);
-        }
-    };
-
-    // *** NEW: Edit Event Logic (using prompt for simple UI) ***
-    const editEventPrompt = (eventId, currentName, currentCourse) => {
-        const newName = prompt(`Enter new Event Name (or leave blank for '${currentName}'):`, currentName);
-        if (newName === null) return; // User canceled
-
-        const newCourse = prompt(`Enter new Course Name (or leave blank for '${currentCourse}'):`, currentCourse);
-        if (newCourse === null) return; // User canceled
-        
-        // Prepare data for the API call (only send fields that were changed)
-        const updateData = {};
-        if (newName.trim() !== currentName) updateData.eventName = newName.trim();
-        if (newCourse.trim() !== currentCourse) updateData.course = newCourse.trim();
-
-        if (Object.keys(updateData).length === 0) {
-            alert("No changes were made.");
-            return;
-        }
-
-        updateEvent(eventId, updateData);
-    };
-
-    const updateEvent = async (eventId, updateData) => {
-        try {
-            const response = await fetch(`/api/events/${eventId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updateData)
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to update event.');
-            }
-            
-            alert('Event successfully updated!');
-            loadEvents(); 
-        } catch (error) {
-            console.error('Error updating event:', error);
-            alert(`Error: ${error.message}`);
-        }
-    };
-    // -------------------------------------------------------------
-
-    // --- Modal Helper Functions (No Change) ---
+    // --- Modal Helper Functions ---
     const openAddPlayerModal = (eventId, teeTimeId) => {
         modalEventId.value = eventId;
         modalTeeTimeId.value = teeTimeId;
@@ -280,6 +175,26 @@ document.addEventListener('DOMContentLoaded', () => {
             closeModal();
         }
     });
+
+    // --- Remove Player API Call ---
+    const removePlayer = async (eventId, teeTimeId, playerId) => {
+        try {
+            const response = await fetch(`/api/events/${eventId}/teetimes/${teeTimeId}/players/${playerId}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.message || 'Failed to remove player.');
+            }
+            
+            loadEvents(); // Reload events to show updated list
+        } catch (error) {
+            console.error('Error removing player:', error);
+            alert(`Error: ${error.message}`);
+        }
+    };
+
 
     // --- Initial Load ---
     loadEvents();
