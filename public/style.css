@@ -1,28 +1,43 @@
 /* --- Global Styles --- */
 body {
+    /* *** Background Image Styles *** */
+    background-image: url('cool-golf-clear-water-hazards-in-autumn-enlr3jq4slsvb0rd.jpg');
+    background-size: cover;
+    background-position: center center;
+    background-attachment: fixed;
+    background-color: #f0f0f0; 
+    /* End of background styles */
+
     font-family: Arial, sans-serif;
-    background-color: #f4f7f6;
     color: #333;
     margin: 0;
-    padding: 20px;
+    padding: 0; 
     line-height: 1.6;
+    min-height: 100vh;
+}
+
+header {
+    background-color: rgba(0, 0, 0, 0.7); /* Dark semi-transparent header */
+    color: white;
+    padding: 20px;
+    text-align: center;
+}
+
+header h1 {
+    color: white; 
+    padding-bottom: 10px;
+    border-bottom: 3px solid #ccc;
+    margin-bottom: 0;
 }
 
 main {
     max-width: 1000px;
-    margin: 0 auto;
+    margin: 20px auto; 
     padding: 20px;
-    background: white;
+    /* *** Semi-transparent overlay for readability *** */
+    background: rgba(255, 255, 255, 0.9); 
     border-radius: 10px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
-
-header h1 {
-    text-align: center;
-    color: #1a4d2e;
-    padding-bottom: 10px;
-    border-bottom: 3px solid #ccc;
-    margin-bottom: 30px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2); 
 }
 
 h2 {
@@ -32,8 +47,9 @@ h2 {
     margin-top: 25px;
 }
 
-/* --- Form Styling (Admin Panel) --- */
-#create-event-form {
+/* --- Form Styling (Admin Panel & Subscription) --- */
+#create-event-form,
+.subscription-panel form {
     display: flex;
     flex-wrap: wrap;
     gap: 20px;
@@ -56,7 +72,9 @@ h2 {
 }
 
 #create-event-form input,
-#create-event-form button {
+#create-event-form button,
+.subscription-panel input,
+.subscription-panel button {
     padding: 10px;
     border: 1px solid #ccc;
     border-radius: 4px;
@@ -74,6 +92,19 @@ h2 {
     background-color: #45a049;
 }
 
+.subscription-panel button[type="submit"] {
+    background-color: #007bff; /* Blue */
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.subscription-panel button[type="submit"]:hover {
+    background-color: #0056b3;
+}
+
+
 hr {
     margin: 30px 0;
     border: 0;
@@ -88,64 +119,14 @@ hr {
     margin-bottom: 25px;
     background: #ffffff;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.03);
+    position: relative; /* Crucial for positioning the delete button */
 }
 
-/* Flex container for the event name and action buttons */
-.event-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-}
-
-.event-header h3 {
-    margin: 0;
-    color: #007bff;
-    font-size: 1.5em;
-}
-
-/* Container for all action buttons */
-.event-actions {
-    display: flex;
-    gap: 10px; 
-}
-
-/* *** NEW: Add Tee Time Button Style *** */
-.add-teetime-btn {
-    background-color: #f0ad4e; /* Orange */
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    cursor: pointer;
-    border-radius: 4px;
-    font-size: 0.9em;
-    font-weight: bold;
-    transition: background-color 0.3s;
-}
-
-.add-teetime-btn:hover {
-    background-color: #ec971f;
-}
-
-/* Edit Button Style (Existing) */
-.edit-event-btn {
-    background-color: #007bff; /* Blue */
-    color: white;
-    border: none;
-    padding: 8px 15px;
-    cursor: pointer;
-    border-radius: 4px;
-    font-size: 0.9em;
-    font-weight: bold;
-    transition: background-color 0.3s;
-}
-
-.edit-event-btn:hover {
-    background-color: #0056b3;
-}
-
-/* Delete Button Style (Existing) */
-.delete-event-btn {
+/* Delete Event Button */
+.event-card .delete-event-btn {
+    position: absolute;
+    top: 20px;
+    right: 20px;
     background-color: #dc3545; /* Red */
     color: white;
     border: none;
@@ -157,8 +138,27 @@ hr {
     transition: background-color 0.3s;
 }
 
-.delete-event-btn:hover {
+.event-card .delete-event-btn:hover {
     background-color: #c82333;
+}
+
+/* Add New Tee Time Button (Bottom of Card) */
+.event-card .add-tee-time-btn {
+    background-color: #1a4d2e; /* Dark green */
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 1em;
+    font-weight: bold;
+    margin-top: 20px;
+    width: 100%;
+    transition: background-color 0.3s;
+}
+
+.event-card .add-tee-time-btn:hover {
+    background-color: #0d301b;
 }
 
 /* Tee Time Layout */
@@ -175,22 +175,15 @@ hr {
     border-radius: 6px;
 }
 
-/* Flex container for time and remove button */
-.tee-time-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 5px;
-}
-
 .tee-time-slot strong {
     font-size: 1.1em;
     color: #1a4d2e;
 }
 
-/* *** NEW: Remove Tee Time Button Style *** */
-.remove-teetime-btn {
-    background: #dc3545; /* Red */
+/* Remove Tee Time Button */
+.tee-time-slot .remove-teetime {
+    float: right;
+    background: #dc3545; 
     color: white;
     border: none;
     padding: 3px 8px;
@@ -202,7 +195,7 @@ hr {
     transition: background-color 0.2s;
 }
 
-.remove-teetime-btn:hover {
+.tee-time-slot .remove-teetime:hover {
     background: #c82333;
 }
 
@@ -268,7 +261,7 @@ hr {
     margin-top: 10px;
 }
 
-/* --- Modal Styles --- */
+/* --- Modal Styles --- (Kept the original styles for the modal) */
 .modal {
     position: fixed;
     z-index: 1000;

@@ -71,7 +71,7 @@ const sendNotificationEmail = async (event) => {
         console.log('Notification email sent successfully.');
 
     } catch (error) {
-        // Critical: Log the error but do NOT throw it further up.
+        // Log the error but do NOT throw it further up.
         console.error('Error sending email notification:', error);
     }
 };
@@ -205,6 +205,7 @@ app.delete('/api/events/:eventId/teetimes/:teeTimeId/players/:playerId', async (
         const teeTime = event.teeTimes.id(req.params.teeTimeId);
         if (!teeTime) return res.status(404).json({ message: 'Tee time not found.' });
 
+        // IMPORTANT: Use .pull() not .remove() when removing a sub-document by its ID from an array.
         teeTime.players.pull(req.params.playerId); 
         
         await event.save();
@@ -242,41 +243,13 @@ app.post('/api/events/:eventId/teetimes', async (req, res) => {
         if (!event) return res.status(404).json({ message: 'Event not found.' });
         
         event.teeTimes.push({ time, players: [] });
+        // Re-sort the tee times to keep them in order
         event.teeTimes.sort((a, b) => a.time.localeCompare(b.time)); 
 
         await event.save();
         res.status(201).json(event);
     } catch (err) {
         res.status(500).json({ message: err.message });
-    }
-});
-
-// UPDATE/EDIT an entire event
-app.put('/api/events/:eventId', async (req, res) => {
-    const { eventName, course } = req.body;
-    
-    const updateData = {};
-    if (eventName) updateData.eventName = eventName;
-    if (course) updateData.course = course;
-
-    if (Object.keys(updateData).length === 0) {
-        return res.status(400).json({ message: 'No valid fields provided for update.' });
-    }
-
-    try {
-        const updatedEvent = await Event.findByIdAndUpdate(
-            req.params.eventId,
-            { $set: updateData },
-            { new: true, runValidators: true }
-        );
-        
-        if (!updatedEvent) {
-            return res.status(404).json({ message: 'Event not found.' });
-        }
-        
-        res.json(updatedEvent);
-    } catch (err) {
-        res.status(400).json({ message: err.message });
     }
 });
 

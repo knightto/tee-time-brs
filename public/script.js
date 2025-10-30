@@ -38,7 +38,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
                 });
 
-                let teeTimesHtml = event.teeTimes.map(tt => {
+                // Ensure teeTimes are sorted by time before mapping
+                const sortedTeeTimes = [...event.teeTimes].sort((a, b) => a.time.localeCompare(b.time));
+
+                let teeTimesHtml = sortedTeeTimes.map(tt => {
                     let playersHtml = tt.players.map(p => `
                         <li class="player-item">
                             ${p.name}
@@ -136,7 +139,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Handle "Delete Event" click
         if (e.target.classList.contains('delete-event-btn')) {
-            if (confirm(`Are you sure you want to permanently delete event: ${eventId}?`)) {
+            if (confirm(`Are you sure you want to permanently delete this event?`)) {
                 deleteEvent(eventId);
             }
         }
