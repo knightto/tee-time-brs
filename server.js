@@ -81,13 +81,11 @@ app.use(cors());
 app.use(express.json()); 
 app.use(express.static(path.join(__dirname, 'public'))); 
 
-// --- Database Connection ---
+// --- Database Connection (FIXED: Removed deprecated options) ---
 const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/teeTimeApp';
 
-mongoose.connect(mongoURI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-})
+// Removed useNewUrlParser and useUnifiedTopology to resolve MongoDB warnings
+mongoose.connect(mongoURI, {}) 
 .then(() => console.log('MongoDB connected successfully.'))
 .catch(err => console.error('MongoDB connection error:', err));
 
@@ -123,7 +121,7 @@ app.get('/api/events', async (req, res) => {
     }
 });
 
-// CREATE a new event (FIXED: Non-blocking email)
+// CREATE a new event (Non-blocking email)
 app.post('/api/events', async (req, res) => {
     const { course, eventName, date, startTime, numTeeTimes } = req.body;
 
@@ -157,7 +155,6 @@ app.post('/api/events', async (req, res) => {
         });
 
     } catch (err) {
-        // This only catches database save/validation errors.
         res.status(400).json({ message: err.message }); 
     }
 });
@@ -205,7 +202,7 @@ app.delete('/api/events/:eventId/teetimes/:teeTimeId/players/:playerId', async (
         const teeTime = event.teeTimes.id(req.params.teeTimeId);
         if (!teeTime) return res.status(404).json({ message: 'Tee time not found.' });
 
-        // IMPORTANT: Use .pull() not .remove() when removing a sub-document by its ID from an array.
+        // Use .pull() to remove the sub-document by its ID
         teeTime.players.pull(req.params.playerId); 
         
         await event.save();
