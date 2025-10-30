@@ -33,25 +33,27 @@
                 </div>
                 <div class="form-group">
                     <label for="numTeeTimes">Number of Tee Times:</label>
-                    <input type="number" id="numTeeTimes" min="1" value="10" required>
+                    <input type="number" id="numTeeTimes" min="1" value="3" required>
                 </div>
                 <button type="submit">Create Event</button>
             </form>
         </section>
-		
-		<section class="notification-panel">
+
+        <hr>
+
+        <section class="subscription-panel">
             <h2>Get Event Notifications</h2>
             <form id="subscribe-form">
                 <div class="form-group">
-                    <label for="subscribeEmail">Email Address:</label>
+                    <label for="subscribeEmail">Email:</label>
                     <input type="email" id="subscribeEmail" required>
                 </div>
-                <button type="submit" id="subscribeButton">Subscribe</button>
-                <p id="subscription-message" style="margin-top: 10px; font-weight: bold;"></p>
+                <button type="submit">Subscribe</button>
+                <p id="subscription-message" style="margin-top: 10px;"></p>
             </form>
         </section>
-        
-		<hr>
+
+        <hr>
 
         <section class="events-list">
             <h2>Upcoming Events</h2>
