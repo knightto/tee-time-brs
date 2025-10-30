@@ -1,9 +1,8 @@
 document.addEventListener('DOMContentLoaded', () => {
     const eventsContainer = document.getElementById('events-container');
     const createEventForm = document.getElementById('create-event-form');
-    const dateInput = document.getElementById('date'); // Reference to the date input
 
-    // --- Modal Elements (No Change) ---
+    // --- Modal Elements ---
     const modal = document.getElementById('add-player-modal');
     const closeModalBtn = document.querySelector('.close-button');
     const addPlayerForm = document.getElementById('add-player-form');
@@ -11,27 +10,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const modalTeeTimeId = document.getElementById('modal-teetime-id');
     const modalPlayerName = document.getElementById('playerName');
 
-    // --- Helper Function: Set Minimum Date ---
-    const setMinimumDate = () => {
-        const now = new Date();
-        const year = now.getFullYear();
-        // getMonth() is 0-indexed, so add 1
-        const month = String(now.getMonth() + 1).padStart(2, '0');
-        const day = String(now.getDate()).padStart(2, '0');
-        
-        // Format as YYYY-MM-DD for the HTML 'min' attribute
-        const today = `${year}-${month}-${day}`;
-        dateInput.min = today;
-    };
-    
-    // --- Main Function to Fetch and Display Events (No change to logic) ---
+    // --- Subscription Elements ---
+    const subscribeForm = document.getElementById('subscribe-form');
+    const subscribeEmailInput = document.getElementById('subscribeEmail');
+    const subscriptionMessage = document.getElementById('subscription-message');
+
+    // --- Main Function to Fetch and Display Events ---
     const loadEvents = async () => {
         try {
             const response = await fetch('/api/events');
             if (!response.ok) throw new Error('Failed to fetch events.');
             
             const events = await response.json();
-            eventsContainer.innerHTML = ''; 
+            eventsContainer.innerHTML = ''; // Clear existing content
 
             if (events.length === 0) {
                 eventsContainer.innerHTML = '<p>No events scheduled yet.</p>';
@@ -55,16 +46,15 @@ document.addEventListener('DOMContentLoaded', () => {
                         </li>
                     `).join('');
 
+                    // Show "Add Player" button only if spots are open
                     let addPlayerBtn = tt.players.length < 4 ?
                         `<button class="add-player" data-teetime-id="${tt._id}">Add Player +</button>` :
                         `<div class="tee-time-full">Full</div>`;
 
                     return `
                         <div class="tee-time-slot" data-teetime-id="${tt._id}">
-                            <div class="tee-time-header">
-                                <strong>${tt.time}</strong>
-                                <button class="remove-teetime-btn" data-teetime-id="${tt._id}">−</button>
-                            </div>
+                            <strong>${tt.time}</strong>
+                            <button class="remove-teetime" data-teetime-id="${tt._id}">Remove Tee Time</button>
                             <ul class="player-list">${playersHtml}</ul>
                             ${addPlayerBtn}
                         </div>
@@ -72,16 +62,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }).join('');
 
                 eventElement.innerHTML = `
-                    <div class="event-header">
-                        <h3>${event.eventName}</h3>
-                        <div class="event-actions">
-                            <button class="add-teetime-btn" data-event-id="${event._id}">Add Tee Time</button>
-                            <button class="edit-event-btn" data-event-id="${event._id}" data-event-name="${event.eventName}" data-course="${event.course}">Edit Event</button>
-                            <button class="delete-event-btn" data-event-id="${event._id}">Delete Event</button>
-                        </div>
-                    </div>
+                    <h3>${event.eventName}</h3>
                     <p class="event-details">${event.course} | ${eventDate}</p>
+                    <button class="delete-event-btn">Delete Event</button>
                     <div class="tee-time-container">${teeTimesHtml}</div>
+                    <button class="add-tee-time-btn">Add New Tee Time</button>
                 `;
                 eventsContainer.appendChild(eventElement);
             });
@@ -92,9 +77,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- Event Handlers ---
+    // --- Event Listeners ---
 
-    // 1. Create Event Form (*** FRONTEND VALIDATION ADDED HERE ***)
+    // 1. Create Event Form
     createEventForm.addEventListener('submit', async (e) => {
         e.preventDefault(); 
         
@@ -106,19 +91,6 @@ document.addEventListener('DOMContentLoaded', () => {
             numTeeTimes: document.getElementById('numTeeTimes').value
         };
 
-        // --- NEW: Frontend Date/Time Validation ---
-        const eventDateTime = new Date(`${eventData.date}T${eventData.startTime}`);
-        const now = new Date();
-        
-        // Subtract a minute buffer for time zone safety
-        now.setMinutes(now.getMinutes() - 1); 
-
-        if (eventDateTime < now) {
-            alert('Error: Events must be scheduled in the future! Please check the date and time.');
-            return; 
-        }
-        // --- END NEW VALIDATION ---
-        
         try {
             const response = await fetch('/api/events', {
                 method: 'POST',
@@ -128,30 +100,31 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!response.ok) {
                 const errData = await response.json();
-                // Display specific backend validation error if it exists
                 throw new Error(errData.message || 'Failed to create event.');
             }
 
             createEventForm.reset(); 
-            loadEvents(); 
+            loadEvents(); // Reload all events
         } catch (error) {
             console.error('Error creating event:', error);
             alert(`Error: ${error.message}`);
         }
     });
 
-    // 2. Click Handling (No change)
+    // 2. Click Handling (for all buttons in the events container)
     eventsContainer.addEventListener('click', (e) => {
         const eventCard = e.target.closest('.event-card');
         if (!eventCard) return;
         
         const eventId = eventCard.dataset.eventId;
 
+        // Handle "Add Player" click
         if (e.target.classList.contains('add-player')) {
             const teeTimeId = e.target.dataset.teetimeId;
             openAddPlayerModal(eventId, teeTimeId);
         }
 
+        // Handle "Remove Player" click
         if (e.target.classList.contains('remove-player')) {
             const teeTimeId = e.target.dataset.teetimeId;
             const playerId = e.target.dataset.playerId;
@@ -161,31 +134,31 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
+        // Handle "Delete Event" click
         if (e.target.classList.contains('delete-event-btn')) {
             if (confirm(`Are you sure you want to permanently delete event: ${eventId}?`)) {
                 deleteEvent(eventId);
             }
         }
 
-        if (e.target.classList.contains('edit-event-btn')) {
-            const eventName = e.target.dataset.eventName;
-            const course = e.target.dataset.course;
-            editEventPrompt(eventId, eventName, course);
-        }
-        
-        if (e.target.classList.contains('add-teetime-btn')) {
-            addTeeTimePrompt(eventId);
+        // Handle "Remove Tee Time" click
+        if (e.target.classList.contains('remove-teetime')) {
+            const teeTimeId = e.target.dataset.teetimeId;
+            if (confirm('Are you sure you want to remove this entire tee time slot?')) {
+                removeTeeTime(eventId, teeTimeId);
+            }
         }
 
-        if (e.target.classList.contains('remove-teetime-btn')) {
-            const teeTimeId = e.target.dataset.teetimeId;
-            if (confirm('Are you sure you want to permanently remove this tee time? All players will be deleted too!')) {
-                removeTeeTime(eventId, teeTimeId);
+        // Handle "Add New Tee Time" click
+        if (e.target.classList.contains('add-tee-time-btn')) {
+            const newTime = prompt("Enter the time for the new tee time (e.g., 09:30 AM):");
+            if (newTime) {
+                addTeeTime(eventId, newTime);
             }
         }
     });
 
-    // 3. Add Player Modal Form (No Change)
+    // 3. Add Player Modal Form
     addPlayerForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const eventId = modalEventId.value;
@@ -207,149 +180,14 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             closeModal();
-            loadEvents();
+            loadEvents(); // Reload events to show the new player
         } catch (error) {
             console.error('Error adding player:', error);
             alert(`Error: ${error.message}`);
         }
     });
 
-
-    // --- Other API Call/Helper Functions (No Change) ---
-    
-    // Tee Time Functions (Add/Remove)
-    const addTeeTimePrompt = (eventId) => {
-        const timeInput = prompt("Enter the new Tee Time (e.g., 04:30 PM):");
-        if (!timeInput) return;
-
-        if (!/\d{1,2}:\d{2}\s?(AM|PM)/i.test(timeInput.trim())) {
-             alert("Please enter a valid time format (e.g., 04:30 PM).");
-             return;
-        }
-
-        addTeeTime(eventId, timeInput.trim());
-    };
-
-    const addTeeTime = async (eventId, time) => {
-        try {
-            const response = await fetch(`/api/events/${eventId}/teetimes`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ time })
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to add tee time.');
-            }
-            
-            alert(`Tee time ${time} successfully added!`);
-            loadEvents(); 
-        } catch (error) {
-            console.error('Error adding tee time:', error);
-            alert(`Error: ${error.message}`);
-        }
-    };
-    
-    const removeTeeTime = async (eventId, teeTimeId) => {
-        try {
-            const response = await fetch(`/api/events/${eventId}/teetimes/${teeTimeId}`, {
-                method: 'DELETE'
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to remove tee time.');
-            }
-            
-            alert('Tee time successfully removed!');
-            loadEvents(); 
-        } catch (error) {
-            console.error('Error removing tee time:', error);
-            alert(`Error: ${error.message}`);
-        }
-    };
-
-    // Player Functions
-    const removePlayer = async (eventId, teeTimeId, playerId) => {
-        try {
-            const response = await fetch(`/api/events/${eventId}/teetimes/${teeTimeId}/players/${playerId}`, {
-                method: 'DELETE'
-            });
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.message || 'Failed to remove player.');
-            }
-            loadEvents(); 
-        } catch (error) {
-            console.error('Error removing player:', error);
-            alert(`Error: ${error.message}`);
-        }
-    };
-    
-    // Event Functions
-    const deleteEvent = async (eventId) => {
-        try {
-            const response = await fetch(`/api/events/${eventId}`, {
-                method: 'DELETE'
-            });
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.message || 'Failed to delete event.');
-            }
-            alert('Event successfully deleted!');
-            loadEvents(); 
-        } catch (error) {
-            console.error('Error deleting event:', error);
-            alert(`Error: ${error.message}`);
-        }
-    };
-
-    const editEventPrompt = (eventId, currentName, currentCourse) => {
-        const newName = prompt(`Enter new Event Name (or leave blank for '${currentName}'):`, currentName);
-        if (newName === null) return; 
-
-        const newCourse = prompt(`Enter new Course Name (or leave blank for '${currentCourse}'):`, currentCourse);
-        if (newCourse === null) return;
-        
-        const updateData = {};
-        if (newName.trim() !== currentName) updateData.eventName = newName.trim();
-        if (newCourse.trim() !== currentCourse) updateData.course = newCourse.trim();
-
-        if (Object.keys(updateData).length === 0) {
-            alert("No changes were made.");
-            return;
-        }
-
-        updateEvent(eventId, updateData);
-    };
-
-    const updateEvent = async (eventId, updateData) => {
-        try {
-            const response = await fetch(`/api/events/${eventId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(updateData)
-            });
-
-            const data = await response.json();
-
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to update event.');
-            }
-            
-            alert('Event successfully updated!');
-            loadEvents(); 
-        } catch (error) {
-            console.error('Error updating event:', error);
-            alert(`Error: ${error.message}`);
-        }
-    };
-
-
-    // Modal Helper Functions
+    // --- Modal Helper Functions ---
     const openAddPlayerModal = (eventId, teeTimeId) => {
         modalEventId.value = eventId;
         modalTeeTimeId.value = teeTimeId;
@@ -368,43 +206,123 @@ document.addEventListener('DOMContentLoaded', () => {
             closeModal();
         }
     });
+    
+    // --- Subscription Form Handler (with page refresh) ---
+    if (subscribeForm) {
+        subscribeForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = subscribeEmailInput.value.trim();
 
-	// Add these new references at the top of your script.js file (near the other elements)
-const subscribeForm = document.getElementById('subscribe-form');
-const subscribeEmailInput = document.getElementById('subscribeEmail');
-const subscriptionMessage = document.getElementById('subscription-message');
+            try {
+                const response = await fetch('/api/subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                
+                const data = await response.json();
+                
+                if (!response.ok) {
+                    throw new Error(data.message || 'Failed to subscribe.');
+                }
 
+                subscriptionMessage.style.color = 'green';
+                subscriptionMessage.textContent = 'Success! You are now subscribed. Refreshing page...';
+                
+                // Force full page refresh
+                setTimeout(() => {
+                    window.location.reload(); 
+                }, 1000); 
 
-// Add this entire new event listener block:
-subscribeForm.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const email = subscribeEmailInput.value.trim();
-
-    try {
-        const response = await fetch('/api/subscribe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
+            } catch (error) {
+                console.error('Subscription error:', error);
+                subscriptionMessage.style.color = 'red';
+                subscriptionMessage.textContent = `Error: ${error.message}`;
+            }
         });
-        
-        const data = await response.json();
-        
-        if (!response.ok) {
-            // Display the specific error message from the backend
-            throw new Error(data.message || 'Failed to subscribe.');
-        }
-
-        subscriptionMessage.style.color = 'green';
-        subscriptionMessage.textContent = 'Success! You are now subscribed.';
-        subscribeForm.reset();
-    } catch (error) {
-        console.error('Subscription error:', error);
-        subscriptionMessage.style.color = 'red';
-        subscriptionMessage.textContent = `Error: ${error.message}`;
     }
-});
+
+    // --- API Call Functions ---
+    
+    // Remove Player
+    const removePlayer = async (eventId, teeTimeId, playerId) => {
+        try {
+            const response = await fetch(`/api/events/${eventId}/teetimes/${teeTimeId}/players/${playerId}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.message || 'Failed to remove player.');
+            }
+            
+            loadEvents(); 
+        } catch (error) {
+            console.error('Error removing player:', error);
+            alert(`Error: ${error.message}`);
+        }
+    };
+    
+    // Delete Event
+    const deleteEvent = async (eventId) => {
+        try {
+            const response = await fetch(`/api/events/${eventId}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.message || 'Failed to delete event.');
+            }
+            
+            loadEvents(); 
+        } catch (error) {
+            console.error('Error deleting event:', error);
+            alert(`Error: ${error.message}`);
+        }
+    };
+
+    // Remove Tee Time
+    const removeTeeTime = async (eventId, teeTimeId) => {
+        try {
+            const response = await fetch(`/api/events/${eventId}/teetimes/${teeTimeId}`, {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.message || 'Failed to remove tee time.');
+            }
+            
+            loadEvents(); 
+        } catch (error) {
+            console.error('Error removing tee time:', error);
+            alert(`Error: ${error.message}`);
+        }
+    };
+
+    // Add Tee Time
+    const addTeeTime = async (eventId, time) => {
+        try {
+            const response = await fetch(`/api/events/${eventId}/teetimes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ time })
+            });
+
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.message || 'Failed to add new tee time.');
+            }
+            
+            loadEvents(); 
+        } catch (error) {
+            console.error('Error adding tee time:', error);
+            alert(`Error: ${error.message}`);
+        }
+    };
+
 
     // --- Initial Load ---
-    setMinimumDate();
     loadEvents();
 });

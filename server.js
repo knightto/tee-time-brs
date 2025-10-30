@@ -2,7 +2,7 @@
 require('dotenv').config(); 
 
 const express = require('express');
-const mongoose = require('mongoose'); // Corrected syntax
+const mongoose = require('mongoose'); 
 const path = require('path');
 const cors = require('cors'); 
 const nodemailer = require('nodemailer'); 
@@ -62,14 +62,16 @@ const sendNotificationEmail = async (event) => {
                     <li><strong>First Tee Time:</strong> ${event.teeTimes[0].time}</li>
                 </ul>
                 <p>Please visit the sign-up page to secure your spot!</p>
-                <p><a href="YOUR_RENDER_APP_URL_HERE">Go to Sign-up Page</a></p>
+                <p><a href="https://tee-time-brs.onrender.com/">Go to Sign-up Page</a></p>
                 <p>---<br>You received this because you subscribed to event notifications.</p>
             `
         };
 
         await transporter.sendMail(mailOptions);
+        console.log('Notification email sent successfully.');
 
     } catch (error) {
+        // Critical: Log the error but do NOT throw it further up.
         console.error('Error sending email notification:', error);
     }
 };
@@ -121,7 +123,7 @@ app.get('/api/events', async (req, res) => {
     }
 });
 
-// CREATE a new event
+// CREATE a new event (FIXED: Non-blocking email)
 app.post('/api/events', async (req, res) => {
     const { course, eventName, date, startTime, numTeeTimes } = req.body;
 
@@ -145,12 +147,21 @@ app.post('/api/events', async (req, res) => {
 
     try {
         const newEvent = await event.save();
-        await sendNotificationEmail(newEvent);
+        
+        // 1. Send success response IMMEDIATELY.
         res.status(201).json(newEvent); 
+        
+        // 2. Trigger email notification in the background without 'await'.
+        sendNotificationEmail(newEvent).catch(err => {
+            console.error('Background Email Sending Failed:', err);
+        });
+
     } catch (err) {
+        // This only catches database save/validation errors.
         res.status(400).json({ message: err.message }); 
     }
 });
+
 
 // ADD a player to a tee time
 app.put('/api/events/:eventId/teetimes/:teeTimeId/add', async (req, res) => {
@@ -185,7 +196,7 @@ app.put('/api/events/:eventId/teetimes/:teeTimeId/add', async (req, res) => {
     }
 });
 
-// REMOVE a player from a tee time (FIXED LOGIC)
+// REMOVE a player from a tee time
 app.delete('/api/events/:eventId/teetimes/:teeTimeId/players/:playerId', async (req, res) => {
     try {
         const event = await Event.findById(req.params.eventId);
@@ -194,24 +205,21 @@ app.delete('/api/events/:eventId/teetimes/:teeTimeId/players/:playerId', async (
         const teeTime = event.teeTimes.id(req.params.teeTimeId);
         if (!teeTime) return res.status(404).json({ message: 'Tee time not found.' });
 
-        // Mongoose pull operation to remove the player sub-document by ID
         teeTime.players.pull(req.params.playerId); 
         
         await event.save();
-        // Return a successful, empty JSON response
         res.json({ message: 'Player successfully removed.' }); 
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
 });
 
-// REMOVE a tee time from an event (NEW ROUTE)
+// REMOVE a tee time from an event
 app.delete('/api/events/:eventId/teetimes/:teeTimeId', async (req, res) => {
     try {
         const event = await Event.findById(req.params.eventId);
         if (!event) return res.status(404).json({ message: 'Event not found.' });
         
-        // Use pull to remove the tee time subdocument by ID
         event.teeTimes.pull(req.params.teeTimeId);
 
         await event.save();
@@ -222,7 +230,7 @@ app.delete('/api/events/:eventId/teetimes/:teeTimeId', async (req, res) => {
 });
 
 
-// ADD a new tee time to the event (NEW ROUTE)
+// ADD a new tee time to the event
 app.post('/api/events/:eventId/teetimes', async (req, res) => {
     const { time } = req.body;
     if (!time) {
@@ -234,7 +242,7 @@ app.post('/api/events/:eventId/teetimes', async (req, res) => {
         if (!event) return res.status(404).json({ message: 'Event not found.' });
         
         event.teeTimes.push({ time, players: [] });
-        event.teeTimes.sort((a, b) => a.time.localeCompare(b.time)); // Keep sorted
+        event.teeTimes.sort((a, b) => a.time.localeCompare(b.time)); 
 
         await event.save();
         res.status(201).json(event);
@@ -243,7 +251,7 @@ app.post('/api/events/:eventId/teetimes', async (req, res) => {
     }
 });
 
-// UPDATE/EDIT an entire event (Name and Course) (NEW ROUTE)
+// UPDATE/EDIT an entire event
 app.put('/api/events/:eventId', async (req, res) => {
     const { eventName, course } = req.body;
     
@@ -272,7 +280,7 @@ app.put('/api/events/:eventId', async (req, res) => {
     }
 });
 
-// DELETE an entire event (NEW ROUTE)
+// DELETE an entire event
 app.delete('/api/events/:eventId', async (req, res) => {
     try {
         const event = await Event.findByIdAndDelete(req.params.eventId);

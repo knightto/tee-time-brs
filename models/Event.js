@@ -1,16 +1,17 @@
 const mongoose = require('mongoose');
 
-// Define the Player Sub-Schema
+// This is a sub-document. It doesn't get its own file.
 const PlayerSchema = new mongoose.Schema({
     name: { type: String, required: true }
 });
 
-// Define the TeeTime Sub-Schema
+// This is also a sub-document.
 const TeeTimeSchema = new mongoose.Schema({
     time: { type: String, required: true }, // e.g., "08:00 AM"
+    // This is the important part:
+    // It's an array of Players, and we add a custom validation rule.
     players: {
         type: [PlayerSchema],
-        // Custom validator to enforce max 4 players
         validate: [arrayLimit, 'Tee time is full (max 4 players).']
     }
 });
@@ -20,13 +21,13 @@ function arrayLimit(val) {
     return val.length <= 4;
 }
 
-// Define the main Event Schema
 const EventSchema = new mongoose.Schema({
     course: { type: String, required: true },
     eventName: { type: String, required: true },
     date: { type: Date, required: true },
-    teeTimes: [TeeTimeSchema] // An event has an array of TeeTime sub-documents
+    // An event has an array of TeeTime sub-documents
+    teeTimes: [TeeTimeSchema]
 });
 
-// Compile and export the model
+// This line "compiles" the schema into a model you can use
 module.exports = mongoose.model('Event', EventSchema);
