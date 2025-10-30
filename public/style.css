@@ -104,19 +104,30 @@ hr {
     font-size: 1.5em;
 }
 
-/* Container for the Edit and Delete buttons */
+/* Container for all action buttons */
 .event-actions {
     display: flex;
-    gap: 10px; /* Space between buttons */
+    gap: 10px; 
 }
 
-.event-details {
-    font-style: italic;
-    color: #666;
-    margin-bottom: 20px;
+/* *** NEW: Add Tee Time Button Style *** */
+.add-teetime-btn {
+    background-color: #f0ad4e; /* Orange */
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    cursor: pointer;
+    border-radius: 4px;
+    font-size: 0.9em;
+    font-weight: bold;
+    transition: background-color 0.3s;
 }
 
-/* *** NEW: Edit Button Style *** */
+.add-teetime-btn:hover {
+    background-color: #ec971f;
+}
+
+/* Edit Button Style (Existing) */
 .edit-event-btn {
     background-color: #007bff; /* Blue */
     color: white;
@@ -164,11 +175,35 @@ hr {
     border-radius: 6px;
 }
 
-.tee-time-slot strong {
-    display: block;
-    font-size: 1.1em;
+/* Flex container for time and remove button */
+.tee-time-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 5px;
+}
+
+.tee-time-slot strong {
+    font-size: 1.1em;
     color: #1a4d2e;
+}
+
+/* *** NEW: Remove Tee Time Button Style *** */
+.remove-teetime-btn {
+    background: #dc3545; /* Red */
+    color: white;
+    border: none;
+    padding: 3px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-weight: bold;
+    line-height: 1;
+    font-size: 0.9em;
+    transition: background-color 0.2s;
+}
+
+.remove-teetime-btn:hover {
+    background: #c82333;
 }
 
 .player-list {

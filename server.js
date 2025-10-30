@@ -2,13 +2,77 @@
 require('dotenv').config(); 
 
 const express = require('express');
-const mongoose = require('mongoose');
+const mongoose = require('mongoose'); // Corrected syntax
 const path = require('path');
 const cors = require('cors'); 
-const Event = require('./models/Event'); // Import our Event model
+const nodemailer = require('nodemailer'); 
+const Event = require('./models/Event'); 
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// --- Nodemailer Setup ---
+const transporter = nodemailer.createTransport({
+    service: 'gmail', 
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
+    }
+});
+
+// --- Subscription Schema for Email Addresses ---
+const SubscriptionSchema = new mongoose.Schema({
+    email: { 
+        type: String, 
+        required: true, 
+        unique: true, 
+        lowercase: true,
+        match: [/\S+@\S+\.\S+/, 'is invalid'] 
+    },
+    subscribedAt: { type: Date, default: Date.now }
+});
+const Subscription = mongoose.model('Subscription', SubscriptionSchema);
+
+// *** Email Helper Function ***
+const sendNotificationEmail = async (event) => {
+    try {
+        const subscriptions = await Subscription.find({}, 'email'); 
+        const recipientList = subscriptions.map(sub => sub.email).join(', ');
+
+        if (!recipientList) {
+            console.log('No subscribers found. Email notification skipped.');
+            return;
+        }
+
+        const eventDate = new Date(event.date).toLocaleDateString('en-US', { 
+            weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
+        });
+
+        const mailOptions = {
+            from: process.env.EMAIL_USER,
+            to: recipientList, 
+            subject: `[Tee Time Alert] NEW Event Created: ${event.eventName}`,
+            html: `
+                <h2>A New Golf Event Has Been Scheduled!</h2>
+                <p>The following event is now open for sign-up:</p>
+                <ul>
+                    <li><strong>Event:</strong> ${event.eventName}</li>
+                    <li><strong>Course:</strong> ${event.course}</li>
+                    <li><strong>Date:</strong> ${eventDate}</li>
+                    <li><strong>First Tee Time:</strong> ${event.teeTimes[0].time}</li>
+                </ul>
+                <p>Please visit the sign-up page to secure your spot!</p>
+                <p><a href="YOUR_RENDER_APP_URL_HERE">Go to Sign-up Page</a></p>
+                <p>---<br>You received this because you subscribed to event notifications.</p>
+            `
+        };
+
+        await transporter.sendMail(mailOptions);
+
+    } catch (error) {
+        console.error('Error sending email notification:', error);
+    }
+};
 
 // --- Middleware ---
 app.use(cors()); 
@@ -27,7 +91,27 @@ mongoose.connect(mongoURI, {
 
 // --- API Routes ---
 
-// GET all events (No change)
+// Route to handle email subscription
+app.post('/api/subscribe', async (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+        return res.status(400).json({ message: "Email is required." });
+    }
+
+    try {
+        const newSubscription = new Subscription({ email });
+        await newSubscription.save();
+        res.status(201).json({ message: 'Successfully subscribed to notifications!' });
+    } catch (err) {
+        if (err.code === 11000) { 
+             return res.status(409).json({ message: 'This email is already subscribed.' });
+        }
+        res.status(400).json({ message: err.message });
+    }
+});
+
+
+// GET all events
 app.get('/api/events', async (req, res) => {
     try {
         const events = await Event.find().sort({ date: 1 }); 
@@ -37,40 +121,38 @@ app.get('/api/events', async (req, res) => {
     }
 });
 
-// CREATE a new event (No change)
+// CREATE a new event
 app.post('/api/events', async (req, res) => {
     const { course, eventName, date, startTime, numTeeTimes } = req.body;
 
-    // --- Logic to create tee time slots ---
     let newTeeTimes = [];
     let currentTime = new Date(`${date}T${startTime}`);
 
     for (let i = 0; i < numTeeTimes; i++) {
-        const formattedTime = currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
         newTeeTimes.push({
-            time: formattedTime,
-            players: []
+            time: currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true }),
+            players: [] 
         });
         currentTime.setMinutes(currentTime.getMinutes() + 10);
     }
-    // --- End of tee time logic ---
 
     const event = new Event({
         course,
         eventName,
-        date, 
+        date,
         teeTimes: newTeeTimes
     });
 
     try {
         const newEvent = await event.save();
-        res.status(201).json(newEvent);
+        await sendNotificationEmail(newEvent);
+        res.status(201).json(newEvent); 
     } catch (err) {
-        res.status(400).json({ message: err.message });
+        res.status(400).json({ message: err.message }); 
     }
 });
 
-// ADD a player to a tee time (No change)
+// ADD a player to a tee time
 app.put('/api/events/:eventId/teetimes/:teeTimeId/add', async (req, res) => {
     const { playerName } = req.body;
     if (!playerName) {
@@ -88,7 +170,7 @@ app.put('/api/events/:eventId/teetimes/:teeTimeId/add', async (req, res) => {
             return res.status(400).json({ message: 'This tee time is full.' });
         }
         
-        // Check for duplicate player name
+        // Basic check for duplicate player name (case-insensitive)
         const existingPlayer = teeTime.players.find(p => p.name.toLowerCase() === playerName.toLowerCase());
         if (existingPlayer) {
              return res.status(400).json({ message: 'Player is already registered for this tee time.' });
@@ -97,13 +179,13 @@ app.put('/api/events/:eventId/teetimes/:teeTimeId/add', async (req, res) => {
         teeTime.players.push({ name: playerName });
         
         await event.save();
-        res.json(event);
+        res.json(event); 
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
 });
 
-// REMOVE a player from a tee time (Fixed in previous step)
+// REMOVE a player from a tee time (FIXED LOGIC)
 app.delete('/api/events/:eventId/teetimes/:teeTimeId/players/:playerId', async (req, res) => {
     try {
         const event = await Event.findById(req.params.eventId);
@@ -111,18 +193,86 @@ app.delete('/api/events/:eventId/teetimes/:teeTimeId/players/:playerId', async (
 
         const teeTime = event.teeTimes.id(req.params.teeTimeId);
         if (!teeTime) return res.status(404).json({ message: 'Tee time not found.' });
-        
-        // Use .pull() to remove the subdocument by ID
+
+        // Mongoose pull operation to remove the player sub-document by ID
         teeTime.players.pull(req.params.playerId); 
         
         await event.save();
-        res.json(event);
+        // Return a successful, empty JSON response
+        res.json({ message: 'Player successfully removed.' }); 
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
 });
 
-// DELETE an entire event (No change)
+// REMOVE a tee time from an event (NEW ROUTE)
+app.delete('/api/events/:eventId/teetimes/:teeTimeId', async (req, res) => {
+    try {
+        const event = await Event.findById(req.params.eventId);
+        if (!event) return res.status(404).json({ message: 'Event not found.' });
+        
+        // Use pull to remove the tee time subdocument by ID
+        event.teeTimes.pull(req.params.teeTimeId);
+
+        await event.save();
+        res.json({ message: 'Tee time successfully removed.' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+
+// ADD a new tee time to the event (NEW ROUTE)
+app.post('/api/events/:eventId/teetimes', async (req, res) => {
+    const { time } = req.body;
+    if (!time) {
+        return res.status(400).json({ message: 'Time is required to add a new tee time.' });
+    }
+
+    try {
+        const event = await Event.findById(req.params.eventId);
+        if (!event) return res.status(404).json({ message: 'Event not found.' });
+        
+        event.teeTimes.push({ time, players: [] });
+        event.teeTimes.sort((a, b) => a.time.localeCompare(b.time)); // Keep sorted
+
+        await event.save();
+        res.status(201).json(event);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// UPDATE/EDIT an entire event (Name and Course) (NEW ROUTE)
+app.put('/api/events/:eventId', async (req, res) => {
+    const { eventName, course } = req.body;
+    
+    const updateData = {};
+    if (eventName) updateData.eventName = eventName;
+    if (course) updateData.course = course;
+
+    if (Object.keys(updateData).length === 0) {
+        return res.status(400).json({ message: 'No valid fields provided for update.' });
+    }
+
+    try {
+        const updatedEvent = await Event.findByIdAndUpdate(
+            req.params.eventId,
+            { $set: updateData },
+            { new: true, runValidators: true }
+        );
+        
+        if (!updatedEvent) {
+            return res.status(404).json({ message: 'Event not found.' });
+        }
+        
+        res.json(updatedEvent);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
+    }
+});
+
+// DELETE an entire event (NEW ROUTE)
 app.delete('/api/events/:eventId', async (req, res) => {
     try {
         const event = await Event.findByIdAndDelete(req.params.eventId);
@@ -134,37 +284,6 @@ app.delete('/api/events/:eventId', async (req, res) => {
         res.json({ message: 'Event successfully deleted.', deletedEvent: event });
     } catch (err) {
         res.status(500).json({ message: err.message });
-    }
-});
-
-// *** NEW: UPDATE/EDIT an entire event (Name and Course) ***
-app.put('/api/events/:eventId', async (req, res) => {
-    const { eventName, course } = req.body;
-    
-    // Only allow specific fields to be updated
-    const updateData = {};
-    if (eventName) updateData.eventName = eventName;
-    if (course) updateData.course = course;
-
-    // Reject if no data is provided
-    if (Object.keys(updateData).length === 0) {
-        return res.status(400).json({ message: 'No valid fields provided for update (only eventName and course can be modified).' });
-    }
-
-    try {
-        const updatedEvent = await Event.findByIdAndUpdate(
-            req.params.eventId,
-            { $set: updateData },
-            { new: true, runValidators: true } // Return the new document and run Mongoose schema validators
-        );
-        
-        if (!updatedEvent) {
-            return res.status(404).json({ message: 'Event not found.' });
-        }
-        
-        res.json(updatedEvent);
-    } catch (err) {
-        res.status(400).json({ message: err.message });
     }
 });
 
