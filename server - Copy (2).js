@@ -12,16 +12,17 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 // --- Security Constant ---
+// ADMIN CODE IS HARDCODED TO 55555
 const ADMIN_DELETE_CODE = '55555';
 
-// --- Nodemailer Setup (RESEND CONFIGURATION) ---
+// --- Nodemailer Setup (RESEND FIX APPLIED) ---
 const transporter = nodemailer.createTransport({
     host: 'smtp.resend.com', // Resend Host
     secure: true, // Use SSL/TLS
     port: 465, // Standard SMTPS port
     auth: {
-        user: 'resend', // Static username for Resend
-        pass: process.env.RESEND_API_KEY // Your API key
+        user: 'resend', // Resend requires the static username 'resend'
+        pass: process.env.RESEND_API_KEY // Your API key from .env file
     }
 });
 
@@ -49,16 +50,15 @@ const sendNotificationEmail = async (event) => {
             return;
         }
 
-        // Use the EMAIL_USER variable from Render, or fall back to the Resend Sandbox address
+        // Get the sender email from the configured transporter user
+        // Note: For Resend, the 'from' email must be a domain you've verified in your Resend account.
         const senderEmail = process.env.EMAIL_USER || 'onboarding@resend.dev'; 
-        console.log(`Attempting to send email from: ${senderEmail}`); // Debugging line
-
+        
         const eventDate = new Date(event.date).toLocaleDateString('en-US', { 
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
         });
 
         const mailOptions = {
-            // Ensure the 'from' email is correctly formatted and verified in Resend
             from: `Tee Time Alert <${senderEmail}>`,
             to: recipientList, 
             subject: `[Tee Time Alert] NEW Event Created: ${event.eventName}`,
@@ -81,8 +81,8 @@ const sendNotificationEmail = async (event) => {
         console.log('Notification email sent successfully.');
 
     } catch (error) {
-        // Log the error for troubleshooting on Render logs
-        console.error('Error sending email notification:', error.message);
+        // Log the error but do NOT throw it further up.
+        console.error('Error sending email notification:', error);
     }
 };
 
