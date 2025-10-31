@@ -265,3 +265,15 @@ app.post('/api/events/:eventId/teetimes', async (req, res) => {
         await event.save();
         res.status(201).json(event);
     } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// DELETE an entire event (REQUIRES CODE)
+app.delete('/api/events/:eventId', async (req, res) => {
+    const { deleteCode } = req.body; // Extract the delete code
+    
+    // 1. Check for Admin Code
+    if (!deleteCode || deleteCode !== ADMIN_DELETE_CODE) {
+        // Sends a JSON response with a 401 Unauthorized status
+        return res.status(401).json({ message: 'Unauthorized: Invalid delete

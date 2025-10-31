@@ -132,23 +132,39 @@ document.addEventListener('DOMContentLoaded', () => {
             const teeTimeId = e.target.dataset.teetimeId;
             const playerId = e.target.dataset.playerId;
             
-            if (confirm('Are you sure you want to remove this player?')) {
-                removePlayer(eventId, teeTimeId, playerId);
+            const deleteCode = prompt("Enter the Admin Delete Code (55555) to remove a player:");
+            if (deleteCode) {
+                if (confirm('Are you sure you want to remove this player?')) {
+                    removePlayer(eventId, teeTimeId, playerId, deleteCode);
+                }
+            } else if (deleteCode === "") {
+                alert("Delete operation canceled. Code cannot be blank.");
             }
         }
         
         // Handle "Delete Event" click
         if (e.target.classList.contains('delete-event-btn')) {
-            if (confirm(`Are you sure you want to permanently delete this event?`)) {
-                deleteEvent(eventId);
+            // --- FIX: Prompt for code and pass it to deleteEvent ---
+            const deleteCode = prompt("Enter the Admin Delete Code (55555) to delete the event:");
+            if (deleteCode) {
+                 if (confirm(`Are you sure you want to permanently delete this event?`)) {
+                    deleteEvent(eventId, deleteCode);
+                }
+            } else if (deleteCode === "") {
+                alert("Delete operation canceled. Code cannot be blank.");
             }
         }
 
         // Handle "Remove Tee Time" click
         if (e.target.classList.contains('remove-teetime')) {
             const teeTimeId = e.target.dataset.teetimeId;
-            if (confirm('Are you sure you want to remove this entire tee time slot?')) {
-                removeTeeTime(eventId, teeTimeId);
+            const deleteCode = prompt("Enter the Admin Delete Code (55555) to remove a tee time:");
+            if (deleteCode) {
+                if (confirm('Are you sure you want to remove this entire tee time slot?')) {
+                    removeTeeTime(eventId, teeTimeId, deleteCode);
+                }
+            } else if (deleteCode === "") {
+                alert("Delete operation canceled. Code cannot be blank.");
             }
         }
 
@@ -248,10 +264,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- API Call Functions ---
     
     // Remove Player
-    const removePlayer = async (eventId, teeTimeId, playerId) => {
+    const removePlayer = async (eventId, teeTimeId, playerId, deleteCode) => { // Added deleteCode
         try {
             const response = await fetch(`/api/events/${eventId}/teetimes/${teeTimeId}/players/${playerId}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                // --- FIX: Added headers and body ---
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deleteCode: deleteCode })
             });
 
             if (!response.ok) {
@@ -267,10 +286,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     
     // Delete Event
-    const deleteEvent = async (eventId) => {
+    const deleteEvent = async (eventId, deleteCode) => { // Added deleteCode
         try {
             const response = await fetch(`/api/events/${eventId}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                // --- FIX: Added headers and body ---
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deleteCode: deleteCode })
             });
 
             if (!response.ok) {
@@ -286,10 +308,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Remove Tee Time
-    const removeTeeTime = async (eventId, teeTimeId) => {
+    const removeTeeTime = async (eventId, teeTimeId, deleteCode) => { // Added deleteCode
         try {
             const response = await fetch(`/api/events/${eventId}/teetimes/${teeTimeId}`, {
-                method: 'DELETE'
+                method: 'DELETE',
+                // --- FIX: Added headers and body ---
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deleteCode: deleteCode })
             });
 
             if (!response.ok) {
