@@ -15,12 +15,14 @@ const PORT = process.env.PORT || 3000;
 // ADMIN CODE IS HARDCODED TO 55555
 const ADMIN_DELETE_CODE = '55555';
 
-// --- Nodemailer Setup ---
+// --- Nodemailer Setup (RESEND FIX APPLIED) ---
 const transporter = nodemailer.createTransport({
-    service: 'gmail', 
+    host: 'smtp.resend.com', // Resend Host
+    secure: true, // Use SSL/TLS
+    port: 465, // Standard SMTPS port
     auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
+        user: 'resend', // Resend requires the static username 'resend'
+        pass: process.env.RESEND_API_KEY // Your API key from .env file
     }
 });
 
@@ -48,12 +50,16 @@ const sendNotificationEmail = async (event) => {
             return;
         }
 
+        // Get the sender email from the configured transporter user
+        // Note: For Resend, the 'from' email must be a domain you've verified in your Resend account.
+        const senderEmail = process.env.EMAIL_USER || 'onboarding@resend.dev'; 
+        
         const eventDate = new Date(event.date).toLocaleDateString('en-US', { 
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
         });
 
         const mailOptions = {
-            from: process.env.EMAIL_USER,
+            from: `Tee Time Alert <${senderEmail}>`,
             to: recipientList, 
             subject: `[Tee Time Alert] NEW Event Created: ${event.eventName}`,
             html: `
@@ -85,10 +91,9 @@ app.use(cors());
 app.use(express.json()); 
 app.use(express.static(path.join(__dirname, 'public'))); 
 
-// --- Database Connection (FIXED: Removed deprecated options) ---
+// --- Database Connection ---
 const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/teeTimeApp';
 
-// Removed useNewUrlParser and useUnifiedTopology to resolve MongoDB warnings
 mongoose.connect(mongoURI, {}) 
 .then(() => console.log('MongoDB connected successfully.'))
 .catch(err => console.error('MongoDB connection error:', err));
@@ -125,7 +130,7 @@ app.get('/api/events', async (req, res) => {
     }
 });
 
-// CREATE a new event (Non-blocking email)
+// CREATE a new event (Triggers email notification)
 app.post('/api/events', async (req, res) => {
     const { course, eventName, date, startTime, numTeeTimes } = req.body;
 
@@ -153,7 +158,7 @@ app.post('/api/events', async (req, res) => {
         // 1. Send success response IMMEDIATELY.
         res.status(201).json(newEvent); 
         
-        // 2. Trigger email notification in the background without 'await'. (EMAIL FIX)
+        // 2. Trigger email notification in the background without 'await'.
         sendNotificationEmail(newEvent).catch(err => {
             console.error('Background Email Sending Failed:', err);
         });
