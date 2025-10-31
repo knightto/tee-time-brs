@@ -118,19 +118,6 @@ h2 {
     transform: translateY(-1px);
 }
 
-/* Responsive adjustment for small screens */
-@media (max-width: 768px) {
-    #create-event-form {
-        grid-template-columns: 1fr;
-        gap: 20px;
-    }
-    #create-event-form .form-group,
-    #create-event-form button[type="submit"] {
-        grid-column: 1 / -1; /* All items span full width */
-    }
-}
-
-
 /* --- Email Subscription Panel (Inline/Horizontal Look) --- */
 .notification-panel {
     background-color: #e9f7ef; /* Light mint color to distinguish it */
@@ -156,11 +143,6 @@ h2 {
     align-items: center;
     width: 100%;
     max-width: 550px;
-}
-
-#subscribe-form .form-group {
-    flex-grow: 1; 
-    margin: 0;
 }
 
 #subscribeButton {
@@ -421,4 +403,49 @@ hr {
     background-color: #28a745;
     color: white;
     width: 100%;
+}
+
+/* --- MOBILE RESPONSIVENESS FIXES --- */
+
+@media (max-width: 768px) {
+    /* FIX 1: Event Creation Form - Force vertical stacking */
+    #create-event-form {
+        display: flex; /* Switch to flexbox for predictable stacking */
+        flex-direction: column;
+        gap: 20px;
+    }
+    
+    /* Ensure all children take full width in flex context */
+    #create-event-form .form-group,
+    #create-event-form button[type="submit"] {
+        width: 100%; 
+        margin-bottom: 0; 
+    }
+    
+    /* Remove grid-specific overrides for mobile to clean up the stacking */
+    #create-event-form .form-group:nth-child(4), /* First Tee Time */
+    #create-event-form .form-group:nth-child(5), /* Number of Tee Times */
+    #create-event-form button[type="submit"] {
+        grid-column: auto; /* Reset grid properties */
+        align-self: auto;
+    }
+    
+    /* FIX 2: Email Subscription Form - Force vertical stacking */
+    #subscribe-form {
+        flex-direction: column;
+        gap: 15px;
+    }
+
+    #subscribe-form .form-group {
+        width: 100%; /* Ensure input takes full width */
+    }
+
+    #subscribeButton {
+        width: 100%; /* Ensure button takes full width */
+    }
+    
+    /* Ensure inputs stretch fully on mobile */
+    #subscribe-form input {
+        width: 100%;
+    }
 }
