@@ -14,11 +14,13 @@ const PORT = process.env.PORT || 3000;
 // --- Security Constant ---
 const ADMIN_DELETE_CODE = '55555';
 
-// --- Nodemailer Setup (RESEND CONFIGURATION) ---
+// --- Nodemailer Setup (RESEND CONFIGURATION - FINAL FIX) ---
 const transporter = nodemailer.createTransport({
     host: 'smtp.resend.com', // Resend Host
-    secure: true, // Use SSL/TLS
-    port: 465, // Standard SMTPS port
+    port: 587, // Use Port 587 for better compatibility with cloud providers like Render
+    secure: false, // Must be false for Port 587 (uses STARTTLS)
+    requireTLS: true, // Explicitly enforce STARTTLS for security
+    connectionTimeout: 60000, // Increase timeout to 60 seconds
     auth: {
         user: 'resend', // Static username for Resend
         pass: process.env.RESEND_API_KEY // Your API key
@@ -51,7 +53,7 @@ const sendNotificationEmail = async (event) => {
 
         // Use the EMAIL_USER variable from Render, or fall back to the Resend Sandbox address
         const senderEmail = process.env.EMAIL_USER || 'onboarding@resend.dev'; 
-        console.log(`Attempting to send email from: ${senderEmail}`); // Debugging line
+        console.log(`Attempting to send email from: ${senderEmail}`); 
 
         const eventDate = new Date(event.date).toLocaleDateString('en-US', { 
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
