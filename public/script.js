@@ -144,7 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Handle "Delete Event" click
         if (e.target.classList.contains('delete-event-btn')) {
-            // --- FIX: Prompt for code and pass it to deleteEvent ---
+            // <<< FIX: Prompt for code and pass it to deleteEvent >>>
             const deleteCode = prompt("Enter the Admin Delete Code (55555) to delete the event:");
             if (deleteCode) {
                  if (confirm(`Are you sure you want to permanently delete this event?`)) {
@@ -268,7 +268,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(`/api/events/${eventId}/teetimes/${teeTimeId}/players/${playerId}`, {
                 method: 'DELETE',
-                // --- FIX: Added headers and body ---
+                // <<< FIX: Added headers and body >>>
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ deleteCode: deleteCode })
             });
@@ -290,7 +290,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(`/api/events/${eventId}`, {
                 method: 'DELETE',
-                // --- FIX: Added headers and body ---
+                // <<< FIX: Added headers and body >>>
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ deleteCode: deleteCode })
             });
@@ -312,7 +312,7 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(`/api/events/${eventId}/teetimes/${teeTimeId}`, {
                 method: 'DELETE',
-                // --- FIX: Added headers and body ---
+                // <<< FIX: Added headers and body >>>
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ deleteCode: deleteCode })
             });

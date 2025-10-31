@@ -265,9 +265,11 @@ app.post('/api/events/:eventId/teetimes', async (req, res) => {
         await event.save();
         res.status(201).json(event);
     } catch (err) {
+        // <<< MISSING CLOSING BRACE WAS HERE. NOW FIXED. >>>
         res.status(500).json({ message: err.message });
     }
 });
+
 
 // DELETE an entire event (REQUIRES CODE)
 app.delete('/api/events/:eventId', async (req, res) => {
@@ -276,4 +278,25 @@ app.delete('/api/events/:eventId', async (req, res) => {
     // 1. Check for Admin Code
     if (!deleteCode || deleteCode !== ADMIN_DELETE_CODE) {
         // Sends a JSON response with a 401 Unauthorized status
-        return res.status(401).json({ message: 'Unauthorized: Invalid delete
+        return res.status(401).json({ message: 'Unauthorized: Invalid delete code.' });
+    }
+
+    try {
+        const event = await Event.findByIdAndDelete(req.params.eventId);
+        
+        if (!event) {
+            return res.status(404).json({ message: 'Event not found.' });
+        }
+        
+        // Sends a JSON success response
+        res.json({ message: 'Event successfully deleted.', deletedEvent: event });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+
+// --- Start the Server ---
+app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+});
