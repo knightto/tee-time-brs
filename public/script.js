@@ -132,6 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const teeTimeId = e.target.dataset.teetimeId;
             const playerId = e.target.dataset.playerId;
             
+            // FIX: Prompt for code and pass it to removePlayer
             const deleteCode = prompt("Enter the Admin Delete Code (55555) to remove a player:");
             if (deleteCode) {
                 if (confirm('Are you sure you want to remove this player?')) {
@@ -144,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Handle "Delete Event" click
         if (e.target.classList.contains('delete-event-btn')) {
-            // <<< FIX: Prompt for code and pass it to deleteEvent >>>
+            // FIX: Prompt for code and pass it to deleteEvent
             const deleteCode = prompt("Enter the Admin Delete Code (55555) to delete the event:");
             if (deleteCode) {
                  if (confirm(`Are you sure you want to permanently delete this event?`)) {
@@ -158,6 +159,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Handle "Remove Tee Time" click
         if (e.target.classList.contains('remove-teetime')) {
             const teeTimeId = e.target.dataset.teetimeId;
+            // FIX: Prompt for code and pass it to removeTeeTime
             const deleteCode = prompt("Enter the Admin Delete Code (55555) to remove a tee time:");
             if (deleteCode) {
                 if (confirm('Are you sure you want to remove this entire tee time slot?')) {
@@ -263,12 +265,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- API Call Functions ---
     
-    // Remove Player
-    const removePlayer = async (eventId, teeTimeId, playerId, deleteCode) => { // Added deleteCode
+    // Remove Player (FIXED: Requires deleteCode)
+    const removePlayer = async (eventId, teeTimeId, playerId, deleteCode) => { 
         try {
             const response = await fetch(`/api/events/${eventId}/teetimes/${teeTimeId}/players/${playerId}`, {
                 method: 'DELETE',
-                // <<< FIX: Added headers and body >>>
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ deleteCode: deleteCode })
             });
@@ -285,12 +286,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
     
-    // Delete Event
-    const deleteEvent = async (eventId, deleteCode) => { // Added deleteCode
+    // Delete Event (FIXED: Requires deleteCode)
+    const deleteEvent = async (eventId, deleteCode) => { 
         try {
+            // FIX: Added headers and body to send deleteCode
             const response = await fetch(`/api/events/${eventId}`, {
                 method: 'DELETE',
-                // <<< FIX: Added headers and body >>>
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ deleteCode: deleteCode })
             });
@@ -307,12 +308,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Remove Tee Time
-    const removeTeeTime = async (eventId, teeTimeId, deleteCode) => { // Added deleteCode
+    // Remove Tee Time (FIXED: Requires deleteCode)
+    const removeTeeTime = async (eventId, teeTimeId, deleteCode) => { 
         try {
             const response = await fetch(`/api/events/${eventId}/teetimes/${teeTimeId}`, {
                 method: 'DELETE',
-                // <<< FIX: Added headers and body >>>
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ deleteCode: deleteCode })
             });

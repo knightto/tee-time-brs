@@ -153,7 +153,7 @@ app.post('/api/events', async (req, res) => {
         // 1. Send success response IMMEDIATELY.
         res.status(201).json(newEvent); 
         
-        // 2. Trigger email notification in the background without 'await'.
+        // 2. Trigger email notification in the background without 'await'. (EMAIL FIX)
         sendNotificationEmail(newEvent).catch(err => {
             console.error('Background Email Sending Failed:', err);
         });
@@ -265,7 +265,6 @@ app.post('/api/events/:eventId/teetimes', async (req, res) => {
         await event.save();
         res.status(201).json(event);
     } catch (err) {
-        // <<< MISSING CLOSING BRACE WAS HERE. NOW FIXED. >>>
         res.status(500).json({ message: err.message });
     }
 });
@@ -277,7 +276,6 @@ app.delete('/api/events/:eventId', async (req, res) => {
     
     // 1. Check for Admin Code
     if (!deleteCode || deleteCode !== ADMIN_DELETE_CODE) {
-        // Sends a JSON response with a 401 Unauthorized status
         return res.status(401).json({ message: 'Unauthorized: Invalid delete code.' });
     }
 
@@ -288,7 +286,6 @@ app.delete('/api/events/:eventId', async (req, res) => {
             return res.status(404).json({ message: 'Event not found.' });
         }
         
-        // Sends a JSON success response
         res.json({ message: 'Event successfully deleted.', deletedEvent: event });
     } catch (err) {
         res.status(500).json({ message: err.message });
