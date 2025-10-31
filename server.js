@@ -5,20 +5,22 @@ const express = require('express');
 const mongoose = require('mongoose'); 
 const path = require('path');
 const cors = require('cors'); 
-const nodemailer = require('nodemailer'); 
+// REMOVED: const nodemailer = require('nodemailer'); 
+const { Resend } = require('resend'); // NEW: Resend Import
 const Event = require('./models/Event'); 
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// --- Nodemailer Setup ---
-const transporter = nodemailer.createTransport({
-    service: 'gmail', 
-    auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS
-    }
-});
+// --- Security Constant ---
+// ADMIN CODE IS HARDCODED TO 55555
+const ADMIN_DELETE_CODE = '55555';
+
+// --- Resend Setup ---
+// NEW: Resend Initialization using the API Key
+const resend = new Resend(process.env.RESEND_API_KEY); 
+// SENDER_EMAIL must be 'onboarding@resend.dev' or a VERIFIED domain for free use.
+const SENDER_EMAIL = 'Tee Time App <onboarding@resend.dev>'; 
 
 // --- Subscription Schema for Email Addresses ---
 const SubscriptionSchema = new mongoose.Schema({
@@ -33,13 +35,14 @@ const SubscriptionSchema = new mongoose.Schema({
 });
 const Subscription = mongoose.model('Subscription', SubscriptionSchema);
 
-// *** Email Helper Function ***
+// *** Resend Email Helper Function (Uses free onboarding@resend.dev sender) ***
 const sendNotificationEmail = async (event) => {
     try {
         const subscriptions = await Subscription.find({}, 'email'); 
-        const recipientList = subscriptions.map(sub => sub.email).join(', ');
+        // Resend API expects an array of strings for the 'to' field
+        const recipientList = subscriptions.map(sub => sub.email); 
 
-        if (!recipientList) {
+        if (recipientList.length === 0) {
             console.log('No subscribers found. Email notification skipped.');
             return;
         }
@@ -47,32 +50,36 @@ const sendNotificationEmail = async (event) => {
         const eventDate = new Date(event.date).toLocaleDateString('en-US', { 
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
         });
+        
+        const htmlContent = `
+            <h2>A New Golf Event Has Been Scheduled!</h2>
+            <p>The following event is now open for sign-up:</p>
+            <ul>
+                <li><strong>Event:</strong> ${event.eventName}</li>
+                <li><strong>Course:</strong> ${event.course}</li>
+                <li><strong>Date:</strong> ${eventDate}</li>
+                <li><strong>First Tee Time:</strong> ${event.teeTimes[0].time}</li>
+            </ul>
+            <p>Please visit the sign-up page to secure your spot!</p>
+            <p><a href="https://tee-time-brs.onrender.com/">Go to Sign-up Page</a></p>
+            <p>---<br>You received this because you subscribed to event notifications.</p>
+        `;
 
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: recipientList, 
+        const { data, error } = await resend.emails.send({
+            from: SENDER_EMAIL, 
+            to: recipientList, // Use the array of emails
             subject: `[Tee Time Alert] NEW Event Created: ${event.eventName}`,
-            html: `
-                <h2>A New Golf Event Has Been Scheduled!</h2>
-                <p>The following event is now open for sign-up:</p>
-                <ul>
-                    <li><strong>Event:</strong> ${event.eventName}</li>
-                    <li><strong>Course:</strong> ${event.course}</li>
-                    <li><strong>Date:</strong> ${eventDate}</li>
-                    <li><strong>First Tee Time:</strong> ${event.teeTimes[0].time}</li>
-                </ul>
-                <p>Please visit the sign-up page to secure your spot!</p>
-                <p><a href="https://tee-time-brs.onrender.com/">Go to Sign-up Page</a></p>
-                <p>---<br>You received this because you subscribed to event notifications.</p>
-            `
-        };
+            html: htmlContent,
+        });
 
-        await transporter.sendMail(mailOptions);
-        console.log('Notification email sent successfully.');
+        if (error) {
+            throw new Error(error.message);
+        }
+
+        console.log('Resend notification email sent successfully:', data);
 
     } catch (error) {
-        // Log the error but do NOT throw it further up.
-        console.error('Error sending email notification:', error);
+        console.error('Error sending email notification via Resend:', error);
     }
 };
 
@@ -81,10 +88,9 @@ app.use(cors());
 app.use(express.json()); 
 app.use(express.static(path.join(__dirname, 'public'))); 
 
-// --- Database Connection (FIXED: Removed deprecated options) ---
+// --- Database Connection ---
 const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/teeTimeApp';
 
-// Removed useNewUrlParser and useUnifiedTopology to resolve MongoDB warnings
 mongoose.connect(mongoURI, {}) 
 .then(() => console.log('MongoDB connected successfully.'))
 .catch(err => console.error('MongoDB connection error:', err));
@@ -121,7 +127,7 @@ app.get('/api/events', async (req, res) => {
     }
 });
 
-// CREATE a new event (Non-blocking email)
+// CREATE a new event (Non-blocking email is handled here)
 app.post('/api/events', async (req, res) => {
     const { course, eventName, date, startTime, numTeeTimes } = req.body;
 
@@ -193,8 +199,15 @@ app.put('/api/events/:eventId/teetimes/:teeTimeId/add', async (req, res) => {
     }
 });
 
-// REMOVE a player from a tee time
+// REMOVE a player from a tee time (REQUIRES CODE)
 app.delete('/api/events/:eventId/teetimes/:teeTimeId/players/:playerId', async (req, res) => {
+    const { deleteCode } = req.body; // Extract the delete code
+
+    // 1. Check for Admin Code
+    if (!deleteCode || deleteCode !== ADMIN_DELETE_CODE) {
+        return res.status(401).json({ message: 'Unauthorized: Invalid delete code.' });
+    }
+
     try {
         const event = await Event.findById(req.params.eventId);
         if (!event) return res.status(404).json({ message: 'Event not found.' });
@@ -212,8 +225,15 @@ app.delete('/api/events/:eventId/teetimes/:teeTimeId/players/:playerId', async (
     }
 });
 
-// REMOVE a tee time from an event
+// REMOVE a tee time from an event (REQUIRES CODE)
 app.delete('/api/events/:eventId/teetimes/:teeTimeId', async (req, res) => {
+    const { deleteCode } = req.body; // Extract the delete code
+    
+    // 1. Check for Admin Code
+    if (!deleteCode || deleteCode !== ADMIN_DELETE_CODE) {
+        return res.status(401).json({ message: 'Unauthorized: Invalid delete code.' });
+    }
+    
     try {
         const event = await Event.findById(req.params.eventId);
         if (!event) return res.status(404).json({ message: 'Event not found.' });
@@ -250,8 +270,15 @@ app.post('/api/events/:eventId/teetimes', async (req, res) => {
     }
 });
 
-// DELETE an entire event
+// DELETE an entire event (REQUIRES CODE)
 app.delete('/api/events/:eventId', async (req, res) => {
+    const { deleteCode } = req.body; // Extract the delete code
+    
+    // 1. Check for Admin Code
+    if (!deleteCode || deleteCode !== ADMIN_DELETE_CODE) {
+        return res.status(401).json({ message: 'Unauthorized: Invalid delete code.' });
+    }
+
     try {
         const event = await Event.findByIdAndDelete(req.params.eventId);
         
