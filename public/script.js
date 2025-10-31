@@ -2,18 +2,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const eventsContainer = document.getElementById('events-container');
     const createEventForm = document.getElementById('create-event-form');
 
-    // --- Modal Elements ---
+    // --- Add Player Modal Elements ---
     const modal = document.getElementById('add-player-modal');
-    const closeModalBtn = document.querySelector('.close-button');
+    const closeModalBtn = document.querySelector('.close-button'); // Targets the close button on the add player modal
     const addPlayerForm = document.getElementById('add-player-form');
     const modalEventId = document.getElementById('modal-event-id');
     const modalTeeTimeId = document.getElementById('modal-teetime-id');
     const modalPlayerName = document.getElementById('playerName');
 
+    // --- ⭐ NEW: Edit Event Modal Elements ---
+    const editModal = document.getElementById('edit-event-modal');
+    // Note: Using a specific class selector for the close button to avoid conflicts
+    const closeEditModalBtn = document.querySelector('.edit-close-button'); 
+    const editEventForm = document.getElementById('edit-event-form');
+    const editModalEventId = document.getElementById('edit-modal-event-id');
+    const editEventNameInput = document.getElementById('editEventName');
+    const editCourseInput = document.getElementById('editCourse');
+    const editDateInput = document.getElementById('editDate');
+    const editAdminCodeInput = document.getElementById('editAdminCode');
+
+
     // --- Subscription Elements ---
     const subscribeForm = document.getElementById('subscribe-form');
-    const subscribeEmailInput = document.getElementById('subscribeEmail');
     const subscriptionMessage = document.getElementById('subscription-message');
+
+
+    // Helper function to format date for input[type="date"]
+    const formatDate = (dateString) => {
+        const date = new Date(dateString);
+        return date.toISOString().split('T')[0];
+    };
 
     // --- Main Function to Fetch and Display Events ---
     const loadEvents = async () => {
@@ -30,68 +48,165 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             events.forEach(event => {
-                const eventElement = document.createElement('article');
-                eventElement.className = 'event-card';
-                eventElement.setAttribute('data-event-id', event._id);
+                const eventDiv = document.createElement('div');
+                eventDiv.className = 'event-card';
+                eventDiv.dataset.eventId = event._id;
 
-                const eventDate = new Date(event.date).toLocaleDateString('en-US', {
-                    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+                const eventDate = new Date(event.date).toLocaleDateString('en-US', { 
+                    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
                 });
 
-                // Ensure teeTimes are sorted by time before mapping
-                const sortedTeeTimes = [...event.teeTimes].sort((a, b) => a.time.localeCompare(b.time));
-
-                let teeTimesHtml = sortedTeeTimes.map(tt => {
-                    let playersHtml = tt.players.map(p => `
-                        <li class="player-item">
-                            ${p.name}
-                            <button class="remove-player" data-player-id="${p._id}" data-teetime-id="${tt._id}">×</button>
-                        </li>
-                    `).join('');
-
-                    // Show "Add Player" button only if spots are open
-                    let addPlayerBtn = tt.players.length < 4 ?
-                        `<button class="add-player" data-teetime-id="${tt._id}">Add Player +</button>` :
-                        `<div class="tee-time-full">Full</div>`;
-
-                    return `
-                        <div class="tee-time-slot" data-teetime-id="${tt._id}">
-                            <strong>${tt.time}</strong>
-                            <button class="remove-teetime" data-teetime-id="${tt._id}">Remove Tee Time</button>
-                            <ul class="player-list">${playersHtml}</ul>
-                            ${addPlayerBtn}
-                        </div>
-                    `;
-                }).join('');
-
-                eventElement.innerHTML = `
-                    <h3>${event.eventName}</h3>
-                    <p class="event-details">${event.course} | ${eventDate}</p>
-                    <button class="delete-event-btn">Delete Event</button>
-                    <div class="tee-time-container">${teeTimesHtml}</div>
-                    <button class="add-tee-time-btn">Add New Tee Time</button>
+                // Display Event Details and Admin Controls
+                eventDiv.innerHTML = `
+                    <h3>${event.eventName} at ${event.course}</h3>
+                    <p>Date: <strong>${eventDate}</strong></p>
+                    <div class="admin-controls">
+                        <button class="add-tee-time-btn" data-event-id="${event._id}">+ Tee Time</button>
+                        <button class="delete-event-btn" data-event-id="${event._id}">Delete Event</button>
+                        <button class="edit-event-btn" data-event-id="${event._id}" data-event='${JSON.stringify(event)}'>Edit Event</button>
+                    </div>
+                    <div class="tee-times-list">
+                        ${event.teeTimes.map(teeTime => `
+                            <div class="tee-time" data-teetime-id="${teeTime._id}">
+                                <h4>${teeTime.time}</h4>
+                                <div class="players-list">
+                                    ${teeTime.players.map(player => `
+                                        <div class="player">
+                                            <span>${player.name}</span>
+                                            <button class="remove-player-btn" 
+                                                data-event-id="${event._id}" 
+                                                data-teetime-id="${teeTime._id}" 
+                                                data-player-id="${player._id}">X</button>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                                ${teeTime.players.length < 4 
+                                    ? `<button class="add-player-open-btn" data-event-id="${event._id}" data-teetime-id="${teeTime._id}">Sign Up</button>`
+                                    : `<div class="tee-time-full">FULL</div>`
+                                }
+                                <button class="remove-tee-time-btn" data-event-id="${event._id}" data-teetime-id="${teeTime._id}">Remove Tee Time</button>
+                            </div>
+                        `).join('')}
+                    </div>
                 `;
-                eventsContainer.appendChild(eventElement);
+
+                eventsContainer.appendChild(eventDiv);
             });
+
+            // Re-attach all dynamic listeners after DOM update
+            attachEventListeners();
 
         } catch (error) {
             console.error('Error loading events:', error);
-            eventsContainer.innerHTML = '<p>Error loading events. Please try again.</p>';
+            eventsContainer.innerHTML = `<p>Error loading events: ${error.message}</p>`;
         }
     };
 
-    // --- Event Listeners ---
-
-    // 1. Create Event Form
-    createEventForm.addEventListener('submit', async (e) => {
-        e.preventDefault(); 
+    // --- Event Listener Attachment ---
+    // This is necessary because new buttons are created every time loadEvents runs
+    const attachEventListeners = () => {
         
+        // Add Player Buttons
+        document.querySelectorAll('.add-player-open-btn').forEach(button => {
+            button.onclick = (e) => openAddPlayerModal(e.target.dataset.eventId, e.target.dataset.teetimeId);
+        });
+
+        // Remove Player Buttons
+        document.querySelectorAll('.remove-player-btn').forEach(button => {
+            button.onclick = (e) => removePlayer(e.target.dataset.eventId, e.target.dataset.teetimeId, e.target.dataset.playerId);
+        });
+
+        // Add Tee Time Buttons
+        document.querySelectorAll('.add-tee-time-btn').forEach(button => {
+            button.onclick = (e) => {
+                const time = prompt('Enter the new tee time (e.g., 10:30 AM):');
+                if (time) addTeeTime(e.target.dataset.eventId, time);
+            };
+        });
+
+        // Remove Tee Time Buttons
+        document.querySelectorAll('.remove-tee-time-btn').forEach(button => {
+            button.onclick = (e) => {
+                const deleteCode = prompt('Enter the Admin Code to remove this tee time:');
+                if (deleteCode) removeTeeTime(e.target.dataset.eventId, e.target.dataset.teetimeId, deleteCode);
+            };
+        });
+
+        // Delete Event Buttons
+        document.querySelectorAll('.delete-event-btn').forEach(button => {
+            button.onclick = (e) => {
+                const deleteCode = prompt('Enter the Admin Code to delete the entire event:');
+                if (deleteCode) deleteEvent(e.target.dataset.eventId, deleteCode);
+            };
+        });
+
+        // ⭐ NEW: Edit Event Buttons
+        document.querySelectorAll('.edit-event-btn').forEach(button => {
+            // Note: We parse the event data from the button's data attribute
+            button.onclick = (e) => openEditModal(JSON.parse(e.target.dataset.event));
+        });
+    };
+
+    // --- MODAL FUNCTIONS ---
+
+    // Add Player Modal
+    const openAddPlayerModal = (eventId, teeTimeId) => {
+        modalEventId.value = eventId;
+        modalTeeTimeId.value = teeTimeId;
+        modal.style.display = 'flex';
+    };
+
+    closeModalBtn.onclick = () => {
+        modal.style.display = 'none';
+        addPlayerForm.reset();
+    };
+    // Close modal if user clicks outside of it
+    window.onclick = (event) => {
+        if (event.target === modal) {
+            modal.style.display = 'none';
+            addPlayerForm.reset();
+        }
+    };
+    
+    // ⭐ NEW: Edit Event Modal
+    const openEditModal = (event) => {
+        editModalEventId.value = event._id;
+        editEventNameInput.value = event.eventName;
+        editCourseInput.value = event.course;
+        // Format the date for the HTML date input
+        editDateInput.value = formatDate(event.date); 
+        editAdminCodeInput.value = ''; // Clear code for security
+        editModal.style.display = 'flex';
+    };
+
+    closeEditModalBtn.onclick = () => {
+        editModal.style.display = 'none';
+        editEventForm.reset();
+    };
+    // Close modal if user clicks outside of it
+    window.onclick = (event) => {
+        // Need to check both modals
+        if (event.target === editModal) {
+            editModal.style.display = 'none';
+            editEventForm.reset();
+        } else if (event.target === modal) {
+            modal.style.display = 'none';
+            addPlayerForm.reset();
+        }
+    };
+
+
+    // --- FORM SUBMISSIONS ---
+
+    // Create New Event
+    createEventForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
         const eventData = {
             eventName: document.getElementById('eventName').value,
             course: document.getElementById('course').value,
             date: document.getElementById('date').value,
             startTime: document.getElementById('startTime').value,
-            numTeeTimes: document.getElementById('numTeeTimes').value
+            numTeeTimes: parseInt(document.getElementById('numTeeTimes').value, 10)
         };
 
         try {
@@ -106,87 +221,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error(errData.message || 'Failed to create event.');
             }
 
-            createEventForm.reset(); 
-            loadEvents(); // Reload all events
+            createEventForm.reset();
+            loadEvents();
+            alert('Event created successfully and notifications sent (if subscribed)!');
         } catch (error) {
             console.error('Error creating event:', error);
-            alert(`Error: ${error.message}`);
+            alert(`Error creating event: ${error.message}`);
         }
     });
 
-    // 2. Click Handling (for all buttons in the events container)
-    eventsContainer.addEventListener('click', (e) => {
-        const eventCard = e.target.closest('.event-card');
-        if (!eventCard) return;
-        
-        const eventId = eventCard.dataset.eventId;
-
-        // Handle "Add Player" click
-        if (e.target.classList.contains('add-player')) {
-            const teeTimeId = e.target.dataset.teetimeId;
-            openAddPlayerModal(eventId, teeTimeId);
-        }
-
-        // Handle "Remove Player" click
-        if (e.target.classList.contains('remove-player')) {
-            const teeTimeId = e.target.dataset.teetimeId;
-            const playerId = e.target.dataset.playerId;
-            
-            // FIX: Prompt for code and pass it to removePlayer
-            const deleteCode = prompt("Enter the Admin Delete Code (55555) to remove a player:");
-            if (deleteCode) {
-                if (confirm('Are you sure you want to remove this player?')) {
-                    removePlayer(eventId, teeTimeId, playerId, deleteCode);
-                }
-            } else if (deleteCode === "") {
-                alert("Delete operation canceled. Code cannot be blank.");
-            }
-        }
-        
-        // Handle "Delete Event" click
-        if (e.target.classList.contains('delete-event-btn')) {
-            // FIX: Prompt for code and pass it to deleteEvent
-            const deleteCode = prompt("Enter the Admin Delete Code (55555) to delete the event:");
-            if (deleteCode) {
-                 if (confirm(`Are you sure you want to permanently delete this event?`)) {
-                    deleteEvent(eventId, deleteCode);
-                }
-            } else if (deleteCode === "") {
-                alert("Delete operation canceled. Code cannot be blank.");
-            }
-        }
-
-        // Handle "Remove Tee Time" click
-        if (e.target.classList.contains('remove-teetime')) {
-            const teeTimeId = e.target.dataset.teetimeId;
-            // FIX: Prompt for code and pass it to removeTeeTime
-            const deleteCode = prompt("Enter the Admin Delete Code (55555) to remove a tee time:");
-            if (deleteCode) {
-                if (confirm('Are you sure you want to remove this entire tee time slot?')) {
-                    removeTeeTime(eventId, teeTimeId, deleteCode);
-                }
-            } else if (deleteCode === "") {
-                alert("Delete operation canceled. Code cannot be blank.");
-            }
-        }
-
-        // Handle "Add New Tee Time" click
-        if (e.target.classList.contains('add-tee-time-btn')) {
-            const newTime = prompt("Enter the time for the new tee time (e.g., 09:30 AM):");
-            if (newTime) {
-                addTeeTime(eventId, newTime);
-            }
-        }
-    });
-
-    // 3. Add Player Modal Form
+    // Add Player
     addPlayerForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         const eventId = modalEventId.value;
         const teeTimeId = modalTeeTimeId.value;
-        const playerName = modalPlayerName.value.trim();
-
-        if (!playerName) return;
+        const playerName = modalPlayerName.value;
 
         try {
             const response = await fetch(`/api/events/${eventId}/teetimes/${teeTimeId}/add`, {
@@ -199,79 +248,90 @@ document.addEventListener('DOMContentLoaded', () => {
                 const errData = await response.json();
                 throw new Error(errData.message || 'Failed to add player.');
             }
-
-            closeModal();
-            loadEvents(); // Reload events to show the new player
+            
+            modal.style.display = 'none';
+            addPlayerForm.reset();
+            loadEvents();
         } catch (error) {
             console.error('Error adding player:', error);
             alert(`Error: ${error.message}`);
         }
     });
 
-    // --- Modal Helper Functions ---
-    const openAddPlayerModal = (eventId, teeTimeId) => {
-        modalEventId.value = eventId;
-        modalTeeTimeId.value = teeTimeId;
-        modalPlayerName.value = '';
-        modal.style.display = 'block';
-        modalPlayerName.focus();
-    };
+    // ⭐ NEW: Edit Event Submission
+    editEventForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const eventId = editModalEventId.value;
+        const updateData = {
+            eventName: editEventNameInput.value,
+            course: editCourseInput.value,
+            date: editDateInput.value,
+            deleteCode: editAdminCodeInput.value, // Used as 'deleteCode' for authorization
+        };
 
-    const closeModal = () => {
-        modal.style.display = 'none';
-    };
+        try {
+            const response = await fetch(`/api/events/${eventId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(updateData)
+            });
 
-    closeModalBtn.addEventListener('click', closeModal);
-    window.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            closeModal();
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.message || 'Failed to update event.');
+            }
+            
+            editModal.style.display = 'none';
+            editEventForm.reset();
+            loadEvents();
+            alert('Event updated successfully!');
+        } catch (error) {
+            console.error('Error updating event:', error);
+            alert(`Error updating event: ${error.message}`);
         }
     });
-    
-    // --- Subscription Form Handler (with page refresh) ---
-    if (subscribeForm) {
-        subscribeForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const email = subscribeEmailInput.value.trim();
 
-            try {
-                const response = await fetch('/api/subscribe', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email })
-                });
-                
-                const data = await response.json();
-                
-                if (!response.ok) {
-                    throw new Error(data.message || 'Failed to subscribe.');
-                }
 
-                subscriptionMessage.style.color = 'green';
-                subscriptionMessage.textContent = 'Success! You are now subscribed. Refreshing page...';
-                
-                // Force full page refresh
-                setTimeout(() => {
-                    window.location.reload(); 
-                }, 1000); 
+    // Subscribe to Email Notifications
+    subscribeForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('subscribeEmail').value;
+        
+        try {
+            const response = await fetch('/api/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
+            });
 
-            } catch (error) {
-                console.error('Subscription error:', error);
-                subscriptionMessage.style.color = 'red';
-                subscriptionMessage.textContent = `Error: ${error.message}`;
+            const data = await response.json();
+            
+            subscriptionMessage.style.color = response.ok ? 'green' : 'red';
+            subscriptionMessage.textContent = data.message;
+            
+            if (response.ok) {
+                subscribeForm.reset();
             }
-        });
-    }
 
-    // --- API Call Functions ---
-    
-    // Remove Player (FIXED: Requires deleteCode)
-    const removePlayer = async (eventId, teeTimeId, playerId, deleteCode) => { 
+        } catch (error) {
+            subscriptionMessage.style.color = 'red';
+            subscriptionMessage.textContent = 'An unexpected error occurred.';
+            console.error('Subscription error:', error);
+        }
+    });
+
+    // --- ADMINISTRATIVE ACTIONS (Functions) ---
+
+    // Remove Player
+    const removePlayer = async (eventId, teeTimeId, playerId) => {
+        const deleteCode = prompt('Enter the Admin Code to remove the player:');
+        if (!deleteCode) return;
+
         try {
             const response = await fetch(`/api/events/${eventId}/teetimes/${teeTimeId}/players/${playerId}`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ deleteCode: deleteCode })
+                body: JSON.stringify({ deleteCode }) 
             });
 
             if (!response.ok) {
@@ -285,36 +345,15 @@ document.addEventListener('DOMContentLoaded', () => {
             alert(`Error: ${error.message}`);
         }
     };
-    
-    // Delete Event (FIXED: Requires deleteCode)
-    const deleteEvent = async (eventId, deleteCode) => { 
-        try {
-            // FIX: Added headers and body to send deleteCode
-            const response = await fetch(`/api/events/${eventId}`, {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ deleteCode: deleteCode })
-            });
 
-            if (!response.ok) {
-                const errData = await response.json();
-                throw new Error(errData.message || 'Failed to delete event.');
-            }
-            
-            loadEvents(); 
-        } catch (error) {
-            console.error('Error deleting event:', error);
-            alert(`Error: ${error.message}`);
-        }
-    };
-
-    // Remove Tee Time (FIXED: Requires deleteCode)
-    const removeTeeTime = async (eventId, teeTimeId, deleteCode) => { 
+    // Remove Tee Time
+    const removeTeeTime = async (eventId, teeTimeId, deleteCode) => {
+        if (!deleteCode) return;
         try {
             const response = await fetch(`/api/events/${eventId}/teetimes/${teeTimeId}`, {
                 method: 'DELETE',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ deleteCode: deleteCode })
+                body: JSON.stringify({ deleteCode }) 
             });
 
             if (!response.ok) {
@@ -350,7 +389,32 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // Delete Event
+    const deleteEvent = async (eventId, deleteCode) => {
+        if (!deleteCode) return;
+        if (!confirm('Are you sure you want to delete this entire event?')) return;
+        
+        try {
+            const response = await fetch(`/api/events/${eventId}`, {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ deleteCode }) 
+            });
 
-    // --- Initial Load ---
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.message || 'Failed to delete event.');
+            }
+            
+            loadEvents(); 
+            alert('Event deleted successfully.');
+        } catch (error) {
+            console.error('Error deleting event:', error);
+            alert(`Error: ${error.message}`);
+        }
+    };
+
+
+    // Initial load of events
     loadEvents();
 });

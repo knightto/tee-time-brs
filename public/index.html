@@ -33,27 +33,25 @@
                 </div>
                 <div class="form-group">
                     <label for="numTeeTimes">Number of Tee Times:</label>
-                    <input type="number" id="numTeeTimes" min="1" value="3" required>
+                    <input type="number" id="numTeeTimes" min="1" value="10" required>
                 </div>
                 <button type="submit">Create Event</button>
             </form>
         </section>
-
-        <hr>
-
-        <section class="subscription-panel">
+		
+		<section class="notification-panel">
             <h2>Get Event Notifications</h2>
             <form id="subscribe-form">
                 <div class="form-group">
-                    <label for="subscribeEmail">Email:</label>
+                    <label for="subscribeEmail">Email Address:</label>
                     <input type="email" id="subscribeEmail" required>
                 </div>
-                <button type="submit">Subscribe</button>
-                <p id="subscription-message" style="margin-top: 10px;"></p>
+                <button type="submit" id="subscribeButton">Subscribe</button>
+                <p id="subscription-message" style="margin-top: 10px; font-weight: bold;"></p>
             </form>
         </section>
-
-        <hr>
+        
+		<hr>
 
         <section class="events-list">
             <h2>Upcoming Events</h2>
@@ -74,6 +72,33 @@
                     <input type="text" id="playerName" required>
                 </div>
                 <button type="submit">Add Player</button>
+            </form>
+        </div>
+    </div>
+    
+    <div id="edit-event-modal" class="modal" style="display:none;">
+        <div class="modal-content">
+            <span class="close-button edit-close-button">&times;</span>
+            <h3>Edit Event Details</h3>
+            <form id="edit-event-form">
+                <input type="hidden" id="edit-modal-event-id">
+                <div class="form-group">
+                    <label for="editEventName">Event Name:</label>
+                    <input type="text" id="editEventName" required>
+                </div>
+                <div class="form-group">
+                    <label for="editCourse">Course:</label>
+                    <input type="text" id="editCourse" required>
+                </div>
+                <div class="form-group">
+                    <label for="editDate">Date:</label>
+                    <input type="date" id="editDate" required>
+                </div>
+                <div class="form-group">
+                    <label for="editAdminCode">Admin Code:</label>
+                    <input type="password" id="editAdminCode" required>
+                </div>
+                <button type="submit">Save Changes</button>
             </form>
         </div>
     </div>

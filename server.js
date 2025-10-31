@@ -5,7 +5,6 @@ const express = require('express');
 const mongoose = require('mongoose'); 
 const path = require('path');
 const cors = require('cors'); 
-// REMOVED: const nodemailer = require('nodemailer'); 
 
 // ADDED: Resend Client
 const { Resend } = require('resend');
@@ -22,23 +21,6 @@ const PORT = process.env.PORT || 3000;
 // --- Security Constant ---
 const ADMIN_DELETE_CODE = '55555';
 
-// --- Nodemailer Setup (REMOVED - CONNECTION BLOCKED BY RENDER) ---
-// This entire block has been removed as we are now using the Resend API (HTTPS)
-/*
-const transporter = nodemailer.createTransport({
-    host: 'smtp.resend.com', 
-    port: 587, 
-    secure: false, 
-    requireTLS: true, 
-    connectionTimeout: 60000, 
-    auth: {
-        user: 'resend', 
-        pass: process.env.RESEND_API_KEY 
-    }
-});
-*/
-
-
 // --- Subscription Schema for Email Addresses ---
 const SubscriptionSchema = new mongoose.Schema({
     email: { 
@@ -52,11 +34,10 @@ const SubscriptionSchema = new mongoose.Schema({
 });
 const Subscription = mongoose.model('Subscription', SubscriptionSchema);
 
-// *** Email Helper Function (UPDATED FOR RESEND API) ***
+// *** Email Helper Function (Uses Resend API) ***
 const sendNotificationEmail = async (event) => {
     try {
         const subscriptions = await Subscription.find({}, 'email'); 
-        // Resend API takes an array of recipient emails
         const recipientList = subscriptions.map(sub => sub.email); 
 
         if (recipientList.length === 0) {
@@ -64,7 +45,6 @@ const sendNotificationEmail = async (event) => {
             return;
         }
 
-        // Use the EMAIL_USER variable from Render, or fall back to the Resend Sandbox address
         const senderEmail = process.env.EMAIL_USER || 'onboarding@resend.dev'; 
         console.log(`Attempting to send email from: ${senderEmail} via Resend API`); 
 
@@ -73,7 +53,6 @@ const sendNotificationEmail = async (event) => {
         });
 
         const emailContent = {
-            // The 'from' address must be a verified Resend domain or the sandbox address
             from: `Tee Time Alert <${senderEmail}>`,
             to: recipientList, 
             subject: `[Tee Time Alert] NEW Event Created: ${event.eventName}`,
@@ -92,11 +71,9 @@ const sendNotificationEmail = async (event) => {
             `
         };
 
-        // Use the Resend API to send the email
         const { data, error } = await resend.emails.send(emailContent);
         
         if (error) {
-            // Log the structured error from the Resend SDK
             console.error('Error sending email notification via Resend API:', error);
             throw new Error(error.message); 
         }
@@ -121,7 +98,6 @@ mongoose.connect(mongoURI, {})
 .catch(err => console.error('MongoDB connection error:', err));
 
 // --- API Routes ---
-
 // Route to handle email subscription
 app.post('/api/subscribe', async (req, res) => {
     const { email } = req.body;
@@ -177,16 +153,41 @@ app.post('/api/events', async (req, res) => {
     try {
         const newEvent = await event.save();
         
-        // 1. Send success response IMMEDIATELY.
         res.status(201).json(newEvent); 
         
-        // 2. Trigger email notification in the background
+        // Trigger email notification in the background
         sendNotificationEmail(newEvent).catch(err => {
             console.error('Background Email Sending Failed:', err);
         });
 
     } catch (err) {
         res.status(400).json({ message: err.message }); 
+    }
+});
+
+// ⭐ NEW ROUTE: UPDATE an existing event (REQUIRES CODE)
+app.put('/api/events/:eventId', async (req, res) => {
+    const { deleteCode, course, eventName, date } = req.body;
+    
+    // 1. Check for Admin Code
+    if (!deleteCode || deleteCode !== ADMIN_DELETE_CODE) {
+        return res.status(401).json({ message: 'Unauthorized: Invalid administrative code.' });
+    }
+
+    try {
+        const event = await Event.findById(req.params.eventId);
+        if (!event) return res.status(404).json({ message: 'Event not found.' });
+
+        // Update fields if they are provided in the request body
+        if (course) event.course = course;
+        if (eventName) event.eventName = eventName;
+        // The date needs to be converted back to a Date object for Mongoose
+        if (date) event.date = new Date(date);
+
+        const updatedEvent = await event.save();
+        res.json(updatedEvent);
+    } catch (err) {
+        res.status(400).json({ message: err.message });
     }
 });
 
