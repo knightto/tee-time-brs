@@ -5,7 +5,15 @@ const express = require('express');
 const mongoose = require('mongoose'); 
 const path = require('path');
 const cors = require('cors'); 
-const nodemailer = require('nodemailer'); 
+// REMOVED: const nodemailer = require('nodemailer'); 
+
+// ADDED: Resend Client
+const { Resend } = require('resend');
+
+// Initialize Resend with your API key
+// This uses the RESEND_API_KEY environment variable
+const resend = new Resend(process.env.RESEND_API_KEY);
+
 const Event = require('./models/Event'); 
 
 const app = express();
@@ -14,18 +22,22 @@ const PORT = process.env.PORT || 3000;
 // --- Security Constant ---
 const ADMIN_DELETE_CODE = '55555';
 
-// --- Nodemailer Setup (RESEND CONFIGURATION - FINAL FIX) ---
+// --- Nodemailer Setup (REMOVED - CONNECTION BLOCKED BY RENDER) ---
+// This entire block has been removed as we are now using the Resend API (HTTPS)
+/*
 const transporter = nodemailer.createTransport({
-    host: 'smtp.resend.com', // Resend Host
-    port: 587, // Use Port 587 for better compatibility with cloud providers like Render
-    secure: false, // Must be false for Port 587 (uses STARTTLS)
-    requireTLS: true, // Explicitly enforce STARTTLS for security
-    connectionTimeout: 60000, // Increase timeout to 60 seconds
+    host: 'smtp.resend.com', 
+    port: 587, 
+    secure: false, 
+    requireTLS: true, 
+    connectionTimeout: 60000, 
     auth: {
-        user: 'resend', // Static username for Resend
-        pass: process.env.RESEND_API_KEY // Your API key
+        user: 'resend', 
+        pass: process.env.RESEND_API_KEY 
     }
 });
+*/
+
 
 // --- Subscription Schema for Email Addresses ---
 const SubscriptionSchema = new mongoose.Schema({
@@ -40,27 +52,28 @@ const SubscriptionSchema = new mongoose.Schema({
 });
 const Subscription = mongoose.model('Subscription', SubscriptionSchema);
 
-// *** Email Helper Function ***
+// *** Email Helper Function (UPDATED FOR RESEND API) ***
 const sendNotificationEmail = async (event) => {
     try {
         const subscriptions = await Subscription.find({}, 'email'); 
-        const recipientList = subscriptions.map(sub => sub.email).join(', ');
+        // Resend API takes an array of recipient emails
+        const recipientList = subscriptions.map(sub => sub.email); 
 
-        if (!recipientList) {
+        if (recipientList.length === 0) {
             console.log('No subscribers found. Email notification skipped.');
             return;
         }
 
         // Use the EMAIL_USER variable from Render, or fall back to the Resend Sandbox address
         const senderEmail = process.env.EMAIL_USER || 'onboarding@resend.dev'; 
-        console.log(`Attempting to send email from: ${senderEmail}`); 
+        console.log(`Attempting to send email from: ${senderEmail} via Resend API`); 
 
         const eventDate = new Date(event.date).toLocaleDateString('en-US', { 
             weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' 
         });
 
-        const mailOptions = {
-            // Ensure the 'from' email is correctly formatted and verified in Resend
+        const emailContent = {
+            // The 'from' address must be a verified Resend domain or the sandbox address
             from: `Tee Time Alert <${senderEmail}>`,
             to: recipientList, 
             subject: `[Tee Time Alert] NEW Event Created: ${event.eventName}`,
@@ -79,12 +92,19 @@ const sendNotificationEmail = async (event) => {
             `
         };
 
-        await transporter.sendMail(mailOptions);
-        console.log('Notification email sent successfully.');
+        // Use the Resend API to send the email
+        const { data, error } = await resend.emails.send(emailContent);
+        
+        if (error) {
+            // Log the structured error from the Resend SDK
+            console.error('Error sending email notification via Resend API:', error);
+            throw new Error(error.message); 
+        }
+        
+        console.log('Notification email sent successfully. Resend ID:', data.id);
 
     } catch (error) {
-        // Log the error for troubleshooting on Render logs
-        console.error('Error sending email notification:', error.message);
+        console.error('Final Error sending email notification:', error.message);
     }
 };
 
@@ -160,7 +180,7 @@ app.post('/api/events', async (req, res) => {
         // 1. Send success response IMMEDIATELY.
         res.status(201).json(newEvent); 
         
-        // 2. Trigger email notification in the background without 'await'.
+        // 2. Trigger email notification in the background
         sendNotificationEmail(newEvent).catch(err => {
             console.error('Background Email Sending Failed:', err);
         });
@@ -189,7 +209,6 @@ app.put('/api/events/:eventId/teetimes/:teeTimeId/add', async (req, res) => {
             return res.status(400).json({ message: 'This tee time is full.' });
         }
         
-        // Basic check for duplicate player name (case-insensitive)
         const existingPlayer = teeTime.players.find(p => p.name.toLowerCase() === playerName.toLowerCase());
         if (existingPlayer) {
              return res.status(400).json({ message: 'Player is already registered for this tee time.' });
@@ -206,9 +225,8 @@ app.put('/api/events/:eventId/teetimes/:teeTimeId/add', async (req, res) => {
 
 // REMOVE a player from a tee time (REQUIRES CODE)
 app.delete('/api/events/:eventId/teetimes/:teeTimeId/players/:playerId', async (req, res) => {
-    const { deleteCode } = req.body; // Extract the delete code
+    const { deleteCode } = req.body; 
 
-    // 1. Check for Admin Code
     if (!deleteCode || deleteCode !== ADMIN_DELETE_CODE) {
         return res.status(401).json({ message: 'Unauthorized: Invalid delete code.' });
     }
@@ -220,7 +238,6 @@ app.delete('/api/events/:eventId/teetimes/:teeTimeId/players/:playerId', async (
         const teeTime = event.teeTimes.id(req.params.teeTimeId);
         if (!teeTime) return res.status(404).json({ message: 'Tee time not found.' });
 
-        // Use .pull() to remove the sub-document by its ID
         teeTime.players.pull(req.params.playerId); 
         
         await event.save();
@@ -233,9 +250,8 @@ app.delete('/api/events/:eventId/teetimes/:teeTimeId/players/:playerId', async (
 
 // REMOVE a tee time from an event (REQUIRES CODE)
 app.delete('/api/events/:eventId/teetimes/:teeTimeId', async (req, res) => {
-    const { deleteCode } = req.body; // Extract the delete code
+    const { deleteCode } = req.body; 
     
-    // 1. Check for Admin Code
     if (!deleteCode || deleteCode !== ADMIN_DELETE_CODE) {
         return res.status(401).json({ message: 'Unauthorized: Invalid delete code.' });
     }
@@ -266,7 +282,6 @@ app.post('/api/events/:eventId/teetimes', async (req, res) => {
         if (!event) return res.status(404).json({ message: 'Event not found.' });
         
         event.teeTimes.push({ time, players: [] });
-        // Re-sort the tee times to keep them in order
         event.teeTimes.sort((a, b) => a.time.localeCompare(b.time)); 
 
         await event.save();
@@ -279,9 +294,8 @@ app.post('/api/events/:eventId/teetimes', async (req, res) => {
 
 // DELETE an entire event (REQUIRES CODE)
 app.delete('/api/events/:eventId', async (req, res) => {
-    const { deleteCode } = req.body; // Extract the delete code
+    const { deleteCode } = req.body; 
     
-    // 1. Check for Admin Code
     if (!deleteCode || deleteCode !== ADMIN_DELETE_CODE) {
         return res.status(401).json({ message: 'Unauthorized: Invalid delete code.' });
     }
@@ -298,7 +312,6 @@ app.delete('/api/events/:eventId', async (req, res) => {
         res.status(500).json({ message: err.message });
     }
 });
-
 
 // --- Start the Server ---
 app.listen(PORT, () => {
