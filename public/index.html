@@ -1,0 +1,73 @@
+
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Tee Time Manager</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <header>
+    <h1>Tee Time Manager</h1>
+    <form id="subscribeForm" class="subscribe">
+      <input type="email" name="email" placeholder="your@email" required>
+      <button type="submit">Notify me</button>
+      <span id="subMsg"></span>
+    </form>
+    <button id="newEventBtn" class="primary">+ New Event</button>
+  </header>
+
+  <main>
+    <section id="events"></section>
+  </main>
+
+  <!-- Create modal -->
+  <dialog id="eventModal">
+    <form id="eventForm" method="dialog">
+      <h3>Create Event</h3>
+<label>Course <input name="course" required></label>
+      <label>Date <input type="date" name="date" required></label>
+      <label>First Tee Time <input type="time" name="teeTime" required></label>
+      <small>Three tee times will be created by default at 10-minute intervals.</small>
+      <label>Notes <textarea name="notes"></textarea></label>
+      <menu>
+        <button type="button" data-cancel>Cancel</button>
+        <button type="submit" value="confirm" class="primary">Save</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <!-- Edit modal -->
+  <dialog id="editModal">
+    <form id="editForm" method="dialog">
+      <h3>Edit Event</h3>
+      <input type="hidden" name="id">
+<label>Course <input name="course" required></label>
+      <label>Date <input type="date" name="date" required></label>
+      <label>Notes <textarea name="notes"></textarea></label>
+      <menu>
+        <button type="button" data-cancel>Cancel</button>
+        <button type="submit" value="confirm" class="primary">Update</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <!-- Move Player modal -->
+  <dialog id="moveModal">
+    <form id="moveForm" method="dialog">
+      <h3>Move Player</h3>
+      <input type="hidden" name="eventId">
+      <input type="hidden" name="fromTeeId">
+      <input type="hidden" name="playerId">
+      <fieldset id="moveChoices" class="radio-group"></fieldset>
+      <menu>
+        <button type="button" data-cancel>Cancel</button>
+        <button type="submit" value="confirm" class="primary">Move</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <script src="./script.js"></script>
+</body>
+</html>

@@ -1,0 +1,111 @@
+:root { font-family: system-ui, Arial, sans-serif; }
+* { box-sizing: border-box; }
+html, body { height: 100%; margin: 0; }
+body {
+  background: url('./assets/cool-golf-clear-water-hazards-in-autumn-enlr3jq4slsvb0rd.jpg') center/cover fixed no-repeat;
+  backdrop-filter: blur(0px);
+}
+header, footer {
+  background: rgba(255,255,255,0.8);
+  padding: 0.75rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+main { padding: 1rem; }
+#events {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+.card {
+  background: rgba(255,255,255,0.9);
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.15);
+}
+.card h4 { margin: 0; }
+.row { display: flex; gap: 8px; }
+dialog form { display: grid; gap: 8px; min-width: 300px; }
+label { display: grid; gap: 4px; font-size: 14px; }
+menu { display: flex; justify-content: flex-end; gap: 8px; padding: 0; }
+button { cursor: pointer; }
+.tee{display:grid;grid-template-columns:90px 1fr auto;gap:8px;align-items:center}
+.tee-time{font-weight:600}
+.tees{display:grid;gap:6px;margin:6px 0}
+
+
+/* Header subscribe */
+header { justify-content: space-between; }
+header .subscribe { margin-left: auto; display:flex; gap:.5rem; align-items:center }
+header input[type=email]{ padding:.35rem .5rem; border-radius:10px; border:1px solid #ccc; }
+header button{ padding:.45rem .7rem; border-radius:10px; border:1px solid #bbb; background:#fff; }
+h1{ margin:0; font-size:2rem }
+
+/* Cards */
+.card { border: 1px solid rgba(0,0,0,.08); }
+.card header { background: none; padding: 0; }
+.card .title { font-size: 1.05rem; font-weight: 700; }
+.card .date { color: #444; font-weight: 600; }
+.card .notes { color: #333; margin-top: 4px; }
+.card .row button { padding:.35rem .6rem; border-radius:10px; border:1px solid #bbb; background:#fff; }
+.card .row button[disabled]{ opacity:.5; cursor:not-allowed }
+.tee { background: rgba(255,255,255,0.8); border:1px dashed rgba(0,0,0,.1); padding:6px 8px; border-radius:10px; }
+.tee-players { color:#111; }
+.tees { margin-top: 8px; }
+
+
+.chip{display:inline-block;padding:.2rem .5rem;border-radius:999px;border:1px solid #bbb;margin-right:.3rem;background:#fff}
+
+.chip{display:inline-block;padding:.2rem .5rem;border-radius:999px;border:1px solid #bbb;margin-right:.3rem;background:#fff}
+
+
+/* --- Compact event layout improvements --- */
+main { padding: 1rem; }
+.card { backdrop-filter: blur(2px); }
+.card h4 { font-size: 1.1rem; }
+.tees { display: grid; gap: 10px; margin: 10px 0; }
+.tee {
+  display: grid;
+  grid-template-columns: 100px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  border: 1px dashed rgba(0,0,0,.12);
+  background: rgba(255,255,255,.75);
+  padding: 10px 12px;
+  border-radius: 14px;
+}
+.tee-time { font-weight: 700; white-space: nowrap; }
+.tee-players { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: .25rem .5rem;
+  border-radius: 999px;
+  border: 1px solid #bbb;
+  background: #fff;
+  font-size: .9rem;
+}
+.chip .move {
+  padding: 0 .35rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: .9rem;
+  line-height: 1;
+  border-left: 1px solid #ddd;
+}
+.row { display: flex; gap: 6px; }
+button { padding: .35rem .6rem; border-radius: 10px; border: 1px solid #bbb; background: #fff; }
+button.small { padding: .2rem .45rem; font-size: .85rem; }
+button[disabled]{ opacity:.5; cursor:not-allowed }
+
+
+/* Move dialog */
+#moveModal form { display: grid; gap: 10px; min-width: 320px; }
+.radio-group { display: grid; gap: 8px; padding: 4px; }
+.radio-item { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border:1px solid #ddd; border-radius: 10px; background: #fff; }
+.radio-item input { transform: scale(1.2); }

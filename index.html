@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Tee Time Manager</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 128 128'%3E%3Ccircle cx='64' cy='64' r='62' fill='%23263b50'/%3E%3Cpath d='M64 18c17 0 30 8 30 22s-13 22-30 22-30-8-30-22 13-22 30-22z' fill='%238ca3b8'/%3E%3Cpath d='M64 66c18 0 32 6 32 20v8H32v-8c0-14 14-20 32-20z' fill='%238ca3b8'/%3E%3C/svg%3E"/>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <header class="site-header">
+    <h1>Tee Time Manager</h1>
+    <nav>
+      <button id="nav-home" class="btn">Events</button>
+      <button id="nav-create" class="btn btn-primary">Create Event</button>
+    </nav>
+  </header>
+
+  <main id="app"></main>
+
+<link rel="stylesheet" href="style.css?v=351">
+<script src="script.js?v=351"></script>
+
+
+  <dialog id="moveDialog">
+    <form method="dialog" id="moveForm">
+      <h3>Move Player</h3>
+      <p id="movePlayerLabel"></p>
+      <div id="teeTimeRadioGroup" class="radio-group"></div>
+      <menu>
+        <button value="cancel" class="btn">Cancel</button>
+        <button value="confirm" class="btn btn-primary">Move</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <template id="eventListTmpl">
+    <section>
+      <h2 class="section-title">Events</h2>
+      <div id="eventsGrid" class="grid"></div>
+    </section>
+  </template>
+
+  <template id="eventCardTmpl">
+    <article class="card">
+      <div class="card-head">
+        <h3 class="event-title"></h3>
+        <span class="subtle date"></span>
+      </div>
+      <p class="course subtle"></p>
+      <menu class="card-actions">
+        <button class="btn btn-primary view">Open</button>
+        <button class="btn edit">Edit</button>
+        <button class="btn danger delete">Delete</button>
+      </menu>
+    </article>
+  </template>
+
+  <template id="eventEditorTmpl">
+    <section class="editor">
+      <h2 class="section-title" id="editorHeading">Create Event</h2>
+      <form id="eventForm" class="form">
+        <label>Title<input type="text" name="title" required placeholder="e.g., Saturday Skins"/></label>
+        <label>Course<input type="text" name="course" placeholder="e.g., Blue Ridge Shadows"/></label>
+        <label>Date<input type="date" name="date"/></label>
+        <label># of Tee Times<input type="number" name="teeCount" min="1" value="3"/></label>
+        <label>Players per Tee Time<input type="number" name="teeSize" min="2" value="4"/></label>
+        <menu class="form-actions">
+          <button type="submit" class="btn btn-primary">Save</button>
+          <button type="button" id="cancelEdit" class="btn">Cancel</button>
+        </menu>
+      </form>
+    </section>
+  </template>
+
+  <template id="eventViewTmpl">
+    <section class="event-view">
+      <div class="event-view-head">
+        <div>
+          <h2 class="event-title"></h2>
+          <p class="subtle"><span class="course"></span> • <span class="date"></span></p>
+        </div>
+        <menu class="card-actions">
+          <button class="btn edit">Edit</button>
+          <button class="btn danger delete">Delete</button>
+        </menu>
+      </div>
+
+      <div class="layout">
+        <section class="players card">
+          <h3>Players</h3>
+          <form id="addPlayerForm" class="inline-form">
+            <input type="text" name="player" placeholder="Add player name" required/>
+            <button class="btn btn-primary">Add</button>
+          </form>
+          <ul id="unassignedList" class="list"></ul>
+        </section>
+
+        <section class="tee-times">
+          <h3 class="sr-only">Tee Times</h3>
+          <div id="teeTimeGrid" class="grid"></div>
+        </section>
+      </div>
+    </section>
+  </template>
+
+  <template id="teeTimeCardTmpl">
+    <article class="card tee-card">
+      <div class="card-head">
+        <h4 class="tee-label"></h4>
+        <span class="subtle cap"></span>
+      </div>
+      <ul class="list players"></ul>
+      <form class="inline-form add-to-tee">
+        <input type="text" name="player" placeholder="Add player to this tee"/>
+        <button class="btn">Add</button>
+      </form>
+    </article>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
