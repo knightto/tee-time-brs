@@ -47,14 +47,20 @@
   }
 
   function teeRow(ev, tt){
-    const players=(tt.players||[]).map(p=>`<span class="chip">${p.name}<button class="move" title="Move" data-move="${ev._id}:${tt._id}:${p._id}">↔</button></span>`).join('') || '—';
-    const full=(tt.players||[]).length>=4;
-    return `<div class="tee">
-      <div class="tee-time">${fmtTime(tt.time)}</div>
-      <div class="tee-players">${players}</div>
-      <div class="row"><button class="small" data-add-player="${ev._id}:${tt._id}" ${full?'disabled':''}>Add Player</button></div>
-    </div>`;
-  }
+  const chips = (tt.players || []).map(p => {
+    return `<span class="chip">
+      ${p.name}
+      <button class="icon small" title="Move" data-move="${ev._id}:${tt._id}:${p._id}">↔</button>
+      <button class="icon small danger" title="Remove" data-del-player="${ev._id}:${tt._id}:${p._id}">×</button>
+    </span>`;
+  }).join('') || '—';
+  const full = (tt.players || []).length >= 4;
+  return `<div class="tee">
+    <div class="tee-time">${fmtTime(tt.time)}</div>
+    <div class="tee-players">${chips}</div>
+    <div class="row"><button class="small" data-add-player="${ev._id}:${tt._id}" ${full?'disabled':''}>Add Player</button></div>
+  </div>`;
+}
 
   // ----- Dialog cancel buttons -----
   document.addEventListener('click', (ev) => {
@@ -84,8 +90,15 @@
 
   // ----- Events list actions -----
   on(eventsEl, 'click', async (e)=>{
-    const t=e.target;
+    const t=(e.target.closest('[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del]')||e.target);
     try{
+      if(t.dataset.delPlayer){
+        const [eventId, teeId, playerId] = t.dataset.delPlayer.split(':');
+        if(!confirm('Remove this player from the tee time?')) return;
+        await api(`/api/events/${eventId}/tee-times/${teeId}/players/${playerId}`, { method: 'DELETE' });
+        return load();
+      }
+
       if(t.dataset.addTee){
         const time=prompt('New tee time (HH:MM)'); if(!time) return;
         await api(`/api/events/${t.dataset.addTee}/tee-times`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({time})});
