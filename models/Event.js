@@ -1,24 +1,47 @@
+// models/Event.js
 const mongoose = require('mongoose');
-const { Schema } = mongoose;
 
-const PlayerSchema = new Schema({ name: { type: String, required: true } }, { _id: true });
+const PlayerSchema = new mongoose.Schema({
+  name: { type: String, required: true, trim: true }
+}, { _id: true });
 
-const TeeTimeSchema = new Schema({
-  time: { type: String, required: true },
+// Tee or Team slot
+const SlotSchema = new mongoose.Schema({
+  // For tee-time events
+  time: { type: String },            // HH:MM (optional for team events)
+  // For team events
+  name: { type: String, trim: true },// Optional team name like "Team 1" or "Blue"
   players: { type: [PlayerSchema], default: [] }
 }, { _id: true });
 
-const EventSchema = new Schema({
-  title:  { type: String },
-  course: { type: String, required: true },
-  date:   { type: String, required: true }, // YYYY-MM-DD
-  notes:  { type: String },
-
-  // Team mode
+const EventSchema = new mongoose.Schema({
+  course: { type: String, required: true, trim: true },
+  date:   { type: Date,   required: true },
+  notes:  { type: String, default: '' },
   isTeamEvent: { type: Boolean, default: false },
   teamSizeMax: { type: Number, default: 4, min: 2, max: 4 },
+  teeTimes: { type: [SlotSchema], default: [] }
+}, { timestamps: true });
 
-  teeTimes: { type: [TeeTimeSchema], default: [] }
-}, { timestamps: true, collection: 'events' });
+// Conditional validation: require time for non-team events, and forbid empty slots for both types
+EventSchema.pre('validate', function(next){
+  const ev = this;
+  if (!Array.isArray(ev.teeTimes)) ev.teeTimes = [];
+
+  if (!ev.isTeamEvent) {
+    // Non-team events must have a time on every slot
+    for (const slot of ev.teeTimes) {
+      if (!slot.time) {
+        return next(new mongoose.Error.ValidationError(Object.assign(new Error('Event validation failed'), {
+          errors: { 'teeTimes.time': new mongoose.Error.ValidatorError({ path:'time', message:'Path `time` is required for tee-time events.' }) }
+        })));
+      }
+    }
+  } else {
+    // Team events should not enforce time; allow optional name
+    // nothing to enforce
+  }
+  next();
+});
 
 module.exports = mongoose.model('Event', EventSchema);

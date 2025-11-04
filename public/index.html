@@ -2,26 +2,67 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Tee Time Manager</title>
+  <title>Tee Times</title>
   <link rel="stylesheet" href="./style.css">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body>
   <header>
-    <h1>Tee Time Manager</h1>
-    <form id="subscribeForm" class="subscribe">
+    <h1>Tee Times</h1>
+    <form id="subscribeForm" class="subscribe" autocomplete="off">
       <input type="email" name="email" placeholder="your@email" required>
-      <button type="submit">Notify me</button>
-      <span id="subMsg"></span>
+      <button type="submit">Subscribe</button>
+      <span id="subMsg" aria-live="polite"></span>
     </form>
-    <button id="newEventBtn" class="primary">+ New Event</button>
+    <button id="newEventBtn" class="primary">+ Create Event</button>
   </header>
 
   <main>
     <section id="events"></section>
   </main>
 
-  <!-- Create, Edit, Move dialogs exist in your current file; keeping this minimal here -->
+  <!-- Create Event -->
+  <dialog id="eventModal">
+    <form id="eventForm" method="dialog">
+      <h3>Create Event</h3>
+      <label>Mode
+        <select name="mode" id="modeSelect">
+          <option value="tees">Tee-times</option>
+          <option value="teams">Teams (2 or 4)</option>
+        </select>
+      </label>
+      <label>Course <input name="course" required></label>
+      <label>Date <input type="date" name="date" required></label>
+      <div id="teeTimeRow">
+        <label>First Tee Time <input type="time" name="teeTime" required></label>
+      </div>
+      <div id="teamSizeRow" hidden>
+        <label>Team Size
+          <select name="teamSizeMax">
+            <option value="2">2</option>
+            <option value="4" selected>4</option>
+          </select>
+        </label>
+      </div>
+      <label>Notes <textarea name="notes"></textarea></label>
+      <menu>
+        <button type="button" data-cancel>Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <!-- minimal styles to avoid regressions -->
+  <style>
+    body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:0;padding:12px}
+    header{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+    #events{display:grid;gap:12px;margin-top:12px}
+    .card{border:1px solid #ccc;border-radius:8px;padding:12px}
+    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .chip{display:inline-flex;gap:6px;align-items:center;border-radius:999px;padding:4px 8px;background:#eee}
+    button{cursor:pointer}
+  </style>
+
   <script src="./script.js"></script>
 </body>
 </html>
