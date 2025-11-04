@@ -1,4 +1,4 @@
-/* public/script.js v3.10 team names + radio move */
+/* public/script.js v3.12 — edit modal, radio move, UTC dates */
 (() => {
   'use strict';
   const $ = (s, r=document) => r.querySelector(s);
@@ -14,7 +14,34 @@
   const subForm = $('#subscribeForm');
   const subMsg = $('#subMsg');
 
-  // Ensure a radio-based move dialog exists. Create dynamically if missing.
+  // Inject Edit dialog
+  function ensureEditDialog(){
+    if ($('#editModal')) return;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<dialog id="editModal">
+      <form id="editForm" method="dialog">
+        <h3>Edit Event</h3>
+        <label>Course <input name="course" required></label>
+        <label>Date <input name="date" type="date" required></label>
+        <label>Mode
+          <select id="editModeSelect" name="mode">
+            <option value="tees">Tee times</option>
+            <option value="teams">Teams</option>
+          </select>
+        </label>
+        <div id="editTeamSizeRow">
+          <label>Team size max <input name="teamSizeMax" type="number" min="2" max="4" value="4"></label>
+        </div>
+        <label>Notes <textarea name="notes" rows="3"></textarea></label>
+        <input type="hidden" name="id">
+        <menu>
+          <button type="button" data-cancel>Cancel</button>
+          <button type="submit" class="primary">Save</button>
+        </menu>
+      </form>
+    </dialog>`;
+    document.body.appendChild(wrap.firstElementChild);
+  }
   function ensureMoveDialog(){
     if ($('#moveModal')) return;
     const tpl = document.createElement('div');
@@ -33,7 +60,13 @@
     </dialog>`;
     document.body.appendChild(tpl.firstElementChild);
   }
+  ensureEditDialog();
   ensureMoveDialog();
+
+  const editModal = $('#editModal');
+  const editForm = $('#editForm');
+  const editModeSelect = $('#editModeSelect');
+  const editTeamSizeRow = $('#editTeamSizeRow');
   const moveModal = $('#moveModal');
   const moveForm = $('#moveForm');
   const moveChoices = $('#moveChoices');
@@ -41,13 +74,37 @@
 
   if (!eventsEl) return;
 
-  const isIsoLike = s => typeof s === 'string' && /\d{4}-\d{2}-\d{2}T/.test(s);
-  function fmtDate(s){ try{ const d=isIsoLike(s)?new Date(s):new Date(s+'T00:00:00Z'); return d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric', timeZone:'UTC'});}catch{ return s||''; } }
+  function fmtDate(val){
+    try{
+      if (!val) return '—';
+      const s = String(val);
+      let d;
+      if (/^\d{4}-\d{2}-\d{2}T/.test(s)) d = new Date(s);
+      else if (/^\d{4}-\d{2}-\d{2}$/.test(s)) d = new Date(s+'T12:00:00Z');
+      else d = new Date(s);
+      if (isNaN(d)) return '—';
+      return d.toLocaleDateString(undefined, { weekday:'short', month:'short', day:'numeric', year:'numeric', timeZone:'UTC' });
+    } catch { return '—'; }
+  }
   function fmtTime(hhmm){ if(!hhmm) return ''; const m=/^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(hhmm); if(!m) return hhmm; let h=parseInt(m[1],10); const min=m[2]; const ap=h>=12?'PM':'AM'; h=h%12||12; return `${h}:${min} ${ap}`; }
-  function normalizeForm(form){ const data=Object.fromEntries(new FormData(form).entries()); if(data.date){ const d=new Date(data.date+'T00:00:00Z'); const y=d.getUTCFullYear(), m=String(d.getUTCMonth()+1).padStart(2,'0'), day=String(d.getUTCDate()).padStart(2,'0'); data.date=`${y}-${m}-${day}`; } return data; }
+
+  function normalizeForm(form){
+    const data=Object.fromEntries(new FormData(form).entries());
+    if(data.date){
+      const s = String(data.date).trim();
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
+        const d = new Date(s + 'T12:00:00Z');
+        const y=d.getUTCFullYear(), m=String(d.getUTCMonth()+1).padStart(2,'0'), day=String(d.getUTCDate()).padStart(2,'0');
+        data.date=`${y}-${m}-${day}`;
+      } else {
+        data.date = s;
+      }
+    }
+    return data;
+  }
   async function api(path, opts){ const r=await fetch(path, opts); if(!r.ok) throw new Error('HTTP '+r.status); const ct=r.headers.get('content-type')||''; return ct.includes('application/json')?r.json():r.text(); }
 
-  // Create modal toggles
+  // Create toggles
   on(newEventBtn, 'click', ()=> modal?.showModal?.() ?? modal?.setAttribute('open',''));
   on(modeSelect, 'change', () => {
     const teams = modeSelect.value === 'teams';
@@ -56,13 +113,13 @@
     if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = !teams;
   });
 
-  // Dialog cancel for any dialog
+  // Dialog cancel
   document.addEventListener('click', (ev) => {
     const btn = ev.target.closest('[data-cancel]');
     if (!btn) return;
     ev.preventDefault();
     const dlg = btn.closest('dialog');
-    if (dlg) dlg.close?.();
+    dlg?.close?.();
   });
 
   // Create event submit
@@ -82,6 +139,30 @@
       await api('/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       modal?.close?.(); eventForm.reset(); load();
     }catch(err){ console.error(err); alert('Create failed'); }
+  });
+
+  // Edit mode toggle
+  on(editModeSelect, 'change', ()=>{
+    const teams = editModeSelect.value === 'teams';
+    if (editTeamSizeRow) editTeamSizeRow.hidden = !teams;
+  });
+
+  // Edit save
+  on(editForm, 'submit', async (e)=>{
+    e.preventDefault();
+    try{
+      const data = normalizeForm(editForm);
+      const id = data.id;
+      const payload = {
+        course: data.course,
+        date: data.date,
+        notes: data.notes || '',
+        isTeamEvent: data.mode === 'teams',
+        teamSizeMax: data.mode === 'teams' ? Number(data.teamSizeMax || 4) : 4
+      };
+      await api(`/api/events/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      editModal?.close?.(); load();
+    }catch(err){ console.error(err); alert('Save failed'); }
   });
 
   // Subscribe
@@ -127,7 +208,7 @@
     }).join('') || '—';
     const max = ev.teamSizeMax || 4;
     const full = (tt.players || []).length >= (isTeams ? max : 4);
-    const left = isTeams ? (tt.name ? tt.name : `Team ${idx+1}`) : fmtTime(tt.time);
+    const left = isTeams ? (tt.name ? tt.name : `Team ${idx+1}`) : (tt.time ? fmtTime(tt.time) : '—');
     const delTitle = isTeams ? 'Remove team' : 'Remove tee time';
     return `<div class="tee">
       <div class="tee-time">${left}
@@ -140,7 +221,6 @@
     </div>`;
   }
 
-  // Events actions
   on(eventsEl, 'click', async (e)=>{
     const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del]')||e.target);
     try{
@@ -181,7 +261,17 @@
         return openMoveDialog(eventId,fromTeeId,playerId);
       }
       if(t.dataset.edit){
-        alert('Edit event form not provided in this patch. Ensure your edit modal hides time for team events.');
+        const id=t.dataset.edit;
+        const list=await api('/api/events');
+        const ev=(list||[]).find(x=>x._id===id); if(!ev) return;
+        editForm.elements['id'].value=id;
+        editForm.elements['course'].value=ev.course||'';
+        editForm.elements['date'].value=(String(ev.date).slice(0,10));
+        editForm.elements['notes'].value=ev.notes||'';
+        editModeSelect.value = ev.isTeamEvent ? 'teams' : 'tees';
+        editTeamSizeRow.hidden = !ev.isTeamEvent;
+        if (ev.isTeamEvent) editForm.elements['teamSizeMax'].value = ev.teamSizeMax || 4;
+        editModal.showModal();
         return;
       }
       if(t.dataset.del){
@@ -204,7 +294,7 @@
 
     const html = dests.map((t)=>{
       const originalIdx = all.findIndex(tt => String(tt._id) === String(t._id));
-      const label = ev.isTeamEvent ? (t.name ? t.name : ('Team ' + (originalIdx + 1))) : fmtTime(t.time);
+      const label = ev.isTeamEvent ? (t.name ? t.name : ('Team ' + (originalIdx + 1))) : (t.time ? fmtTime(t.time) : '—');
       return `<label class="radio-item"><input type="radio" name="dest" value="${t._id}" required> ${label}</label>`;
     }).join('');
 
