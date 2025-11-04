@@ -1,0 +1,19 @@
+{"t":"2025-11-04T14:13:11.745Z","level":"info","msg":"listening","port":3000}
+{"t":"2025-11-04T14:13:11.759Z","level":"info","msg":"Mongo connected","uri":"mongodb://127.0.0.1:27017/teetimes"}
+{"t":"2025-11-04T14:13:58.697Z","level":"info","msg":"GET /api/events","count":0}
+{"t":"2025-11-04T14:13:59.891Z","level":"info","msg":"GET /api/events","count":0}
+{"t":"2025-11-04T14:14:00.111Z","level":"info","msg":"GET /api/events","count":0}
+{"t":"2025-11-04T14:14:00.339Z","level":"info","msg":"GET /api/events","count":0}
+{"t":"2025-11-04T14:14:00.465Z","level":"info","msg":"GET /api/events","count":0}
+{"t":"2025-11-04T14:14:00.638Z","level":"info","msg":"GET /api/events","count":0}
+{"t":"2025-11-04T14:14:00.865Z","level":"info","msg":"GET /api/events","count":0}
+{"t":"2025-11-04T14:14:45.187Z","level":"info","msg":"GET /api/events","count":0}
+{"t":"2025-11-04T14:14:45.932Z","level":"info","msg":"GET /api/events","count":0}
+{"t":"2025-11-04T14:14:46.180Z","level":"info","msg":"GET /api/events","count":0}
+{"t":"2025-11-04T14:15:09.594Z","level":"info","msg":"listening","port":3000}
+{"t":"2025-11-04T14:15:09.609Z","level":"info","msg":"Mongo connected","uri":"mongodb://127.0.0.1:27017/teetimes"}
+{"t":"2025-11-04T14:56:31.324Z","level":"info","msg":"GET /api/events","count":0}
+{"t":"2025-11-04T14:56:33.593Z","level":"info","msg":"GET /api/events","count":0}
+{"t":"2025-11-04T14:56:33.762Z","level":"info","msg":"GET /api/events","count":0}
+{"t":"2025-11-04T15:11:29.996Z","level":"info","msg":"GET /api/events","count":0}
+{"t":"2025-11-04T15:11:42.944Z","level":"info","msg":"GET /api/events","count":0}

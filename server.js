@@ -1,5 +1,4 @@
-
-/* server.js v3.4 */
+/* server.js v3.5 team-mode */
 const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
@@ -50,9 +49,19 @@ app.get('/api/events', async (_req, res) => {
 
 app.post('/api/events', async (req, res) => {
   try {
-    const { title, course, date, teeTime, teeTimes, notes } = req.body || {};
-    const tt = Array.isArray(teeTimes) && teeTimes.length ? teeTimes : genTeeTimes(teeTime, 3, 10);
-    const created = await Event.create({ title, course, date, notes, teeTimes: tt });
+    const { title, course, date, teeTime, teeTimes, notes, isTeamEvent, teamSizeMax } = req.body || {};
+    let tt = [];
+    if (isTeamEvent) {
+      tt = []; // no teams yet; client can add
+    } else {
+      tt = Array.isArray(teeTimes) && teeTimes.length ? teeTimes : genTeeTimes(teeTime, 3, 10);
+    }
+    const created = await Event.create({
+      title, course, date, notes,
+      isTeamEvent: !!isTeamEvent,
+      teamSizeMax: Math.max(2, Math.min(4, Number(teamSizeMax || 4))),
+      teeTimes: tt
+    });
     res.status(201).json(created);
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -62,18 +71,17 @@ app.post('/api/events', async (req, res) => {
 app.put('/api/events/:id', async (req, res) => {
   try {
     const payload = req.body || {};
-    // Explicitly allow title updates
-    const updated = await Event.findByIdAndUpdate(
-      req.params.id,
-      { $set: {
-        course: payload.course,
-        date: payload.date,
-        notes: payload.notes
-      }},
-      { new: true, runValidators: true }
-    );
-    if (!updated) return res.status(404).json({ error: 'Not found' });
-    res.json(updated);
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+
+    ev.course = payload.course ?? ev.course;
+    ev.date   = payload.date   ?? ev.date;
+    ev.notes  = payload.notes  ?? ev.notes;
+    if (ev.isTeamEvent && payload.teamSizeMax) {
+      ev.teamSizeMax = Math.max(2, Math.min(4, Number(payload.teamSizeMax)));
+    }
+    await ev.save();
+    res.json(ev);
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
@@ -88,10 +96,18 @@ app.delete('/api/events/:id', async (req, res) => {
 });
 
 app.post('/api/events/:id/tee-times', async (req, res) => {
-  const { time } = req.body || {};
-  if (!time) return res.status(400).json({ error: 'time required HH:MM' });
   const ev = await Event.findById(req.params.id);
   if (!ev) return res.status(404).json({ error: 'Not found' });
+
+  if (ev.isTeamEvent) {
+    // Add a new "team" with placeholder time
+    ev.teeTimes.push({ time: '00:00', players: [] });
+    await ev.save();
+    return res.json(ev);
+  }
+
+  const { time } = req.body || {};
+  if (!time) return res.status(400).json({ error: 'time required HH:MM' });
   if (ev.teeTimes.some(t => t.time === time)) return res.status(409).json({ error: 'duplicate time' });
   ev.teeTimes.push({ time, players: [] });
   await ev.save();
@@ -105,7 +121,8 @@ app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
   if (!ev) return res.status(404).json({ error: 'Not found' });
   const tt = ev.teeTimes.id(req.params.teeId);
   if (!tt) return res.status(404).json({ error: 'tee time not found' });
-  if (tt.players.length >= 4) return res.status(400).json({ error: 'tee time full' });
+  const maxSize = ev.isTeamEvent ? (ev.teamSizeMax || 4) : 4;
+  if (tt.players.length >= maxSize) return res.status(400).json({ error: ev.isTeamEvent ? 'team full' : 'tee time full' });
   tt.players.push({ name });
   await ev.save();
   res.json(ev);
@@ -121,7 +138,8 @@ app.post('/api/events/:id/move-player', async (req, res) => {
   if (!fromTT || !toTT) return res.status(404).json({ error: 'tee time not found' });
   const idx = fromTT.players.findIndex(p => String(p._id) === String(playerId));
   if (idx === -1) return res.status(404).json({ error: 'player not found' });
-  if (toTT.players.length >= 4) return res.status(400).json({ error: 'destination full' });
+  const maxSize = ev.isTeamEvent ? (ev.teamSizeMax || 4) : 4;
+  if (toTT.players.length >= maxSize) return res.status(400).json({ error: 'destination full' });
   const [player] = fromTT.players.splice(idx, 1);
   toTT.players.push({ name: player.name });
   await ev.save();
@@ -145,8 +163,6 @@ app.post('/api/subscribe', async (req, res) => {
   }
 });
 
-
-
 // Delete a player from a tee time
 app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res) => {
   try {
@@ -164,4 +180,5 @@ app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res
     res.status(500).json({ error: e.message });
   }
 });
+
 app.listen(PORT, () => console.log(`server on :${PORT}`));

@@ -1,4 +1,3 @@
-
 <!doctype html>
 <html lang="en">
 <head>
@@ -26,10 +25,32 @@
   <dialog id="eventModal">
     <form id="eventForm" method="dialog">
       <h3>Create Event</h3>
-<label>Course <input name="course" required></label>
+
+      <label>Mode
+        <select name="mode" id="modeSelect">
+          <option value="tees">Tee-times</option>
+          <option value="teams">Teams (2 or 4)</option>
+        </select>
+      </label>
+
+      <label>Course <input name="course" required></label>
       <label>Date <input type="date" name="date" required></label>
-      <label>First Tee Time <input type="time" name="teeTime" required></label>
-      <small>Three tee times will be created by default at 10-minute intervals.</small>
+
+      <div id="teeTimeRow">
+        <label>First Tee Time <input type="time" name="teeTime" required></label>
+        <small>Three tee times will be created by default at 10-minute intervals.</small>
+      </div>
+
+      <div id="teamSizeRow" hidden>
+        <label>Team Size
+          <select name="teamSizeMax">
+            <option value="2">2</option>
+            <option value="4" selected>4</option>
+          </select>
+        </label>
+        <small>No clock time; each “tee time” acts as a team.</small>
+      </div>
+
       <label>Notes <textarea name="notes"></textarea></label>
       <menu>
         <button type="button" data-cancel>Cancel</button>
@@ -43,8 +64,26 @@
     <form id="editForm" method="dialog">
       <h3>Edit Event</h3>
       <input type="hidden" name="id">
-<label>Course <input name="course" required></label>
+
+      <label>Mode
+        <select name="mode" id="editModeSelect" disabled>
+          <option value="tees">Tee-times</option>
+          <option value="teams">Teams (2 or 4)</option>
+        </select>
+      </label>
+
+      <label>Course <input name="course" required></label>
       <label>Date <input type="date" name="date" required></label>
+
+      <div id="editTeamSizeRow" hidden>
+        <label>Team Size
+          <select name="teamSizeMax">
+            <option value="2">2</option>
+            <option value="4">4</option>
+          </select>
+        </label>
+      </div>
+
       <label>Notes <textarea name="notes"></textarea></label>
       <menu>
         <button type="button" data-cancel>Cancel</button>
@@ -56,7 +95,7 @@
   <!-- Move Player modal -->
   <dialog id="moveModal">
     <form id="moveForm" method="dialog">
-      <h3>Move Player</h3>
+      <h3 id="moveTitle">Move Player</h3>
       <input type="hidden" name="eventId">
       <input type="hidden" name="fromTeeId">
       <input type="hidden" name="playerId">
