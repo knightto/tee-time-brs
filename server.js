@@ -1,4 +1,4 @@
-/* server.js v3.5 team-mode */
+/* server.js v3.6 add tee/team delete */
 const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
@@ -25,7 +25,6 @@ mongoose.connect(mongoUri, { dbName: process.env.MONGO_DB || undefined })
 
 const Event = require('./models/Event');
 
-// Helpers
 function genTeeTimes(startHHMM, count=3, mins=10) {
   if (!startHHMM) return [];
   const m = /^(\d{1,2}):(\d{2})$/.exec(startHHMM);
@@ -41,18 +40,19 @@ function genTeeTimes(startHHMM, count=3, mins=10) {
   return out;
 }
 
-// Routes
+// list
 app.get('/api/events', async (_req, res) => {
   const items = await Event.find().sort({ date: 1 }).lean();
   res.json(items);
 });
 
+// create
 app.post('/api/events', async (req, res) => {
   try {
     const { title, course, date, teeTime, teeTimes, notes, isTeamEvent, teamSizeMax } = req.body || {};
     let tt = [];
     if (isTeamEvent) {
-      tt = []; // no teams yet; client can add
+      tt = []; // client will add teams
     } else {
       tt = Array.isArray(teeTimes) && teeTimes.length ? teeTimes : genTeeTimes(teeTime, 3, 10);
     }
@@ -68,6 +68,7 @@ app.post('/api/events', async (req, res) => {
   }
 });
 
+// update
 app.put('/api/events/:id', async (req, res) => {
   try {
     const payload = req.body || {};
@@ -87,6 +88,7 @@ app.put('/api/events/:id', async (req, res) => {
   }
 });
 
+// delete event
 app.delete('/api/events/:id', async (req, res) => {
   const code = req.query.code || req.body?.code || '';
   if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) return res.status(403).json({ error: 'Forbidden' });
@@ -95,12 +97,12 @@ app.delete('/api/events/:id', async (req, res) => {
   res.json({ ok: true });
 });
 
+// add tee-time or team
 app.post('/api/events/:id/tee-times', async (req, res) => {
   const ev = await Event.findById(req.params.id);
   if (!ev) return res.status(404).json({ error: 'Not found' });
 
   if (ev.isTeamEvent) {
-    // Add a new "team" with placeholder time
     ev.teeTimes.push({ time: '00:00', players: [] });
     await ev.save();
     return res.json(ev);
@@ -114,6 +116,22 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
   res.json(ev);
 });
 
+// NEW: delete tee-time or team
+app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
+  try {
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    const tt = ev.teeTimes.id(req.params.teeId);
+    if (!tt) return res.status(404).json({ error: 'tee/team not found' });
+    tt.deleteOne();
+    await ev.save();
+    res.json(ev);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// add player
 app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
   const { name } = req.body || {};
   if (!name) return res.status(400).json({ error: 'name required' });
@@ -128,6 +146,7 @@ app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
   res.json(ev);
 });
 
+// move player
 app.post('/api/events/:id/move-player', async (req, res) => {
   const { fromTeeId, toTeeId, playerId } = req.body || {};
   if (!fromTeeId || !toTeeId || !playerId) return res.status(400).json({ error: 'fromTeeId, toTeeId, playerId required' });
@@ -146,6 +165,7 @@ app.post('/api/events/:id/move-player', async (req, res) => {
   res.json(ev);
 });
 
+// subscribe
 app.post('/api/subscribe', async (req, res) => {
   const { email } = req.body || {};
   if (!process.env.RESEND_API_KEY) return res.status(501).json({ error: 'Email disabled' });
@@ -163,7 +183,7 @@ app.post('/api/subscribe', async (req, res) => {
   }
 });
 
-// Delete a player from a tee time
+// delete player
 app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res) => {
   try {
     const { id, teeId, playerId } = req.params;

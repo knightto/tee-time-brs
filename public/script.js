@@ -23,13 +23,11 @@
   if (!eventsEl) { console.error('#events not found'); return; }
 
   const isIsoLike = s => typeof s === 'string' && /\d{4}-\d{2}-\d{2}T/.test(s);
-  const get = (f, n) => (f?.elements?.[n]?.value || '').trim();
   function fmtDate(s){ try{ const d=isIsoLike(s)?new Date(s):new Date(s+'T00:00:00'); return d.toLocaleDateString(undefined,{weekday:'short',month:'short',day:'numeric',year:'numeric'});}catch{ return s||''; } }
   function fmtTime(hhmm){ if(!hhmm) return ''; const m=/^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(hhmm); if(!m) return hhmm; let h=parseInt(m[1],10); const min=m[2]; const ap=h>=12?'PM':'AM'; h=h%12||12; return `${h}:${min} ${ap}`; }
   function normalizeForm(form){ const data=Object.fromEntries(new FormData(form).entries()); if(data.date){ const d=new Date(data.date+'T00:00:00'); const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0'); data.date=`${y}-${m}-${day}`; } return data; }
   async function api(path, opts){ const r=await fetch(path, opts); if(!r.ok) throw new Error('HTTP '+r.status); const ct=r.headers.get('content-type')||''; return ct.includes('application/json')?r.json():r.text(); }
 
-  // toggle create form sections
   on(modeSelect, 'change', () => {
     const teams = modeSelect.value === 'teams';
     teeTimeRow.hidden = teams;
@@ -42,10 +40,6 @@
   async function load(){ try{ const list=await api('/api/events'); render(Array.isArray(list)?list:[]);}catch(e){ console.error(e); eventsEl.innerHTML='<div class="card">Failed to load events.</div>'; } }
 
   function render(list){
-    if (!Array.isArray(list) || list.length === 0) {
-      eventsEl.innerHTML = '<div class="card"><em>No events yet. Click “+ New Event”.</em></div>';
-      return;
-    }
     eventsEl.innerHTML='';
     for(const ev of list){
       const card=document.createElement('div'); card.className='card';
@@ -75,11 +69,18 @@
     }).join('') || '—';
     const max = ev.teamSizeMax || 4;
     const full = (tt.players || []).length >= (isTeams ? max : 4);
-    const left = isTeams ? `Team ${idx+1}` : fmtTime(tt.time);
+    const leftLabel = isTeams ? `Team ${idx+1}` : fmtTime(tt.time);
+    const delTitle = isTeams ? 'Remove team' : 'Remove tee time';
+
     return `<div class="tee">
-      <div class="tee-time">${left}</div>
+      <div class="tee-time">
+        ${leftLabel}
+        <button class="icon small danger" title="${delTitle}" data-del-tee="${ev._id}:${tt._id}">×</button>
+      </div>
       <div class="tee-players">${chips}</div>
-      <div class="row"><button class="small" data-add-player="${ev._id}:${tt._id}" ${full?'disabled':''}>Add Player</button></div>
+      <div class="row">
+        <button class="small" data-add-player="${ev._id}:${tt._id}" ${full?'disabled':''}>Add Player</button>
+      </div>
     </div>`;
   }
 
@@ -115,8 +116,15 @@
 
   // ----- Events list actions -----
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del]')||e.target);
     try{
+      if(t.dataset.delTee){
+        const [eventId, teeId] = t.dataset.delTee.split(':');
+        if(!confirm('Remove this tee/team?')) return;
+        await api(`/api/events/${eventId}/tee-times/${teeId}`, { method: 'DELETE' });
+        return load();
+      }
+
       if(t.dataset.delPlayer){
         const [eventId, teeId, playerId] = t.dataset.delPlayer.split(':');
         if(!confirm('Remove this player?')) return;
@@ -224,6 +232,5 @@
     }catch{ if(subMsg) subMsg.textContent='Disabled'; }
   });
 
-  // Kick off
   load();
 })();
