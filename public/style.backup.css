@@ -26,9 +26,9 @@ button:hover{transform:translateY(-1px)} button.small{padding:.32rem .55rem;font
 button.primary{background:var(--blue-500);color:#fff;border-color:transparent} button.primary:hover{background:var(--blue-600)}
 button[disabled]{opacity:.55;cursor:not-allowed}
 .tees{display:grid;gap:12px;margin:6px 0 4px}
-.tee{display:grid;grid-template-columns:140px 1fr auto;gap:12px;align-items:center;background:var(--panel-ghost);border:1px dashed var(--slate-300);
+.tee{display:grid;grid-template-columns:96px 1fr auto;gap:12px;align-items:center;background:var(--panel-ghost);border:1px dashed var(--slate-300);
   border-radius:14px;padding:10px 12px}
-.tee-time{display:flex;align-items:center;gap:8px;font-weight:800;letter-spacing:.3px;white-space:nowrap;color:var(--blue-700);overflow:hidden;text-overflow:ellipsis} .tee-players{display:flex;flex-wrap:wrap;gap:6px}
+.tee-time{font-weight:800;letter-spacing:.3px;white-space:nowrap;color:var(--blue-700)} .tee-players{display:flex;flex-wrap:wrap;gap:6px}
 .chip{display:inline-flex;align-items:center;gap:6px;background:#fff;border:1px solid var(--slate-300);border-radius:999px;padding:.22rem .5rem;box-shadow:0 1px 0 rgba(0,0,0,.03)}
 .chip .move{margin-left:2px;padding:0 .45rem;line-height:1;border:none;background:transparent;cursor:pointer;border-left:1px solid var(--slate-200);color:var(--ink-2)}
 .chip .move:hover{color:var(--blue-500)}
@@ -41,8 +41,3 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
 
 .chip .danger{ border-color:#ef4444; }
 .chip .danger:hover{ background:#fee2e2; }
-
-
-/* icon buttons to prevent overlap */
-.icon{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;padding:0;border-radius:999px;border:1px solid var(--slate-300);background:#fff;box-shadow:var(--shadow-sm)}
-.icon.small{width:28px;height:28px;font-size:14px;line-height:1}

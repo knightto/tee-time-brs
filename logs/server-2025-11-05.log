@@ -1,0 +1,62 @@
+{"t":"2025-11-05T16:30:45.112Z","level":"error","msg":"uncaughtException","err":"Error: listen EADDRINUSE: address already in use :::4000","stack":"Error: listen EADDRINUSE: address already in use :::4000\n    at Server.setupListenHandle [as _listen2] (node:net:1940:16)\n    at listenInCluster (node:net:1997:12)\n    at Server.listen (node:net:2102:7)\n    at app.listen (U:\\knightto\\workspace\\tee-time-brs\\node_modules\\express\\lib\\application.js:635:24)\n    at Object.<anonymous> (U:\\knightto\\workspace\\tee-time-brs\\server.js:330:5)\n    at Module._compile (node:internal/modules/cjs/loader:1760:14)\n    at Object..js (node:internal/modules/cjs/loader:1893:10)\n    at Module.load (node:internal/modules/cjs/loader:1480:32)\n    at Module._load (node:internal/modules/cjs/loader:1299:12)\n    at TracingChannel.traceSync (node:diagnostics_channel:328:14)"}
+{"t":"2025-11-05T16:30:45.112Z","level":"error","msg":"uncaughtException","err":"Error: listen EADDRINUSE: address already in use :::4000","stack":"Error: listen EADDRINUSE: address already in use :::4000\n    at Server.setupListenHandle [as _listen2] (node:net:1940:16)\n    at listenInCluster (node:net:1997:12)\n    at Server.listen (node:net:2102:7)\n    at app.listen (U:\\knightto\\workspace\\tee-time-brs\\node_modules\\express\\lib\\application.js:635:24)\n    at Object.<anonymous> (U:\\knightto\\workspace\\tee-time-brs\\server.js:330:5)\n    at Module._compile (node:internal/modules/cjs/loader:1760:14)\n    at Object..js (node:internal/modules/cjs/loader:1893:10)\n    at Module.load (node:internal/modules/cjs/loader:1480:32)\n    at Module._load (node:internal/modules/cjs/loader:1299:12)\n    at TracingChannel.traceSync (node:diagnostics_channel:328:14)"}
+{"t":"2025-11-05T16:30:45.682Z","level":"info","msg":"Mongo connected","uri":"mongodb+srv://tommyknight_db_user:bwDKjOn5m9Bxbsre@tee-time-brs.ftri46g.mongodb.net/?appName=tee-time-brs"}
+{"t":"2025-11-05T16:30:45.682Z","level":"info","msg":"Mongo connected","uri":"mongodb+srv://tommyknight_db_user:bwDKjOn5m9Bxbsre@tee-time-brs.ftri46g.mongodb.net/?appName=tee-time-brs"}
+{"t":"2025-11-05T16:31:19.876Z","level":"info","msg":"listening","port":3000}
+{"t":"2025-11-05T16:31:19.876Z","level":"info","msg":"listening","port":3000}
+{"t":"2025-11-05T16:31:20.550Z","level":"info","msg":"Mongo connected","uri":"mongodb+srv://tommyknight_db_user:bwDKjOn5m9Bxbsre@tee-time-brs.ftri46g.mongodb.net/?appName=tee-time-brs"}
+{"t":"2025-11-05T16:31:20.550Z","level":"info","msg":"Mongo connected","uri":"mongodb+srv://tommyknight_db_user:bwDKjOn5m9Bxbsre@tee-time-brs.ftri46g.mongodb.net/?appName=tee-time-brs"}
+{"t":"2025-11-05T16:31:32.382Z","level":"info","http":"GET /api/events","status":200,"ms":34}
+{"t":"2025-11-05T16:31:32.382Z","level":"info","http":"GET /api/events","status":200,"ms":34}
+{"t":"2025-11-05T16:31:47.948Z","level":"info","http":"POST /api/subscribe","status":200,"ms":89}
+{"t":"2025-11-05T16:31:47.948Z","level":"info","http":"POST /api/subscribe","status":200,"ms":89}
+{"t":"2025-11-05T16:31:48.826Z","level":"info","msg":"Email queued","to":"tkspam000@gmail.com","subject":"Subscription Confirmed"}
+{"t":"2025-11-05T16:31:48.826Z","level":"info","msg":"Email queued","to":"tkspam000@gmail.com","subject":"Subscription Confirmed"}
+{"t":"2025-11-05T16:31:50.659Z","level":"info","http":"POST /api/subscribe","status":200,"ms":18}
+{"t":"2025-11-05T16:31:50.659Z","level":"info","http":"POST /api/subscribe","status":200,"ms":18}
+{"t":"2025-11-05T16:31:50.847Z","level":"info","msg":"Email queued","to":"tommy.knight@gmail.com","subject":"Subscription Confirmed"}
+{"t":"2025-11-05T16:31:50.847Z","level":"info","msg":"Email queued","to":"tommy.knight@gmail.com","subject":"Subscription Confirmed"}
+{"t":"2025-11-05T16:59:10.068Z","level":"info","msg":"listening","port":3000}
+{"t":"2025-11-05T16:59:10.068Z","level":"info","msg":"listening","port":3000}
+{"t":"2025-11-05T16:59:10.609Z","level":"info","msg":"Mongo connected","uri":"mongodb+srv://tommyknight_db_user:bwDKjOn5m9Bxbsre@tee-time-brs.ftri46g.mongodb.net/?appName=tee-time-brs"}
+{"t":"2025-11-05T16:59:10.609Z","level":"info","msg":"Mongo connected","uri":"mongodb+srv://tommyknight_db_user:bwDKjOn5m9Bxbsre@tee-time-brs.ftri46g.mongodb.net/?appName=tee-time-brs"}
+{"t":"2025-11-05T16:59:31.399Z","level":"info","http":"GET /api/events","status":304,"ms":23}
+{"t":"2025-11-05T16:59:31.399Z","level":"info","http":"GET /api/events","status":304,"ms":23}
+{"t":"2025-11-05T17:01:26.514Z","level":"info","http":"POST /api/subscribe","status":200,"ms":84}
+{"t":"2025-11-05T17:01:26.514Z","level":"info","http":"POST /api/subscribe","status":200,"ms":84}
+{"t":"2025-11-05T17:01:26.737Z","level":"info","msg":"Email queued","to":"tommy.knight@gmail.com","subject":"Subscription Confirmed"}
+{"t":"2025-11-05T17:01:26.737Z","level":"info","msg":"Email queued","to":"tommy.knight@gmail.com","subject":"Subscription Confirmed"}
+{"t":"2025-11-05T17:06:52.999Z","level":"info","http":"GET /api/events","status":304,"ms":30}
+{"t":"2025-11-05T17:06:52.999Z","level":"info","http":"GET /api/events","status":304,"ms":30}
+{"t":"2025-11-05T17:21:01.778Z","level":"info","http":"GET /api/events","status":304,"ms":19}
+{"t":"2025-11-05T17:21:01.778Z","level":"info","http":"GET /api/events","status":304,"ms":19}
+{"t":"2025-11-05T17:21:01.945Z","level":"info","http":"POST /api/events/690a1c6a90700aac88523773/tee-times","status":200,"ms":158}
+{"t":"2025-11-05T17:21:01.945Z","level":"info","http":"POST /api/events/690a1c6a90700aac88523773/tee-times","status":200,"ms":158}
+{"t":"2025-11-05T17:21:01.963Z","level":"info","http":"GET /api/events","status":200,"ms":14}
+{"t":"2025-11-05T17:21:01.963Z","level":"info","http":"GET /api/events","status":200,"ms":14}
+{"t":"2025-11-05T17:21:06.034Z","level":"info","http":"POST /api/events/690a1c6a90700aac88523773/tee-times/690b877d99dfe0d8e0c92097/players","status":200,"ms":50}
+{"t":"2025-11-05T17:21:06.034Z","level":"info","http":"POST /api/events/690a1c6a90700aac88523773/tee-times/690b877d99dfe0d8e0c92097/players","status":200,"ms":50}
+{"t":"2025-11-05T17:21:06.068Z","level":"info","http":"GET /api/events","status":200,"ms":24}
+{"t":"2025-11-05T17:21:06.068Z","level":"info","http":"GET /api/events","status":200,"ms":24}
+{"t":"2025-11-05T17:21:09.356Z","level":"info","http":"POST /api/events/690a1c6a90700aac88523773/tee-times/690b877d99dfe0d8e0c92097/players","status":200,"ms":42}
+{"t":"2025-11-05T17:21:09.356Z","level":"info","http":"POST /api/events/690a1c6a90700aac88523773/tee-times/690b877d99dfe0d8e0c92097/players","status":200,"ms":42}
+{"t":"2025-11-05T17:21:09.383Z","level":"info","http":"GET /api/events","status":200,"ms":16}
+{"t":"2025-11-05T17:21:09.383Z","level":"info","http":"GET /api/events","status":200,"ms":16}
+{"t":"2025-11-05T17:21:18.499Z","level":"info","http":"GET /api/events","status":304,"ms":14}
+{"t":"2025-11-05T17:21:18.499Z","level":"info","http":"GET /api/events","status":304,"ms":14}
+{"t":"2025-11-05T17:24:06.817Z","level":"info","http":"GET /api/events","status":304,"ms":32}
+{"t":"2025-11-05T17:24:06.817Z","level":"info","http":"GET /api/events","status":304,"ms":32}
+{"t":"2025-11-05T18:45:46.317Z","level":"info","msg":"listening","port":3000}
+{"t":"2025-11-05T18:45:46.317Z","level":"info","msg":"listening","port":3000}
+{"t":"2025-11-05T18:45:46.866Z","level":"info","msg":"Mongo connected","uri":"mongodb+srv://tommyknight_db_user:bwDKjOn5m9Bxbsre@tee-time-brs.ftri46g.mongodb.net/?appName=tee-time-brs"}
+{"t":"2025-11-05T18:45:46.866Z","level":"info","msg":"Mongo connected","uri":"mongodb+srv://tommyknight_db_user:bwDKjOn5m9Bxbsre@tee-time-brs.ftri46g.mongodb.net/?appName=tee-time-brs"}
+{"t":"2025-11-05T18:45:50.469Z","level":"info","http":"GET /api/events","status":200,"ms":48}
+{"t":"2025-11-05T18:45:50.469Z","level":"info","http":"GET /api/events","status":200,"ms":48}
+{"t":"2025-11-05T19:00:36.500Z","level":"info","http":"GET /api/events","status":304,"ms":28}
+{"t":"2025-11-05T19:00:36.500Z","level":"info","http":"GET /api/events","status":304,"ms":28}
+{"t":"2025-11-05T19:12:38.752Z","level":"info","http":"GET /api/events","status":304,"ms":17}
+{"t":"2025-11-05T19:12:38.752Z","level":"info","http":"GET /api/events","status":304,"ms":17}
+{"t":"2025-11-05T19:34:33.783Z","level":"info","msg":"listening","port":3000}
+{"t":"2025-11-05T19:34:33.783Z","level":"info","msg":"listening","port":3000}
+{"t":"2025-11-05T19:34:34.331Z","level":"info","msg":"Mongo connected","uri":"mongodb+srv://tommyknight_db_user:bwDKjOn5m9Bxbsre@tee-time-brs.ftri46g.mongodb.net/?appName=tee-time-brs"}
+{"t":"2025-11-05T19:34:34.331Z","level":"info","msg":"Mongo connected","uri":"mongodb+srv://tommyknight_db_user:bwDKjOn5m9Bxbsre@tee-time-brs.ftri46g.mongodb.net/?appName=tee-time-brs"}

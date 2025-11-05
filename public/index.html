@@ -3,66 +3,74 @@
 <head>
   <meta charset="utf-8">
   <title>Tee Times</title>
-  <link rel="stylesheet" href="./style.css">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link href="/style.css" rel="stylesheet">
 </head>
 <body>
-  <header>
-    <h1>Tee Times</h1>
-    <form id="subscribeForm" class="subscribe" autocomplete="off">
-      <input type="email" name="email" placeholder="your@email" required>
+  <header class="bar">
+    <h1 class="title">Tee Times</h1>
+    <form id="subscribeForm" class="row">
+      <input type="email" name="email" placeholder="your@email.com" required>
       <button type="submit">Subscribe</button>
-      <span id="subMsg" aria-live="polite"></span>
+      <span id="subMsg" class="muted"></span>
     </form>
-    <button id="newEventBtn" class="primary">+ Create Event</button>
   </header>
 
-  <main>
-    <section id="events"></section>
+  <main class="wrap">
+    <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+      <button id="newTeeBtn" class="primary">New Tee-Time Event</button>
+      <button id="newTeamBtn" class="primary">New Team Event</button>
+    </div>
+
+    <div id="events"></div>
   </main>
 
-  <!-- Create Event -->
+  <!-- Create Event Modal -->
   <dialog id="eventModal">
     <form id="eventForm" method="dialog">
-      <h3>Create Event</h3>
-      <label>Mode
-        <select name="mode" id="modeSelect">
-          <option value="tees">Tee-times</option>
-          <option value="teams">Teams (2 or 4)</option>
-        </select>
+      <h3 id="eventFormTitle">Create Event</h3>
+
+      <label>Course
+        <input name="course" required placeholder="Course name">
       </label>
-      <label>Course <input name="course" required></label>
-      <label>Date <input type="date" name="date" required></label>
+
+      <label>Date
+        <input name="date" type="date" required>
+      </label>
+
+      <!-- Tee-time fields (shown only for Tee-Time events) -->
       <div id="teeTimeRow">
-        <label>First Tee Time <input type="time" name="teeTime" required></label>
-      </div>
-      <div id="teamSizeRow" hidden>
-        <label>Team Size
-          <select name="teamSizeMax">
-            <option value="2">2</option>
-            <option value="4" selected>4</option>
-          </select>
+        <label>First Tee Time
+          <!-- step=480 seconds = 8 minutes -->
+          <input name="teeTime" type="time" step="480">
         </label>
+        <p class="muted">If left blank, three tees will be created starting at 08:00 by default.</p>
       </div>
-      <label>Notes <textarea name="notes"></textarea></label>
+
+      <!-- Team fields (shown only for Team events) -->
+      <div id="teamSizeRow" hidden>
+        <label>Team size max
+          <input name="teamSizeMax" type="number" min="2" max="4" value="4">
+        </label>
+        <p class="muted">Two teams are created by default: Team 1 and Team 2.</p>
+      </div>
+
+      <label>Notes
+        <textarea name="notes" rows="3" placeholder="Optional notes"></textarea>
+      </label>
+
+      <!-- internal: chosen create mode -->
+      <input type="hidden" name="mode" id="createMode" value="tees">
+
       <menu>
         <button type="button" data-cancel>Cancel</button>
-        <button type="submit" class="primary">Save</button>
+        <button type="submit" class="primary">Create</button>
       </menu>
     </form>
   </dialog>
 
-  <!-- minimal styles to avoid regressions -->
-  <style>
-    body{font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;margin:0;padding:12px}
-    header{display:flex;gap:12px;align-items:center;flex-wrap:wrap}
-    #events{display:grid;gap:12px;margin-top:12px}
-    .card{border:1px solid #ccc;border-radius:8px;padding:12px}
-    .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    .chip{display:inline-flex;gap:6px;align-items:center;border-radius:999px;padding:4px 8px;background:#eee}
-    button{cursor:pointer}
-  </style>
+  <!-- Edit + Move dialogs are injected by script.js -->
 
-  <script src="./script.js"></script>
+  <script src="/script.js" defer></script>
 </body>
 </html>
