@@ -1,0 +1,8 @@
+{"t":"2025-11-07T01:31:20.725Z","level":"info","http":"GET /api/events","status":200,"ms":427}
+{"t":"2025-11-07T01:31:20.725Z","level":"info","http":"GET /api/events","status":200,"ms":427}
+{"t":"2025-11-07T02:55:24.494Z","level":"warn","msg":"Resend dev FROM in use","from":"onboarding@resend.dev","note":"onboarding@resend.dev only works reliably to limited recipients; verify your own domain for production delivery"}
+{"t":"2025-11-07T02:55:24.494Z","level":"warn","msg":"Resend dev FROM in use","from":"onboarding@resend.dev","note":"onboarding@resend.dev only works reliably to limited recipients; verify your own domain for production delivery"}
+{"t":"2025-11-07T02:55:24.498Z","level":"info","msg":"listening","port":4000}
+{"t":"2025-11-07T02:55:24.498Z","level":"info","msg":"listening","port":4000}
+{"t":"2025-11-07T02:55:25.115Z","level":"info","msg":"Mongo connected","uri":"mongodb+srv://tommyknight_db_user:bwDKjOn5m9Bxbsre@tee-time-brs.ftri46g.mongodb.net/?appName=tee-time-brs"}
+{"t":"2025-11-07T02:55:25.115Z","level":"info","msg":"Mongo connected","uri":"mongodb+srv://tommyknight_db_user:bwDKjOn5m9Bxbsre@tee-time-brs.ftri46g.mongodb.net/?appName=tee-time-brs"}

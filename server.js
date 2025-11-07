@@ -7,7 +7,7 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
 const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
 const SITE_URL = process.env.SITE_URL || 'https://tee-time-brs.onrender.com/';
 const LOCAL_TZ = process.env.LOCAL_TZ || 'America/New_York';
@@ -113,6 +113,41 @@ function genTeeTimes(startHHMM, count=3, mins=10) {
   return out;
 }
 
+/* Helper: generate next automatic team name for an event (smallest unused Team N) */
+function nextTeamNameForEvent(ev) {
+  const used = new Set();
+  (ev.teeTimes || []).forEach((tt, idx) => {
+    if (tt && tt.name) used.add(String(tt.name).trim());
+    else used.add(`Team ${idx+1}`);
+  });
+  let n = 1;
+  while (used.has(`Team ${n}`)) n++;
+  return `Team ${n}`;
+}
+
+/* Helper: compute next tee time by searching last valid time and adding mins (default 8), wrap at 24h */
+function nextTeeTimeForEvent(ev, mins = 8, defaultTime = '07:00') {
+  if (ev.teeTimes && ev.teeTimes.length) {
+    for (let i = ev.teeTimes.length - 1; i >= 0; i--) {
+      const lt = ev.teeTimes[i] && ev.teeTimes[i].time;
+      if (typeof lt === 'string') {
+        const m = /^(\d{1,2}):(\d{2})$/.exec(lt.trim());
+        if (m) {
+          const hours = parseInt(m[1], 10);
+          const minutes = parseInt(m[2], 10);
+          if (!Number.isNaN(hours) && !Number.isNaN(minutes)) {
+            const total = hours * 60 + minutes + mins;
+            const newHours = Math.floor(total / 60) % 24;
+            const newMinutes = total % 60;
+            return `${String(newHours).padStart(2, '0')}:${String(newMinutes).padStart(2, '0')}`;
+          }
+        }
+      }
+    }
+  }
+  return defaultTime;
+}
+
 app.get('/api/events', async (_req, res) => {
   const items = await Event.find().sort({ date: 1 }).lean();
   res.json(items);
@@ -170,14 +205,31 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
   const ev = await Event.findById(req.params.id);
   if (!ev) return res.status(404).json({ error: 'Not found' });
   if (ev.isTeamEvent) {
-    const name = (req.body && req.body.name ? String(req.body.name).trim() : '') || undefined;
-    ev.teeTimes.push(name ? { name, players: [] } : { players: [] });
+    // Accept optional name. If missing/blank, auto-assign the next available "Team N".
+    let name = (req.body && typeof req.body.name === 'string') ? String(req.body.name).trim() : '';
+    if (!name) {
+      name = nextTeamNameForEvent(ev);
+    } else {
+      // Defensive: prevent duplicate team names (case-insensitive)
+      const dup = (ev.teeTimes || []).some(t => t && t.name && String(t.name).trim().toLowerCase() === name.toLowerCase());
+      if (dup) return res.status(409).json({ error: 'duplicate team name' });
+    }
+    ev.teeTimes.push({ name, players: [] });
     await ev.save(); return res.json(ev);
   }
+  // For tee times: accept optional time. If missing, compute next time using event data.
   const { time } = req.body || {};
-  if (!time) return res.status(400).json({ error: 'time required HH:MM' });
-  if (ev.teeTimes.some(t => t.time === time)) return res.status(409).json({ error: 'duplicate time' });
-  ev.teeTimes.push({ time, players: [] });
+  let newTime = typeof time === 'string' && time.trim() ? time.trim() : null;
+  if (!newTime) {
+    newTime = nextTeeTimeForEvent(ev, 8, '07:00');
+  }
+  // Validate HH:MM and ranges
+  const m = /^(\d{1,2}):(\d{2})$/.exec(newTime);
+  if (!m) return res.status(400).json({ error: 'time required HH:MM' });
+  const hh = parseInt(m[1], 10); const mm = parseInt(m[2], 10);
+  if (Number.isNaN(hh) || Number.isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return res.status(400).json({ error: 'invalid time' });
+  if (ev.teeTimes.some(t => t.time === newTime)) return res.status(409).json({ error: 'duplicate time' });
+  ev.teeTimes.push({ time: newTime, players: [] });
   await ev.save(); res.json(ev);
 });
 app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
@@ -297,5 +349,10 @@ setInterval(async () => {
   }
 }, 60 * 1000); // check once per minute
 
-app.listen(PORT, () => console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'listening', port:PORT })));
+if (require.main === module) {
+  app.listen(PORT, () => console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'listening', port:PORT })));
+}
 module.exports = app;
+// Export helpers for testing
+module.exports.nextTeamNameForEvent = nextTeamNameForEvent;
+module.exports.nextTeeTimeForEvent = nextTeeTimeForEvent;

@@ -185,25 +185,35 @@
       const isTeams = !!ev.isTeamEvent;
       const tees=(ev.teeTimes||[]).map((tt,idx)=>teeRow(ev,tt,idx,isTeams)).join('');
       card.innerHTML = `
-        <h3 class="card-title">${ev.course || 'Course'}</h3>
-        <div>${fmtDate(ev.date)}</div>
-        <div class="tees">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>
-        <div class="row">
-          <button class="small" data-add-tee="${ev._id}">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>
-          <button class="small" data-edit="${ev._id}">Edit</button>
-          <button class="small" data-del="${ev._id}">Delete</button>
+        <div class="card-header">
+          <div class="card-header-left">
+            <h3 class="card-title">${ev.course || 'Course'}</h3>
+            <div class="card-date">${fmtDate(ev.date)}</div>
+          </div>
+          <div class="button-row">
+            <button class="small" data-add-tee="${ev._id}">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>
+            <button class="small" data-edit="${ev._id}">Edit</button>
+            <button class="small" data-del="${ev._id}">Delete</button>
+          </div>
         </div>
-        <div class="notes">${ev.notes || ''}</div>`;
+        <div class="card-content">
+          <div class="tees">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>
+          ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
+        </div>`;
       eventsEl.appendChild(card);
     }
   }
 
   function teeRow(ev, tt, idx, isTeams){
     const chips = (tt.players || []).map(p => {
-      return `<span class="chip">
-        ${p.name}
-        <button class="icon small" title="Move" data-move="${ev._id}:${tt._id}:${p._id}">↔</button>
-        <button class="icon small danger" title="Remove" data-del-player="${ev._id}:${tt._id}:${p._id}">×</button>
+      // keep a safe-quoted title for tooltips so long names can be seen on hover
+      const safe = String(p.name || '').replace(/"/g, '&quot;');
+      return `<span class="chip" title="${safe}">
+        <span class="chip-label" title="${safe}">${p.name}</span>
+        <span class="chip-actions">
+          <button class="icon small" title="Move" data-move="${ev._id}:${tt._id}:${p._id}">↔</button>
+          <button class="icon small danger" title="Remove" data-del-player="${ev._id}:${tt._id}:${p._id}">×</button>
+        </span>
       </span>`;
     }).join('') || '—';
     const max = ev.teamSizeMax || 4;
@@ -211,12 +221,15 @@
     const left = isTeams ? (tt.name ? tt.name : `Team ${idx+1}`) : (tt.time ? fmtTime(tt.time) : '—');
     const delTitle = isTeams ? 'Remove team' : 'Remove tee time';
     return `<div class="tee">
-      <div class="tee-time">${left}
-        <button class="icon small danger" title="${delTitle}" data-del-tee="${ev._id}:${tt._id}">×</button>
+      <div class="tee-meta">
+        <div class="tee-time">${left}</div>
+        <div class="tee-actions">
+          <button class="icon small danger" title="${delTitle}" data-del-tee="${ev._id}:${tt._id}">×</button>
+        </div>
       </div>
       <div class="tee-players">${chips}</div>
       <div class="row">
-        <button class="small" data-add-player="${ev._id}:${tt._id}" ${full?'disabled':''}>Add Player</button>
+        <button class="small" data-add-player="${ev._id}:${tt._id}" ${full?'disabled':''}>Add\nPlayer</button>
       </div>
     </div>`;
   }
@@ -242,12 +255,43 @@
         const ev=(list||[]).find(x=>x._id===id);
         if(!ev) return;
         if(ev.isTeamEvent){
-          const name = prompt('Team name (optional)') || '';
-          await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ name }) });
-        }else{
-          const time=prompt('New tee time (HH:MM)'); if(!time) return;
-          await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({time}) });
-        }
+            // Build a set of displayed team names (includes unnamed teams rendered as "Team {index+1}")
+            const used = new Set();
+            (ev.teeTimes || []).forEach((tt, idx) => {
+              if (tt && tt.name) used.add(String(tt.name).trim());
+              else used.add(`Team ${idx+1}`);
+            });
+            // Find the smallest Team N not already used
+            let nextTeamNum = 1;
+            while (used.has(`Team ${nextTeamNum}`)) nextTeamNum++;
+            const name = `Team ${nextTeamNum}`;
+            await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ name }) });
+          }else{
+            // Find the last valid HH:MM tee time (search backwards) and add 8 minutes.
+            // If none found, default to 07:00.
+            let time;
+            if (ev.teeTimes && ev.teeTimes.length) {
+              for (let i = ev.teeTimes.length - 1; i >= 0; i--) {
+                const lt = ev.teeTimes[i] && ev.teeTimes[i].time;
+                if (typeof lt === 'string') {
+                  const m = /^(\d{1,2}):(\d{2})$/.exec(lt.trim());
+                  if (m) {
+                    const hours = parseInt(m[1], 10);
+                    const minutes = parseInt(m[2], 10);
+                    if (!Number.isNaN(hours) && !Number.isNaN(minutes)) {
+                      const total = hours * 60 + minutes + 8;
+                      const newHours = Math.floor(total / 60) % 24;
+                      const newMinutes = total % 60;
+                      time = `${String(newHours).padStart(2,'0')}:${String(newMinutes).padStart(2,'0')}`;
+                      break;
+                    }
+                  }
+                }
+              }
+            }
+            if (!time) time = '07:00';
+            await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({time}) });
+          }
         return load();
       }
       if(t.dataset.addPlayer){
