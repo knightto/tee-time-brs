@@ -7,8 +7,9 @@
   const eventsEl = $('#events');
   const modal = $('#eventModal');
   const eventForm = $('#eventForm');
-  const newEventBtn = $('#newEventBtn');
-  const modeSelect = $('#modeSelect');
+  const newTeeBtn = $('#newTeeBtn');
+  const newTeamBtn = $('#newTeamBtn');
+  const createModeInput = $('#createMode');
   const teeTimeRow = $('#teeTimeRow');
   const teamSizeRow = $('#teamSizeRow');
   const subForm = $('#subscribeForm');
@@ -127,13 +128,20 @@
   }
   async function api(path, opts){ const r=await fetch(path, opts); if(!r.ok) throw new Error('HTTP '+r.status); const ct=r.headers.get('content-type')||''; return ct.includes('application/json')?r.json():r.text(); }
 
-  // Create toggles
-  on(newEventBtn, 'click', ()=> modal?.showModal?.() ?? modal?.setAttribute('open',''));
-  on(modeSelect, 'change', () => {
-    const teams = modeSelect.value === 'teams';
-    if (teeTimeRow) teeTimeRow.hidden = teams;
-    if (teamSizeRow) teamSizeRow.hidden = !teams;
-    if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = !teams;
+  // Create Event: open modal in the requested mode (tees or teams)
+  on(newTeeBtn, 'click', () => {
+    if (createModeInput) createModeInput.value = 'tees';
+    if (teeTimeRow) teeTimeRow.hidden = false;
+    if (teamSizeRow) teamSizeRow.hidden = true;
+    if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = false; // optional; server can auto-generate
+    modal?.showModal?.();
+  });
+  on(newTeamBtn, 'click', () => {
+    if (createModeInput) createModeInput.value = 'teams';
+    if (teeTimeRow) teeTimeRow.hidden = true;
+    if (teamSizeRow) teamSizeRow.hidden = false;
+    if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = false;
+    modal?.showModal?.();
   });
 
   // Dialog cancel
@@ -260,8 +268,23 @@
   }
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del]')||e.target);
+    const t=(e.target.closest('[data-edit-tee],[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del]')||e.target);
     try{
+      if(t.dataset.editTee){
+        const [eventId, teeId] = t.dataset.editTee.split(':');
+        const list = await api('/api/events');
+        const ev = (list||[]).find(x=>x._id===eventId); if(!ev) return;
+        const tt = (ev.teeTimes||[]).find(x=>String(x._id)===String(teeId)); if(!tt) return;
+        const isTeam = !!ev.isTeamEvent;
+        editTeeTitle.textContent = isTeam ? 'Edit Team Name' : 'Edit Tee Time';
+        editTeeLabel.textContent = isTeam ? 'Team name' : 'Tee time (HH:MM)';
+        editTeeForm.elements['value'].value = isTeam ? (tt.name||'') : (tt.time||'');
+        editTeeForm.elements['eventId'].value = eventId;
+        editTeeForm.elements['teeId'].value = teeId;
+        editTeeForm.elements['isTeam'].value = String(isTeam);
+        editTeeModal.showModal();
+        return;
+      }
       if(t.dataset.delTee){
         const [eventId, teeId] = t.dataset.delTee.split(':');
         if(!confirm('Remove this tee/team?')) return;
@@ -327,6 +350,22 @@
         return load();
       }
     }catch(err){ console.error(err); alert('Action failed'); }
+  });
+
+  // Edit tee/team submit
+  on(editTeeForm, 'submit', async (e)=>{
+    e.preventDefault();
+    const eventId = editTeeForm.elements['eventId'].value;
+    const teeId = editTeeForm.elements['teeId'].value;
+    const isTeam = editTeeForm.elements['isTeam'].value === 'true';
+    const value = String(editTeeForm.elements['value'].value||'').trim();
+    if(!value){ alert(isTeam?'Name required':'Time required (HH:MM)'); return; }
+    try{
+      const payload = isTeam ? { name: value } : { time: value };
+      await api(`/api/events/${eventId}/tee-times/${teeId}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      editTeeModal.close?.();
+      load();
+    }catch(err){ console.error(err); alert('Save failed'); }
   });
 
   async function openMoveDialog(eventId, fromTeeId, playerId){

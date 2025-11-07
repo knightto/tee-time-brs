@@ -7,7 +7,7 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
 const SITE_URL = process.env.SITE_URL || 'https://tee-time-brs.onrender.com/';
 const LOCAL_TZ = process.env.LOCAL_TZ || 'America/New_York';
@@ -254,6 +254,36 @@ app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
   tt.players.push({ name });
   await ev.save(); res.json(ev);
 });
+/* Update a tee slot: time (for tee-time events) or name (for team events) */
+app.put('/api/events/:id/tee-times/:teeId', async (req, res) => {
+  try {
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    const tt = ev.teeTimes.id(req.params.teeId);
+    if (!tt) return res.status(404).json({ error: 'tee/team not found' });
+
+    if (ev.isTeamEvent) {
+      let { name } = req.body || {};
+      name = typeof name === 'string' ? name.trim() : '';
+      if (!name) return res.status(400).json({ error: 'name required' });
+      const dup = (ev.teeTimes || []).some(s => String(s._id) !== String(tt._id) && s && s.name && String(s.name).trim().toLowerCase() === name.toLowerCase());
+      if (dup) return res.status(409).json({ error: 'duplicate team name' });
+      tt.name = name;
+    } else {
+      let { time } = req.body || {};
+      time = typeof time === 'string' ? time.trim() : '';
+      const m = /^([0-1]?\d|2[0-3]):([0-5]\d)$/.exec(time);
+      if (!m) return res.status(400).json({ error: 'time required HH:MM' });
+      const conflict = (ev.teeTimes || []).some(s => String(s._id) !== String(tt._id) && s && s.time === time);
+      if (conflict) return res.status(409).json({ error: 'duplicate time' });
+      tt.time = time;
+    }
+    await ev.save();
+    return res.json(ev);
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
 app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res) => {
   try {
     const ev = await Event.findById(req.params.id);
@@ -348,22 +378,26 @@ app.get('/admin/run-reminders', async (req, res) => {
   catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
-/* 5:00 PM local scheduler without extra deps */
-let lastRunForYMD = null;
-setInterval(async () => {
-  try {
-    const now = new Date();
-    const parts = new Intl.DateTimeFormat('en-US', { timeZone: LOCAL_TZ, hour:'2-digit', minute:'2-digit', hour12:false }).format(now).split(':');
-    const hour = Number(parts[0]), minute = Number(parts[1]);
-    const todayLocalYMD = ymdInTZ(now, LOCAL_TZ);
-    if (hour === 17 && minute === 0 && lastRunForYMD !== todayLocalYMD) {
-      lastRunForYMD = todayLocalYMD;
-      await runReminderIfNeeded('auto-17:00');
+/* 5:00 PM local scheduler without extra deps
+   Only enable when running as the entry point (not when imported by tests)
+   and when ENABLE_SCHEDULER is not explicitly disabled. */
+if (require.main === module && process.env.ENABLE_SCHEDULER !== '0') {
+  let lastRunForYMD = null;
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      const parts = new Intl.DateTimeFormat('en-US', { timeZone: LOCAL_TZ, hour:'2-digit', minute:'2-digit', hour12:false }).format(now).split(':');
+      const hour = Number(parts[0]), minute = Number(parts[1]);
+      const todayLocalYMD = ymdInTZ(now, LOCAL_TZ);
+      if (hour === 17 && minute === 0 && lastRunForYMD !== todayLocalYMD) {
+        lastRunForYMD = todayLocalYMD;
+        await runReminderIfNeeded('auto-17:00');
+      }
+    } catch (e) {
+      console.error('reminder tick error', e);
     }
-  } catch (e) {
-    console.error('reminder tick error', e);
-  }
-}, 60 * 1000); // check once per minute
+  }, 60 * 1000); // check once per minute
+}
 
 if (require.main === module) {
   app.listen(PORT, () => console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'listening', port:PORT })));
