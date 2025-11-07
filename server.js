@@ -254,6 +254,22 @@ app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
   tt.players.push({ name });
   await ev.save(); res.json(ev);
 });
+app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res) => {
+  try {
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    const tt = ev.teeTimes.id(req.params.teeId);
+    if (!tt) return res.status(404).json({ error: 'tee/team not found' });
+    if (!Array.isArray(tt.players)) tt.players = [];
+    const idx = tt.players.findIndex(p => String(p._id) === String(req.params.playerId));
+    if (idx === -1) return res.status(404).json({ error: 'player not found' });
+    tt.players.splice(idx, 1);
+    await ev.save();
+    return res.json(ev);
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
 app.post('/api/events/:id/move-player', async (req, res) => {
   const { fromTeeId, toTeeId, playerId } = req.body || {};
   if (!fromTeeId || !toTeeId || !playerId) return res.status(400).json({ error: 'fromTeeId, toTeeId, playerId required' });
@@ -332,22 +348,26 @@ app.get('/admin/run-reminders', async (req, res) => {
   catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
-/* 5:00 PM local scheduler without extra deps */
-let lastRunForYMD = null;
-setInterval(async () => {
-  try {
-    const now = new Date();
-    const parts = new Intl.DateTimeFormat('en-US', { timeZone: LOCAL_TZ, hour:'2-digit', minute:'2-digit', hour12:false }).format(now).split(':');
-    const hour = Number(parts[0]), minute = Number(parts[1]);
-    const todayLocalYMD = ymdInTZ(now, LOCAL_TZ);
-    if (hour === 17 && minute === 0 && lastRunForYMD !== todayLocalYMD) {
-      lastRunForYMD = todayLocalYMD;
-      await runReminderIfNeeded('auto-17:00');
+/* 5:00 PM local scheduler without extra deps
+   Only enable when running as the entry point (not when imported by tests)
+   and when ENABLE_SCHEDULER is not explicitly disabled. */
+if (require.main === module && process.env.ENABLE_SCHEDULER !== '0') {
+  let lastRunForYMD = null;
+  setInterval(async () => {
+    try {
+      const now = new Date();
+      const parts = new Intl.DateTimeFormat('en-US', { timeZone: LOCAL_TZ, hour:'2-digit', minute:'2-digit', hour12:false }).format(now).split(':');
+      const hour = Number(parts[0]), minute = Number(parts[1]);
+      const todayLocalYMD = ymdInTZ(now, LOCAL_TZ);
+      if (hour === 17 && minute === 0 && lastRunForYMD !== todayLocalYMD) {
+        lastRunForYMD = todayLocalYMD;
+        await runReminderIfNeeded('auto-17:00');
+      }
+    } catch (e) {
+      console.error('reminder tick error', e);
     }
-  } catch (e) {
-    console.error('reminder tick error', e);
-  }
-}, 60 * 1000); // check once per minute
+  }, 60 * 1000); // check once per minute
+}
 
 if (require.main === module) {
   app.listen(PORT, () => console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'listening', port:PORT })));

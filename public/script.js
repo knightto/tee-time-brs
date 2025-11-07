@@ -7,8 +7,9 @@
   const eventsEl = $('#events');
   const modal = $('#eventModal');
   const eventForm = $('#eventForm');
-  const newEventBtn = $('#newEventBtn');
-  const modeSelect = $('#modeSelect');
+  const newTeeBtn = $('#newTeeBtn');
+  const newTeamBtn = $('#newTeamBtn');
+  const createModeInput = $('#createMode');
   const teeTimeRow = $('#teeTimeRow');
   const teamSizeRow = $('#teamSizeRow');
   const subForm = $('#subscribeForm');
@@ -127,13 +128,20 @@
   }
   async function api(path, opts){ const r=await fetch(path, opts); if(!r.ok) throw new Error('HTTP '+r.status); const ct=r.headers.get('content-type')||''; return ct.includes('application/json')?r.json():r.text(); }
 
-  // Create toggles
-  on(newEventBtn, 'click', ()=> modal?.showModal?.() ?? modal?.setAttribute('open',''));
-  on(modeSelect, 'change', () => {
-    const teams = modeSelect.value === 'teams';
-    if (teeTimeRow) teeTimeRow.hidden = teams;
-    if (teamSizeRow) teamSizeRow.hidden = !teams;
-    if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = !teams;
+  // Create Event: open modal in the requested mode (tees or teams)
+  on(newTeeBtn, 'click', () => {
+    if (createModeInput) createModeInput.value = 'tees';
+    if (teeTimeRow) teeTimeRow.hidden = false;
+    if (teamSizeRow) teamSizeRow.hidden = true;
+    if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = false; // optional; server can auto-generate
+    modal?.showModal?.();
+  });
+  on(newTeamBtn, 'click', () => {
+    if (createModeInput) createModeInput.value = 'teams';
+    if (teeTimeRow) teeTimeRow.hidden = true;
+    if (teamSizeRow) teamSizeRow.hidden = false;
+    if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = false;
+    modal?.showModal?.();
   });
 
   // Dialog cancel
