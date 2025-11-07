@@ -1,90 +1,81 @@
-# AI Development Guide - Tee Time Booking System
+# Tee Time BRS — AI working notes
 
-## Architecture Overview
-This is a golf tee time booking and team organization system with:
-- Express.js backend (`server.js`) handling REST API endpoints and email notifications
-- Zero-build frontend SPA (`public/script.js` + `public/index.html`)
-- MongoDB storage with Mongoose models (`models/`)
-- Optional email notifications via Resend API
+## Big picture
+- Express server in `server.js` exposes a small REST API for golf events and subscriptions.
+- Zero-build SPA in `public/` (`script.js`, `index.html`) calls the API directly via `fetch`.
+- MongoDB via Mongoose models in `models/` (`Event.js`, `Subscriber.js`).
+- Optional email via Resend; daily 5:00 PM `LOCAL_TZ` reminder emails for empty tee times + manual trigger.
 
-## Key Components
+## Where to look
+- `server.js` — routes, date helpers (`asUTCDate`, `fmt`), reminder scheduler, exports `nextTeamNameForEvent` and `nextTeeTimeForEvent` used by tests.
+- `models/Event.js` — schema for tee-time vs team events; `teamSizeMax` (2–4); pre-validation requires `time` for non-team events.
+- `public/script.js` — dialog-driven UI (create/edit/move/edit-tee), data-* attributes, and a thin `api()` wrapper around `fetch`.
 
-### Data Models
-- `Event`: Core model for golf events
-  - Regular tee-time events: Sequential time slots with players
-  - Team events: Named teams with variable size (2-4 players)
-- `Subscriber`: Email subscribers for notifications
-- See `models/Event.js` and `models/Subscriber.js` for schema details
+## API contracts (what exists today)
+- GET `/api/events` → array of events (sorted by date asc).
+- POST `/api/events` { course, date, notes, isTeamEvent, teamSizeMax, teeTime? | teeTimes? } → creates event; for non-team, tee times can be auto-generated.
+- PUT `/api/events/:id` → updates `course`, `date`, `notes`, `isTeamEvent`, `teamSizeMax`.
+- DELETE `/api/events/:id?code=ADMIN_DELETE_CODE` → hard delete.
+- POST `/api/events/:id/tee-times` →
+  - Team events: optional `{ name }`; missing name auto-assigns smallest unused “Team N”; duplicates rejected (409).
+  - Tee-time events: body may be `{}`; server computes next HH:MM (+8 min from last; default `07:00`; wraps 24h).
+- DELETE `/api/events/:id/tee-times/:teeId` → remove a tee/team.
+- POST `/api/events/:id/tee-times/:teeId/players` { name } → add player (enforces capacity: 4 or `teamSizeMax`).
+- DELETE `/api/events/:id/tee-times/:teeId/players/:playerId` → remove a player (expected by `public/script.js`; server route not present in `server.js` as of this commit — see “Known gaps”).
+- POST `/api/events/:id/move-player` { fromTeeId, toTeeId, playerId } → move with capacity checks.
+- POST `/api/subscribe` { email } → upsert subscriber and send confirmation (if email configured).
+- GET `/admin/run-reminders?code=ADMIN_DELETE_CODE` → send reminder emails now (same logic as daily scheduler).
 
-### Frontend Architecture
-- Pure JavaScript SPA without build tools
-- Dialog-based UI for event/team management
-- Key files:
-  - `public/script.js`: Core UI logic and API integration
-  - `public/style.css`: Golf-themed UI with blue/gray palette
-  - `public/index.html`: Base layout and dialogs
+## Dates, time, and IDs
+- Dates are stored as noon UTC. Use `asUTCDate()` on input; client formats with `timeZone:'UTC'` for consistent display.
+- Times are `HH:MM` 24h strings; server validates; AM/PM rendering only for emails (`fmt.tee`).
+- For team events, slots use `name`; for tee-time events, slots use `time`.
 
-### Backend Architecture
-- REST API in `server.js`
-- File-based logging to `./logs/`
-- Email notifications for event changes
-- Environment config via `.env`
+## Dev & run
+- Env vars (typical): `MONGO_URI`, `MONGO_DB`, `ADMIN_DELETE_CODE`, `SITE_URL`, `RESEND_API_KEY`, `RESEND_FROM`, `CORS_ORIGIN` (comma-separated), `LOCAL_TZ`, `PORT`.
+- Scripts: `npm run dev` (nodemon), `npm start`, `npm test`, `npm run lint`, `npm run format`.
+- CORS is controlled via `CORS_ORIGIN`; rate limiting is enabled globally.
 
-## Development Patterns
+### Try it locally
+1) Create `.env` (emails optional; leave blank to disable):
 
-### API Conventions
-- GET `/api/events`: List all events
-- POST `/api/events`: Create event 
-- PUT `/api/events/:id`: Update event details
-- DELETE `/api/events/:id`: Delete event (requires admin code)
-- POST `/api/events/:id/tee-times`: Add tee time/team
-- DELETE `/api/events/:id/tee-times/:teeId`: Remove tee time/team
-- POST `/api/events/:id/tee-times/:teeId/players`: Add player
-- POST `/api/events/:id/move-player`: Move player between tee times/teams
-
-### Date/Time Handling
-- Store dates as noon UTC to avoid timezone issues
-- Display times in AM/PM format (e.g. "8:00 AM")
-- See time parsing utilities in `server.js`
-
-### Security
-- Admin delete operations require `ADMIN_DELETE_CODE`
-- Rate limiting on all endpoints
-- CORS configuration via env vars
-
-## Key Files
-- `server.js`: Main Express application and API routes
-- `models/Event.js`: Core event schema and validation
-- `public/script.js`: Frontend SPA implementation
-- `public/style.css`: UI theme and components
-- `public/index.html`: Page structure and dialogs
-
-## Development Workflow
-
-### Required Environment Variables
 ```
-MONGO_URI=mongodb://...
-MONGO_DB=dbname
-ADMIN_DELETE_CODE=secretcode
-SITE_URL=https://...
-RESEND_API_KEY=re_... 
-RESEND_FROM=email@domain.com
+MONGO_URI=mongodb://127.0.0.1:27017/teetimes
+MONGO_DB=tee-times-dev
+ADMIN_DELETE_CODE=dev123
+SITE_URL=http://localhost:5000/
+RESEND_API_KEY=
+RESEND_FROM=
+CORS_ORIGIN=http://localhost:5000
+LOCAL_TZ=America/New_York
+PORT=5000
 ```
 
-### Local Development
-1. Copy `.env.sample` to `.env` and configure
-2. `npm install` for dependencies
-3. `npm run dev` for development with auto-reload
+2) Install and run:
 
-### Database Migrations
-See `/scripts` folder for migration utilities:
-- `migrate_v1_to_v2.js`: Convert legacy format
-- `migrate_existing_db.js`: Normalize data structure
-- `normalize.js`: Fix date formats
-- `backfill_titles.js`: Populate missing titles
+```powershell
+npm install
+npm run dev
+```
 
-## Error Handling
-- Frontend displays user-friendly alerts 
-- Backend logs to `./logs/{YYYY-MM-DD}.log`
-- Email errors are logged but non-blocking
-- See error handling patterns in `server.js`
+3) Optional checks:
+
+```powershell
+npm test
+npm run lint
+```
+
+## Testing
+- Plain Node scripts in `tests/` (no Jest). `tests/test_server_helpers.js` imports `server.js` and calls exported helpers.
+- `tests/test_add_tee.js` mirrors client add-tee logic (team naming and 8‑minute increments). `tests/test_render_order.js` checks client-side sort by date.
+
+## Patterns & gotchas
+- Auto team naming treats unnamed slots as “Team {index+1}” to avoid collisions; server also rejects duplicate names case-insensitively.
+- `nextTeeTimeForEvent` scans last valid slot, adds 8 minutes, wraps to `00:xx`, defaults to `07:00` if none.
+- Capacity: 4 by default; team events honor `teamSizeMax` (2–4). Moves fail if destination is full.
+- README at repo root describes an older localStorage-only variant; prefer `server.js` and `package.json` for current behavior.
+
+### Known gaps / clarifications
+- Frontend expects `DELETE /api/events/:id/tee-times/:teeId/players/:playerId` (see `data-del-player` in `public/script.js`), but this route isn’t defined in `server.js`. If you add it, match the path/IDs and return the updated event JSON. Capacity rules don’t apply to deletions.
+- Daily reminder scheduler (5:00 PM `LOCAL_TZ`) runs every minute; with email disabled, it logs and no-ops.
+- Server logs to stdout with JSON-ish lines; there’s no file logger in this repo.

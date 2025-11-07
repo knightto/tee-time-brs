@@ -60,8 +60,27 @@
     </dialog>`;
     document.body.appendChild(tpl.firstElementChild);
   }
+  function ensureEditTeeDialog(){
+    if ($('#editTeeModal')) return;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<dialog id="editTeeModal">
+      <form id="editTeeForm" method="dialog">
+        <h3 id="editTeeTitle">Edit</h3>
+        <label><span id="editTeeLabel">Name</span> <input name="value" required></label>
+        <input type="hidden" name="eventId">
+        <input type="hidden" name="teeId">
+        <input type="hidden" name="isTeam">
+        <menu>
+          <button type="button" data-cancel>Cancel</button>
+          <button type="submit" class="primary">Save</button>
+        </menu>
+      </form>
+    </dialog>`;
+    document.body.appendChild(wrap.firstElementChild);
+  }
   ensureEditDialog();
   ensureMoveDialog();
+  ensureEditTeeDialog();
 
   const editModal = $('#editModal');
   const editForm = $('#editForm');
@@ -71,6 +90,10 @@
   const moveForm = $('#moveForm');
   const moveChoices = $('#moveChoices');
   const moveTitle = $('#moveTitle');
+  const editTeeModal = $('#editTeeModal');
+  const editTeeForm = $('#editTeeForm');
+  const editTeeTitle = $('#editTeeTitle');
+  const editTeeLabel = $('#editTeeLabel');
 
   if (!eventsEl) return;
 
@@ -220,10 +243,12 @@
     const full = (tt.players || []).length >= (isTeams ? max : 4);
     const left = isTeams ? (tt.name ? tt.name : `Team ${idx+1}`) : (tt.time ? fmtTime(tt.time) : '—');
     const delTitle = isTeams ? 'Remove team' : 'Remove tee time';
+    const editTitle = isTeams ? 'Edit team name' : 'Edit tee time';
     return `<div class="tee">
       <div class="tee-meta">
         <div class="tee-time">${left}</div>
         <div class="tee-actions">
+          <button class="icon small" title="${editTitle}" data-edit-tee="${ev._id}:${tt._id}">✎</button>
           <button class="icon small danger" title="${delTitle}" data-del-tee="${ev._id}:${tt._id}">×</button>
         </div>
       </div>
@@ -267,30 +292,8 @@
             const name = `Team ${nextTeamNum}`;
             await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ name }) });
           }else{
-            // Find the last valid HH:MM tee time (search backwards) and add 8 minutes.
-            // If none found, default to 07:00.
-            let time;
-            if (ev.teeTimes && ev.teeTimes.length) {
-              for (let i = ev.teeTimes.length - 1; i >= 0; i--) {
-                const lt = ev.teeTimes[i] && ev.teeTimes[i].time;
-                if (typeof lt === 'string') {
-                  const m = /^(\d{1,2}):(\d{2})$/.exec(lt.trim());
-                  if (m) {
-                    const hours = parseInt(m[1], 10);
-                    const minutes = parseInt(m[2], 10);
-                    if (!Number.isNaN(hours) && !Number.isNaN(minutes)) {
-                      const total = hours * 60 + minutes + 8;
-                      const newHours = Math.floor(total / 60) % 24;
-                      const newMinutes = total % 60;
-                      time = `${String(newHours).padStart(2,'0')}:${String(newMinutes).padStart(2,'0')}`;
-                      break;
-                    }
-                  }
-                }
-              }
-            }
-            if (!time) time = '07:00';
-            await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({time}) });
+            // Let the server calculate the next tee time (8 minutes after last)
+            await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({}) });
           }
         return load();
       }
