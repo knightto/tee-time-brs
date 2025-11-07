@@ -7,7 +7,7 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 4000;
 const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
 const SITE_URL = process.env.SITE_URL || 'https://tee-time-brs.onrender.com/';
 const LOCAL_TZ = process.env.LOCAL_TZ || 'America/New_York';

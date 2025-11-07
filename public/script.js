@@ -1,4 +1,4 @@
-/* public/script.js v3.12 — edit modal, radio move, UTC dates */
+/* public/script.js v3.13 — calendar view with date selection */
 (() => {
   'use strict';
   const $ = (s, r=document) => r.querySelector(s);
@@ -14,6 +14,18 @@
   const teamSizeRow = $('#teamSizeRow');
   const subForm = $('#subscribeForm');
   const subMsg = $('#subMsg');
+
+  // Calendar elements
+  const calendarGrid = $('#calendarGrid');
+  const currentMonthEl = $('#currentMonth');
+  const prevMonthBtn = $('#prevMonth');
+  const nextMonthBtn = $('#nextMonth');
+  const selectedDateTitle = $('#selectedDateTitle');
+
+  // State
+  let allEvents = [];
+  let currentDate = new Date();
+  let selectedDate = null;
 
   // Inject Edit dialog
   function ensureEditDialog(){
@@ -134,6 +146,9 @@
     if (teeTimeRow) teeTimeRow.hidden = false;
     if (teamSizeRow) teamSizeRow.hidden = true;
     if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = false; // optional; server can auto-generate
+    if (selectedDate && eventForm?.elements?.['date']) {
+      eventForm.elements['date'].value = selectedDate;
+    }
     modal?.showModal?.();
   });
   on(newTeamBtn, 'click', () => {
@@ -141,6 +156,9 @@
     if (teeTimeRow) teeTimeRow.hidden = true;
     if (teamSizeRow) teamSizeRow.hidden = false;
     if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = false;
+    if (selectedDate && eventForm?.elements?.['date']) {
+      eventForm.elements['date'].value = selectedDate;
+    }
     modal?.showModal?.();
   });
 
@@ -207,7 +225,171 @@
     }catch{ if(subMsg) subMsg.textContent='Failed'; }
   });
 
-  async function load(){ try{ const list=await api('/api/events'); render(Array.isArray(list)?list:[]);}catch(e){ console.error(e); eventsEl.innerHTML='<div class="card">Failed to load events.</div>'; } }
+  // Calendar functions
+  function renderCalendar() {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    
+    // Update month/year title
+    currentMonthEl.textContent = new Date(year, month, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    
+    // Clear grid
+    calendarGrid.innerHTML = '';
+    
+    // Add day headers
+    const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    dayHeaders.forEach(day => {
+      const header = document.createElement('div');
+      header.className = 'calendar-day-header';
+      header.textContent = day;
+      calendarGrid.appendChild(header);
+    });
+    
+    // Get first day of month and number of days
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+    
+    // Build event date map (YYYY-MM-DD format)
+    const eventDates = new Set();
+    allEvents.forEach(ev => {
+      if (ev.date) {
+        const dateStr = String(ev.date).slice(0, 10);
+        eventDates.add(dateStr);
+      }
+    });
+    
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+    
+    // Previous month days
+    for (let i = firstDay - 1; i >= 0; i--) {
+      const day = daysInPrevMonth - i;
+      const dayEl = createDayElement(day, year, month - 1, true);
+      calendarGrid.appendChild(dayEl);
+    }
+    
+    // Current month days
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayEl = createDayElement(day, year, month, false);
+      const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      
+      if (dateStr === todayStr) {
+        dayEl.classList.add('today');
+      }
+      
+      if (eventDates.has(dateStr)) {
+        dayEl.classList.add('has-events');
+      }
+      
+      if (selectedDate && dateStr === selectedDate) {
+        dayEl.classList.add('selected');
+      }
+      
+      calendarGrid.appendChild(dayEl);
+    }
+    
+    // Next month days
+    const totalCells = firstDay + daysInMonth;
+    const remainingCells = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+    for (let day = 1; day <= remainingCells; day++) {
+      const dayEl = createDayElement(day, year, month + 1, true);
+      calendarGrid.appendChild(dayEl);
+    }
+  }
+  
+  function createDayElement(day, year, month, isOtherMonth) {
+    const dayEl = document.createElement('div');
+    dayEl.className = 'calendar-day';
+    if (isOtherMonth) dayEl.classList.add('other-month');
+    dayEl.textContent = day;
+    
+    // Handle month overflow
+    let actualYear = year;
+    let actualMonth = month;
+    if (month < 0) {
+      actualMonth = 11;
+      actualYear--;
+    } else if (month > 11) {
+      actualMonth = 0;
+      actualYear++;
+    }
+    
+    const dateStr = `${actualYear}-${String(actualMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    
+    dayEl.addEventListener('click', () => {
+      if (isOtherMonth) {
+        // Navigate to other month when clicking its days
+        currentDate = new Date(actualYear, actualMonth, day);
+        renderCalendar();
+      }
+      selectDate(dateStr);
+    });
+    
+    return dayEl;
+  }
+  
+  function selectDate(dateStr) {
+    selectedDate = dateStr;
+    renderCalendar();
+    renderEventsForDate();
+  }
+  
+  function renderEventsForDate() {
+    if (!selectedDate) {
+      selectedDateTitle.textContent = 'Select a date';
+      eventsEl.innerHTML = '<div style="color:var(--ink-2);padding:20px;text-align:center">Select a date from the calendar to view tee times</div>';
+      return;
+    }
+    
+    const date = new Date(selectedDate + 'T12:00:00Z');
+    selectedDateTitle.textContent = date.toLocaleDateString(undefined, { 
+      weekday: 'long', 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric',
+      timeZone: 'UTC'
+    });
+    
+    const filtered = allEvents.filter(ev => {
+      if (!ev.date) return false;
+      const evDateStr = String(ev.date).slice(0, 10);
+      return evDateStr === selectedDate;
+    });
+    
+    if (filtered.length === 0) {
+      eventsEl.innerHTML = '<div style="color:var(--ink-2);padding:20px;text-align:center">No events scheduled for this date</div>';
+    } else {
+      render(filtered);
+    }
+  }
+  
+  // Calendar navigation
+  on(prevMonthBtn, 'click', () => {
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    renderCalendar();
+  });
+  
+  on(nextMonthBtn, 'click', () => {
+    currentDate.setMonth(currentDate.getMonth() + 1);
+    renderCalendar();
+  });
+
+  async function load(){ 
+    try{ 
+      const list = await api('/api/events'); 
+      allEvents = Array.isArray(list) ? list : [];
+      renderCalendar();
+      if (selectedDate) {
+        renderEventsForDate();
+      } else {
+        eventsEl.innerHTML = '<div style="color:var(--ink-2);padding:20px;text-align:center">Select a date from the calendar to view tee times</div>';
+      }
+    } catch(e) { 
+      console.error(e); 
+      eventsEl.innerHTML='<div class="card">Failed to load events.</div>'; 
+    } 
+  }
 
   function render(list){
     eventsEl.innerHTML='';

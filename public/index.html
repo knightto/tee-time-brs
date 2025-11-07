@@ -17,12 +17,29 @@
   </header>
 
   <main class="wrap">
-    <div class="row" style="gap:8px;flex-wrap:wrap;margin-bottom:12px;">
-      <button id="newTeeBtn" class="primary">New Tee-Time Event</button>
-      <button id="newTeamBtn" class="primary">New Team Event</button>
-    </div>
+    <div class="main-layout">
+      <!-- Left sidebar: Calendar -->
+      <aside class="calendar-sidebar">
+        <div class="calendar-header">
+          <button id="prevMonth" class="icon" title="Previous month">‹</button>
+          <h2 id="currentMonth">Month Year</h2>
+          <button id="nextMonth" class="icon" title="Next month">›</button>
+        </div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+        <div class="calendar-actions">
+          <button id="newTeeBtn" class="primary">New Tee-Time Event</button>
+          <button id="newTeamBtn" class="primary">New Team Event</button>
+        </div>
+      </aside>
 
-    <div id="events"></div>
+      <!-- Right side: Events -->
+      <div class="events-container">
+        <div class="events-header">
+          <h2 id="selectedDateTitle">Select a date</h2>
+        </div>
+        <div id="events"></div>
+      </div>
+    </div>
   </main>
 
   <!-- Create Event Modal -->
