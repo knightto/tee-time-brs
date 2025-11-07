@@ -106,7 +106,7 @@ button[disabled]{opacity:.55;cursor:not-allowed}
   border:1px solid var(--line);
   border-radius:var(--radius);
   overflow:hidden;
-  min-height:140px;
+  min-height:120px; /* slightly reduced card height for compactness */
 }
 
 .tee-header{
@@ -135,11 +135,11 @@ button[disabled]{opacity:.55;cursor:not-allowed}
 .tee-players{
   display:grid;
   grid-template-columns:repeat(2, 1fr);
-  column-gap:12px;
-  row-gap:8px;
+  column-gap:8px; /* tighter columns */
+  row-gap:6px; /* tighter rows */
   align-content:start;
-  min-height:60px;
-  padding:2px 2px 4px;
+  min-height:40px; /* reduced to allow more compact lists */
+  padding:0 2px 2px; /* trim wrapper padding */
 }
 
 .chip{
@@ -149,11 +149,15 @@ button[disabled]{opacity:.55;cursor:not-allowed}
   background:#fff;
   border:1px solid var(--slate-200);
   border-radius:var(--radius);
-  padding:10px 14px;
+  padding-block:4px; /* reduce vertical padding */
+  padding-inline:8px; /* slightly tighter horizontal padding */
   box-shadow:var(--shadow-sm);
-  transition:all 0.2s ease;
-  height:48px;
+  transition:all 0.18s ease;
+  min-height:32px; /* allow natural height but keep compact baseline */
+  height:auto;
+  position:relative; /* allow centering the label while keeping actions at right */
 }
+
 
 .chip:hover{
   border-color:var(--slate-300);
@@ -162,7 +166,7 @@ button[disabled]{opacity:.55;cursor:not-allowed}
 
 .chip-label{
   display:block;
-  max-width:32ch;
+  max-width:calc(100% - 64px); /* leave room for action buttons */
   min-width:0;
   white-space:nowrap;
   overflow:hidden;
@@ -170,6 +174,10 @@ button[disabled]{opacity:.55;cursor:not-allowed}
   font-weight:500;
   color:var(--blue-700);
   letter-spacing:0.1px;
+  line-height:1.05; /* slightly taller than 1 to avoid clipping */
+  font-size:0.92rem; /* slight font-size reduction */
+  margin:0 auto; /* center horizontally inside the chip */
+  text-align:center;
 }
 
 .chip-actions{
@@ -178,20 +186,27 @@ button[disabled]{opacity:.55;cursor:not-allowed}
   margin-left:6px;
   padding-left:6px;
   border-left:1px solid var(--slate-200);
+  position:absolute; /* keep actions visually at the right when label is centered */
+  right:6px;
+  top:50%;
+  transform:translateY(-50%);
 }
 
 .chip button{
-  padding:6px;
-  width:28px;
-  height:28px;
+  padding:3px;
+  width:22px;
+  height:22px;
   line-height:1;
   border:none;
-  border-radius:8px;
+  border-radius:5px;
   background:transparent;
   cursor:pointer;
   color:var(--ink-2);
   box-shadow:none;
-  transition:all 0.2s ease;
+  transition:all 0.16s ease;
+  display:inline-flex; /* ensure icons center vertically in small chips */
+  align-items:center;
+  justify-content:center;
 }
 
 .chip button:hover{
@@ -239,8 +254,10 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   }
   
   .chip {
-    padding: 8px 12px;
-    height: 44px;
+    padding-block:3px;
+    padding-inline:8px;
+    min-height:30px;
+    height:auto;
   }
 }
 
@@ -265,12 +282,14 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   }
   
   .chip {
-    padding: 8px 10px;
-    height: 40px;
+    padding-block:3px;
+    padding-inline:8px;
+    min-height:30px;
+    height:auto;
   }
   
   .chip-label {
-    font-size: 0.95rem;
+    font-size: 0.90rem;
   }
 }
 
@@ -289,18 +308,36 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   gap:12px;
 }
 
+.tee-meta{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  justify-content:center; /* center the tee/team label horizontally */
+  position:relative; /* allow absolute-positioned actions to sit on the right */
+}
+
 .tee-actions{
   display:flex;
   gap:6px;
+  position:absolute; /* position the action buttons at the right edge */
+  right:12px;
+  top:50%;
+  transform:translateY(-50%);
+  margin-left:0;
 }
 
 .tee-actions .icon{
   padding:.12rem .4rem;
 }
 
+.tee-time{
+  text-align:center; /* ensure the time/team name is centered */
+  width:100%;
+}
+
 /* Add player button position */
 .tee .row{
-  padding:12px 16px 16px;
+  padding:8px 16px 12px; /* trimmed vertical padding for Add Player row */
   background:var(--panel);
   border-top:1px solid var(--line);
   display:flex;
@@ -308,7 +345,7 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
 }
 
 .tee .row button{
-  min-width:140px;
+  min-width:120px;
   text-align:center;
   font-weight:500;
   background:var(--panel);
