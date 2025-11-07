@@ -21,7 +21,7 @@
   - Tee-time events: body may be `{}`; server computes next HH:MM (+8 min from last; default `07:00`; wraps 24h).
 - DELETE `/api/events/:id/tee-times/:teeId` → remove a tee/team.
 - POST `/api/events/:id/tee-times/:teeId/players` { name } → add player (enforces capacity: 4 or `teamSizeMax`).
-- DELETE `/api/events/:id/tee-times/:teeId/players/:playerId` → remove a player (expected by `public/script.js`; server route not present in `server.js` as of this commit — see “Known gaps”).
+- DELETE `/api/events/:id/tee-times/:teeId/players/:playerId` → remove a player; returns updated event JSON.
 - POST `/api/events/:id/move-player` { fromTeeId, toTeeId, playerId } → move with capacity checks.
 - POST `/api/subscribe` { email } → upsert subscriber and send confirmation (if email configured).
 - GET `/admin/run-reminders?code=ADMIN_DELETE_CODE` → send reminder emails now (same logic as daily scheduler).
@@ -76,6 +76,5 @@ npm run lint
 - README at repo root describes an older localStorage-only variant; prefer `server.js` and `package.json` for current behavior.
 
 ### Known gaps / clarifications
-- Frontend expects `DELETE /api/events/:id/tee-times/:teeId/players/:playerId` (see `data-del-player` in `public/script.js`), but this route isn’t defined in `server.js`. If you add it, match the path/IDs and return the updated event JSON. Capacity rules don’t apply to deletions.
 - Daily reminder scheduler (5:00 PM `LOCAL_TZ`) runs every minute; with email disabled, it logs and no-ops.
 - Server logs to stdout with JSON-ish lines; there’s no file logger in this repo.

@@ -254,6 +254,22 @@ app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
   tt.players.push({ name });
   await ev.save(); res.json(ev);
 });
+app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res) => {
+  try {
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    const tt = ev.teeTimes.id(req.params.teeId);
+    if (!tt) return res.status(404).json({ error: 'tee/team not found' });
+    if (!Array.isArray(tt.players)) tt.players = [];
+    const idx = tt.players.findIndex(p => String(p._id) === String(req.params.playerId));
+    if (idx === -1) return res.status(404).json({ error: 'player not found' });
+    tt.players.splice(idx, 1);
+    await ev.save();
+    return res.json(ev);
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
 app.post('/api/events/:id/move-player', async (req, res) => {
   const { fromTeeId, toTeeId, playerId } = req.body || {};
   if (!fromTeeId || !toTeeId || !playerId) return res.status(400).json({ error: 'fromTeeId, toTeeId, playerId required' });
