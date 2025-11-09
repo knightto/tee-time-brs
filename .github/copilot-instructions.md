@@ -17,8 +17,8 @@
 - PUT `/api/events/:id` → updates `course`, `date`, `notes`, `isTeamEvent`, `teamSizeMax`.
 - DELETE `/api/events/:id?code=ADMIN_DELETE_CODE` → hard delete.
 - POST `/api/events/:id/tee-times` →
-  - Team events: optional `{ name }`; missing name auto-assigns smallest unused “Team N”; duplicates rejected (409).
-  - Tee-time events: body may be `{}`; server computes next HH:MM (+8 min from last; default `07:00`; wraps 24h).
+  - Team events: optional `{ name }`; missing name auto-assigns smallest unused "Team N"; duplicates rejected (409).
+  - Tee-time events: body may be `{}`; server computes next HH:MM (+9 min from last; default `07:00`; wraps 24h).
 - DELETE `/api/events/:id/tee-times/:teeId` → remove a tee/team.
 - POST `/api/events/:id/tee-times/:teeId/players` { name } → add player (enforces capacity: 4 or `teamSizeMax`).
 - DELETE `/api/events/:id/tee-times/:teeId/players/:playerId` → remove a player; returns updated event JSON.
@@ -67,11 +67,11 @@ npm run lint
 
 ## Testing
 - Plain Node scripts in `tests/` (no Jest). `tests/test_server_helpers.js` imports `server.js` and calls exported helpers.
-- `tests/test_add_tee.js` mirrors client add-tee logic (team naming and 8‑minute increments). `tests/test_render_order.js` checks client-side sort by date.
+- `tests/test_add_tee.js` mirrors client add-tee logic (team naming and 9‑minute increments). `tests/test_render_order.js` checks client-side sort by date.
 
 ## Patterns & gotchas
-- Auto team naming treats unnamed slots as “Team {index+1}” to avoid collisions; server also rejects duplicate names case-insensitively.
-- `nextTeeTimeForEvent` scans last valid slot, adds 8 minutes, wraps to `00:xx`, defaults to `07:00` if none.
+- Auto team naming treats unnamed slots as "Team {index+1}" to avoid collisions; server also rejects duplicate names case-insensitively.
+- `nextTeeTimeForEvent` scans last valid slot, adds 9 minutes, wraps to `00:xx`, defaults to `07:00` if none.
 - Capacity: 4 by default; team events honor `teamSizeMax` (2–4). Moves fail if destination is full.
 - README at repo root describes an older localStorage-only variant; prefer `server.js` and `package.json` for current behavior.
 

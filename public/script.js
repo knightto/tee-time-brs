@@ -55,6 +55,20 @@
     </dialog>`;
     document.body.appendChild(wrap.firstElementChild);
   }
+  function ensureAuditDialog(){
+    if ($('#auditModal')) return;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<dialog id="auditModal" style="min-width:600px;max-width:800px">
+      <h3>📋 Audit Log</h3>
+      <div id="auditLogContent" style="max-height:500px;overflow-y:auto;margin:16px 0">
+        <p style="color:var(--slate-700);text-align:center">Loading...</p>
+      </div>
+      <menu>
+        <button type="button" data-cancel>Close</button>
+      </menu>
+    </dialog>`;
+    document.body.appendChild(wrap.firstElementChild);
+  }
   function ensureMoveDialog(){
     if ($('#moveModal')) return;
     const tpl = document.createElement('div');
@@ -94,6 +108,7 @@
   ensureEditDialog();
   ensureMoveDialog();
   ensureEditTeeDialog();
+  ensureAuditDialog();
 
   const editModal = $('#editModal');
   const editForm = $('#editForm');
@@ -107,6 +122,8 @@
   const editTeeForm = $('#editTeeForm');
   const editTeeTitle = $('#editTeeTitle');
   const editTeeLabel = $('#editTeeLabel');
+  const auditModal = $('#auditModal');
+  const auditLogContent = $('#auditLogContent');
 
   if (!eventsEl) return;
 
@@ -138,7 +155,16 @@
     }
     return data;
   }
-  async function api(path, opts){ const r=await fetch(path, opts); if(!r.ok) throw new Error('HTTP '+r.status); const ct=r.headers.get('content-type')||''; return ct.includes('application/json')?r.json():r.text(); }
+  async function api(path, opts){ 
+    const r=await fetch(path, opts); 
+    const ct=r.headers.get('content-type')||''; 
+    const body = ct.includes('application/json') ? await r.json() : await r.text();
+    if(!r.ok) {
+      const msg = (typeof body === 'object' && body.message) || (typeof body === 'object' && body.error) || body || ('HTTP '+r.status);
+      throw new Error(msg);
+    }
+    return body;
+  }
 
   // Create Event: open modal in the requested mode (tees or teams)
   on(newTeeBtn, 'click', () => {
@@ -338,7 +364,7 @@
   function renderEventsForDate() {
     if (!selectedDate) {
       selectedDateTitle.textContent = 'Select a date';
-      eventsEl.innerHTML = '<div style="color:var(--ink-2);padding:20px;text-align:center">Select a date from the calendar to view tee times</div>';
+      eventsEl.innerHTML = '<div style="color:#ffffff;padding:20px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.7)">Select a date from the calendar to view tee times</div>';
       return;
     }
     
@@ -358,7 +384,7 @@
     });
     
     if (filtered.length === 0) {
-      eventsEl.innerHTML = '<div style="color:var(--ink-2);padding:20px;text-align:center">No events scheduled for this date</div>';
+      eventsEl.innerHTML = '<div style="color:#ffffff;padding:20px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.7)">No events scheduled for this date</div>';
     } else {
       render(filtered);
     }
@@ -383,7 +409,7 @@
       if (selectedDate) {
         renderEventsForDate();
       } else {
-        eventsEl.innerHTML = '<div style="color:var(--ink-2);padding:20px;text-align:center">Select a date from the calendar to view tee times</div>';
+        eventsEl.innerHTML = '<div style="color:#ffffff;padding:20px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.7)">Select a date from the calendar to view tee times</div>';
       }
     } catch(e) { 
       console.error(e); 
@@ -397,19 +423,48 @@
       const card=document.createElement('div'); card.className='card';
       const isTeams = !!ev.isTeamEvent;
       const tees=(ev.teeTimes||[]).map((tt,idx)=>teeRow(ev,tt,idx,isTeams)).join('');
+      
+      // Render maybe list
+      const maybeList = (ev.maybeList || []).map((name, idx) => {
+        const safe = String(name).replace(/"/g, '&quot;');
+        return `<span class="maybe-chip" title="${safe}">
+          <span class="maybe-name">${name}</span>
+          <button class="icon small danger" title="Remove" data-remove-maybe="${ev._id}:${idx}">×</button>
+        </span>`;
+      }).join('');
+      
+      const maybeSection = `
+        <div class="maybe-section">
+          <div class="maybe-header">
+            <span style="font-weight:600;color:var(--slate-700)">🤔 Maybe List</span>
+            <button class="small" data-add-maybe="${ev._id}">I'm Interested</button>
+          </div>
+          <div class="maybe-list">
+            ${maybeList || '<em style="color:var(--slate-700);font-size:14px">No one yet - be the first!</em>'}
+          </div>
+        </div>
+      `;
+      
+      // Weather icon inline with date
+      const weatherIcon = ev.weather && ev.weather.icon 
+        ? `<span class="weather-inline" title="${ev.weather.description || 'Weather forecast'}">${ev.weather.icon}</span>` 
+        : '';
+      
       card.innerHTML = `
         <div class="card-header">
           <div class="card-header-left">
             <h3 class="card-title">${ev.course || 'Course'}</h3>
-            <div class="card-date">${fmtDate(ev.date)}</div>
+            <div class="card-date">${fmtDate(ev.date)} ${weatherIcon}</div>
           </div>
           <div class="button-row">
             <button class="small" data-add-tee="${ev._id}">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>
+            <button class="small" data-audit="${ev._id}">Audit Log</button>
             <button class="small" data-edit="${ev._id}">Edit</button>
             <button class="small" data-del="${ev._id}">Delete</button>
           </div>
         </div>
         <div class="card-content">
+          ${maybeSection}
           <div class="tees">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>
           ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
         </div>`;
@@ -434,7 +489,7 @@
     const left = isTeams ? (tt.name ? tt.name : `Team ${idx+1}`) : (tt.time ? fmtTime(tt.time) : '—');
     const delTitle = isTeams ? 'Remove team' : 'Remove tee time';
     const editTitle = isTeams ? 'Edit team name' : 'Edit tee time';
-    return `<div class="tee">
+    return `<div class="tee ${full ? 'tee-full' : ''}">
       <div class="tee-meta">
         <div class="tee-time">${left}</div>
         <div class="tee-actions">
@@ -450,8 +505,36 @@
   }
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe]')||e.target);
     try{
+      if(t.dataset.addMaybe){
+        const id=t.dataset.addMaybe;
+        const name=prompt('Enter your name to add to the Maybe list:'); 
+        if(!name) return;
+        try {
+          await api(`/api/events/${id}/maybe`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
+          return load();
+        } catch (err) {
+          console.error(err);
+          if (err.message && err.message.includes('already on maybe list')) {
+            alert('You\'re already on the maybe list for this event!');
+          } else {
+            alert('Failed to add to maybe list: ' + err.message);
+          }
+          return;
+        }
+      }
+      if(t.dataset.removeMaybe){
+        const [id, index] = t.dataset.removeMaybe.split(':');
+        if(!confirm('Remove from maybe list?')) return;
+        await api(`/api/events/${id}/maybe/${index}`,{ method:'DELETE' });
+        return load();
+      }
+      if(t.dataset.audit){
+        const id=t.dataset.audit;
+        await openAuditLog(id);
+        return;
+      }
       if(t.dataset.delTee){
         const [eventId, teeId] = t.dataset.delTee.split(':');
         if(!confirm('Remove this tee/team?')) return;
@@ -482,7 +565,7 @@
             const name = `Team ${nextTeamNum}`;
             await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ name }) });
           }else{
-            // Let the server calculate the next tee time (8 minutes after last)
+            // Let the server calculate the next tee time (9 minutes after last)
             await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({}) });
           }
         return load();
@@ -490,8 +573,18 @@
       if(t.dataset.addPlayer){
         const [id,teeId]=t.dataset.addPlayer.split(':');
         const name=prompt('Player name'); if(!name) return;
-        await api(`/api/events/${id}/tee-times/${teeId}/players`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
-        return load();
+        try {
+          await api(`/api/events/${id}/tee-times/${teeId}/players`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
+          return load();
+        } catch (err) {
+          console.error(err);
+          if (err.message && err.message.includes('duplicate')) {
+            alert('⚠️ Duplicate name detected!\n\nA player with this name already exists on another tee time. Please use a nickname to avoid confusion.\n\nExamples:\n• "John S" or "John 2"\n• "Mike B" or "Big Mike"');
+          } else {
+            alert('Failed to add player: ' + (err.message || 'Unknown error'));
+          }
+          return;
+        }
       }
       if(t.dataset.move){
         const [eventId,fromTeeId,playerId]=t.dataset.move.split(':');
@@ -549,8 +642,43 @@
     try{
       await api(`/api/events/${eventId}/move-player`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fromTeeId,toTeeId,playerId})});
       moveModal.close?.(); load();
-    }catch{ alert('Move failed'); }
+    }catch(err){ 
+      console.error(err);
+      const msg = err.message || 'Move failed';
+      alert(msg);
+    }
   });
+
+  async function openAuditLog(eventId){
+    try{
+      auditLogContent.innerHTML = '<p style="color:var(--slate-700);text-align:center">Loading...</p>';
+      auditModal.showModal();
+      const logs = await api(`/api/events/${eventId}/audit-log`);
+      if (!logs || logs.length === 0) {
+        auditLogContent.innerHTML = '<p style="color:var(--slate-700);text-align:center">No audit entries yet.</p>';
+        return;
+      }
+      const items = logs.map(log => {
+        const ts = new Date(log.timestamp).toLocaleString();
+        let desc = '';
+        if (log.action === 'add_player') {
+          desc = `➕ Added <strong>${log.playerName}</strong> to ${log.teeLabel}`;
+        } else if (log.action === 'remove_player') {
+          desc = `➖ Removed <strong>${log.playerName}</strong> from ${log.teeLabel}`;
+        } else if (log.action === 'move_player') {
+          desc = `↔️ Moved <strong>${log.playerName}</strong> from ${log.fromTeeLabel} to ${log.toTeeLabel}`;
+        }
+        return `<div style="padding:8px;border-bottom:1px solid var(--slate-200)">
+          <div style="font-size:14px;color:var(--slate-900)">${desc}</div>
+          <div style="font-size:12px;color:var(--slate-700);margin-top:4px">${ts}</div>
+        </div>`;
+      }).join('');
+      auditLogContent.innerHTML = items;
+    }catch(err){
+      console.error(err);
+      auditLogContent.innerHTML = '<p style="color:#dc2626;text-align:center">Failed to load audit log.</p>';
+    }
+  }
 
   load();
 })();

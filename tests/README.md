@@ -29,7 +29,7 @@ node tests/test_server_helpers.js
   - Collision avoidance
   
 - Tee time increment logic
-  - 8-minute intervals
+  - 9-minute intervals
   - 24-hour wrap handling
   - Default time handling (07:00)
   - Invalid time handling

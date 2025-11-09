@@ -16,8 +16,11 @@ app.use(express.json());
 app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true }));
 app.use(rateLimit({ windowMs: 60 * 1000, max: 200 }));
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Define routes before static middleware to ensure they take precedence
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/handicap', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'handicap.html')));
+
+app.use(express.static(path.join(__dirname, 'public')));
 
 const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/teetimes';
 mongoose.connect(mongoUri, { dbName: process.env.MONGO_DB || undefined })
@@ -26,6 +29,69 @@ mongoose.connect(mongoUri, { dbName: process.env.MONGO_DB || undefined })
 
 let Event; try { Event = require('./models/Event'); } catch { Event = require('./Event'); }
 let Subscriber; try { Subscriber = require('./models/Subscriber'); } catch { Subscriber = null; }
+let AuditLog; try { AuditLog = require('./models/AuditLog'); } catch { AuditLog = null; }
+let Handicap; try { Handicap = require('./models/Handicap'); } catch { Handicap = null; }
+
+/* ---------------- Weather helpers ---------------- */
+// Default location (Richmond, VA area - adjust for your region)
+const DEFAULT_LAT = process.env.DEFAULT_LAT || '37.5407';
+const DEFAULT_LON = process.env.DEFAULT_LON || '-77.4360';
+
+function getWeatherIcon(weatherCode, isDay = true) {
+  // WMO Weather interpretation codes
+  // https://open-meteo.com/en/docs
+  if (weatherCode === 0) return { icon: '☀️', condition: 'sunny', desc: 'Clear sky' };
+  if (weatherCode === 1) return { icon: isDay ? '🌤️' : '🌙', condition: 'mostly-sunny', desc: 'Mainly clear' };
+  if (weatherCode === 2) return { icon: '⛅', condition: 'partly-cloudy', desc: 'Partly cloudy' };
+  if (weatherCode === 3) return { icon: '☁️', condition: 'cloudy', desc: 'Overcast' };
+  if (weatherCode >= 45 && weatherCode <= 48) return { icon: '🌫️', condition: 'foggy', desc: 'Foggy' };
+  if (weatherCode >= 51 && weatherCode <= 67) return { icon: '🌧️', condition: 'rainy', desc: 'Rainy' };
+  if (weatherCode >= 71 && weatherCode <= 77) return { icon: '🌨️', condition: 'snowy', desc: 'Snow' };
+  if (weatherCode >= 80 && weatherCode <= 82) return { icon: '🌦️', condition: 'showers', desc: 'Rain showers' };
+  if (weatherCode >= 95) return { icon: '⛈️', condition: 'stormy', desc: 'Thunderstorm' };
+  return { icon: '🌤️', condition: 'unknown', desc: 'Unknown' };
+}
+
+async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) {
+  try {
+    const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Weather API error');
+    
+    const data = await response.json();
+    if (!data.daily || !data.daily.weather_code || !data.daily.weather_code[0]) {
+      throw new Error('No weather data available');
+    }
+    
+    const weatherCode = data.daily.weather_code[0];
+    const tempMax = data.daily.temperature_2m_max[0];
+    const tempMin = data.daily.temperature_2m_min[0];
+    const avgTemp = Math.round((tempMax + tempMin) / 2);
+    
+    const weatherInfo = getWeatherIcon(weatherCode, true);
+    
+    return {
+      success: true,
+      condition: weatherInfo.condition,
+      icon: weatherInfo.icon,
+      temp: avgTemp,
+      description: `${weatherInfo.desc} • ${Math.round(tempMin)}°-${Math.round(tempMax)}°F`,
+      lastFetched: new Date()
+    };
+  } catch (e) {
+    console.error('Weather fetch error:', e.message);
+    return {
+      success: false,
+      condition: null,
+      icon: '🌤️',
+      temp: null,
+      description: 'Weather unavailable',
+      lastFetched: null
+    };
+  }
+}
 
 /* ---------------- Email helpers ---------------- */
 let resend = null;
@@ -97,6 +163,68 @@ function ymdInTZ(d=new Date(), tz='America/New_York'){
 }
 function addDaysUTC(d, days){ const x = new Date(d.getTime()); x.setUTCDate(x.getUTCDate()+days); return x; }
 
+/* ---------------- Anti-chaos helpers ---------------- */
+// Check if a player name already exists in any tee time (case-insensitive)
+function isDuplicatePlayerName(ev, playerName, excludeTeeId = null) {
+  const normalizedName = String(playerName).trim().toLowerCase();
+  for (const tt of (ev.teeTimes || [])) {
+    if (excludeTeeId && String(tt._id) === String(excludeTeeId)) continue;
+    for (const p of (tt.players || [])) {
+      if (String(p.name).trim().toLowerCase() === normalizedName) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Check if a player is already on another tee time (case-insensitive)
+function isPlayerOnAnotherTee(ev, playerName, currentTeeId) {
+  const normalizedName = String(playerName).trim().toLowerCase();
+  for (const tt of (ev.teeTimes || [])) {
+    if (String(tt._id) === String(currentTeeId)) continue;
+    for (const p of (tt.players || [])) {
+      if (String(p.name).trim().toLowerCase() === normalizedName) {
+        return { found: true, teeId: tt._id, teeName: tt.name || tt.time };
+      }
+    }
+  }
+  return { found: false };
+}
+
+// Get human-readable label for a tee/team
+function getTeeLabel(ev, teeId) {
+  const tt = ev.teeTimes.id(teeId);
+  if (!tt) return 'Unknown';
+  if (ev.isTeamEvent) {
+    if (tt.name) return tt.name;
+    const idx = ev.teeTimes.findIndex(t => String(t._id) === String(teeId));
+    return `Team ${idx + 1}`;
+  }
+  return tt.time ? fmt.tee(tt.time) : 'Unknown';
+}
+
+// Log audit entry
+async function logAudit(eventId, action, playerName, data = {}) {
+  if (!AuditLog) return;
+  try {
+    await AuditLog.create({
+      eventId,
+      action,
+      playerName: String(playerName).trim(),
+      teeId: data.teeId,
+      fromTeeId: data.fromTeeId,
+      toTeeId: data.toTeeId,
+      teeLabel: data.teeLabel,
+      fromTeeLabel: data.fromTeeLabel,
+      toTeeLabel: data.toTeeLabel,
+      timestamp: new Date()
+    });
+  } catch (e) {
+    console.error('Audit log failed:', e.message);
+  }
+}
+
 /* ---------------- Core API (unchanged parts trimmed for brevity) ---------------- */
 function genTeeTimes(startHHMM, count=3, mins=10) {
   if (!startHHMM) return [];
@@ -125,8 +253,8 @@ function nextTeamNameForEvent(ev) {
   return `Team ${n}`;
 }
 
-/* Helper: compute next tee time by searching last valid time and adding mins (default 8), wrap at 24h */
-function nextTeeTimeForEvent(ev, mins = 8, defaultTime = '07:00') {
+/* Helper: compute next tee time by searching last valid time and adding mins (default 9), wrap at 24h */
+function nextTeeTimeForEvent(ev, mins = 9, defaultTime = '07:00') {
   if (ev.teeTimes && ev.teeTimes.length) {
     for (let i = ev.teeTimes.length - 1; i >= 0; i--) {
       const lt = ev.teeTimes[i] && ev.teeTimes[i].time;
@@ -156,14 +284,26 @@ app.get('/api/events', async (_req, res) => {
 app.post('/api/events', async (req, res) => {
   try {
     const { course, date, teeTime, teeTimes, notes, isTeamEvent, teamSizeMax } = req.body || {};
-    const tt = isTeamEvent ? [] : (Array.isArray(teeTimes) && teeTimes.length ? teeTimes : genTeeTimes(teeTime, 3, 10));
+    const tt = isTeamEvent ? [] : (Array.isArray(teeTimes) && teeTimes.length ? teeTimes : genTeeTimes(teeTime, 3, 9));
+    const eventDate = /^\d{4}-\d{2}-\d{2}$/.test(String(date||'')) ? new Date(String(date)+'T12:00:00Z') : asUTCDate(date);
+    
+    // Fetch weather forecast
+    const weatherData = await fetchWeatherForecast(eventDate);
+    
     const created = await Event.create({
       course,
-      date: /^\d{4}-\d{2}-\d{2}$/.test(String(date||'')) ? new Date(String(date)+'T12:00:00Z') : asUTCDate(date),
+      date: eventDate,
       notes,
       isTeamEvent: !!isTeamEvent,
       teamSizeMax: Math.max(2, Math.min(4, Number(teamSizeMax || 4))),
-      teeTimes: tt
+      teeTimes: tt,
+      weather: {
+        condition: weatherData.condition,
+        icon: weatherData.icon,
+        temp: weatherData.temp,
+        description: weatherData.description,
+        lastFetched: weatherData.lastFetched
+      }
     });
     res.status(201).json(created);
     await sendEmailToAll(`New Event: ${created.course} (${fmt.dateISO(created.date)})`,
@@ -221,7 +361,7 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
   const { time } = req.body || {};
   let newTime = typeof time === 'string' && time.trim() ? time.trim() : null;
   if (!newTime) {
-    newTime = nextTeeTimeForEvent(ev, 8, '07:00');
+    newTime = nextTeeTimeForEvent(ev, 9, '07:00');
   }
   // Validate HH:MM and ranges
   const m = /^(\d{1,2}):(\d{2})$/.exec(newTime);
@@ -244,15 +384,33 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
 app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
   const { name } = req.body || {};
   if (!name) return res.status(400).json({ error: 'name required' });
+  const trimmedName = String(name).trim();
+  if (!trimmedName) return res.status(400).json({ error: 'name cannot be empty' });
+  
   const ev = await Event.findById(req.params.id);
   if (!ev) return res.status(404).json({ error: 'Not found' });
   const tt = ev.teeTimes.id(req.params.teeId);
   if (!tt) return res.status(404).json({ error: 'tee time not found' });
   if (!Array.isArray(tt.players)) tt.players = [];
+  
   const maxSize = ev.isTeamEvent ? (ev.teamSizeMax || 4) : 4;
   if (tt.players.length >= maxSize) return res.status(400).json({ error: ev.isTeamEvent ? 'team full' : 'tee time full' });
-  tt.players.push({ name });
-  await ev.save(); res.json(ev);
+  
+  // Anti-chaos check: duplicate name prevention
+  if (isDuplicatePlayerName(ev, trimmedName)) {
+    return res.status(409).json({ error: 'duplicate player name', message: 'A player with this name already exists. Use a nickname (e.g., "John S" or "John 2").' });
+  }
+  
+  tt.players.push({ name: trimmedName });
+  await ev.save();
+  
+  // Audit log
+  await logAudit(ev._id, 'add_player', trimmedName, {
+    teeId: tt._id,
+    teeLabel: getTeeLabel(ev, tt._id)
+  });
+  
+  res.json(ev);
 });
 app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res) => {
   try {
@@ -263,8 +421,17 @@ app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res
     if (!Array.isArray(tt.players)) tt.players = [];
     const idx = tt.players.findIndex(p => String(p._id) === String(req.params.playerId));
     if (idx === -1) return res.status(404).json({ error: 'player not found' });
+    
+    const playerName = tt.players[idx].name;
     tt.players.splice(idx, 1);
     await ev.save();
+    
+    // Audit log
+    await logAudit(ev._id, 'remove_player', playerName, {
+      teeId: tt._id,
+      teeLabel: getTeeLabel(ev, tt._id)
+    });
+    
     return res.json(ev);
   } catch (e) {
     return res.status(500).json({ error: e.message });
@@ -284,9 +451,302 @@ app.post('/api/events/:id/move-player', async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'player not found' });
   const maxSize = ev.isTeamEvent ? (ev.teamSizeMax || 4) : 4;
   if (toTT.players.length >= maxSize) return res.status(400).json({ error: 'destination full' });
+  
   const [player] = fromTT.players.splice(idx, 1);
-  toTT.players.push({ name: player.name });
-  await ev.save(); res.json(ev);
+  const playerName = player.name;
+  
+  // Anti-chaos check: ensure player isn't already on another tee (shouldn't happen, but defensive)
+  const conflict = isPlayerOnAnotherTee(ev, playerName, toTeeId);
+  if (conflict.found) {
+    // Roll back the splice
+    fromTT.players.splice(idx, 0, player);
+    return res.status(409).json({ error: 'player conflict', message: `${playerName} is already on ${conflict.teeName}` });
+  }
+  
+  toTT.players.push({ name: playerName });
+  await ev.save();
+  
+  // Audit log
+  await logAudit(ev._id, 'move_player', playerName, {
+    fromTeeId: fromTT._id,
+    toTeeId: toTT._id,
+    fromTeeLabel: getTeeLabel(ev, fromTT._id),
+    toTeeLabel: getTeeLabel(ev, toTT._id)
+  });
+  
+  res.json(ev);
+});
+
+/* ---------------- Weather ---------------- */
+// Refresh weather for an event
+app.post('/api/events/:id/weather', async (req, res) => {
+  try {
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    
+    const weatherData = await fetchWeatherForecast(ev.date);
+    
+    if (!ev.weather) ev.weather = {};
+    ev.weather.condition = weatherData.condition;
+    ev.weather.icon = weatherData.icon;
+    ev.weather.temp = weatherData.temp;
+    ev.weather.description = weatherData.description;
+    ev.weather.lastFetched = weatherData.lastFetched;
+    
+    await ev.save();
+    res.json(ev);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Refresh weather for all events
+app.post('/api/events/weather/refresh-all', async (_req, res) => {
+  try {
+    const events = await Event.find();
+    let updated = 0;
+    
+    for (const ev of events) {
+      const weatherData = await fetchWeatherForecast(ev.date);
+      if (!ev.weather) ev.weather = {};
+      ev.weather.condition = weatherData.condition;
+      ev.weather.icon = weatherData.icon;
+      ev.weather.temp = weatherData.temp;
+      ev.weather.description = weatherData.description;
+      ev.weather.lastFetched = weatherData.lastFetched;
+      await ev.save();
+      if (weatherData.success) updated++;
+    }
+    
+    res.json({ ok: true, updated, total: events.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ---------------- Maybe List ---------------- */
+// Add player to maybe list
+app.post('/api/events/:id/maybe', async (req, res) => {
+  try {
+    const { name } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'name required' });
+    
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    
+    if (!Array.isArray(ev.maybeList)) ev.maybeList = [];
+    
+    const trimmedName = String(name).trim();
+    // Check for duplicates (case-insensitive)
+    const exists = ev.maybeList.some(n => String(n).toLowerCase() === trimmedName.toLowerCase());
+    if (exists) return res.status(409).json({ error: 'Name already on maybe list' });
+    
+    ev.maybeList.push(trimmedName);
+    await ev.save();
+    res.json(ev);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Remove player from maybe list
+app.delete('/api/events/:id/maybe/:index', async (req, res) => {
+  try {
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    
+    if (!Array.isArray(ev.maybeList)) ev.maybeList = [];
+    const index = parseInt(req.params.index, 10);
+    
+    if (index < 0 || index >= ev.maybeList.length) {
+      return res.status(404).json({ error: 'Invalid index' });
+    }
+    
+    ev.maybeList.splice(index, 1);
+    await ev.save();
+    res.json(ev);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ---------------- Audit Log ---------------- */
+app.get('/api/events/:id/audit-log', async (req, res) => {
+  try {
+    if (!AuditLog) return res.status(501).json({ error: 'Audit log not available' });
+    const logs = await AuditLog.find({ eventId: req.params.id })
+      .sort({ timestamp: -1 })
+      .limit(200)
+      .lean();
+    res.json(logs);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ---------------- Handicap Tracking ---------------- */
+// Helper: Fetch handicap from GHIN (simplified - you may need to adjust based on actual GHIN API)
+async function fetchGHINHandicap(ghinNumber) {
+  try {
+    // Note: USGA GHIN doesn't have a public API. This is a placeholder.
+    // Options:
+    // 1. Use screen scraping (requires GHIN login credentials)
+    // 2. Manual entry/update only
+    // 3. Use a third-party service that has GHIN integration
+    // For now, we'll return a mock response and allow manual updates
+    
+    console.log(JSON.stringify({ level:'info', msg:'GHIN fetch attempted', ghinNumber, note:'No public GHIN API available' }));
+    
+    // In production, you would either:
+    // - Integrate with a paid GHIN API service
+    // - Use web scraping (requires authentication)
+    // - Allow manual entry only
+    
+    return {
+      success: false,
+      error: 'GHIN lookup not configured. Please enter handicap manually or configure GHIN API access.'
+    };
+  } catch (e) {
+    return { success: false, error: e.message };
+  }
+}
+
+// Get all handicaps
+app.get('/api/handicaps', async (_req, res) => {
+  try {
+    if (!Handicap) return res.status(501).json({ error: 'Handicap tracking not available' });
+    const handicaps = await Handicap.find().sort({ name: 1 }).lean();
+    res.json(handicaps);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Create new handicap entry
+app.post('/api/handicaps', async (req, res) => {
+  try {
+    if (!Handicap) return res.status(501).json({ error: 'Handicap tracking not available' });
+    const { name, ghinNumber, notes, handicapIndex } = req.body || {};
+    if (!name || !ghinNumber) return res.status(400).json({ error: 'name and ghinNumber required' });
+    
+    const entryData = {
+      name: String(name).trim(),
+      ghinNumber: String(ghinNumber).trim(),
+      notes: notes ? String(notes).trim() : ''
+    };
+    
+    // If handicap provided, set it and mark as manually entered
+    if (handicapIndex !== undefined && handicapIndex !== null && handicapIndex !== '') {
+      entryData.handicapIndex = Number(handicapIndex);
+      entryData.lastFetchedAt = new Date();
+      entryData.lastFetchSuccess = true;
+      entryData.lastFetchError = null;
+    } else {
+      entryData.lastFetchSuccess = false;
+      entryData.lastFetchError = 'Not yet entered';
+    }
+    
+    const entry = await Handicap.create(entryData);
+    
+    res.status(201).json(entry);
+  } catch (e) {
+    if (e.code === 11000) {
+      return res.status(409).json({ error: 'GHIN number already exists' });
+    }
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Update handicap entry
+app.put('/api/handicaps/:id', async (req, res) => {
+  try {
+    if (!Handicap) return res.status(501).json({ error: 'Handicap tracking not available' });
+    const { name, ghinNumber, notes, handicapIndex } = req.body || {};
+    
+    const entry = await Handicap.findById(req.params.id);
+    if (!entry) return res.status(404).json({ error: 'Not found' });
+    
+    if (name !== undefined) entry.name = String(name).trim();
+    if (ghinNumber !== undefined) entry.ghinNumber = String(ghinNumber).trim();
+    if (notes !== undefined) entry.notes = String(notes).trim();
+    if (handicapIndex !== undefined && handicapIndex !== null) {
+      entry.handicapIndex = Number(handicapIndex);
+      entry.lastFetchedAt = new Date();
+      entry.lastFetchSuccess = true;
+      entry.lastFetchError = null;
+    }
+    
+    await entry.save();
+    res.json(entry);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Delete handicap entry
+app.delete('/api/handicaps/:id', async (req, res) => {
+  try {
+    if (!Handicap) return res.status(501).json({ error: 'Handicap tracking not available' });
+    const deleted = await Handicap.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Refresh single handicap
+app.post('/api/handicaps/:id/refresh', async (req, res) => {
+  try {
+    if (!Handicap) return res.status(501).json({ error: 'Handicap tracking not available' });
+    const entry = await Handicap.findById(req.params.id);
+    if (!entry) return res.status(404).json({ error: 'Not found' });
+    
+    const result = await fetchGHINHandicap(entry.ghinNumber);
+    
+    entry.lastFetchedAt = new Date();
+    if (result.success) {
+      entry.handicapIndex = result.handicapIndex;
+      entry.lastFetchSuccess = true;
+      entry.lastFetchError = null;
+    } else {
+      entry.lastFetchSuccess = false;
+      entry.lastFetchError = result.error;
+    }
+    
+    await entry.save();
+    res.json(entry);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Refresh all handicaps
+app.post('/api/handicaps/refresh-all', async (_req, res) => {
+  try {
+    if (!Handicap) return res.status(501).json({ error: 'Handicap tracking not available' });
+    const entries = await Handicap.find();
+    
+    let updated = 0;
+    for (const entry of entries) {
+      const result = await fetchGHINHandicap(entry.ghinNumber);
+      entry.lastFetchedAt = new Date();
+      if (result.success) {
+        entry.handicapIndex = result.handicapIndex;
+        entry.lastFetchSuccess = true;
+        entry.lastFetchError = null;
+        updated++;
+      } else {
+        entry.lastFetchSuccess = false;
+        entry.lastFetchError = result.error;
+      }
+      await entry.save();
+    }
+    
+    res.json({ ok: true, updated, total: entries.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /* ---------------- Subscribers ---------------- */

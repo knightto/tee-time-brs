@@ -9,6 +9,9 @@
 <body>
   <header class="bar">
     <h1 class="title">Tee Times</h1>
+    <nav style="display:flex;gap:12px;align-items:center;margin-left:auto">
+      <a href="/handicap" style="color:var(--green-700);text-decoration:none;font-weight:500;padding:8px 12px;border-radius:8px;transition:all 0.2s">📊 Handicaps</a>
+    </nav>
     <form id="subscribeForm" class="row">
       <input type="email" name="email" placeholder="your@email.com" required>
       <button type="submit">Subscribe</button>
@@ -29,6 +32,7 @@
         <div class="calendar-actions">
           <button id="newTeeBtn" class="primary">New Tee-Time Event</button>
           <button id="newTeamBtn" class="primary">New Team Event</button>
+          <a href="/handicap" class="handicap-link">📊 View Group Handicaps</a>
         </div>
       </aside>
 
@@ -58,8 +62,8 @@
       <!-- Tee-time fields (shown only for Tee-Time events) -->
       <div id="teeTimeRow">
         <label>First Tee Time
-          <!-- step=480 seconds = 8 minutes -->
-          <input name="teeTime" type="time" step="480">
+          <!-- step=540 seconds = 9 minutes -->
+          <input name="teeTime" type="time" step="540">
         </label>
         <p class="muted">If left blank, three tees will be created starting at 08:00 by default.</p>
       </div>

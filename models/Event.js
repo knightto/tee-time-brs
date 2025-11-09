@@ -20,7 +20,15 @@ const EventSchema = new mongoose.Schema({
   notes:  { type: String, default: '' },
   isTeamEvent: { type: Boolean, default: false },
   teamSizeMax: { type: Number, default: 4, min: 2, max: 4 },
-  teeTimes: { type: [SlotSchema], default: [] }
+  teeTimes: { type: [SlotSchema], default: [] },
+  maybeList: { type: [String], default: [] },  // Array of player names interested but not committed
+  weather: {
+    condition: { type: String, default: null },  // 'sunny', 'cloudy', 'rainy', 'stormy', etc.
+    icon: { type: String, default: null },       // Weather emoji
+    temp: { type: Number, default: null },       // Temperature in Fahrenheit
+    description: { type: String, default: null },// Human readable description
+    lastFetched: { type: Date, default: null }
+  }
 }, { timestamps: true });
 
 // Conditional validation: require time for non-team events, and forbid empty slots for both types
