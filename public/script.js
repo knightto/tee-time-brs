@@ -14,6 +14,8 @@
   const teamSizeRow = $('#teamSizeRow');
   const subForm = $('#subscribeForm');
   const subMsg = $('#subMsg');
+  const subscribeModal = $('#subscribeModal');
+  const openSubscribeBtn = $('#openSubscribeBtn');
 
   // Calendar elements
   const calendarGrid = $('#calendarGrid');
@@ -240,15 +242,77 @@
     }catch(err){ console.error(err); alert('Save failed'); }
   });
 
+  // Subscribe modal
+  console.log('Subscribe button:', openSubscribeBtn, 'Modal:', subscribeModal);
+  on(openSubscribeBtn, 'click', () => {
+    console.log('Subscribe button clicked!');
+    subscribeModal?.showModal?.();
+  });
+  on(subscribeModal, 'click', (e) => {
+    if (e.target.dataset.cancel) subscribeModal?.close();
+  });
+
+  // Toggle subscription fields based on type
+  const subscriptionTypeRadios = document.querySelectorAll('input[name="subscriptionType"]');
+  const emailFields = $('#emailFields');
+  const smsFields = $('#smsFields');
+  
+  function updateSubscriptionFields() {
+    const checkedRadio = document.querySelector('input[name="subscriptionType"]:checked');
+    if (!checkedRadio) return;
+    
+    if (checkedRadio.value === 'email') {
+      emailFields.style.display = 'block';
+      smsFields.style.display = 'none';
+      subForm.elements.email.required = true;
+      subForm.elements.phone.required = false;
+      subForm.elements.carrier.required = false;
+    } else {
+      emailFields.style.display = 'none';
+      smsFields.style.display = 'block';
+      subForm.elements.email.required = false;
+      subForm.elements.phone.required = true;
+      subForm.elements.carrier.required = true;
+    }
+  }
+  
+  subscriptionTypeRadios.forEach(radio => {
+    on(radio, 'change', updateSubscriptionFields);
+  });
+  
+  // Set initial state
+  updateSubscriptionFields();
+
   // Subscribe
   on(subForm, 'submit', async (e)=>{
-    e.preventDefault(); if(subMsg) subMsg.textContent='...';
+    e.preventDefault(); 
+    if(subMsg) subMsg.textContent='...';
     try{
-      const email = new FormData(subForm).get('email');
-      await api('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
-      if(subMsg) subMsg.textContent='Subscribed';
+      const formData = new FormData(subForm);
+      const subscriptionType = formData.get('subscriptionType');
+      const payload = { subscriptionType };
+      
+      if (subscriptionType === 'email') {
+        payload.email = formData.get('email');
+      } else {
+        payload.phone = formData.get('phone');
+        payload.carrier = formData.get('carrier');
+      }
+      
+      const result = await api('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      if(subMsg) {
+        if (result.isNew) {
+          subMsg.textContent = subscriptionType === 'email' ? 'Email subscription confirmed!' : 'SMS subscription confirmed!';
+        } else {
+          subMsg.textContent = 'Already subscribed! Your subscription has been updated.';
+        }
+      }
+      setTimeout(() => subscribeModal?.close(), 2000);
       subForm.reset();
-    }catch{ if(subMsg) subMsg.textContent='Failed'; }
+    }catch(err){ 
+      console.error(err);
+      if(subMsg) subMsg.textContent='Failed: ' + (err.message || 'Unknown error'); 
+    }
   });
 
   // Calendar functions

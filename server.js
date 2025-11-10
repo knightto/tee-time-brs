@@ -18,7 +18,7 @@ app.use(rateLimit({ windowMs: 60 * 1000, max: 200 }));
 
 // Define routes before static middleware to ensure they take precedence
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.get('/handicap', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'handicap.html')));
+// Handicap tracking removed
 
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -30,7 +30,7 @@ mongoose.connect(mongoUri, { dbName: process.env.MONGO_DB || undefined })
 let Event; try { Event = require('./models/Event'); } catch { Event = require('./Event'); }
 let Subscriber; try { Subscriber = require('./models/Subscriber'); } catch { Subscriber = null; }
 let AuditLog; try { AuditLog = require('./models/AuditLog'); } catch { AuditLog = null; }
-let Handicap; try { Handicap = require('./models/Handicap'); } catch { Handicap = null; }
+// Handicap model removed
 
 /* ---------------- Weather helpers ---------------- */
 // Default location (Richmond, VA area - adjust for your region)
@@ -94,20 +94,44 @@ async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) 
 }
 
 /* ---------------- Email helpers ---------------- */
-let resend = null;
-async function ensureResend() {
-  if (resend || !process.env.RESEND_API_KEY) return resend;
-  const { Resend } = require('resend');
-  resend = new Resend(process.env.RESEND_API_KEY);
-  return resend;
+const nodemailer = require('nodemailer');
+let transporter = null;
+
+async function ensureTransporter() {
+  if (transporter || !process.env.RESEND_API_KEY) return transporter;
+  
+  // Use Resend SMTP
+  transporter = nodemailer.createTransport({
+    host: 'smtp.resend.com',
+    port: 465,
+    secure: true,
+    auth: {
+      user: 'resend',
+      pass: process.env.RESEND_API_KEY
+    }
+  });
+  
+  return transporter;
 }
+
 async function sendEmail(to, subject, html) {
-  const api = await ensureResend();
-  if (!api || !process.env.RESEND_FROM) {
+  const mailer = await ensureTransporter();
+  if (!mailer || !process.env.RESEND_FROM) {
     console.warn(JSON.stringify({ level:'warn', msg:'Email disabled', reason:'missing key/from' }));
     return { ok:false, disabled:true };
   }
-  return api.emails.send({ from: process.env.RESEND_FROM, to, subject, html });
+  
+  try {
+    const info = await mailer.sendMail({
+      from: process.env.RESEND_FROM,
+      to: to,
+      subject: subject,
+      html: html
+    });
+    return { ok: true, data: { id: info.messageId } };
+  } catch (err) {
+    return { ok: false, error: { message: err.message } };
+  }
 }
 async function sendEmailToAll(subject, html) {
   if (!Subscriber) return { ok:false, reason:'no model' };
@@ -115,7 +139,25 @@ async function sendEmailToAll(subject, html) {
   if (!subs.length) return { ok:true, sent:0 };
   let sent = 0;
   for (const s of subs) {
-    try { await sendEmail(s.email, subject, html); sent++; } catch {}
+    try { 
+      // For SMS subscribers, send plain text version (SMS gateways ignore HTML)
+      if (s.subscriptionType === 'sms') {
+        // Convert HTML to simple text for SMS
+        const plainText = html
+          .replace(/<[^>]*>/g, '') // Strip HTML tags
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/\s+/g, ' ') // Collapse whitespace
+          .trim()
+          .substring(0, 140); // SMS length limit
+        await sendEmail(s.email, '', `Tee Times: ${plainText}`);
+      } else {
+        await sendEmail(s.email, subject, html);
+      }
+      sent++; 
+    } catch {}
   }
   return { ok:true, sent };
 }
@@ -337,6 +379,16 @@ app.delete('/api/events/:id', async (req, res) => {
   if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) return res.status(403).json({ error: 'Forbidden' });
   const del = await Event.findByIdAndDelete(req.params.id);
   if (!del) return res.status(404).json({ error: 'Not found' });
+  
+  // Notify subscribers about the cancellation
+  await sendEmailToAll(`Event Cancelled: ${del.course} (${fmt.dateISO(del.date)})`,
+    frame('Golf Event Cancelled',
+          `<p>The following event has been cancelled:</p>
+           <p><strong>Event:</strong> ${esc(fmt.dateShortTitle(del.date))}</p>
+           <p><strong>Course:</strong> ${esc(del.course||'')}</p>
+           <p><strong>Date:</strong> ${esc(fmt.dateLong(del.date))}</p>
+           <p>We apologize for any inconvenience.</p>${btn('View Other Events')}`));
+  
   res.json({ ok: true });
 });
 
@@ -584,181 +636,83 @@ app.get('/api/events/:id/audit-log', async (req, res) => {
   }
 });
 
-/* ---------------- Handicap Tracking ---------------- */
-// Helper: Fetch handicap from GHIN (simplified - you may need to adjust based on actual GHIN API)
-async function fetchGHINHandicap(ghinNumber) {
-  try {
-    // Note: USGA GHIN doesn't have a public API. This is a placeholder.
-    // Options:
-    // 1. Use screen scraping (requires GHIN login credentials)
-    // 2. Manual entry/update only
-    // 3. Use a third-party service that has GHIN integration
-    // For now, we'll return a mock response and allow manual updates
-    
-    console.log(JSON.stringify({ level:'info', msg:'GHIN fetch attempted', ghinNumber, note:'No public GHIN API available' }));
-    
-    // In production, you would either:
-    // - Integrate with a paid GHIN API service
-    // - Use web scraping (requires authentication)
-    // - Allow manual entry only
-    
-    return {
-      success: false,
-      error: 'GHIN lookup not configured. Please enter handicap manually or configure GHIN API access.'
-    };
-  } catch (e) {
-    return { success: false, error: e.message };
-  }
+/* ---------------- SMS Gateway Mapping ---------------- */
+const SMS_GATEWAYS = {
+  verizon: 'vtext.com',
+  att: 'txt.att.net',
+  tmobile: 'tmomail.net',
+  sprint: 'messaging.sprintpcs.com',
+  uscellular: 'email.uscc.net',
+  boost: 'sms.myboostmobile.com',
+  cricket: 'sms.cricketwireless.net',
+  metropcs: 'mymetropcs.com'
+};
+
+function getSMSEmail(phone, carrier) {
+  const gateway = SMS_GATEWAYS[carrier];
+  if (!gateway) return null;
+  // Remove any non-digit characters from phone
+  const cleanPhone = String(phone).replace(/\D/g, '');
+  if (cleanPhone.length !== 10) return null;
+  return `${cleanPhone}@${gateway}`;
 }
-
-// Get all handicaps
-app.get('/api/handicaps', async (_req, res) => {
-  try {
-    if (!Handicap) return res.status(501).json({ error: 'Handicap tracking not available' });
-    const handicaps = await Handicap.find().sort({ name: 1 }).lean();
-    res.json(handicaps);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// Create new handicap entry
-app.post('/api/handicaps', async (req, res) => {
-  try {
-    if (!Handicap) return res.status(501).json({ error: 'Handicap tracking not available' });
-    const { name, ghinNumber, notes, handicapIndex } = req.body || {};
-    if (!name || !ghinNumber) return res.status(400).json({ error: 'name and ghinNumber required' });
-    
-    const entryData = {
-      name: String(name).trim(),
-      ghinNumber: String(ghinNumber).trim(),
-      notes: notes ? String(notes).trim() : ''
-    };
-    
-    // If handicap provided, set it and mark as manually entered
-    if (handicapIndex !== undefined && handicapIndex !== null && handicapIndex !== '') {
-      entryData.handicapIndex = Number(handicapIndex);
-      entryData.lastFetchedAt = new Date();
-      entryData.lastFetchSuccess = true;
-      entryData.lastFetchError = null;
-    } else {
-      entryData.lastFetchSuccess = false;
-      entryData.lastFetchError = 'Not yet entered';
-    }
-    
-    const entry = await Handicap.create(entryData);
-    
-    res.status(201).json(entry);
-  } catch (e) {
-    if (e.code === 11000) {
-      return res.status(409).json({ error: 'GHIN number already exists' });
-    }
-    res.status(400).json({ error: e.message });
-  }
-});
-
-// Update handicap entry
-app.put('/api/handicaps/:id', async (req, res) => {
-  try {
-    if (!Handicap) return res.status(501).json({ error: 'Handicap tracking not available' });
-    const { name, ghinNumber, notes, handicapIndex } = req.body || {};
-    
-    const entry = await Handicap.findById(req.params.id);
-    if (!entry) return res.status(404).json({ error: 'Not found' });
-    
-    if (name !== undefined) entry.name = String(name).trim();
-    if (ghinNumber !== undefined) entry.ghinNumber = String(ghinNumber).trim();
-    if (notes !== undefined) entry.notes = String(notes).trim();
-    if (handicapIndex !== undefined && handicapIndex !== null) {
-      entry.handicapIndex = Number(handicapIndex);
-      entry.lastFetchedAt = new Date();
-      entry.lastFetchSuccess = true;
-      entry.lastFetchError = null;
-    }
-    
-    await entry.save();
-    res.json(entry);
-  } catch (e) {
-    res.status(400).json({ error: e.message });
-  }
-});
-
-// Delete handicap entry
-app.delete('/api/handicaps/:id', async (req, res) => {
-  try {
-    if (!Handicap) return res.status(501).json({ error: 'Handicap tracking not available' });
-    const deleted = await Handicap.findByIdAndDelete(req.params.id);
-    if (!deleted) return res.status(404).json({ error: 'Not found' });
-    res.json({ ok: true });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// Refresh single handicap
-app.post('/api/handicaps/:id/refresh', async (req, res) => {
-  try {
-    if (!Handicap) return res.status(501).json({ error: 'Handicap tracking not available' });
-    const entry = await Handicap.findById(req.params.id);
-    if (!entry) return res.status(404).json({ error: 'Not found' });
-    
-    const result = await fetchGHINHandicap(entry.ghinNumber);
-    
-    entry.lastFetchedAt = new Date();
-    if (result.success) {
-      entry.handicapIndex = result.handicapIndex;
-      entry.lastFetchSuccess = true;
-      entry.lastFetchError = null;
-    } else {
-      entry.lastFetchSuccess = false;
-      entry.lastFetchError = result.error;
-    }
-    
-    await entry.save();
-    res.json(entry);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-// Refresh all handicaps
-app.post('/api/handicaps/refresh-all', async (_req, res) => {
-  try {
-    if (!Handicap) return res.status(501).json({ error: 'Handicap tracking not available' });
-    const entries = await Handicap.find();
-    
-    let updated = 0;
-    for (const entry of entries) {
-      const result = await fetchGHINHandicap(entry.ghinNumber);
-      entry.lastFetchedAt = new Date();
-      if (result.success) {
-        entry.handicapIndex = result.handicapIndex;
-        entry.lastFetchSuccess = true;
-        entry.lastFetchError = null;
-        updated++;
-      } else {
-        entry.lastFetchSuccess = false;
-        entry.lastFetchError = result.error;
-      }
-      await entry.save();
-    }
-    
-    res.json({ ok: true, updated, total: entries.length });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
 
 /* ---------------- Subscribers ---------------- */
 app.post('/api/subscribe', async (req, res) => {
-  const { email } = req.body || {};
-  if (!email) return res.status(400).json({ error: 'email required' });
+  const { subscriptionType, email, phone, carrier } = req.body || {};
+  
+  if (!subscriptionType) return res.status(400).json({ error: 'subscriptionType required' });
+  
   try {
     if (!Subscriber) return res.status(500).json({ error: 'subscriber model missing' });
-    const s = await Subscriber.findOneAndUpdate({ email: email.toLowerCase() }, { $setOnInsert: { email: email.toLowerCase() } }, { upsert: true, new: true });
-    res.json({ ok:true, id: s._id.toString(), email: s.email });
-    await sendEmail(s.email, 'Subscribed to Tee Times',
-      frame('Subscription Confirmed', `<p>You will receive updates for new events and changes.</p>${btn('Go to Sign-up Page')}`)).catch(()=>{});
+    
+    let subscriberData = { subscriptionType };
+    let notifyAddress;
+    
+    if (subscriptionType === 'email') {
+      if (!email) return res.status(400).json({ error: 'email required for email subscription' });
+      subscriberData.email = email.toLowerCase();
+      notifyAddress = email.toLowerCase();
+    } else if (subscriptionType === 'sms') {
+      if (!phone || !carrier) return res.status(400).json({ error: 'phone and carrier required for SMS subscription' });
+      
+      const smsEmail = getSMSEmail(phone, carrier);
+      if (!smsEmail) return res.status(400).json({ error: 'Invalid phone number or unsupported carrier' });
+      
+      subscriberData.email = smsEmail; // Store SMS gateway email
+      subscriberData.phone = phone.replace(/\D/g, '');
+      subscriberData.carrier = carrier;
+      notifyAddress = smsEmail;
+    } else {
+      return res.status(400).json({ error: 'Invalid subscription type' });
+    }
+    
+    // Check if subscriber already exists
+    const existing = await Subscriber.findOne({ email: subscriberData.email });
+    
+    const s = await Subscriber.findOneAndUpdate(
+      { email: subscriberData.email }, 
+      { $set: subscriberData }, 
+      { upsert: true, new: true }
+    );
+    
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'subscriber added', type:subscriptionType, address:notifyAddress, isNew: !existing }));
+    
+    // Send confirmation (always send for testing; in production you might want to only send if !existing)
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'sending confirmation', to:notifyAddress, type:subscriptionType }));
+    const subject = subscriptionType === 'email' ? 'Golf Notifications - Subscription Confirmed' : 'Golf Notifications';
+    const message = subscriptionType === 'email' 
+      ? `<p>Thanks for subscribing! You'll receive email notifications when new golf events are posted.</p><p>Reply STOP to unsubscribe.</p>`
+      : `Thanks for subscribing! You'll get text notifications for new golf events. Reply STOP to unsubscribe.`;
+    
+    try {
+      const result = await sendEmail(notifyAddress, subject, message);
+      console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'confirmation sent', result }));
+    } catch (emailErr) {
+      console.error(JSON.stringify({ t:new Date().toISOString(), level:'error', msg:'confirmation failed', error:emailErr.message, stack:emailErr.stack }));
+    }
+    
+    res.json({ ok: true, id: s._id.toString(), type: subscriptionType, isNew: !existing });
   } catch (e) { res.status(500).json({ error:e.message }); }
 });
 

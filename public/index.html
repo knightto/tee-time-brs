@@ -10,14 +10,60 @@
   <header class="bar">
     <h1 class="title">Tee Times</h1>
     <nav style="display:flex;gap:12px;align-items:center;margin-left:auto">
-      <a href="/handicap" style="color:var(--green-700);text-decoration:none;font-weight:500;padding:8px 12px;border-radius:8px;transition:all 0.2s">📊 Handicaps</a>
     </nav>
-    <form id="subscribeForm" class="row">
-      <input type="email" name="email" placeholder="your@email.com" required>
-      <button type="submit">Subscribe</button>
-      <span id="subMsg" class="muted"></span>
-    </form>
+    <button id="openSubscribeBtn" style="background:var(--green-600);color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:600">Subscribe</button>
   </header>
+
+  <!-- Subscribe Dialog -->
+  <dialog id="subscribeModal">
+    <form id="subscribeForm" method="dialog">
+      <h3>Subscribe to Notifications</h3>
+      
+      <div style="margin-bottom:16px">
+        <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+          <input type="radio" name="subscriptionType" value="email" checked>
+          <span>Email</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px">
+          <input type="radio" name="subscriptionType" value="sms">
+          <span>SMS (Text Message)</span>
+        </label>
+      </div>
+
+      <div id="emailFields" style="display:block">
+        <label>Email Address
+          <input type="email" name="email" id="emailInput" placeholder="your@email.com" required>
+        </label>
+      </div>
+
+      <div id="smsFields" style="display:none">
+        <label>Phone Number
+          <input type="tel" name="phone" id="phoneInput" placeholder="5551234567" pattern="[0-9]{10}" maxlength="10">
+          <span style="font-size:12px;color:var(--slate-700)">10 digits, no spaces or dashes</span>
+        </label>
+        <label>Carrier
+          <select name="carrier" id="carrierInput">
+            <option value="">Select your carrier...</option>
+            <option value="verizon">Verizon</option>
+            <option value="att">AT&T</option>
+            <option value="tmobile">T-Mobile</option>
+            <option value="sprint">Sprint</option>
+            <option value="uscellular">US Cellular</option>
+            <option value="boost">Boost Mobile</option>
+            <option value="cricket">Cricket</option>
+            <option value="metropcs">Metro PCS</option>
+          </select>
+        </label>
+      </div>
+
+      <span id="subMsg" class="muted" style="display:block;margin:12px 0"></span>
+
+      <menu>
+        <button type="button" data-cancel>Cancel</button>
+        <button type="submit" class="primary">Subscribe</button>
+      </menu>
+    </form>
+  </dialog>
 
   <main class="wrap">
     <div class="main-layout">
@@ -32,7 +78,6 @@
         <div class="calendar-actions">
           <button id="newTeeBtn" class="primary">New Tee-Time Event</button>
           <button id="newTeamBtn" class="primary">New Team Event</button>
-          <a href="/handicap" class="handicap-link">📊 View Group Handicaps</a>
         </div>
       </aside>
 
