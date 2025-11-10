@@ -4,6 +4,40 @@
   const $ = (s, r=document) => r.querySelector(s);
   const on = (el, ev, fn) => el && el.addEventListener(ev, fn);
 
+  // Debug logging
+  const debugLog = (type, message, data) => {
+    const debugLogs = $('#debugLogs');
+    if (!debugLogs) return;
+    const timestamp = new Date().toLocaleTimeString();
+    const color = type === 'error' ? '#ff6b6b' : type === 'success' ? '#51cf66' : type === 'warn' ? '#ffd43b' : '#74c0fc';
+    const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warn' ? '⚠️' : 'ℹ️';
+    const logEntry = document.createElement('div');
+    logEntry.style.cssText = `border-left:3px solid ${color};padding:4px 8px;margin:4px 0;background:rgba(255,255,255,0.05)`;
+    logEntry.innerHTML = `<span style="color:#888">[${timestamp}]</span> ${icon} <strong style="color:${color}">${type.toUpperCase()}</strong>: ${message}${data ? `\n${JSON.stringify(data, null, 2)}` : ''}`;
+    debugLogs.appendChild(logEntry);
+    debugLogs.scrollTop = debugLogs.scrollHeight;
+  };
+
+  // Override console methods to capture logs
+  const originalConsoleLog = console.log;
+  const originalConsoleError = console.error;
+  const originalConsoleWarn = console.warn;
+  
+  console.log = function(...args) {
+    debugLog('info', args.join(' '));
+    originalConsoleLog.apply(console, args);
+  };
+  
+  console.error = function(...args) {
+    debugLog('error', args.join(' '));
+    originalConsoleError.apply(console, args);
+  };
+  
+  console.warn = function(...args) {
+    debugLog('warn', args.join(' '));
+    originalConsoleWarn.apply(console, args);
+  };
+
   const eventsEl = $('#events');
   const modal = $('#eventModal');
   const eventForm = $('#eventForm');
@@ -158,14 +192,22 @@
     return data;
   }
   async function api(path, opts){ 
-    const r=await fetch(path, opts); 
-    const ct=r.headers.get('content-type')||''; 
-    const body = ct.includes('application/json') ? await r.json() : await r.text();
-    if(!r.ok) {
-      const msg = (typeof body === 'object' && body.message) || (typeof body === 'object' && body.error) || body || ('HTTP '+r.status);
-      throw new Error(msg);
+    debugLog('info', `API Request: ${opts?.method || 'GET'} ${path}`, opts?.body ? JSON.parse(opts.body) : null);
+    try {
+      const r=await fetch(path, opts); 
+      const ct=r.headers.get('content-type')||''; 
+      const body = ct.includes('application/json') ? await r.json() : await r.text();
+      if(!r.ok) {
+        const msg = (typeof body === 'object' && body.message) || (typeof body === 'object' && body.error) || body || ('HTTP '+r.status);
+        debugLog('error', `API Error: ${opts?.method || 'GET'} ${path} (${r.status})`, body);
+        throw new Error(msg);
+      }
+      debugLog('success', `API Success: ${opts?.method || 'GET'} ${path}`, body);
+      return body;
+    } catch (err) {
+      debugLog('error', `API Failed: ${opts?.method || 'GET'} ${path}`, { error: err.message });
+      throw err;
     }
-    return body;
   }
 
   // Create Event: open modal in the requested mode (tees or teams)
@@ -286,7 +328,11 @@
   // Subscribe
   on(subForm, 'submit', async (e)=>{
     e.preventDefault(); 
-    if(subMsg) subMsg.textContent='...';
+    if(subMsg) {
+      subMsg.textContent='Subscribing...';
+      subMsg.style.color='var(--slate-700)';
+      subMsg.style.fontWeight='500';
+    }
     try{
       const formData = new FormData(subForm);
       const subscriptionType = formData.get('subscriptionType');
@@ -301,17 +347,26 @@
       
       const result = await api('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       if(subMsg) {
+        subMsg.style.color='var(--green-700)';
+        subMsg.style.fontWeight='600';
         if (result.isNew) {
-          subMsg.textContent = subscriptionType === 'email' ? 'Email subscription confirmed!' : 'SMS subscription confirmed!';
+          subMsg.textContent = '✓ ' + (subscriptionType === 'email' ? 'Email subscription confirmed!' : 'SMS subscription confirmed!');
         } else {
-          subMsg.textContent = 'Already subscribed! Your subscription has been updated.';
+          subMsg.textContent = '✓ Already subscribed! Your subscription has been updated.';
         }
       }
-      setTimeout(() => subscribeModal?.close(), 2000);
+      setTimeout(() => {
+        subscribeModal?.close();
+        if(subMsg) subMsg.textContent='';
+      }, 2500);
       subForm.reset();
     }catch(err){ 
       console.error(err);
-      if(subMsg) subMsg.textContent='Failed: ' + (err.message || 'Unknown error'); 
+      if(subMsg) {
+        subMsg.textContent='Failed: ' + (err.message || 'Unknown error');
+        subMsg.style.color='#dc2626';
+        subMsg.style.fontWeight='600';
+      }
     }
   });
 
