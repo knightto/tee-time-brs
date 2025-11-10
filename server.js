@@ -20,6 +20,22 @@ app.use(rateLimit({ windowMs: 60 * 1000, max: 200 }));
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 // Handicap tracking removed
 
+// Health check / debug endpoint
+app.get('/api/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    config: {
+      mongoConnected: mongoose.connection.readyState === 1,
+      hasResendKey: !!process.env.RESEND_API_KEY,
+      hasResendFrom: !!process.env.RESEND_FROM,
+      hasSubscriberModel: !!Subscriber,
+      port: PORT,
+      nodeEnv: process.env.NODE_ENV || 'development'
+    }
+  });
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/teetimes';
@@ -727,10 +743,15 @@ function getSMSEmail(phone, carrier) {
 app.post('/api/subscribe', async (req, res) => {
   const { subscriptionType, email, phone, carrier } = req.body || {};
   
+  console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'subscribe request received', subscriptionType, email: email ? '***' : null, phone: phone ? '***' : null }));
+  
   if (!subscriptionType) return res.status(400).json({ error: 'subscriptionType required' });
   
   try {
-    if (!Subscriber) return res.status(500).json({ error: 'subscriber model missing' });
+    if (!Subscriber) {
+      console.error(JSON.stringify({ t:new Date().toISOString(), level:'error', msg:'Subscriber model not loaded' }));
+      return res.status(500).json({ error: 'subscriber model missing' });
+    }
     
     let subscriberData = { subscriptionType };
     let notifyAddress;
@@ -779,7 +800,10 @@ app.post('/api/subscribe', async (req, res) => {
     }
     
     res.json({ ok: true, id: s._id.toString(), type: subscriptionType, isNew: !existing });
-  } catch (e) { res.status(500).json({ error:e.message }); }
+  } catch (e) { 
+    console.error(JSON.stringify({ t:new Date().toISOString(), level:'error', msg:'subscribe error', error:e.message, stack:e.stack }));
+    res.status(500).json({ error:e.message }); 
+  }
 });
 
 /* ---------------- Reminder logic ---------------- */
