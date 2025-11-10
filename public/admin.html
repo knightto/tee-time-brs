@@ -176,27 +176,29 @@
     <a href="/" class="back-link">← Back to Events</a>
     
     <h1>
-      <span>👥</span>
+      <span>⚙️</span>
       Admin Dashboard
     </h1>
 
-    <!-- Test Section -->
-    <div class="test-section">
-      <h2>🧪 Test Functions</h2>
+    <!-- Quick Actions Section -->
+    <div class="test-section" style="background: #dbeafe; border-color: #3b82f6;">
+      <h2 style="color: #1e40af;">⚡ Quick Actions</h2>
       <div class="test-buttons">
-        <button class="btn-test" onclick="testCreateEvent()">Create Test Event</button>
-        <button class="btn-test" onclick="testAddTeeTime()">Add Tee Time</button>
-        <button class="btn-test" onclick="testAddPlayer()">Add Player</button>
-        <button class="btn-test" onclick="testRemovePlayer()">Remove Player</button>
-        <button class="btn-test" onclick="testMovePlayer()">Move Player</button>
-        <button class="btn-test" onclick="testSendNotification()">Send Test Notification</button>
-        <button class="btn-test" onclick="testWeatherFetch()">Fetch Weather</button>
-        <button class="btn-test" onclick="testDeleteEvent()">Delete Test Event</button>
+        <button class="btn-test" style="background: #3b82f6;" onclick="refreshAllWeather()">🌤️ Refresh All Weather</button>
+        <button class="btn-test" style="background: #3b82f6;" onclick="sendTestEmail()">📧 Send Test Email</button>
+        <button class="btn-test" style="background: #3b82f6;" onclick="checkEmptyTees()">⚠️ Check Empty Tees Now</button>
+        <button class="btn-test" style="background: #3b82f6;" onclick="viewAuditLogs()">📋 View All Audit Logs</button>
       </div>
-      <div id="testResult" class="test-result"></div>
+      <div id="quickResult" class="test-result"></div>
     </div>
 
-    <h2 style="margin-top: 24px; color: #111827;">Subscriber Management</h2>
+    <!-- Events Overview Section -->
+    <div style="background: rgba(255,255,255,0.98); border-radius: 8px; padding: 16px; margin-bottom: 24px;">
+      <h2 style="margin: 0 0 16px 0; color: #111827;">📅 Events Overview</h2>
+      <div id="eventsOverview" style="color: #475569;">Loading events...</div>
+    </div>
+
+    <h2 style="margin-top: 24px; color: #111827;">👥 Subscriber Management</h2>
 
     <div class="stats">
       <div class="stat-card">
@@ -222,8 +224,10 @@
     const ADMIN_CODE = prompt('Enter admin code:');
     if (!ADMIN_CODE) {
       document.getElementById('content').innerHTML = '<div class="empty-state">Admin access required</div>';
+      document.getElementById('eventsOverview').innerHTML = '<div class="empty-state">Admin access required</div>';
     } else {
       loadSubscribers();
+      loadEventsOverview();
     }
 
     async function loadSubscribers() {
@@ -326,18 +330,151 @@
       return phone;
     }
 
-    // Test Functions
-    let testEventId = null;
-    let testTeeId = null;
-    let testPlayerId = null;
-
-    function showTestResult(message, isSuccess = true) {
-      const result = document.getElementById('testResult');
+    // Quick Actions Functions
+    function showQuickResult(message, isSuccess = true) {
+      const result = document.getElementById('quickResult');
       result.className = `test-result ${isSuccess ? 'success' : 'error'}`;
       result.textContent = message;
       setTimeout(() => { result.className = 'test-result'; }, 5000);
     }
 
+    async function loadEventsOverview() {
+      try {
+        const response = await fetch('/api/events');
+        if (!response.ok) throw new Error('Failed to load events');
+        
+        const events = await response.json();
+        const now = new Date();
+        
+        // Categorize events
+        const upcoming = events.filter(e => new Date(e.date) > now);
+        const past = events.filter(e => new Date(e.date) <= now);
+        
+        // Find events with empty tee times
+        const withEmptyTees = upcoming.filter(e => {
+          if (e.isTeamEvent) return false;
+          return e.teeTimes?.some(tt => !tt.players || tt.players.length === 0);
+        });
+        
+        // Calculate stats
+        const totalPlayers = events.reduce((sum, e) => {
+          return sum + (e.teeTimes || []).reduce((tsum, tt) => tsum + (tt.players?.length || 0), 0);
+        }, 0);
+        
+        let html = `
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px;">
+            <div style="background: #f0fdf4; padding: 12px; border-radius: 6px; border-left: 3px solid #22c55e;">
+              <div style="font-size: 24px; font-weight: bold; color: #15803d;">${upcoming.length}</div>
+              <div style="font-size: 12px; color: #16a34a;">Upcoming Events</div>
+            </div>
+            <div style="background: #fef3c7; padding: 12px; border-radius: 6px; border-left: 3px solid #f59e0b;">
+              <div style="font-size: 24px; font-weight: bold; color: #b45309;">${withEmptyTees.length}</div>
+              <div style="font-size: 12px; color: #d97706;">With Empty Tees</div>
+            </div>
+            <div style="background: #e0e7ff; padding: 12px; border-radius: 6px; border-left: 3px solid #6366f1;">
+              <div style="font-size: 24px; font-weight: bold; color: #4338ca;">${totalPlayers}</div>
+              <div style="font-size: 12px; color: #4f46e5;">Total Players</div>
+            </div>
+            <div style="background: #f3f4f6; padding: 12px; border-radius: 6px; border-left: 3px solid #6b7280;">
+              <div style="font-size: 24px; font-weight: bold; color: #374151;">${past.length}</div>
+              <div style="font-size: 12px; color: #4b5563;">Past Events</div>
+            </div>
+          </div>
+        `;
+        
+        if (withEmptyTees.length > 0) {
+          html += '<h3 style="color: #b45309; margin: 16px 0 8px 0;">⚠️ Events with Empty Tee Times:</h3><ul style="margin: 0;">';
+          withEmptyTees.slice(0, 5).forEach(e => {
+            const emptyCount = e.teeTimes.filter(tt => !tt.players || tt.players.length === 0).length;
+            const dateStr = new Date(e.date).toLocaleDateString();
+            html += `<li style="margin: 4px 0;"><strong>${escapeHtml(e.course)}</strong> - ${dateStr} (${emptyCount} empty)</li>`;
+          });
+          html += '</ul>';
+        }
+        
+        document.getElementById('eventsOverview').innerHTML = html;
+      } catch (error) {
+        console.error('Error loading events overview:', error);
+        document.getElementById('eventsOverview').innerHTML = '<div style="color: #dc2626;">Error loading events</div>';
+      }
+    }
+
+    async function refreshAllWeather() {
+      try {
+        showQuickResult('⏳ Refreshing weather for all events...');
+        const response = await fetch('/api/events/weather/refresh-all', { method: 'POST' });
+        
+        if (!response.ok) throw new Error('Failed to refresh weather');
+        const result = await response.json();
+        showQuickResult(`✅ Weather refreshed for ${result.updated} events`);
+        loadEventsOverview();
+      } catch (error) {
+        showQuickResult(`❌ Error: ${error.message}`, false);
+      }
+    }
+
+    async function sendTestEmail() {
+      const email = prompt('Enter email address to send test to:', ADMIN_CODE ? 'tommy.knight@gmail.com' : '');
+      if (!email) return;
+      
+      try {
+        showQuickResult('⏳ Sending test email...');
+        // Use the subscribe endpoint to trigger a confirmation email
+        const response = await fetch('/api/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            subscriptionType: 'email',
+            email: email
+          })
+        });
+        
+        if (!response.ok) throw new Error('Failed to send');
+        showQuickResult(`✅ Test email sent to ${email}`);
+      } catch (error) {
+        showQuickResult(`❌ Error: ${error.message}`, false);
+      }
+    }
+
+    async function checkEmptyTees() {
+      try {
+        showQuickResult('⏳ Checking for empty tee times...');
+        const response = await fetch(`/admin/check-empty-tees?code=${encodeURIComponent(ADMIN_CODE)}`);
+        
+        if (!response.ok) throw new Error('Failed to check');
+        const result = await response.json();
+        
+        if (result.alertsSent === 0) {
+          showQuickResult('✅ No empty tee time alerts needed');
+        } else {
+          showQuickResult(`✅ Sent ${result.alertsSent} admin alert(s) (48hr: ${result.events48}, 24hr: ${result.events24})`);
+        }
+      } catch (error) {
+        showQuickResult(`❌ Error: ${error.message}`, false);
+      }
+    }
+
+    async function viewAuditLogs() {
+      try {
+        const response = await fetch('/api/events');
+        if (!response.ok) throw new Error('Failed to load events');
+        
+        const events = await response.json();
+        if (events.length === 0) {
+          showQuickResult('No events found', false);
+          return;
+        }
+        
+        // Open audit log for the most recent event
+        const recentEvent = events[0];
+        window.open(`/#audit-${recentEvent._id}`, '_self');
+        showQuickResult(`Opening audit log for ${recentEvent.course}`);
+      } catch (error) {
+        showQuickResult(`❌ Error: ${error.message}`, false);
+      }
+    }
+
+    // Legacy test functions (kept for compatibility, not displayed in UI)
     async function testCreateEvent() {
       try {
         const tomorrow = new Date();
@@ -504,6 +641,18 @@
         if (!response.ok) throw new Error('Failed to fetch weather');
         const event = await response.json();
         showTestResult(`✅ Weather: ${event.weather?.description || 'fetched'}`);
+      } catch (error) {
+        showTestResult(`❌ Error: ${error.message}`, false);
+      }
+    }
+
+    async function testAdminAlerts() {
+      try {
+        const response = await fetch(`/admin/check-empty-tees?code=${encodeURIComponent(ADMIN_CODE)}`);
+        
+        if (!response.ok) throw new Error('Failed to check admin alerts');
+        const result = await response.json();
+        showTestResult(`✅ Admin check complete: ${result.alertsSent} alerts sent (48hr events: ${result.events48}, 24hr events: ${result.events24})`);
       } catch (error) {
         showTestResult(`❌ Error: ${error.message}`, false);
       }

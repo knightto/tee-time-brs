@@ -6,6 +6,9 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
+// Polyfill fetch for Node < 18
+const fetch = global.fetch || require('node-fetch');
+
 const app = express();
 const PORT = process.env.PORT || 300;
 const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
@@ -47,6 +50,9 @@ let Event; try { Event = require('./models/Event'); } catch { Event = require('.
 let Subscriber; try { Subscriber = require('./models/Subscriber'); } catch { Subscriber = null; }
 let AuditLog; try { AuditLog = require('./models/AuditLog'); } catch { AuditLog = null; }
 // Handicap model removed
+
+/* ---------------- Admin Configuration ---------------- */
+const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'tommy.knight@gmail.com,jvhyers@gmail.com').split(',').map(e => e.trim()).filter(Boolean);
 
 /* ---------------- Weather helpers ---------------- */
 // Default location (Richmond, VA area - adjust for your region)
@@ -969,6 +975,24 @@ app.delete('/api/admin/subscribers/:id', async (req, res) => {
 });
 
 /* ---------------- Reminder logic ---------------- */
+async function sendAdminAlert(subject, htmlBody) {
+  if (!ADMIN_EMAILS || ADMIN_EMAILS.length === 0) {
+    console.log('No admin emails configured');
+    return { ok: false, reason: 'no admins' };
+  }
+  
+  let sent = 0;
+  for (const adminEmail of ADMIN_EMAILS) {
+    try {
+      await sendEmail(adminEmail, subject, frame('Admin Alert', htmlBody));
+      sent++;
+    } catch (e) {
+      console.error(`Failed to send admin alert to ${adminEmail}:`, e.message);
+    }
+  }
+  return { ok: true, sent };
+}
+
 function tomorrowYMDLocal(){
   const now = new Date();
   const ymd = ymdInTZ(now, LOCAL_TZ);
@@ -994,6 +1018,71 @@ async function findEmptyTeeTimesForTomorrow(){
   }
   return blocks;
 }
+
+async function checkEmptyTeeTimesForAdminAlert(){
+  const now = new Date();
+  
+  // Check for events 48 hours from now
+  const in48Hours = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+  const in48HoursDate = in48Hours.toISOString().split('T')[0];
+  
+  // Check for events 24 hours from now
+  const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+  const in24HoursDate = in24Hours.toISOString().split('T')[0];
+  
+  const start48 = new Date(in48HoursDate + 'T00:00:00Z');
+  const end48 = new Date(in48HoursDate + 'T23:59:59Z');
+  const start24 = new Date(in24HoursDate + 'T00:00:00Z');
+  const end24 = new Date(in24HoursDate + 'T23:59:59Z');
+  
+  // Find events in both windows
+  const events48 = await Event.find({ isTeamEvent: false, date: { $gte: start48, $lte: end48 } }).lean();
+  const events24 = await Event.find({ isTeamEvent: false, date: { $gte: start24, $lte: end24 } }).lean();
+  
+  let alertsSent = 0;
+  
+  // Check 48-hour events
+  for (const ev of events48) {
+    const empties = (ev.teeTimes||[]).filter(tt => !tt.players || !tt.players.length);
+    if (empties.length > 0) {
+      const emptyTimes = empties.map(tt => fmt.tee(tt.time||'')).join(', ');
+      const html = `
+        <p><strong>⚠️ 48-Hour Alert: Empty Tee Times</strong></p>
+        <p><strong>Event:</strong> ${esc(ev.course||'Course')}</p>
+        <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
+        <p><strong>Empty Tee Times:</strong> ${esc(emptyTimes)}</p>
+        <p><strong>Total Empty:</strong> ${empties.length} of ${ev.teeTimes.length}</p>
+        <p>This event is 48 hours away and has empty tee times. Consider reaching out to members.</p>
+        ${btn('View Event')}
+      `;
+      await sendAdminAlert(`48hr Alert: Empty Tee Times - ${ev.course}`, html);
+      alertsSent++;
+      console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'admin-alert-48hr', event:ev._id, empties:empties.length }));
+    }
+  }
+  
+  // Check 24-hour events
+  for (const ev of events24) {
+    const empties = (ev.teeTimes||[]).filter(tt => !tt.players || !tt.players.length);
+    if (empties.length > 0) {
+      const emptyTimes = empties.map(tt => fmt.tee(tt.time||'')).join(', ');
+      const html = `
+        <p><strong>🚨 24-Hour Alert: Empty Tee Times</strong></p>
+        <p><strong>Event:</strong> ${esc(ev.course||'Course')}</p>
+        <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
+        <p><strong>Empty Tee Times:</strong> ${esc(emptyTimes)}</p>
+        <p><strong>Total Empty:</strong> ${empties.length} of ${ev.teeTimes.length}</p>
+        <p>This event is 24 hours away and still has empty tee times. Urgent action may be needed.</p>
+        ${btn('View Event')}
+      `;
+      await sendAdminAlert(`24hr Alert: Empty Tee Times - ${ev.course}`, html);
+      alertsSent++;
+      console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'admin-alert-24hr', event:ev._id, empties:empties.length }));
+    }
+  }
+  
+  return { ok: true, alertsSent, events48: events48.length, events24: events24.length };
+}
 async function runReminderIfNeeded(label){
   const blocks = await findEmptyTeeTimesForTomorrow();
   if (!blocks.length) {
@@ -1014,25 +1103,102 @@ app.get('/admin/run-reminders', async (req, res) => {
   catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
-/* 5:00 PM local scheduler without extra deps
+/* manual trigger for admin alerts: GET /admin/check-empty-tees?code=... */
+app.get('/admin/check-empty-tees', async (req, res) => {
+  const code = req.query.code || '';
+  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) return res.status(403).json({ error: 'Forbidden' });
+  try { 
+    const r = await checkEmptyTeeTimesForAdminAlert(); 
+    return res.json(r); 
+  } catch (e) { 
+    return res.status(500).json({ error: e.message }); 
+  }
+});
+
+/* Helper: refresh weather for events in next 7 days */
+async function refreshWeatherForUpcomingEvents() {
+  try {
+    const now = new Date();
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    
+    const events = await Event.find({
+      date: { $gte: now, $lte: sevenDaysFromNow }
+    });
+    
+    let updated = 0;
+    for (const ev of events) {
+      try {
+        const weatherData = await fetchWeatherForecast(ev.date);
+        
+        if (!ev.weather) ev.weather = {};
+        ev.weather.condition = weatherData.condition;
+        ev.weather.icon = weatherData.icon;
+        ev.weather.temp = weatherData.temp;
+        ev.weather.description = weatherData.description;
+        ev.weather.lastFetched = weatherData.lastFetched;
+        
+        await ev.save();
+        updated++;
+      } catch (e) {
+        console.error(`Weather refresh failed for event ${ev._id}:`, e.message);
+      }
+    }
+    
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'weather-refresh', updated, total: events.length }));
+    return { ok: true, updated, total: events.length };
+  } catch (e) {
+    console.error('Weather refresh error:', e);
+    return { ok: false, error: e.message };
+  }
+}
+
+/* Scheduler for reminders, admin alerts, and weather refresh
    Only enable when running as the entry point (not when imported by tests)
    and when ENABLE_SCHEDULER is not explicitly disabled. */
 if (require.main === module && process.env.ENABLE_SCHEDULER !== '0') {
   let lastRunForYMD = null;
+  let lastAdminCheckHour = null;
+  let lastWeatherRefreshHour = null;
+  
   setInterval(async () => {
     try {
       const now = new Date();
       const parts = new Intl.DateTimeFormat('en-US', { timeZone: LOCAL_TZ, hour:'2-digit', minute:'2-digit', hour12:false }).format(now).split(':');
       const hour = Number(parts[0]), minute = Number(parts[1]);
       const todayLocalYMD = ymdInTZ(now, LOCAL_TZ);
+      
+      // Daily 5:00 PM reminder for tomorrow's empty tee times (sent to subscribers)
       if (hour === 17 && minute === 0 && lastRunForYMD !== todayLocalYMD) {
         lastRunForYMD = todayLocalYMD;
         await runReminderIfNeeded('auto-17:00');
       }
+      
+      // Admin alerts for empty tee times (48hr and 24hr checks)
+      // Run every 6 hours at: 6 AM, 12 PM, 6 PM, 12 AM
+      if ([0, 6, 12, 18].includes(hour) && minute === 0 && lastAdminCheckHour !== hour) {
+        lastAdminCheckHour = hour;
+        const result = await checkEmptyTeeTimesForAdminAlert();
+        console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'admin-check-complete', result }));
+        
+        // Reset at end of day
+        if (hour === 0) lastAdminCheckHour = null;
+      }
+      
+      // Weather refresh for events in next 7 days
+      // Run every 2 hours at: 12 AM, 2 AM, 4 AM, 6 AM, 8 AM, 10 AM, 12 PM, 2 PM, 4 PM, 6 PM, 8 PM, 10 PM
+      if (hour % 2 === 0 && minute === 0 && lastWeatherRefreshHour !== hour) {
+        lastWeatherRefreshHour = hour;
+        await refreshWeatherForUpcomingEvents();
+        
+        // Reset at end of day
+        if (hour === 0) lastWeatherRefreshHour = null;
+      }
     } catch (e) {
-      console.error('reminder tick error', e);
+      console.error('scheduler tick error', e);
     }
   }, 60 * 1000); // check once per minute
+  
+  console.log('Scheduler enabled: Daily reminders at 5 PM, Admin alerts every 6 hours, Weather refresh every 2 hours');
 }
 
 if (require.main === module) {
