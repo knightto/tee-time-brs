@@ -407,7 +407,20 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
       if (dup) return res.status(409).json({ error: 'duplicate team name' });
     }
     ev.teeTimes.push({ name, players: [] });
-    await ev.save(); return res.json(ev);
+    await ev.save();
+    
+    // Send notification for new team
+    await sendEmailToAll(
+      `New Team Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
+      frame('New Team Added!',
+        `<p>A new team has been added:</p>
+         <p><strong>Event:</strong> ${esc(ev.course)}</p>
+         <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
+         <p><strong>Team:</strong> ${esc(name)}</p>
+         ${btn('View Event')}`)
+    );
+    
+    return res.json(ev);
   }
   // For tee times: accept optional time. If missing, compute next time using event data.
   const { time } = req.body || {};
@@ -422,7 +435,20 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
   if (Number.isNaN(hh) || Number.isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return res.status(400).json({ error: 'invalid time' });
   if (ev.teeTimes.some(t => t.time === newTime)) return res.status(409).json({ error: 'duplicate time' });
   ev.teeTimes.push({ time: newTime, players: [] });
-  await ev.save(); res.json(ev);
+  await ev.save();
+  
+  // Send notification for new tee time
+  await sendEmailToAll(
+    `New Tee Time Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
+    frame('New Tee Time Added!',
+      `<p>A new tee time has been added:</p>
+       <p><strong>Event:</strong> ${esc(ev.course)}</p>
+       <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
+       <p><strong>Tee Time:</strong> ${esc(fmt.tee(newTime))}</p>
+       ${btn('View Event')}`)
+  );
+  
+  res.json(ev);
 });
 app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
   try {
@@ -430,7 +456,23 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
     if (!ev) return res.status(404).json({ error: 'Not found' });
     const tt = ev.teeTimes.id(req.params.teeId);
     if (!tt) return res.status(404).json({ error: 'tee/team not found' });
-    tt.deleteOne(); await ev.save(); res.json(ev);
+    
+    const teeLabel = getTeeLabel(ev, tt._id);
+    tt.deleteOne();
+    await ev.save();
+    
+    // Send notification for tee time/team deletion
+    await sendEmailToAll(
+      `${ev.isTeamEvent ? 'Team' : 'Tee Time'} Removed: ${ev.course} (${fmt.dateISO(ev.date)})`,
+      frame(`${ev.isTeamEvent ? 'Team' : 'Tee Time'} Removed`,
+        `<p>A ${ev.isTeamEvent ? 'team' : 'tee time'} has been removed:</p>
+         <p><strong>Event:</strong> ${esc(ev.course)}</p>
+         <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
+         <p><strong>${ev.isTeamEvent ? 'Team' : 'Tee Time'}:</strong> ${esc(teeLabel)}</p>
+         ${btn('View Event')}`)
+    );
+    
+    res.json(ev);
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
@@ -462,6 +504,18 @@ app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
     teeLabel: getTeeLabel(ev, tt._id)
   });
   
+  // Send notification email
+  const teeLabel = getTeeLabel(ev, tt._id);
+  await sendEmailToAll(
+    `Player Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
+    frame('Player Signed Up!',
+      `<p><strong>${esc(trimmedName)}</strong> has signed up for:</p>
+       <p><strong>Event:</strong> ${esc(ev.course)}</p>
+       <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
+       <p><strong>${ev.isTeamEvent ? 'Team' : 'Tee Time'}:</strong> ${esc(teeLabel)}</p>
+       ${btn('View Event')}`)
+  );
+  
   res.json(ev);
 });
 app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res) => {
@@ -475,14 +529,26 @@ app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res
     if (idx === -1) return res.status(404).json({ error: 'player not found' });
     
     const playerName = tt.players[idx].name;
+    const teeLabel = getTeeLabel(ev, tt._id);
     tt.players.splice(idx, 1);
     await ev.save();
     
     // Audit log
     await logAudit(ev._id, 'remove_player', playerName, {
       teeId: tt._id,
-      teeLabel: getTeeLabel(ev, tt._id)
+      teeLabel: teeLabel
     });
+    
+    // Send notification email
+    await sendEmailToAll(
+      `Player Removed: ${ev.course} (${fmt.dateISO(ev.date)})`,
+      frame('Player Removed',
+        `<p><strong>${esc(playerName)}</strong> has been removed from:</p>
+         <p><strong>Event:</strong> ${esc(ev.course)}</p>
+         <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
+         <p><strong>${ev.isTeamEvent ? 'Team' : 'Tee Time'}:</strong> ${esc(teeLabel)}</p>
+         ${btn('View Event')}`)
+    );
     
     return res.json(ev);
   } catch (e) {
