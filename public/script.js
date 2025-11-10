@@ -321,82 +321,6 @@
     if (e.target.dataset.cancel) subscribeModal?.close();
   });
 
-  // Toggle subscription fields based on type
-  const subscriptionTypeRadios = document.querySelectorAll('input[name="subscriptionType"]');
-  const emailFields = $('#emailFields');
-  const smsFields = $('#smsFields');
-  
-  function updateSubscriptionFields() {
-    const checkedRadio = document.querySelector('input[name="subscriptionType"]:checked');
-    if (!checkedRadio) return;
-    
-    if (checkedRadio.value === 'email') {
-      emailFields.style.display = 'block';
-      smsFields.style.display = 'none';
-      subForm.elements.email.required = true;
-      subForm.elements.phone.required = false;
-      subForm.elements.carrier.required = false;
-    } else {
-      emailFields.style.display = 'none';
-      smsFields.style.display = 'block';
-      subForm.elements.email.required = false;
-      subForm.elements.phone.required = true;
-      subForm.elements.carrier.required = true;
-    }
-  }
-  
-  subscriptionTypeRadios.forEach(radio => {
-    on(radio, 'change', updateSubscriptionFields);
-  });
-  
-  // Set initial state
-  updateSubscriptionFields();
-
-  // Test SMS button
-  on($('#testSmsBtn'), 'click', async ()=>{
-    const formData = new FormData(subForm);
-    const phone = formData.get('phone');
-    const carrier = formData.get('carrier');
-    const subscriptionType = formData.get('subscriptionType');
-    
-    if (subscriptionType !== 'sms') {
-      if(subMsg) {
-        subMsg.textContent = 'Test SMS only works for SMS subscriptions';
-        subMsg.style.color = '#d97706';
-      }
-      return;
-    }
-    
-    if (!phone || !carrier) {
-      if(subMsg) {
-        subMsg.textContent = 'Enter phone number and select carrier first';
-        subMsg.style.color = '#d97706';
-      }
-      return;
-    }
-    
-    if(subMsg) {
-      subMsg.textContent='Sending test...';
-      subMsg.style.color='var(--slate-700)';
-    }
-    
-    try {
-      const result = await api('/api/test-sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone, carrier})});
-      if(subMsg) {
-        subMsg.textContent = `✓ Test sent to ${result.gateway}. Check your phone (may take 5-15 min)`;
-        subMsg.style.color='var(--green-700)';
-        subMsg.style.fontWeight='600';
-      }
-    } catch(err) {
-      console.error(err);
-      if(subMsg) {
-        subMsg.textContent='Test failed: ' + (err.message || 'Unknown error');
-        subMsg.style.color='#dc2626';
-        subMsg.style.fontWeight='600';
-      }
-    }
-  });
-
   // Subscribe
   on(subForm, 'submit', async (e)=>{
     e.preventDefault(); 
@@ -407,24 +331,17 @@
     }
     try{
       const formData = new FormData(subForm);
-      const subscriptionType = formData.get('subscriptionType');
-      const payload = { subscriptionType };
-      
-      if (subscriptionType === 'email') {
-        payload.email = formData.get('email');
-      } else {
-        payload.phone = formData.get('phone');
-        payload.carrier = formData.get('carrier');
-      }
+      const email = formData.get('email');
+      const payload = { email };
       
       const result = await api('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       if(subMsg) {
         subMsg.style.color='var(--green-700)';
         subMsg.style.fontWeight='600';
         if (result.isNew) {
-          subMsg.textContent = '✓ ' + (subscriptionType === 'email' ? 'Email subscription confirmed!' : 'SMS subscription confirmed!');
+          subMsg.textContent = '✓ Email subscription confirmed!';
         } else {
-          subMsg.textContent = '✓ Already subscribed! Your subscription has been updated.';
+          subMsg.textContent = '✓ Already subscribed!';
         }
       }
       setTimeout(() => {

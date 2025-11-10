@@ -4,9 +4,6 @@ const crypto = require('crypto');
 
 const SubscriberSchema = new mongoose.Schema({
   email: { type: String, required: true, lowercase: true, trim: true, unique: true },
-  phone: { type: String, trim: true }, // Phone number for SMS (10 digits)
-  carrier: { type: String, trim: true }, // Carrier name for email-to-SMS gateway
-  subscriptionType: { type: String, enum: ['email', 'sms'], default: 'email' }, // Notification type
   unsubscribeToken: { type: String, unique: true, sparse: true } // Token for unsubscribe link
 }, { timestamps: true });
 

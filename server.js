@@ -185,27 +185,12 @@ async function sendEmailToAll(subject, html) {
       // Add personalized unsubscribe link
       const unsubLink = `${SITE_URL}api/unsubscribe/${s.unsubscribeToken}`;
       
-      // For SMS subscribers, send plain text version (SMS gateways ignore HTML)
-      if (s.subscriptionType === 'sms') {
-        // Convert HTML to simple text for SMS
-        const plainText = html
-          .replace(/<[^>]*>/g, '') // Strip HTML tags
-          .replace(/&amp;/g, '&')
-          .replace(/&lt;/g, '<')
-          .replace(/&gt;/g, '>')
-          .replace(/&quot;/g, '"')
-          .replace(/\s+/g, ' ') // Collapse whitespace
-          .trim()
-          .substring(0, 120); // SMS length limit (leave room for unsub link)
-        await sendEmail(s.email, '', `Tee Times: ${plainText} Unsub: ${unsubLink}`);
-      } else {
-        // For email, add unsubscribe link to the HTML
-        const htmlWithUnsub = html.replace(
-          /You received this because you subscribed to tee time updates\./,
-          `You received this because you subscribed to tee time updates. <a href="${unsubLink}" style="color:#6b7280;text-decoration:underline">Unsubscribe</a>`
-        );
-        await sendEmail(s.email, subject, htmlWithUnsub);
-      }
+      // Add unsubscribe link to the HTML
+      const htmlWithUnsub = html.replace(
+        /You received this because you subscribed to tee time updates\./,
+        `You received this because you subscribed to tee time updates. <a href="${unsubLink}" style="color:#6b7280;text-decoration:underline">Unsubscribe</a>`
+      );
+      await sendEmail(s.email, subject, htmlWithUnsub);
       sent++; 
     } catch {}
   }
@@ -798,55 +783,13 @@ app.get('/api/events/:id/audit-log', async (req, res) => {
   }
 });
 
-/* ---------------- SMS Gateway Mapping ---------------- */
-// Updated 2025-11-10 - Verified carrier SMS email gateways
-// Format: number@gateway (e.g., 5551234567@txt.att.net)
-const SMS_GATEWAYS = {
-  // Major carriers
-  verizon: 'vtext.com',                    // Verizon Wireless
-  att: 'txt.att.net',                       // AT&T (SMS - 160 char)
-  'att-mms': 'mms.att.net',                 // AT&T (MMS - longer messages, images)
-  tmobile: 'tmomail.net',                   // T-Mobile
-  sprint: 'messaging.sprintpcs.com',        // Sprint (now part of T-Mobile but still works)
-  
-  // Regional & MVNOs
-  uscellular: 'email.uscc.net',             // U.S. Cellular
-  boost: 'sms.myboostmobile.com',           // Boost Mobile
-  cricket: 'sms.cricketwireless.net',       // Cricket Wireless (AT&T owned)
-  metropcs: 'mymetropcs.com',               // Metro by T-Mobile
-  
-  // Other carriers
-  virgin: 'vmobl.com',                      // Virgin Mobile
-  tracfone: 'mmst5.tracfone.com',           // Tracfone
-  mint: 'mailmymobile.net',                 // Mint Mobile (uses T-Mobile)
-  visible: 'vtext.com',                     // Visible (uses Verizon)
-  straighttalk: 'vtext.com',                // Straight Talk (varies by network)
-  'consumer-cellular': 'mailmymobile.net',  // Consumer Cellular
-  xfinity: 'vtext.com',                     // Xfinity Mobile (uses Verizon)
-  spectrum: 'vtext.com',                    // Spectrum Mobile (uses Verizon)
-  googlefi: 'msg.fi.google.com',            // Google Fi
-  
-  // Legacy (may still work)
-  alltel: 'text.wireless.alltel.com',
-  nextel: 'messaging.nextel.com'
-};
-
-function getSMSEmail(phone, carrier) {
-  const gateway = SMS_GATEWAYS[carrier];
-  if (!gateway) return null;
-  // Remove any non-digit characters from phone
-  const cleanPhone = String(phone).replace(/\D/g, '');
-  if (cleanPhone.length !== 10) return null;
-  return `${cleanPhone}@${gateway}`;
-}
-
 /* ---------------- Subscribers ---------------- */
 app.post('/api/subscribe', async (req, res) => {
-  const { subscriptionType, email, phone, carrier } = req.body || {};
+  const { email } = req.body || {};
   
-  console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'subscribe request received', subscriptionType, email: email ? '***' : null, phone: phone ? '***' : null }));
+  console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'subscribe request received', email: email ? '***' : null }));
   
-  if (!subscriptionType) return res.status(400).json({ error: 'subscriptionType required' });
+  if (!email) return res.status(400).json({ error: 'email required' });
   
   try {
     if (!Subscriber) {
@@ -854,26 +797,7 @@ app.post('/api/subscribe', async (req, res) => {
       return res.status(500).json({ error: 'subscriber model missing' });
     }
     
-    let subscriberData = { subscriptionType };
-    let notifyAddress;
-    
-    if (subscriptionType === 'email') {
-      if (!email) return res.status(400).json({ error: 'email required for email subscription' });
-      subscriberData.email = email.toLowerCase();
-      notifyAddress = email.toLowerCase();
-    } else if (subscriptionType === 'sms') {
-      if (!phone || !carrier) return res.status(400).json({ error: 'phone and carrier required for SMS subscription' });
-      
-      const smsEmail = getSMSEmail(phone, carrier);
-      if (!smsEmail) return res.status(400).json({ error: 'Invalid phone number or unsupported carrier' });
-      
-      subscriberData.email = smsEmail; // Store SMS gateway email
-      subscriberData.phone = phone.replace(/\D/g, '');
-      subscriberData.carrier = carrier;
-      notifyAddress = smsEmail;
-    } else {
-      return res.status(400).json({ error: 'Invalid subscription type' });
-    }
+    const subscriberData = { email: email.toLowerCase() };
     
     // Check if subscriber already exists
     const existing = await Subscriber.findOne({ email: subscriberData.email });
@@ -884,57 +808,25 @@ app.post('/api/subscribe', async (req, res) => {
       { upsert: true, new: true }
     );
     
-    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'subscriber added', type:subscriptionType, address:notifyAddress, isNew: !existing }));
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'subscriber added', email: subscriberData.email, isNew: !existing }));
     
-    // Send confirmation (always send for testing; in production you might want to only send if !existing)
-    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'sending confirmation', to:notifyAddress, type:subscriptionType }));
+    // Send confirmation
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'sending confirmation', to: subscriberData.email }));
     const unsubLink = `${SITE_URL}api/unsubscribe/${s.unsubscribeToken}`;
-    const subject = subscriptionType === 'email' ? 'Golf Notifications - Subscription Confirmed' : 'Golf Notifications';
-    const message = subscriptionType === 'email' 
-      ? `<p>Thanks for subscribing! You'll receive email notifications when new golf events are posted.</p><p><a href="${unsubLink}">Click here to unsubscribe</a></p>`
-      : `Thanks for subscribing! You'll get text notifications for new golf events. Reply STOP to unsubscribe or visit: ${unsubLink}`;
+    const subject = 'Golf Notifications - Subscription Confirmed';
+    const message = `<p>Thanks for subscribing! You'll receive email notifications when new golf events are posted.</p><p><a href="${unsubLink}">Click here to unsubscribe</a></p>`;
     
     try {
-      const result = await sendEmail(notifyAddress, subject, message);
+      const result = await sendEmail(subscriberData.email, subject, message);
       console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'confirmation sent', result }));
     } catch (emailErr) {
       console.error(JSON.stringify({ t:new Date().toISOString(), level:'error', msg:'confirmation failed', error:emailErr.message, stack:emailErr.stack }));
     }
     
-    res.json({ ok: true, id: s._id.toString(), type: subscriptionType, isNew: !existing });
+    res.json({ ok: true, id: s._id.toString(), isNew: !existing });
   } catch (e) { 
     console.error(JSON.stringify({ t:new Date().toISOString(), level:'error', msg:'subscribe error', error:e.message, stack:e.stack }));
     res.status(500).json({ error:e.message }); 
-  }
-});
-
-/* Test SMS/Email delivery */
-app.post('/api/test-sms', async (req, res) => {
-  const { phone, carrier } = req.body || {};
-  if (!phone || !carrier) return res.status(400).json({ error: 'phone and carrier required' });
-  
-  const smsEmail = getSMSEmail(phone, carrier);
-  if (!smsEmail) return res.status(400).json({ error: 'Invalid phone number or unsupported carrier' });
-  
-  try {
-    const testMessage = `Test from Tee Times (golfgroup.online). If you received this, SMS alerts are working! Reply STOP to unsubscribe.`;
-    const result = await sendEmail(smsEmail, 'Tee Times Test', testMessage);
-    
-    if (result.ok) {
-      return res.json({ 
-        ok: true, 
-        message: 'Test sent successfully',
-        gateway: smsEmail,
-        id: result.data?.id 
-      });
-    } else if (result.disabled) {
-      return res.status(503).json({ error: 'Email disabled - check RESEND_API_KEY and RESEND_FROM' });
-    } else {
-      return res.status(500).json({ error: 'Failed to send test message' });
-    }
-  } catch (e) {
-    console.error('Test SMS error:', e);
-    return res.status(500).json({ error: e.message });
   }
 });
 

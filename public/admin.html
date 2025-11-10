@@ -83,10 +83,6 @@
       background: #dbeafe;
       color: #1e40af;
     }
-    .badge-sms {
-      background: #d1fae5;
-      color: #065f46;
-    }
     .btn-delete {
       background: #dc2626;
       color: white;
@@ -205,14 +201,6 @@
         <h3>Total Subscribers</h3>
         <p class="value" id="totalCount">-</p>
       </div>
-      <div class="stat-card">
-        <h3>Email Subscribers</h3>
-        <p class="value" id="emailCount">-</p>
-      </div>
-      <div class="stat-card">
-        <h3>SMS Subscribers</h3>
-        <p class="value" id="smsCount">-</p>
-      </div>
     </div>
 
     <div id="content" class="loading">
@@ -251,8 +239,6 @@
         
         // Update stats
         document.getElementById('totalCount').textContent = subscribers.length;
-        document.getElementById('emailCount').textContent = subscribers.filter(s => s.subscriptionType === 'email').length;
-        document.getElementById('smsCount').textContent = subscribers.filter(s => s.subscriptionType === 'sms').length;
         
         // Render table
         const content = document.getElementById('content');
@@ -265,10 +251,7 @@
           <table>
             <thead>
               <tr>
-                <th>Type</th>
                 <th>Email</th>
-                <th>Phone</th>
-                <th>Carrier</th>
                 <th>Subscribed</th>
                 <th>Actions</th>
               </tr>
@@ -276,10 +259,7 @@
             <tbody>
               ${subscribers.map(s => `
                 <tr>
-                  <td><span class="badge badge-${s.subscriptionType}">${s.subscriptionType.toUpperCase()}</span></td>
                   <td>${escapeHtml(s.email)}</td>
-                  <td>${s.phone ? formatPhone(s.phone) : '-'}</td>
-                  <td>${s.carrier || '-'}</td>
                   <td>${new Date(s.createdAt).toLocaleDateString()}</td>
                   <td>
                     <button class="btn-delete" onclick="deleteSubscriber('${s._id}', '${escapeHtml(s.email)}')">
@@ -319,15 +299,6 @@
       const div = document.createElement('div');
       div.textContent = text;
       return div.innerHTML;
-    }
-
-    function formatPhone(phone) {
-      if (!phone) return '';
-      const cleaned = phone.replace(/\D/g, '');
-      if (cleaned.length === 10) {
-        return `(${cleaned.slice(0,3)}) ${cleaned.slice(3,6)}-${cleaned.slice(6)}`;
-      }
-      return phone;
     }
 
     // Quick Actions Functions
@@ -423,10 +394,7 @@
         const response = await fetch('/api/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            subscriptionType: 'email',
-            email: email
-          })
+          body: JSON.stringify({ email: email })
         });
         
         if (!response.ok) throw new Error('Failed to send');
