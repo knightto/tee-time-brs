@@ -3,7 +3,7 @@
 :root{
   --green-900:#14532d; --green-800:#166534; --green-700:#15803d; --green-600:#16a34a; --green-500:#22c55e;
   --slate-900:#0f172a; --slate-700:#334155; --slate-300:#cbd5e1; --slate-200:#e2e8f0; 
-  --panel:rgba(255,255,255,.92); --panel-ghost:rgba(255,255,255,.80);
+  --panel:rgba(255,255,255,.96); --panel-ghost:rgba(255,255,255,.88);
   --ink:#ffffff; --ink-2:#ffffff; --line:rgba(15,23,42,.12); --radius:16px;
   --shadow:0 10px 30px rgba(2,6,23,.20); --shadow-sm:0 4px 12px rgba(2,6,23,.10);
 }

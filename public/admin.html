@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - Subscriber Management</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { 
+      padding: 20px;
+      background: linear-gradient(180deg, rgba(15,23,42,.65), rgba(15,23,42,.45)), 
+                  url('./assets/desertgolf.jpg') center/cover fixed;
+      min-height: 100vh;
+    }
+    .admin-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 12px;
+      padding: 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    h1 {
+      margin: 0 0 24px 0;
+      color: #111827;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 28px;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+    .stat-card {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: white;
+      padding: 16px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+    }
+    .stat-card h3 {
+      margin: 0 0 8px 0;
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .stat-card .value {
+      font-size: 32px;
+      font-weight: bold;
+      margin: 0;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 16px;
+    }
+    th {
+      background: #f1f5f9;
+      text-align: left;
+      padding: 12px;
+      font-weight: 600;
+      color: #334155;
+      border-bottom: 2px solid #cbd5e1;
+    }
+    td {
+      padding: 12px;
+      border-bottom: 1px solid #e2e8f0;
+      color: #1e293b;
+    }
+    tr:hover {
+      background: #f8fafc;
+    }
+    .badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .badge-email {
+      background: #dbeafe;
+      color: #1e40af;
+    }
+    .badge-sms {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    .btn-delete {
+      background: #dc2626;
+      color: white;
+      border: none;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+    .btn-delete:hover {
+      background: #b91c1c;
+    }
+    .empty-state {
+      text-align: center;
+      padding: 48px;
+      color: #475569;
+      font-size: 16px;
+    }
+    .loading {
+      text-align: center;
+      padding: 48px;
+      color: #475569;
+      font-size: 16px;
+    }
+    .back-link {
+      display: inline-block;
+      margin-bottom: 16px;
+      color: #334155;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .back-link:hover {
+      color: #0f172a;
+      text-decoration: underline;
+    }
+    .test-section {
+      background: #fef3c7;
+      border: 2px solid #f59e0b;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    .test-section h2 {
+      margin: 0 0 12px 0;
+      color: #92400e;
+      font-size: 18px;
+    }
+    .test-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .btn-test {
+      background: #f59e0b;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    .btn-test:hover {
+      background: #d97706;
+    }
+    .test-result {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 6px;
+      font-size: 14px;
+      display: none;
+    }
+    .test-result.success {
+      background: #d1fae5;
+      color: #065f46;
+      display: block;
+    }
+    .test-result.error {
+      background: #fee2e2;
+      color: #991b1b;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="admin-container">
+    <a href="/" class="back-link">← Back to Events</a>
+    
+    <h1>
+      <span>👥</span>
+      Admin Dashboard
+    </h1>
+
+    <!-- Test Section -->
+    <div class="test-section">
+      <h2>🧪 Test Functions</h2>
+      <div class="test-buttons">
+        <button class="btn-test" onclick="testCreateEvent()">Create Test Event</button>
+        <button class="btn-test" onclick="testAddTeeTime()">Add Tee Time</button>
+        <button class="btn-test" onclick="testAddPlayer()">Add Player</button>
+        <button class="btn-test" onclick="testRemovePlayer()">Remove Player</button>
+        <button class="btn-test" onclick="testMovePlayer()">Move Player</button>
+        <button class="btn-test" onclick="testSendNotification()">Send Test Notification</button>
+        <button class="btn-test" onclick="testWeatherFetch()">Fetch Weather</button>
+        <button class="btn-test" onclick="testDeleteEvent()">Delete Test Event</button>
+      </div>
+      <div id="testResult" class="test-result"></div>
+    </div>
+
+    <h2 style="margin-top: 24px; color: #111827;">Subscriber Management</h2>
+
+    <div class="stats">
+      <div class="stat-card">
+        <h3>Total Subscribers</h3>
+        <p class="value" id="totalCount">-</p>
+      </div>
+      <div class="stat-card">
+        <h3>Email Subscribers</h3>
+        <p class="value" id="emailCount">-</p>
+      </div>
+      <div class="stat-card">
+        <h3>SMS Subscribers</h3>
+        <p class="value" id="smsCount">-</p>
+      </div>
+    </div>
+
+    <div id="content" class="loading">
+      Loading subscribers...
+    </div>
+  </div>
+
+  <script>
+    const ADMIN_CODE = prompt('Enter admin code:');
+    if (!ADMIN_CODE) {
+      document.getElementById('content').innerHTML = '<div class="empty-state">Admin access required</div>';
+    } else {
+      loadSubscribers();
+    }
+
+    async function loadSubscribers() {
+      try {
+        console.log('Fetching subscribers...');
+        const response = await fetch(`/api/admin/subscribers?code=${encodeURIComponent(ADMIN_CODE)}`);
+        console.log('Response status:', response.status);
+        
+        if (response.status === 403) {
+          document.getElementById('content').innerHTML = '<div class="empty-state">❌ Invalid admin code</div>';
+          return;
+        }
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Error response:', errorText);
+          throw new Error(`Failed to load subscribers: ${response.status} ${errorText}`);
+        }
+        
+        const subscribers = await response.json();
+        console.log('Loaded subscribers:', subscribers);
+        
+        // Update stats
+        document.getElementById('totalCount').textContent = subscribers.length;
+        document.getElementById('emailCount').textContent = subscribers.filter(s => s.subscriptionType === 'email').length;
+        document.getElementById('smsCount').textContent = subscribers.filter(s => s.subscriptionType === 'sms').length;
+        
+        // Render table
+        const content = document.getElementById('content');
+        if (subscribers.length === 0) {
+          content.innerHTML = '<div class="empty-state">No subscribers yet</div>';
+          return;
+        }
+        
+        content.innerHTML = `
+          <table>
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>Email</th>
+                <th>Phone</th>
+                <th>Carrier</th>
+                <th>Subscribed</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${subscribers.map(s => `
+                <tr>
+                  <td><span class="badge badge-${s.subscriptionType}">${s.subscriptionType.toUpperCase()}</span></td>
+                  <td>${escapeHtml(s.email)}</td>
+                  <td>${s.phone ? formatPhone(s.phone) : '-'}</td>
+                  <td>${s.carrier || '-'}</td>
+                  <td>${new Date(s.createdAt).toLocaleDateString()}</td>
+                  <td>
+                    <button class="btn-delete" onclick="deleteSubscriber('${s._id}', '${escapeHtml(s.email)}')">
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch (error) {
+        console.error('Error loading subscribers:', error);
+        document.getElementById('content').innerHTML = `<div class="empty-state">❌ Error loading subscribers<br><small style="color:#dc2626">${error.message}</small></div>`;
+      }
+    }
+
+    async function deleteSubscriber(id, email) {
+      if (!confirm(`Delete subscriber ${email}?`)) return;
+      
+      try {
+        const response = await fetch(`/api/admin/subscribers/${id}?code=${encodeURIComponent(ADMIN_CODE)}`, {
+          method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('Failed to delete subscriber');
+        
+        alert('Subscriber deleted successfully');
+        loadSubscribers();
+      } catch (error) {
+        console.error('Error deleting subscriber:', error);
+        alert('Error deleting subscriber');
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    function formatPhone(phone) {
+      if (!phone) return '';
+      const cleaned = phone.replace(/\D/g, '');
+      if (cleaned.length === 10) {
+        return `(${cleaned.slice(0,3)}) ${cleaned.slice(3,6)}-${cleaned.slice(6)}`;
+      }
+      return phone;
+    }
+
+    // Test Functions
+    let testEventId = null;
+    let testTeeId = null;
+    let testPlayerId = null;
+
+    function showTestResult(message, isSuccess = true) {
+      const result = document.getElementById('testResult');
+      result.className = `test-result ${isSuccess ? 'success' : 'error'}`;
+      result.textContent = message;
+      setTimeout(() => { result.className = 'test-result'; }, 5000);
+    }
+
+    async function testCreateEvent() {
+      try {
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        const dateStr = tomorrow.toISOString().split('T')[0];
+        
+        const response = await fetch('/api/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            course: 'Test Golf Course',
+            date: dateStr,
+            notes: 'Test event created from admin panel',
+            isTeamEvent: false,
+            teeTime: '09:00'
+          })
+        });
+        
+        if (!response.ok) throw new Error('Failed to create event');
+        const event = await response.json();
+        testEventId = event._id;
+        testTeeId = event.teeTimes && event.teeTimes.length > 0 ? event.teeTimes[0]._id : null;
+        showTestResult(`✅ Test event created! ID: ${testEventId.slice(-6)}`);
+      } catch (error) {
+        showTestResult(`❌ Error: ${error.message}`, false);
+      }
+    }
+
+    async function testAddTeeTime() {
+      if (!testEventId) {
+        showTestResult('❌ Please create a test event first', false);
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/api/events/${testEventId}/tee-times`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        });
+        
+        if (!response.ok) throw new Error('Failed to add tee time');
+        const event = await response.json();
+        const newTee = event.teeTimes[event.teeTimes.length - 1];
+        testTeeId = newTee._id;
+        showTestResult(`✅ Tee time added: ${newTee.time}`);
+      } catch (error) {
+        showTestResult(`❌ Error: ${error.message}`, false);
+      }
+    }
+
+    async function testAddPlayer() {
+      if (!testEventId || !testTeeId) {
+        showTestResult('❌ Please create a test event and tee time first', false);
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/api/events/${testEventId}/tee-times/${testTeeId}/players`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'Test Player' })
+        });
+        
+        if (!response.ok) throw new Error('Failed to add player');
+        const event = await response.json();
+        const tee = event.teeTimes.find(t => t._id.toString() === testTeeId);
+        testPlayerId = tee.players[tee.players.length - 1]._id;
+        showTestResult(`✅ Player added: Test Player`);
+      } catch (error) {
+        showTestResult(`❌ Error: ${error.message}`, false);
+      }
+    }
+
+    async function testRemovePlayer() {
+      if (!testEventId || !testTeeId || !testPlayerId) {
+        showTestResult('❌ Please create a test event, tee time, and player first', false);
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/api/events/${testEventId}/tee-times/${testTeeId}/players/${testPlayerId}`, {
+          method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('Failed to remove player');
+        showTestResult(`✅ Player removed successfully`);
+        testPlayerId = null;
+      } catch (error) {
+        showTestResult(`❌ Error: ${error.message}`, false);
+      }
+    }
+
+    async function testMovePlayer() {
+      if (!testEventId) {
+        showTestResult('❌ Please create a test event first', false);
+        return;
+      }
+      
+      try {
+        // Get event to find tee times and a player
+        const getResp = await fetch('/api/events');
+        const events = await getResp.json();
+        const event = events.find(e => e._id === testEventId);
+        
+        if (!event || event.teeTimes.length < 2) {
+          showTestResult('❌ Need at least 2 tee times. Run Add Tee Time first.', false);
+          return;
+        }
+        
+        const fromTee = event.teeTimes.find(t => t.players && t.players.length > 0);
+        if (!fromTee) {
+          showTestResult('❌ No players found. Run Add Player first.', false);
+          return;
+        }
+        
+        const toTee = event.teeTimes.find(t => t._id !== fromTee._id);
+        const player = fromTee.players[0];
+        
+        const response = await fetch(`/api/events/${testEventId}/move-player`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            fromTeeId: fromTee._id,
+            toTeeId: toTee._id,
+            playerId: player._id
+          })
+        });
+        
+        if (!response.ok) throw new Error('Failed to move player');
+        showTestResult(`✅ Player moved: ${player.name} from ${fromTee.time} to ${toTee.time}`);
+      } catch (error) {
+        showTestResult(`❌ Error: ${error.message}`, false);
+      }
+    }
+
+    async function testSendNotification() {
+      try {
+        const response = await fetch('/api/events');
+        const events = await response.json();
+        
+        if (events.length === 0) {
+          showTestResult('❌ No events found. Create a test event first.', false);
+          return;
+        }
+        
+        showTestResult('✅ Check server logs - notifications would be sent to all subscribers');
+      } catch (error) {
+        showTestResult(`❌ Error: ${error.message}`, false);
+      }
+    }
+
+    async function testWeatherFetch() {
+      if (!testEventId) {
+        showTestResult('❌ Please create a test event first', false);
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/api/events/${testEventId}/weather`, {
+          method: 'POST'
+        });
+        
+        if (!response.ok) throw new Error('Failed to fetch weather');
+        const event = await response.json();
+        showTestResult(`✅ Weather: ${event.weather?.description || 'fetched'}`);
+      } catch (error) {
+        showTestResult(`❌ Error: ${error.message}`, false);
+      }
+    }
+
+    async function testDeleteEvent() {
+      if (!testEventId) {
+        showTestResult('❌ No test event to delete', false);
+        return;
+      }
+      
+      try {
+        const response = await fetch(`/api/events/${testEventId}?code=${encodeURIComponent(ADMIN_CODE)}`, {
+          method: 'DELETE'
+        });
+        
+        if (!response.ok) throw new Error('Failed to delete event');
+        showTestResult(`✅ Test event deleted successfully`);
+        testEventId = null;
+        testTeeId = null;
+        testPlayerId = null;
+      } catch (error) {
+        showTestResult(`❌ Error: ${error.message}`, false);
+      }
+    }
+  </script>
+</body>
+</html>

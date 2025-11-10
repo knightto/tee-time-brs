@@ -44,14 +44,30 @@
         <label>Carrier
           <select name="carrier" id="carrierInput">
             <option value="">Select your carrier...</option>
-            <option value="verizon">Verizon</option>
-            <option value="att">AT&T</option>
-            <option value="tmobile">T-Mobile</option>
-            <option value="sprint">Sprint</option>
-            <option value="uscellular">US Cellular</option>
-            <option value="boost">Boost Mobile</option>
-            <option value="cricket">Cricket</option>
-            <option value="metropcs">Metro PCS</option>
+            <optgroup label="Major Carriers">
+              <option value="verizon">Verizon</option>
+              <option value="att">AT&T (SMS - 160 char)</option>
+              <option value="att-mms">AT&T (MMS - longer)</option>
+              <option value="tmobile">T-Mobile</option>
+              <option value="sprint">Sprint</option>
+            </optgroup>
+            <optgroup label="Popular MVNOs">
+              <option value="cricket">Cricket Wireless</option>
+              <option value="metropcs">Metro by T-Mobile</option>
+              <option value="boost">Boost Mobile</option>
+              <option value="mint">Mint Mobile</option>
+              <option value="visible">Visible</option>
+              <option value="googlefi">Google Fi</option>
+              <option value="straighttalk">Straight Talk</option>
+            </optgroup>
+            <optgroup label="Other Carriers">
+              <option value="uscellular">U.S. Cellular</option>
+              <option value="consumer-cellular">Consumer Cellular</option>
+              <option value="xfinity">Xfinity Mobile</option>
+              <option value="spectrum">Spectrum Mobile</option>
+              <option value="virgin">Virgin Mobile</option>
+              <option value="tracfone">Tracfone</option>
+            </optgroup>
           </select>
         </label>
       </div>
@@ -60,6 +76,7 @@
 
       <menu>
         <button type="button" data-cancel>Cancel</button>
+        <button type="button" id="testSmsBtn" class="small" style="margin-right:auto">Test SMS</button>
         <button type="submit" class="primary">Subscribe</button>
       </menu>
     </form>

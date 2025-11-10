@@ -7,7 +7,7 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 4000;
+const PORT = process.env.PORT || 300;
 const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
 const SITE_URL = process.env.SITE_URL || 'https://tee-time-brs.onrender.com/';
 const LOCAL_TZ = process.env.LOCAL_TZ || 'America/New_York';
@@ -71,13 +71,33 @@ function getWeatherIcon(weatherCode, isDay = true) {
 async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) {
   try {
     const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+    const today = new Date();
+    const daysAhead = Math.ceil((date - today) / (1000 * 60 * 60 * 24));
+    
+    // Open-Meteo provides forecasts up to 16 days ahead
+    if (daysAhead > 16) {
+      console.log(`Weather: Event is ${daysAhead} days ahead (max 16), returning placeholder`);
+      return {
+        success: false,
+        condition: 'unknown',
+        icon: '🌤️',
+        temp: null,
+        description: 'Forecast not yet available',
+        lastFetched: null
+      };
+    }
+    
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`;
     
     const response = await fetch(url);
-    if (!response.ok) throw new Error('Weather API error');
+    if (!response.ok) {
+      console.error(`Weather API HTTP error: ${response.status} ${response.statusText}`);
+      throw new Error(`Weather API HTTP ${response.status}`);
+    }
     
     const data = await response.json();
-    if (!data.daily || !data.daily.weather_code || !data.daily.weather_code[0]) {
+    if (!data.daily || !data.daily.weather_code || data.daily.weather_code[0] === undefined) {
+      console.error('Weather API returned incomplete data:', JSON.stringify(data));
       throw new Error('No weather data available');
     }
     
@@ -97,10 +117,10 @@ async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) 
       lastFetched: new Date()
     };
   } catch (e) {
-    console.error('Weather fetch error:', e.message);
+    console.error('Weather fetch error:', e.message, '(Date:', date.toISOString().split('T')[0], 'Lat:', lat, 'Lon:', lon, ')');
     return {
       success: false,
-      condition: null,
+      condition: 'error',
       icon: '🌤️',
       temp: null,
       description: 'Weather unavailable',
@@ -155,7 +175,10 @@ async function sendEmailToAll(subject, html) {
   if (!subs.length) return { ok:true, sent:0 };
   let sent = 0;
   for (const s of subs) {
-    try { 
+    try {
+      // Add personalized unsubscribe link
+      const unsubLink = `${SITE_URL}api/unsubscribe/${s.unsubscribeToken}`;
+      
       // For SMS subscribers, send plain text version (SMS gateways ignore HTML)
       if (s.subscriptionType === 'sms') {
         // Convert HTML to simple text for SMS
@@ -167,10 +190,15 @@ async function sendEmailToAll(subject, html) {
           .replace(/&quot;/g, '"')
           .replace(/\s+/g, ' ') // Collapse whitespace
           .trim()
-          .substring(0, 140); // SMS length limit
-        await sendEmail(s.email, '', `Tee Times: ${plainText}`);
+          .substring(0, 120); // SMS length limit (leave room for unsub link)
+        await sendEmail(s.email, '', `Tee Times: ${plainText} Unsub: ${unsubLink}`);
       } else {
-        await sendEmail(s.email, subject, html);
+        // For email, add unsubscribe link to the HTML
+        const htmlWithUnsub = html.replace(
+          /You received this because you subscribed to tee time updates\./,
+          `You received this because you subscribed to tee time updates. <a href="${unsubLink}" style="color:#6b7280;text-decoration:underline">Unsubscribe</a>`
+        );
+        await sendEmail(s.email, subject, htmlWithUnsub);
       }
       sent++; 
     } catch {}
@@ -285,7 +313,7 @@ async function logAudit(eventId, action, playerName, data = {}) {
 
 /* ---------------- Core API (unchanged parts trimmed for brevity) ---------------- */
 function genTeeTimes(startHHMM, count=3, mins=10) {
-  if (!startHHMM) return [];
+  if (!startHHMM) startHHMM = '08:00'; // Default to 08:00 if no time provided
   const m = /^(\d{1,2}):(\d{2})$/.exec(startHHMM);
   if (!m) return [{ time: startHHMM, players: [] }];
   let h = parseInt(m[1], 10), mm = parseInt(m[2], 10);
@@ -342,7 +370,18 @@ app.get('/api/events', async (_req, res) => {
 app.post('/api/events', async (req, res) => {
   try {
     const { course, date, teeTime, teeTimes, notes, isTeamEvent, teamSizeMax } = req.body || {};
-    const tt = isTeamEvent ? [] : (Array.isArray(teeTimes) && teeTimes.length ? teeTimes : genTeeTimes(teeTime, 3, 9));
+    let tt;
+    if (isTeamEvent) {
+      // Generate 3 default teams for team events
+      tt = [
+        { name: 'Team 1', players: [] },
+        { name: 'Team 2', players: [] },
+        { name: 'Team 3', players: [] }
+      ];
+    } else {
+      // Generate 3 default tee times for tee-time events
+      tt = Array.isArray(teeTimes) && teeTimes.length ? teeTimes : genTeeTimes(teeTime, 3, 9);
+    }
     const eventDate = /^\d{4}-\d{2}-\d{2}$/.test(String(date||'')) ? new Date(String(date)+'T12:00:00Z') : asUTCDate(date);
     
     // Fetch weather forecast
@@ -719,15 +758,36 @@ app.get('/api/events/:id/audit-log', async (req, res) => {
 });
 
 /* ---------------- SMS Gateway Mapping ---------------- */
+// Updated 2025-11-10 - Verified carrier SMS email gateways
+// Format: number@gateway (e.g., 5551234567@txt.att.net)
 const SMS_GATEWAYS = {
-  verizon: 'vtext.com',
-  att: 'txt.att.net',
-  tmobile: 'tmomail.net',
-  sprint: 'messaging.sprintpcs.com',
-  uscellular: 'email.uscc.net',
-  boost: 'sms.myboostmobile.com',
-  cricket: 'sms.cricketwireless.net',
-  metropcs: 'mymetropcs.com'
+  // Major carriers
+  verizon: 'vtext.com',                    // Verizon Wireless
+  att: 'txt.att.net',                       // AT&T (SMS - 160 char)
+  'att-mms': 'mms.att.net',                 // AT&T (MMS - longer messages, images)
+  tmobile: 'tmomail.net',                   // T-Mobile
+  sprint: 'messaging.sprintpcs.com',        // Sprint (now part of T-Mobile but still works)
+  
+  // Regional & MVNOs
+  uscellular: 'email.uscc.net',             // U.S. Cellular
+  boost: 'sms.myboostmobile.com',           // Boost Mobile
+  cricket: 'sms.cricketwireless.net',       // Cricket Wireless (AT&T owned)
+  metropcs: 'mymetropcs.com',               // Metro by T-Mobile
+  
+  // Other carriers
+  virgin: 'vmobl.com',                      // Virgin Mobile
+  tracfone: 'mmst5.tracfone.com',           // Tracfone
+  mint: 'mailmymobile.net',                 // Mint Mobile (uses T-Mobile)
+  visible: 'vtext.com',                     // Visible (uses Verizon)
+  straighttalk: 'vtext.com',                // Straight Talk (varies by network)
+  'consumer-cellular': 'mailmymobile.net',  // Consumer Cellular
+  xfinity: 'vtext.com',                     // Xfinity Mobile (uses Verizon)
+  spectrum: 'vtext.com',                    // Spectrum Mobile (uses Verizon)
+  googlefi: 'msg.fi.google.com',            // Google Fi
+  
+  // Legacy (may still work)
+  alltel: 'text.wireless.alltel.com',
+  nextel: 'messaging.nextel.com'
 };
 
 function getSMSEmail(phone, carrier) {
@@ -787,10 +847,11 @@ app.post('/api/subscribe', async (req, res) => {
     
     // Send confirmation (always send for testing; in production you might want to only send if !existing)
     console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'sending confirmation', to:notifyAddress, type:subscriptionType }));
+    const unsubLink = `${SITE_URL}api/unsubscribe/${s.unsubscribeToken}`;
     const subject = subscriptionType === 'email' ? 'Golf Notifications - Subscription Confirmed' : 'Golf Notifications';
     const message = subscriptionType === 'email' 
-      ? `<p>Thanks for subscribing! You'll receive email notifications when new golf events are posted.</p><p>Reply STOP to unsubscribe.</p>`
-      : `Thanks for subscribing! You'll get text notifications for new golf events. Reply STOP to unsubscribe.`;
+      ? `<p>Thanks for subscribing! You'll receive email notifications when new golf events are posted.</p><p><a href="${unsubLink}">Click here to unsubscribe</a></p>`
+      : `Thanks for subscribing! You'll get text notifications for new golf events. Reply STOP to unsubscribe or visit: ${unsubLink}`;
     
     try {
       const result = await sendEmail(notifyAddress, subject, message);
@@ -803,6 +864,107 @@ app.post('/api/subscribe', async (req, res) => {
   } catch (e) { 
     console.error(JSON.stringify({ t:new Date().toISOString(), level:'error', msg:'subscribe error', error:e.message, stack:e.stack }));
     res.status(500).json({ error:e.message }); 
+  }
+});
+
+/* Test SMS/Email delivery */
+app.post('/api/test-sms', async (req, res) => {
+  const { phone, carrier } = req.body || {};
+  if (!phone || !carrier) return res.status(400).json({ error: 'phone and carrier required' });
+  
+  const smsEmail = getSMSEmail(phone, carrier);
+  if (!smsEmail) return res.status(400).json({ error: 'Invalid phone number or unsupported carrier' });
+  
+  try {
+    const testMessage = `Test from Tee Times (golfgroup.online). If you received this, SMS alerts are working! Reply STOP to unsubscribe.`;
+    const result = await sendEmail(smsEmail, 'Tee Times Test', testMessage);
+    
+    if (result.ok) {
+      return res.json({ 
+        ok: true, 
+        message: 'Test sent successfully',
+        gateway: smsEmail,
+        id: result.data?.id 
+      });
+    } else if (result.disabled) {
+      return res.status(503).json({ error: 'Email disabled - check RESEND_API_KEY and RESEND_FROM' });
+    } else {
+      return res.status(500).json({ error: 'Failed to send test message' });
+    }
+  } catch (e) {
+    console.error('Test SMS error:', e);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+/* Unsubscribe */
+app.get('/api/unsubscribe/:token', async (req, res) => {
+  try {
+    if (!Subscriber) return res.status(500).send('Subscriber model not available');
+    
+    const subscriber = await Subscriber.findOne({ unsubscribeToken: req.params.token });
+    if (!subscriber) {
+      return res.status(404).send(`
+        <!DOCTYPE html>
+        <html><head><title>Unsubscribe</title><style>body{font-family:system-ui;max-width:600px;margin:50px auto;padding:20px;text-align:center}</style></head>
+        <body><h1>⚠️ Invalid Link</h1><p>This unsubscribe link is invalid or has expired.</p></body></html>
+      `);
+    }
+    
+    await Subscriber.findByIdAndDelete(subscriber._id);
+    
+    res.send(`
+      <!DOCTYPE html>
+      <html><head><title>Unsubscribed</title><style>body{font-family:system-ui;max-width:600px;margin:50px auto;padding:20px;text-align:center}h1{color:#10b981}</style></head>
+      <body><h1>✅ Unsubscribed Successfully</h1><p>You've been removed from the notification list.</p><p>You will no longer receive golf event updates.</p></body></html>
+    `);
+  } catch (e) {
+    console.error('Unsubscribe error:', e);
+    res.status(500).send('Error processing unsubscribe request');
+  }
+});
+
+/* Admin - List Subscribers */
+app.get('/api/admin/subscribers', async (req, res) => {
+  const code = req.query.code || '';
+  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  
+  try {
+    if (!Subscriber) return res.status(500).json({ error: 'Subscriber model not available' });
+    
+    // Migration: Add tokens to existing subscribers without them
+    const crypto = require('crypto');
+    const subsWithoutToken = await Subscriber.find({ unsubscribeToken: { $exists: false } });
+    for (const sub of subsWithoutToken) {
+      sub.unsubscribeToken = crypto.randomBytes(32).toString('hex');
+      await sub.save();
+    }
+    
+    const subscribers = await Subscriber.find({}).sort({ createdAt: -1 }).lean();
+    res.json(subscribers);
+  } catch (e) {
+    console.error('List subscribers error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* Admin - Delete Subscriber */
+app.delete('/api/admin/subscribers/:id', async (req, res) => {
+  const code = req.query.code || req.body?.code || '';
+  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  
+  try {
+    if (!Subscriber) return res.status(500).json({ error: 'Subscriber model not available' });
+    const deleted = await Subscriber.findByIdAndDelete(req.params.id);
+    if (!deleted) return res.status(404).json({ error: 'Subscriber not found' });
+    res.json({ ok: true });
+  } catch (e) {
+    console.error('Delete subscriber error:', e);
+    res.status(500).json({ error: e.message });
   }
 });
 

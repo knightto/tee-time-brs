@@ -284,6 +284,33 @@
     }catch(err){ console.error(err); alert('Save failed'); }
   });
 
+  // Edit tee/team save
+  on(editTeeForm, 'submit', async (e)=>{
+    e.preventDefault();
+    try{
+      const data = normalizeForm(editTeeForm);
+      const eventId = data.eventId;
+      const teeId = data.teeId;
+      const isTeam = data.isTeam === '1';
+      const value = (data.value || '').trim();
+      if (!value) {
+        alert(isTeam ? 'Team name is required' : 'Tee time is required');
+        return;
+      }
+      // For tee times, validate HH:MM format
+      if (!isTeam && !/^\d{2}:\d{2}$/.test(value)) {
+        alert('Tee time must be in HH:MM format (e.g., 07:00)');
+        return;
+      }
+      const payload = isTeam ? { name: value } : { time: value };
+      await api(`/api/events/${eventId}/tee-times/${teeId}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+      editTeeModal?.close?.(); load();
+    }catch(err){ 
+      console.error(err); 
+      alert('Save failed: ' + (err.message || 'Unknown error')); 
+    }
+  });
+
   // Subscribe modal
   console.log('Subscribe button:', openSubscribeBtn, 'Modal:', subscribeModal);
   on(openSubscribeBtn, 'click', () => {
@@ -324,6 +351,51 @@
   
   // Set initial state
   updateSubscriptionFields();
+
+  // Test SMS button
+  on($('#testSmsBtn'), 'click', async ()=>{
+    const formData = new FormData(subForm);
+    const phone = formData.get('phone');
+    const carrier = formData.get('carrier');
+    const subscriptionType = formData.get('subscriptionType');
+    
+    if (subscriptionType !== 'sms') {
+      if(subMsg) {
+        subMsg.textContent = 'Test SMS only works for SMS subscriptions';
+        subMsg.style.color = '#d97706';
+      }
+      return;
+    }
+    
+    if (!phone || !carrier) {
+      if(subMsg) {
+        subMsg.textContent = 'Enter phone number and select carrier first';
+        subMsg.style.color = '#d97706';
+      }
+      return;
+    }
+    
+    if(subMsg) {
+      subMsg.textContent='Sending test...';
+      subMsg.style.color='var(--slate-700)';
+    }
+    
+    try {
+      const result = await api('/api/test-sms',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone, carrier})});
+      if(subMsg) {
+        subMsg.textContent = `✓ Test sent to ${result.gateway}. Check your phone (may take 5-15 min)`;
+        subMsg.style.color='var(--green-700)';
+        subMsg.style.fontWeight='600';
+      }
+    } catch(err) {
+      console.error(err);
+      if(subMsg) {
+        subMsg.textContent='Test failed: ' + (err.message || 'Unknown error');
+        subMsg.style.color='#dc2626';
+        subMsg.style.fontWeight='600';
+      }
+    }
+  });
 
   // Subscribe
   on(subForm, 'submit', async (e)=>{
@@ -624,7 +696,7 @@
   }
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-edit-tee]')||e.target);
     try{
       if(t.dataset.addMaybe){
         const id=t.dataset.addMaybe;
@@ -684,8 +756,25 @@
             const name = `Team ${nextTeamNum}`;
             await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ name }) });
           }else{
-            // Let the server calculate the next tee time (9 minutes after last)
-            await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({}) });
+            // For tee time events
+            let timeToAdd = null;
+            
+            // If no tee times exist, prompt for the first tee time
+            if (!ev.teeTimes || ev.teeTimes.length === 0) {
+              const userTime = prompt('Enter first tee time (HH:MM format, e.g., 07:00):');
+              if (!userTime) return; // User cancelled
+              
+              // Validate HH:MM format
+              if (!/^\d{1,2}:\d{2}$/.test(userTime.trim())) {
+                alert('Invalid time format. Please use HH:MM (e.g., 07:00)');
+                return;
+              }
+              timeToAdd = userTime.trim();
+            }
+            
+            // Let the server calculate the next tee time (9 minutes after last) or use provided time
+            const body = timeToAdd ? { time: timeToAdd } : {};
+            await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
           }
         return load();
       }
@@ -721,6 +810,21 @@
         editTeamSizeRow.hidden = !ev.isTeamEvent;
         if (ev.isTeamEvent) editForm.elements['teamSizeMax'].value = ev.teamSizeMax || 4;
         editModal.showModal();
+        return;
+      }
+      if(t.dataset.editTee){
+        const [eventId, teeId] = t.dataset.editTee.split(':');
+        const list=await api('/api/events');
+        const ev=(list||[]).find(x=>x._id===eventId); if(!ev) return;
+        const tee = (ev.teeTimes||[]).find(x=>x._id===teeId); if(!tee) return;
+        const isTeam = ev.isTeamEvent;
+        editTeeTitle.textContent = isTeam ? 'Edit Team Name' : 'Edit Tee Time';
+        editTeeLabel.textContent = isTeam ? 'Team Name' : 'Tee Time';
+        editTeeForm.elements['value'].value = isTeam ? (tee.name || '') : (tee.time || '');
+        editTeeForm.elements['eventId'].value = eventId;
+        editTeeForm.elements['teeId'].value = teeId;
+        editTeeForm.elements['isTeam'].value = isTeam ? '1' : '0';
+        editTeeModal.showModal();
         return;
       }
       if(t.dataset.del){
@@ -770,11 +874,17 @@
 
   async function openAuditLog(eventId){
     try{
-      auditLogContent.innerHTML = '<p style="color:var(--slate-700);text-align:center">Loading...</p>';
-      auditModal.showModal();
+      const content = $('#auditLogContent');
+      const modal = $('#auditModal');
+      if (!content || !modal) {
+        console.error('Audit modal elements not found');
+        return;
+      }
+      content.innerHTML = '<p style="color:var(--slate-700);text-align:center">Loading...</p>';
+      modal.showModal();
       const logs = await api(`/api/events/${eventId}/audit-log`);
       if (!logs || logs.length === 0) {
-        auditLogContent.innerHTML = '<p style="color:var(--slate-700);text-align:center">No audit entries yet.</p>';
+        content.innerHTML = '<p style="color:var(--slate-700);text-align:center">No audit entries yet.</p>';
         return;
       }
       const items = logs.map(log => {
@@ -792,10 +902,11 @@
           <div style="font-size:12px;color:var(--slate-700);margin-top:4px">${ts}</div>
         </div>`;
       }).join('');
-      auditLogContent.innerHTML = items;
+      content.innerHTML = items;
     }catch(err){
       console.error(err);
-      auditLogContent.innerHTML = '<p style="color:#dc2626;text-align:center">Failed to load audit log.</p>';
+      const content = $('#auditLogContent');
+      if (content) content.innerHTML = '<p style="color:#dc2626;text-align:center">Failed to load audit log.</p>';
     }
   }
 
