@@ -1,4 +1,4 @@
-/* public/script.js v3.12 — edit modal, radio move, UTC dates */
+/* public/script.js v3.13 — calendar view with date selection */
 (() => {
   'use strict';
   const $ = (s, r=document) => r.querySelector(s);
@@ -14,6 +14,20 @@
   const teamSizeRow = $('#teamSizeRow');
   const subForm = $('#subscribeForm');
   const subMsg = $('#subMsg');
+  const subscribeModal = $('#subscribeModal');
+  const openSubscribeBtn = $('#openSubscribeBtn');
+
+  // Calendar elements
+  const calendarGrid = $('#calendarGrid');
+  const currentMonthEl = $('#currentMonth');
+  const prevMonthBtn = $('#prevMonth');
+  const nextMonthBtn = $('#nextMonth');
+  const selectedDateTitle = $('#selectedDateTitle');
+
+  // State
+  let allEvents = [];
+  let currentDate = new Date();
+  let selectedDate = null;
 
   // Inject Edit dialog
   function ensureEditDialog(){
@@ -40,6 +54,20 @@
           <button type="submit" class="primary">Save</button>
         </menu>
       </form>
+    </dialog>`;
+    document.body.appendChild(wrap.firstElementChild);
+  }
+  function ensureAuditDialog(){
+    if ($('#auditModal')) return;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<dialog id="auditModal" style="min-width:600px;max-width:800px">
+      <h3>📋 Audit Log</h3>
+      <div id="auditLogContent" style="max-height:500px;overflow-y:auto;margin:16px 0">
+        <p style="color:var(--slate-700);text-align:center">Loading...</p>
+      </div>
+      <menu>
+        <button type="button" data-cancel>Close</button>
+      </menu>
     </dialog>`;
     document.body.appendChild(wrap.firstElementChild);
   }
@@ -82,6 +110,7 @@
   ensureEditDialog();
   ensureMoveDialog();
   ensureEditTeeDialog();
+  ensureAuditDialog();
 
   const editModal = $('#editModal');
   const editForm = $('#editForm');
@@ -95,6 +124,8 @@
   const editTeeForm = $('#editTeeForm');
   const editTeeTitle = $('#editTeeTitle');
   const editTeeLabel = $('#editTeeLabel');
+  const auditModal = $('#auditModal');
+  const auditLogContent = $('#auditLogContent');
 
   if (!eventsEl) return;
 
@@ -126,7 +157,16 @@
     }
     return data;
   }
-  async function api(path, opts){ const r=await fetch(path, opts); if(!r.ok) throw new Error('HTTP '+r.status); const ct=r.headers.get('content-type')||''; return ct.includes('application/json')?r.json():r.text(); }
+  async function api(path, opts){ 
+    const r=await fetch(path, opts); 
+    const ct=r.headers.get('content-type')||''; 
+    const body = ct.includes('application/json') ? await r.json() : await r.text();
+    if(!r.ok) {
+      const msg = (typeof body === 'object' && body.message) || (typeof body === 'object' && body.error) || body || ('HTTP '+r.status);
+      throw new Error(msg);
+    }
+    return body;
+  }
 
   // Create Event: open modal in the requested mode (tees or teams)
   on(newTeeBtn, 'click', () => {
@@ -134,6 +174,9 @@
     if (teeTimeRow) teeTimeRow.hidden = false;
     if (teamSizeRow) teamSizeRow.hidden = true;
     if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = false; // optional; server can auto-generate
+    if (selectedDate && eventForm?.elements?.['date']) {
+      eventForm.elements['date'].value = selectedDate;
+    }
     modal?.showModal?.();
   });
   on(newTeamBtn, 'click', () => {
@@ -141,6 +184,9 @@
     if (teeTimeRow) teeTimeRow.hidden = true;
     if (teamSizeRow) teamSizeRow.hidden = false;
     if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = false;
+    if (selectedDate && eventForm?.elements?.['date']) {
+      eventForm.elements['date'].value = selectedDate;
+    }
     modal?.showModal?.();
   });
 
@@ -196,18 +242,244 @@
     }catch(err){ console.error(err); alert('Save failed'); }
   });
 
-  // Subscribe
-  on(subForm, 'submit', async (e)=>{
-    e.preventDefault(); if(subMsg) subMsg.textContent='...';
-    try{
-      const email = new FormData(subForm).get('email');
-      await api('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email})});
-      if(subMsg) subMsg.textContent='Subscribed';
-      subForm.reset();
-    }catch{ if(subMsg) subMsg.textContent='Failed'; }
+  // Subscribe modal
+  console.log('Subscribe button:', openSubscribeBtn, 'Modal:', subscribeModal);
+  on(openSubscribeBtn, 'click', () => {
+    console.log('Subscribe button clicked!');
+    subscribeModal?.showModal?.();
+  });
+  on(subscribeModal, 'click', (e) => {
+    if (e.target.dataset.cancel) subscribeModal?.close();
   });
 
-  async function load(){ try{ const list=await api('/api/events'); render(Array.isArray(list)?list:[]);}catch(e){ console.error(e); eventsEl.innerHTML='<div class="card">Failed to load events.</div>'; } }
+  // Toggle subscription fields based on type
+  const subscriptionTypeRadios = document.querySelectorAll('input[name="subscriptionType"]');
+  const emailFields = $('#emailFields');
+  const smsFields = $('#smsFields');
+  
+  function updateSubscriptionFields() {
+    const checkedRadio = document.querySelector('input[name="subscriptionType"]:checked');
+    if (!checkedRadio) return;
+    
+    if (checkedRadio.value === 'email') {
+      emailFields.style.display = 'block';
+      smsFields.style.display = 'none';
+      subForm.elements.email.required = true;
+      subForm.elements.phone.required = false;
+      subForm.elements.carrier.required = false;
+    } else {
+      emailFields.style.display = 'none';
+      smsFields.style.display = 'block';
+      subForm.elements.email.required = false;
+      subForm.elements.phone.required = true;
+      subForm.elements.carrier.required = true;
+    }
+  }
+  
+  subscriptionTypeRadios.forEach(radio => {
+    on(radio, 'change', updateSubscriptionFields);
+  });
+  
+  // Set initial state
+  updateSubscriptionFields();
+
+  // Subscribe
+  on(subForm, 'submit', async (e)=>{
+    e.preventDefault(); 
+    if(subMsg) subMsg.textContent='...';
+    try{
+      const formData = new FormData(subForm);
+      const subscriptionType = formData.get('subscriptionType');
+      const payload = { subscriptionType };
+      
+      if (subscriptionType === 'email') {
+        payload.email = formData.get('email');
+      } else {
+        payload.phone = formData.get('phone');
+        payload.carrier = formData.get('carrier');
+      }
+      
+      const result = await api('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+      if(subMsg) {
+        if (result.isNew) {
+          subMsg.textContent = subscriptionType === 'email' ? 'Email subscription confirmed!' : 'SMS subscription confirmed!';
+        } else {
+          subMsg.textContent = 'Already subscribed! Your subscription has been updated.';
+        }
+      }
+      setTimeout(() => subscribeModal?.close(), 2000);
+      subForm.reset();
+    }catch(err){ 
+      console.error(err);
+      if(subMsg) subMsg.textContent='Failed: ' + (err.message || 'Unknown error'); 
+    }
+  });
+
+  // Calendar functions
+  function renderCalendar() {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    
+    // Update month/year title
+    currentMonthEl.textContent = new Date(year, month, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    
+    // Clear grid
+    calendarGrid.innerHTML = '';
+    
+    // Add day headers
+    const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    dayHeaders.forEach(day => {
+      const header = document.createElement('div');
+      header.className = 'calendar-day-header';
+      header.textContent = day;
+      calendarGrid.appendChild(header);
+    });
+    
+    // Get first day of month and number of days
+    const firstDay = new Date(year, month, 1).getDay();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const daysInPrevMonth = new Date(year, month, 0).getDate();
+    
+    // Build event date map (YYYY-MM-DD format)
+    const eventDates = new Set();
+    allEvents.forEach(ev => {
+      if (ev.date) {
+        const dateStr = String(ev.date).slice(0, 10);
+        eventDates.add(dateStr);
+      }
+    });
+    
+    const today = new Date();
+    const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+    
+    // Previous month days
+    for (let i = firstDay - 1; i >= 0; i--) {
+      const day = daysInPrevMonth - i;
+      const dayEl = createDayElement(day, year, month - 1, true);
+      calendarGrid.appendChild(dayEl);
+    }
+    
+    // Current month days
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayEl = createDayElement(day, year, month, false);
+      const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+      
+      if (dateStr === todayStr) {
+        dayEl.classList.add('today');
+      }
+      
+      if (eventDates.has(dateStr)) {
+        dayEl.classList.add('has-events');
+      }
+      
+      if (selectedDate && dateStr === selectedDate) {
+        dayEl.classList.add('selected');
+      }
+      
+      calendarGrid.appendChild(dayEl);
+    }
+    
+    // Next month days
+    const totalCells = firstDay + daysInMonth;
+    const remainingCells = totalCells % 7 === 0 ? 0 : 7 - (totalCells % 7);
+    for (let day = 1; day <= remainingCells; day++) {
+      const dayEl = createDayElement(day, year, month + 1, true);
+      calendarGrid.appendChild(dayEl);
+    }
+  }
+  
+  function createDayElement(day, year, month, isOtherMonth) {
+    const dayEl = document.createElement('div');
+    dayEl.className = 'calendar-day';
+    if (isOtherMonth) dayEl.classList.add('other-month');
+    dayEl.textContent = day;
+    
+    // Handle month overflow
+    let actualYear = year;
+    let actualMonth = month;
+    if (month < 0) {
+      actualMonth = 11;
+      actualYear--;
+    } else if (month > 11) {
+      actualMonth = 0;
+      actualYear++;
+    }
+    
+    const dateStr = `${actualYear}-${String(actualMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+    
+    dayEl.addEventListener('click', () => {
+      if (isOtherMonth) {
+        // Navigate to other month when clicking its days
+        currentDate = new Date(actualYear, actualMonth, day);
+        renderCalendar();
+      }
+      selectDate(dateStr);
+    });
+    
+    return dayEl;
+  }
+  
+  function selectDate(dateStr) {
+    selectedDate = dateStr;
+    renderCalendar();
+    renderEventsForDate();
+  }
+  
+  function renderEventsForDate() {
+    if (!selectedDate) {
+      selectedDateTitle.textContent = 'Select a date';
+      eventsEl.innerHTML = '<div style="color:#ffffff;padding:20px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.7)">Select a date from the calendar to view tee times</div>';
+      return;
+    }
+    
+    const date = new Date(selectedDate + 'T12:00:00Z');
+    selectedDateTitle.textContent = date.toLocaleDateString(undefined, { 
+      weekday: 'long', 
+      month: 'long', 
+      day: 'numeric', 
+      year: 'numeric',
+      timeZone: 'UTC'
+    });
+    
+    const filtered = allEvents.filter(ev => {
+      if (!ev.date) return false;
+      const evDateStr = String(ev.date).slice(0, 10);
+      return evDateStr === selectedDate;
+    });
+    
+    if (filtered.length === 0) {
+      eventsEl.innerHTML = '<div style="color:#ffffff;padding:20px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.7)">No events scheduled for this date</div>';
+    } else {
+      render(filtered);
+    }
+  }
+  
+  // Calendar navigation
+  on(prevMonthBtn, 'click', () => {
+    currentDate.setMonth(currentDate.getMonth() - 1);
+    renderCalendar();
+  });
+  
+  on(nextMonthBtn, 'click', () => {
+    currentDate.setMonth(currentDate.getMonth() + 1);
+    renderCalendar();
+  });
+
+  async function load(){ 
+    try{ 
+      const list = await api('/api/events'); 
+      allEvents = Array.isArray(list) ? list : [];
+      renderCalendar();
+      if (selectedDate) {
+        renderEventsForDate();
+      } else {
+        eventsEl.innerHTML = '<div style="color:#ffffff;padding:20px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.7)">Select a date from the calendar to view tee times</div>';
+      }
+    } catch(e) { 
+      console.error(e); 
+      eventsEl.innerHTML='<div class="card">Failed to load events.</div>'; 
+    } 
+  }
 
   function render(list){
     eventsEl.innerHTML='';
@@ -215,19 +487,48 @@
       const card=document.createElement('div'); card.className='card';
       const isTeams = !!ev.isTeamEvent;
       const tees=(ev.teeTimes||[]).map((tt,idx)=>teeRow(ev,tt,idx,isTeams)).join('');
+      
+      // Render maybe list
+      const maybeList = (ev.maybeList || []).map((name, idx) => {
+        const safe = String(name).replace(/"/g, '&quot;');
+        return `<span class="maybe-chip" title="${safe}">
+          <span class="maybe-name">${name}</span>
+          <button class="icon small danger" title="Remove" data-remove-maybe="${ev._id}:${idx}">×</button>
+        </span>`;
+      }).join('');
+      
+      const maybeSection = `
+        <div class="maybe-section">
+          <div class="maybe-header">
+            <span style="font-weight:600;color:var(--slate-700)">🤔 Maybe List</span>
+            <button class="small" data-add-maybe="${ev._id}">I'm Interested</button>
+          </div>
+          <div class="maybe-list">
+            ${maybeList || '<em style="color:var(--slate-700);font-size:14px">No one yet - be the first!</em>'}
+          </div>
+        </div>
+      `;
+      
+      // Weather icon inline with date
+      const weatherIcon = ev.weather && ev.weather.icon 
+        ? `<span class="weather-inline" title="${ev.weather.description || 'Weather forecast'}">${ev.weather.icon}</span>` 
+        : '';
+      
       card.innerHTML = `
         <div class="card-header">
           <div class="card-header-left">
             <h3 class="card-title">${ev.course || 'Course'}</h3>
-            <div class="card-date">${fmtDate(ev.date)}</div>
+            <div class="card-date">${fmtDate(ev.date)} ${weatherIcon}</div>
           </div>
           <div class="button-row">
             <button class="small" data-add-tee="${ev._id}">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>
+            <button class="small" data-audit="${ev._id}">Audit Log</button>
             <button class="small" data-edit="${ev._id}">Edit</button>
             <button class="small" data-del="${ev._id}">Delete</button>
           </div>
         </div>
         <div class="card-content">
+          ${maybeSection}
           <div class="tees">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>
           ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
         </div>`;
@@ -252,7 +553,7 @@
     const left = isTeams ? (tt.name ? tt.name : `Team ${idx+1}`) : (tt.time ? fmtTime(tt.time) : '—');
     const delTitle = isTeams ? 'Remove team' : 'Remove tee time';
     const editTitle = isTeams ? 'Edit team name' : 'Edit tee time';
-    return `<div class="tee">
+    return `<div class="tee ${full ? 'tee-full' : ''}">
       <div class="tee-meta">
         <div class="tee-time">${left}</div>
         <div class="tee-actions">
@@ -268,21 +569,34 @@
   }
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-edit-tee],[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe]')||e.target);
     try{
-      if(t.dataset.editTee){
-        const [eventId, teeId] = t.dataset.editTee.split(':');
-        const list = await api('/api/events');
-        const ev = (list||[]).find(x=>x._id===eventId); if(!ev) return;
-        const tt = (ev.teeTimes||[]).find(x=>String(x._id)===String(teeId)); if(!tt) return;
-        const isTeam = !!ev.isTeamEvent;
-        editTeeTitle.textContent = isTeam ? 'Edit Team Name' : 'Edit Tee Time';
-        editTeeLabel.textContent = isTeam ? 'Team name' : 'Tee time (HH:MM)';
-        editTeeForm.elements['value'].value = isTeam ? (tt.name||'') : (tt.time||'');
-        editTeeForm.elements['eventId'].value = eventId;
-        editTeeForm.elements['teeId'].value = teeId;
-        editTeeForm.elements['isTeam'].value = String(isTeam);
-        editTeeModal.showModal();
+      if(t.dataset.addMaybe){
+        const id=t.dataset.addMaybe;
+        const name=prompt('Enter your name to add to the Maybe list:'); 
+        if(!name) return;
+        try {
+          await api(`/api/events/${id}/maybe`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
+          return load();
+        } catch (err) {
+          console.error(err);
+          if (err.message && err.message.includes('already on maybe list')) {
+            alert('You\'re already on the maybe list for this event!');
+          } else {
+            alert('Failed to add to maybe list: ' + err.message);
+          }
+          return;
+        }
+      }
+      if(t.dataset.removeMaybe){
+        const [id, index] = t.dataset.removeMaybe.split(':');
+        if(!confirm('Remove from maybe list?')) return;
+        await api(`/api/events/${id}/maybe/${index}`,{ method:'DELETE' });
+        return load();
+      }
+      if(t.dataset.audit){
+        const id=t.dataset.audit;
+        await openAuditLog(id);
         return;
       }
       if(t.dataset.delTee){
@@ -315,7 +629,7 @@
             const name = `Team ${nextTeamNum}`;
             await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ name }) });
           }else{
-            // Let the server calculate the next tee time (8 minutes after last)
+            // Let the server calculate the next tee time (9 minutes after last)
             await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({}) });
           }
         return load();
@@ -323,8 +637,18 @@
       if(t.dataset.addPlayer){
         const [id,teeId]=t.dataset.addPlayer.split(':');
         const name=prompt('Player name'); if(!name) return;
-        await api(`/api/events/${id}/tee-times/${teeId}/players`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
-        return load();
+        try {
+          await api(`/api/events/${id}/tee-times/${teeId}/players`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
+          return load();
+        } catch (err) {
+          console.error(err);
+          if (err.message && err.message.includes('duplicate')) {
+            alert('⚠️ Duplicate name detected!\n\nA player with this name already exists on another tee time. Please use a nickname to avoid confusion.\n\nExamples:\n• "John S" or "John 2"\n• "Mike B" or "Big Mike"');
+          } else {
+            alert('Failed to add player: ' + (err.message || 'Unknown error'));
+          }
+          return;
+        }
       }
       if(t.dataset.move){
         const [eventId,fromTeeId,playerId]=t.dataset.move.split(':');
@@ -350,22 +674,6 @@
         return load();
       }
     }catch(err){ console.error(err); alert('Action failed'); }
-  });
-
-  // Edit tee/team submit
-  on(editTeeForm, 'submit', async (e)=>{
-    e.preventDefault();
-    const eventId = editTeeForm.elements['eventId'].value;
-    const teeId = editTeeForm.elements['teeId'].value;
-    const isTeam = editTeeForm.elements['isTeam'].value === 'true';
-    const value = String(editTeeForm.elements['value'].value||'').trim();
-    if(!value){ alert(isTeam?'Name required':'Time required (HH:MM)'); return; }
-    try{
-      const payload = isTeam ? { name: value } : { time: value };
-      await api(`/api/events/${eventId}/tee-times/${teeId}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-      editTeeModal.close?.();
-      load();
-    }catch(err){ console.error(err); alert('Save failed'); }
   });
 
   async function openMoveDialog(eventId, fromTeeId, playerId){
@@ -398,8 +706,43 @@
     try{
       await api(`/api/events/${eventId}/move-player`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fromTeeId,toTeeId,playerId})});
       moveModal.close?.(); load();
-    }catch{ alert('Move failed'); }
+    }catch(err){ 
+      console.error(err);
+      const msg = err.message || 'Move failed';
+      alert(msg);
+    }
   });
+
+  async function openAuditLog(eventId){
+    try{
+      auditLogContent.innerHTML = '<p style="color:var(--slate-700);text-align:center">Loading...</p>';
+      auditModal.showModal();
+      const logs = await api(`/api/events/${eventId}/audit-log`);
+      if (!logs || logs.length === 0) {
+        auditLogContent.innerHTML = '<p style="color:var(--slate-700);text-align:center">No audit entries yet.</p>';
+        return;
+      }
+      const items = logs.map(log => {
+        const ts = new Date(log.timestamp).toLocaleString();
+        let desc = '';
+        if (log.action === 'add_player') {
+          desc = `➕ Added <strong>${log.playerName}</strong> to ${log.teeLabel}`;
+        } else if (log.action === 'remove_player') {
+          desc = `➖ Removed <strong>${log.playerName}</strong> from ${log.teeLabel}`;
+        } else if (log.action === 'move_player') {
+          desc = `↔️ Moved <strong>${log.playerName}</strong> from ${log.fromTeeLabel} to ${log.toTeeLabel}`;
+        }
+        return `<div style="padding:8px;border-bottom:1px solid var(--slate-200)">
+          <div style="font-size:14px;color:var(--slate-900)">${desc}</div>
+          <div style="font-size:12px;color:var(--slate-700);margin-top:4px">${ts}</div>
+        </div>`;
+      }).join('');
+      auditLogContent.innerHTML = items;
+    }catch(err){
+      console.error(err);
+      auditLogContent.innerHTML = '<p style="color:#dc2626;text-align:center">Failed to load audit log.</p>';
+    }
+  }
 
   load();
 })();

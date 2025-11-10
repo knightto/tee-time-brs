@@ -7,7 +7,7 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 4000;
 const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
 const SITE_URL = process.env.SITE_URL || 'https://tee-time-brs.onrender.com/';
 const LOCAL_TZ = process.env.LOCAL_TZ || 'America/New_York';
@@ -16,8 +16,11 @@ app.use(express.json());
 app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true }));
 app.use(rateLimit({ windowMs: 60 * 1000, max: 200 }));
 
-app.use(express.static(path.join(__dirname, 'public')));
+// Define routes before static middleware to ensure they take precedence
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+// Handicap tracking removed
+
+app.use(express.static(path.join(__dirname, 'public')));
 
 const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/teetimes';
 mongoose.connect(mongoUri, { dbName: process.env.MONGO_DB || undefined })
@@ -26,22 +29,109 @@ mongoose.connect(mongoUri, { dbName: process.env.MONGO_DB || undefined })
 
 let Event; try { Event = require('./models/Event'); } catch { Event = require('./Event'); }
 let Subscriber; try { Subscriber = require('./models/Subscriber'); } catch { Subscriber = null; }
+let AuditLog; try { AuditLog = require('./models/AuditLog'); } catch { AuditLog = null; }
+// Handicap model removed
+
+/* ---------------- Weather helpers ---------------- */
+// Default location (Richmond, VA area - adjust for your region)
+const DEFAULT_LAT = process.env.DEFAULT_LAT || '37.5407';
+const DEFAULT_LON = process.env.DEFAULT_LON || '-77.4360';
+
+function getWeatherIcon(weatherCode, isDay = true) {
+  // WMO Weather interpretation codes
+  // https://open-meteo.com/en/docs
+  if (weatherCode === 0) return { icon: '☀️', condition: 'sunny', desc: 'Clear sky' };
+  if (weatherCode === 1) return { icon: isDay ? '🌤️' : '🌙', condition: 'mostly-sunny', desc: 'Mainly clear' };
+  if (weatherCode === 2) return { icon: '⛅', condition: 'partly-cloudy', desc: 'Partly cloudy' };
+  if (weatherCode === 3) return { icon: '☁️', condition: 'cloudy', desc: 'Overcast' };
+  if (weatherCode >= 45 && weatherCode <= 48) return { icon: '🌫️', condition: 'foggy', desc: 'Foggy' };
+  if (weatherCode >= 51 && weatherCode <= 67) return { icon: '🌧️', condition: 'rainy', desc: 'Rainy' };
+  if (weatherCode >= 71 && weatherCode <= 77) return { icon: '🌨️', condition: 'snowy', desc: 'Snow' };
+  if (weatherCode >= 80 && weatherCode <= 82) return { icon: '🌦️', condition: 'showers', desc: 'Rain showers' };
+  if (weatherCode >= 95) return { icon: '⛈️', condition: 'stormy', desc: 'Thunderstorm' };
+  return { icon: '🌤️', condition: 'unknown', desc: 'Unknown' };
+}
+
+async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) {
+  try {
+    const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`;
+    
+    const response = await fetch(url);
+    if (!response.ok) throw new Error('Weather API error');
+    
+    const data = await response.json();
+    if (!data.daily || !data.daily.weather_code || !data.daily.weather_code[0]) {
+      throw new Error('No weather data available');
+    }
+    
+    const weatherCode = data.daily.weather_code[0];
+    const tempMax = data.daily.temperature_2m_max[0];
+    const tempMin = data.daily.temperature_2m_min[0];
+    const avgTemp = Math.round((tempMax + tempMin) / 2);
+    
+    const weatherInfo = getWeatherIcon(weatherCode, true);
+    
+    return {
+      success: true,
+      condition: weatherInfo.condition,
+      icon: weatherInfo.icon,
+      temp: avgTemp,
+      description: `${weatherInfo.desc} • ${Math.round(tempMin)}°-${Math.round(tempMax)}°F`,
+      lastFetched: new Date()
+    };
+  } catch (e) {
+    console.error('Weather fetch error:', e.message);
+    return {
+      success: false,
+      condition: null,
+      icon: '🌤️',
+      temp: null,
+      description: 'Weather unavailable',
+      lastFetched: null
+    };
+  }
+}
 
 /* ---------------- Email helpers ---------------- */
-let resend = null;
-async function ensureResend() {
-  if (resend || !process.env.RESEND_API_KEY) return resend;
-  const { Resend } = require('resend');
-  resend = new Resend(process.env.RESEND_API_KEY);
-  return resend;
+const nodemailer = require('nodemailer');
+let transporter = null;
+
+async function ensureTransporter() {
+  if (transporter || !process.env.RESEND_API_KEY) return transporter;
+  
+  // Use Resend SMTP
+  transporter = nodemailer.createTransport({
+    host: 'smtp.resend.com',
+    port: 465,
+    secure: true,
+    auth: {
+      user: 'resend',
+      pass: process.env.RESEND_API_KEY
+    }
+  });
+  
+  return transporter;
 }
+
 async function sendEmail(to, subject, html) {
-  const api = await ensureResend();
-  if (!api || !process.env.RESEND_FROM) {
+  const mailer = await ensureTransporter();
+  if (!mailer || !process.env.RESEND_FROM) {
     console.warn(JSON.stringify({ level:'warn', msg:'Email disabled', reason:'missing key/from' }));
     return { ok:false, disabled:true };
   }
-  return api.emails.send({ from: process.env.RESEND_FROM, to, subject, html });
+  
+  try {
+    const info = await mailer.sendMail({
+      from: process.env.RESEND_FROM,
+      to: to,
+      subject: subject,
+      html: html
+    });
+    return { ok: true, data: { id: info.messageId } };
+  } catch (err) {
+    return { ok: false, error: { message: err.message } };
+  }
 }
 async function sendEmailToAll(subject, html) {
   if (!Subscriber) return { ok:false, reason:'no model' };
@@ -49,7 +139,25 @@ async function sendEmailToAll(subject, html) {
   if (!subs.length) return { ok:true, sent:0 };
   let sent = 0;
   for (const s of subs) {
-    try { await sendEmail(s.email, subject, html); sent++; } catch {}
+    try { 
+      // For SMS subscribers, send plain text version (SMS gateways ignore HTML)
+      if (s.subscriptionType === 'sms') {
+        // Convert HTML to simple text for SMS
+        const plainText = html
+          .replace(/<[^>]*>/g, '') // Strip HTML tags
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/\s+/g, ' ') // Collapse whitespace
+          .trim()
+          .substring(0, 140); // SMS length limit
+        await sendEmail(s.email, '', `Tee Times: ${plainText}`);
+      } else {
+        await sendEmail(s.email, subject, html);
+      }
+      sent++; 
+    } catch {}
   }
   return { ok:true, sent };
 }
@@ -97,6 +205,68 @@ function ymdInTZ(d=new Date(), tz='America/New_York'){
 }
 function addDaysUTC(d, days){ const x = new Date(d.getTime()); x.setUTCDate(x.getUTCDate()+days); return x; }
 
+/* ---------------- Anti-chaos helpers ---------------- */
+// Check if a player name already exists in any tee time (case-insensitive)
+function isDuplicatePlayerName(ev, playerName, excludeTeeId = null) {
+  const normalizedName = String(playerName).trim().toLowerCase();
+  for (const tt of (ev.teeTimes || [])) {
+    if (excludeTeeId && String(tt._id) === String(excludeTeeId)) continue;
+    for (const p of (tt.players || [])) {
+      if (String(p.name).trim().toLowerCase() === normalizedName) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// Check if a player is already on another tee time (case-insensitive)
+function isPlayerOnAnotherTee(ev, playerName, currentTeeId) {
+  const normalizedName = String(playerName).trim().toLowerCase();
+  for (const tt of (ev.teeTimes || [])) {
+    if (String(tt._id) === String(currentTeeId)) continue;
+    for (const p of (tt.players || [])) {
+      if (String(p.name).trim().toLowerCase() === normalizedName) {
+        return { found: true, teeId: tt._id, teeName: tt.name || tt.time };
+      }
+    }
+  }
+  return { found: false };
+}
+
+// Get human-readable label for a tee/team
+function getTeeLabel(ev, teeId) {
+  const tt = ev.teeTimes.id(teeId);
+  if (!tt) return 'Unknown';
+  if (ev.isTeamEvent) {
+    if (tt.name) return tt.name;
+    const idx = ev.teeTimes.findIndex(t => String(t._id) === String(teeId));
+    return `Team ${idx + 1}`;
+  }
+  return tt.time ? fmt.tee(tt.time) : 'Unknown';
+}
+
+// Log audit entry
+async function logAudit(eventId, action, playerName, data = {}) {
+  if (!AuditLog) return;
+  try {
+    await AuditLog.create({
+      eventId,
+      action,
+      playerName: String(playerName).trim(),
+      teeId: data.teeId,
+      fromTeeId: data.fromTeeId,
+      toTeeId: data.toTeeId,
+      teeLabel: data.teeLabel,
+      fromTeeLabel: data.fromTeeLabel,
+      toTeeLabel: data.toTeeLabel,
+      timestamp: new Date()
+    });
+  } catch (e) {
+    console.error('Audit log failed:', e.message);
+  }
+}
+
 /* ---------------- Core API (unchanged parts trimmed for brevity) ---------------- */
 function genTeeTimes(startHHMM, count=3, mins=10) {
   if (!startHHMM) return [];
@@ -125,8 +295,8 @@ function nextTeamNameForEvent(ev) {
   return `Team ${n}`;
 }
 
-/* Helper: compute next tee time by searching last valid time and adding mins (default 8), wrap at 24h */
-function nextTeeTimeForEvent(ev, mins = 8, defaultTime = '07:00') {
+/* Helper: compute next tee time by searching last valid time and adding mins (default 9), wrap at 24h */
+function nextTeeTimeForEvent(ev, mins = 9, defaultTime = '07:00') {
   if (ev.teeTimes && ev.teeTimes.length) {
     for (let i = ev.teeTimes.length - 1; i >= 0; i--) {
       const lt = ev.teeTimes[i] && ev.teeTimes[i].time;
@@ -156,14 +326,26 @@ app.get('/api/events', async (_req, res) => {
 app.post('/api/events', async (req, res) => {
   try {
     const { course, date, teeTime, teeTimes, notes, isTeamEvent, teamSizeMax } = req.body || {};
-    const tt = isTeamEvent ? [] : (Array.isArray(teeTimes) && teeTimes.length ? teeTimes : genTeeTimes(teeTime, 3, 10));
+    const tt = isTeamEvent ? [] : (Array.isArray(teeTimes) && teeTimes.length ? teeTimes : genTeeTimes(teeTime, 3, 9));
+    const eventDate = /^\d{4}-\d{2}-\d{2}$/.test(String(date||'')) ? new Date(String(date)+'T12:00:00Z') : asUTCDate(date);
+    
+    // Fetch weather forecast
+    const weatherData = await fetchWeatherForecast(eventDate);
+    
     const created = await Event.create({
       course,
-      date: /^\d{4}-\d{2}-\d{2}$/.test(String(date||'')) ? new Date(String(date)+'T12:00:00Z') : asUTCDate(date),
+      date: eventDate,
       notes,
       isTeamEvent: !!isTeamEvent,
       teamSizeMax: Math.max(2, Math.min(4, Number(teamSizeMax || 4))),
-      teeTimes: tt
+      teeTimes: tt,
+      weather: {
+        condition: weatherData.condition,
+        icon: weatherData.icon,
+        temp: weatherData.temp,
+        description: weatherData.description,
+        lastFetched: weatherData.lastFetched
+      }
     });
     res.status(201).json(created);
     await sendEmailToAll(`New Event: ${created.course} (${fmt.dateISO(created.date)})`,
@@ -197,6 +379,16 @@ app.delete('/api/events/:id', async (req, res) => {
   if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) return res.status(403).json({ error: 'Forbidden' });
   const del = await Event.findByIdAndDelete(req.params.id);
   if (!del) return res.status(404).json({ error: 'Not found' });
+  
+  // Notify subscribers about the cancellation
+  await sendEmailToAll(`Event Cancelled: ${del.course} (${fmt.dateISO(del.date)})`,
+    frame('Golf Event Cancelled',
+          `<p>The following event has been cancelled:</p>
+           <p><strong>Event:</strong> ${esc(fmt.dateShortTitle(del.date))}</p>
+           <p><strong>Course:</strong> ${esc(del.course||'')}</p>
+           <p><strong>Date:</strong> ${esc(fmt.dateLong(del.date))}</p>
+           <p>We apologize for any inconvenience.</p>${btn('View Other Events')}`));
+  
   res.json({ ok: true });
 });
 
@@ -221,7 +413,7 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
   const { time } = req.body || {};
   let newTime = typeof time === 'string' && time.trim() ? time.trim() : null;
   if (!newTime) {
-    newTime = nextTeeTimeForEvent(ev, 8, '07:00');
+    newTime = nextTeeTimeForEvent(ev, 9, '07:00');
   }
   // Validate HH:MM and ranges
   const m = /^(\d{1,2}):(\d{2})$/.exec(newTime);
@@ -244,45 +436,33 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
 app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
   const { name } = req.body || {};
   if (!name) return res.status(400).json({ error: 'name required' });
+  const trimmedName = String(name).trim();
+  if (!trimmedName) return res.status(400).json({ error: 'name cannot be empty' });
+  
   const ev = await Event.findById(req.params.id);
   if (!ev) return res.status(404).json({ error: 'Not found' });
   const tt = ev.teeTimes.id(req.params.teeId);
   if (!tt) return res.status(404).json({ error: 'tee time not found' });
   if (!Array.isArray(tt.players)) tt.players = [];
+  
   const maxSize = ev.isTeamEvent ? (ev.teamSizeMax || 4) : 4;
   if (tt.players.length >= maxSize) return res.status(400).json({ error: ev.isTeamEvent ? 'team full' : 'tee time full' });
-  tt.players.push({ name });
-  await ev.save(); res.json(ev);
-});
-/* Update a tee slot: time (for tee-time events) or name (for team events) */
-app.put('/api/events/:id/tee-times/:teeId', async (req, res) => {
-  try {
-    const ev = await Event.findById(req.params.id);
-    if (!ev) return res.status(404).json({ error: 'Not found' });
-    const tt = ev.teeTimes.id(req.params.teeId);
-    if (!tt) return res.status(404).json({ error: 'tee/team not found' });
-
-    if (ev.isTeamEvent) {
-      let { name } = req.body || {};
-      name = typeof name === 'string' ? name.trim() : '';
-      if (!name) return res.status(400).json({ error: 'name required' });
-      const dup = (ev.teeTimes || []).some(s => String(s._id) !== String(tt._id) && s && s.name && String(s.name).trim().toLowerCase() === name.toLowerCase());
-      if (dup) return res.status(409).json({ error: 'duplicate team name' });
-      tt.name = name;
-    } else {
-      let { time } = req.body || {};
-      time = typeof time === 'string' ? time.trim() : '';
-      const m = /^([0-1]?\d|2[0-3]):([0-5]\d)$/.exec(time);
-      if (!m) return res.status(400).json({ error: 'time required HH:MM' });
-      const conflict = (ev.teeTimes || []).some(s => String(s._id) !== String(tt._id) && s && s.time === time);
-      if (conflict) return res.status(409).json({ error: 'duplicate time' });
-      tt.time = time;
-    }
-    await ev.save();
-    return res.json(ev);
-  } catch (e) {
-    return res.status(500).json({ error: e.message });
+  
+  // Anti-chaos check: duplicate name prevention
+  if (isDuplicatePlayerName(ev, trimmedName)) {
+    return res.status(409).json({ error: 'duplicate player name', message: 'A player with this name already exists. Use a nickname (e.g., "John S" or "John 2").' });
   }
+  
+  tt.players.push({ name: trimmedName });
+  await ev.save();
+  
+  // Audit log
+  await logAudit(ev._id, 'add_player', trimmedName, {
+    teeId: tt._id,
+    teeLabel: getTeeLabel(ev, tt._id)
+  });
+  
+  res.json(ev);
 });
 app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res) => {
   try {
@@ -293,8 +473,17 @@ app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res
     if (!Array.isArray(tt.players)) tt.players = [];
     const idx = tt.players.findIndex(p => String(p._id) === String(req.params.playerId));
     if (idx === -1) return res.status(404).json({ error: 'player not found' });
+    
+    const playerName = tt.players[idx].name;
     tt.players.splice(idx, 1);
     await ev.save();
+    
+    // Audit log
+    await logAudit(ev._id, 'remove_player', playerName, {
+      teeId: tt._id,
+      teeLabel: getTeeLabel(ev, tt._id)
+    });
+    
     return res.json(ev);
   } catch (e) {
     return res.status(500).json({ error: e.message });
@@ -314,21 +503,216 @@ app.post('/api/events/:id/move-player', async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'player not found' });
   const maxSize = ev.isTeamEvent ? (ev.teamSizeMax || 4) : 4;
   if (toTT.players.length >= maxSize) return res.status(400).json({ error: 'destination full' });
+  
   const [player] = fromTT.players.splice(idx, 1);
-  toTT.players.push({ name: player.name });
-  await ev.save(); res.json(ev);
+  const playerName = player.name;
+  
+  // Anti-chaos check: ensure player isn't already on another tee (shouldn't happen, but defensive)
+  const conflict = isPlayerOnAnotherTee(ev, playerName, toTeeId);
+  if (conflict.found) {
+    // Roll back the splice
+    fromTT.players.splice(idx, 0, player);
+    return res.status(409).json({ error: 'player conflict', message: `${playerName} is already on ${conflict.teeName}` });
+  }
+  
+  toTT.players.push({ name: playerName });
+  await ev.save();
+  
+  // Audit log
+  await logAudit(ev._id, 'move_player', playerName, {
+    fromTeeId: fromTT._id,
+    toTeeId: toTT._id,
+    fromTeeLabel: getTeeLabel(ev, fromTT._id),
+    toTeeLabel: getTeeLabel(ev, toTT._id)
+  });
+  
+  res.json(ev);
 });
+
+/* ---------------- Weather ---------------- */
+// Refresh weather for an event
+app.post('/api/events/:id/weather', async (req, res) => {
+  try {
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    
+    const weatherData = await fetchWeatherForecast(ev.date);
+    
+    if (!ev.weather) ev.weather = {};
+    ev.weather.condition = weatherData.condition;
+    ev.weather.icon = weatherData.icon;
+    ev.weather.temp = weatherData.temp;
+    ev.weather.description = weatherData.description;
+    ev.weather.lastFetched = weatherData.lastFetched;
+    
+    await ev.save();
+    res.json(ev);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Refresh weather for all events
+app.post('/api/events/weather/refresh-all', async (_req, res) => {
+  try {
+    const events = await Event.find();
+    let updated = 0;
+    
+    for (const ev of events) {
+      const weatherData = await fetchWeatherForecast(ev.date);
+      if (!ev.weather) ev.weather = {};
+      ev.weather.condition = weatherData.condition;
+      ev.weather.icon = weatherData.icon;
+      ev.weather.temp = weatherData.temp;
+      ev.weather.description = weatherData.description;
+      ev.weather.lastFetched = weatherData.lastFetched;
+      await ev.save();
+      if (weatherData.success) updated++;
+    }
+    
+    res.json({ ok: true, updated, total: events.length });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ---------------- Maybe List ---------------- */
+// Add player to maybe list
+app.post('/api/events/:id/maybe', async (req, res) => {
+  try {
+    const { name } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'name required' });
+    
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    
+    if (!Array.isArray(ev.maybeList)) ev.maybeList = [];
+    
+    const trimmedName = String(name).trim();
+    // Check for duplicates (case-insensitive)
+    const exists = ev.maybeList.some(n => String(n).toLowerCase() === trimmedName.toLowerCase());
+    if (exists) return res.status(409).json({ error: 'Name already on maybe list' });
+    
+    ev.maybeList.push(trimmedName);
+    await ev.save();
+    res.json(ev);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Remove player from maybe list
+app.delete('/api/events/:id/maybe/:index', async (req, res) => {
+  try {
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    
+    if (!Array.isArray(ev.maybeList)) ev.maybeList = [];
+    const index = parseInt(req.params.index, 10);
+    
+    if (index < 0 || index >= ev.maybeList.length) {
+      return res.status(404).json({ error: 'Invalid index' });
+    }
+    
+    ev.maybeList.splice(index, 1);
+    await ev.save();
+    res.json(ev);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ---------------- Audit Log ---------------- */
+app.get('/api/events/:id/audit-log', async (req, res) => {
+  try {
+    if (!AuditLog) return res.status(501).json({ error: 'Audit log not available' });
+    const logs = await AuditLog.find({ eventId: req.params.id })
+      .sort({ timestamp: -1 })
+      .limit(200)
+      .lean();
+    res.json(logs);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* ---------------- SMS Gateway Mapping ---------------- */
+const SMS_GATEWAYS = {
+  verizon: 'vtext.com',
+  att: 'txt.att.net',
+  tmobile: 'tmomail.net',
+  sprint: 'messaging.sprintpcs.com',
+  uscellular: 'email.uscc.net',
+  boost: 'sms.myboostmobile.com',
+  cricket: 'sms.cricketwireless.net',
+  metropcs: 'mymetropcs.com'
+};
+
+function getSMSEmail(phone, carrier) {
+  const gateway = SMS_GATEWAYS[carrier];
+  if (!gateway) return null;
+  // Remove any non-digit characters from phone
+  const cleanPhone = String(phone).replace(/\D/g, '');
+  if (cleanPhone.length !== 10) return null;
+  return `${cleanPhone}@${gateway}`;
+}
 
 /* ---------------- Subscribers ---------------- */
 app.post('/api/subscribe', async (req, res) => {
-  const { email } = req.body || {};
-  if (!email) return res.status(400).json({ error: 'email required' });
+  const { subscriptionType, email, phone, carrier } = req.body || {};
+  
+  if (!subscriptionType) return res.status(400).json({ error: 'subscriptionType required' });
+  
   try {
     if (!Subscriber) return res.status(500).json({ error: 'subscriber model missing' });
-    const s = await Subscriber.findOneAndUpdate({ email: email.toLowerCase() }, { $setOnInsert: { email: email.toLowerCase() } }, { upsert: true, new: true });
-    res.json({ ok:true, id: s._id.toString(), email: s.email });
-    await sendEmail(s.email, 'Subscribed to Tee Times',
-      frame('Subscription Confirmed', `<p>You will receive updates for new events and changes.</p>${btn('Go to Sign-up Page')}`)).catch(()=>{});
+    
+    let subscriberData = { subscriptionType };
+    let notifyAddress;
+    
+    if (subscriptionType === 'email') {
+      if (!email) return res.status(400).json({ error: 'email required for email subscription' });
+      subscriberData.email = email.toLowerCase();
+      notifyAddress = email.toLowerCase();
+    } else if (subscriptionType === 'sms') {
+      if (!phone || !carrier) return res.status(400).json({ error: 'phone and carrier required for SMS subscription' });
+      
+      const smsEmail = getSMSEmail(phone, carrier);
+      if (!smsEmail) return res.status(400).json({ error: 'Invalid phone number or unsupported carrier' });
+      
+      subscriberData.email = smsEmail; // Store SMS gateway email
+      subscriberData.phone = phone.replace(/\D/g, '');
+      subscriberData.carrier = carrier;
+      notifyAddress = smsEmail;
+    } else {
+      return res.status(400).json({ error: 'Invalid subscription type' });
+    }
+    
+    // Check if subscriber already exists
+    const existing = await Subscriber.findOne({ email: subscriberData.email });
+    
+    const s = await Subscriber.findOneAndUpdate(
+      { email: subscriberData.email }, 
+      { $set: subscriberData }, 
+      { upsert: true, new: true }
+    );
+    
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'subscriber added', type:subscriptionType, address:notifyAddress, isNew: !existing }));
+    
+    // Send confirmation (always send for testing; in production you might want to only send if !existing)
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'sending confirmation', to:notifyAddress, type:subscriptionType }));
+    const subject = subscriptionType === 'email' ? 'Golf Notifications - Subscription Confirmed' : 'Golf Notifications';
+    const message = subscriptionType === 'email' 
+      ? `<p>Thanks for subscribing! You'll receive email notifications when new golf events are posted.</p><p>Reply STOP to unsubscribe.</p>`
+      : `Thanks for subscribing! You'll get text notifications for new golf events. Reply STOP to unsubscribe.`;
+    
+    try {
+      const result = await sendEmail(notifyAddress, subject, message);
+      console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'confirmation sent', result }));
+    } catch (emailErr) {
+      console.error(JSON.stringify({ t:new Date().toISOString(), level:'error', msg:'confirmation failed', error:emailErr.message, stack:emailErr.stack }));
+    }
+    
+    res.json({ ok: true, id: s._id.toString(), type: subscriptionType, isNew: !existing });
   } catch (e) { res.status(500).json({ error:e.message }); }
 });
 
