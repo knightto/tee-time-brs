@@ -286,7 +286,11 @@
   // Subscribe
   on(subForm, 'submit', async (e)=>{
     e.preventDefault(); 
-    if(subMsg) subMsg.textContent='...';
+    if(subMsg) {
+      subMsg.textContent='Subscribing...';
+      subMsg.style.color='var(--slate-700)';
+      subMsg.style.fontWeight='500';
+    }
     try{
       const formData = new FormData(subForm);
       const subscriptionType = formData.get('subscriptionType');
@@ -301,17 +305,26 @@
       
       const result = await api('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       if(subMsg) {
+        subMsg.style.color='var(--green-700)';
+        subMsg.style.fontWeight='600';
         if (result.isNew) {
-          subMsg.textContent = subscriptionType === 'email' ? 'Email subscription confirmed!' : 'SMS subscription confirmed!';
+          subMsg.textContent = '✓ ' + (subscriptionType === 'email' ? 'Email subscription confirmed!' : 'SMS subscription confirmed!');
         } else {
-          subMsg.textContent = 'Already subscribed! Your subscription has been updated.';
+          subMsg.textContent = '✓ Already subscribed! Your subscription has been updated.';
         }
       }
-      setTimeout(() => subscribeModal?.close(), 2000);
+      setTimeout(() => {
+        subscribeModal?.close();
+        if(subMsg) subMsg.textContent='';
+      }, 2500);
       subForm.reset();
     }catch(err){ 
       console.error(err);
-      if(subMsg) subMsg.textContent='Failed: ' + (err.message || 'Unknown error'); 
+      if(subMsg) {
+        subMsg.textContent='Failed: ' + (err.message || 'Unknown error');
+        subMsg.style.color='#dc2626';
+        subMsg.style.fontWeight='600';
+      }
     }
   });
 
