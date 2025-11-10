@@ -511,6 +511,41 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
   
   res.json(ev);
 });
+
+// Edit tee time or team name
+app.put('/api/events/:id/tee-times/:teeId', async (req, res) => {
+  try {
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    
+    const tt = ev.teeTimes.id(req.params.teeId);
+    if (!tt) return res.status(404).json({ error: 'tee/team not found' });
+    
+    if (ev.isTeamEvent) {
+      // Edit team name
+      const { name } = req.body || {};
+      if (!name || !name.trim()) return res.status(400).json({ error: 'name required' });
+      tt.name = name.trim();
+    } else {
+      // Edit tee time - accept any HH:MM format without validation
+      const { time } = req.body || {};
+      if (!time || !time.trim()) return res.status(400).json({ error: 'time required' });
+      const timeStr = time.trim();
+      // Basic format check only - allow any HH:MM
+      if (!/^\d{1,2}:\d{2}$/.test(timeStr)) {
+        return res.status(400).json({ error: 'time must be HH:MM format' });
+      }
+      tt.time = timeStr;
+    }
+    
+    await ev.save();
+    res.json(ev);
+  } catch (e) {
+    console.error('Edit tee time error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
   try {
     const ev = await Event.findById(req.params.id);

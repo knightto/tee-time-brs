@@ -297,9 +297,9 @@
         alert(isTeam ? 'Team name is required' : 'Tee time is required');
         return;
       }
-      // For tee times, validate HH:MM format
-      if (!isTeam && !/^\d{2}:\d{2}$/.test(value)) {
-        alert('Tee time must be in HH:MM format (e.g., 07:00)');
+      // For tee times, validate HH:MM format (flexible - accepts H:MM or HH:MM)
+      if (!isTeam && !/^\d{1,2}:\d{2}$/.test(value)) {
+        alert('Tee time must be in HH:MM format (e.g., 7:00 or 07:00)');
         return;
       }
       const payload = isTeam ? { name: value } : { time: value };
