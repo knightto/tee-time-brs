@@ -810,20 +810,22 @@ app.post('/api/subscribe', async (req, res) => {
     
     console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'subscriber added', email: subscriberData.email, isNew: !existing }));
     
-    // Send confirmation
+    // Send response immediately
+    res.json({ ok: true, id: s._id.toString(), isNew: !existing });
+    
+    // Send confirmation email asynchronously (don't block the response)
     console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'sending confirmation', to: subscriberData.email }));
     const unsubLink = `${SITE_URL}api/unsubscribe/${s.unsubscribeToken}`;
     const subject = 'Golf Notifications - Subscription Confirmed';
     const message = `<p>Thanks for subscribing! You'll receive email notifications when new golf events are posted.</p><p><a href="${unsubLink}">Click here to unsubscribe</a></p>`;
     
-    try {
-      const result = await sendEmail(subscriberData.email, subject, message);
-      console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'confirmation sent', result }));
-    } catch (emailErr) {
-      console.error(JSON.stringify({ t:new Date().toISOString(), level:'error', msg:'confirmation failed', error:emailErr.message, stack:emailErr.stack }));
-    }
-    
-    res.json({ ok: true, id: s._id.toString(), isNew: !existing });
+    sendEmail(subscriberData.email, subject, message)
+      .then(result => {
+        console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'confirmation sent', result }));
+      })
+      .catch(emailErr => {
+        console.error(JSON.stringify({ t:new Date().toISOString(), level:'error', msg:'confirmation failed', error:emailErr.message, stack:emailErr.stack }));
+      });
   } catch (e) { 
     console.error(JSON.stringify({ t:new Date().toISOString(), level:'error', msg:'subscribe error', error:e.message, stack:e.stack }));
     res.status(500).json({ error:e.message }); 
