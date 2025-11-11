@@ -602,9 +602,9 @@
         </div>
       `;
       
-      // Weather icon inline with date (50% larger)
+      // Weather icon inline with date (doubled size)
       const weatherIcon = ev.weather && ev.weather.icon 
-        ? `<span class="weather-inline" style="font-size:1.5em" title="${ev.weather.description || 'Weather forecast'}">${ev.weather.icon}</span>` 
+        ? `<span class="weather-inline" style="font-size:3em" title="${ev.weather.description || 'Weather forecast'}">${ev.weather.icon}</span>` 
         : '';
       
       // Course details
