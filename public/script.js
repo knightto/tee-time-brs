@@ -282,14 +282,8 @@
       const body=normalizeForm(eventForm);
       const isTeams = (body.mode === 'teams');
       
-      // Get course name from either select or manual input
-      let courseName = body.course;
-      if (courseSelect && courseSelect.value && courseSelect.value !== 'other') {
-        const idx = parseInt(courseSelect.value);
-        if (coursesData[idx]) {
-          courseName = coursesData[idx].name;
-        }
-      }
+      // Get course name from search input
+      const courseName = body.course;
       
       const payload = {
         course: courseName,
