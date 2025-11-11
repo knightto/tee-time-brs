@@ -941,10 +941,78 @@ app.get('/api/golf-courses/list', async (req, res) => {
   }
 });
 
-// Remove duplicate fallback code below
-/*
-    res.json([
-*/
+// Search golf courses by query string
+app.get('/api/golf-courses/search', async (req, res) => {
+  const query = req.query.q || '';
+  
+  // Define local courses (same as above)
+  const localCourses = [
+    { id: 'custom-1', name: 'Blue Ridge Shadows Golf Club', city: 'Front Royal', state: 'VA', phone: '(540) 631-9661', website: 'https://blueridgeshadows.com', holes: 18, par: 72 },
+    { id: 'custom-2', name: 'Caverns Country Club Resort', city: 'Luray', state: 'VA', phone: '(540) 743-7111', website: 'https://cavernscc.com', holes: 18, par: 72 },
+    { id: 'custom-3', name: 'Rock Harbor Golf Club', city: 'Winchester', state: 'VA', phone: '(540) 722-7111', website: 'https://www.rockharborgolf.com', holes: 18, par: 72 },
+    { id: 'custom-4', name: 'Shenandoah Valley Golf Club', city: 'Front Royal', state: 'VA', phone: '(540) 636-4653', website: 'https://svgcgolf.com', holes: 27, par: 72 },
+    { id: 'custom-5', name: 'Shenvalee Golf Resort', city: 'New Market', state: 'VA', phone: '(540) 740-3181', website: 'https://shenvalee.com', holes: 27, par: 72 },
+    { id: 'custom-6', name: 'The Club at Ironwood', city: 'Greenville', state: 'VA', phone: '(540) 337-1234', website: null, holes: 18, par: 72 }
+  ];
+  
+  if (!query || query.length < 2) {
+    // Return local courses for short/empty queries
+    return res.json(localCourses);
+  }
+  
+  // Filter local courses by query
+  const queryLower = query.toLowerCase();
+  const matchingLocal = localCourses.filter(c => 
+    c.name.toLowerCase().includes(queryLower) ||
+    (c.city && c.city.toLowerCase().includes(queryLower))
+  );
+  
+  // If no API keys, return only local matches
+  if (!GOLF_API_KEY && !GOLF_API_KEY_BACKUP) {
+    return res.json(matchingLocal);
+  }
+  
+  try {
+    // Search API with the query
+    const url = `${GOLF_API_BASE}/search?search_query=${encodeURIComponent(query)}`;
+    const { response, keyUsed } = await fetchGolfAPI(url);
+    
+    if (!response.ok) {
+      throw new Error(`Golf API error: ${response.status}`);
+    }
+    
+    console.log(`Golf API search for "${query}" using ${keyUsed} key`);
+    
+    const data = await response.json();
+    const apiCourses = (data.courses || [])
+      .filter(c => {
+        const courseState = c.location?.state;
+        return courseState && courseState.toUpperCase() === 'VA';
+      })
+      .filter(c => c.club_name || c.course_name)
+      .slice(0, 50) // Limit API results
+      .map(c => ({
+        id: c.id,
+        name: c.club_name || c.course_name || 'Unknown',
+        city: c.location?.city || null,
+        state: c.location?.state || null,
+        phone: null,
+        website: null,
+        holes: 18,
+        par: null
+      }));
+    
+    // Combine local matches first, then API results
+    const localNames = new Set(matchingLocal.map(c => c.name.toLowerCase()));
+    const apiFiltered = apiCourses.filter(c => !localNames.has(c.name.toLowerCase()));
+    
+    const results = [...matchingLocal, ...apiFiltered];
+    res.json(results);
+  } catch (e) {
+    console.error('Golf course search error:', e);
+    res.json(matchingLocal); // Return local matches on error
+  }
+});
 
 /* ---------------- Weather ---------------- */
 // Refresh weather for an event

@@ -908,7 +908,7 @@
     }
   }
 
-  // Golf Course Search with Datalist
+  // Golf Course Search with Dynamic API Search
   const courseSearch = $('#courseSearch');
   const courseList = $('#courseList');
   const courseInfoCard = $('#courseInfoCard');
@@ -916,35 +916,58 @@
   const courseDetails = $('#courseDetails');
   const courseWebsite = $('#courseWebsite');
   let coursesData = [];
-  let coursesLoaded = false;
   let selectedCourseData = null;
+  let searchTimeout = null;
 
-  async function loadGolfCourses() {
-    if (coursesLoaded) return;
+  async function searchGolfCourses(query) {
+    if (!query || query.length < 2) {
+      // Load default local courses for short queries
+      await loadDefaultCourses();
+      return;
+    }
     
     try {
-      const courses = await api('/api/golf-courses/list');
+      // Search API with the typed query
+      const courses = await api(`/api/golf-courses/search?q=${encodeURIComponent(query)}`);
       coursesData = courses;
       
       if (!courseList) return;
       
-      // Clear loading message
+      // Update datalist with search results
       courseList.innerHTML = '';
-      
-      // Add all courses to datalist
       courses.forEach((course) => {
         const option = document.createElement('option');
         option.value = course.name;
         courseList.appendChild(option);
       });
-      
-      coursesLoaded = true;
     } catch (err) {
-      console.error('Failed to load golf courses:', err);
-      if (courseList) {
-        courseList.innerHTML = '';
-      }
+      console.error('Failed to search golf courses:', err);
+      // Fall back to loading all courses on error
+      await loadDefaultCourses();
     }
+  }
+
+  async function loadDefaultCourses() {
+    try {
+      const courses = await api('/api/golf-courses/list?limit=20');
+      coursesData = courses;
+      
+      if (!courseList) return;
+      
+      courseList.innerHTML = '';
+      courses.forEach((course) => {
+        const option = document.createElement('option');
+        option.value = course.name;
+        courseList.appendChild(option);
+      });
+    } catch (err) {
+      console.error('Failed to load default courses:', err);
+    }
+  }
+
+  async function loadGolfCourses() {
+    // Initial load of default courses when modal opens
+    await loadDefaultCourses();
   }
 
   // Display course info when course is selected/typed
@@ -1020,12 +1043,22 @@
     });
   }
 
-  // Handle course search input
+  // Handle course search input with debounced API search
   if (courseSearch) {
     courseSearch.addEventListener('input', (e) => {
       const value = e.target.value;
       
-      // Find exact match in coursesData
+      // Clear previous timeout
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+      
+      // Debounce API search (wait 300ms after user stops typing)
+      searchTimeout = setTimeout(() => {
+        searchGolfCourses(value);
+      }, 300);
+      
+      // Find exact match in current coursesData
       const course = coursesData.find(c => c.name === value);
       
       if (course) {
