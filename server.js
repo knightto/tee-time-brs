@@ -461,16 +461,18 @@ app.delete('/api/events/:id', async (req, res) => {
   const del = await Event.findByIdAndDelete(req.params.id);
   if (!del) return res.status(404).json({ error: 'Not found' });
   
-  // Notify subscribers about the cancellation
-  await sendEmailToAll(`Event Cancelled: ${del.course} (${fmt.dateISO(del.date)})`,
+  // Send response immediately
+  res.json({ ok: true });
+  
+  // Notify subscribers about the cancellation (non-blocking)
+  sendEmailToAll(`Event Cancelled: ${del.course} (${fmt.dateISO(del.date)})`,
     frame('Golf Event Cancelled',
           `<p>The following event has been cancelled:</p>
            <p><strong>Event:</strong> ${esc(fmt.dateShortTitle(del.date))}</p>
            <p><strong>Course:</strong> ${esc(del.course||'')}</p>
            <p><strong>Date:</strong> ${esc(fmt.dateLong(del.date))}</p>
-           <p>We apologize for any inconvenience.</p>${btn('View Other Events')}`));
-  
-  res.json({ ok: true });
+           <p>We apologize for any inconvenience.</p>${btn('View Other Events')}`))
+    .catch(err => console.error('Failed to send deletion emails:', err));
 });
 
 /* tee/team, players, move endpoints remain as in your current server.js */

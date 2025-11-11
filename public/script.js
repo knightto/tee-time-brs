@@ -213,8 +213,15 @@
   }
   async function api(path, opts){ 
     debugLog('info', `API Request: ${opts?.method || 'GET'} ${path}`, opts?.body ? JSON.parse(opts.body) : null);
+    
+    // Add timeout for slow requests
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    
     try {
-      const r=await fetch(path, opts); 
+      const r=await fetch(path, { ...opts, signal: controller.signal }); 
+      clearTimeout(timeoutId);
+      
       const ct=r.headers.get('content-type')||''; 
       const body = ct.includes('application/json') ? await r.json() : await r.text();
       if(!r.ok) {
@@ -225,6 +232,11 @@
       debugLog('success', `API Success: ${opts?.method || 'GET'} ${path}`, body);
       return body;
     } catch (err) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        debugLog('error', `API Timeout: ${opts?.method || 'GET'} ${path}`, { error: 'Request timed out after 30 seconds' });
+        throw new Error('Request timed out. Please check your connection and try again.');
+      }
       debugLog('error', `API Failed: ${opts?.method || 'GET'} ${path}`, { error: err.message });
       throw err;
     }
@@ -846,8 +858,22 @@
       }
       if(t.dataset.del){
         const code=prompt('Admin delete code:'); if(!code) return;
-        await api(`/api/events/${t.dataset.del}?code=${encodeURIComponent(code)}`,{method:'DELETE'});
-        return load();
+        t.disabled = true;
+        t.textContent = 'Deleting...';
+        t.style.background = '#dc2626';
+        t.style.color = 'white';
+        try {
+          await api(`/api/events/${t.dataset.del}?code=${encodeURIComponent(code)}`,{method:'DELETE'});
+          await load();
+        } catch(err) {
+          console.error(err);
+          t.disabled = false;
+          t.textContent = 'Delete';
+          t.style.background = '';
+          t.style.color = '';
+          alert('Delete failed: ' + (err.message || 'Invalid code or network error'));
+        }
+        return;
       }
     }catch(err){ console.error(err); alert('Action failed'); }
   });
