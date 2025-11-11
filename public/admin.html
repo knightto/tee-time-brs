@@ -206,26 +206,6 @@
         </div>
       </div>
 
-      <!-- Course Search Test -->
-      <div style="background: white; padding: 16px; border-radius: 8px; margin-bottom: 12px;">
-        <strong style="color: #111827; display: block; margin-bottom: 8px;">Test Course Search:</strong>
-        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <input type="text" id="courseSearchInput" placeholder="Search by state (e.g., Virginia)" 
-                 style="flex: 1; min-width: 200px; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
-          <input type="number" id="courseSearchLimit" placeholder="Limit" value="10" min="1" max="50"
-                 style="width: 80px; padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px;">
-          <button onclick="testCourseSearch()" class="btn-test" style="background: #10b981; padding: 8px 16px;">
-            Search Courses
-          </button>
-        </div>
-      </div>
-
-      <!-- Search Results -->
-      <div id="courseSearchResults" style="display: none; background: white; padding: 16px; border-radius: 8px; max-height: 400px; overflow-y: auto;">
-        <strong style="color: #111827; display: block; margin-bottom: 12px;">Search Results:</strong>
-        <div id="courseSearchResultsContent"></div>
-      </div>
-
       <div id="apiHealthResult" class="test-result"></div>
     </div>
 
@@ -327,65 +307,6 @@
         document.getElementById('apiVersion').textContent = 'N/A';
         document.getElementById('lastChecked').textContent = new Date().toLocaleTimeString();
         console.error('Golf API health check failed:', error);
-      }
-    }
-
-    // Test Course Search
-    async function testCourseSearch() {
-      const state = document.getElementById('courseSearchInput').value.trim();
-      const limit = document.getElementById('courseSearchLimit').value || 10;
-      const resultsDiv = document.getElementById('courseSearchResults');
-      const resultsContent = document.getElementById('courseSearchResultsContent');
-      const resultMsg = document.getElementById('apiHealthResult');
-      
-      if (!state) {
-        resultMsg.textContent = '⚠️ Please enter a state name';
-        resultMsg.className = 'test-result';
-        resultMsg.style.display = 'block';
-        return;
-      }
-      
-      resultMsg.textContent = '⏳ Searching courses...';
-      resultMsg.className = 'test-result';
-      resultMsg.style.display = 'block';
-      resultsDiv.style.display = 'none';
-      
-      try {
-        const response = await fetch(`/api/golf-courses/list?state=${encodeURIComponent(state)}&limit=${limit}`);
-        
-        if (!response.ok) {
-          throw new Error(`API returned ${response.status}`);
-        }
-        
-        const courses = await response.json();
-        
-        if (courses.length === 0) {
-          resultMsg.textContent = `✓ Search completed - No courses found for "${state}"`;
-          return;
-        }
-        
-        // Display results
-        resultsContent.innerHTML = courses.map(course => `
-          <div style="padding: 12px; border-bottom: 1px solid #e5e7eb; display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 12px; align-items: start;">
-            <div>
-              <strong style="color: #111827; display: block;">${course.name}</strong>
-              <span style="color: #6b7280; font-size: 13px;">${course.city || 'N/A'}, ${course.state || 'N/A'}</span>
-            </div>
-            <div style="font-size: 13px; color: #6b7280;">
-              ${course.phone || 'No phone'}
-            </div>
-            <div style="font-size: 13px; color: #6b7280;">
-              ${course.holes || 18} holes, Par ${course.par || 'N/A'}
-            </div>
-          </div>
-        `).join('');
-        
-        resultsDiv.style.display = 'block';
-        resultMsg.textContent = `✓ Found ${courses.length} course${courses.length !== 1 ? 's' : ''} in ${state}`;
-        
-      } catch (error) {
-        resultMsg.textContent = `❌ Search failed: ${error.message}`;
-        console.error('Course search error:', error);
       }
     }
 
