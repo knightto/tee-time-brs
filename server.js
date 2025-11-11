@@ -984,6 +984,8 @@ app.get('/api/golf-courses/search', async (req, res) => {
     console.log(`Golf API search for "${query}" using ${keyUsed} key`);
     
     const data = await response.json();
+    console.log(`  API returned ${data.courses ? data.courses.length : 0} total courses`);
+    
     const apiCourses = (data.courses || [])
       .filter(c => {
         const courseState = c.location?.state;
@@ -1002,14 +1004,19 @@ app.get('/api/golf-courses/search', async (req, res) => {
         par: null
       }));
     
+    console.log(`  Filtered to ${apiCourses.length} VA courses`);
+    console.log(`  Local matches: ${matchingLocal.length}`);
+    
     // Combine local matches first, then API results
     const localNames = new Set(matchingLocal.map(c => c.name.toLowerCase()));
     const apiFiltered = apiCourses.filter(c => !localNames.has(c.name.toLowerCase()));
     
     const results = [...matchingLocal, ...apiFiltered];
+    console.log(`  Returning ${results.length} total courses (${matchingLocal.length} local + ${apiFiltered.length} API)`);
     res.json(results);
   } catch (e) {
     console.error('Golf course search error:', e);
+    console.log(`  Returning ${matchingLocal.length} local matches only (error fallback)`);
     res.json(matchingLocal); // Return local matches on error
   }
 });
