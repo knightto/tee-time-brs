@@ -914,8 +914,9 @@
     }
   }
 
-  // Golf Course Dropdown
-  const courseSelect = $('#courseSelect');
+  // Golf Course Search with Datalist
+  const courseSearch = $('#courseSearch');
+  const courseList = $('#courseList');
   const courseInfoCard = $('#courseInfoCard');
   const courseLocation = $('#courseLocation');
   const courseDetails = $('#courseDetails');
@@ -931,35 +932,28 @@
       const courses = await api('/api/golf-courses/list');
       coursesData = courses;
       
-      if (!courseSelect) return;
+      if (!courseList) return;
       
       // Clear loading message
-      courseSelect.innerHTML = '<option value="">Select a golf course...</option>';
+      courseList.innerHTML = '';
       
-      // Add all courses
-      courses.forEach((course, idx) => {
+      // Add all courses to datalist
+      courses.forEach((course) => {
         const option = document.createElement('option');
-        option.value = idx.toString(); // Store index instead of name
-        option.textContent = course.name;
-        courseSelect.appendChild(option);
+        option.value = course.name;
+        courseList.appendChild(option);
       });
-      
-      // Add "Other" option at the end
-      const otherOption = document.createElement('option');
-      otherOption.value = 'other';
-      otherOption.textContent = '── Other (type manually) ──';
-      courseSelect.appendChild(otherOption);
       
       coursesLoaded = true;
     } catch (err) {
       console.error('Failed to load golf courses:', err);
-      if (courseSelect) {
-        courseSelect.innerHTML = '<option value="">Select a golf course...</option><option value="other">Other (type manually)</option>';
+      if (courseList) {
+        courseList.innerHTML = '';
       }
     }
   }
 
-  // Display course info when selected
+  // Display course info when course is selected/typed
   function displayCourseInfo(course) {
     if (!course || !courseInfoCard) return;
     
@@ -1032,47 +1026,33 @@
     });
   }
 
-  // Handle course selection
-  if (courseSelect) {
-    courseSelect.addEventListener('change', (e) => {
+  // Handle course search input
+  if (courseSearch) {
+    courseSearch.addEventListener('input', (e) => {
       const value = e.target.value;
       
-      if (value === 'other') {
-        const currentValue = e.target.value;
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.name = 'course';
-        input.required = true;
-        input.placeholder = 'Enter golf course name';
-        input.style.cssText = courseSelect.style.cssText;
-        
-        courseSelect.parentNode.querySelector('span').textContent = '🏌️ Golf Course Name';
-        courseSelect.parentNode.replaceChild(input, courseSelect);
+      // Find exact match in coursesData
+      const course = coursesData.find(c => c.name === value);
+      
+      if (course) {
+        // Exact match found - show course info
+        displayCourseInfo(course);
+      } else {
+        // No match or partial input - hide course info
         courseInfoCard.style.display = 'none';
         selectedCourseData = null;
-        input.focus();
-        
-        // Store reference for cleanup
-        const label = input.parentNode;
-        const resetToSelect = () => {
-          if (input.parentNode === label) {
-            label.replaceChild(courseSelect, input);
-            courseSelect.value = '';
-            courseInfoCard.style.display = 'none';
-          }
-        };
-        
-        // Reset when modal closes
-        if (modal) {
-          modal.addEventListener('close', resetToSelect, { once: true });
-        }
-      } else if (value && value !== '') {
-        const idx = parseInt(value);
-        const course = coursesData[idx];
-        if (course) {
-          displayCourseInfo(course);
-        }
-      } else {
+      }
+    });
+    
+    // Also listen for selection from datalist
+    courseSearch.addEventListener('change', (e) => {
+      const value = e.target.value;
+      const course = coursesData.find(c => c.name === value);
+      
+      if (course) {
+        displayCourseInfo(course);
+      } else if (value.trim() !== '') {
+        // User typed custom course name
         courseInfoCard.style.display = 'none';
         selectedCourseData = null;
       }

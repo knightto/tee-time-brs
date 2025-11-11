@@ -71,9 +71,18 @@
           <span style="display:flex;align-items:center;gap:4px;font-weight:600;color:#166534;margin-bottom:6px;font-size:14px">
             <span>🏌️</span> Golf Course
           </span>
-          <select name="course" id="courseSelect" required style="width:100%;padding:8px;border:2px solid #86efac;border-radius:6px;font-size:14px;background:white">
+          <input 
+            type="text" 
+            name="course" 
+            id="courseSearch" 
+            list="courseList"
+            placeholder="Type to search courses..."
+            required 
+            autocomplete="off"
+            style="width:100%;padding:8px;border:2px solid #86efac;border-radius:6px;font-size:14px;background:white">
+          <datalist id="courseList">
             <option value="">Loading courses...</option>
-          </select>
+          </datalist>
         </label>
         
         <!-- Course Info Card (hidden until course selected) -->
