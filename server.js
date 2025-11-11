@@ -837,8 +837,11 @@ app.get('/api/golf-courses/list', async (req, res) => {
   }
   
   try {
-    // Search for courses in Richmond/Virginia area
-    const url = `${GOLF_API_BASE}/courses?state=Virginia&limit=50`;
+    // Allow state and limit to be passed as query params for testing
+    const state = req.query.state || 'Virginia';
+    const limit = Math.min(parseInt(req.query.limit) || 50, 100); // Max 100
+    
+    const url = `${GOLF_API_BASE}/courses?state=${encodeURIComponent(state)}&limit=${limit}`;
     const response = await fetch(url, {
       headers: {
         'Authorization': `Bearer ${GOLF_API_KEY}`
