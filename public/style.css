@@ -185,7 +185,6 @@ main{padding:20px}
   display:grid;
   grid-template-rows: auto 1fr;
   min-height:300px;
-  max-height:700px;
 }
 
 .card-header{
@@ -754,4 +753,7 @@ nav a:hover{
   font-weight:700;
   color: #dc2626;
   margin-left:8px;
+}
+.tee.tee-full .add-player-row{
+  display:none;
 }
