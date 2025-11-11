@@ -59,37 +59,89 @@
   </main>
 
   <!-- Create Event Modal -->
-  <dialog id="eventModal">
+  <dialog id="eventModal" style="max-width:550px;border-radius:12px;border:none;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1),0 10px 10px -5px rgba(0,0,0,0.04)">
     <form id="eventForm" method="dialog">
-      <h3 id="eventFormTitle">Create Event</h3>
+      <h3 id="eventFormTitle" style="margin:0 0 16px 0;font-size:20px;color:#111827;display:flex;align-items:center;gap:6px">
+        <span style="font-size:24px">🏌️</span> Create Golf Event
+      </h3>
 
-      <label>Course
-        <input name="course" required placeholder="Course name">
-      </label>
+      <!-- Course Selection Section -->
+      <div style="background:linear-gradient(135deg,#f0fdf4 0%,#dcfce7 100%);padding:12px;border-radius:8px;margin-bottom:12px">
+        <label style="display:block;margin-bottom:0">
+          <span style="display:flex;align-items:center;gap:4px;font-weight:600;color:#166534;margin-bottom:6px;font-size:14px">
+            <span>🏌️</span> Golf Course
+          </span>
+          <select name="course" id="courseSelect" required style="width:100%;padding:8px;border:2px solid #86efac;border-radius:6px;font-size:14px;background:white">
+            <option value="">Loading courses...</option>
+          </select>
+        </label>
+        
+        <!-- Course Info Card (hidden until course selected) -->
+        <div id="courseInfoCard" style="display:none;background:white;padding:8px;border-radius:6px;margin-top:8px;border:2px solid #86efac">
+          <div id="courseLocation" style="font-size:12px;color:#15803d;margin-bottom:4px"></div>
+          <div id="courseDetails" style="font-size:11px;color:#166534;display:flex;flex-wrap:wrap;gap:8px"></div>
+          <div id="courseWebsite" style="margin-top:4px"></div>
+        </div>
+      </div>
 
-      <label>Date
-        <input name="date" type="date" required>
-      </label>
+      <!-- Date Section -->
+      <div style="background:linear-gradient(135deg,#eff6ff 0%,#dbeafe 100%);padding:12px;border-radius:8px;margin-bottom:12px">
+        <label>
+          <span style="display:flex;align-items:center;gap:4px;font-weight:600;color:#1e40af;margin-bottom:6px;font-size:14px">
+            <span>📅</span> Date
+          </span>
+          <input name="date" id="dateInput" type="date" required style="width:100%;padding:8px;border:2px solid #93c5fd;border-radius:6px;font-size:14px">
+        </label>
+        <div id="weatherPreview" style="display:none;background:white;padding:6px;border-radius:6px;margin-top:8px;border:2px solid #93c5fd;text-align:center;font-size:12px"></div>
+      </div>
 
       <!-- Tee-time fields (shown only for Tee-Time events) -->
-      <div id="teeTimeRow">
-        <label>First Tee Time
-          <!-- step=540 seconds = 9 minutes -->
-          <input name="teeTime" type="time" step="540">
+      <div id="teeTimeRow" style="background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);padding:12px;border-radius:8px;margin-bottom:12px">
+        <label>
+          <span style="display:flex;align-items:center;gap:4px;font-weight:600;color:#92400e;margin-bottom:6px;font-size:14px">
+            <span>⏰</span> First Tee Time
+          </span>
+          <input name="teeTime" type="time" step="540" required style="width:100%;padding:8px;border:2px solid #fcd34d;border-radius:6px;font-size:14px">
         </label>
-        <p class="muted">If left blank, three tees will be created starting at 08:00 by default.</p>
+        <p style="font-size:11px;color:#78350f;margin:6px 0 0 0;font-style:italic">Additional tees will be 9 minutes apart</p>
       </div>
 
       <!-- Team fields (shown only for Team events) -->
-      <div id="teamSizeRow" hidden>
-        <label>Team size max
-          <input name="teamSizeMax" type="number" min="2" max="4" value="4">
+      <div id="teamSizeRow" hidden style="background:linear-gradient(135deg,#fce7f3 0%,#fbcfe8 100%);padding:12px;border-radius:8px;margin-bottom:12px">
+        <label style="display:block;margin-bottom:8px">
+          <span style="display:flex;align-items:center;gap:4px;font-weight:600;color:#831843;margin-bottom:6px;font-size:14px">
+            <span>👥</span> Team Size Max
+          </span>
+          <input name="teamSizeMax" type="number" min="2" max="4" value="4" style="width:100%;padding:8px;border:2px solid #f9a8d4;border-radius:6px;font-size:14px">
         </label>
-        <p class="muted">Two teams are created by default: Team 1 and Team 2.</p>
+        
+        <label style="display:block;margin-bottom:8px">
+          <span style="display:flex;align-items:center;gap:4px;font-weight:600;color:#831843;margin-bottom:6px;font-size:14px">
+            <span>🏁</span> Start Type
+          </span>
+          <select name="teamStartType" id="teamStartType" style="width:100%;padding:8px;border:2px solid #f9a8d4;border-radius:6px;font-size:14px;background:white">
+            <option value="shotgun">Shotgun Start (all teams start at same time)</option>
+            <option value="teetimes">Tee Time Start (teams start at different times)</option>
+          </select>
+        </label>
+        
+        <div id="teamStartTimeField">
+          <label>
+            <span style="display:flex;align-items:center;gap:4px;font-weight:600;color:#831843;margin-bottom:6px;font-size:14px">
+              <span>⏰</span> Start Time
+            </span>
+            <input name="teamStartTime" id="teamStartTime" type="time" step="540" required style="width:100%;padding:8px;border:2px solid #f9a8d4;border-radius:6px;font-size:14px">
+          </label>
+          <p id="teamStartHint" style="font-size:11px;color:#831843;margin:6px 0 0 0;font-style:italic">All teams start at this time</p>
+        </div>
       </div>
 
-      <label>Notes
-        <textarea name="notes" rows="3" placeholder="Optional notes"></textarea>
+      <!-- Notes Section -->
+      <label style="display:block;margin-bottom:12px">
+        <span style="display:flex;align-items:center;gap:4px;font-weight:600;color:#475569;margin-bottom:6px;font-size:14px">
+          <span>📝</span> Notes (Optional)
+        </span>
+        <textarea name="notes" rows="2" placeholder="Optional notes..." style="width:100%;padding:8px;border:2px solid #cbd5e1;border-radius:6px;font-size:13px;resize:vertical"></textarea>
       </label>
 
       <!-- internal: chosen create mode -->
@@ -104,9 +156,6 @@
 
   <!-- Edit + Move dialogs are injected by script.js -->
 
-  <!-- Admin Link -->
-  <a href="/admin.html" target="_blank" style="position:fixed;bottom:12px;left:12px;background:var(--green-600);color:#fff;padding:8px 16px;border-radius:6px;text-decoration:none;font-size:13px;font-weight:600;z-index:9998;box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:all 0.2s;" onmouseover="this.style.background='var(--green-700)'" onmouseout="this.style.background='var(--green-600)'">Admin</a>
-
   <!-- Debug Logs Footer -->
   <footer style="position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.9);color:#fff;padding:4px 12px;font-size:11px;z-index:9999;display:none;max-height:200px;overflow-y:auto;" id="debugFooter">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;position:sticky;top:0;background:rgba(0,0,0,0.95);padding:4px 0;">
@@ -117,6 +166,11 @@
   </footer>
   
   <button id="showLogsBtn" onclick="document.getElementById('debugFooter').style.display='block';this.style.display='none'" style="position:fixed;bottom:12px;right:12px;background:#333;color:#fff;border:1px solid #666;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;z-index:9998;box-shadow:0 2px 8px rgba(0,0,0,0.3);">Show Logs</button>
+
+  <!-- Admin Link -->
+  <div style="position:fixed;bottom:12px;left:12px;z-index:9998;">
+    <a href="/admin.html" target="_blank" style="display:inline-block;background:#475569;color:#fff;padding:6px 12px;border-radius:6px;text-decoration:none;font-size:11px;box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:background 0.2s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='#475569'">⚙️ Admin</a>
+  </div>
 
   <script src="/script.js" defer></script>
 </body>

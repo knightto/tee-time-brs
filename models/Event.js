@@ -16,6 +16,15 @@ const SlotSchema = new mongoose.Schema({
 
 const EventSchema = new mongoose.Schema({
   course: { type: String, required: true, trim: true },
+  courseInfo: {
+    city: { type: String, default: null },
+    state: { type: String, default: null },
+    phone: { type: String, default: null },
+    website: { type: String, default: null },
+    holes: { type: Number, default: 18 },
+    par: { type: Number, default: null },
+    imageUrl: { type: String, default: null }
+  },
   date:   { type: Date,   required: true },
   notes:  { type: String, default: '' },
   isTeamEvent: { type: Boolean, default: false },

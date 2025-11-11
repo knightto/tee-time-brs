@@ -215,7 +215,8 @@
     if (createModeInput) createModeInput.value = 'tees';
     if (teeTimeRow) teeTimeRow.hidden = false;
     if (teamSizeRow) teamSizeRow.hidden = true;
-    if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = false; // optional; server can auto-generate
+    if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = true;
+    if (eventForm?.elements?.['teamStartTime']) eventForm.elements['teamStartTime'].required = false;
     if (selectedDate && eventForm?.elements?.['date']) {
       eventForm.elements['date'].value = selectedDate;
     }
@@ -226,10 +227,23 @@
     if (teeTimeRow) teeTimeRow.hidden = true;
     if (teamSizeRow) teamSizeRow.hidden = false;
     if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = false;
+    if (eventForm?.elements?.['teamStartTime']) eventForm.elements['teamStartTime'].required = true;
     if (selectedDate && eventForm?.elements?.['date']) {
       eventForm.elements['date'].value = selectedDate;
     }
     modal?.showModal?.();
+  });
+
+  // Team start type toggle
+  const teamStartType = $('#teamStartType');
+  const teamStartHint = $('#teamStartHint');
+  on(teamStartType, 'change', () => {
+    const isShotgun = teamStartType.value === 'shotgun';
+    if (teamStartHint) {
+      teamStartHint.textContent = isShotgun 
+        ? 'All teams start at this time' 
+        : 'Teams will start 9 minutes apart';
+    }
   });
 
   // Dialog cancel
@@ -247,16 +261,38 @@
     try{
       const body=normalizeForm(eventForm);
       const isTeams = (body.mode === 'teams');
+      
+      // Get course name from either select or manual input
+      let courseName = body.course;
+      if (courseSelect && courseSelect.value && courseSelect.value !== 'other') {
+        const idx = parseInt(courseSelect.value);
+        if (coursesData[idx]) {
+          courseName = coursesData[idx].name;
+        }
+      }
+      
       const payload = {
-        course: body.course,
+        course: courseName,
+        courseInfo: selectedCourseData || {},
         date: body.date,
         notes: body.notes || '',
         isTeamEvent: isTeams,
         teamSizeMax: isTeams ? Number(body.teamSizeMax || 4) : 4
       };
-      if (!isTeams) payload.teeTime = body.teeTime;
+      
+      if (isTeams) {
+        payload.teamStartType = body.teamStartType || 'shotgun';
+        payload.teamStartTime = body.teamStartTime;
+      } else {
+        payload.teeTime = body.teeTime;
+      }
+      
       await api('/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-      modal?.close?.(); eventForm.reset(); load();
+      modal?.close?.(); 
+      eventForm.reset(); 
+      courseInfoCard.style.display = 'none';
+      selectedCourseData = null;
+      load();
     }catch(err){ console.error(err); alert('Create failed'); }
   });
 
@@ -297,9 +333,9 @@
         alert(isTeam ? 'Team name is required' : 'Tee time is required');
         return;
       }
-      // For tee times, validate HH:MM format (flexible - accepts H:MM or HH:MM)
-      if (!isTeam && !/^\d{1,2}:\d{2}$/.test(value)) {
-        alert('Tee time must be in HH:MM format (e.g., 7:00 or 07:00)');
+      // For tee times, validate HH:MM format
+      if (!isTeam && !/^\d{2}:\d{2}$/.test(value)) {
+        alert('Tee time must be in HH:MM format (e.g., 07:00)');
         return;
       }
       const payload = isTeam ? { name: value } : { time: value };
@@ -331,8 +367,7 @@
     }
     try{
       const formData = new FormData(subForm);
-      const email = formData.get('email');
-      const payload = { email };
+      const payload = { email: formData.get('email') };
       
       const result = await api('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       if(subMsg) {
@@ -825,6 +860,171 @@
       const content = $('#auditLogContent');
       if (content) content.innerHTML = '<p style="color:#dc2626;text-align:center">Failed to load audit log.</p>';
     }
+  }
+
+  // Golf Course Dropdown
+  const courseSelect = $('#courseSelect');
+  const courseInfoCard = $('#courseInfoCard');
+  const courseLocation = $('#courseLocation');
+  const courseDetails = $('#courseDetails');
+  const courseWebsite = $('#courseWebsite');
+  let coursesData = [];
+  let coursesLoaded = false;
+  let selectedCourseData = null;
+
+  async function loadGolfCourses() {
+    if (coursesLoaded) return;
+    
+    try {
+      const courses = await api('/api/golf-courses/list');
+      coursesData = courses;
+      
+      if (!courseSelect) return;
+      
+      // Clear loading message
+      courseSelect.innerHTML = '<option value="">Select a golf course...</option>';
+      
+      // Add all courses
+      courses.forEach((course, idx) => {
+        const option = document.createElement('option');
+        option.value = idx.toString(); // Store index instead of name
+        option.textContent = course.name;
+        courseSelect.appendChild(option);
+      });
+      
+      // Add "Other" option at the end
+      const otherOption = document.createElement('option');
+      otherOption.value = 'other';
+      otherOption.textContent = '── Other (type manually) ──';
+      courseSelect.appendChild(otherOption);
+      
+      coursesLoaded = true;
+    } catch (err) {
+      console.error('Failed to load golf courses:', err);
+      if (courseSelect) {
+        courseSelect.innerHTML = '<option value="">Select a golf course...</option><option value="other">Other (type manually)</option>';
+      }
+    }
+  }
+
+  // Display course info when selected
+  function displayCourseInfo(course) {
+    if (!course || !courseInfoCard) return;
+    
+    selectedCourseData = course;
+    
+    // Location
+    const location = [course.city, course.state].filter(Boolean).join(', ');
+    courseLocation.textContent = location ? `📍 ${location}` : '';
+    
+    // Details (holes, par, phone)
+    const details = [];
+    if (course.holes) details.push(`${course.holes} holes`);
+    if (course.par) details.push(`Par ${course.par}`);
+    if (course.phone) details.push(`📞 ${course.phone}`);
+    
+    courseDetails.innerHTML = details.map(d => `<span>${d}</span>`).join('');
+    
+    // Website
+    if (course.website) {
+      courseWebsite.innerHTML = `<a href="${course.website}" target="_blank" style="color:#15803d;text-decoration:none;font-size:12px;display:inline-flex;align-items:center;gap:4px">🌐 Visit Website</a>`;
+    } else {
+      courseWebsite.innerHTML = '';
+    }
+    
+    courseInfoCard.style.display = 'block';
+  }
+
+  // Weather preview on date selection
+  const dateInput = $('#dateInput');
+  const weatherPreview = $('#weatherPreview');
+  
+  if (dateInput && weatherPreview) {
+    dateInput.addEventListener('change', async (e) => {
+      const selectedDate = e.target.value;
+      if (!selectedDate) {
+        weatherPreview.style.display = 'none';
+        return;
+      }
+      
+      // Show loading state
+      weatherPreview.style.display = 'block';
+      weatherPreview.innerHTML = '<div style="color:#3b82f6;font-size:13px">Loading weather...</div>';
+      
+      // Simple date validation - show weather emoji based on how far in future
+      const daysUntil = Math.ceil((new Date(selectedDate) - new Date()) / (1000 * 60 * 60 * 24));
+      
+      if (daysUntil > 16) {
+        weatherPreview.innerHTML = '<div style="font-size:13px;color:#6b7280">⛅ Weather forecast available closer to date</div>';
+      } else if (daysUntil < 0) {
+        weatherPreview.style.display = 'none';
+      } else {
+        // Show generic preview (actual weather will be fetched on backend)
+        weatherPreview.innerHTML = `<div style="font-size:13px;color:#1e40af">
+          <span style="font-size:20px">🌤️</span> Weather forecast will be added automatically
+        </div>`;
+      }
+    });
+  }
+
+  // Load courses when modal opens
+  if (newTeeBtn) {
+    newTeeBtn.addEventListener('click', () => {
+      loadGolfCourses();
+    });
+  }
+  
+  if (newTeamBtn) {
+    newTeamBtn.addEventListener('click', () => {
+      loadGolfCourses();
+    });
+  }
+
+  // Handle course selection
+  if (courseSelect) {
+    courseSelect.addEventListener('change', (e) => {
+      const value = e.target.value;
+      
+      if (value === 'other') {
+        const currentValue = e.target.value;
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.name = 'course';
+        input.required = true;
+        input.placeholder = 'Enter golf course name';
+        input.style.cssText = courseSelect.style.cssText;
+        
+        courseSelect.parentNode.querySelector('span').textContent = '🏌️ Golf Course Name';
+        courseSelect.parentNode.replaceChild(input, courseSelect);
+        courseInfoCard.style.display = 'none';
+        selectedCourseData = null;
+        input.focus();
+        
+        // Store reference for cleanup
+        const label = input.parentNode;
+        const resetToSelect = () => {
+          if (input.parentNode === label) {
+            label.replaceChild(courseSelect, input);
+            courseSelect.value = '';
+            courseInfoCard.style.display = 'none';
+          }
+        };
+        
+        // Reset when modal closes
+        if (modal) {
+          modal.addEventListener('close', resetToSelect, { once: true });
+        }
+      } else if (value && value !== '') {
+        const idx = parseInt(value);
+        const course = coursesData[idx];
+        if (course) {
+          displayCourseInfo(course);
+        }
+      } else {
+        courseInfoCard.style.display = 'none';
+        selectedCourseData = null;
+      }
+    });
   }
 
   load();

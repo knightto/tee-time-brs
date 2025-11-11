@@ -83,6 +83,10 @@
       background: #dbeafe;
       color: #1e40af;
     }
+    .badge-sms {
+      background: #d1fae5;
+      color: #065f46;
+    }
     .btn-delete {
       background: #dc2626;
       color: white;
@@ -301,6 +305,15 @@
       return div.innerHTML;
     }
 
+    function formatPhone(phone) {
+      if (!phone) return '';
+      const cleaned = phone.replace(/\D/g, '');
+      if (cleaned.length === 10) {
+        return `(${cleaned.slice(0,3)}) ${cleaned.slice(3,6)}-${cleaned.slice(6)}`;
+      }
+      return phone;
+    }
+
     // Quick Actions Functions
     function showQuickResult(message, isSuccess = true) {
       const result = document.getElementById('quickResult');
@@ -394,7 +407,10 @@
         const response = await fetch('/api/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email })
+          body: JSON.stringify({ 
+            subscriptionType: 'email',
+            email: email
+          })
         });
         
         if (!response.ok) throw new Error('Failed to send');

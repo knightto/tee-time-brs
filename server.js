@@ -12,7 +12,7 @@ const fetch = global.fetch || require('node-fetch');
 const app = express();
 const PORT = process.env.PORT || 300;
 const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
-const SITE_URL = process.env.SITE_URL || 'https://tee-time-brs.onrender.com/';
+const SITE_URL = (process.env.SITE_URL || 'https://tee-time-brs.onrender.com/').replace(/\/$/, '') + '/';
 const LOCAL_TZ = process.env.LOCAL_TZ || 'America/New_York';
 
 app.use(express.json());
@@ -360,15 +360,27 @@ app.get('/api/events', async (_req, res) => {
 
 app.post('/api/events', async (req, res) => {
   try {
-    const { course, date, teeTime, teeTimes, notes, isTeamEvent, teamSizeMax } = req.body || {};
+    const { course, courseInfo, date, teeTime, teeTimes, notes, isTeamEvent, teamSizeMax, teamStartType, teamStartTime } = req.body || {};
     let tt;
     if (isTeamEvent) {
       // Generate 3 default teams for team events
-      tt = [
-        { name: 'Team 1', players: [] },
-        { name: 'Team 2', players: [] },
-        { name: 'Team 3', players: [] }
-      ];
+      const startType = teamStartType || 'shotgun';
+      if (startType === 'shotgun') {
+        // Shotgun start: all teams use the same time
+        tt = [
+          { name: 'Team 1', time: teamStartTime, players: [] },
+          { name: 'Team 2', time: teamStartTime, players: [] },
+          { name: 'Team 3', time: teamStartTime, players: [] }
+        ];
+      } else {
+        // Tee time start: teams use staggered times (9 minutes apart)
+        const times = genTeeTimes(teamStartTime, 3, 9);
+        tt = [
+          { name: 'Team 1', time: times[0].time, players: [] },
+          { name: 'Team 2', time: times[1].time, players: [] },
+          { name: 'Team 3', time: times[2].time, players: [] }
+        ];
+      }
     } else {
       // Generate 3 default tee times for tee-time events
       tt = Array.isArray(teeTimes) && teeTimes.length ? teeTimes : genTeeTimes(teeTime, 3, 9);
@@ -380,6 +392,7 @@ app.post('/api/events', async (req, res) => {
     
     const created = await Event.create({
       course,
+      courseInfo: courseInfo || {},
       date: eventDate,
       notes,
       isTeamEvent: !!isTeamEvent,
@@ -452,7 +465,25 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
       const dup = (ev.teeTimes || []).some(t => t && t.name && String(t.name).trim().toLowerCase() === name.toLowerCase());
       if (dup) return res.status(409).json({ error: 'duplicate team name' });
     }
-    ev.teeTimes.push({ name, players: [] });
+    
+    // Check if all existing teams have the same time (shotgun) or different times (staggered)
+    let time = null;
+    if (ev.teeTimes && ev.teeTimes.length > 0) {
+      const firstTime = ev.teeTimes[0].time;
+      const allSameTime = ev.teeTimes.every(t => t.time === firstTime);
+      if (allSameTime) {
+        // Shotgun start: use same time as existing teams
+        time = firstTime;
+      } else {
+        // Staggered start: compute next time (9 minutes after last)
+        time = nextTeeTimeForEvent(ev, 9, '07:00');
+      }
+    } else {
+      // First team being added, default to 07:00
+      time = '07:00';
+    }
+    
+    ev.teeTimes.push({ name, time, players: [] });
     await ev.save();
     
     // Send notification for new team
@@ -676,6 +707,175 @@ app.post('/api/events/:id/move-player', async (req, res) => {
   res.json(ev);
 });
 
+/* ---------------- Golf Course API ---------------- */
+const GOLF_API_KEY = process.env.GOLF_API_KEY || '';
+const GOLF_API_BASE = 'https://api.golfcourseapi.com';
+
+// Get popular local courses for dropdown
+app.get('/api/golf-courses/list', async (req, res) => {
+  if (!GOLF_API_KEY) {
+    // Return fallback list if no API key - Shenandoah Valley courses
+    return res.json([
+      { 
+        id: 'custom-1', 
+        name: 'Blue Ridge Shadows Golf Club',
+        city: 'Front Royal',
+        state: 'VA',
+        phone: '(540) 631-9661',
+        website: 'https://blueridgeshadows.com',
+        holes: 18,
+        par: 72
+      },
+      { 
+        id: 'custom-2', 
+        name: 'Caverns Country Club Resort',
+        city: 'Luray',
+        state: 'VA',
+        phone: '(540) 743-7111',
+        website: 'https://cavernscountryclub.com',
+        holes: 18,
+        par: 72
+      },
+      { 
+        id: 'custom-3', 
+        name: 'Rock Harbor Golf Course',
+        city: 'New Market',
+        state: 'VA',
+        phone: '(540) 740-8800',
+        website: 'https://rockharborgolfcourse.com',
+        holes: 18,
+        par: 72
+      },
+      { 
+        id: 'custom-4', 
+        name: 'Shenandoah Valley Golf Club',
+        city: 'Front Royal',
+        state: 'VA',
+        phone: '(540) 636-4653',
+        website: 'https://svgclub.com',
+        holes: 27,
+        par: 72
+      },
+      { 
+        id: 'custom-5', 
+        name: 'Shenvalee Golf Resort',
+        city: 'New Market',
+        state: 'VA',
+        phone: '(540) 740-3181',
+        website: 'https://shenvalee.com',
+        holes: 27,
+        par: 72
+      },
+      { 
+        id: 'custom-6', 
+        name: 'The Club at Ironwood',
+        city: 'Greenville',
+        state: 'VA',
+        phone: '(540) 337-1234',
+        website: null,
+        holes: 18,
+        par: 72
+      }
+    ]);
+  }
+  
+  try {
+    // Search for courses in Richmond/Virginia area
+    const url = `${GOLF_API_BASE}/courses?state=Virginia&limit=50`;
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${GOLF_API_KEY}`
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Golf API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const courses = (data.courses || [])
+      .filter(c => c.name) // Only courses with names
+      .sort((a, b) => a.name.localeCompare(b.name)) // Sort alphabetically
+      .map(c => ({
+        id: c.id,
+        name: c.name,
+        city: c.city || null,
+        state: c.state || null,
+        phone: c.phone || null,
+        website: c.website || null,
+        holes: c.holes || 18,
+        par: c.par || null
+      }));
+    
+    res.json(courses);
+  } catch (e) {
+    console.error('Golf course list error:', e);
+    // Return fallback list on error - Shenandoah Valley courses
+    res.json([
+      { 
+        id: 'custom-1', 
+        name: 'Blue Ridge Shadows Golf Club',
+        city: 'Front Royal',
+        state: 'VA',
+        phone: '(540) 631-9661',
+        website: 'https://blueridgeshadows.com',
+        holes: 18,
+        par: 72
+      },
+      { 
+        id: 'custom-2', 
+        name: 'Caverns Country Club Resort',
+        city: 'Luray',
+        state: 'VA',
+        phone: '(540) 743-7111',
+        website: 'https://cavernscountryclub.com',
+        holes: 18,
+        par: 72
+      },
+      { 
+        id: 'custom-3', 
+        name: 'Rock Harbor Golf Course',
+        city: 'New Market',
+        state: 'VA',
+        phone: '(540) 740-8800',
+        website: 'https://rockharborgolfcourse.com',
+        holes: 18,
+        par: 72
+      },
+      { 
+        id: 'custom-4', 
+        name: 'Shenandoah Valley Golf Club',
+        city: 'Front Royal',
+        state: 'VA',
+        phone: '(540) 636-4653',
+        website: 'https://svgclub.com',
+        holes: 27,
+        par: 72
+      },
+      { 
+        id: 'custom-5', 
+        name: 'Shenvalee Golf Resort',
+        city: 'New Market',
+        state: 'VA',
+        phone: '(540) 337-3181',
+        website: 'https://shenvalee.com',
+        holes: 27,
+        par: 72
+      },
+      { 
+        id: 'custom-6', 
+        name: 'The Club at Ironwood',
+        city: 'Greenville',
+        state: 'VA',
+        phone: '(540) 337-1234',
+        website: null,
+        holes: 18,
+        par: 72
+      }
+    ]);
+  }
+});
+
 /* ---------------- Weather ---------------- */
 // Refresh weather for an event
 app.post('/api/events/:id/weather', async (req, res) => {
@@ -800,13 +1000,21 @@ app.post('/api/subscribe', async (req, res) => {
     const subscriberData = { email: email.toLowerCase() };
     
     // Check if subscriber already exists
-    const existing = await Subscriber.findOne({ email: subscriberData.email });
+    let existing = await Subscriber.findOne({ email: subscriberData.email });
     
-    const s = await Subscriber.findOneAndUpdate(
-      { email: subscriberData.email }, 
-      { $set: subscriberData }, 
-      { upsert: true, new: true }
-    );
+    let s;
+    if (existing) {
+      // Ensure existing subscriber has an unsubscribe token
+      if (!existing.unsubscribeToken) {
+        existing.unsubscribeToken = require('crypto').randomBytes(32).toString('hex');
+        await existing.save();
+      }
+      s = existing;
+    } else {
+      // Create new subscriber (pre-save hook will generate token)
+      s = new Subscriber(subscriberData);
+      await s.save();
+    }
     
     console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'subscriber added', email: subscriberData.email, isNew: !existing }));
     
