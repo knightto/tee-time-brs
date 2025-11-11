@@ -770,70 +770,73 @@ function validateCourseData(course) {
 }
 
 app.get('/api/golf-courses/list', async (req, res) => {
+  // Define local Shenandoah Valley courses (always included at top)
+  const localCourses = [
+    { 
+      id: 'custom-1', 
+      name: 'Blue Ridge Shadows Golf Club',
+      city: 'Front Royal',
+      state: 'VA',
+      phone: '(540) 635-4653',
+      website: 'https://blueridgeshadows.com',
+      holes: 18,
+      par: 72
+    },
+    { 
+      id: 'custom-2', 
+      name: 'Caverns Country Club Resort',
+      city: 'Luray',
+      state: 'VA',
+      phone: '(540) 743-7111',
+      website: 'https://cavernscc.com',
+      holes: 18,
+      par: 72
+    },
+    { 
+      id: 'custom-3', 
+      name: 'Rock Harbor Golf Club',
+      city: 'Winchester',
+      state: 'VA',
+      phone: '(540) 722-7111',
+      website: 'https://www.rockharborgolf.com',
+      holes: 18,
+      par: 72
+    },
+    { 
+      id: 'custom-4', 
+      name: 'Shenandoah Valley Golf Club',
+      city: 'Front Royal',
+      state: 'VA',
+      phone: '(540) 636-4653',
+      website: 'https://svgcgolf.com',
+      holes: 27,
+      par: 72
+    },
+    { 
+      id: 'custom-5', 
+      name: 'Shenvalee Golf Resort',
+      city: 'New Market',
+      state: 'VA',
+      phone: '(540) 740-3181',
+      website: 'https://shenvalee.com',
+      holes: 27,
+      par: 72
+    },
+    { 
+      id: 'custom-6', 
+      name: 'The Club at Ironwood',
+      city: 'Greenville',
+      state: 'VA',
+      phone: '(540) 337-1234',
+      website: null,
+      holes: 18,
+      par: 72
+    }
+  ];
+
+  // If no API key, return only local courses
   if (!GOLF_API_KEY) {
-    // Return fallback list if no API key - Shenandoah Valley courses
-    return res.json([
-      { 
-        id: 'custom-1', 
-        name: 'Blue Ridge Shadows Golf Club',
-        city: 'Front Royal',
-        state: 'VA',
-        phone: '(540) 635-4653',
-        website: 'https://blueridgeshadows.com',
-        holes: 18,
-        par: 72
-      },
-      { 
-        id: 'custom-2', 
-        name: 'Caverns Country Club Resort',
-        city: 'Luray',
-        state: 'VA',
-        phone: '(540) 743-7111',
-        website: 'https://cavernscountryclub.com',
-        holes: 18,
-        par: 72
-      },
-      { 
-        id: 'custom-3', 
-        name: 'Rock Harbor Golf Course',
-        city: 'Winchester',
-        state: 'VA',
-        phone: '(540) 662-4653',
-        website: 'https://rockharborgolfcourse.com',
-        holes: 18,
-        par: 72
-      },
-      { 
-        id: 'custom-4', 
-        name: 'Shenandoah Valley Golf Club',
-        city: 'Front Royal',
-        state: 'VA',
-        phone: '(540) 636-4653',
-        website: 'https://svgclub.com',
-        holes: 27,
-        par: 72
-      },
-      { 
-        id: 'custom-5', 
-        name: 'Shenvalee Golf Resort',
-        city: 'New Market',
-        state: 'VA',
-        phone: '(540) 740-3181',
-        website: 'https://shenvalee.com',
-        holes: 27,
-        par: 72
-      },
-      { 
-        id: 'custom-6', 
-        name: 'The Club at Ironwood',
-        city: 'Greenville',
-        state: 'VA',
-        phone: '(540) 337-1234',
-        website: null,
-        holes: 18,
-        par: 72
-      }
-    ]);
+    return res.json(localCourses);
   }
   
   try {
@@ -884,74 +887,24 @@ app.get('/api/golf-courses/list', async (req, res) => {
         return course;
       });
     
-    res.json(courses);
+    // Combine local courses (first) with API courses
+    // Filter out duplicates by name (case-insensitive)
+    const localNames = new Set(localCourses.map(c => c.name.toLowerCase()));
+    const apiCoursesFiltered = courses.filter(c => !localNames.has(c.name.toLowerCase()));
+    
+    const combinedCourses = [...localCourses, ...apiCoursesFiltered];
+    res.json(combinedCourses);
   } catch (e) {
     console.error('Golf course list error:', e);
-    // Return fallback list on error - Shenandoah Valley courses
-    res.json([
-      { 
-        id: 'custom-1', 
-        name: 'Blue Ridge Shadows Golf Club',
-        city: 'Front Royal',
-        state: 'VA',
-        phone: '(540) 635-4653',
-        website: 'https://blueridgeshadows.com',
-        holes: 18,
-        par: 72
-      },
-      { 
-        id: 'custom-2', 
-        name: 'Caverns Country Club Resort',
-        city: 'Luray',
-        state: 'VA',
-        phone: '(540) 743-7111',
-        website: 'https://cavernscountryclub.com',
-        holes: 18,
-        par: 72
-      },
-      { 
-        id: 'custom-3', 
-        name: 'Rock Harbor Golf Course',
-        city: 'Winchester',
-        state: 'VA',
-        phone: '(540) 662-4653',
-        website: 'https://rockharborgolfcourse.com',
-        holes: 18,
-        par: 72
-      },
-      { 
-        id: 'custom-4', 
-        name: 'Shenandoah Valley Golf Club',
-        city: 'Front Royal',
-        state: 'VA',
-        phone: '(540) 636-4653',
-        website: 'https://svgclub.com',
-        holes: 27,
-        par: 72
-      },
-      { 
-        id: 'custom-5', 
-        name: 'Shenvalee Golf Resort',
-        city: 'New Market',
-        state: 'VA',
-        phone: '(540) 740-3181',
-        website: 'https://shenvalee.com',
-        holes: 27,
-        par: 72
-      },
-      { 
-        id: 'custom-6', 
-        name: 'The Club at Ironwood',
-        city: 'Greenville',
-        state: 'VA',
-        phone: '(540) 337-1234',
-        website: null,
-        holes: 18,
-        par: 72
-      }
-    ]);
+    // Return only local courses on error
+    res.json(localCourses);
   }
 });
+
+// Remove duplicate fallback code below
+/*
+    res.json([
+*/
 
 /* ---------------- Weather ---------------- */
 // Refresh weather for an event
