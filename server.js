@@ -49,6 +49,7 @@ mongoose.connect(mongoUri, { dbName: process.env.MONGO_DB || undefined })
 let Event; try { Event = require('./models/Event'); } catch { Event = require('./Event'); }
 let Subscriber; try { Subscriber = require('./models/Subscriber'); } catch { Subscriber = null; }
 let AuditLog; try { AuditLog = require('./models/AuditLog'); } catch { AuditLog = null; }
+let Settings; try { Settings = require('./models/Settings'); } catch { Settings = null; }
 // Handicap model removed
 
 /* ---------------- Admin Configuration ---------------- */
@@ -175,8 +176,27 @@ async function sendEmail(to, subject, html) {
     return { ok: false, error: { message: err.message } };
   }
 }
+
+/* Helper to check if notifications are globally enabled */
+async function areNotificationsEnabled() {
+  if (!Settings) return true; // Default to enabled if Settings model not available
+  try {
+    const setting = await Settings.findOne({ key: 'notificationsEnabled' });
+    return setting ? setting.value !== false : true; // Default to true if not set
+  } catch (e) {
+    console.error('Error checking notification settings:', e);
+    return true; // Fail open - allow notifications
+  }
+}
+
 async function sendEmailToAll(subject, html) {
   if (!Subscriber) return { ok:false, reason:'no model' };
+  // Check if notifications are globally enabled
+  const notifEnabled = await areNotificationsEnabled();
+  if (!notifEnabled) {
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'Notifications disabled globally, skipping email' }));
+    return { ok:true, sent:0, disabled:true };
+  }
   const subs = await Subscriber.find({}).lean();
   if (!subs.length) return { ok:true, sent:0 };
   let sent = 0;
@@ -616,17 +636,19 @@ app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
     teeLabel: getTeeLabel(ev, tt._id)
   });
   
-  // Send notification email
-  const teeLabel = getTeeLabel(ev, tt._id);
-  await sendEmailToAll(
-    `Player Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
-    frame('Player Signed Up!',
-      `<p><strong>${esc(trimmedName)}</strong> has signed up for:</p>
-       <p><strong>Event:</strong> ${esc(ev.course)}</p>
-       <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
-       <p><strong>${ev.isTeamEvent ? 'Team' : 'Tee Time'}:</strong> ${esc(teeLabel)}</p>
-       ${btn('View Event')}`)
-  );
+  // Send notification email only if notifications are enabled
+  if (ev.notificationsEnabled !== false) {
+    const teeLabel = getTeeLabel(ev, tt._id);
+    await sendEmailToAll(
+      `Player Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
+      frame('Player Signed Up!',
+        `<p><strong>${esc(trimmedName)}</strong> has signed up for:</p>
+         <p><strong>Event:</strong> ${esc(ev.course)}</p>
+         <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
+         <p><strong>${ev.isTeamEvent ? 'Team' : 'Tee Time'}:</strong> ${esc(teeLabel)}</p>
+         ${btn('View Event')}`)
+    );
+  }
   
   res.json(ev);
 });
@@ -1064,6 +1086,43 @@ app.get('/api/unsubscribe/:token', async (req, res) => {
   } catch (e) {
     console.error('Unsubscribe error:', e);
     res.status(500).send('Error processing unsubscribe request');
+  }
+});
+
+/* Admin - Get/Set Global Notification Setting */
+app.get('/api/admin/settings/notifications', async (req, res) => {
+  const code = req.query.code || '';
+  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  
+  try {
+    const enabled = await areNotificationsEnabled();
+    res.json({ notificationsEnabled: enabled });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/admin/settings/notifications', async (req, res) => {
+  const code = req.query.code || '';
+  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  
+  try {
+    if (!Settings) return res.status(500).json({ error: 'Settings model not available' });
+    
+    const { notificationsEnabled } = req.body;
+    await Settings.findOneAndUpdate(
+      { key: 'notificationsEnabled' },
+      { key: 'notificationsEnabled', value: notificationsEnabled },
+      { upsert: true, new: true }
+    );
+    
+    res.json({ ok: true, notificationsEnabled });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 

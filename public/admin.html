@@ -180,6 +180,23 @@
       Admin Dashboard
     </h1>
 
+    <!-- Notification Toggle Section -->
+    <div class="test-section" style="background: #fef3c7; border-color: #f59e0b;">
+      <h2 style="color: #92400e;">🔔 Global Notification Settings</h2>
+      <div style="display: flex; align-items: center; justify-content: space-between; background: white; padding: 16px; border-radius: 8px; margin: 12px 0;">
+        <div>
+          <strong style="color: #111827; font-size: 16px;">Event Notifications</strong>
+          <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 13px;">Send email notifications for all event changes (new events, player sign-ups, etc.)</p>
+        </div>
+        <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
+          <span id="notifStatusText" style="font-size: 14px; color: #6b7280; font-weight: 600;">Loading...</span>
+          <input type="checkbox" id="notifToggle" onchange="toggleGlobalNotifications(this.checked)" 
+                 style="width: 24px; height: 24px; cursor: pointer;">
+        </label>
+      </div>
+      <div id="notifResult" class="test-result"></div>
+    </div>
+
     <!-- Quick Actions Section -->
     <div class="test-section" style="background: #dbeafe; border-color: #3b82f6;">
       <h2 style="color: #1e40af;">⚡ Quick Actions</h2>
@@ -220,6 +237,7 @@
     } else {
       loadSubscribers();
       loadEventsOverview();
+      loadNotificationSettings();
     }
 
     async function loadSubscribers() {
@@ -381,6 +399,55 @@
         console.error('Error loading events overview:', error);
         document.getElementById('eventsOverview').innerHTML = '<div style="color: #dc2626;">Error loading events</div>';
       }
+    }
+
+    async function loadNotificationSettings() {
+      try {
+        const response = await fetch(`/api/admin/settings/notifications?code=${encodeURIComponent(ADMIN_CODE)}`);
+        if (!response.ok) throw new Error('Failed to load settings');
+        
+        const data = await response.json();
+        const checkbox = document.getElementById('notifToggle');
+        const statusText = document.getElementById('notifStatusText');
+        
+        checkbox.checked = data.notificationsEnabled;
+        statusText.textContent = data.notificationsEnabled ? 'Enabled' : 'Disabled';
+        statusText.style.color = data.notificationsEnabled ? '#059669' : '#dc2626';
+      } catch (error) {
+        console.error('Error loading notification settings:', error);
+      }
+    }
+
+    async function toggleGlobalNotifications(enabled) {
+      try {
+        showNotifResult('⏳ Updating settings...');
+        const response = await fetch(`/api/admin/settings/notifications?code=${encodeURIComponent(ADMIN_CODE)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ notificationsEnabled: enabled })
+        });
+        
+        if (!response.ok) throw new Error('Failed to update');
+        
+        const statusText = document.getElementById('notifStatusText');
+        statusText.textContent = enabled ? 'Enabled' : 'Disabled';
+        statusText.style.color = enabled ? '#059669' : '#dc2626';
+        
+        showNotifResult(`✅ Notifications ${enabled ? 'enabled' : 'disabled'} globally`);
+      } catch (error) {
+        showNotifResult(`❌ Error: ${error.message}`, false);
+        // Reload to reset checkbox state
+        loadNotificationSettings();
+      }
+    }
+
+    function showNotifResult(message, isSuccess = true) {
+      const resultDiv = document.getElementById('notifResult');
+      resultDiv.textContent = message;
+      resultDiv.style.display = 'block';
+      resultDiv.style.background = isSuccess ? '#d1fae5' : '#fee2e2';
+      resultDiv.style.color = isSuccess ? '#065f46' : '#991b1b';
+      setTimeout(() => { resultDiv.style.display = 'none'; }, 3000);
     }
 
     async function refreshAllWeather() {
