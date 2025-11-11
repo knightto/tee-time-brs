@@ -255,7 +255,6 @@ main{padding:20px}
   display:flex;
   flex-direction:column;
   gap:16px;
-  overflow-y:auto;
   min-height:0;
 }
 
