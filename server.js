@@ -841,10 +841,12 @@ app.get('/api/golf-courses/list', async (req, res) => {
     const state = req.query.state || 'Virginia';
     const limit = Math.min(parseInt(req.query.limit) || 50, 100); // Max 100
     
-    const url = `${GOLF_API_BASE}/courses?state=${encodeURIComponent(state)}&limit=${limit}`;
+    // Use search endpoint instead of courses endpoint (courses endpoint doesn't exist)
+    // Search by state name to get courses in that state
+    const url = `${GOLF_API_BASE}/search?search_query=${encodeURIComponent(state)}`;
     const response = await fetch(url, {
       headers: {
-        'Authorization': `Bearer ${GOLF_API_KEY}`
+        'Authorization': `Key ${GOLF_API_KEY}`
       }
     });
     
@@ -854,18 +856,23 @@ app.get('/api/golf-courses/list', async (req, res) => {
     
     const data = await response.json();
     const courses = (data.courses || [])
-      .filter(c => c.name) // Only courses with names
-      .sort((a, b) => a.name.localeCompare(b.name)) // Sort alphabetically
+      .slice(0, limit) // Limit results from search
+      .filter(c => c.club_name || c.course_name) // Only courses with names
+      .sort((a, b) => {
+        const nameA = a.club_name || a.course_name || '';
+        const nameB = b.club_name || b.course_name || '';
+        return nameA.localeCompare(nameB);
+      })
       .map(c => {
         const course = {
           id: c.id,
-          name: c.name,
-          city: c.city || null,
-          state: c.state || null,
-          phone: c.phone || null,
-          website: c.website || null,
-          holes: c.holes || 18,
-          par: c.par || null
+          name: c.club_name || c.course_name || 'Unknown',
+          city: c.location?.city || null,
+          state: c.location?.state || null,
+          phone: null, // API doesn't provide phone
+          website: null, // API doesn't provide website
+          holes: 18, // Default, API doesn't provide this in search
+          par: null // API doesn't provide this in search
         };
         
         // Validate course data and log issues
@@ -1373,9 +1380,9 @@ app.get('/admin/verify-courses', async (req, res) => {
   }
   
   try {
-    const url = `${GOLF_API_BASE}/courses?state=Virginia&limit=50`;
+    const url = `${GOLF_API_BASE}/search?search_query=Virginia`;
     const response = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${GOLF_API_KEY}` }
+      headers: { 'Authorization': `Key ${GOLF_API_KEY}` }
     });
     
     if (!response.ok) {
@@ -1384,17 +1391,18 @@ app.get('/admin/verify-courses', async (req, res) => {
     
     const data = await response.json();
     const validationResults = (data.courses || [])
-      .filter(c => c.name)
+      .slice(0, 50) // Limit to 50 for verification
+      .filter(c => c.club_name || c.course_name)
       .map(c => {
         const course = {
           id: c.id,
-          name: c.name,
-          city: c.city || null,
-          state: c.state || null,
-          phone: c.phone || null,
-          website: c.website || null,
-          holes: c.holes || 18,
-          par: c.par || null
+          name: c.club_name || c.course_name || 'Unknown',
+          city: c.location?.city || null,
+          state: c.location?.state || null,
+          phone: null,
+          website: null,
+          holes: 18,
+          par: null
         };
         const validation = validateCourseData(course);
         return {
