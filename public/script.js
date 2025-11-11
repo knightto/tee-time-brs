@@ -708,14 +708,20 @@
       if(t.dataset.delTee){
         const [eventId, teeId] = t.dataset.delTee.split(':');
         if(!confirm('Remove this tee/team?')) return;
+        t.disabled = true;
+        t.textContent = 'Removing...';
         await api(`/api/events/${eventId}/tee-times/${teeId}`, { method: 'DELETE' });
-        return load();
+        await load();
+        return;
       }
       if(t.dataset.delPlayer){
         const [eventId, teeId, playerId] = t.dataset.delPlayer.split(':');
         if(!confirm('Remove this player?')) return;
+        t.disabled = true;
+        t.textContent = '...';
         await api(`/api/events/${eventId}/tee-times/${teeId}/players/${playerId}`, { method: 'DELETE' });
-        return load();
+        await load();
+        return;
       }
       if(t.dataset.addTee){
         const id=t.dataset.addTee;
@@ -753,18 +759,31 @@
             
             // Let the server calculate the next tee time (9 minutes after last) or use provided time
             const body = timeToAdd ? { time: timeToAdd } : {};
+            t.disabled = true;
+            const origText = t.textContent;
+            t.textContent = 'Adding...';
             await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+            await load();
+            t.disabled = false;
+            t.textContent = origText;
+            return;
           }
-        return load();
+        await load();
+        return;
       }
       if(t.dataset.addPlayer){
         const [id,teeId]=t.dataset.addPlayer.split(':');
         const name=prompt('Player name'); if(!name) return;
         try {
+          t.disabled = true;
+          t.textContent = 'Adding...';
           await api(`/api/events/${id}/tee-times/${teeId}/players`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
-          return load();
+          await load();
+          return;
         } catch (err) {
           console.error(err);
+          t.disabled = false;
+          t.textContent = '+';
           if (err.message && err.message.includes('duplicate')) {
             alert('⚠️ Duplicate name detected!\n\nA player with this name already exists on another tee time. Please use a nickname to avoid confusion.\n\nExamples:\n• "John S" or "John 2"\n• "Mike B" or "Big Mike"');
           } else {
@@ -966,8 +985,12 @@
   }
 
   async function loadGolfCourses() {
-    // Initial load of default courses when modal opens
-    await loadDefaultCourses();
+    // Clear datalist and coursesData to force dynamic search
+    coursesData = [];
+    if (courseList) courseList.innerHTML = '';
+    if (courseInfoCard) courseInfoCard.style.display = 'none';
+    if (courseSearch) courseSearch.value = '';
+    selectedCourseData = null;
   }
 
   // Display course info when course is selected/typed
@@ -1045,6 +1068,16 @@
 
   // Handle course search input with debounced API search
   if (courseSearch) {
+    // Handle Enter key to submit form
+    courseSearch.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        // Find the submit button and click it
+        const submitBtn = eventForm.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.click();
+      }
+    });
+    
     courseSearch.addEventListener('input', (e) => {
       const value = e.target.value;
       
