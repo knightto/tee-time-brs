@@ -10,7 +10,7 @@ require('dotenv').config();
 const fetch = global.fetch || require('node-fetch');
 
 const app = express();
-const PORT = process.env.PORT || 300;
+const PORT = process.env.PORT || 5000;
 const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
 const SITE_URL = (process.env.SITE_URL || 'https://tee-time-brs.onrender.com/').replace(/\/$/, '') + '/';
 const LOCAL_TZ = process.env.LOCAL_TZ || 'America/New_York';
@@ -842,11 +842,11 @@ app.get('/api/golf-courses/list', async (req, res) => {
   try {
     // Allow state and limit to be passed as query params for testing
     const state = req.query.state || 'Virginia';
-    const limit = Math.min(parseInt(req.query.limit) || 50, 100); // Max 100
+    const limit = Math.min(parseInt(req.query.limit) || 100, 200);
     
-    // Use search endpoint instead of courses endpoint (courses endpoint doesn't exist)
-    // Search by state name to get courses in that state
-    const url = `${GOLF_API_BASE}/search?search_query=${encodeURIComponent(state)}`;
+    // Use search endpoint - the API searches by course name, so cast a wide net
+    // Search for just "golf" to get many results, then filter by VA state
+    const url = `${GOLF_API_BASE}/search?search_query=golf`;
     const response = await fetch(url, {
       headers: {
         'Authorization': `Key ${GOLF_API_KEY}`
@@ -859,13 +859,18 @@ app.get('/api/golf-courses/list', async (req, res) => {
     
     const data = await response.json();
     const courses = (data.courses || [])
-      .slice(0, limit) // Limit results from search
+      .filter(c => {
+        // Filter for Virginia state courses only
+        const courseState = c.location?.state;
+        return courseState && courseState.toUpperCase() === 'VA';
+      })
       .filter(c => c.club_name || c.course_name) // Only courses with names
       .sort((a, b) => {
         const nameA = a.club_name || a.course_name || '';
         const nameB = b.club_name || b.course_name || '';
         return nameA.localeCompare(nameB);
       })
+      .slice(0, limit) // Limit after sorting
       .map(c => {
         const course = {
           id: c.id,
