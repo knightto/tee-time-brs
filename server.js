@@ -1295,6 +1295,74 @@ app.delete('/api/admin/subscribers/:id', async (req, res) => {
   }
 });
 
+/* Admin - Send Custom Message to All Subscribers */
+app.post('/api/admin/send-custom-message', async (req, res) => {
+  const { code, subject, message } = req.body;
+  
+  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  
+  if (!subject || !message) {
+    return res.status(400).json({ error: 'Subject and message are required' });
+  }
+  
+  try {
+    if (!Subscriber) return res.status(500).json({ error: 'Subscriber model not available' });
+    
+    // Get all active subscribers (with email enabled)
+    const subscribers = await Subscriber.find({ emailEnabled: true });
+    
+    if (subscribers.length === 0) {
+      return res.json({ count: 0, message: 'No active subscribers' });
+    }
+    
+    // Send email to each subscriber
+    let successCount = 0;
+    const errors = [];
+    
+    for (const subscriber of subscribers) {
+      try {
+        const unsubLink = `${SITE_URL}unsubscribe?token=${subscriber.unsubscribeToken}`;
+        const htmlContent = `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+            <div style="background: linear-gradient(135deg, #1a5a1a 0%, #2d7a2d 100%); color: white; padding: 30px; border-radius: 12px 12px 0 0; text-align: center;">
+              <h1 style="margin: 0; font-size: 28px;">⛳ ${subject}</h1>
+            </div>
+            <div style="background: white; padding: 30px; border: 2px solid #2d7a2d; border-top: none; border-radius: 0 0 12px 12px;">
+              <div style="color: #1a5a1a; font-size: 16px; line-height: 1.6; white-space: pre-wrap;">${message}</div>
+              <hr style="border: none; border-top: 2px solid #e5e7eb; margin: 30px 0;">
+              <p style="color: #6b7280; font-size: 14px; margin: 0;">
+                This message was sent to all Tee Time BRS subscribers.
+              </p>
+              <p style="color: #6b7280; font-size: 12px; margin: 16px 0 0 0;">
+                <a href="${unsubLink}" style="color: #dc2626;">Unsubscribe from notifications</a>
+              </p>
+            </div>
+          </div>
+        `;
+        
+        await sendEmail(subscriber.email, subject, htmlContent);
+        successCount++;
+      } catch (emailError) {
+        console.error(`Failed to send to ${subscriber.email}:`, emailError);
+        errors.push({ email: subscriber.email, error: emailError.message });
+      }
+    }
+    
+    console.log(`Custom message sent: "${subject}" to ${successCount}/${subscribers.length} subscribers`);
+    
+    res.json({ 
+      count: successCount,
+      total: subscribers.length,
+      errors: errors.length > 0 ? errors : undefined
+    });
+  } catch (e) {
+    console.error('Send custom message error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 /* ---------------- Reminder logic ---------------- */
 async function sendAdminAlert(subject, htmlBody) {
   if (!ADMIN_EMAILS || ADMIN_EMAILS.length === 0) {

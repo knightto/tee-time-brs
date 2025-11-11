@@ -240,6 +240,7 @@
         <button class="btn-test" style="background: #3b82f6;" onclick="checkEmptyTees()">⚠️ Check Empty Tees Now</button>
         <button class="btn-test" style="background: #10b981;" onclick="verifyCourseData()">🏌️ Verify Golf Course Data</button>
         <button class="btn-test" style="background: #3b82f6;" onclick="viewAuditLogs()">📋 View All Audit Logs</button>
+        <button class="btn-test" style="background: #8b5cf6;" onclick="showCustomMessageDialog()">💬 Message All Subscribers</button>
       </div>
       <div id="quickResult" class="test-result"></div>
     </div>
@@ -263,6 +264,61 @@
       Loading subscribers...
     </div>
   </div>
+
+  <!-- Custom Message Dialog -->
+  <dialog id="customMessageDialog" style="border: none; border-radius: 12px; padding: 0; max-width: 600px; width: 90%; box-shadow: 0 20px 60px rgba(0,0,0,0.3);">
+    <div style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; padding: 20px; border-radius: 12px 12px 0 0;">
+      <h2 style="margin: 0; font-size: 24px;">💬 Message All Subscribers</h2>
+      <p style="margin: 8px 0 0 0; opacity: 0.9; font-size: 14px;">Send a custom email to all active subscribers</p>
+    </div>
+    <form id="customMessageForm" method="dialog" style="padding: 24px;">
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 8px;">
+          Subject Line
+        </label>
+        <input 
+          type="text" 
+          id="messageSubject" 
+          required
+          placeholder="e.g., Weekend Golf Update"
+          style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 15px; box-sizing: border-box;"
+        >
+      </div>
+      <div style="margin-bottom: 20px;">
+        <label style="display: block; font-weight: 600; color: #374151; margin-bottom: 8px;">
+          Message
+        </label>
+        <textarea 
+          id="messageBody" 
+          required
+          rows="8"
+          placeholder="Enter your message here..."
+          style="width: 100%; padding: 12px; border: 2px solid #e5e7eb; border-radius: 8px; font-size: 15px; resize: vertical; font-family: inherit; box-sizing: border-box;"
+        ></textarea>
+      </div>
+      <div style="background: #fef3c7; border: 2px solid #f59e0b; border-radius: 8px; padding: 12px; margin-bottom: 20px;">
+        <strong style="color: #92400e;">⚠️ Preview Recipients</strong>
+        <p style="margin: 8px 0 0 0; color: #78350f; font-size: 14px;">
+          This will send to <strong id="subscriberCount">0</strong> active subscriber(s).
+        </p>
+      </div>
+      <div style="display: flex; gap: 12px; justify-content: flex-end;">
+        <button 
+          type="button" 
+          onclick="document.getElementById('customMessageDialog').close()"
+          style="padding: 10px 20px; border: 2px solid #d1d5db; background: white; border-radius: 8px; cursor: pointer; font-weight: 600; color: #374151;"
+        >
+          Cancel
+        </button>
+        <button 
+          type="submit"
+          style="padding: 10px 20px; border: none; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); color: white; border-radius: 8px; cursor: pointer; font-weight: 600;"
+        >
+          📧 Send Message
+        </button>
+      </div>
+    </form>
+  </dialog>
 
   <script>
     const ADMIN_CODE = prompt('Enter admin code:');
@@ -839,6 +895,64 @@
         showTestResult(`❌ Error: ${error.message}`, false);
       }
     }
+
+    // Custom Message Functions
+    async function showCustomMessageDialog() {
+      const dialog = document.getElementById('customMessageDialog');
+      
+      // Get subscriber count
+      try {
+        const response = await fetch(`/api/admin/subscribers?code=${encodeURIComponent(ADMIN_CODE)}`);
+        if (response.ok) {
+          const subscribers = await response.json();
+          const activeCount = subscribers.filter(s => s.emailEnabled || s.smsEnabled).length;
+          document.getElementById('subscriberCount').textContent = activeCount;
+        }
+      } catch (error) {
+        console.error('Failed to load subscriber count:', error);
+      }
+      
+      dialog.showModal();
+    }
+
+    // Handle custom message form submission
+    document.getElementById('customMessageForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const subject = document.getElementById('messageSubject').value.trim();
+      const body = document.getElementById('messageBody').value.trim();
+      
+      if (!subject || !body) {
+        showQuickResult('❌ Subject and message are required', false);
+        return;
+      }
+      
+      try {
+        const response = await fetch('/api/admin/send-custom-message', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code: ADMIN_CODE,
+            subject: subject,
+            message: body
+          })
+        });
+        
+        if (!response.ok) {
+          const error = await response.text();
+          throw new Error(error || 'Failed to send message');
+        }
+        
+        const result = await response.json();
+        document.getElementById('customMessageDialog').close();
+        document.getElementById('messageSubject').value = '';
+        document.getElementById('messageBody').value = '';
+        
+        showQuickResult(`✅ Message sent to ${result.count} subscriber(s)`, true);
+      } catch (error) {
+        showQuickResult(`❌ Error: ${error.message}`, false);
+      }
+    });
   </script>
 </body>
 </html>

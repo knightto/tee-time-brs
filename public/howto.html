@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How To - Tee Time BRS</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .howto-container {
+      max-width: 800px;
+      margin: 40px auto;
+      padding: 30px;
+      background: linear-gradient(135deg, var(--golf-green-dark) 0%, var(--golf-green) 100%);
+      border: 3px solid var(--golf-green-fairway);
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+      color: white;
+    }
+
+    .howto-container h1 {
+      text-align: center;
+      font-size: 2.5em;
+      margin-bottom: 10px;
+      text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.3);
+    }
+
+    .howto-container h1::before {
+      content: '⛳ ';
+    }
+
+    .howto-container h1::after {
+      content: ' ⛳';
+    }
+
+    .subtitle {
+      text-align: center;
+      font-size: 1.1em;
+      margin-bottom: 30px;
+      opacity: 0.9;
+    }
+
+    .feature-list {
+      list-style: none;
+      padding: 0;
+    }
+
+    .feature-list li {
+      background: rgba(255, 255, 255, 0.1);
+      margin: 15px 0;
+      padding: 20px;
+      border-radius: 8px;
+      border-left: 5px solid var(--golf-green-fairway);
+      font-size: 1.1em;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(5px);
+    }
+
+    .feature-list li:hover {
+      background: rgba(255, 255, 255, 0.15);
+      transform: translateX(5px);
+      border-left-color: var(--golf-green-pale);
+    }
+
+    .feature-list li::before {
+      content: '🏌️ ';
+      font-size: 1.2em;
+      margin-right: 10px;
+    }
+
+    .back-link {
+      display: block;
+      text-align: center;
+      margin-top: 30px;
+      padding: 12px 24px;
+      background: rgba(255, 255, 255, 0.2);
+      color: white;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: bold;
+      transition: all 0.3s ease;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .back-link:hover {
+      background: rgba(255, 255, 255, 0.3);
+      border-color: rgba(255, 255, 255, 0.5);
+      transform: scale(1.05);
+    }
+
+    @media (max-width: 600px) {
+      .howto-container {
+        margin: 20px;
+        padding: 20px;
+      }
+
+      .howto-container h1 {
+        font-size: 2em;
+      }
+
+      .feature-list li {
+        font-size: 1em;
+        padding: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="howto-container">
+    <h1>Tee Time BRS Features</h1>
+    <p class="subtitle">Main User Features</p>
+    
+    <ul class="feature-list">
+      <li>Calendar navigation with golf flag indicators</li>
+      <li>Event creation (tee times vs team events with configurable sizes)</li>
+      <li>Player management (add/remove/move with capacity checks)</li>
+      <li>Course search with dynamic Golf API integration</li>
+      <li>Weather forecasts (auto-displayed for events within 16 days)</li>
+      <li>Maybe list for expressing interest</li>
+    </ul>
+
+    <a href="index.html" class="back-link">← Back to Tee Times</a>
+  </div>
+</body>
+</html>
