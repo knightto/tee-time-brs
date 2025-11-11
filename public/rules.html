@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weekend Golf Rules</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      padding: 20px;
+      background: linear-gradient(180deg, rgba(15,23,42,.65), rgba(15,23,42,.45)), 
+                  url('./assets/desertgolf.jpg') center/cover fixed;
+      min-height: 100vh;
+    }
+    .rules-container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: rgba(255, 255, 255, 0.98);
+      border-radius: 12px;
+      padding: 32px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .back-link {
+      display: inline-block;
+      margin-bottom: 20px;
+      color: #2563eb;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .back-link:hover {
+      color: #1d4ed8;
+      text-decoration: underline;
+    }
+    h1 {
+      color: #111827;
+      margin: 0 0 24px 0;
+      font-size: 32px;
+      border-bottom: 3px solid #2563eb;
+      padding-bottom: 12px;
+    }
+    h2 {
+      color: #1e293b;
+      margin: 32px 0 16px 0;
+      font-size: 24px;
+      border-left: 4px solid #2563eb;
+      padding-left: 12px;
+    }
+    h3 {
+      color: #334155;
+      margin: 20px 0 12px 0;
+      font-size: 18px;
+      font-weight: 600;
+    }
+    .entry-fee {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: white;
+      padding: 16px 20px;
+      border-radius: 8px;
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 24px;
+      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+    }
+    .breakdown {
+      background: #f8fafc;
+      padding: 16px;
+      border-radius: 8px;
+      margin: 16px 0;
+      border-left: 4px solid #10b981;
+    }
+    .breakdown ul {
+      margin: 8px 0;
+      padding-left: 20px;
+    }
+    .breakdown li {
+      margin: 6px 0;
+      color: #1e293b;
+    }
+    ul {
+      margin: 12px 0;
+      padding-left: 24px;
+      line-height: 1.8;
+    }
+    li {
+      margin: 8px 0;
+      color: #334155;
+    }
+    p {
+      line-height: 1.8;
+      color: #475569;
+      margin: 12px 0;
+    }
+    .rule-section {
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+      border: 1px solid #e2e8f0;
+    }
+    strong {
+      color: #1e293b;
+    }
+    .highlight {
+      background: #fef3c7;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <div class="rules-container">
+    <a href="/" class="back-link">← Back to Tee Times</a>
+    
+    <h1>Weekend Game Rules</h1>
+    
+    <div class="entry-fee">
+      Entry Fee: $15 per player
+    </div>
+    
+    <div class="breakdown">
+      <strong>Breakdown:</strong>
+      <ul>
+        <li>$5 – 3-Putt Poker</li>
+        <li>$5 – Skins Game</li>
+        <li>$5 – Closest to the Pin (all 4 par 3s)</li>
+      </ul>
+    </div>
+
+    <div class="rule-section">
+      <h2>3-Putt Poker</h2>
+      <p>Everyone starts with 2 cards. You gain or lose cards and money based on putting:</p>
+      
+      <ul>
+        <li><strong>3-putt:</strong> Add $1 to the poker pot.</li>
+        <li><strong>1-putt:</strong> Gain 1 card.</li>
+        <li><strong>0-putt</strong> (chip-in or holed from off the green): Gain 2 cards.</li>
+      </ul>
+      
+      <h3>The Chip:</h3>
+      <ul>
+        <li>The chip is held by the most recent player to 3-putt in the group.</li>
+        <li>If you are holding the chip and 3-putt again, you owe an <span class="highlight">extra $1 penalty</span>.</li>
+      </ul>
+      
+      <h3>Winner:</h3>
+      <ul>
+        <li>Best 5-card poker hand at the end of the round wins the poker pot.</li>
+        <li>Standard poker hand rankings apply.</li>
+      </ul>
+    </div>
+
+    <div class="rule-section">
+      <h2>Skins Game</h2>
+      <ul>
+        <li>Each hole is worth 1 skin.</li>
+        <li>Lowest outright score on a hole wins that skin.</li>
+        <li>Ties carry the skin to the next hole.</li>
+        <li>Total skins pot is split according to number of skins won.</li>
+      </ul>
+      
+      <h3>Handicaps:</h3>
+      <ul>
+        <li><strong>12–15 handicap:</strong> gets 2 strokes per side.</li>
+        <li><strong>17+ handicap:</strong> gets 3 strokes per side.</li>
+      </ul>
+    </div>
+
+    <div class="rule-section">
+      <h2>Closest to the Pin (CTP)</h2>
+      <ul>
+        <li>All 4 par 3s are CTP holes.</li>
+        <li>Closest to the pin on the green wins that hole's CTP share of the pot.</li>
+      </ul>
+      
+      <h3>Special CTP rules:</h3>
+      <ul>
+        <li>If the current CTP player 3-putts, they <strong>lose CTP</strong>, and it reverts to the previous closest.</li>
+        <li>If two players appear to tie for CTP and no one is clearly closer, they split that hole's CTP.</li>
+        <li>If nobody hits the green, that hole's CTP money is split among the hole's winners (by score).</li>
+      </ul>
+    </div>
+  </div>
+</body>
+</html>
