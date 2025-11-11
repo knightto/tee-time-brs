@@ -733,9 +733,46 @@ app.post('/api/events/:id/move-player', async (req, res) => {
 
 /* ---------------- Golf Course API ---------------- */
 const GOLF_API_KEY = process.env.GOLF_API_KEY || '';
+const GOLF_API_KEY_BACKUP = process.env.GOLF_API_KEY_BACKUP || '';
 const GOLF_API_BASE = 'https://api.golfcourseapi.com/v1';
 
-// Get popular local courses for dropdown
+// Helper: Try API request with fallback to backup key
+async function fetchGolfAPI(url, primaryKey = GOLF_API_KEY, backupKey = GOLF_API_KEY_BACKUP) {
+  // Try primary key first
+  if (primaryKey) {
+    try {
+      const response = await fetch(url, {
+        headers: { 'Authorization': `Key ${primaryKey}` }
+      });
+      
+      // If successful or non-auth error, return it
+      if (response.ok || (response.status !== 401 && response.status !== 403 && response.status !== 429)) {
+        return { response, keyUsed: 'primary' };
+      }
+      
+      console.warn(`Golf API primary key failed with ${response.status}, trying backup...`);
+    } catch (err) {
+      console.warn('Golf API primary key request failed:', err.message);
+    }
+  }
+  
+  // Try backup key if primary failed with auth/rate limit error
+  if (backupKey) {
+    try {
+      const response = await fetch(url, {
+        headers: { 'Authorization': `Key ${backupKey}` }
+      });
+      return { response, keyUsed: 'backup' };
+    } catch (err) {
+      console.error('Golf API backup key also failed:', err.message);
+      throw err;
+    }
+  }
+  
+  // No backup key available
+  throw new Error('Golf API request failed and no backup key available');
+}
+
 // Validate course data consistency
 function validateCourseData(course) {
   const issues = [];
@@ -834,8 +871,8 @@ app.get('/api/golf-courses/list', async (req, res) => {
     }
   ];
 
-  // If no API key, return only local courses
-  if (!GOLF_API_KEY) {
+  // If no API keys, return only local courses
+  if (!GOLF_API_KEY && !GOLF_API_KEY_BACKUP) {
     return res.json(localCourses);
   }
   
@@ -847,15 +884,13 @@ app.get('/api/golf-courses/list', async (req, res) => {
     // Use search endpoint - the API searches by course name, so cast a wide net
     // Search for just "golf" to get many results, then filter by VA state
     const url = `${GOLF_API_BASE}/search?search_query=golf`;
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Key ${GOLF_API_KEY}`
-      }
-    });
+    const { response, keyUsed } = await fetchGolfAPI(url);
     
     if (!response.ok) {
-      throw new Error(`Golf API error: ${response.status}`);
+      throw new Error(`Golf API error: ${response.status} (used ${keyUsed} key)`);
     }
+    
+    console.log(`Golf API courses loaded using ${keyUsed} key`);
     
     const data = await response.json();
     const courses = (data.courses || [])
@@ -1329,9 +1364,9 @@ app.get('/admin/verify-courses', async (req, res) => {
   const code = req.query.code || '';
   if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) return res.status(403).json({ error: 'Forbidden' });
   
-  if (!GOLF_API_KEY) {
+  if (!GOLF_API_KEY && !GOLF_API_KEY_BACKUP) {
     return res.json({ 
-      message: 'Using fallback course list (no API key)', 
+      message: 'Using fallback course list (no API keys)', 
       courses: [],
       issues: 0 
     });
@@ -1339,9 +1374,7 @@ app.get('/admin/verify-courses', async (req, res) => {
   
   try {
     const url = `${GOLF_API_BASE}/search?search_query=Virginia`;
-    const response = await fetch(url, {
-      headers: { 'Authorization': `Key ${GOLF_API_KEY}` }
-    });
+    const { response, keyUsed } = await fetchGolfAPI(url);
     
     if (!response.ok) {
       throw new Error(`Golf API error: ${response.status}`);
@@ -1373,10 +1406,11 @@ app.get('/admin/verify-courses', async (req, res) => {
     const coursesWithIssues = validationResults.filter(r => !r.valid);
     
     return res.json({
-      message: `Verified ${validationResults.length} courses from Golf API`,
+      message: `Verified ${validationResults.length} courses from Golf API (using ${keyUsed} key)`,
       totalCourses: validationResults.length,
       coursesWithIssues: coursesWithIssues.length,
       issues: coursesWithIssues,
+      keyUsed: keyUsed,
       timestamp: new Date().toISOString()
     });
   } catch (e) {
