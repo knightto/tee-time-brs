@@ -605,11 +605,11 @@
       const maybeSection = `
         <div class="maybe-section">
           <div class="maybe-header">
-            <span style="font-weight:600;color:var(--slate-700)">🤔 Maybe List</span>
-            <button class="small" data-add-maybe="${ev._id}">I'm Interested</button>
+            <h4>🤔 Maybe List</h4>
+            <button class="small" data-add-maybe="${ev._id}" style="font-size:11px;padding:3px 8px">+ Interested</button>
           </div>
           <div class="maybe-list">
-            ${maybeList || '<em style="color:var(--slate-700);font-size:14px">No one yet - be the first!</em>'}
+            ${maybeList || '<em style="color:var(--slate-700);font-size:11px;opacity:0.7">No one yet</em>'}
           </div>
         </div>
       `;

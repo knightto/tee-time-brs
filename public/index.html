@@ -10,9 +10,9 @@
   <header class="bar">
     <h1 class="title">Tee Times</h1>
     <nav style="display:flex;gap:12px;align-items:center;margin-left:auto">
+      <a href="/rules.html" style="color:white;text-decoration:none;padding:8px 16px;border:1px solid rgba(255,255,255,0.3);border-radius:8px;font-weight:600;font-size:14px;transition:all 0.2s" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">Weekend Game Rules</a>
+      <button id="openSubscribeBtn" style="background:var(--green-600);color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:600">Subscribe</button>
     </nav>
-    <a href="/rules.html" style="color:white;text-decoration:none;padding:8px 16px;border:1px solid rgba(255,255,255,0.3);border-radius:8px;font-weight:600;font-size:14px;transition:all 0.2s" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='transparent'">Rules</a>
-    <button id="openSubscribeBtn" style="background:var(--green-600);color:white;padding:8px 16px;border:none;border-radius:8px;cursor:pointer;font-weight:600">Subscribe</button>
   </header>
 
   <!-- Subscribe Dialog -->
@@ -166,16 +166,16 @@
 
   <!-- Edit + Move dialogs are injected by script.js -->
 
-  <!-- Debug Logs Footer -->
+  <!-- Debug/Error Console Footer -->
   <footer style="position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.9);color:#fff;padding:4px 12px;font-size:11px;z-index:9999;display:none;max-height:200px;overflow-y:auto;" id="debugFooter">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;position:sticky;top:0;background:rgba(0,0,0,0.95);padding:4px 0;">
-      <strong>Debug Logs</strong>
+      <strong>Errors & Debug Info</strong>
       <button onclick="document.getElementById('debugFooter').style.display='none';document.getElementById('showLogsBtn').style.display='block'" style="background:transparent;border:1px solid #666;color:#fff;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px;">Close</button>
     </div>
     <div id="debugLogs" style="font-family:monospace;white-space:pre-wrap;word-break:break-all;"></div>
   </footer>
   
-  <button id="showLogsBtn" onclick="document.getElementById('debugFooter').style.display='block';this.style.display='none'" style="position:fixed;bottom:12px;right:12px;background:#333;color:#fff;border:1px solid #666;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;z-index:9998;box-shadow:0 2px 8px rgba(0,0,0,0.3);">Show Logs</button>
+  <button id="showLogsBtn" onclick="document.getElementById('debugFooter').style.display='block';this.style.display='none'" style="position:fixed;bottom:12px;right:12px;background:#dc2626;color:#fff;border:1px solid #991b1b;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;z-index:9998;box-shadow:0 2px 8px rgba(0,0,0,0.3);">Show Errors</button>
 
   <!-- Admin Link -->
   <div style="position:fixed;bottom:12px;left:12px;z-index:9998;">

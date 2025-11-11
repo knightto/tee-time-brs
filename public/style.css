@@ -212,11 +212,10 @@ main{padding:20px}
   border-radius:var(--radius);
   box-shadow:var(--shadow-green);
   display:grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto;
   min-height:300px;
-  max-height:700px;
   position:relative;
-  overflow:hidden;
+  overflow:visible;
 }
 .card::before{
   content:'';
@@ -306,8 +305,8 @@ main{padding:20px}
   padding:20px;
   display:flex;
   flex-direction:column;
-  gap:16px;
-  overflow-y:auto;
+  gap:12px;
+  overflow-y:visible;
   min-height:0;
 }
 
@@ -627,36 +626,43 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
 .maybe-section{
   background:linear-gradient(135deg, rgba(251,191,36,0.08), rgba(251,191,36,0.04));
   border:1px solid rgba(251,191,36,0.3);
-  border-radius:12px;
-  padding:12px 16px;
-  margin-bottom:16px;
+  border-radius:8px;
+  padding:6px 10px;
+  margin-bottom:10px;
 }
 
 .maybe-header{
   display:flex;
   justify-content:space-between;
   align-items:center;
-  margin-bottom:10px;
-  gap:12px;
+  margin-bottom:4px;
+  gap:8px;
+}
+
+.maybe-header h4{
+  font-size:13px;
+  margin:0;
+  font-weight:600;
+  color:var(--slate-700);
 }
 
 .maybe-list{
   display:flex;
   flex-wrap:wrap;
-  gap:6px;
-  min-height:24px;
+  gap:4px;
+  min-height:20px;
 }
 
 .maybe-chip{
   display:inline-flex;
   align-items:center;
-  gap:6px;
+  gap:4px;
   background:#fff;
   border:1px solid rgba(251,191,36,0.4);
-  border-radius:8px;
-  padding:4px 8px;
-  font-size:14px;
-  box-shadow:0 1px 3px rgba(0,0,0,0.1);
+  border-radius:6px;
+  padding:2px 6px;
+  font-size:12px;
+  box-shadow:0 1px 2px rgba(0,0,0,0.08);
   transition:all 0.2s ease;
 }
 
@@ -671,9 +677,9 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
 }
 
 .maybe-chip button{
-  padding:2px;
-  width:18px;
-  height:18px;
+  padding:1px;
+  width:14px;
+  height:14px;
   border:none;
   background:transparent;
   color:var(--slate-700);
@@ -681,8 +687,9 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   display:flex;
   align-items:center;
   justify-content:center;
-  border-radius:4px;
+  border-radius:3px;
   transition:all 0.15s;
+  font-size:10px;
 }
 
 .maybe-chip button:hover{
