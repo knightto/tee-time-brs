@@ -814,7 +814,7 @@ app.get('/api/golf-courses/list', async (req, res) => {
       name: 'Blue Ridge Shadows Golf Club',
       city: 'Front Royal',
       state: 'VA',
-      phone: '(540) 635-4653',
+      phone: '(540) 631-9661',
       website: 'https://blueridgeshadows.com',
       holes: 18,
       par: 72
