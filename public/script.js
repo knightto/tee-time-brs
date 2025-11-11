@@ -927,7 +927,7 @@
     }
   }
 
-  // Golf Course Search with Dynamic API Search
+  // Golf Course Search with Dynamic API Search and Caching
   const courseSearch = $('#courseSearch');
   const courseList = $('#courseList');
   const courseInfoCard = $('#courseInfoCard');
@@ -937,6 +937,53 @@
   let coursesData = [];
   let selectedCourseData = null;
   let searchTimeout = null;
+  
+  const CACHE_KEY = 'golfCourseCache';
+  const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+
+  function getCachedCourses(query) {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (!cached) return null;
+      
+      const cache = JSON.parse(cached);
+      const cacheKey = query || '_default';
+      
+      if (cache[cacheKey] && Date.now() - cache[cacheKey].timestamp < CACHE_DURATION) {
+        console.log(`Using cached courses for "${query || 'default'}"`);
+        return cache[cacheKey].data;
+      }
+    } catch (e) {
+      console.error('Cache read error:', e);
+    }
+    return null;
+  }
+
+  function setCachedCourses(query, courses) {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      const cache = cached ? JSON.parse(cached) : {};
+      const cacheKey = query || '_default';
+      
+      cache[cacheKey] = {
+        data: courses,
+        timestamp: Date.now()
+      };
+      
+      // Keep cache size reasonable - remove entries older than 7 days
+      const weekAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+      Object.keys(cache).forEach(key => {
+        if (cache[key].timestamp < weekAgo) {
+          delete cache[key];
+        }
+      });
+      
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
+      console.log(`Cached courses for "${query || 'default'}"`);
+    } catch (e) {
+      console.error('Cache write error:', e);
+    }
+  }
 
   async function searchGolfCourses(query) {
     if (!query || query.length < 2) {
@@ -945,40 +992,58 @@
       return;
     }
     
+    // Check cache first
+    const cached = getCachedCourses(query);
+    if (cached) {
+      coursesData = cached;
+      updateCourseList(cached);
+      return;
+    }
+    
     try {
       // Search API with the typed query
       const courses = await api(`/api/golf-courses/search?q=${encodeURIComponent(query)}`);
       coursesData = courses;
       
-      if (!courseList) return;
+      // Cache the results
+      setCachedCourses(query, courses);
       
-      // Update datalist with search results
-      courseList.innerHTML = '';
-      courses.forEach((course) => {
-        const option = document.createElement('option');
-        option.value = course.name;
-        courseList.appendChild(option);
-      });
+      updateCourseList(courses);
     } catch (err) {
       console.error('Failed to search golf courses:', err);
       // Fall back to loading all courses on error
       await loadDefaultCourses();
     }
   }
+  
+  function updateCourseList(courses) {
+    if (!courseList) return;
+    
+    courseList.innerHTML = '';
+    courses.forEach((course) => {
+      const option = document.createElement('option');
+      option.value = course.name;
+      courseList.appendChild(option);
+    });
+  }
 
   async function loadDefaultCourses() {
+    // Check cache first
+    const cached = getCachedCourses('');
+    if (cached) {
+      coursesData = cached;
+      updateCourseList(cached);
+      return;
+    }
+    
     try {
       const courses = await api('/api/golf-courses/list?limit=20');
       coursesData = courses;
       
-      if (!courseList) return;
+      // Cache the default courses
+      setCachedCourses('', courses);
       
-      courseList.innerHTML = '';
-      courses.forEach((course) => {
-        const option = document.createElement('option');
-        option.value = course.name;
-        courseList.appendChild(option);
-      });
+      updateCourseList(courses);
     } catch (err) {
       console.error('Failed to load default courses:', err);
     }
@@ -1118,6 +1183,18 @@
       }
     });
   }
+
+  // Expose cache clearing function globally for debugging
+  window.clearCourseCache = function() {
+    try {
+      localStorage.removeItem(CACHE_KEY);
+      console.log('Course cache cleared!');
+      return 'Course cache cleared successfully';
+    } catch (e) {
+      console.error('Failed to clear cache:', e);
+      return 'Failed to clear cache';
+    }
+  };
 
   load();
 })();
