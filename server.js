@@ -385,6 +385,7 @@ app.post('/api/events', async (req, res) => {
     if (isTeamEvent) {
       // Generate 3 default teams for team events
       const startType = teamStartType || 'shotgun';
+      if (!teamStartTime) return res.status(400).json({ error: 'teamStartTime required for team events' });
       if (startType === 'shotgun') {
         // Shotgun start: all teams use the same time
         tt = [
@@ -403,6 +404,7 @@ app.post('/api/events', async (req, res) => {
       }
     } else {
       // Generate 3 default tee times for tee-time events
+      if (!teeTime) return res.status(400).json({ error: 'teeTime required for tee-time events' });
       tt = Array.isArray(teeTimes) && teeTimes.length ? teeTimes : genTeeTimes(teeTime, 3, 9);
     }
     const eventDate = /^\d{4}-\d{2}-\d{2}$/.test(String(date||'')) ? new Date(String(date)+'T12:00:00Z') : asUTCDate(date);
@@ -731,9 +733,42 @@ app.post('/api/events/:id/move-player', async (req, res) => {
 
 /* ---------------- Golf Course API ---------------- */
 const GOLF_API_KEY = process.env.GOLF_API_KEY || '';
-const GOLF_API_BASE = 'https://api.golfcourseapi.com';
+const GOLF_API_BASE = 'https://api.golfcourseapi.com/v1';
 
 // Get popular local courses for dropdown
+// Validate course data consistency
+function validateCourseData(course) {
+  const issues = [];
+  
+  // Check if city/state matches common patterns for the course name
+  if (course.name && course.city) {
+    const nameLower = course.name.toLowerCase();
+    const cityLower = (course.city || '').toLowerCase();
+    
+    // Flag if course name mentions a location that doesn't match city/state
+    const locationKeywords = ['richmond', 'virginia beach', 'norfolk', 'roanoke', 'front royal', 'luray', 'new market'];
+    for (const keyword of locationKeywords) {
+      if (nameLower.includes(keyword) && !cityLower.includes(keyword)) {
+        issues.push(`Course name mentions "${keyword}" but city is "${course.city}"`);
+      }
+    }
+  }
+  
+  // Check if phone format is valid
+  if (course.phone && !/^\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}$/.test(course.phone)) {
+    issues.push(`Invalid phone format: ${course.phone}`);
+  }
+  
+  // Check for missing critical data
+  if (!course.name) issues.push('Missing course name');
+  if (!course.city && !course.state) issues.push('Missing location data');
+  
+  return {
+    isValid: issues.length === 0,
+    issues
+  };
+}
+
 app.get('/api/golf-courses/list', async (req, res) => {
   if (!GOLF_API_KEY) {
     // Return fallback list if no API key - Shenandoah Valley courses
@@ -743,7 +778,7 @@ app.get('/api/golf-courses/list', async (req, res) => {
         name: 'Blue Ridge Shadows Golf Club',
         city: 'Front Royal',
         state: 'VA',
-        phone: '(540) 631-9661',
+        phone: '(540) 635-4653',
         website: 'https://blueridgeshadows.com',
         holes: 18,
         par: 72
@@ -761,9 +796,9 @@ app.get('/api/golf-courses/list', async (req, res) => {
       { 
         id: 'custom-3', 
         name: 'Rock Harbor Golf Course',
-        city: 'New Market',
+        city: 'Winchester',
         state: 'VA',
-        phone: '(540) 740-8800',
+        phone: '(540) 662-4653',
         website: 'https://rockharborgolfcourse.com',
         holes: 18,
         par: 72
@@ -818,16 +853,26 @@ app.get('/api/golf-courses/list', async (req, res) => {
     const courses = (data.courses || [])
       .filter(c => c.name) // Only courses with names
       .sort((a, b) => a.name.localeCompare(b.name)) // Sort alphabetically
-      .map(c => ({
-        id: c.id,
-        name: c.name,
-        city: c.city || null,
-        state: c.state || null,
-        phone: c.phone || null,
-        website: c.website || null,
-        holes: c.holes || 18,
-        par: c.par || null
-      }));
+      .map(c => {
+        const course = {
+          id: c.id,
+          name: c.name,
+          city: c.city || null,
+          state: c.state || null,
+          phone: c.phone || null,
+          website: c.website || null,
+          holes: c.holes || 18,
+          par: c.par || null
+        };
+        
+        // Validate course data and log issues
+        const validation = validateCourseData(course);
+        if (!validation.isValid) {
+          console.warn(`[Golf API] Data quality issue for "${course.name}":`, validation.issues);
+        }
+        
+        return course;
+      });
     
     res.json(courses);
   } catch (e) {
@@ -839,7 +884,7 @@ app.get('/api/golf-courses/list', async (req, res) => {
         name: 'Blue Ridge Shadows Golf Club',
         city: 'Front Royal',
         state: 'VA',
-        phone: '(540) 631-9661',
+        phone: '(540) 635-4653',
         website: 'https://blueridgeshadows.com',
         holes: 18,
         par: 72
@@ -857,9 +902,9 @@ app.get('/api/golf-courses/list', async (req, res) => {
       { 
         id: 'custom-3', 
         name: 'Rock Harbor Golf Course',
-        city: 'New Market',
+        city: 'Winchester',
         state: 'VA',
-        phone: '(540) 740-8800',
+        phone: '(540) 662-4653',
         website: 'https://rockharborgolfcourse.com',
         holes: 18,
         par: 72
@@ -879,7 +924,7 @@ app.get('/api/golf-courses/list', async (req, res) => {
         name: 'Shenvalee Golf Resort',
         city: 'New Market',
         state: 'VA',
-        phone: '(540) 337-3181',
+        phone: '(540) 740-3181',
         website: 'https://shenvalee.com',
         holes: 27,
         par: 72
@@ -1308,6 +1353,66 @@ app.get('/admin/check-empty-tees', async (req, res) => {
     return res.json(r); 
   } catch (e) { 
     return res.status(500).json({ error: e.message }); 
+  }
+});
+
+/* Verify golf course data quality: GET /admin/verify-courses?code=... */
+app.get('/admin/verify-courses', async (req, res) => {
+  const code = req.query.code || '';
+  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) return res.status(403).json({ error: 'Forbidden' });
+  
+  if (!GOLF_API_KEY) {
+    return res.json({ 
+      message: 'Using fallback course list (no API key)', 
+      courses: [],
+      issues: 0 
+    });
+  }
+  
+  try {
+    const url = `${GOLF_API_BASE}/courses?state=Virginia&limit=50`;
+    const response = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${GOLF_API_KEY}` }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Golf API error: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    const validationResults = (data.courses || [])
+      .filter(c => c.name)
+      .map(c => {
+        const course = {
+          id: c.id,
+          name: c.name,
+          city: c.city || null,
+          state: c.state || null,
+          phone: c.phone || null,
+          website: c.website || null,
+          holes: c.holes || 18,
+          par: c.par || null
+        };
+        const validation = validateCourseData(course);
+        return {
+          course,
+          valid: validation.isValid,
+          issues: validation.issues
+        };
+      });
+    
+    const coursesWithIssues = validationResults.filter(r => !r.valid);
+    
+    return res.json({
+      message: `Verified ${validationResults.length} courses from Golf API`,
+      totalCourses: validationResults.length,
+      coursesWithIssues: coursesWithIssues.length,
+      issues: coursesWithIssues,
+      timestamp: new Date().toISOString()
+    });
+  } catch (e) {
+    console.error('Golf course verification error:', e);
+    return res.status(500).json({ error: e.message });
   }
 });
 

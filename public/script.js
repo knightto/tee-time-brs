@@ -129,7 +129,11 @@
     wrap.innerHTML = `<dialog id="editTeeModal">
       <form id="editTeeForm" method="dialog">
         <h3 id="editTeeTitle">Edit</h3>
-        <label><span id="editTeeLabel">Name</span> <input name="value" required></label>
+        <label>
+          <span id="editTeeLabel">Name</span>
+          <input id="editTeeInput" name="value" required>
+          <select id="editTeeSelect" name="value" required style="display:none;"></select>
+        </label>
         <input type="hidden" name="eventId">
         <input type="hidden" name="teeId">
         <input type="hidden" name="isTeam">
@@ -158,10 +162,26 @@
   const editTeeForm = $('#editTeeForm');
   const editTeeTitle = $('#editTeeTitle');
   const editTeeLabel = $('#editTeeLabel');
+  const editTeeInput = $('#editTeeInput');
+  const editTeeSelect = $('#editTeeSelect');
   const auditModal = $('#auditModal');
   const auditLogContent = $('#auditLogContent');
 
   if (!eventsEl) return;
+
+  // Generate time options from 6:00 AM to 7:00 PM in 9-minute intervals
+  function generateTimeOptions() {
+    const options = [];
+    const startMinutes = 6 * 60; // 6:00 AM
+    const endMinutes = 19 * 60; // 7:00 PM
+    for (let minutes = startMinutes; minutes <= endMinutes; minutes += 9) {
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      options.push(time);
+    }
+    return options;
+  }
 
   function fmtDate(val){
     try{
@@ -588,20 +608,33 @@
         </div>
       `;
       
-      // Weather icon inline with date
+      // Weather icon inline with date (50% larger)
       const weatherIcon = ev.weather && ev.weather.icon 
-        ? `<span class="weather-inline" title="${ev.weather.description || 'Weather forecast'}">${ev.weather.icon}</span>` 
+        ? `<span class="weather-inline" style="font-size:1.5em" title="${ev.weather.description || 'Weather forecast'}">${ev.weather.icon}</span>` 
+        : '';
+      
+      // Course details
+      const courseDetails = ev.courseInfo && (ev.courseInfo.city || ev.courseInfo.phone || ev.courseInfo.website) 
+        ? `<div style="font-size:13px;color:var(--slate-700);margin-top:4px">
+            ${ev.courseInfo.city && ev.courseInfo.state ? `<span>📍 ${ev.courseInfo.city}, ${ev.courseInfo.state}</span>` : ''}
+            ${ev.courseInfo.phone ? `<span style="margin-left:12px">📞 ${ev.courseInfo.phone}</span>` : ''}
+            ${ev.courseInfo.website ? `<span style="margin-left:12px"><a href="${ev.courseInfo.website}" target="_blank" style="color:var(--blue-600);text-decoration:none">🔗 Website</a></span>` : ''}
+            ${ev.courseInfo.holes && ev.courseInfo.par ? `<span style="margin-left:12px">⛳ ${ev.courseInfo.holes} holes, Par ${ev.courseInfo.par}</span>` : ''}
+          </div>`
         : '';
       
       card.innerHTML = `
         <div class="card-header">
           <div class="card-header-left">
             <h3 class="card-title">${ev.course || 'Course'}</h3>
-            <div class="card-date">${fmtDate(ev.date)} ${weatherIcon}</div>
+            <div class="card-date">
+              ${fmtDate(ev.date)} ${weatherIcon}
+              <button class="small" data-audit="${ev._id}" style="font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7" title="View Audit Log">📋</button>
+            </div>
+            ${courseDetails}
           </div>
           <div class="button-row">
             <button class="small" data-add-tee="${ev._id}">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>
-            <button class="small" data-audit="${ev._id}">Audit Log</button>
             <button class="small" data-edit="${ev._id}">Edit</button>
             <button class="small" data-del="${ev._id}">Delete</button>
           </div>
@@ -772,7 +805,26 @@
         const isTeam = ev.isTeamEvent;
         editTeeTitle.textContent = isTeam ? 'Edit Team Name' : 'Edit Tee Time';
         editTeeLabel.textContent = isTeam ? 'Team Name' : 'Tee Time';
-        editTeeForm.elements['value'].value = isTeam ? (tee.name || '') : (tee.time || '');
+        
+        if (isTeam) {
+          // Show input for team name
+          editTeeInput.style.display = '';
+          editTeeSelect.style.display = 'none';
+          editTeeInput.value = tee.name || '';
+        } else {
+          // Show select dropdown for tee time
+          editTeeInput.style.display = 'none';
+          editTeeSelect.style.display = '';
+          // Populate time options
+          const timeOptions = generateTimeOptions();
+          editTeeSelect.innerHTML = timeOptions.map(time => {
+            const label = fmtTime(time);
+            return `<option value="${time}">${label}</option>`;
+          }).join('');
+          // Select current time
+          editTeeSelect.value = tee.time || '';
+        }
+        
         editTeeForm.elements['eventId'].value = eventId;
         editTeeForm.elements['teeId'].value = teeId;
         editTeeForm.elements['isTeam'].value = isTeam ? '1' : '0';

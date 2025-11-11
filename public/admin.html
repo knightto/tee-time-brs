@@ -204,6 +204,7 @@
         <button class="btn-test" style="background: #3b82f6;" onclick="refreshAllWeather()">🌤️ Refresh All Weather</button>
         <button class="btn-test" style="background: #3b82f6;" onclick="sendTestEmail()">📧 Send Test Email</button>
         <button class="btn-test" style="background: #3b82f6;" onclick="checkEmptyTees()">⚠️ Check Empty Tees Now</button>
+        <button class="btn-test" style="background: #10b981;" onclick="verifyCourseData()">🏌️ Verify Golf Course Data</button>
         <button class="btn-test" style="background: #3b82f6;" onclick="viewAuditLogs()">📋 View All Audit Logs</button>
       </div>
       <div id="quickResult" class="test-result"></div>
@@ -499,6 +500,41 @@
           showQuickResult('✅ No empty tee time alerts needed');
         } else {
           showQuickResult(`✅ Sent ${result.alertsSent} admin alert(s) (48hr: ${result.events48}, 24hr: ${result.events24})`);
+        }
+      } catch (error) {
+        showQuickResult(`❌ Error: ${error.message}`, false);
+      }
+    }
+
+    async function verifyCourseData() {
+      try {
+        showQuickResult('⏳ Verifying golf course data from API...');
+        const response = await fetch(`/admin/verify-courses?code=${encodeURIComponent(ADMIN_CODE)}`);
+        
+        if (!response.ok) throw new Error('Failed to verify courses');
+        const result = await response.json();
+        
+        if (result.coursesWithIssues === 0) {
+          showQuickResult(`✅ All ${result.totalCourses} courses validated successfully`);
+        } else {
+          // Build detailed output showing courses with issues
+          let message = `⚠️ Found ${result.coursesWithIssues} courses with data quality issues:\n\n`;
+          result.issues.forEach(item => {
+            message += `📍 ${item.course.name}\n`;
+            message += `   Location: ${item.course.city || 'N/A'}, ${item.course.state || 'N/A'}\n`;
+            message += `   Phone: ${item.course.phone || 'N/A'}\n`;
+            message += `   Issues:\n`;
+            item.issues.forEach(issue => {
+              message += `   • ${issue}\n`;
+            });
+            message += `\n`;
+          });
+          message += `Total courses checked: ${result.totalCourses}\n`;
+          message += `Timestamp: ${new Date(result.timestamp).toLocaleString()}`;
+          
+          // Show in alert for better readability
+          alert(message);
+          showQuickResult(`⚠️ Found ${result.coursesWithIssues} courses with data quality issues (see alert for details)`);
         }
       } catch (error) {
         showQuickResult(`❌ Error: ${error.message}`, false);
