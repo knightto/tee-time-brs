@@ -8,43 +8,81 @@
   <style>
     body {
       padding: 20px;
-      background: linear-gradient(180deg, rgba(15,23,42,.65), rgba(15,23,42,.45)), 
+      background: linear-gradient(135deg, rgba(26,90,26,.75) 0%, rgba(45,122,45,.60) 50%, rgba(26,90,26,.75) 100%),
+                  repeating-linear-gradient(90deg, transparent, transparent 100px, rgba(255,255,255,.03) 100px, rgba(255,255,255,.03) 102px),
                   url('./assets/desertgolf.jpg') center/cover fixed;
       min-height: 100vh;
+      position: relative;
+    }
+    body::before {
+      content: '🏌️';
+      position: fixed;
+      top: 20%;
+      right: 5%;
+      font-size: 120px;
+      opacity: 0.05;
+      pointer-events: none;
+      transform: rotate(-15deg);
+    }
+    body::after {
+      content: '⛳';
+      position: fixed;
+      bottom: 10%;
+      left: 8%;
+      font-size: 100px;
+      opacity: 0.05;
+      pointer-events: none;
     }
     .rules-container {
       max-width: 900px;
       margin: 0 auto;
-      background: rgba(255, 255, 255, 0.98);
-      border-radius: 12px;
-      padding: 32px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      background: linear-gradient(135deg, rgba(255,255,255,.98) 0%, rgba(168,213,168,.12) 100%);
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 10px 30px rgba(26,90,26,.35);
+      border: 3px solid rgba(45,122,45,.3);
+      position: relative;
     }
     .back-link {
       display: inline-block;
       margin-bottom: 20px;
-      color: #2563eb;
+      color: #1a5a1a;
       text-decoration: none;
-      font-weight: 600;
+      font-weight: 700;
       font-size: 14px;
+      padding: 8px 16px;
+      background: linear-gradient(135deg, #a8d5a8 0%, #6bb36b 100%);
+      border-radius: 8px;
+      transition: all 0.2s ease;
     }
     .back-link:hover {
-      color: #1d4ed8;
-      text-decoration: underline;
+      background: linear-gradient(135deg, #2d7a2d 0%, #1a5a1a 100%);
+      color: white;
+      transform: translateX(-4px);
+      box-shadow: 0 4px 12px rgba(26,90,26,.3);
     }
     h1 {
-      color: #111827;
+      color: #1a5a1a;
       margin: 0 0 24px 0;
-      font-size: 32px;
-      border-bottom: 3px solid #2563eb;
-      padding-bottom: 12px;
+      font-size: 36px;
+      border-bottom: 4px solid #2d7a2d;
+      padding-bottom: 16px;
+      position: relative;
+    }
+    h1::before {
+      content: '⛳';
+      margin-right: 12px;
+      font-size: 40px;
     }
     h2 {
-      color: #1e293b;
+      color: #2d7a2d;
       margin: 32px 0 16px 0;
-      font-size: 24px;
-      border-left: 4px solid #2563eb;
-      padding-left: 12px;
+      font-size: 26px;
+      border-left: 6px solid #4a9d4a;
+      padding-left: 16px;
+      background: linear-gradient(90deg, rgba(168,213,168,.2) 0%, transparent 100%);
+      padding: 12px 12px 12px 16px;
+      border-radius: 0 8px 8px 0;
     }
     h3 {
       color: #334155;
@@ -53,21 +91,34 @@
       font-weight: 600;
     }
     .entry-fee {
-      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      background: linear-gradient(135deg, #2d7a2d 0%, #1a5a1a 100%);
       color: white;
-      padding: 16px 20px;
-      border-radius: 8px;
-      font-size: 18px;
-      font-weight: 600;
+      padding: 20px 24px;
+      border-radius: 12px;
+      font-size: 22px;
+      font-weight: 700;
       margin-bottom: 24px;
-      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
+      box-shadow: 0 8px 24px rgba(26,90,26,.4);
+      border: 2px solid #4a9d4a;
+      position: relative;
+      overflow: hidden;
+    }
+    .entry-fee::before {
+      content: '💰';
+      position: absolute;
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 48px;
+      opacity: 0.2;
     }
     .breakdown {
-      background: #f8fafc;
-      padding: 16px;
-      border-radius: 8px;
+      background: linear-gradient(135deg, rgba(168,213,168,.3) 0%, rgba(168,213,168,.1) 100%);
+      padding: 20px;
+      border-radius: 10px;
       margin: 16px 0;
-      border-left: 4px solid #10b981;
+      border-left: 6px solid #4a9d4a;
+      box-shadow: 0 2px 8px rgba(26,90,26,.15);
     }
     .breakdown ul {
       margin: 8px 0;
@@ -92,20 +143,35 @@
       margin: 12px 0;
     }
     .rule-section {
-      background: #ffffff;
-      padding: 20px;
-      border-radius: 8px;
-      margin: 20px 0;
-      border: 1px solid #e2e8f0;
+      background: linear-gradient(135deg, rgba(255,255,255,.95) 0%, rgba(168,213,168,.08) 100%);
+      padding: 24px;
+      border-radius: 12px;
+      margin: 24px 0;
+      border: 2px solid rgba(45,122,45,.2);
+      box-shadow: 0 4px 12px rgba(26,90,26,.12);
+      position: relative;
+    }
+    .rule-section::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 6px;
+      background: linear-gradient(90deg, #2d7a2d 0%, #4a9d4a 50%, #6bb36b 100%);
+      border-radius: 12px 12px 0 0;
     }
     strong {
-      color: #1e293b;
+      color: #1a5a1a;
+      font-weight: 700;
     }
     .highlight {
-      background: #fef3c7;
-      padding: 2px 6px;
-      border-radius: 3px;
-      font-weight: 600;
+      background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+      padding: 3px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+      color: #92400e;
+      border: 1px solid #fbbf24;
     }
   </style>
 </head>
@@ -138,12 +204,6 @@
         <li><strong>0-putt</strong> (chip-in or holed from off the green): Gain 2 cards.</li>
       </ul>
       
-      <h3>The Chip:</h3>
-      <ul>
-        <li>The chip is held by the most recent player to 3-putt in the group.</li>
-        <li>If you are holding the chip and 3-putt again, you owe an <span class="highlight">extra $1 penalty</span>.</li>
-      </ul>
-      
       <h3>Winner:</h3>
       <ul>
         <li>Best 5-card poker hand at the end of the round wins the poker pot.</li>
@@ -156,7 +216,6 @@
       <ul>
         <li>Each hole is worth 1 skin.</li>
         <li>Lowest outright score on a hole wins that skin.</li>
-        <li>Ties carry the skin to the next hole.</li>
         <li>Total skins pot is split according to number of skins won.</li>
       </ul>
       

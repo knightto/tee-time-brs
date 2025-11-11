@@ -8,25 +8,30 @@
   <style>
     body { 
       padding: 20px;
-      background: linear-gradient(180deg, rgba(15,23,42,.65), rgba(15,23,42,.45)), 
+      background: linear-gradient(135deg, rgba(26,90,26,.75) 0%, rgba(45,122,45,.60) 50%, rgba(26,90,26,.75) 100%),
+                  repeating-linear-gradient(90deg, transparent, transparent 100px, rgba(255,255,255,.03) 100px, rgba(255,255,255,.03) 102px),
                   url('./assets/desertgolf.jpg') center/cover fixed;
       min-height: 100vh;
     }
     .admin-container {
       max-width: 1200px;
       margin: 0 auto;
-      background: rgba(255, 255, 255, 0.98);
-      border-radius: 12px;
-      padding: 24px;
-      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+      background: linear-gradient(135deg, rgba(255,255,255,.98) 0%, rgba(168,213,168,.12) 100%);
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 10px 30px rgba(26,90,26,.35);
+      border: 3px solid rgba(45,122,45,.3);
     }
     h1 {
-      margin: 0 0 24px 0;
-      color: #111827;
+      margin: 0 0 28px 0;
+      color: #1a5a1a;
       display: flex;
       align-items: center;
       gap: 12px;
-      font-size: 28px;
+      font-size: 32px;
+      font-weight: 700;
+      border-bottom: 4px solid #2d7a2d;
+      padding-bottom: 16px;
     }
     .stats {
       display: grid;
