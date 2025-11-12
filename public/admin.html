@@ -174,6 +174,59 @@
       color: #991b1b;
       display: block;
     }
+
+    /* Mobile responsive styles */
+    @media (max-width: 768px) {
+      body {
+        padding: 12px;
+      }
+      .admin-container {
+        padding: 16px;
+        border-radius: 8px;
+      }
+      h1 {
+        font-size: 24px;
+        margin-bottom: 20px;
+      }
+      .stats {
+        grid-template-columns: 1fr;
+        gap: 12px;
+      }
+      .stat-card {
+        padding: 12px;
+      }
+      .stat-card .value {
+        font-size: 24px;
+      }
+      /* Make tables scroll horizontally on mobile */
+      table {
+        display: block;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        white-space: nowrap;
+      }
+      th, td {
+        padding: 8px;
+        font-size: 13px;
+      }
+      .test-section {
+        padding: 12px;
+      }
+      .test-section h2 {
+        font-size: 16px;
+      }
+      .test-buttons {
+        flex-direction: column;
+      }
+      .btn-test {
+        width: 100%;
+        padding: 12px;
+      }
+      /* Stack grid items on mobile */
+      div[style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+      }
+    }
   </style>
 </head>
 <body>
