@@ -1051,23 +1051,40 @@ app.post('/api/events/weather/refresh-all', async (_req, res) => {
   try {
     const events = await Event.find();
     let updated = 0;
-    
+    let failed = 0;
+    let errors = [];
     for (const ev of events) {
-      const weatherData = await fetchWeatherForecast(ev.date);
-      if (!ev.weather) ev.weather = {};
-      ev.weather.condition = weatherData.condition;
-      ev.weather.icon = weatherData.icon;
-      ev.weather.temp = weatherData.temp;
-      ev.weather.description = weatherData.description;
-      ev.weather.lastFetched = weatherData.lastFetched;
-      await ev.save();
-      if (weatherData.success) updated++;
+      try {
+        const weatherData = await fetchWeatherForecast(ev.date);
+        if (!ev.weather) ev.weather = {};
+        ev.weather.condition = weatherData.condition;
+        ev.weather.icon = weatherData.icon;
+        ev.weather.temp = weatherData.temp;
+        ev.weather.description = weatherData.description;
+        ev.weather.lastFetched = weatherData.lastFetched;
+        await ev.save();
+        if (weatherData.success) updated++;
+        else {
+          failed++;
+          errors.push({ eventId: ev._id, date: ev.date, reason: weatherData.description || 'Unknown error' });
+        }
+      } catch (err) {
+        failed++;
+        errors.push({ eventId: ev._id, date: ev.date, reason: err.message });
+        console.error('Weather refresh failed for event', ev._id, err);
+      }
     }
-    
-    res.json({ ok: true, updated, total: events.length });
+    res.json({ ok: true, updated, failed, total: events.length, errors });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+// Global error handler to prevent server crash on unhandled promise rejections
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception thrown:', err);
 });
 
 /* ---------------- Maybe List ---------------- */
@@ -1392,17 +1409,34 @@ function tomorrowYMDLocal(){
   return ymdInTZ(tomUTCNoon, LOCAL_TZ);
 }
 async function findEmptyTeeTimesForTomorrow(){
-  const ymd = tomorrowYMDLocal();                  // 'YYYY-MM-DD' in local TZ
-  const start = new Date(ymd + 'T00:00:00Z');      // events stored at noon UTC, this window is safe
-  const end   = new Date(ymd + 'T23:59:59Z');
+  const ymd = tomorrowYMDLocal(); // 'YYYY-MM-DD' in local TZ
+  // Robust window: include events from noon UTC previous day to noon UTC next day
+  const noonUTC = (d) => {
+    const dt = new Date(d);
+    dt.setUTCHours(12,0,0,0);
+    return dt;
+  };
+  const base = new Date(ymd + 'T00:00:00' + 'Z');
+  const start = new Date(base.getTime() - 12*60*60*1000); // noon previous day UTC
+  const end = new Date(base.getTime() + 36*60*60*1000 - 1); // just before noon next day UTC
   const events = await Event.find({ isTeamEvent: false, date: { $gte: start, $lte: end } }).lean();
   const blocks = [];
   for (const ev of events) {
+    const eventDateYMD = fmt.dateISO(ev.date);
     const empties = (ev.teeTimes||[])
       .filter(tt => !tt.players || !tt.players.length)
       .map(tt => fmt.tee(tt.time||''));
+    console.log('[reminder-check]', {
+      eventId: ev._id,
+      course: ev.course,
+      eventDate: ev.date,
+      eventDateYMD,
+      ymd,
+      teeTimes: (ev.teeTimes||[]).map(tt => ({ time: tt.time, players: (tt.players||[]).length })),
+      empties
+    });
     if (empties.length) {
-      blocks.push({ course: ev.course||'Course', dateISO: fmt.dateISO(ev.date), dateLong: fmt.dateLong(ev.date), empties });
+      blocks.push({ course: ev.course||'Course', dateISO: eventDateYMD, dateLong: fmt.dateLong(ev.date), empties });
     }
   }
   return blocks;
@@ -1410,67 +1444,39 @@ async function findEmptyTeeTimesForTomorrow(){
 
 async function checkEmptyTeeTimesForAdminAlert(){
   const now = new Date();
-  
-  // Check for events 48 hours from now
-  const in48Hours = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-  const in48HoursDate = in48Hours.toISOString().split('T')[0];
-  
-  // Check for events 24 hours from now
-  const in24Hours = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-  const in24HoursDate = in24Hours.toISOString().split('T')[0];
-  
-  const start48 = new Date(in48HoursDate + 'T00:00:00Z');
-  const end48 = new Date(in48HoursDate + 'T23:59:59Z');
-  const start24 = new Date(in24HoursDate + 'T00:00:00Z');
-  const end24 = new Date(in24HoursDate + 'T23:59:59Z');
-  
-  // Find events in both windows
-  const events48 = await Event.find({ isTeamEvent: false, date: { $gte: start48, $lte: end48 } }).lean();
-  const events24 = await Event.find({ isTeamEvent: false, date: { $gte: start24, $lte: end24 } }).lean();
-  
+  const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const events = await Event.find({ isTeamEvent: false, date: { $gte: now, $lte: in7Days } }).lean();
   let alertsSent = 0;
-  
-  // Check 48-hour events
-  for (const ev of events48) {
-    const empties = (ev.teeTimes||[]).filter(tt => !tt.players || !tt.players.length);
-    if (empties.length > 0) {
-      const emptyTimes = empties.map(tt => fmt.tee(tt.time||'')).join(', ');
-      const html = `
-        <p><strong>⚠️ 48-Hour Alert: Empty Tee Times</strong></p>
-        <p><strong>Event:</strong> ${esc(ev.course||'Course')}</p>
-        <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
-        <p><strong>Empty Tee Times:</strong> ${esc(emptyTimes)}</p>
-        <p><strong>Total Empty:</strong> ${empties.length} of ${ev.teeTimes.length}</p>
-        <p>This event is 48 hours away and has empty tee times. Consider reaching out to members.</p>
-        ${btn('View Event')}
-      `;
-      await sendAdminAlert(`48hr Alert: Empty Tee Times - ${ev.course}`, html);
-      alertsSent++;
-      console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'admin-alert-48hr', event:ev._id, empties:empties.length }));
+  for (const ev of events) {
+    if (!Array.isArray(ev.teeTimes)) continue;
+    for (const tt of ev.teeTimes) {
+      if (tt.players && tt.players.length > 0) continue;
+      if (!tt.time) continue;
+      const [hh, mm] = tt.time.split(':').map(Number);
+      const teeDate = new Date(ev.date);
+      teeDate.setUTCHours(hh, mm, 0, 0);
+      for (const hoursBefore of [24, 48]) {
+        const alertTime = new Date(teeDate.getTime() - hoursBefore * 60 * 60 * 1000);
+        const diff = Math.abs(now - alertTime) / (60 * 1000);
+        if (diff <= 10) {
+          const html = `
+            <p><strong>${hoursBefore === 24 ? '🚨 24-Hour Alert' : '⚠️ 48-Hour Alert'}: Empty Tee Time</strong></p>
+            <p><strong>Event:</strong> ${esc(ev.course||'Course')}</p>
+            <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
+            <p><strong>Tee Time:</strong> ${esc(fmt.tee(tt.time||''))}</p>
+            <p>This tee time is still empty ${hoursBefore} hours before start. Grab a spot if you want to play!</p>
+          `;
+          await sendEmailToAll(
+            `${hoursBefore === 24 ? '🚨 24hr' : '⚠️ 48hr'} Alert: Empty Tee Time for ${ev.course}`,
+            html
+          );
+          alertsSent++;
+          break;
+        }
+      }
     }
   }
-  
-  // Check 24-hour events
-  for (const ev of events24) {
-    const empties = (ev.teeTimes||[]).filter(tt => !tt.players || !tt.players.length);
-    if (empties.length > 0) {
-      const emptyTimes = empties.map(tt => fmt.tee(tt.time||'')).join(', ');
-      const html = `
-        <p><strong>🚨 24-Hour Alert: Empty Tee Times</strong></p>
-        <p><strong>Event:</strong> ${esc(ev.course||'Course')}</p>
-        <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
-        <p><strong>Empty Tee Times:</strong> ${esc(emptyTimes)}</p>
-        <p><strong>Total Empty:</strong> ${empties.length} of ${ev.teeTimes.length}</p>
-        <p>This event is 24 hours away and still has empty tee times. Urgent action may be needed.</p>
-        ${btn('View Event')}
-      `;
-      await sendAdminAlert(`24hr Alert: Empty Tee Times - ${ev.course}`, html);
-      alertsSent++;
-      console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'admin-alert-24hr', event:ev._id, empties:empties.length }));
-    }
-  }
-  
-  return { ok: true, alertsSent, events48: events48.length, events24: events24.length };
+  return { ok: true, alertsSent, eventsChecked: events.length };
 }
 async function runReminderIfNeeded(label){
   const blocks = await findEmptyTeeTimesForTomorrow();
