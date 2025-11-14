@@ -77,10 +77,20 @@ function getWeatherIcon(weatherCode, isDay = true) {
 
 async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) {
   try {
+    if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+      console.error('Weather fetch error: Invalid or missing date', date);
+      return {
+        success: false,
+        condition: 'error',
+        icon: '🌤️',
+        temp: null,
+        description: 'Invalid or missing event date',
+        lastFetched: null
+      };
+    }
     const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
     const today = new Date();
     const daysAhead = Math.ceil((date - today) / (1000 * 60 * 60 * 24));
-    
     // Open-Meteo provides forecasts up to 16 days ahead
     if (daysAhead > 16) {
       console.log(`Weather: Event is ${daysAhead} days ahead (max 16), returning placeholder`);
@@ -93,28 +103,22 @@ async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) 
         lastFetched: null
       };
     }
-    
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`;
-    
     const response = await fetch(url);
     if (!response.ok) {
       console.error(`Weather API HTTP error: ${response.status} ${response.statusText}`);
       throw new Error(`Weather API HTTP ${response.status}`);
     }
-    
     const data = await response.json();
     if (!data.daily || !data.daily.weather_code || data.daily.weather_code[0] === undefined) {
       console.error('Weather API returned incomplete data:', JSON.stringify(data));
       throw new Error('No weather data available');
     }
-    
     const weatherCode = data.daily.weather_code[0];
     const tempMax = data.daily.temperature_2m_max[0];
     const tempMin = data.daily.temperature_2m_min[0];
     const avgTemp = Math.round((tempMax + tempMin) / 2);
-    
     const weatherInfo = getWeatherIcon(weatherCode, true);
-    
     return {
       success: true,
       condition: weatherInfo.condition,
@@ -124,7 +128,11 @@ async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) 
       lastFetched: new Date()
     };
   } catch (e) {
-    console.error('Weather fetch error:', e.message, '(Date:', date.toISOString().split('T')[0], 'Lat:', lat, 'Lon:', lon, ')');
+    let dateStr = 'undefined';
+    if (date && date instanceof Date && !isNaN(date.getTime())) {
+      dateStr = date.toISOString().split('T')[0];
+    }
+    console.error('Weather fetch error:', e.message, '(Date:', dateStr, 'Lat:', lat, 'Lon:', lon, ')');
     return {
       success: false,
       condition: 'error',
@@ -1055,6 +1063,12 @@ app.post('/api/events/weather/refresh-all', async (_req, res) => {
     let errors = [];
     for (const ev of events) {
       try {
+        if (!ev.date || !(ev.date instanceof Date) || isNaN(ev.date.getTime())) {
+          failed++;
+          errors.push({ eventId: ev._id, date: ev.date, reason: 'Missing or invalid event date' });
+          console.error('Weather refresh skipped for event', ev._id, 'due to missing/invalid date:', ev.date);
+          continue;
+        }
         const weatherData = await fetchWeatherForecast(ev.date);
         if (!ev.weather) ev.weather = {};
         ev.weather.condition = weatherData.condition;
@@ -1327,17 +1341,14 @@ app.post('/api/admin/send-custom-message', async (req, res) => {
   try {
     if (!Subscriber) return res.status(500).json({ error: 'Subscriber model not available' });
     
-    // Get all active subscribers (with email enabled)
-    const subscribers = await Subscriber.find({ emailEnabled: true });
-    
+    // Get all subscribers (match admin page logic)
+    const subscribers = await Subscriber.find({}).sort({ createdAt: -1 }).lean();
     if (subscribers.length === 0) {
-      return res.json({ count: 0, message: 'No active subscribers' });
+      return res.json({ count: 0, message: 'No subscribers' });
     }
-    
     // Send email to each subscriber
     let successCount = 0;
     const errors = [];
-    
     for (const subscriber of subscribers) {
       try {
         const unsubLink = `${SITE_URL}unsubscribe?token=${subscriber.unsubscribeToken}`;

@@ -929,8 +929,7 @@
         const response = await fetch(`/api/admin/subscribers?code=${encodeURIComponent(ADMIN_CODE)}`);
         if (response.ok) {
           const subscribers = await response.json();
-          const activeCount = subscribers.filter(s => s.emailEnabled || s.smsEnabled).length;
-          document.getElementById('subscriberCount').textContent = activeCount;
+          document.getElementById('subscriberCount').textContent = subscribers.length;
         }
       } catch (error) {
         console.error('Failed to load subscriber count:', error);
