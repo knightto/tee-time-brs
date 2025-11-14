@@ -1,3 +1,4 @@
+// ...existing code...
 /* server.js v3.13 — daily 5pm empty-tee reminder + manual trigger */
 const path = require('path');
 const express = require('express');
@@ -1453,11 +1454,12 @@ async function findEmptyTeeTimesForTomorrow(){
   return blocks;
 }
 
-async function checkEmptyTeeTimesForAdminAlert(){
+async function checkEmptyTeeTimesForAdminAlert() {
   const now = new Date();
-  const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const events = await Event.find({ isTeamEvent: false, date: { $gte: now, $lte: in7Days } }).lean();
+  const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+  const events = await Event.find({ isTeamEvent: false, date: { $gte: now, $lte: in48h } }).lean();
   let alertsSent = 0;
+  let empties = [];
   for (const ev of events) {
     if (!Array.isArray(ev.teeTimes)) continue;
     for (const tt of ev.teeTimes) {
@@ -1466,28 +1468,30 @@ async function checkEmptyTeeTimesForAdminAlert(){
       const [hh, mm] = tt.time.split(':').map(Number);
       const teeDate = new Date(ev.date);
       teeDate.setUTCHours(hh, mm, 0, 0);
-      for (const hoursBefore of [24, 48]) {
-        const alertTime = new Date(teeDate.getTime() - hoursBefore * 60 * 60 * 1000);
-        const diff = Math.abs(now - alertTime) / (60 * 1000);
-        if (diff <= 10) {
-          const html = `
-            <p><strong>${hoursBefore === 24 ? '🚨 24-Hour Alert' : '⚠️ 48-Hour Alert'}: Empty Tee Time</strong></p>
-            <p><strong>Event:</strong> ${esc(ev.course||'Course')}</p>
-            <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
-            <p><strong>Tee Time:</strong> ${esc(fmt.tee(tt.time||''))}</p>
-            <p>This tee time is still empty ${hoursBefore} hours before start. Grab a spot if you want to play!</p>
-          `;
-          await sendEmailToAll(
-            `${hoursBefore === 24 ? '🚨 24hr' : '⚠️ 48hr'} Alert: Empty Tee Time for ${ev.course}`,
-            html
-          );
-          alertsSent++;
-          break;
-        }
+      if (teeDate > now && teeDate <= in48h) {
+        empties.push({
+          eventId: ev._id,
+          course: ev.course,
+          date: ev.date,
+          teeTime: tt.time
+        });
+        // Send alert for each empty tee time
+        const html = `
+          <p><strong>⚠️ Empty Tee Time Alert</strong></p>
+          <p><strong>Event:</strong> ${esc(ev.course||'Course')}</p>
+          <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
+          <p><strong>Tee Time:</strong> ${esc(fmt.tee(tt.time||''))}</p>
+          <p>This tee time is still empty and is within the next 48 hours. Grab a spot if you want to play!</p>
+        `;
+        await sendEmailToAll(
+          `⚠️ Alert: Empty Tee Time for ${ev.course}`,
+          html
+        );
+        alertsSent++;
       }
     }
   }
-  return { ok: true, alertsSent, eventsChecked: events.length };
+  return { ok: true, alertsSent, empties, eventsChecked: events.length };
 }
 async function runReminderIfNeeded(label){
   const blocks = await findEmptyTeeTimesForTomorrow();
@@ -1509,15 +1513,16 @@ app.get('/admin/run-reminders', async (req, res) => {
   catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
-/* manual trigger for admin alerts: GET /admin/check-empty-tees?code=... */
-app.get('/admin/check-empty-tees', async (req, res) => {
+
+/* manual trigger for admin alerts: GET /admin/alert-empty-tees?code=... */
+app.get('/admin/alert-empty-tees', async (req, res) => {
   const code = req.query.code || '';
   if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) return res.status(403).json({ error: 'Forbidden' });
-  try { 
-    const r = await checkEmptyTeeTimesForAdminAlert(); 
-    return res.json(r); 
-  } catch (e) { 
-    return res.status(500).json({ error: e.message }); 
+  try {
+    const r = await checkEmptyTeeTimesForAdminAlert();
+    return res.json(r);
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
   }
 });
 
