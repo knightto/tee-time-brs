@@ -875,7 +875,14 @@
         }
         return;
       }
-    }catch(err){ console.error(err); alert('Action failed'); }
+    }catch(err){
+      console.error(err);
+      if (err && err.message) {
+        alert('Action failed: ' + err.message);
+      } else {
+        alert('Action failed');
+      }
+    }
   });
 
   async function openMoveDialog(eventId, fromTeeId, playerId){

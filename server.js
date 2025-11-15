@@ -486,9 +486,14 @@ app.delete('/api/events/:id', async (req, res) => {
 
 /* tee/team, players, move endpoints remain as in your current server.js */
 app.post('/api/events/:id/tee-times', async (req, res) => {
+  console.log('[tee-time] Add request', { eventId: req.params.id, body: req.body });
   const ev = await Event.findById(req.params.id);
-  if (!ev) return res.status(404).json({ error: 'Not found' });
+  if (!ev) {
+    console.error('[tee-time] Add failed: event not found', { eventId: req.params.id });
+    return res.status(404).json({ error: 'Not found' });
+  }
   if (ev.isTeamEvent) {
+    console.log('[tee-time] Add team mode', { eventId: ev._id });
     // Accept optional name. If missing/blank, auto-assign the next available "Team N".
     let name = (req.body && typeof req.body.name === 'string') ? String(req.body.name).trim() : '';
     if (!name) {
@@ -517,7 +522,8 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
     }
     
     ev.teeTimes.push({ name, time, players: [] });
-    await ev.save();
+  await ev.save();
+  console.log('[tee-time] Team added', { eventId: ev._id, teamName: name, time });
     
     // Send notification for new team
     await sendEmailToAll(
@@ -530,7 +536,7 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
          ${btn('View Event')}`)
     );
     
-    return res.json(ev);
+  return res.json(ev);
   }
   // For tee times: accept optional time. If missing, compute next time using event data.
   const { time } = req.body || {};
@@ -540,12 +546,22 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
   }
   // Validate HH:MM and ranges
   const m = /^(\d{1,2}):(\d{2})$/.exec(newTime);
-  if (!m) return res.status(400).json({ error: 'time required HH:MM' });
+  if (!m) {
+    console.error('[tee-time] Add failed: invalid time format', { eventId: ev._id, time: newTime });
+    return res.status(400).json({ error: 'time required HH:MM' });
+  }
   const hh = parseInt(m[1], 10); const mm = parseInt(m[2], 10);
-  if (Number.isNaN(hh) || Number.isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return res.status(400).json({ error: 'invalid time' });
-  if (ev.teeTimes.some(t => t.time === newTime)) return res.status(409).json({ error: 'duplicate time' });
+  if (Number.isNaN(hh) || Number.isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) {
+    console.error('[tee-time] Add failed: invalid time value', { eventId: ev._id, time: newTime });
+    return res.status(400).json({ error: 'invalid time' });
+  }
+  if (ev.teeTimes.some(t => t.time === newTime)) {
+    console.error('[tee-time] Add failed: duplicate time', { eventId: ev._id, time: newTime });
+    return res.status(409).json({ error: 'duplicate time' });
+  }
   ev.teeTimes.push({ time: newTime, players: [] });
   await ev.save();
+  console.log('[tee-time] Tee time added', { eventId: ev._id, time: newTime });
   
   // Send notification for new tee time
   await sendEmailToAll(
@@ -597,15 +613,21 @@ app.put('/api/events/:id/tee-times/:teeId', async (req, res) => {
 
 app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
   try {
+    console.log('[tee-time] Remove request', { eventId: req.params.id, teeId: req.params.teeId });
     const ev = await Event.findById(req.params.id);
-    if (!ev) return res.status(404).json({ error: 'Not found' });
+    if (!ev) {
+      console.error('[tee-time] Remove failed: event not found', { eventId: req.params.id });
+      return res.status(404).json({ error: 'Not found' });
+    }
     const tt = ev.teeTimes.id(req.params.teeId);
-    if (!tt) return res.status(404).json({ error: 'tee/team not found' });
-    
+    if (!tt) {
+      console.error('[tee-time] Remove failed: tee/team not found', { eventId: req.params.id, teeId: req.params.teeId });
+      return res.status(404).json({ error: 'tee/team not found' });
+    }
     const teeLabel = getTeeLabel(ev, tt._id);
     tt.deleteOne();
     await ev.save();
-    
+    console.log('[tee-time] Tee/team removed', { eventId: ev._id, teeId: tt._id, teeLabel });
     // Send notification for tee time/team deletion
     await sendEmailToAll(
       `${ev.isTeamEvent ? 'Team' : 'Tee Time'} Removed: ${ev.course} (${fmt.dateISO(ev.date)})`,
@@ -616,9 +638,11 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
          <p><strong>${ev.isTeamEvent ? 'Team' : 'Tee Time'}:</strong> ${esc(teeLabel)}</p>
          ${btn('View Event')}`)
     );
-    
     res.json(ev);
-  } catch (e) { res.status(500).json({ error: e.message }); }
+  } catch (e) {
+    console.error('[tee-time] Remove error', { eventId: req.params.id, teeId: req.params.teeId, error: e.message });
+    res.status(500).json({ error: e.message });
+  }
 });
 app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
   const { name } = req.body || {};
@@ -1482,6 +1506,7 @@ async function checkEmptyTeeTimesForAdminAlert() {
           <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
           <p><strong>Tee Time:</strong> ${esc(fmt.tee(tt.time||''))}</p>
           <p>This tee time is still empty and is within the next 48 hours. Grab a spot if you want to play!</p>
+          <p style="color:#b91c1c;"><strong>IMPORTANT:</strong> If we are not going to use this tee time, someone needs to let the clubhouse know as soon as possible.</p>
         `;
         await sendEmailToAll(
           `⚠️ Alert: Empty Tee Time for ${ev.course}`,
