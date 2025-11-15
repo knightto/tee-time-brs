@@ -242,12 +242,10 @@
     <div class="test-section" style="background: #dbeafe; border-color: #3b82f6;">
       <h2 style="color: #1e40af;">⚡ Quick Actions</h2>
       <div class="test-buttons">
-        <button class="btn-test" style="background: #3b82f6;" onclick="refreshAllWeather()">🌤️ Refresh All Weather</button>
-        <button class="btn-test" style="background: #3b82f6;" onclick="sendTestEmail()">� Send Test Email</button>
-        <button class="btn-test" style="background: #3b82f6;" onclick="checkEmptyTees()">⚠️ Check Empty Tees Now</button>
-        <button class="btn-test" style="background: #10b981;" onclick="verifyCourseData()">🏌️ Verify Golf Course Data</button>
-        <button class="btn-test" style="background: #3b82f6;" onclick="viewAuditLogs()">📋 View All Audit Logs</button>
-        <button class="btn-test" style="background: #8b5cf6;" onclick="showCustomMessageDialog()">💬 Message All Subscribers</button>
+  <button class="btn-test" style="background: #3b82f6;" onclick="refreshAllWeather()">🌤️ Refresh All Weather</button>
+  <button class="btn-test" style="background: #3b82f6;" onclick="checkEmptyTees()">⚠️ Check Empty Tees Now</button>
+  <button class="btn-test" style="background: #10b981;" onclick="verifyCourseData()">🏌️ Verify Golf Course Data</button>
+  <button class="btn-test" style="background: #8b5cf6;" onclick="showCustomMessageDialog()">💬 Message All Subscribers</button>
       </div>
       <div id="quickResult" class="test-result"></div>
     </div>
@@ -645,7 +643,7 @@
     async function checkEmptyTees() {
       try {
         showQuickResult('⏳ Checking for empty tee times...');
-        const response = await fetch(`/admin/check-empty-tees?code=${encodeURIComponent(ADMIN_CODE)}`);
+  const response = await fetch(`/admin/alert-empty-tees?code=${encodeURIComponent(ADMIN_CODE)}`);
         
         if (!response.ok) throw new Error('Failed to check');
         const result = await response.json();
@@ -889,7 +887,7 @@
 
     async function testAdminAlerts() {
       try {
-        const response = await fetch(`/admin/check-empty-tees?code=${encodeURIComponent(ADMIN_CODE)}`);
+  const response = await fetch(`/admin/alert-empty-tees?code=${encodeURIComponent(ADMIN_CODE)}`);
         
         if (!response.ok) throw new Error('Failed to check admin alerts');
         const result = await response.json();
