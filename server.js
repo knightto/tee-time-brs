@@ -1,3 +1,42 @@
+// Alert for nearly full tee times (4 days out or less, >50% full)
+async function alertNearlyFullTeeTimes() {
+  const now = new Date();
+  const fourDaysOut = new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000);
+  // Find all tee-time events (not team events) within next 4 days (inclusive)
+  const events = await Event.find({ isTeamEvent: false, date: { $gte: now, $lte: fourDaysOut } }).lean();
+  let blocks = [];
+  for (const ev of events) {
+    if (!Array.isArray(ev.teeTimes) || !ev.teeTimes.length) continue;
+    const max = 4; // max per tee time
+    const fullTeeTimes = ev.teeTimes.filter(tt => Array.isArray(tt.players) && tt.players.length / max > 0.5);
+    if (fullTeeTimes.length) {
+      blocks.push({
+        course: ev.course || 'Course',
+        dateISO: fmt.dateISO(ev.date),
+        dateLong: fmt.dateLong(ev.date),
+        teeTimes: fullTeeTimes.map(tt => ({
+          time: fmt.tee(tt.time),
+          count: tt.players.length
+        })),
+        total: ev.teeTimes.length
+      });
+    }
+  }
+  if (!blocks.length) return { ok: true, sent: 0, message: 'No nearly full tee times' };
+  // Compose email
+  const rows = blocks.map(b => {
+    const list = b.teeTimes.map(t => `<li><strong>${t.time}</strong> — ${t.count} of 4 spots filled</li>`).join('');
+    return `<div style="margin:12px 0;padding:12px;border:1px solid #e5e7eb;border-radius:8px">
+      <p style="margin:0 0 6px 0"><strong>${esc(b.course)}</strong> — ${esc(b.dateLong)} (${esc(b.dateISO)})</p>
+      <p style="margin:0 0 6px 0">Tee times more than 50% full:</p>
+      <ul style="margin:0 0 0 18px">${list}</ul>
+      <p style="color:#b91c1c;"><strong>Consider calling the clubhouse to request an additional tee time if needed.</strong></p>
+    </div>`;
+  }).join('');
+  const html = frame('Tee Times Nearly Full', `<p>The following tee times are more than 50% full (4 days out or less):</p>${rows}${btn('Go to Sign-up Page')}`);
+  const res = await sendEmailToAll('Alert: Tee Times Nearly Full', html);
+  return { ok: true, sent: res.sent, blocks };
+}
 // ...existing code...
 /* server.js v3.13 — daily 5pm empty-tee reminder + manual trigger */
 const path = require('path');
@@ -248,9 +287,14 @@ function btn(label='Go to Sign-up Page'){
 function frame(title, body){
   return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f6f7f9;padding:24px"><tr><td align="center"><table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:#ffffff;border-radius:10px;padding:24px;border:1px solid #e5e7eb"><tr><td><h2 style="margin:0 0 12px 0;color:#111827;font-size:20px">${esc(title)}</h2>${body}<p style="color:#6b7280;font-size:12px;margin-top:24px">You received this because you subscribed to tee time updates.</p></td></tr></table></td></tr></table>`;
 }
-function reminderEmail(blocks){
+function reminderEmail(blocks, opts = {}){
   // blocks: [{course, dateISO, dateLong, empties: ['08:18 AM','08:28 AM']}]
   if (!blocks.length) return '';
+  const { daysAhead = 1 } = opts;
+  const when = daysAhead === 2 ? 'in 2 days' : 'Tomorrow';
+  const expl = daysAhead === 2
+    ? '<p><strong>This is a 48-hour advance notice.</strong> These tee times are still empty for events happening in 2 days. Grab a spot if you want to play!</p>'
+    : '<p>These tee times are still empty. Grab a spot:</p>';
   const rows = blocks.map(b=>{
     const list = b.empties.map(t=>`<li>${esc(t)}</li>`).join('');
     return `<div style="margin:12px 0;padding:12px;border:1px solid #e5e7eb;border-radius:8px">
@@ -259,7 +303,7 @@ function reminderEmail(blocks){
       <ul style="margin:0 0 0 18px">${list}</ul>
     </div>`;
   }).join('');
-  return frame('Reminder: Empty Tee Times Tomorrow', `<p>These tee times are still empty. Grab a spot:</p>${rows}${btn('Go to Sign-up Page')}`);
+  return frame(`Reminder: Empty Tee Times ${when}`, `${expl}${rows}${btn('Go to Sign-up Page')}`);
 }
 
 /* local YMD in a TZ */
@@ -1435,23 +1479,17 @@ async function sendAdminAlert(subject, htmlBody) {
   return { ok: true, sent };
 }
 
-function tomorrowYMDLocal(){
+function ymdLocalPlusDays(days=1){
   const now = new Date();
   const ymd = ymdInTZ(now, LOCAL_TZ);
   const [y,m,d] = ymd.split('-').map(Number);
-  const baseUTCNoon = new Date(Date.UTC(y, m-1, d, 12, 0, 0)); // today at local date, noon UTC marker
-  const tomUTCNoon = addDaysUTC(baseUTCNoon, 1);
-  // We only need its local YMD string:
-  return ymdInTZ(tomUTCNoon, LOCAL_TZ);
+  const baseUTCNoon = new Date(Date.UTC(y, m-1, d, 12, 0, 0));
+  const targetUTCNoon = addDaysUTC(baseUTCNoon, days);
+  return ymdInTZ(targetUTCNoon, LOCAL_TZ);
 }
-async function findEmptyTeeTimesForTomorrow(){
-  const ymd = tomorrowYMDLocal(); // 'YYYY-MM-DD' in local TZ
+async function findEmptyTeeTimesForDay(daysAhead = 1){
+  const ymd = ymdLocalPlusDays(daysAhead); // 'YYYY-MM-DD' in local TZ
   // Robust window: include events from noon UTC previous day to noon UTC next day
-  const noonUTC = (d) => {
-    const dt = new Date(d);
-    dt.setUTCHours(12,0,0,0);
-    return dt;
-  };
   const base = new Date(ymd + 'T00:00:00' + 'Z');
   const start = new Date(base.getTime() - 12*60*60*1000); // noon previous day UTC
   const end = new Date(base.getTime() + 36*60*60*1000 - 1); // just before noon next day UTC
@@ -1459,17 +1497,25 @@ async function findEmptyTeeTimesForTomorrow(){
   const blocks = [];
   for (const ev of events) {
     const eventDateYMD = fmt.dateISO(ev.date);
-    const empties = (ev.teeTimes||[])
-      .filter(tt => !tt.players || !tt.players.length)
-      .map(tt => fmt.tee(tt.time||''));
+    const empties = [];
+    const malformed = [];
+    for (const tt of (ev.teeTimes || [])) {
+      if (!Array.isArray(tt.players)) {
+        empties.push(fmt.tee(tt.time||''));
+        malformed.push({ time: tt.time, players: tt.players });
+      } else if (tt.players.length === 0) {
+        empties.push(fmt.tee(tt.time||''));
+      }
+    }
     console.log('[reminder-check]', {
       eventId: ev._id,
       course: ev.course,
       eventDate: ev.date,
       eventDateYMD,
       ymd,
-      teeTimes: (ev.teeTimes||[]).map(tt => ({ time: tt.time, players: (tt.players||[]).length })),
-      empties
+      teeTimes: (ev.teeTimes||[]).map(tt => ({ time: tt.time, players: Array.isArray(tt.players) ? tt.players.length : 'MALFORMED', rawPlayers: tt.players })),
+      empties,
+      malformed
     });
     if (empties.length) {
       blocks.push({ course: ev.course||'Course', dateISO: eventDateYMD, dateLong: fmt.dateLong(ev.date), empties });
@@ -1518,15 +1564,16 @@ async function checkEmptyTeeTimesForAdminAlert() {
   }
   return { ok: true, alertsSent, empties, eventsChecked: events.length };
 }
-async function runReminderIfNeeded(label){
-  const blocks = await findEmptyTeeTimesForTomorrow();
+async function runReminderIfNeeded(label, daysAhead = 1){
+  const blocks = await findEmptyTeeTimesForDay(daysAhead);
   if (!blocks.length) {
-    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'reminder-skip', reason:'no empty tees', label }));
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'reminder-skip', reason:'no empty tees', label, daysAhead }));
     return { ok:true, sent:0 };
   }
-  const html = reminderEmail(blocks);
-  const res = await sendEmailToAll('Reminder: Empty Tee Times Tomorrow', html);
-  console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'reminder-sent', sent:res.sent, label }));
+  const html = reminderEmail(blocks, { daysAhead });
+  const subj = daysAhead === 2 ? 'Reminder: Empty Tee Times in 2 Days' : 'Reminder: Empty Tee Times Tomorrow';
+  const res = await sendEmailToAll(subj, html);
+  console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'reminder-sent', sent:res.sent, label, daysAhead }));
   return res;
 }
 
@@ -1534,7 +1581,11 @@ async function runReminderIfNeeded(label){
 app.get('/admin/run-reminders', async (req, res) => {
   const code = req.query.code || '';
   if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) return res.status(403).json({ error: 'Forbidden' });
-  try { const r = await runReminderIfNeeded('manual'); return res.json(r); }
+  try {
+    const r48 = await runReminderIfNeeded('manual-48hr', 2);
+    const r24 = await runReminderIfNeeded('manual-24hr', 1);
+    return res.json({ r48, r24 });
+  }
   catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
@@ -1652,40 +1703,53 @@ async function refreshWeatherForUpcomingEvents() {
    Only enable when running as the entry point (not when imported by tests)
    and when ENABLE_SCHEDULER is not explicitly disabled. */
 if (require.main === module && process.env.ENABLE_SCHEDULER !== '0') {
-  let lastRunForYMD = null;
+  let lastRunForYMD_24 = null;
+  let lastRunForYMD_48 = null;
   let lastAdminCheckHour = null;
   let lastWeatherRefreshHour = null;
-  
+
   setInterval(async () => {
     try {
       const now = new Date();
       const parts = new Intl.DateTimeFormat('en-US', { timeZone: LOCAL_TZ, hour:'2-digit', minute:'2-digit', hour12:false }).format(now).split(':');
       const hour = Number(parts[0]), minute = Number(parts[1]);
       const todayLocalYMD = ymdInTZ(now, LOCAL_TZ);
-      
-      // Daily 5:00 PM reminder for tomorrow's empty tee times (sent to subscribers)
-      if (hour === 17 && minute === 0 && lastRunForYMD !== todayLocalYMD) {
-        lastRunForYMD = todayLocalYMD;
-        await runReminderIfNeeded('auto-17:00');
+      const ymd48 = ymdLocalPlusDays(2);
+
+
+      // Daily 5:00 PM reminders
+      if (hour === 17 && minute === 0) {
+        // Empty tee times 2 days ahead (48hr)
+        if (lastRunForYMD_48 !== ymd48) {
+          lastRunForYMD_48 = ymd48;
+          await runReminderIfNeeded('auto-17:00-48hr', 2);
+        }
+        // Empty tee times tomorrow (24hr)
+        if (lastRunForYMD_24 !== todayLocalYMD) {
+          lastRunForYMD_24 = todayLocalYMD;
+          await runReminderIfNeeded('auto-17:00-24hr', 1);
+        }
+        // Nearly full tee times (4 days out or less)
+        await alertNearlyFullTeeTimes();
       }
-      
+
       // Admin alerts for empty tee times (48hr and 24hr checks)
       // Run every 6 hours at: 6 AM, 12 PM, 6 PM, 12 AM
       if ([0, 6, 12, 18].includes(hour) && minute === 0 && lastAdminCheckHour !== hour) {
         lastAdminCheckHour = hour;
         const result = await checkEmptyTeeTimesForAdminAlert();
         console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'admin-check-complete', result }));
-        
+
         // Reset at end of day
         if (hour === 0) lastAdminCheckHour = null;
       }
-      
+
       // Weather refresh for events in next 7 days
       // Run every 2 hours at: 12 AM, 2 AM, 4 AM, 6 AM, 8 AM, 10 AM, 12 PM, 2 PM, 4 PM, 6 PM, 8 PM, 10 PM
       if (hour % 2 === 0 && minute === 0 && lastWeatherRefreshHour !== hour) {
         lastWeatherRefreshHour = hour;
         await refreshWeatherForUpcomingEvents();
-        
+
         // Reset at end of day
         if (hour === 0) lastWeatherRefreshHour = null;
       }
@@ -1693,8 +1757,8 @@ if (require.main === module && process.env.ENABLE_SCHEDULER !== '0') {
       console.error('scheduler tick error', e);
     }
   }, 60 * 1000); // check once per minute
-  
-  console.log('Scheduler enabled: Daily reminders at 5 PM, Admin alerts every 6 hours, Weather refresh every 2 hours');
+
+  console.log('Scheduler enabled: Daily reminders at 5 PM (24hr & 48hr), Admin alerts every 6 hours, Weather refresh every 2 hours');
 }
 
 if (require.main === module) {

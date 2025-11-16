@@ -354,22 +354,29 @@
       const eventId = data.eventId;
       const teeId = data.teeId;
       const isTeam = data.isTeam === '1';
-      const value = (data.value || '').trim();
+      // Always use input value for tee times (select is hidden)
+      let value = (data.value || '').trim();
       if (!value) {
         alert(isTeam ? 'Team name is required' : 'Tee time is required');
         return;
       }
-      // For tee times, validate HH:MM format
-      if (!isTeam && !/^\d{2}:\d{2}$/.test(value)) {
-        alert('Tee time must be in HH:MM format (e.g., 07:00)');
-        return;
+      // For tee times, validate HH:MM format (allow H:MM and pad)
+      if (!isTeam) {
+        let m = /^\d{1,2}:\d{2}$/.exec(value);
+        if (!m) {
+          alert('Tee time must be in HH:MM format (e.g., 07:00)');
+          return;
+        }
+        // Pad to HH:MM
+        let [h, mm] = value.split(':');
+        value = `${h.padStart(2,'0')}:${mm}`;
       }
       const payload = isTeam ? { name: value } : { time: value };
       await api(`/api/events/${eventId}/tee-times/${teeId}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
       editTeeModal?.close?.(); load();
     }catch(err){ 
       console.error(err); 
-      alert('Save failed: ' + (err.message || 'Unknown error')); 
+      alert('Save failed: ' + (err.message || 'Unknown error'));
     }
   });
 
@@ -616,7 +623,7 @@
       
       // Weather icon inline with date (doubled size)
       const weatherIcon = ev.weather && ev.weather.icon 
-        ? `<span class="weather-inline" style="font-size:3em" title="${ev.weather.description || 'Weather forecast'}">${ev.weather.icon}</span>` 
+        ? `<span class="weather-inline" style="font-size:3em;cursor:pointer" title="${ev.weather.description || 'Weather forecast'}" data-weather-info='${JSON.stringify({temp: ev.weather.temp, desc: ev.weather.description, icon: ev.weather.icon})}'>${ev.weather.icon}</span>` 
         : '';
       
       // Course details
@@ -652,6 +659,51 @@
         </div>`;
       eventsEl.appendChild(card);
     }
+    // Add touch/click handler for weather icon to show temp/desc on mobile
+    setTimeout(() => {
+      document.querySelectorAll('.weather-inline').forEach(el => {
+        // Remove any previous handler
+        el.removeEventListener('touchstart', el._weatherTouchHandler);
+        el.removeEventListener('click', el._weatherTouchHandler);
+        // Handler
+        el._weatherTouchHandler = function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          // Remove any existing popup
+          document.querySelectorAll('.weather-popup').forEach(p => p.remove());
+          const info = el.dataset.weatherInfo ? JSON.parse(el.dataset.weatherInfo) : {};
+          const popup = document.createElement('div');
+          popup.className = 'weather-popup';
+          popup.style.position = 'fixed';
+          popup.style.zIndex = 9999;
+          popup.style.background = '#fff';
+          popup.style.color = '#222';
+          popup.style.border = '1px solid #bbb';
+          popup.style.borderRadius = '8px';
+          popup.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
+          popup.style.padding = '12px 18px';
+          popup.style.fontSize = '1.1em';
+          popup.style.minWidth = '120px';
+          popup.style.textAlign = 'center';
+          popup.innerHTML = `<div style="font-size:2em">${info.icon||''}</div><div style="margin:4px 0">${info.temp !== undefined && info.temp !== null ? info.temp + '°F' : ''}</div><div style="font-size:0.95em;color:#555">${info.desc||''}</div>`;
+          // Position popup near touch/click
+          let x = (e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX) || 100;
+          let y = (e.touches && e.touches[0] ? e.touches[0].clientY : e.clientY) || 100;
+          popup.style.left = Math.max(10, x - 60) + 'px';
+          popup.style.top = Math.max(10, y + 10) + 'px';
+          document.body.appendChild(popup);
+          // Remove popup on next touch/click/scroll
+          const removePopup = () => { popup.remove(); document.removeEventListener('touchstart', removePopup, true); document.removeEventListener('click', removePopup, true); document.removeEventListener('scroll', removePopup, true); };
+          setTimeout(() => {
+            document.addEventListener('touchstart', removePopup, true);
+            document.addEventListener('click', removePopup, true);
+            document.addEventListener('scroll', removePopup, true);
+          }, 10);
+        };
+        el.addEventListener('touchstart', el._weatherTouchHandler);
+        el.addEventListener('click', el._weatherTouchHandler);
+      });
+    }, 0);
   }
 
   function teeRow(ev, tt, idx, isTeams){
@@ -670,12 +722,17 @@
     const full = (tt.players || []).length >= (isTeams ? max : 4);
     const left = isTeams ? (tt.name ? tt.name : `Team ${idx+1}`) : (tt.time ? fmtTime(tt.time) : '—');
     const delTitle = isTeams ? 'Remove team' : 'Remove tee time';
-    const editTitle = isTeams ? 'Edit team name' : 'Edit tee time';
+    // Only show edit button for teams, not tee times
+    let editBtn = '';
+    if (isTeams) {
+      const editTitle = 'Edit team name';
+      editBtn = `<button class="icon small" title="${editTitle}" data-edit-tee="${ev._id}:${tt._id}">✎</button>`;
+    }
     return `<div class="tee ${full ? 'tee-full' : ''}">
       <div class="tee-meta">
         <div class="tee-time">${left}</div>
         <div class="tee-actions">
-          <button class="icon small" title="${editTitle}" data-edit-tee="${ev._id}:${tt._id}">✎</button>
+          ${editBtn}
           <button class="icon small danger" title="${delTitle}" data-del-tee="${ev._id}:${tt._id}">×</button>
         </div>
       </div>
@@ -837,18 +894,14 @@
           editTeeSelect.style.display = 'none';
           editTeeInput.value = tee.name || '';
         } else {
-          // Show select dropdown for tee time
-          editTeeInput.style.display = 'none';
-          editTeeSelect.style.display = '';
-          // Populate time options
-          const timeOptions = generateTimeOptions();
-          editTeeSelect.innerHTML = timeOptions.map(time => {
-            const label = fmtTime(time);
-            return `<option value="${time}">${label}</option>`;
-          }).join('');
-          // Select current time
-          editTeeSelect.value = tee.time || '';
+          // Only show free input for tee time
+          editTeeInput.style.display = '';
+          editTeeSelect.style.display = 'none';
+          editTeeInput.value = tee.time || '';
         }
+        // Always enable Save button if value is present
+        const saveBtn = editTeeForm.querySelector('button[type="submit"]');
+        saveBtn.disabled = false;
         
         editTeeForm.elements['eventId'].value = eventId;
         editTeeForm.elements['teeId'].value = teeId;
