@@ -1,3 +1,11 @@
+// Register service worker for PWA support
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    navigator.serviceWorker.register('/service-worker.js')
+      .then(reg => console.log('Service Worker registered:', reg.scope))
+      .catch(err => console.error('Service Worker registration failed:', err));
+  });
+}
 // patch.js — Safe click handling for tee-time action icons. Load AFTER your main script.js
 (function(){
   function closestAction(el){
