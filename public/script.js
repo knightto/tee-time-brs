@@ -574,16 +574,19 @@ if ('serviceWorker' in navigator) {
     }
   }
   
+
   // Calendar navigation
   on(prevMonthBtn, 'click', () => {
     currentDate.setMonth(currentDate.getMonth() - 1);
     renderCalendar();
   });
-  
+
   on(nextMonthBtn, 'click', () => {
     currentDate.setMonth(currentDate.getMonth() + 1);
     renderCalendar();
   });
+
+  // No MutationObserver: only call load() after successful actions
 
   async function load(){ 
     try{ 
@@ -798,7 +801,7 @@ if ('serviceWorker' in navigator) {
         t.disabled = true;
         t.textContent = 'Removing...';
         await api(`/api/events/${eventId}/tee-times/${teeId}`, { method: 'DELETE' });
-        await load();
+        await updateEventCard(eventId);
         return;
       }
       if(t.dataset.delPlayer){
@@ -807,7 +810,7 @@ if ('serviceWorker' in navigator) {
         t.disabled = true;
         t.textContent = '...';
         await api(`/api/events/${eventId}/tee-times/${teeId}/players/${playerId}`, { method: 'DELETE' });
-        await load();
+        await updateEventCard(eventId);
         return;
       }
       if(t.dataset.addTee){
@@ -827,7 +830,8 @@ if ('serviceWorker' in navigator) {
             while (used.has(`Team ${nextTeamNum}`)) nextTeamNum++;
             const name = `Team ${nextTeamNum}`;
             await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ name }) });
-          }else{
+            await updateEventCard(id);
+        }else{
             // For tee time events, show a select dialog for time
             let dialog = document.getElementById('teeTimeSelectDialog');
             if (!dialog) {
@@ -873,7 +877,7 @@ if ('serviceWorker' in navigator) {
                 const origText = t.textContent;
                 t.textContent = 'Adding...';
                 await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
-                await load();
+                await updateEventCard(id);
                 t.disabled = false;
                 t.textContent = origText;
                 resolve();
@@ -881,7 +885,34 @@ if ('serviceWorker' in navigator) {
               dialog.showModal();
             });
           }
-        await load();
+        return;
+      }
+      if(t.dataset.del){
+        const code=prompt('Admin delete code:'); if(!code) return;
+        t.disabled = true;
+        t.textContent = 'Deleting...';
+        t.style.background = '#dc2626';
+        t.style.color = 'white';
+        try {
+          await api(`/api/events/${t.dataset.del}?code=${encodeURIComponent(code)}`,{method:'DELETE'});
+          await updateEventCard(t.dataset.del);
+        } catch(err) {
+          console.error(err);
+          t.disabled = false;
+          t.textContent = 'Delete';
+          t.style.background = '';
+          t.style.color = '';
+          alert('Delete failed: ' + (err.message || 'Invalid code or network error'));
+        }
+        return;
+      }
+      if(t.dataset.delPlayer){
+        const [eventId, teeId, playerId] = t.dataset.delPlayer.split(':');
+        if(!confirm('Remove this player?')) return;
+        t.disabled = true;
+        t.textContent = '...';
+        await api(`/api/events/${eventId}/tee-times/${teeId}/players/${playerId}`, { method: 'DELETE' });
+        await updateEventCard(eventId);
         return;
       }
       if(t.dataset.addPlayer){
@@ -891,7 +922,7 @@ if ('serviceWorker' in navigator) {
           t.disabled = true;
           t.textContent = 'Adding...';
           await api(`/api/events/${id}/tee-times/${teeId}/players`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
-          await load();
+          await updateEventCard(id);
           return;
         } catch (err) {
           console.error(err);
@@ -961,7 +992,7 @@ if ('serviceWorker' in navigator) {
         t.style.color = 'white';
         try {
           await api(`/api/events/${t.dataset.del}?code=${encodeURIComponent(code)}`,{method:'DELETE'});
-          await load();
+          await updateEventCard(t.dataset.del);
         } catch(err) {
           console.error(err);
           t.disabled = false;
@@ -1325,6 +1356,44 @@ if ('serviceWorker' in navigator) {
       return 'Failed to clear cache';
     }
   };
+
+  // Update only a single event card in the DOM
+  async function updateEventCard(eventId) {
+    try {
+      const ev = (await api('/api/events')).find(x => x._id === eventId);
+      if (!ev) return load(); // fallback
+      // Find the card
+      const card = document.querySelector(`.card [data-edit='${eventId}']`)?.closest('.card');
+      if (!card) return load(); // fallback
+      // Re-render just this card
+      const isTeams = !!ev.isTeamEvent;
+      let teesArr = ev.teeTimes || [];
+      if (!isTeams) {
+        teesArr = teesArr.slice().sort((a, b) => {
+          if (!a.time || !b.time) return 0;
+          const [ah, am] = a.time.split(":").map(Number);
+          const [bh, bm] = b.time.split(":").map(Number);
+          return ah !== bh ? ah - bh : am - bm;
+        });
+      }
+      const tees = teesArr.map((tt,idx)=>teeRow(ev,tt,idx,isTeams)).join('');
+      const maybeList = (ev.maybeList || []).map((name, idx) => {
+        const safe = String(name).replace(/"/g, '&quot;');
+        return `<span class=\"maybe-chip\" title=\"${safe}\">\n        <span class=\"maybe-name\">${name}</span>\n        <button class=\"icon small danger\" title=\"Remove\" data-remove-maybe=\"${ev._id}:${idx}\">×</button>\n      </span>`;
+      }).join('');
+      const maybeSection = `\n      <div class=\"maybe-section\">\n        <div class=\"maybe-header\">\n          <h4>🤔 Maybe List</h4>\n          <button class=\"small\" data-add-maybe=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px\">+ Interested</button>\n        </div>\n        <div class=\"maybe-list\">\n          ${maybeList || '<em style=\"color:var(--slate-700);font-size:11px;opacity:0.7\">No one yet</em>'}\n        </div>\n      </div>\n    `;
+      const weatherIcon = ev.weather && ev.weather.icon 
+        ? `<span class=\"weather-inline\" style=\"font-size:3em;cursor:pointer\" title=\"${ev.weather.description || 'Weather forecast'}\" data-weather-info='${JSON.stringify({temp: ev.weather.temp, desc: ev.weather.description, icon: ev.weather.icon})}'>${ev.weather.icon}</span>` 
+        : '';
+      const courseDetails = ev.courseInfo && (ev.courseInfo.city || ev.courseInfo.phone || ev.courseInfo.website) 
+        ? `<div style=\"font-size:13px;color:var(--slate-700);margin-top:4px\">\n          ${ev.courseInfo.city && ev.courseInfo.state ? `<span>📍 ${ev.courseInfo.city}, ${ev.courseInfo.state}</span>` : ''}\n          ${ev.courseInfo.phone ? `<span style=\"margin-left:12px\">📞 ${ev.courseInfo.phone}</span>` : ''}\n          ${ev.courseInfo.website ? `<span style=\"margin-left:12px\"><a href=\"${ev.courseInfo.website}\" target=\"_blank\" style=\"color:var(--blue-600);text-decoration:none\">🔗 Website</a></span>` : ''}\n          ${ev.courseInfo.holes && ev.courseInfo.par ? `<span style=\"margin-left:12px\">⛳ ${ev.courseInfo.holes} holes, Par ${ev.courseInfo.par}</span>` : ''}\n        </div>`
+        : '';
+      card.innerHTML = `\n      <div class=\"card-header\">\n        <div class=\"card-header-left\">\n          <h3 class=\"card-title\">${ev.course || 'Course'}</h3>\n          <div class=\"card-date\">\n            ${fmtDate(ev.date)} ${weatherIcon}\n            <button class=\"small\" data-audit=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7\" title=\"View Audit Log\">📋</button>\n          </div>\n          ${courseDetails}\n        </div>\n        <div class=\"button-row\">\n          <button class=\"small\" data-add-tee=\"${ev._id}\">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>\n          <button class=\"small\" data-edit=\"${ev._id}\">Edit</button>\n          <button class=\"small\" data-del=\"${ev._id}\">Delete</button>\n        </div>\n      </div>\n      <div class=\"card-content\">\n        ${maybeSection}\n        <div class=\"tees\">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>\n        ${ev.notes ? `<div class=\"notes\">${ev.notes}</div>` : ''}\n      </div>`;
+    } catch (e) {
+      console.error('Failed to update event card:', e);
+      load();
+    }
+  }
 
   load();
 })();

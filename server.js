@@ -530,7 +530,7 @@ app.delete('/api/events/:id', async (req, res) => {
 
 /* tee/team, players, move endpoints remain as in your current server.js */
 app.post('/api/events/:id/tee-times', async (req, res) => {
-  console.log('[tee-time] Add request', { eventId: req.params.id, body: req.body });
+  // Clean logging: only log errors or important info
   const ev = await Event.findById(req.params.id);
   if (!ev) {
     console.error('[tee-time] Add failed: event not found', { eventId: req.params.id });
@@ -695,30 +695,45 @@ app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
   if (!name) return res.status(400).json({ error: 'name required' });
   const trimmedName = String(name).trim();
   if (!trimmedName) return res.status(400).json({ error: 'name cannot be empty' });
-  
+
   const ev = await Event.findById(req.params.id);
   if (!ev) return res.status(404).json({ error: 'Not found' });
   const tt = ev.teeTimes.id(req.params.teeId);
   if (!tt) return res.status(404).json({ error: 'tee time not found' });
   if (!Array.isArray(tt.players)) tt.players = [];
-  
+
+  // Extra logging for debugging
+  console.log('[add_player] Request', {
+    eventId: req.params.id,
+    teeId: req.params.teeId,
+    playerName: trimmedName,
+    eventDate: ev.date,
+    now: new Date().toISOString(),
+    players: tt.players.map(p => p.name)
+  });
+  // Special test message for event on 11/16
+  const eventDateStr = ev.date instanceof Date ? ev.date.toISOString().slice(0,10) : String(ev.date).slice(0,10);
+  if (eventDateStr === '2025-11-16') {
+    console.log('[add_player][TEST] Adding player to 11/16 event:', trimmedName);
+  }
+
   const maxSize = ev.isTeamEvent ? (ev.teamSizeMax || 4) : 4;
   if (tt.players.length >= maxSize) return res.status(400).json({ error: ev.isTeamEvent ? 'team full' : 'tee time full' });
-  
+
   // Anti-chaos check: duplicate name prevention
   if (isDuplicatePlayerName(ev, trimmedName)) {
     return res.status(409).json({ error: 'duplicate player name', message: 'A player with this name already exists. Use a nickname (e.g., "John S" or "John 2").' });
   }
-  
+
   tt.players.push({ name: trimmedName });
   await ev.save();
-  
+
   // Audit log
   await logAudit(ev._id, 'add_player', trimmedName, {
     teeId: tt._id,
     teeLabel: getTeeLabel(ev, tt._id)
   });
-  
+
   // Send notification email only if notifications are enabled
   if (ev.notificationsEnabled !== false) {
     const teeLabel = getTeeLabel(ev, tt._id);
@@ -732,7 +747,7 @@ app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
          ${btn('View Event')}`)
     );
   }
-  
+
   res.json(ev);
 });
 app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res) => {
@@ -744,18 +759,34 @@ app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res
     if (!Array.isArray(tt.players)) tt.players = [];
     const idx = tt.players.findIndex(p => String(p._id) === String(req.params.playerId));
     if (idx === -1) return res.status(404).json({ error: 'player not found' });
-    
+
+    // Extra logging for debugging
     const playerName = tt.players[idx].name;
     const teeLabel = getTeeLabel(ev, tt._id);
+    console.log('[remove_player] Request', {
+      eventId: req.params.id,
+      teeId: req.params.teeId,
+      playerId: req.params.playerId,
+      playerName,
+      eventDate: ev.date,
+      now: new Date().toISOString(),
+      players: tt.players.map(p => p.name)
+    });
+    // Special test message for event on 11/16
+    const eventDateStr = ev.date instanceof Date ? ev.date.toISOString().slice(0,10) : String(ev.date).slice(0,10);
+    if (eventDateStr === '2025-11-16') {
+      console.log('[remove_player][TEST] Removing player from 11/16 event:', playerName);
+    }
+
     tt.players.splice(idx, 1);
     await ev.save();
-    
+
     // Audit log
     await logAudit(ev._id, 'remove_player', playerName, {
       teeId: tt._id,
       teeLabel: teeLabel
     });
-    
+
     // Send notification email
     await sendEmailToAll(
       `Player Removed: ${ev.course} (${fmt.dateISO(ev.date)})`,
@@ -766,7 +797,7 @@ app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res
          <p><strong>${ev.isTeamEvent ? 'Team' : 'Tee Time'}:</strong> ${esc(teeLabel)}</p>
          ${btn('View Event')}`)
     );
-    
+
     return res.json(ev);
   } catch (e) {
     return res.status(500).json({ error: e.message });
