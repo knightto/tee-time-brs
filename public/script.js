@@ -810,24 +810,16 @@
             const name = `Team ${nextTeamNum}`;
             await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ name }) });
           }else{
-            // For tee time events
-            let timeToAdd = null;
-            
-            // If no tee times exist, prompt for the first tee time
-            if (!ev.teeTimes || ev.teeTimes.length === 0) {
-              const userTime = prompt('Enter first tee time (HH:MM format, e.g., 07:00):');
-              if (!userTime) return; // User cancelled
-              
-              // Validate HH:MM format
-              if (!/^\d{1,2}:\d{2}$/.test(userTime.trim())) {
-                alert('Invalid time format. Please use HH:MM (e.g., 07:00)');
-                return;
-              }
-              timeToAdd = userTime.trim();
+            // For tee time events, always prompt for a time
+            const userTime = prompt('Enter tee time (HH:MM format, e.g., 07:00):');
+            if (!userTime) return; // User cancelled
+            // Validate HH:MM format
+            if (!/^\d{1,2}:\d{2}$/.test(userTime.trim())) {
+              alert('Invalid time format. Please use HH:MM (e.g., 07:00)');
+              return;
             }
-            
-            // Let the server calculate the next tee time (9 minutes after last) or use provided time
-            const body = timeToAdd ? { time: timeToAdd } : {};
+            const timeToAdd = userTime.trim();
+            const body = { time: timeToAdd };
             t.disabled = true;
             const origText = t.textContent;
             t.textContent = 'Adding...';
