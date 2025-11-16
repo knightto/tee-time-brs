@@ -606,7 +606,17 @@ if ('serviceWorker' in navigator) {
     for(const ev of list){
       const card=document.createElement('div'); card.className='card';
       const isTeams = !!ev.isTeamEvent;
-      const tees=(ev.teeTimes||[]).map((tt,idx)=>teeRow(ev,tt,idx,isTeams)).join('');
+      let teesArr = ev.teeTimes || [];
+      if (!isTeams) {
+        // Sort tee times by time (HH:MM) ascending
+        teesArr = teesArr.slice().sort((a, b) => {
+          if (!a.time || !b.time) return 0;
+          const [ah, am] = a.time.split(":").map(Number);
+          const [bh, bm] = b.time.split(":").map(Number);
+          return ah !== bh ? ah - bh : am - bm;
+        });
+      }
+      const tees = teesArr.map((tt,idx)=>teeRow(ev,tt,idx,isTeams)).join('');
       
       // Render maybe list
       const maybeList = (ev.maybeList || []).map((name, idx) => {
@@ -823,27 +833,38 @@ if ('serviceWorker' in navigator) {
             if (!dialog) {
               dialog = document.createElement('dialog');
               dialog.id = 'teeTimeSelectDialog';
+              // Show times from 06:30 to 23:59, formatted as HH:MM AM/PM
+              const startMinutes = 6 * 60 + 30; // 6:30 AM
+              const endMinutes = 23 * 60 + 59; // 23:59
               dialog.innerHTML = `
                 <form method="dialog" style="min-width:220px;padding:16px;display:flex;flex-direction:column;gap:12px;">
                   <label style="font-weight:600;">Select Tee Time
                     <select id="teeTimeSelect" required style="font-size:18px;padding:8px 6px;margin-top:8px;">
-                      ${Array.from({length: 48}, (_,i) => {
-                        const h = String(Math.floor(i/2)).padStart(2,'0');
-                        const m = i%2===0 ? '00' : '30';
-                        return `<option value="${h}:${m}">${h}:${m}</option>`;
+                      ${Array.from({length: endMinutes - startMinutes + 1}, (_,i) => {
+                        const total = startMinutes + i;
+                        const h24 = Math.floor(total/60);
+                        const m = String(total%60).padStart(2,'0');
+                        const h12 = ((h24+11)%12)+1;
+                        const ampm = h24 < 12 ? 'AM' : 'PM';
+                        const value = `${String(h24).padStart(2,'0')}:${m}`;
+                        return `<option value="${value}">${h12}:${m} ${ampm}</option>`;
                       }).join('')}
                     </select>
                   </label>
                   <menu style="display:flex;gap:10px;justify-content:flex-end;">
-                    <button value="cancel" type="button">Cancel</button>
+                    <button id="teeTimeCancelBtn" value="cancel" type="button">Cancel</button>
                     <button value="ok" type="submit" class="primary">Add</button>
                   </menu>
                 </form>`;
               document.body.appendChild(dialog);
             }
             const select = dialog.querySelector('#teeTimeSelect');
-            select.selectedIndex = 14; // default to 07:00
+            select.selectedIndex = 0; // default to 06:30 AM
             return new Promise(resolve => {
+              // Ensure cancel button closes the dialog
+              dialog.querySelector('#teeTimeCancelBtn').onclick = function() {
+                dialog.close('cancel');
+              };
               dialog.onclose = async function() {
                 if (dialog.returnValue !== 'ok') return resolve();
                 const timeToAdd = select.value;

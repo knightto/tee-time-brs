@@ -602,12 +602,15 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
     console.error('[tee-time] Add failed: duplicate time', { eventId: ev._id, time: newTime });
     return res.status(409).json({ error: 'duplicate time' });
   }
-  // Use $push to add the new tee time atomically
-  const pushResult = await Event.findByIdAndUpdate(
-    req.params.id,
-    { $push: { teeTimes: { time: newTime, players: [] } } },
-    { new: true }
-  );
+  // Add the new tee time, then sort all teeTimes by time ascending
+  ev.teeTimes.push({ time: newTime, players: [] });
+  ev.teeTimes.sort((a, b) => {
+    // Compare times as HH:MM
+    const [ah, am] = a.time.split(":").map(Number);
+    const [bh, bm] = b.time.split(":").map(Number);
+    return ah !== bh ? ah - bh : am - bm;
+  });
+  await ev.save();
   console.log('[tee-time] Tee time added', { eventId: ev._id, time: newTime });
   // Send notification for new tee time
   await sendEmailToAll(
@@ -619,7 +622,7 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
        <p><strong>Tee Time:</strong> ${esc(fmt.tee(newTime))}</p>
        ${btn('View Event')}`)
   );
-  res.json(pushResult);
+  res.json(ev);
 });
 
 // Edit tee time or team name
