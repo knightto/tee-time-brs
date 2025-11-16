@@ -61,4 +61,9 @@ EventSchema.pre('validate', function(next){
   next();
 });
 
+// Add indexes for performance
+EventSchema.index({ date: 1 });
+EventSchema.index({ isTeamEvent: 1 });
+EventSchema.index({ 'teeTimes._id': 1 });
+
 module.exports = mongoose.model('Event', EventSchema);

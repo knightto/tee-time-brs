@@ -818,24 +818,47 @@ if ('serviceWorker' in navigator) {
             const name = `Team ${nextTeamNum}`;
             await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ name }) });
           }else{
-            // For tee time events, always prompt for a time
-            const userTime = prompt('Enter tee time (HH:MM format, e.g., 07:00):');
-            if (!userTime) return; // User cancelled
-            // Validate HH:MM format
-            if (!/^\d{1,2}:\d{2}$/.test(userTime.trim())) {
-              alert('Invalid time format. Please use HH:MM (e.g., 07:00)');
-              return;
+            // For tee time events, show a select dialog for time
+            let dialog = document.getElementById('teeTimeSelectDialog');
+            if (!dialog) {
+              dialog = document.createElement('dialog');
+              dialog.id = 'teeTimeSelectDialog';
+              dialog.innerHTML = `
+                <form method="dialog" style="min-width:220px;padding:16px;display:flex;flex-direction:column;gap:12px;">
+                  <label style="font-weight:600;">Select Tee Time
+                    <select id="teeTimeSelect" required style="font-size:18px;padding:8px 6px;margin-top:8px;">
+                      ${Array.from({length: 48}, (_,i) => {
+                        const h = String(Math.floor(i/2)).padStart(2,'0');
+                        const m = i%2===0 ? '00' : '30';
+                        return `<option value="${h}:${m}">${h}:${m}</option>`;
+                      }).join('')}
+                    </select>
+                  </label>
+                  <menu style="display:flex;gap:10px;justify-content:flex-end;">
+                    <button value="cancel" type="button">Cancel</button>
+                    <button value="ok" type="submit" class="primary">Add</button>
+                  </menu>
+                </form>`;
+              document.body.appendChild(dialog);
             }
-            const timeToAdd = userTime.trim();
-            const body = { time: timeToAdd };
-            t.disabled = true;
-            const origText = t.textContent;
-            t.textContent = 'Adding...';
-            await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
-            await load();
-            t.disabled = false;
-            t.textContent = origText;
-            return;
+            const select = dialog.querySelector('#teeTimeSelect');
+            select.selectedIndex = 14; // default to 07:00
+            return new Promise(resolve => {
+              dialog.onclose = async function() {
+                if (dialog.returnValue !== 'ok') return resolve();
+                const timeToAdd = select.value;
+                const body = { time: timeToAdd };
+                t.disabled = true;
+                const origText = t.textContent;
+                t.textContent = 'Adding...';
+                await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+                await load();
+                t.disabled = false;
+                t.textContent = origText;
+                resolve();
+              };
+              dialog.showModal();
+            });
           }
         await load();
         return;
