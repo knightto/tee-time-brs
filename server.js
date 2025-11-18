@@ -482,6 +482,7 @@ app.post('/api/events', async (req, res) => {
       }
     });
     res.status(201).json(created);
+    const eventUrl = `${SITE_URL}?event=${created._id}`;
     await sendEmailToAll(`New Event: ${created.course} (${fmt.dateISO(created.date)})`,
       frame('A New Golf Event Has Been Scheduled!',
             `<p>The following event is now open for sign-up:</p>
@@ -489,7 +490,7 @@ app.post('/api/events', async (req, res) => {
              <p><strong>Course:</strong> ${esc(created.course||'')}</p>
              <p><strong>Date:</strong> ${esc(fmt.dateLong(created.date))}</p>
              ${(!created.isTeamEvent && created.teeTimes?.[0]?.time) ? `<p><strong>First Tee Time:</strong> ${esc(fmt.tee(created.teeTimes[0].time))}</p>`:''}
-             <p>Please visit the sign-up page to secure your spot!</p>${btn('Go to Sign-up Page')}`));
+             <p>Please <a href="${eventUrl}" style="color:#166534;text-decoration:underline">click here to view this event directly</a> or visit the sign-up page to secure your spot!</p>${btn('Go to Sign-up Page', eventUrl)}`));
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
@@ -570,6 +571,7 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
     );
     console.log('[tee-time] Team added', { eventId: ev._id, teamName: name, time });
     // Send notification for new team
+    const eventUrl = `${SITE_URL}?event=${ev._id}`;
     await sendEmailToAll(
       `New Team Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
       frame('New Team Added!',
@@ -577,7 +579,7 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
          <p><strong>Event:</strong> ${esc(ev.course)}</p>
          <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
          <p><strong>Team:</strong> ${esc(name)}</p>
-         ${btn('View Event')}`)
+         <p>Please <a href="${eventUrl}" style="color:#166534;text-decoration:underline">click here to view this event directly</a>.</p>${btn('View Event', eventUrl)}`)
     );
     return res.json(pushResult);
   }
@@ -613,6 +615,7 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
   await ev.save();
   console.log('[tee-time] Tee time added', { eventId: ev._id, time: newTime });
   // Send notification for new tee time
+  const eventUrl = `${SITE_URL}?event=${ev._id}&time=${encodeURIComponent(newTime)}`;
   await sendEmailToAll(
     `New Tee Time Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
     frame('New Tee Time Added!',
@@ -620,7 +623,7 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
        <p><strong>Event:</strong> ${esc(ev.course)}</p>
        <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
        <p><strong>Tee Time:</strong> ${esc(fmt.tee(newTime))}</p>
-       ${btn('View Event')}`)
+       <p>Please <a href="${eventUrl}" style="color:#166534;text-decoration:underline">click here to view this tee time directly</a>.</p>${btn('View Event', eventUrl)}`)
   );
   res.json(ev);
 });

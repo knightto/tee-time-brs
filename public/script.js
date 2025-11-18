@@ -527,6 +527,7 @@ if ('serviceWorker' in navigator) {
     
     const dateStr = `${actualYear}-${String(actualMonth+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
     
+    // Use passive event listener for better scroll/tap performance
     dayEl.addEventListener('click', () => {
       if (isOtherMonth) {
         // Navigate to other month when clicking its days
@@ -534,21 +535,27 @@ if ('serviceWorker' in navigator) {
         renderCalendar();
       }
       selectDate(dateStr);
-    });
+    }, { passive: true });
     
     return dayEl;
   }
   
+  // Debounced selectDate for smoother mobile experience
+  let selectDateTimeout = null;
   function selectDate(dateStr) {
-    selectedDate = dateStr;
-    renderCalendar();
-    renderEventsForDate();
+    if (selectedDate === dateStr) return; // No-op if already selected
+    if (selectDateTimeout) clearTimeout(selectDateTimeout);
+    selectDateTimeout = setTimeout(() => {
+      selectedDate = dateStr;
+      renderCalendar();
+      renderEventsForDate();
+    }, 60); // 60ms debounce for fast taps
   }
   
   function renderEventsForDate() {
     if (!selectedDate) {
-      selectedDateTitle.textContent = 'Select a date';
-      eventsEl.innerHTML = '<div style="color:#ffffff;padding:20px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.7)">Select a date from the calendar to view tee times</div>';
+      selectedDateTitle.textContent = '';
+      eventsEl.innerHTML = '';
       return;
     }
     
@@ -596,7 +603,7 @@ if ('serviceWorker' in navigator) {
       if (selectedDate) {
         renderEventsForDate();
       } else {
-        eventsEl.innerHTML = '<div style="color:#ffffff;padding:20px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.7)">Select a date from the calendar to view tee times</div>';
+        eventsEl.innerHTML = '';
       }
     } catch(e) { 
       console.error(e); 
@@ -605,81 +612,81 @@ if ('serviceWorker' in navigator) {
   }
 
   function render(list){
-    eventsEl.innerHTML='';
-    for(const ev of list){
-      const card=document.createElement('div'); card.className='card';
-      const isTeams = !!ev.isTeamEvent;
-      let teesArr = ev.teeTimes || [];
-      if (!isTeams) {
-        // Sort tee times by time (HH:MM) ascending
-        teesArr = teesArr.slice().sort((a, b) => {
-          if (!a.time || !b.time) return 0;
-          const [ah, am] = a.time.split(":").map(Number);
-          const [bh, bm] = b.time.split(":").map(Number);
-          return ah !== bh ? ah - bh : am - bm;
-        });
-      }
-      const tees = teesArr.map((tt,idx)=>teeRow(ev,tt,idx,isTeams)).join('');
-      
-      // Render maybe list
-      const maybeList = (ev.maybeList || []).map((name, idx) => {
-        const safe = String(name).replace(/"/g, '&quot;');
-        return `<span class="maybe-chip" title="${safe}">
-          <span class="maybe-name">${name}</span>
-          <button class="icon small danger" title="Remove" data-remove-maybe="${ev._id}:${idx}">×</button>
-        </span>`;
-      }).join('');
-      
-      const maybeSection = `
-        <div class="maybe-section">
-          <div class="maybe-header">
-            <h4>🤔 Maybe List</h4>
-            <button class="small" data-add-maybe="${ev._id}" style="font-size:11px;padding:3px 8px">+ Interested</button>
-          </div>
-          <div class="maybe-list">
-            ${maybeList || '<em style="color:var(--slate-700);font-size:11px;opacity:0.7">No one yet</em>'}
-          </div>
-        </div>
-      `;
-      
-      // Weather icon inline with date (doubled size)
-      const weatherIcon = ev.weather && ev.weather.icon 
-        ? `<span class="weather-inline" style="font-size:3em;cursor:pointer" title="${ev.weather.description || 'Weather forecast'}" data-weather-info='${JSON.stringify({temp: ev.weather.temp, desc: ev.weather.description, icon: ev.weather.icon})}'>${ev.weather.icon}</span>` 
-        : '';
-      
-      // Course details
-      const courseDetails = ev.courseInfo && (ev.courseInfo.city || ev.courseInfo.phone || ev.courseInfo.website) 
-        ? `<div style="font-size:13px;color:var(--slate-700);margin-top:4px">
-            ${ev.courseInfo.city && ev.courseInfo.state ? `<span>📍 ${ev.courseInfo.city}, ${ev.courseInfo.state}</span>` : ''}
-            ${ev.courseInfo.phone ? `<span style="margin-left:12px">📞 ${ev.courseInfo.phone}</span>` : ''}
-            ${ev.courseInfo.website ? `<span style="margin-left:12px"><a href="${ev.courseInfo.website}" target="_blank" style="color:var(--blue-600);text-decoration:none">🔗 Website</a></span>` : ''}
-            ${ev.courseInfo.holes && ev.courseInfo.par ? `<span style="margin-left:12px">⛳ ${ev.courseInfo.holes} holes, Par ${ev.courseInfo.par}</span>` : ''}
-          </div>`
-        : '';
-      
-      card.innerHTML = `
-        <div class="card-header">
-          <div class="card-header-left">
-            <h3 class="card-title">${ev.course || 'Course'}</h3>
-            <div class="card-date">
-              ${fmtDate(ev.date)} ${weatherIcon}
-              <button class="small" data-audit="${ev._id}" style="font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7" title="View Audit Log">📋</button>
+    // Use a document fragment for batch DOM updates
+    window.requestAnimationFrame(() => {
+      eventsEl.innerHTML = '';
+      const frag = document.createDocumentFragment();
+      for(const ev of list){
+        const card=document.createElement('div'); card.className='card';
+        const isTeams = !!ev.isTeamEvent;
+        let teesArr = ev.teeTimes || [];
+        if (!isTeams) {
+          // Sort tee times by time (HH:MM) ascending
+          teesArr = teesArr.slice().sort((a, b) => {
+            if (!a.time || !b.time) return 0;
+            const [ah, am] = a.time.split(":").map(Number);
+            const [bh, bm] = b.time.split(":").map(Number);
+            return ah !== bh ? ah - bh : am - bm;
+          });
+        }
+        const tees = teesArr.map((tt,idx)=>teeRow(ev,tt,idx,isTeams)).join('');
+        // Render maybe list
+        const maybeList = (ev.maybeList || []).map((name, idx) => {
+          const safe = String(name).replace(/"/g, '&quot;');
+          return `<span class="maybe-chip" title="${safe}">
+            <span class="maybe-name">${name}</span>
+            <button class="icon small danger" title="Remove" data-remove-maybe="${ev._id}:${idx}">×</button>
+          </span>`;
+        }).join('');
+        const maybeSection = `
+          <div class="maybe-section">
+            <div class="maybe-header">
+              <h4>🤔 Maybe List</h4>
+              <button class="small" data-add-maybe="${ev._id}" style="font-size:11px;padding:3px 8px">+ Interested</button>
             </div>
-            ${courseDetails}
+            <div class="maybe-list">
+              ${maybeList || '<em style="color:var(--slate-700);font-size:11px;opacity:0.7">No one yet</em>'}
+            </div>
           </div>
-          <div class="button-row">
-            <button class="small" data-add-tee="${ev._id}">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>
-            <button class="small" data-edit="${ev._id}">Edit</button>
-            <button class="small" data-del="${ev._id}">Delete</button>
+        `;
+        // Weather icon inline with date (doubled size)
+        const weatherIcon = ev.weather && ev.weather.icon 
+          ? `<span class="weather-inline" style="font-size:3em;cursor:pointer" title="${ev.weather.description || 'Weather forecast'}" data-weather-info='${JSON.stringify({temp: ev.weather.temp, desc: ev.weather.description, icon: ev.weather.icon})}'>${ev.weather.icon}</span>` 
+          : '';
+        // Course details
+        const courseDetails = ev.courseInfo && (ev.courseInfo.city || ev.courseInfo.phone || ev.courseInfo.website) 
+          ? `<div style="font-size:13px;color:var(--slate-700);margin-top:4px">
+              ${ev.courseInfo.city && ev.courseInfo.state ? `<span>📍 ${ev.courseInfo.city}, ${ev.courseInfo.state}</span>` : ''}
+              ${ev.courseInfo.phone ? `<span style="margin-left:12px">📞 ${ev.courseInfo.phone}</span>` : ''}
+              ${ev.courseInfo.website ? `<span style="margin-left:12px"><a href="${ev.courseInfo.website}" target="_blank" style="color:var(--blue-600);text-decoration:none">🔗 Website</a></span>` : ''}
+              ${ev.courseInfo.holes && ev.courseInfo.par ? `<span style="margin-left:12px">⛳ ${ev.courseInfo.holes} holes, Par ${ev.courseInfo.par}</span>` : ''}
+            </div>`
+          : '';
+        card.innerHTML = `
+          <div class="card-header">
+            <div class="card-header-left">
+              <h3 class="card-title">${ev.course || 'Course'}</h3>
+              <div class="card-date">
+                ${fmtDate(ev.date)} ${weatherIcon}
+                <button class="small" data-audit="${ev._id}" style="font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7" title="View Audit Log">📋</button>
+              </div>
+              ${courseDetails}
+            </div>
+            <div class="button-row">
+              <button class="small" data-add-tee="${ev._id}">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>
+              <button class="small" data-edit="${ev._id}">Edit</button>
+              <button class="small" data-del="${ev._id}">Delete</button>
+            </div>
           </div>
-        </div>
-        <div class="card-content">
-          ${maybeSection}
-          <div class="tees">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>
-          ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
-        </div>`;
-      eventsEl.appendChild(card);
-    }
+          <div class="card-content">
+            ${maybeSection}
+            <div class="tees">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>
+            ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
+          </div>`;
+        frag.appendChild(card);
+      }
+      eventsEl.appendChild(frag);
+    });
     // Add touch/click handler for weather icon to show temp/desc on mobile
     setTimeout(() => {
       document.querySelectorAll('.weather-inline').forEach(el => {
