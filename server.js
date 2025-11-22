@@ -285,4 +285,10 @@ mongoose.connect(mongoUri, { dbName: process.env.MONGO_DB || MONGO_DB_DEFAULT })
   console.error('Mongo connection error:', err);
 });
 
-// ... rest of your existing server.js (routes, scheduler, app.listen, module.exports, etc.) ...
+
+// Start the server (required for Render and local dev)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Server listening on port ${PORT}`);
+  });
+}
