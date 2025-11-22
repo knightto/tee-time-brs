@@ -209,6 +209,55 @@ app.post('/api/subscribe', async (req, res) => {
   }
 });
 
+
+// --- Resend inbound webhook for email.received events ---
+app.post('/webhooks/resend', async (req, res) => {
+  try {
+    const event = req.body;
+    console.log('[webhook] Incoming event:', JSON.stringify(event));
+
+    if (!event || event.type !== 'email.received') {
+      return res.status(200).send('Ignored: not an email.received event');
+    }
+
+    if (!resendClient) {
+      console.warn('[webhook] RESEND_API_KEY/RESEND_FROM not configured; cannot fetch email content');
+      return res.status(200).send('Resend not configured');
+    }
+
+    const emailId = event.data && event.data.email_id;
+    if (!emailId) {
+      console.warn('[webhook] No email_id in event data');
+      return res.status(200).send('No email_id');
+    }
+
+    // Fetch full email content (HTML / text / headers) using Resend Receiving API
+    try {
+      const { data: email } = await resendClient.emails.receiving.get(emailId);
+
+      console.log('[webhook] Email meta:', {
+        from: email.from,
+        to: email.to,
+        subject: email.subject
+      });
+
+      const textPreview = (email.text || '').slice(0, 400);
+      console.log('[webhook] Email text preview:', textPreview);
+
+      // TODO: parse email.text to extract Facility, Date, Time, Holes, Players
+      // and create/update/cancel tee times in MongoDB as needed.
+
+      return res.status(200).json({ ok: true });
+    } catch (err) {
+      console.error('[webhook] Error fetching email content from Resend:', err);
+      return res.status(500).send('Error fetching email');
+    }
+  } catch (err) {
+    console.error('[webhook] Internal error handling webhook:', err);
+    return res.status(500).send('Internal server error');
+  }
+});
+
 // NOTE: Webhooks removed to simplify and ensure core app starts. 
 // If webhooks are still needed, they should be added here, after routes, but before app.listen.
 
