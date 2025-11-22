@@ -1,3 +1,4 @@
+
 // Resend email.received webhook: parses tee time emails and creates/updates/cancels tee times in MongoDB based on the email content.
 const { Resend } = require('resend');
 const TeeTime = require('./models/TeeTime');
@@ -6,9 +7,6 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const ALLOWED_TO = ['teetime@xenailexou.resend.app'];
 const ALLOWED_FROM = ['tommy.knight@gmail.com'];
-
-app.set('trust proxy', 1);
-app.use(express.json());
 
 app.post('/webhooks/resend', async (req, res) => {
   try {
@@ -198,6 +196,8 @@ require('dotenv').config();
 const fetch = global.fetch || require('node-fetch');
 
 const app = express();
+app.set('trust proxy', 1);
+app.use(express.json());
 const PORT = process.env.PORT || 5000;
 const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
 const SITE_URL = (process.env.SITE_URL || 'https://tee-time-brs.onrender.com/').replace(/\/$/, '') + '/';
