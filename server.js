@@ -188,6 +188,11 @@ app.post('/webhooks/resend', async (req, res) => {
       }
 
       // Compose event data
+      // Ensure players is an array (not a number)
+      let playersArr = [];
+      if (typeof parsed.players === 'number' && parsed.players > 0) {
+        playersArr = Array(parsed.players).fill(null); // or fill with empty strings if preferred
+      }
       const eventData = {
         course: facility || parsed.course || email.subject || 'Unknown Course',
         date: parsed.dateStr || '',
@@ -197,7 +202,7 @@ app.post('/webhooks/resend', async (req, res) => {
           {
             time: parsed.timeStr ? parsed.timeStr.replace(/(am|pm)/i, '').trim() : '',
             holes: parsed.holes,
-            players: parsed.players,
+            players: playersArr,
             ttid: ttid
           }
         ]
