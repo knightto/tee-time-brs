@@ -162,10 +162,60 @@ app.post('/webhooks/resend', async (req, res) => {
       const textPreview = textBody.slice(0, 400);
       console.log('[webhook] Email text preview:', textPreview);
 
-      // TODO: parse textBody to extract reservation details and
-      // create/update/cancel tee times in MongoDB.
+      // Parse the email body for reservation details
+      const { parseTeeTimeEmail } = require('./utils/parseTeeTimeEmail');
+      const parsed = parseTeeTimeEmail(textBody, email.subject);
+      if (!parsed || !parsed.action) {
+        console.warn('[webhook] No valid tee time action found');
+        return res.status(200).send('No valid tee time data');
+      }
 
-      return res.status(200).json({ ok: true });
+      // Extract additional details from the email body (Facility, TTID, etc.)
+      let facility = '';
+      let notes = '';
+      let ttid = '';
+      for (const line of (parsed.rawLines || [])) {
+        if (/^facility:/i.test(line)) facility = line.replace(/^facility:/i, '').trim();
+        if (/^ttid:/i.test(line)) ttid = line.replace(/^ttid:/i, '').trim();
+        if (/^details:/i.test(line)) notes = line.replace(/^details:/i, '').trim();
+      }
+      // Fallback: try to extract facility from the first lines if not found
+      if (!facility && parsed.rawLines && parsed.rawLines.length > 0) {
+        const facIdx = parsed.rawLines.findIndex(l => /facility/i.test(l));
+        if (facIdx >= 0 && parsed.rawLines[facIdx + 1]) {
+          facility = parsed.rawLines[facIdx + 1].trim();
+        }
+      }
+
+      // Compose event data
+      const eventData = {
+        course: facility || parsed.course || email.subject || 'Unknown Course',
+        date: parsed.dateStr || '',
+        notes: notes,
+        isTeamEvent: false,
+        teeTimes: [
+          {
+            time: parsed.timeStr ? parsed.timeStr.replace(/(am|pm)/i, '').trim() : '',
+            holes: parsed.holes,
+            players: parsed.players,
+            ttid: ttid
+          }
+        ]
+      };
+
+      // Only create event if action is CREATE and required fields are present
+      if (parsed.action === 'CREATE' && eventData.course && eventData.date && eventData.teeTimes[0].time) {
+        try {
+          const created = await Event.create(eventData);
+          console.log('[webhook] Event created from email:', created._id);
+          return res.status(201).json({ ok: true, eventId: created._id });
+        } catch (err) {
+          console.error('[webhook] Error creating event:', err);
+          return res.status(500).send('Error creating event');
+        }
+      } else {
+        return res.status(200).send('No event created (not CREATE or missing fields)');
+      }
     } catch (err) {
       console.error('[webhook] Error fetching email content from Resend:', err);
       return res.status(500).send('Error fetching email');
