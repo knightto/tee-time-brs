@@ -1,49 +1,4 @@
-// Alert for nearly full tee times (4 days out or less, >50% full)
-async function alertNearlyFullTeeTimes() {
-  const now = new Date();
-  const fourDaysOut = new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000);
-  // Find all tee-time events (not team events) within next 4 days (inclusive)
-  const events = await Event.find({ isTeamEvent: false, date: { $gte: now, $lte: fourDaysOut } }).lean();
-  let alertsSent = 0;
-
-  for (const event of events) {
-    // Build tee time occupancy map
-    const teeTimeSlots = {};
-    const totalSlots = event.maxPlayersPerTeeTime || 4; // assume 4 players per tee time by default
-
-    for (const teeTime of event.teeTimes) {
-      const key = `${teeTime.date.toISOString().slice(0, 10)}_${teeTime.time}`;
-      if (!teeTimeSlots[key]) {
-        teeTimeSlots[key] = { total: 0, filled: 0 };
-      }
-      teeTimeSlots[key].total += totalSlots;
-      teeTimeSlots[key].filled += teeTime.players.length;
-    }
-
-    // Determine if any tee time is more than 50% full
-    let shouldAlert = false;
-    for (const key of Object.keys(teeTimeSlots)) {
-      const { total, filled } = teeTimeSlots[key];
-      if (total > 0 && filled / total > 0.5) {
-        shouldAlert = true;
-        break;
-      }
-    }
-
-    if (shouldAlert) {
-      try {
-        await sendNearlyFullAlert(event, teeTimeSlots);
-        alertsSent++;
-      } catch (err) {
-        console.error('Error sending nearly full tee time alert:', err);
-      }
-    }
-  }
-
-  console.log(`Nearly full tee time alerts sent: ${alertsSent}`);
-}
-
-/* server.js v3.13 — daily 5pm empty-tee reminder + manual trigger */
+/* server.js v3.8 (Fixed for Port Binding / Render Deployment) */
 const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
@@ -51,244 +6,211 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
-// Polyfill fetch for Node < 18
-const fetch = global.fetch || require('node-fetch');
-
 const app = express();
-app.set('trust proxy', 1);
+const PORT = process.env.PORT || 3000;
+
+// CRITICAL SECURITY NOTE: This code is only used as a temporary solution. 
+// For production, this must be replaced with proper user authentication (JWTs/Sessions).
+const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || ''; 
+
+// --- Middleware ---
 app.use(express.json());
-const PORT = process.env.PORT || 5000;
-
-const MONGO_DB_DEFAULT = 'teetimes';
-
-// Email configuration and resend client
-let resend = null;
-let fromEmail = null;
-if (process.env.RESEND_API_KEY && process.env.RESEND_FROM) {
-  const { Resend } = require('resend');
-  resend = new Resend(process.env.RESEND_API_KEY);
-  fromEmail = process.env.RESEND_FROM;
-} else {
-  console.warn('RESEND_API_KEY or RESEND_FROM not set; email notifications disabled.');
-}
-
-const Subscriber = require('./models/Subscriber');
-const Event = require('./models/Event');
-
-// Same CORS + rate limit rules as before
 app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true }));
-app.use(rateLimit({ windowMs: 60 * 1000, max: 200 }));
+app.use(rateLimit({ windowMs: 60 * 1000, max: 120 }));
 
-// Define routes before static middleware to ensure they take precedence
-app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-// Handicap tracking removed
-
-// Health check / debug endpoint
-app.get('/api/health', (_req, res) => {
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    config: {
-      mongoConnected: mongoose.connection.readyState === 1,
-      hasResendKey: !!process.env.RESEND_API_KEY,
-      hasResendFrom: !!process.env.RESEND_FROM,
-      hasSubscriberModel: !!Subscriber,
-      port: PORT,
-      nodeEnv: process.env.NODE_ENV || 'development'
-    }
-  });
+app.use((req, res, next) => {
+  if (req.method === 'GET' && (req.path === '/' || req.path.endsWith('.html'))) {
+    res.set('Cache-Control', 'no-store');
+  }
+  next();
 });
-
-// --- Place webhook code at the safest location: after all middleware/routes, before app.listen/module.exports ---
-if (process.env.RESEND_API_KEY) {
-  const { Resend } = require('resend');
-  const TeeTime = require('./models/TeeTime');
-  const { parseTeeTimeEmail } = require('./utils/parseTeeTimeEmail');
-  const resendClient = new Resend(process.env.RESEND_API_KEY);
-
-  const ALLOWED_TO = ['teetime@xenailexou.resend.app'];
-  const ALLOWED_FROM = ['tommy.knight@gmail.com'];
-
-  // Resend email.received webhook: parses tee time emails and creates/updates/cancels tee times in MongoDB based on the email content.
-  app.post('/webhooks/resend', async (req, res) => {
-    try {
-      const event = req.body;
-      console.log('[webhook] Event type:', event.type);
-
-      if (!event || event.type !== 'email.received') {
-        return res.status(200).send('Ignored: not an email.received event');
-      }
-
-      const emailId = event.data && event.data.email_id;
-      if (!emailId) {
-        console.warn('[webhook] No email_id in event data');
-        return res.status(200).send('No email_id');
-      }
-
-      // Fetch full email from Resend
-      let email;
-      try {
-        // NOTE: this assumes resend.inbound.get(emailId) is the correct Receiving API call for your Resend SDK version.
-        // If your SDK uses a different method name (e.g., resend.emails.get or resend.emails.receiving.get),
-        // update the call accordingly.
-        email = await resendClient.inbound.get(emailId);
-      } catch (err) {
-        console.error('[webhook] Error fetching email from Resend:', err);
-        if (err && err.response) {
-          console.error('[webhook] Resend API error response:', err.response.status, err.response.data);
-        }
-        return res.status(500).send('Error fetching email');
-      }
-
-      const from = (email.from && email.from.address) || email.from || '';
-      const toList = Array.isArray(email.to) ? email.to : [email.to];
-      const subject = email.subject || '';
-      const text = email.text || '';
-      const html = email.html || '';
-
-      // Only process if to and from are allowed
-      const toAllowed = toList.some(addr =>
-        typeof addr === 'string' &&
-        ALLOWED_TO.some(allowed => addr.toLowerCase() === allowed.toLowerCase())
-      );
-      const fromAllowed = ALLOWED_FROM.some(
-        allowed => from.toLowerCase() === allowed.toLowerCase()
-      );
-      if (!toAllowed || !fromAllowed) {
-        console.log('[webhook] Ignored: to/from not allowed', { from, to: toList });
-        return res.status(200).send('Ignored: to/from not allowed');
-      }
-
-      // Prefer text, fallback to html (strip tags)
-      let bodyText = text;
-      if (!bodyText && html) {
-        bodyText = html
-          .replace(/<br\s*\/?/gi, '\n')
-          .replace(/<[^>]+>/g, ' ');
-      }
-
-      // Parse the email
-      const parsed = parseTeeTimeEmail(bodyText, subject);
-      console.log('[webhook] Parsed command:', parsed);
-      if (!parsed || !parsed.action) {
-        console.warn('[webhook] No valid tee time action found');
-        return res.status(200).send('No valid tee time data');
-      }
-
-      // Compose eventDate from dateStr and timeStr
-      let eventDate = null;
-      if (parsed.dateStr && parsed.timeStr) {
-        const dtStr = parsed.dateStr + ' ' + parsed.timeStr;
-        const dt = new Date(dtStr);
-        if (!isNaN(dt)) {
-          eventDate = dt;
-        }
-      }
-      if (!eventDate) {
-        console.warn('[webhook] No valid date/time found');
-        return res.status(200).send('No valid date/time');
-      }
-
-      // Find existing tee time matching date + time + course
-      let teeTime = await TeeTime.findOne({
-        dateStr: parsed.dateStr,
-        timeStr: parsed.timeStr,
-        course: parsed.course
-      });
-
-      if (parsed.action === 'CREATE') {
-        if (!teeTime) {
-          teeTime = await TeeTime.create({
-            eventDate,
-            dateStr: parsed.dateStr,
-            timeStr: parsed.timeStr,
-            holes: parsed.holes,
-            players: parsed.players,
-            course: parsed.course,
-            status: 'active',
-            source: 'email',
-            rawEmail: {
-              from,
-              to: toList,
-              subject,
-              body: bodyText.slice(0, 2000)
-            }
-          });
-          console.log('[webhook] Tee time created', teeTime._id);
-          return res.status(200).send('Tee time created');
-        } else {
-          console.log('[webhook] Tee time already exists', teeTime._id);
-          return res.status(200).send('Tee time already exists');
-        }
-      } else if (parsed.action === 'CANCEL') {
-        if (teeTime) {
-          teeTime.status = 'cancelled';
-          await teeTime.save();
-          console.log('[webhook] Tee time cancelled', teeTime._id);
-          return res.status(200).send('Tee time cancelled');
-        } else {
-          console.log('[webhook] Cancel received but no matching tee time');
-          return res.status(200).send('Cancel: no matching tee time');
-        }
-      } else if (parsed.action === 'MODIFY') {
-        if (teeTime) {
-          teeTime.holes = parsed.holes;
-          teeTime.players = parsed.players;
-          await teeTime.save();
-          console.log('[webhook] Tee time modified', teeTime._id);
-          return res.status(200).send('Tee time modified');
-        } else {
-          teeTime = await TeeTime.create({
-            eventDate,
-            dateStr: parsed.dateStr,
-            timeStr: parsed.timeStr,
-            holes: parsed.holes,
-            players: parsed.players,
-            course: parsed.course,
-            status: 'active',
-            source: 'email',
-            rawEmail: {
-              from,
-              to: toList,
-              subject,
-              body: bodyText.slice(0, 2000)
-            }
-          });
-          console.log('[webhook] Modify received but no matching tee time; created new', teeTime._id);
-          return res.status(200).send('Modify: created new tee time');
-        }
-      } else {
-        console.warn('[webhook] Unknown action', parsed.action);
-        return res.status(200).send('Unknown action');
-      }
-    } catch (err) {
-      console.error('[webhook] Internal error:', err);
-      return res.status(500).send('Internal server error');
-    }
-  });
-} else {
-  console.warn('[webhook] RESEND_API_KEY not set; /webhooks/resend endpoint not registered');
-}
 
 app.use(express.static(path.join(__dirname, 'public')));
+app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/teetimes';
-mongoose.connect(mongoUri, { dbName: process.env.MONGO_DB || MONGO_DB_DEFAULT }).then(() => {
-  console.log(
-    JSON.stringify({
-      msg: 'Mongo connected',
-      uri: `${mongoUri}\n`,
-      dbName: process.env.MONGO_DB || MONGO_DB_DEFAULT
-    })
-  );
-}).catch(err => {
-  console.error('Mongo connection error:', err);
+// --- DB ---
+const mongoUri = process.env.MONGO_URI;
+if (!mongoUri) { console.error('Missing MONGO_URI'); process.exit(1); }
+const Event = require('./models/Event');
+
+// *** THE FIX IS HERE: Start the app only after a successful DB connection ***
+mongoose.connect(mongoUri, { dbName: process.env.MONGO_DB || undefined })
+  .then(() => {
+    console.log('Mongo connected');
+    
+    // START SERVER ONLY AFTER MONGO IS READY
+    app.listen(PORT, () => console.log(`server on :${PORT}`));
+    
+  })
+  .catch((e) => { 
+    console.error('Mongo connection error', e); 
+    process.exit(1); 
+  });
+// --------------------------------------------------------------------------
+
+// --- Email (Resend) helper setup ---
+let resendClient = null;
+const canEmail = !!process.env.RESEND_API_KEY && !!process.env.RESEND_FROM;
+if (canEmail) {
+  const { Resend } = require('resend');
+  resendClient = new Resend(process.env.RESEND_API_KEY);
+}
+async function sendEmail({ to, subject, html, cc, bcc, audienceId }) {
+  if (!canEmail) return { skipped: true, reason: 'Email disabled' };
+  try {
+    const payload = {
+      from: process.env.RESEND_FROM,
+      subject,
+      html
+    };
+    if (audienceId) payload.audienceId = audienceId;
+    else payload.to = Array.isArray(to) ? to : [to];
+
+    if (cc) payload.cc = cc;
+    if (bcc) payload.bcc = bcc;
+
+    return await resendClient.emails.send(payload);
+  } catch (e) {
+    console.error('Resend send error:', e);
+    return { error: e.message || String(e) };
+  }
+}
+
+// --- Helpers ---
+function genTeeTimes(startHHMM, count = 3, mins = 10) {
+  if (!startHHMM) return [];
+  const m = /^(\d{1,2}):(\d{2})$/.exec(startHHMM);
+  if (!m) return [{ time: startHHMM, players: [] }];
+  let h = parseInt(m[1], 10), mm = parseInt(m[2], 10);
+  const out = [];
+  for (let i = 0; i < count; i++) {
+    const tMin = h * 60 + mm + i * mins;
+    const H = Math.floor(tMin / 60) % 24;
+    const M = tMin % 60;
+    out.push({ time: String(H).padStart(2, '0') + ':' + String(M).padStart(2, '0'), players: [] });
+  }
+  return out;
+}
+
+// --- API Routes ---
+app.get('/api/events', async (_req, res) => {
+  const items = await Event.find().sort({ date: 1 }).lean();
+  res.json(items);
+});
+
+app.post('/api/events', async (req, res) => {
+  try {
+    const { title, course, date, teeTime, notes } = req.body || {};
+    const tt = genTeeTimes(teeTime, 3, 10);
+    const created = await Event.create({ title, course, date, notes, teeTimes: tt });
+
+    res.status(201).json(created);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.delete('/api/events/:id', async (req, res) => {
+  // Check for admin code in the request body only (not URL query)
+  const code = req.body?.code || ''; 
+  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) return res.status(403).json({ error: 'Forbidden' });
+  const del = await Event.findByIdAndDelete(req.params.id);
+  if (!del) return res.status(404).json({ error: 'Not found' });
+  res.json({ ok: true });
 });
 
 
-// Start the server (required for Render and local dev)
-if (require.main === module) {
-  app.listen(PORT, () => {
-    console.log(`Server listening on port ${PORT}`);
-  });
-}
+app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
+  const { name } = req.body || {};
+  if (!name) return res.status(400).json({ error: 'name required' });
+  const ev = await Event.findById(req.params.id);
+  if (!ev) return res.status(404).json({ error: 'Not found' });
+  const tt = ev.teeTimes.id(req.params.teeId);
+  if (!tt) return res.status(404).json({ error: 'tee time not found' });
+  
+  tt.players.push({ name });
+  
+  try {
+    await ev.save();
+    // Return the updated event for client-side micro-rendering
+    res.json(ev);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+// Move player (FIXED for robust data transfer)
+app.post('/api/events/:id/move-player', async (req, res) => {
+  const { fromTeeId, toTeeId, playerId } = req.body || {};
+  if (!fromTeeId || !toTeeId || !playerId) return res.status(400).json({ error: 'fromTeeId, toTeeId, playerId required' });
+  const ev = await Event.findById(req.params.id);
+  if (!ev) return res.status(404).json({ error: 'Not found' });
+  
+  const fromTT = ev.teeTimes.id(fromTeeId);
+  const toTT = ev.teeTimes.id(toTeeId);
+  if (!fromTT || !toTT) return res.status(404).json({ error: 'tee time not found' });
+  
+  // Find and remove player
+  const idx = fromTT.players.findIndex(p => String(p._id) === String(playerId));
+  if (idx === -1) return res.status(404).json({ error: 'player not found' });
+  const [player] = fromTT.players.splice(idx, 1);
+  
+  // Add player to destination (Mongoose validation will check max players on save)
+  toTT.players.push(player); 
+  
+  try {
+    await ev.save();
+    // Return the updated event for client-side micro-rendering
+    res.json(ev);
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+const pkg = require('./package.json');
+app.get('/__meta', (_req, res) => res.json({
+  version: pkg.version,
+  commit: process.env.RENDER_GIT_COMMIT || process.env.SOURCE_VERSION || null,
+  when: new Date().toISOString()
+}));
+
+// Subscribe
+app.post('/api/subscribe', async (req, res) => {
+  const { email } = req.body || {};
+  if (!email) return res.status(400).json({ error: 'email required' });
+  if (!canEmail) return res.status(501).json({ error: 'Email disabled' });
+
+  try {
+    let createdContact = null;
+    try {
+      createdContact = await resendClient.contacts.create({
+        email,
+        audienceId: process.env.RESEND_AUDIENCE_ID || undefined
+      });
+    } catch (e) {
+      console.warn('contacts.create warning:', e?.message || e);
+    }
+
+    await sendEmail({
+      to: email,
+      subject: 'Welcome — You’re on the Tee-Time list!',
+      html: `
+        <div style="font-family:Arial,sans-serif">
+          <h2>Welcome!</h2>
+          <p>You’re subscribed for tee-time updates and new event announcements.</p>
+          <p>– Golf Bros</p>
+        </div>`
+    });
+
+    res.json({ ok: true, contact: createdContact || null });
+  } catch (e) {
+    console.error('subscribe error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// NOTE: Webhooks removed to simplify and ensure core app starts. 
+// If webhooks are still needed, they should be added here, after routes, but before app.listen.
+
+// Since app.listen is now in the Mongoose .then() block, we remove it from the bottom.
+// app.listen(PORT, () => console.log(`server on :${PORT}`)); // REMOVED
