@@ -1,150 +1,155 @@
 
+
 // --- Place webhook code after all app and middleware initialization ---
-// Resend email.received webhook: parses tee time emails and creates/updates/cancels tee times in MongoDB based on the email content.
-const { Resend } = require('resend');
-const TeeTime = require('./models/TeeTime');
-const { parseTeeTimeEmail } = require('./utils/parseTeeTimeEmail');
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Only initialize Resend and webhook if API key is present
+if (process.env.RESEND_API_KEY) {
+  const { Resend } = require('resend');
+  const TeeTime = require('./models/TeeTime');
+  const { parseTeeTimeEmail } = require('./utils/parseTeeTimeEmail');
+  const resend = new Resend(process.env.RESEND_API_KEY);
 
-const ALLOWED_TO = ['teetime@xenailexou.resend.app'];
-const ALLOWED_FROM = ['tommy.knight@gmail.com'];
+  const ALLOWED_TO = ['teetime@xenailexou.resend.app'];
+  const ALLOWED_FROM = ['tommy.knight@gmail.com'];
 
-app.post('/webhooks/resend', async (req, res) => {
-  try {
-    const event = req.body;
-    console.log('[webhook] Event type:', event.type);
-    if (!event || event.type !== 'email.received') {
-      return res.status(200).send('Ignored: not an email.received event');
-    }
-    const emailId = event.data && event.data.email_id;
-    if (!emailId) {
-      console.warn('[webhook] No email_id in event data');
-      return res.status(200).send('No email_id');
-    }
-    // Fetch full email from Resend
-    let email;
+  app.post('/webhooks/resend', async (req, res) => {
     try {
-      email = await resend.inbound.get(emailId);
+      const event = req.body;
+      console.log('[webhook] Event type:', event.type);
+      if (!event || event.type !== 'email.received') {
+        return res.status(200).send('Ignored: not an email.received event');
+      }
+      const emailId = event.data && event.data.email_id;
+      if (!emailId) {
+        console.warn('[webhook] No email_id in event data');
+        return res.status(200).send('No email_id');
+      }
+      // Fetch full email from Resend
+      let email;
+      try {
+        email = await resend.inbound.get(emailId);
+      } catch (err) {
+        console.error('[webhook] Error fetching email from Resend:', err);
+        if (err && err.response) {
+          console.error('[webhook] Resend API error response:', err.response.status, err.response.data);
+        }
+        return res.status(500).send('Error fetching email');
+      }
+      const from = (email.from && email.from.address) || email.from || '';
+      const toList = Array.isArray(email.to) ? email.to : [email.to];
+      const subject = email.subject || '';
+      const text = email.text || '';
+      const html = email.html || '';
+      // Only process if to and from are allowed
+      const toAllowed = toList.some(addr => typeof addr === 'string' && ALLOWED_TO.some(allowed => addr.toLowerCase() === allowed.toLowerCase()));
+      const fromAllowed = ALLOWED_FROM.some(allowed => from.toLowerCase() === allowed.toLowerCase());
+      if (!toAllowed || !fromAllowed) {
+        console.log('[webhook] Ignored: to/from not allowed', { from, to: toList });
+        return res.status(200).send('Ignored: to/from not allowed');
+      }
+      // Prefer text, fallback to html (strip tags)
+      let bodyText = text;
+      if (!bodyText && html) {
+        bodyText = html.replace(/<br\s*\/?/gi, '\n').replace(/<[^>]+>/g, ' ');
+      }
+      // Parse the email
+      const parsed = parseTeeTimeEmail(bodyText, subject);
+      console.log('[webhook] Parsed command:', parsed);
+      if (!parsed || !parsed.action) {
+        console.warn('[webhook] No valid tee time action found');
+        return res.status(200).send('No valid tee time data');
+      }
+      // Compose eventDate from dateStr and timeStr
+      let eventDate = null;
+      if (parsed.dateStr && parsed.timeStr) {
+        const dtStr = parsed.dateStr + ' ' + parsed.timeStr;
+        const d = new Date(dtStr);
+        if (!isNaN(d.getTime())) eventDate = d;
+        else console.warn('[webhook] Could not parse eventDate from', dtStr);
+      }
+      // Natural key: dateStr + timeStr + course
+      const key = {
+        dateStr: (parsed.dateStr || '').trim().toLowerCase(),
+        timeStr: (parsed.timeStr || '').trim().toLowerCase(),
+        course: (parsed.course || '').trim().toLowerCase()
+      };
+      let teeTime = await TeeTime.findOne(key);
+      if (parsed.action === 'CREATE') {
+        if (teeTime) {
+          console.log('[webhook] Existing tee time found for CREATE; leaving as-is', teeTime._id);
+          // Optionally update players/holes
+          teeTime.players = parsed.players;
+          teeTime.holes = parsed.holes;
+          await teeTime.save();
+          return res.status(200).send('Tee time already exists, updated players/holes');
+        } else {
+          teeTime = await TeeTime.create({
+            eventDate,
+            dateStr: parsed.dateStr,
+            timeStr: parsed.timeStr,
+            holes: parsed.holes,
+            players: parsed.players,
+            course: parsed.course,
+            status: 'active',
+            source: 'email',
+            rawEmail: {
+              from,
+              to: toList,
+              subject,
+              body: bodyText.slice(0, 2000)
+            }
+          });
+          console.log('[webhook] Created tee time', teeTime._id);
+          return res.status(200).send('Tee time created');
+        }
+      } else if (parsed.action === 'CANCEL') {
+        if (teeTime) {
+          teeTime.status = 'cancelled';
+          await teeTime.save();
+          console.log('[webhook] Tee time cancelled', teeTime._id);
+          return res.status(200).send('Tee time cancelled');
+        } else {
+          console.log('[webhook] Cancel received but no matching tee time');
+          return res.status(200).send('Cancel: no matching tee time');
+        }
+      } else if (parsed.action === 'MODIFY') {
+        if (teeTime) {
+          teeTime.holes = parsed.holes;
+          teeTime.players = parsed.players;
+          await teeTime.save();
+          console.log('[webhook] Tee time modified', teeTime._id);
+          return res.status(200).send('Tee time modified');
+        } else {
+          teeTime = await TeeTime.create({
+            eventDate,
+            dateStr: parsed.dateStr,
+            timeStr: parsed.timeStr,
+            holes: parsed.holes,
+            players: parsed.players,
+            course: parsed.course,
+            status: 'active',
+            source: 'email',
+            rawEmail: {
+              from,
+              to: toList,
+              subject,
+              body: bodyText.slice(0, 2000)
+            }
+          });
+          console.log('[webhook] Modify received but no matching tee time; created new', teeTime._id);
+          return res.status(200).send('Modify: created new tee time');
+        }
+      } else {
+        console.warn('[webhook] Unknown action', parsed.action);
+        return res.status(200).send('Unknown action');
+      }
     } catch (err) {
-      console.error('[webhook] Error fetching email from Resend:', err);
-      if (err && err.response) {
-        console.error('[webhook] Resend API error response:', err.response.status, err.response.data);
-      }
-      return res.status(500).send('Error fetching email');
+      console.error('[webhook] Internal error:', err);
+      return res.status(500).send('Internal server error');
     }
-    const from = (email.from && email.from.address) || email.from || '';
-    const toList = Array.isArray(email.to) ? email.to : [email.to];
-    const subject = email.subject || '';
-    const text = email.text || '';
-    const html = email.html || '';
-    // Only process if to and from are allowed
-    const toAllowed = toList.some(addr => typeof addr === 'string' && ALLOWED_TO.some(allowed => addr.toLowerCase() === allowed.toLowerCase()));
-    const fromAllowed = ALLOWED_FROM.some(allowed => from.toLowerCase() === allowed.toLowerCase());
-    if (!toAllowed || !fromAllowed) {
-      console.log('[webhook] Ignored: to/from not allowed', { from, to: toList });
-      return res.status(200).send('Ignored: to/from not allowed');
-    }
-    // Prefer text, fallback to html (strip tags)
-    let bodyText = text;
-    if (!bodyText && html) {
-      bodyText = html.replace(/<br\s*\/?/gi, '\n').replace(/<[^>]+>/g, ' ');
-    }
-    // Parse the email
-    const parsed = parseTeeTimeEmail(bodyText, subject);
-    console.log('[webhook] Parsed command:', parsed);
-    if (!parsed || !parsed.action) {
-      console.warn('[webhook] No valid tee time action found');
-      return res.status(200).send('No valid tee time data');
-    }
-    // Compose eventDate from dateStr and timeStr
-    let eventDate = null;
-    if (parsed.dateStr && parsed.timeStr) {
-      const dtStr = parsed.dateStr + ' ' + parsed.timeStr;
-      const d = new Date(dtStr);
-      if (!isNaN(d.getTime())) eventDate = d;
-      else console.warn('[webhook] Could not parse eventDate from', dtStr);
-    }
-    // Natural key: dateStr + timeStr + course
-    const key = {
-      dateStr: (parsed.dateStr || '').trim().toLowerCase(),
-      timeStr: (parsed.timeStr || '').trim().toLowerCase(),
-      course: (parsed.course || '').trim().toLowerCase()
-    };
-    let teeTime = await TeeTime.findOne(key);
-    if (parsed.action === 'CREATE') {
-      if (teeTime) {
-        console.log('[webhook] Existing tee time found for CREATE; leaving as-is', teeTime._id);
-        // Optionally update players/holes
-        teeTime.players = parsed.players;
-        teeTime.holes = parsed.holes;
-        await teeTime.save();
-        return res.status(200).send('Tee time already exists, updated players/holes');
-      } else {
-        teeTime = await TeeTime.create({
-          eventDate,
-          dateStr: parsed.dateStr,
-          timeStr: parsed.timeStr,
-          holes: parsed.holes,
-          players: parsed.players,
-          course: parsed.course,
-          status: 'active',
-          source: 'email',
-          rawEmail: {
-            from,
-            to: toList,
-            subject,
-            body: bodyText.slice(0, 2000)
-          }
-        });
-        console.log('[webhook] Created tee time', teeTime._id);
-        return res.status(200).send('Tee time created');
-      }
-    } else if (parsed.action === 'CANCEL') {
-      if (teeTime) {
-        teeTime.status = 'cancelled';
-        await teeTime.save();
-        console.log('[webhook] Tee time cancelled', teeTime._id);
-        return res.status(200).send('Tee time cancelled');
-      } else {
-        console.log('[webhook] Cancel received but no matching tee time');
-        return res.status(200).send('Cancel: no matching tee time');
-      }
-    } else if (parsed.action === 'MODIFY') {
-      if (teeTime) {
-        teeTime.holes = parsed.holes;
-        teeTime.players = parsed.players;
-        await teeTime.save();
-        console.log('[webhook] Tee time modified', teeTime._id);
-        return res.status(200).send('Tee time modified');
-      } else {
-        teeTime = await TeeTime.create({
-          eventDate,
-          dateStr: parsed.dateStr,
-          timeStr: parsed.timeStr,
-          holes: parsed.holes,
-          players: parsed.players,
-          course: parsed.course,
-          status: 'active',
-          source: 'email',
-          rawEmail: {
-            from,
-            to: toList,
-            subject,
-            body: bodyText.slice(0, 2000)
-          }
-        });
-        console.log('[webhook] Modify received but no matching tee time; created new', teeTime._id);
-        return res.status(200).send('Modify: created new tee time');
-      }
-    } else {
-      console.warn('[webhook] Unknown action', parsed.action);
-      return res.status(200).send('Unknown action');
-    }
-  } catch (err) {
-    console.error('[webhook] Internal error:', err);
-    return res.status(500).send('Internal server error');
-  }
-});
+  });
+} else {
+  console.warn('[webhook] RESEND_API_KEY not set; /webhooks/resend endpoint not registered');
+}
 // Alert for nearly full tee times (4 days out or less, >50% full)
 async function alertNearlyFullTeeTimes() {
   const now = new Date();
