@@ -193,20 +193,47 @@ app.post('/webhooks/resend', async (req, res) => {
       if (typeof parsed.players === 'number' && parsed.players > 0) {
         playersArr = Array(parsed.players).fill(null); // or fill with empty strings if preferred
       }
+
+      // Normalize date to YYYY-MM-DD and time to HH:MM 24h
+      function normalizeDate(dateStr) {
+        // Accept MM/DD/YY or MM/DD/YYYY and convert to YYYY-MM-DD
+        if (/^\d{1,2}\/\d{1,2}\/\d{2,4}$/.test(dateStr)) {
+          const [m, d, y] = dateStr.split('/');
+          const year = y.length === 2 ? '20' + y : y;
+          return `${year}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+        }
+        return dateStr;
+      }
+      function normalizeTime(timeStr) {
+        // Accept 8:18am or 8:18 am, return 08:18 (24h)
+        const m = timeStr.match(/(\d{1,2}):(\d{2})\s*(am|pm)?/i);
+        if (!m) return timeStr;
+        let h = parseInt(m[1], 10);
+        const min = m[2];
+        const ap = m[3] ? m[3].toLowerCase() : '';
+        if (ap === 'pm' && h < 12) h += 12;
+        if (ap === 'am' && h === 12) h = 0;
+        return `${String(h).padStart(2, '0')}:${min}`;
+      }
+
+      const normalizedDate = normalizeDate(parsed.dateStr || '');
+      const normalizedTime = normalizeTime(parsed.timeStr || '');
+
       const eventData = {
         course: facility || parsed.course || email.subject || 'Unknown Course',
-        date: parsed.dateStr || '',
+        date: normalizedDate,
         notes: notes,
         isTeamEvent: false,
         teeTimes: [
           {
-            time: parsed.timeStr ? parsed.timeStr.replace(/(am|pm)/i, '').trim() : '',
+            time: normalizedTime,
             holes: parsed.holes,
             players: playersArr,
             ttid: ttid
           }
         ]
       };
+      console.log('[webhook] Event data to be created:', JSON.stringify(eventData));
 
       if (parsed.action === 'CREATE' && eventData.course && eventData.date && eventData.teeTimes[0].time) {
         try {
