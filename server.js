@@ -1,5 +1,5 @@
-// ...existing code...
-// --- Place webhook code after app and middleware initialization ---
+
+// --- Place webhook code after all app and middleware initialization ---
 // Resend email.received webhook: parses tee time emails and creates/updates/cancels tee times in MongoDB based on the email content.
 const { Resend } = require('resend');
 const TeeTime = require('./models/TeeTime');
