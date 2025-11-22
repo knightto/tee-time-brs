@@ -219,38 +219,44 @@ app.post('/webhooks/resend', async (req, res) => {
       const normalizedDate = normalizeDate(parsed.dateStr || '');
       const normalizedTime = normalizeTime(parsed.timeStr || '');
 
-      const eventData = {
+      // Compose event payload as expected by /api/events (UI form)
+      const eventPayload = {
         course: facility || parsed.course || email.subject || 'Unknown Course',
         date: normalizedDate,
         notes: notes,
         isTeamEvent: false,
-        teeTimes: [
-          {
-            time: normalizedTime,
-            holes: parsed.holes,
-            players: playersArr,
-            ttid: ttid
-          }
-        ]
+        teamSizeMax: 4,
+        teeTime: normalizedTime // UI expects 'teeTime' for first tee time
       };
-      console.log('[webhook] Event data to be created:', JSON.stringify(eventData));
+      console.log('[webhook] Event payload to be created:', JSON.stringify(eventPayload));
 
-      if (parsed.action === 'CREATE' && eventData.course && eventData.date && eventData.teeTimes[0].time) {
+      if (parsed.action === 'CREATE' && eventPayload.course && eventPayload.date && eventPayload.teeTime) {
         try {
-          const created = await Event.create(eventData);
-          console.log('[webhook] Event created from email:', created._id);
+          // Use the same API as the UI to create the event
+          const fetchRes = await fetch(`${SITE_URL}api/events`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(eventPayload)
+          });
+          if (!fetchRes.ok) {
+            const text = await fetchRes.text();
+            console.error('[webhook] Error creating event via API:', fetchRes.status, text);
+            return res.status(500).send('Error creating event via API');
+          }
+          const created = await fetchRes.json();
+          console.log('[webhook] Event created from email via API:', created._id);
           return res.status(201).json({ ok: true, eventId: created._id });
         } catch (err) {
-          console.error('[webhook] Error creating event:', err);
-          return res.status(500).send('Error creating event');
+          console.error('[webhook] Error creating event via API:', err);
+          return res.status(500).send('Error creating event via API');
         }
-      } else if (parsed.action === 'CANCEL' && eventData.course && eventData.date && eventData.teeTimes[0].time) {
+      } else if (parsed.action === 'CANCEL' && eventPayload.course && eventPayload.date && eventPayload.teeTime) {
         try {
           // Find and delete the event by course, date, and tee time
           const deleted = await Event.findOneAndDelete({
-            course: eventData.course,
-            date: new Date(eventData.date + 'T12:00:00Z'),
-            'teeTimes.time': eventData.teeTimes[0].time
+            course: eventPayload.course,
+            date: new Date(eventPayload.date + 'T12:00:00Z'),
+            'teeTimes.time': eventPayload.teeTime
           });
           if (deleted) {
             console.log('[webhook] Event cancelled from email:', deleted._id);
