@@ -1,4 +1,3 @@
-
 // Resend email.received webhook: parses tee time emails and creates/updates/cancels tee times in MongoDB based on the email content.
 const { Resend } = require('resend');
 const TeeTime = require('./models/TeeTime');
@@ -7,7 +6,9 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 const ALLOWED_TO = ['teetime@xenailexou.resend.app'];
 const ALLOWED_FROM = ['tommy.knight@gmail.com'];
+// ...existing code...
 
+// Place webhook route after app and middleware initialization
 app.post('/webhooks/resend', async (req, res) => {
   try {
     const event = req.body;
@@ -46,7 +47,7 @@ app.post('/webhooks/resend', async (req, res) => {
     // Prefer text, fallback to html (strip tags)
     let bodyText = text;
     if (!bodyText && html) {
-      bodyText = html.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ');
+      bodyText = html.replace(/<br\s*\/?/gi, '\n').replace(/<[^>]+>/g, ' ');
     }
     // Parse the email
     const parsed = parseTeeTimeEmail(bodyText, subject);
