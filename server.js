@@ -1,4 +1,4 @@
-/* server.js v3.8 (Fixed for Port Binding / Render Deployment) */
+/* server.js v3.9 (Fixed for Port Binding, app initialization, and Resend Webhook API) */
 const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
@@ -13,6 +13,19 @@ const PORT = process.env.PORT || 3000;
 // For production, this must be replaced with proper user authentication (JWTs/Sessions).
 const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || ''; 
 
+// --- Email (Resend) client setup ---
+let resendClient = null;
+const canEmail = !!process.env.RESEND_API_KEY && !!process.env.RESEND_FROM;
+if (canEmail) {
+  const { Resend } = require('resend');
+  resendClient = new Resend(process.env.RESEND_API_KEY);
+}
+// NOTE: Assuming you have these models/utils for the webhook logic if needed later
+// const TeeTime = require('./models/TeeTime'); 
+// const { parseTeeTimeEmail } = require('./utils/parseTeeTimeEmail');
+// ------------------------------------
+
+
 // --- Middleware ---
 app.use(express.json());
 app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true }));
@@ -25,36 +38,12 @@ app.use((req, res, next) => {
   next();
 });
 
+// Serve static files and root HTML
 app.use(express.static(path.join(__dirname, 'public')));
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 
-// --- DB ---
-const mongoUri = process.env.MONGO_URI;
-if (!mongoUri) { console.error('Missing MONGO_URI'); process.exit(1); }
-const Event = require('./models/Event');
 
-// *** THE FIX IS HERE: Start the app only after a successful DB connection ***
-mongoose.connect(mongoUri, { dbName: process.env.MONGO_DB || undefined })
-  .then(() => {
-    console.log('Mongo connected');
-    
-    // START SERVER ONLY AFTER MONGO IS READY
-    app.listen(PORT, () => console.log(`server on :${PORT}`));
-    
-  })
-  .catch((e) => { 
-    console.error('Mongo connection error', e); 
-    process.exit(1); 
-  });
-// --------------------------------------------------------------------------
-
-// --- Email (Resend) helper setup ---
-let resendClient = null;
-const canEmail = !!process.env.RESEND_API_KEY && !!process.env.RESEND_FROM;
-if (canEmail) {
-  const { Resend } = require('resend');
-  resendClient = new Resend(process.env.RESEND_API_KEY);
-}
+// --- Email (Resend) helper functions ---
 async function sendEmail({ to, subject, html, cc, bcc, audienceId }) {
   if (!canEmail) return { skipped: true, reason: 'Email disabled' };
   try {
@@ -93,6 +82,8 @@ function genTeeTimes(startHHMM, count = 3, mins = 10) {
 }
 
 // --- API Routes ---
+const Event = require('./models/Event');
+
 app.get('/api/events', async (_req, res) => {
   const items = await Event.find().sort({ date: 1 }).lean();
   res.json(items);
@@ -111,7 +102,6 @@ app.post('/api/events', async (req, res) => {
 });
 
 app.delete('/api/events/:id', async (req, res) => {
-  // Check for admin code in the request body only (not URL query)
   const code = req.body?.code || ''; 
   if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) return res.status(403).json({ error: 'Forbidden' });
   const del = await Event.findByIdAndDelete(req.params.id);
@@ -132,14 +122,12 @@ app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
   
   try {
     await ev.save();
-    // Return the updated event for client-side micro-rendering
     res.json(ev);
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
 });
 
-// Move player (FIXED for robust data transfer)
 app.post('/api/events/:id/move-player', async (req, res) => {
   const { fromTeeId, toTeeId, playerId } = req.body || {};
   if (!fromTeeId || !toTeeId || !playerId) return res.status(400).json({ error: 'fromTeeId, toTeeId, playerId required' });
@@ -150,17 +138,14 @@ app.post('/api/events/:id/move-player', async (req, res) => {
   const toTT = ev.teeTimes.id(toTeeId);
   if (!fromTT || !toTT) return res.status(404).json({ error: 'tee time not found' });
   
-  // Find and remove player
   const idx = fromTT.players.findIndex(p => String(p._id) === String(playerId));
   if (idx === -1) return res.status(404).json({ error: 'player not found' });
   const [player] = fromTT.players.splice(idx, 1);
   
-  // Add player to destination (Mongoose validation will check max players on save)
   toTT.players.push(player); 
   
   try {
     await ev.save();
-    // Return the updated event for client-side micro-rendering
     res.json(ev);
   } catch (e) {
     res.status(400).json({ error: e.message });
@@ -174,7 +159,6 @@ app.get('/__meta', (_req, res) => res.json({
   when: new Date().toISOString()
 }));
 
-// Subscribe
 app.post('/api/subscribe', async (req, res) => {
   const { email } = req.body || {};
   if (!email) return res.status(400).json({ error: 'email required' });
@@ -210,30 +194,31 @@ app.post('/api/subscribe', async (req, res) => {
 });
 
 
-// --- Resend inbound webhook for email.received events ---
-app.post('/webhooks/resend', async (req, res) => {
-  try {
-    const event = req.body;
-    console.log('[webhook] Incoming event:', JSON.stringify(event));
+// --- Resend Webhook (CORRECTLY PLACED AND FIXED FOR RESEND API) ---
+if (canEmail) {
+  // const ALLOWED_TO = ['teetime@xenailexou.resend.app']; // Used for manual checks
 
-    if (!event || event.type !== 'email.received') {
-      return res.status(200).send('Ignored: not an email.received event');
-    }
-
-    if (!resendClient) {
-      console.warn('[webhook] RESEND_API_KEY/RESEND_FROM not configured; cannot fetch email content');
-      return res.status(200).send('Resend not configured');
-    }
-
-    const emailId = event.data && event.data.email_id;
-    if (!emailId) {
-      console.warn('[webhook] No email_id in event data');
-      return res.status(200).send('No email_id');
-    }
-
-    // Fetch full email content (HTML / text / headers) using Resend Receiving API
+  app.post('/webhooks/resend', async (req, res) => {
     try {
-      const { data: email } = await resendClient.emails.receiving.get(emailId);
+      if (!resendClient) {
+        console.error('[webhook] Resend client not configured');
+        return res.status(500).send('Resend not configured');
+      }
+
+      const event = req.body;
+      console.log('[webhook] Event type:', event.type);
+      if (!event || event.type !== 'email.received') {
+        return res.status(200).send('Ignored: not an email.received event');
+      }
+      
+      const emailId = event.data && event.data.email_id;
+      if (!emailId) {
+        console.warn('[webhook] No email_id in event data');
+        return res.status(200).send('No email_id');
+      }
+
+      // ⚡️ THE FIX: Use resendClient.inbound.get()
+      const { data: email } = await resendClient.inbound.get(emailId); 
 
       console.log('[webhook] Email meta:', {
         from: email.from,
@@ -244,22 +229,33 @@ app.post('/webhooks/resend', async (req, res) => {
       const textPreview = (email.text || '').slice(0, 400);
       console.log('[webhook] Email text preview:', textPreview);
 
-      // TODO: parse email.text to extract Facility, Date, Time, Holes, Players
-      // and create/update/cancel tee times in MongoDB as needed.
+      // TODO: Add your full webhook processing logic here (e.g., parsing the email and updating DB)
 
       return res.status(200).json({ ok: true });
     } catch (err) {
-      console.error('[webhook] Error fetching email content from Resend:', err);
+      // Log the full error to help debug your webhook logic
+      console.error('[webhook] Internal error handling webhook:', err); 
       return res.status(500).send('Error fetching email');
     }
-  } catch (err) {
-    console.error('[webhook] Internal error handling webhook:', err);
-    return res.status(500).send('Internal server error');
-  }
-});
+  });
+}
+// --------------------------------------------------------------------
 
-// NOTE: Webhooks removed to simplify and ensure core app starts. 
-// If webhooks are still needed, they should be added here, after routes, but before app.listen.
 
-// Since app.listen is now in the Mongoose .then() block, we remove it from the bottom.
-// app.listen(PORT, () => console.log(`server on :${PORT}`)); // REMOVED
+// --- DB & Server Start ---
+const mongoUri = process.env.MONGO_URI;
+if (!mongoUri) { console.error('Missing MONGO_URI'); process.exit(1); }
+
+// *** FIX for "No open ports detected": Start app.listen only after DB connection ***
+mongoose.connect(mongoUri, { dbName: process.env.MONGO_DB || undefined })
+  .then(() => {
+    console.log('Mongo connected');
+    
+    // START SERVER ONLY AFTER MONGO IS READY
+    app.listen(PORT, () => console.log(`server on :${PORT}`));
+    
+  })
+  .catch((e) => { 
+    console.error('Mongo connection error', e); 
+    process.exit(1); 
+  });
