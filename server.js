@@ -1,7 +1,7 @@
 
 
-// --- Place webhook code after all app and middleware initialization ---
-// Only initialize Resend and webhook if API key is present
+
+// --- Place webhook code at the safest location: after all middleware/routes, before app.listen/module.exports ---
 if (process.env.RESEND_API_KEY) {
   const { Resend } = require('resend');
   const TeeTime = require('./models/TeeTime');
