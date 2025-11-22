@@ -203,7 +203,6 @@ app.post('/webhooks/resend', async (req, res) => {
         ]
       };
 
-      // Only create event if action is CREATE and required fields are present
       if (parsed.action === 'CREATE' && eventData.course && eventData.date && eventData.teeTimes[0].time) {
         try {
           const created = await Event.create(eventData);
@@ -213,8 +212,27 @@ app.post('/webhooks/resend', async (req, res) => {
           console.error('[webhook] Error creating event:', err);
           return res.status(500).send('Error creating event');
         }
+      } else if (parsed.action === 'CANCEL' && eventData.course && eventData.date && eventData.teeTimes[0].time) {
+        try {
+          // Find and delete the event by course, date, and tee time
+          const deleted = await Event.findOneAndDelete({
+            course: eventData.course,
+            date: new Date(eventData.date + 'T12:00:00Z'),
+            'teeTimes.time': eventData.teeTimes[0].time
+          });
+          if (deleted) {
+            console.log('[webhook] Event cancelled from email:', deleted._id);
+            return res.status(200).json({ ok: true, cancelled: true, eventId: deleted._id });
+          } else {
+            console.warn('[webhook] Cancel: no matching event found');
+            return res.status(200).send('Cancel: no matching event found');
+          }
+        } catch (err) {
+          console.error('[webhook] Error cancelling event:', err);
+          return res.status(500).send('Error cancelling event');
+        }
       } else {
-        return res.status(200).send('No event created (not CREATE or missing fields)');
+        return res.status(200).send('No event created or cancelled (not CREATE/CANCEL or missing fields)');
       }
     } catch (err) {
       console.error('[webhook] Error fetching email content from Resend:', err);
