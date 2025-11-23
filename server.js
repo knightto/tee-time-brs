@@ -245,6 +245,21 @@ app.post('/webhooks/resend', async (req, res) => {
           }
           const created = await fetchRes.json();
           console.log('[webhook] Event created from email via API:', created._id);
+          // Send notification email to all subscribers (same as /api/events)
+          try {
+            const eventUrl = `${SITE_URL}?event=${created._id}`;
+            await sendEmailToAll(`New Event: ${created.course} (${fmt.dateISO(created.date)})`,
+              frame('A New Golf Event Has Been Scheduled!',
+                `<p>The following event is now open for sign-up:</p>
+                 <p><strong>Event:</strong> ${esc(fmt.dateShortTitle(created.date))}</p>
+                 <p><strong>Course:</strong> ${esc(created.course||'')}</p>
+                 <p><strong>Date:</strong> ${esc(fmt.dateLong(created.date))}</p>
+                 ${(!created.isTeamEvent && created.teeTimes?.[0]?.time) ? `<p><strong>First Tee Time:</strong> ${esc(fmt.tee(created.teeTimes[0].time))}</p>`:''}
+                 <p>Please <a href="${eventUrl}" style="color:#166534;text-decoration:underline">click here to view this event directly</a> or visit the sign-up page to secure your spot!</p>${btn('Go to Sign-up Page', eventUrl)}`)
+            );
+          } catch (e) {
+            console.error('[webhook] Failed to send notification email:', e);
+          }
           return res.status(201).json({ ok: true, eventId: created._id });
         } catch (err) {
           console.error('[webhook] Error creating event via API:', err);
