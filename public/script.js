@@ -611,6 +611,17 @@ if ('serviceWorker' in navigator) {
     } 
   }
 
+  // Fetch a single event by ID
+  async function fetchEventById(eventId) {
+    try {
+      return await api(`/api/events`)
+        .then(list => (Array.isArray(list) ? list.find(ev => ev._id === eventId) : null));
+    } catch (e) {
+      console.error('Failed to fetch event by ID:', e);
+      return null;
+    }
+  }
+
   function render(list){
     // Use a document fragment for batch DOM updates
     window.requestAnimationFrame(() => {
@@ -807,7 +818,15 @@ if ('serviceWorker' in navigator) {
         if(!confirm('Remove this tee/team?')) return;
         t.disabled = true;
         t.textContent = 'Removing...';
-        await api(`/api/events/${eventId}/tee-times/${teeId}`, { method: 'DELETE' });
+        try {
+          await api(`/api/events/${eventId}/tee-times/${teeId}`, { method: 'DELETE' });
+        } catch (err) {
+          console.error(err);
+          t.disabled = false;
+          t.textContent = '×';
+          alert('Delete tee/team failed: ' + (err.message || 'Unknown error'));
+          return;
+        }
         await updateEventCard(eventId);
         return;
       }
@@ -1367,7 +1386,7 @@ if ('serviceWorker' in navigator) {
   // Update only a single event card in the DOM
   async function updateEventCard(eventId) {
     try {
-      const ev = (await api('/api/events')).find(x => x._id === eventId);
+      const ev = await fetchEventById(eventId);
       if (!ev) return load(); // fallback
       // Find the card
       const card = document.querySelector(`.card [data-edit='${eventId}']`)?.closest('.card');
