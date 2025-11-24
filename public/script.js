@@ -299,12 +299,9 @@ if ('serviceWorker' in navigator) {
   on(eventForm, 'submit', async (e)=>{
     e.preventDefault();
     try{
-      const body=normalizeForm(eventForm);
+      const body = normalizeForm(eventForm);
       const isTeams = (body.mode === 'teams');
-      
-      // Get course name from search input
       const courseName = body.course;
-      
       const payload = {
         course: courseName,
         courseInfo: selectedCourseData || {},
@@ -313,21 +310,40 @@ if ('serviceWorker' in navigator) {
         isTeamEvent: isTeams,
         teamSizeMax: isTeams ? Number(body.teamSizeMax || 4) : 4
       };
-      
       if (isTeams) {
         payload.teamStartType = body.teamStartType || 'shotgun';
         payload.teamStartTime = body.teamStartTime;
       } else {
-        payload.teeTime = body.teeTime;
+        const teeTime = body.teeTime;
+        let count = 4;
+        if (body.teeTimesCount) {
+          count = parseInt(body.teeTimesCount, 10) || 4;
+        }
+        if (teeTime) {
+          const mins = teeTime.split(':').map(Number);
+          const startMins = mins[0] * 60 + mins[1];
+          payload.teeTime = teeTime;
+          if (count > 1) {
+            payload.teeTimes = [];
+            for (let i = 0; i < count; i++) {
+              let minsVal = startMins + i * 9;
+              let h = String(Math.floor(minsVal / 60) % 24).padStart(2, '0');
+              let m = String(minsVal % 60).padStart(2, '0');
+              payload.teeTimes.push({ time: `${h}:${m}` });
+            }
+          }
+        }
       }
-      
-      await api('/api/events',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
-      modal?.close?.(); 
-      eventForm.reset(); 
+      await api('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      modal?.close?.();
+      eventForm.reset();
       courseInfoCard.style.display = 'none';
       selectedCourseData = null;
       load();
-    }catch(err){ console.error(err); alert('Create failed'); }
+    } catch (err) {
+      console.error(err);
+      alert('Create failed: ' + (err && err.message ? err.message : 'Unknown error'));
+    }
   });
 
   // Edit mode toggle
@@ -352,40 +368,6 @@ if ('serviceWorker' in navigator) {
       await api(`/api/events/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
       editModal?.close?.(); load();
     }catch(err){ console.error(err); alert('Save failed'); }
-  });
-
-  // Edit tee/team save
-  on(editTeeForm, 'submit', async (e)=>{
-    e.preventDefault();
-    try{
-      const data = normalizeForm(editTeeForm);
-      const eventId = data.eventId;
-      const teeId = data.teeId;
-      const isTeam = data.isTeam === '1';
-      // Always use input value for tee times (select is hidden)
-      let value = (data.value || '').trim();
-      if (!value) {
-        alert(isTeam ? 'Team name is required' : 'Tee time is required');
-        return;
-      }
-      // For tee times, validate HH:MM format (allow H:MM and pad)
-      if (!isTeam) {
-        let m = /^\d{1,2}:\d{2}$/.exec(value);
-        if (!m) {
-          alert('Tee time must be in HH:MM format (e.g., 07:00)');
-          return;
-        }
-        // Pad to HH:MM
-        let [h, mm] = value.split(':');
-        value = `${h.padStart(2,'0')}:${mm}`;
-      }
-      const payload = isTeam ? { name: value } : { time: value };
-      await api(`/api/events/${eventId}/tee-times/${teeId}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
-      editTeeModal?.close?.(); load();
-    }catch(err){ 
-      console.error(err); 
-      alert('Save failed: ' + (err.message || 'Unknown error'));
-    }
   });
 
   // Subscribe modal
