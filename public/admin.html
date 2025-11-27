@@ -239,15 +239,17 @@
     </h1>
 
     <!-- Quick Actions Section -->
+
     <div class="test-section" style="background: #dbeafe; border-color: #3b82f6;">
       <h2 style="color: #1e40af;">⚡ Quick Actions</h2>
       <div class="test-buttons">
-  <button class="btn-test" style="background: #3b82f6;" onclick="refreshAllWeather()">🌤️ Refresh All Weather</button>
-  <button class="btn-test" style="background: #3b82f6;" onclick="checkEmptyTees()">⚠️ Check Empty Tees Now</button>
-  <button class="btn-test" style="background: #10b981;" onclick="verifyCourseData()">🏌️ Verify Golf Course Data</button>
-  <button class="btn-test" style="background: #8b5cf6;" onclick="showCustomMessageDialog()">💬 Message All Subscribers</button>
+        <button class="btn-test" style="background: #f59e0b;" onclick="checkEmptyTees()">⚠️ Check Empty Tees Now</button>
+        <button class="btn-test" style="background: #3b82f6;" onclick="refreshAllWeather()">🌤️ Refresh All Weather</button>
+        <button class="btn-test" style="background: #10b981;" onclick="verifyCourseData()">🏌️ Verify Golf Course Data</button>
+        <button class="btn-test" style="background: #8b5cf6;" onclick="showCustomMessageDialog()">💬 Message All Subscribers</button>
       </div>
       <div id="quickResult" class="test-result"></div>
+      <div id="emptyTeeResults" class="test-result" style="display:block;"></div>
     </div>
 
     <!-- Notification Toggle Section -->
@@ -267,11 +269,6 @@
       <div id="notifResult" class="test-result"></div>
     </div>
 
-    <!-- Events Overview Section -->
-    <div style="background: rgba(255,255,255,0.98); border-radius: 8px; padding: 16px; margin-bottom: 24px;">
-      <h2 style="margin: 0 0 16px 0; color: #111827;">📅 Events Overview</h2>
-      <div id="eventsOverview" style="color: #475569;">Loading events...</div>
-    </div>
 
     <h2 style="margin-top: 24px; color: #111827;">👥 Subscriber Management</h2>
 
@@ -349,7 +346,6 @@
       document.getElementById('eventsOverview').innerHTML = '<div class="empty-state">Admin access required</div>';
     } else {
       loadSubscribers();
-      loadEventsOverview();
       loadNotificationSettings();
       checkGolfApiHealth(); // Check API health on load
     }
@@ -485,74 +481,73 @@
       return phone;
     }
 
+
     // Quick Actions Functions
     function showQuickResult(message, isSuccess = true) {
       const result = document.getElementById('quickResult');
       result.className = `test-result ${isSuccess ? 'success' : 'error'}`;
       result.textContent = message;
-      setTimeout(() => { result.className = 'test-result'; }, 5000);
+      result.style.display = 'block';
+      setTimeout(() => { result.style.display = 'none'; }, 5000);
     }
 
-    async function loadEventsOverview() {
+    // Check Empty Tee Times (Admin)
+    async function checkEmptyTees() {
+      const quickResult = document.getElementById('quickResult');
+      const resultsDiv = document.getElementById('emptyTeeResults');
+      quickResult.style.display = 'none';
+      resultsDiv.style.display = 'block';
+      resultsDiv.innerHTML = '<em>⏳ Checking for empty tee times...</em>';
       try {
-        const response = await fetch('/api/events');
-        if (!response.ok) throw new Error('Failed to load events');
-        
-        const events = await response.json();
-        const now = new Date();
-        
-        // Categorize events
-        const upcoming = events.filter(e => new Date(e.date) > now);
-        const past = events.filter(e => new Date(e.date) <= now);
-        
-        // Find events with empty tee times
-        const withEmptyTees = upcoming.filter(e => {
-          if (e.isTeamEvent) return false;
-          return e.teeTimes?.some(tt => !tt.players || tt.players.length === 0);
-        });
-        
-        // Calculate stats
-        const totalPlayers = events.reduce((sum, e) => {
-          return sum + (e.teeTimes || []).reduce((tsum, tt) => tsum + (tt.players?.length || 0), 0);
-        }, 0);
-        
-        let html = `
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 16px;">
-            <div style="background: #f0fdf4; padding: 12px; border-radius: 6px; border-left: 3px solid #22c55e;">
-              <div style="font-size: 24px; font-weight: bold; color: #15803d;">${upcoming.length}</div>
-              <div style="font-size: 12px; color: #16a34a;">Upcoming Events</div>
-            </div>
-            <div style="background: #fef3c7; padding: 12px; border-radius: 6px; border-left: 3px solid #f59e0b;">
-              <div style="font-size: 24px; font-weight: bold; color: #b45309;">${withEmptyTees.length}</div>
-              <div style="font-size: 12px; color: #d97706;">With Empty Tees</div>
-            </div>
-            <div style="background: #e0e7ff; padding: 12px; border-radius: 6px; border-left: 3px solid #6366f1;">
-              <div style="font-size: 24px; font-weight: bold; color: #4338ca;">${totalPlayers}</div>
-              <div style="font-size: 12px; color: #4f46e5;">Total Players</div>
-            </div>
-            <div style="background: #f3f4f6; padding: 12px; border-radius: 6px; border-left: 3px solid #6b7280;">
-              <div style="font-size: 24px; font-weight: bold; color: #374151;">${past.length}</div>
-              <div style="font-size: 12px; color: #4b5563;">Past Events</div>
-            </div>
-          </div>
-        `;
-        
-        if (withEmptyTees.length > 0) {
-          html += '<h3 style="color: #b45309; margin: 16px 0 8px 0;">⚠️ Events with Empty Tee Times:</h3><ul style="margin: 0;">';
-          withEmptyTees.slice(0, 5).forEach(e => {
-            const emptyCount = e.teeTimes.filter(tt => !tt.players || tt.players.length === 0).length;
-            const dateStr = new Date(e.date).toLocaleDateString();
-            html += `<li style="margin: 4px 0;"><strong>${escapeHtml(e.course)}</strong> - ${dateStr} (${emptyCount} empty)</li>`;
+        const response = await fetch(`/admin/empty-tee-report?code=${encodeURIComponent(ADMIN_CODE)}`);
+        if (!response.ok) throw new Error('Failed to check empty tee times');
+        const data = await response.json();
+        // Show quick summary
+        showQuickResult(`Found ${data.counts.within1Day} empty tee time(s) in next 1 day, ${data.counts.within2Days} in 2 days, and ${data.counts.within3Days} in 3 days.`, true);
+        // Render detailed results
+        let html = '';
+        function renderSection(title, arr) {
+          if (!arr.length) return '';
+          // Group by event (course + date)
+          const grouped = {};
+          arr.forEach(item => {
+            const key = item.course + '|' + item.dateLong;
+            if (!grouped[key]) grouped[key] = { course: item.course, dateLong: item.dateLong, teeTimes: [] };
+            grouped[key].teeTimes.push(item.teeTime);
           });
-          html += '</ul>';
+          let out = `<h3 style=\"margin:16px 0 8px 0;color:#92400e;\">${title}</h3>`;
+          out += '<table><thead><tr><th>Course</th><th>Date</th><th>Tee Time</th></tr></thead><tbody>';
+          Object.values(grouped).forEach(ev => {
+            ev.teeTimes.forEach(tt => {
+              out += `<tr><td>${escapeHtml(ev.course)}</td><td>${escapeHtml(ev.dateLong)}</td><td>${escapeHtml(tt)}</td></tr>`;
+            });
+          });
+          out += '</tbody></table>';
+          return out;
         }
-        
-        document.getElementById('eventsOverview').innerHTML = html;
+        let hasResults = false;
+        if (data.within1Day && data.within1Day.length) {
+          html += renderSection('Empty tee times in next 24 hours', data.within1Day);
+          hasResults = true;
+        }
+        if (data.within2Days && data.within2Days.length) {
+          html += renderSection('Empty tee times in 24–48 hours', data.within2Days);
+          hasResults = true;
+        }
+        if (data.within3Days && data.within3Days.length) {
+          html += renderSection('Empty tee times in 48–72 hours', data.within3Days);
+          hasResults = true;
+        }
+        if (!hasResults) {
+          html = '<div class="empty-state">✅ No empty tee times in the next 3 days</div>';
+        }
+        resultsDiv.innerHTML = html;
       } catch (error) {
-        console.error('Error loading events overview:', error);
-        document.getElementById('eventsOverview').innerHTML = '<div style="color: #dc2626;">Error loading events</div>';
+        resultsDiv.innerHTML = `<div class='empty-state'>❌ Error: ${error.message}</div>`;
+        showQuickResult(`❌ Error: ${error.message}`, false);
       }
     }
+
 
     async function loadNotificationSettings() {
       try {
@@ -640,23 +635,6 @@
       }
     }
 
-    async function checkEmptyTees() {
-      try {
-        showQuickResult('⏳ Checking for empty tee times...');
-  const response = await fetch(`/admin/alert-empty-tees?code=${encodeURIComponent(ADMIN_CODE)}`);
-        
-        if (!response.ok) throw new Error('Failed to check');
-        const result = await response.json();
-        
-        if (result.alertsSent === 0) {
-          showQuickResult('✅ No empty tee time alerts needed');
-        } else {
-          showQuickResult(`✅ Sent ${result.alertsSent} admin alert(s) (48hr: ${result.events48}, 24hr: ${result.events24})`);
-        }
-      } catch (error) {
-        showQuickResult(`❌ Error: ${error.message}`, false);
-      }
-    }
 
     async function verifyCourseData() {
       try {

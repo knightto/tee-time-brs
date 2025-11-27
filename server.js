@@ -1778,46 +1778,7 @@ async function findEmptyTeeTimesForDay(daysAhead = 1){
   return blocks;
 }
 
-async function checkEmptyTeeTimesForAdminAlert() {
-  const now = new Date();
-  const in48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-  const events = await Event.find({ isTeamEvent: false, date: { $gte: now, $lte: in48h } }).lean();
-  let alertsSent = 0;
-  let empties = [];
-  for (const ev of events) {
-    if (!Array.isArray(ev.teeTimes)) continue;
-    for (const tt of ev.teeTimes) {
-      if (tt.players && tt.players.length > 0) continue;
-      if (!tt.time) continue;
-      const [hh, mm] = tt.time.split(':').map(Number);
-      const teeDate = new Date(ev.date);
-      teeDate.setUTCHours(hh, mm, 0, 0);
-      if (teeDate > now && teeDate <= in48h) {
-        empties.push({
-          eventId: ev._id,
-          course: ev.course,
-          date: ev.date,
-          teeTime: tt.time
-        });
-        // Send alert for each empty tee time
-        const html = `
-          <p><strong>⚠️ Empty Tee Time Alert</strong></p>
-          <p><strong>Event:</strong> ${esc(ev.course||'Course')}</p>
-          <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
-          <p><strong>Tee Time:</strong> ${esc(fmt.tee(tt.time||''))}</p>
-          <p>This tee time is still empty and is within the next 48 hours. Grab a spot if you want to play!</p>
-          <p style="color:#b91c1c;"><strong>IMPORTANT:</strong> If we are not going to use this tee time, someone needs to let the clubhouse know as soon as possible.</p>
-        `;
-        await sendEmailToAll(
-          `⚠️ Alert: Empty Tee Time for ${ev.course}`,
-          html
-        );
-        alertsSent++;
-      }
-    }
-  }
-  return { ok: true, alertsSent, empties, eventsChecked: events.length };
-}
+
 async function runReminderIfNeeded(label, daysAhead = 1){
   const blocks = await findEmptyTeeTimesForDay(daysAhead);
   if (!blocks.length) {
@@ -1844,17 +1805,80 @@ app.get('/admin/run-reminders', async (req, res) => {
 });
 
 
-/* manual trigger for admin alerts: GET /admin/alert-empty-tees?code=... */
-app.get('/admin/alert-empty-tees', async (req, res) => {
+
+/* Admin: GET /admin/empty-tee-report?code=... */
+app.get('/admin/empty-tee-report', async (req, res) => {
   const code = req.query.code || '';
   if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) return res.status(403).json({ error: 'Forbidden' });
   try {
-    const r = await checkEmptyTeeTimesForAdminAlert();
-    return res.json(r);
+    const now = new Date();
+    const nowPlus1 = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const nowPlus2 = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+    const nowPlus3 = new Date(now.getTime() + 72 * 60 * 60 * 1000);
+    // Only non-team events
+    const events = await Event.find({ isTeamEvent: false }).lean();
+    const within1Day = [];
+    const within2Days = [];
+    const within3Days = [];
+    for (const ev of events) {
+      if (!Array.isArray(ev.teeTimes)) continue;
+      for (const tt of ev.teeTimes) {
+        if (!tt.time) continue;
+        const [hh, mm] = tt.time.split(':');
+        const eventDate = asUTCDate(ev.date);
+        if (isNaN(eventDate)) continue;
+        const teeDate = new Date(Date.UTC(
+          eventDate.getUTCFullYear(),
+          eventDate.getUTCMonth(),
+          eventDate.getUTCDate(),
+          parseInt(hh, 10),
+          parseInt(mm, 10)
+        ));
+        const isEmpty = !Array.isArray(tt.players) || tt.players.length === 0;
+        if (!isEmpty) continue;
+        if (teeDate > now && teeDate <= nowPlus1) {
+          within1Day.push({
+            eventId: String(ev._id),
+            course: ev.course || '',
+            dateISO: fmt.dateISO(ev.date),
+            dateLong: fmt.dateLong(ev.date),
+            teeTime: tt.time
+          });
+        } else if (teeDate > nowPlus1 && teeDate <= nowPlus2) {
+          within2Days.push({
+            eventId: String(ev._id),
+            course: ev.course || '',
+            dateISO: fmt.dateISO(ev.date),
+            dateLong: fmt.dateLong(ev.date),
+            teeTime: tt.time
+          });
+        } else if (teeDate > nowPlus2 && teeDate <= nowPlus3) {
+          within3Days.push({
+            eventId: String(ev._id),
+            course: ev.course || '',
+            dateISO: fmt.dateISO(ev.date),
+            dateLong: fmt.dateLong(ev.date),
+            teeTime: tt.time
+          });
+        }
+      }
+    }
+    res.json({
+      ok: true,
+      within1Day,
+      within2Days,
+      within3Days,
+      counts: {
+        within1Day: within1Day.length,
+        within2Days: within2Days.length,
+        within3Days: within3Days.length
+      }
+    });
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    res.status(500).json({ ok: false, error: e.message });
   }
 });
+
 
 /* Verify golf course data quality: GET /admin/verify-courses?code=... */
 app.get('/admin/verify-courses', async (req, res) => {
