@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2025 Holiday Dinner RSVP</title>
+  <link rel="stylesheet" href="/public/css/styles.css">
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f8fafc; margin: 0; }
+    .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 10px; box-shadow: 0 2px 8px #0001; padding: 32px; }
+    h1 { color: #2563eb; }
+    table { width: 100%; border-collapse: collapse; margin-top: 24px; }
+    th, td { padding: 8px 12px; border-bottom: 1px solid #e5e7eb; }
+    th { background: #f1f5f9; text-align: left; }
+    tr:last-child td { border-bottom: none; }
+    .form-row { margin-bottom: 16px; }
+    label { display: block; margin-bottom: 4px; font-weight: 500; }
+    input, select { width: 100%; padding: 8px; border: 1px solid #cbd5e1; border-radius: 4px; }
+    button { background: #2563eb; color: #fff; border: none; padding: 10px 20px; border-radius: 6px; font-size: 16px; cursor: pointer; }
+    button:hover { background: #1d4ed8; }
+    .success { color: #16a34a; margin-top: 12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>2025 Holiday Dinner RSVP</h1>
+    <form id="rsvpForm">
+      <div class="form-row">
+        <label for="name">Your Name</label>
+        <input type="text" id="name" name="name" required>
+      </div>
+      <div class="form-row">
+        <label for="coming">Are you coming?</label>
+        <select id="coming" name="coming" required>
+          <option value="">-- Select --</option>
+          <option value="yes">Yes, I'll be there!</option>
+          <option value="no">Sorry, can't make it</option>
+        </select>
+      </div>
+      <div class="form-row">
+        <label for="bringing">What are you bringing?</label>
+        <input type="text" id="bringing" name="bringing" placeholder="e.g. Dessert, Side Dish, Drinks...">
+      </div>
+      <button type="submit">Submit RSVP</button>
+      <div id="formMsg" class="success" style="display:none"></div>
+    </form>
+    <h2 style="margin-top:40px;">Who's Coming & What They're Bringing</h2>
+    <table id="rsvpTable">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Coming?</th>
+          <th>Bringing</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- RSVP rows will go here -->
+      </tbody>
+    </table>
+  </div>
+  <script>
+    // Simple localStorage-based RSVP tracker
+    function getRSVPs() {
+      return JSON.parse(localStorage.getItem('holidayDinner2025RSVPs') || '[]');
+    }
+    function saveRSVPs(rs) {
+      localStorage.setItem('holidayDinner2025RSVPs', JSON.stringify(rs));
+    }
+    function renderTable() {
+      const rs = getRSVPs();
+      const tbody = document.querySelector('#rsvpTable tbody');
+      tbody.innerHTML = rs.map(r => `<tr><td>${r.name}</td><td>${r.coming === 'yes' ? 'Yes' : 'No'}</td><td>${r.bringing || ''}</td></tr>`).join('');
+    }
+    document.getElementById('rsvpForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      const name = this.name.value.trim();
+      const coming = this.coming.value;
+      const bringing = this.bringing.value.trim();
+      if (!name || !coming) return;
+      let rs = getRSVPs();
+      // Overwrite if name already exists
+      const idx = rs.findIndex(r => r.name.toLowerCase() === name.toLowerCase());
+      if (idx >= 0) rs[idx] = { name, coming, bringing };
+      else rs.push({ name, coming, bringing });
+      saveRSVPs(rs);
+      renderTable();
+      document.getElementById('formMsg').textContent = 'RSVP saved!';
+      document.getElementById('formMsg').style.display = 'block';
+      setTimeout(() => { document.getElementById('formMsg').style.display = 'none'; }, 2000);
+      this.reset();
+    });
+    renderTable();
+  </script>
+</body>
+</html>

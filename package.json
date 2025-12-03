@@ -10,7 +10,8 @@
     "test:frontend": "node tests/test_add_tee.js",
     "test:server": "node tests/test_server_helpers.js",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "seed:myrtle": "node scripts/seed_myrtle_trip.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

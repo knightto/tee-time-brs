@@ -1,4 +1,3 @@
-
 // Alert for nearly full tee times (4 days out or less, >50% full)
 async function alertNearlyFullTeeTimes() {
   const now = new Date();
@@ -38,11 +37,18 @@ async function alertNearlyFullTeeTimes() {
   const res = await sendEmailToAll('Alert: Tee Times Nearly Full', html);
   return { ok: true, sent: res.sent, blocks };
 }
-// ...existing code...
 /* server.js v3.13 — daily 5pm empty-tee reminder + manual trigger */
 const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
+// Secondary connection for Myrtle Trip
+const mongooseSecondary = require('mongoose');
+const secondaryUri = process.env.MONGO_URI_SECONDARY;
+let secondaryConn = null;
+if (secondaryUri) {
+  secondaryConn = mongooseSecondary.createConnection(secondaryUri, { useNewUrlParser: true, useUnifiedTopology: true });
+  console.log('Secondary MongoDB connection for Myrtle Trip initialized.');
+}
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
@@ -64,15 +70,39 @@ app.use(rateLimit({ windowMs: 60 * 1000, max: 200 }));
 
 // Define routes before static middleware to ensure they take precedence
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+// --- Myrtle Beach Trip Tracker API ---
+// Debug endpoint: Query all trips and participants from secondary DB
+app.get('/api/debug/secondary-trips', async (req, res) => {
+  try {
+    const { secondaryConn } = require('./server');
+    if (!secondaryConn) return res.status(500).json({ error: 'No secondary connection' });
+    const Trip = secondaryConn.model('Trip', require('./models/Trip').schema);
+    const TripParticipant = secondaryConn.model('TripParticipant', require('./models/TripParticipant').schema);
+    const trips = await Trip.find().lean();
+    const participants = await TripParticipant.find().lean();
+    res.json({ trips, participants });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.use('/api/trips', require('./routes/trips'));
+// Export secondaryConn for trip routes
+module.exports.secondaryConn = secondaryConn;
 // Handicap tracking removed
 
 // Health check / debug endpoint
 app.get('/api/health', (_req, res) => {
+  let secondaryState = null;
+  try {
+    const { secondaryConn } = require('./server');
+    secondaryState = secondaryConn ? secondaryConn.readyState : null;
+  } catch { secondaryState = null; }
   res.json({
     status: 'ok',
     timestamp: new Date().toISOString(),
     config: {
       mongoConnected: mongoose.connection.readyState === 1,
+      secondaryMongoConnected: secondaryState === 1,
       hasResendKey: !!process.env.RESEND_API_KEY,
       hasResendFrom: !!process.env.RESEND_FROM,
       hasSubscriberModel: !!Subscriber,
@@ -1449,6 +1479,8 @@ app.post('/api/events/:id/maybe', async (req, res) => {
   }
 });
 
+
+
 // Remove player from maybe list
 app.delete('/api/events/:id/maybe/:index', async (req, res) => {
   try {
@@ -1793,7 +1825,7 @@ async function runReminderIfNeeded(label, daysAhead = 1){
 }
 
 /* manual trigger: GET /admin/run-reminders?code=... */
-app.get('/admin/run-reminders', async (req, res) => {
+app.get('/admin/run_reminders', async (req, res) => {
   const code = req.query.code || '';
   if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) return res.status(403).json({ error: 'Forbidden' });
   try {

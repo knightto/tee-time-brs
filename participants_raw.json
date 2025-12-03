@@ -1,0 +1,27 @@
+﻿
+
+StatusCode        : 200
+StatusDescription : OK
+Content           : [{"_id":"6930359c0b904ca3f20ab214","trip":"6930359c0b904ca3f20ab210","name":"Tommy Knight Sr","status
+                    ":"in","depositPaidAmount":0,"wantsExtraNight":false,"createdAt":"2025-12-03T13:05:32.559Z","update..
+                    .
+RawContent        : HTTP/1.1 200 OK
+                    Vary: Origin
+                    X-RateLimit-Limit: 200
+                    X-RateLimit-Remaining: 193
+                    X-RateLimit-Reset: 1764769562
+                    Connection: keep-alive
+                    Keep-Alive: timeout=5
+                    Content-Length: 3515
+                    Content-Type: app...
+Forms             : {}
+Headers           : {[Vary, Origin], [X-RateLimit-Limit, 200], [X-RateLimit-Remaining, 193], [X-RateLimit-Reset, 
+                    1764769562]...}
+Images            : {}
+InputFields       : {}
+Links             : {}
+ParsedHtml        : mshtml.HTMLDocumentClass
+RawContentLength  : 3515
+
+
+
