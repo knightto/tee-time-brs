@@ -120,14 +120,16 @@
     // --- Render Trip Summary ---
     function renderTrip() {
       $('#tripSummary').innerHTML = `
-        <div><strong>Trip Name:</strong> ${trip.name}</div>
-        <div><strong>Group Name:</strong> ${trip.groupName}</div>
-        <div><strong>Location:</strong> ${trip.location}</div>
-        <div><strong>Arrival:</strong> ${formatDate(trip.arrivalDate)}</div>
-        <div><strong>Departure:</strong> ${formatDate(trip.departureDate)}</div>
-        <div><strong>Package Type:</strong> ${trip.packageType}</div>
-        <div><strong>Reservation #:</strong> ${trip.reservationNumber}</div>
-        <div><strong>Prepared By:</strong> ${trip.preparedBy} (${trip.contactPhone})</div>
+        <div><strong>Trip Name:</strong> Myrtle Beach – Barefoot Group 3/18–3/22/26</div>
+        <div><strong>Group Name:</strong> tommy knight Group-barefoot</div>
+        <div><strong>Location:</strong> Myrtle Beach, SC</div>
+        <div><strong>Arrival:</strong> Wed 3/18/26</div>
+        <div><strong>Departure:</strong> Sun 3/22/26</div>
+        <div><strong>Package Type:</strong> 4 Nights / 5 Rounds (Founders Group package)</div>
+        <div><strong>Reservation #:</strong> 12972589 | Myrtle Beach Golf Trips (866-694-2448)</div>
+        <div><strong>Lodging:</strong> Barefoot Golf Villas, 2BR golf-course condos, 5 units (4 guys per condo).</div>
+        <div><strong>Price:</strong> $792.56 per person incl. lodging, 5 rounds, all taxes/fees (no breakfast).</div>
+        <div><strong>Golf-only portion:</strong> $575.31 per person (included in price above).</div>
       `;
       const baseGroupSizeSelect = document.getElementById('baseGroupSizeSelect');
       if (baseGroupSizeSelect) {
@@ -144,21 +146,72 @@
 
       // Render itinerary/accommodations
       let rounds = [
-        { course: 'Myrtlewood Pinehills', date: '2026-03-18', time: '12:46 PM', groupSize: 20, address: '1500 48th Ave N Ext, Myrtle Beach, SC 29577' },
-        { course: 'Wild Wing Avocet', date: '2026-03-19', time: '9:27 AM', groupSize: 20, address: '1000 Wild Wing Blvd, Conway, SC 29526' },
-        { course: 'Long Bay', date: '2026-03-20', time: '9:28 AM', groupSize: 20, address: '350 Fox Tail Dr, Longs, SC 29568' },
-        { course: 'River Hills', date: '2026-03-21', time: '9:24 AM', groupSize: 20, address: '3670 Cedar Creek Run, Little River, SC 29566' },
-        { course: 'MB National Kings North', date: '2026-03-22', time: '8:08 AM', groupSize: 20, address: '4900 National Dr, Myrtle Beach, SC 29579' }
+        { course: 'World Tour', date: '2026-03-18', time: '1:17 PM', groupSize: 20 },
+        { course: 'Wild Wing Avocet', date: '2026-03-19', time: '9:18 AM', groupSize: 20 },
+        { course: 'River Hills', date: '2026-03-20', time: '9:24 AM', groupSize: 20 },
+        { course: 'Long Bay', date: '2026-03-21', time: '9:28 AM', groupSize: 20 },
+        { course: 'MB National King’s North', date: '2026-03-22', time: '7:59 AM', groupSize: 20 }
       ];
-      // Accommodations summary
-      let condoInfo = `<li>(4) 2 Bedroom / 2 Bath Condos at <strong>Barefoot Resort</strong>, all in the <strong>Ironwood Subdivision</strong>.</li>`;
+      let condoInfo = `<li>(5) 2BR golf-course condos at <strong>Barefoot Golf Villas</strong>, 4 guys per condo.</li>`;
       $('#itineraryBox').innerHTML = `
-        <strong>Round Itinerary</strong><br>
-        <ul>${rounds.map((r, idx) => `<li>${formatDate(r.date)}: ${r.course} @ ${r.time} &mdash; Group Size: ${r.groupSize}<br><span style='font-size:13px;color:#555;'>${r.address}</span></li>`).join('')}</ul>
-        <strong>Accommodations</strong><br>
+        <strong>Golf Schedule (20 players)</strong><br>
+        <ul>${rounds.map((r, idx) => `<li>${formatDate(r.date)}: ${r.course} @ ${r.time}</li>`).join('')}</ul>
+        <div id="allParticipantsList" style="margin:18px 0 8px 0;"></div>
+        <strong>Lodging</strong><br>
         <ul>${condoInfo}</ul>
-        <div style="margin:16px 0 8px 0;"><strong>Address:</strong> Barefoot Resort, Ironwood Subdivision, 5801 Oyster Catcher Dr, North Myrtle Beach, SC 29582</div>
+        <div style="margin:16px 0 8px 0;"><strong>Price:</strong> $792.56 per person incl. lodging, 5 rounds, all taxes/fees (no breakfast).<br><strong>Golf-only portion:</strong> $575.31 per person (included above).</div>
       `;
+      // Render all participants below golf schedule
+      if (Array.isArray(participants) && participants.length) {
+        // Use statusOptions for display order and label
+        const statusLabels = {
+          invited: 'Invited',
+          in: 'In',
+          maybe: 'Maybe',
+          out: 'Out',
+          waitlist: 'Waitlist'
+        };
+        const statusOrder = ['in','out','maybe','waitlist','invited'];
+        // Calculate status counts
+        const counts = { in:0, out:0, maybe:0, waitlist:0, invited:0 };
+        participants.forEach(p => {
+          if (counts.hasOwnProperty(p.status)) counts[p.status]++;
+        });
+        // Render summary bar
+        let summaryBar = `<div style='margin-bottom:8px;font-weight:500;'>` +
+          statusOrder.map(s => `<span style='margin-right:18px;'>${statusLabels[s]}: <span style='color:#2563eb;'>${counts[s]}</span></span>`).join('') +
+          `</div>`;
+        // Sort by status (in, maybe, out, waitlist, invited), then name
+        const sorted = [...participants].sort((a, b) => {
+          const sa = statusOrder.indexOf(a.status);
+          const sb = statusOrder.indexOf(b.status);
+          if (sa !== sb) return sa - sb;
+          return (a.name||'').localeCompare(b.name||'');
+        });
+        // Render as 4 columns
+        const colCount = 4;
+        const perCol = Math.ceil(sorted.length / colCount);
+        let cols = Array.from({ length: colCount }, (_, i) => sorted.slice(i * perCol, (i + 1) * perCol));
+        let tableHtml = `<strong>Golfer Status</strong>` + summaryBar + `<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px;'>`;
+        for (let col of cols) {
+          tableHtml += `<ul style='margin:0;padding-left:18px;'>${col.map(p => `<li>${p.name} <select class='golfer-status-dropdown' data-id='${p._id}' style='font-size:13px;padding:2px 4px;margin-left:4px;'>${statusOrder.map(opt => `<option value='${opt}'${p.status===opt?' selected':''}>${statusLabels[opt]}</option>`).join('')}</select></li>`).join('')}</ul>`;
+        }
+        tableHtml += `</div>`;
+        document.getElementById('allParticipantsList').innerHTML = tableHtml;
+        // Add event listener for status change
+        document.querySelectorAll('.golfer-status-dropdown').forEach(sel => {
+          sel.addEventListener('change', async function() {
+            const id = this.dataset.id;
+            const status = this.value;
+            await fetch(tripApi(`/api/trips/${window.tripId}/participants/${id}`), {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ status })
+            });
+            await loadTrip();
+          });
+        });
+      }
       // Hide edit form by default
       $('#itineraryEditForm').style.display = 'none';
     }
@@ -293,10 +346,6 @@
           }
           card.innerHTML = `
             <div><strong>Name:</strong> <input type="text" value="${p.name}" data-id="${p._id}" class="name-input"></div>
-            <div><strong>Status:</strong> <select class="status-input" data-id="${p._id}">${statusOptions.map(opt => `<option value="${opt}"${p.status===opt?' selected':''}>${opt}</option>`).join('')}</select></div>
-            <div><strong>Total Paid:</strong> <input type="number" min="0" value="${p.totalPaidAmount||p.depositPaidAmount||''}" class="total-paid-input" data-id="${p._id}"></div>
-            <!-- Deposit checkbox removed for clarity -->
-            <input type="checkbox" ${p.fullAmountPaid?'checked':''} class="full-paid-checkbox" data-id="${p._id}"> Full Paid</div>
             <div><strong>Bedroom:</strong> <select class="room-select" data-id="${p._id}">
               <option value="A"${room==="A"?' selected':''}>A</option>
               <option value="B"${room==="B"?' selected':''}>B</option>
@@ -326,9 +375,7 @@
         li.style.boxShadow = '0 1px 4px #0001';
         li.style.padding = '14px';
         li.innerHTML = `
-          <div style="margin-bottom:8px;"><strong>${p.name}</strong> <select class="status-dropdown" data-id="${p._id}" style="margin-left:8px;">
-            ${['in','out','maybe','waitlist'].map(opt => `<option value="${opt}"${p.status===opt?' selected':''}>${opt.charAt(0).toUpperCase()+opt.slice(1)}</option>`).join('')}
-          </select></div>
+          <div style="margin-bottom:8px;"><strong>${p.name}</strong></div>
           <div style="margin-bottom:8px;display:flex;align-items:center;"><label style="font-weight:500;margin-right:6px;">Paid:</label> <span style='font-size:16px;margin-right:2px;'>$</span><input type="number" min="0" step="0.01" class="unassigned-paid-input" data-id="${p._id}" style="width:90px;text-align:right;" value="${(p.totalPaidAmount||0).toFixed(2)}" placeholder="0.00"></div>
           <div style="margin-bottom:8px;"><label style="font-weight:500;">Condo:</label> <select class="assign-condo-select" data-id="${p._id}" style="width:60px;text-align:center;">
             <option value="">--</option>
