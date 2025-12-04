@@ -7,35 +7,55 @@
   <link rel="stylesheet" href="/public/css/styles.css">
   <style>
     body { font-family: system-ui, sans-serif; background: #f8fafc; margin: 0; }
-    .container { max-width: 1000px; margin: 40px auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 16px #0002; padding: 40px; }
-    h1 { color: #2563eb; }
-    .summary-card { background: #f1f5f9; border-radius: 10px; padding: 24px; margin-bottom: 28px; box-shadow: 0 1px 6px #0001; }
-    .summary-box { background: #e0f7fa; border-radius: 10px; padding: 20px; margin-top: 32px; box-shadow: 0 1px 6px #0001; }
-    .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 28px; margin-bottom: 32px; }
-    .participant-card { background: #f9fafb; border-radius: 10px; box-shadow: 0 2px 8px #0001; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
-    .condo-group { background: #f3f4f6; border-radius: 10px; padding: 18px; margin-bottom: 24px; box-shadow: 0 1px 4px #0001; }
-    table { width: 100%; border-collapse: collapse; margin-top: 24px; }
-    th, td { padding: 8px 12px; border-bottom: 1px solid #e5e7eb; }
+    .container { max-width: 1000px; margin: 24px auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 16px #0002; padding: 16px; }
+    h1 { color: #2563eb; font-size: 2rem; margin-bottom: 12px; }
+    .summary-card { background: #f1f5f9; border-radius: 10px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 6px #0001; }
+    .summary-box { background: #e0f7fa; border-radius: 10px; padding: 12px; margin-top: 18px; box-shadow: 0 1px 6px #0001; }
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 18px; }
+    .participant-card { background: #f9fafb; border-radius: 10px; box-shadow: 0 2px 8px #0001; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .condo-group { background: #f3f4f6; border-radius: 10px; padding: 10px; margin-bottom: 14px; box-shadow: 0 1px 4px #0001; }
+    table { width: 100%; border-collapse: collapse; margin-top: 14px; }
+    th, td { padding: 6px 8px; border-bottom: 1px solid #e5e7eb; }
     th { background: #f1f5f9; text-align: left; }
     tr:last-child td { border-bottom: none; }
-    .form-row { margin-bottom: 14px; }
-    input, select, textarea { padding: 8px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; }
+    .form-row { margin-bottom: 10px; }
+    input, select, textarea { padding: 6px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; }
     button { background: #2563eb; color: #fff; border: none; padding: 8px 18px; border-radius: 8px; font-size: 16px; cursor: pointer; transition: background 0.2s; }
     button:hover { background: #1d4ed8; }
-    .actions { display: flex; gap: 12px; margin-top: 8px; }
+    .actions { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
     .add-row { background: #fef3c7; border-radius: 6px; }
     .status-in { color: #16a34a; }
     .status-out { color: #dc2626; }
     .status-maybe { color: #f59e42; }
     .status-waitlist { color: #6366f1; }
     .status-invited { color: #2563eb; }
-    .room-select { width: 110px; }
+    .room-select { width: 90px; }
+    #topPricePayBox, #inStatusBox, .summary-card, .summary-box { box-sizing: border-box; }
+    @media (max-width: 600px) {
+      .container { padding: 4px; }
+      h1 { font-size: 1.2rem; }
+      .summary-card, #topPricePayBox, #inStatusBox, .summary-box { padding: 8px; margin-bottom: 10px; }
+      .cards-grid { grid-template-columns: 1fr; gap: 10px; }
+      .condo-group { padding: 6px; margin-bottom: 8px; }
+      .participant-card { padding: 8px; gap: 6px; }
+      #allParticipantsList div { grid-template-columns: 1fr 1fr; }
+      #itineraryBox { padding: 8px; }
+    }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Myrtle Beach 2026 Golf Trip Tracker</h1>
     <div id="tripSummary" class="summary-card"></div>
+    <div id="topPricePayBox" style="margin-bottom:18px;max-width:420px;background:#f1f5f9;padding:14px 18px;border-radius:10px;box-shadow:0 1px 6px #0001;">
+      <strong>Price:</strong> $792.56 per person incl. lodging, 5 rounds, all taxes/fees (no breakfast).<br>
+      <div style="margin:12px 0 0 0;">
+        <a href="https://founders.teetimecentralonline.com/golfcentral/guests/Register.aspx?g=8ad2d184-cdb8-4b90-8dc6-55c68c26efe9&ResNum=12972589&arr=3/18/2026" target="_blank" style="display:block;margin-bottom:8px;color:#2563eb;font-weight:600;text-decoration:underline;font-size:1.1em;">TO JOIN THIS GOLF PACKAGE, CLICK HERE</a>
+        <div style="font-size:13px;color:#555;margin-bottom:8px;">Or, copy and paste the line below into your browser</div>
+        <div style="word-break:break-all;font-size:13px;margin-bottom:12px;">https://founders.teetimecentralonline.com/golfcentral/guests/Register.aspx?g=8ad2d184-cdb8-4b90-8dc6-55c68c26efe9&ResNum=12972589&arr=3/18/2026</div>
+        <a href="https://venmo.com/tk-jr" target="_blank" style="color:#2563eb;font-weight:500;text-decoration:underline;">Or pay Tommy via Venmo</a>
+      </div>
+    </div>
     <div id="itineraryBox" class="summary-card" style="margin-bottom:24px;"></div>
     <form id="itineraryEditForm" class="summary-card" style="margin-bottom:24px; display:none;">
         <strong>Edit Round Itinerary</strong><br>
@@ -121,15 +141,11 @@
     function renderTrip() {
       $('#tripSummary').innerHTML = `
         <div><strong>Trip Name:</strong> Myrtle Beach – Barefoot Group 3/18–3/22/26</div>
-        <div><strong>Group Name:</strong> tommy knight Group-barefoot</div>
         <div><strong>Location:</strong> Myrtle Beach, SC</div>
-        <div><strong>Arrival:</strong> Wed 3/18/26</div>
-        <div><strong>Departure:</strong> Sun 3/22/26</div>
-        <div><strong>Package Type:</strong> 4 Nights / 5 Rounds (Founders Group package)</div>
+        <div><strong>Arrival:</strong> Wed 3/18/26 - <strong>Departure:</strong> Sun 3/22/26</div>
+        <div><strong>Package Type:</strong> 4 Nights / 5 Rounds</div>
         <div><strong>Reservation #:</strong> 12972589 | Myrtle Beach Golf Trips (866-694-2448)</div>
-        <div><strong>Lodging:</strong> Barefoot Golf Villas, 2BR golf-course condos, 5 units (4 guys per condo).</div>
         <div><strong>Price:</strong> $792.56 per person incl. lodging, 5 rounds, all taxes/fees (no breakfast).</div>
-        <div><strong>Golf-only portion:</strong> $575.31 per person (included in price above).</div>
       `;
       const baseGroupSizeSelect = document.getElementById('baseGroupSizeSelect');
       if (baseGroupSizeSelect) {
@@ -159,8 +175,19 @@
         <div id="allParticipantsList" style="margin:18px 0 8px 0;"></div>
         <strong>Lodging</strong><br>
         <ul>${condoInfo}</ul>
-        <div style="margin:16px 0 8px 0;"><strong>Price:</strong> $792.56 per person incl. lodging, 5 rounds, all taxes/fees (no breakfast).<br><strong>Golf-only portion:</strong> $575.31 per person (included above).</div>
+        <div style="margin:16px 0 8px 0;"><strong>Price:</strong> $792.56 per person incl. lodging, 5 rounds, all taxes/fees (no breakfast).</div>
       `;
+      // Remove payment links from Lodging section in itinerary box
+      $('#itineraryBox').innerHTML += `
+        <strong>Lodging</strong><br>
+        <ul><li>(5) 2BR golf-course condos at <strong>Barefoot Golf Villas</strong>, 4 guys per condo.</li></ul>
+        <div style="margin:8px 0 0 0;"><strong>Price:</strong> $792.56 per person incl. lodging, 5 rounds, all taxes/fees (no breakfast).</div>
+      `;
+      // Remove price and payment info from Lodging section above Confirmed Golfers
+      let lodgingHtml = `<div style='margin-bottom:12px;max-width:320px;background:#f1f5f9;padding:14px 18px;border-radius:10px;box-shadow:0 1px 6px #0001;'>` +
+        `<strong>Lodging:</strong> (5) 2BR golf-course condos at Barefoot Golf Villas, 4 guys per condo.<br>` +
+        `</div>`;
+      $('#inStatusBox')?.insertAdjacentHTML('beforebegin', lodgingHtml);
       // Render all participants below golf schedule
       if (Array.isArray(participants) && participants.length) {
         // Use statusOptions for display order and label
@@ -192,9 +219,10 @@
         const colCount = 4;
         const perCol = Math.ceil(sorted.length / colCount);
         let cols = Array.from({ length: colCount }, (_, i) => sorted.slice(i * perCol, (i + 1) * perCol));
-        let tableHtml = `<strong>Golfer Status</strong>` + summaryBar + `<div style='display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px;'>`;
+        // Change Golfer Status list to 2 columns
+        let tableHtml = `<strong>Golfer Status</strong>` + summaryBar + `<div style='display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px;'>`;
         for (let col of cols) {
-          tableHtml += `<ul style='margin:0;padding-left:18px;'>${col.map(p => `<li>${p.name} <select class='golfer-status-dropdown' data-id='${p._id}' style='font-size:13px;padding:2px 4px;margin-left:4px;'>${statusOrder.map(opt => `<option value='${opt}'${p.status===opt?' selected':''}>${statusLabels[opt]}</option>`).join('')}</select></li>`).join('')}</ul>`;
+          tableHtml += `<ul style='margin:0;padding-left:18px;'>${col.map(p => `<li>${p.name} <select class='golfer-status-dropdown' data-id='${p._id}' style='font-size:13px;padding:2px 4px;margin-left:4px;'>${statusOrder.map(opt => `<option value='${opt}'${p.status===opt?' selected':''}>${statusLabels[opt]}</option>`).join('')}</select> <input type='number' class='golfer-paid-input' data-id='${p._id}' value='${(p.totalPaidAmount||0).toFixed(2)}' min='0' step='0.01' style='width:60px;font-size:13px;margin-left:4px;' placeholder='Paid'></li>`).join('')}</ul>`;
         }
         tableHtml += `</div>`;
         document.getElementById('allParticipantsList').innerHTML = tableHtml;
@@ -211,9 +239,41 @@
             await loadTrip();
           });
         });
+        // Add event listener for paid amount change
+        document.querySelectorAll('.golfer-paid-input').forEach(input => {
+          input.addEventListener('change', async function() {
+            const id = this.dataset.id;
+            let value = this.value;
+            if (value === '' || isNaN(value)) value = 0;
+            value = parseFloat(value);
+            await fetch(tripApi(`/api/trips/${window.tripId}/participants/${id}`), {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ totalPaidAmount: value })
+            });
+            await loadTrip();
+          });
+        });
       }
       // Hide edit form by default
       $('#itineraryEditForm').style.display = 'none';
+
+      // Calculate number of 'in' golfers and next increment of 4
+      const inCount = participants.filter(p => p.status === 'in').length;
+      const nextIncrement = Math.ceil(Math.max(inCount, 1) / 4) * 4;
+      let needed = nextIncrement > inCount ? nextIncrement - inCount : 0;
+      let explanationHtml = `<div id='inStatusBox' style='margin-bottom:12px;max-width:320px;background:#f1f5f9;padding:14px 18px;border-radius:10px;box-shadow:0 1px 6px #0001;'>` +
+        `<strong>Confirmed Golfers:</strong> <span style='color:#2563eb;'>${inCount}</span><br>` +
+        (needed > 0
+          ? `We need <strong>${needed}</strong> more to reach the next full group of 4.<br>`
+          : `We have a full group of <strong>${inCount}</strong>!<br>`
+        ) +
+        `<span style='font-size:13px;color:#555;'>Condos and tee times are assigned in increments of 4.` +
+        (needed === 0 ? ` If adding more, we need to grow to <strong>${nextIncrement + 4}</strong> golfers for the next full group.` : '') +
+        `</span>` +
+        `</div>`;
+      // Place explanation box above the golf schedule
+      $('#itineraryBox').insertAdjacentHTML('beforebegin', explanationHtml);
     }
         // --- Itinerary Edit UI ---
         document.addEventListener('click', function(e) {
@@ -376,7 +436,6 @@
         li.style.padding = '14px';
         li.innerHTML = `
           <div style="margin-bottom:8px;"><strong>${p.name}</strong></div>
-          <div style="margin-bottom:8px;display:flex;align-items:center;"><label style="font-weight:500;margin-right:6px;">Paid:</label> <span style='font-size:16px;margin-right:2px;'>$</span><input type="number" min="0" step="0.01" class="unassigned-paid-input" data-id="${p._id}" style="width:90px;text-align:right;" value="${(p.totalPaidAmount||0).toFixed(2)}" placeholder="0.00"></div>
           <div style="margin-bottom:8px;"><label style="font-weight:500;">Condo:</label> <select class="assign-condo-select" data-id="${p._id}" style="width:60px;text-align:center;">
             <option value="">--</option>
             <option value="1">1</option>

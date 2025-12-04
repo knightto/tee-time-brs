@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Myrtle Beach 2026 Golf Trip Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="/public/css/styles.css">
+  <style>
+    body { font-family: system-ui, sans-serif; background: #f8fafc; margin: 0; }
+    .container { max-width: 1000px; margin: 40px auto; background: #ffffff; border-radius: 12px; box-shadow: 0 4px 16px #0002; padding: 40px; }
+    h1 { color: #2563eb; }
+    .summary-card { background: #f1f5f9; border-radius: 10px; padding: 24px; margin-bottom: 28px; box-shadow: 0 1px 6px #0001; }
+    .summary-box { background: #e0f7fa; border-radius: 10px; padding: 20px; margin-top: 32px; box-shadow: 0 1px 6px #0001; }
+    .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 28px; margin-bottom: 32px; }
+    .participant-card { background: #f9fafb; border-radius: 10px; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+    .participant-header { display: flex; justify-content: space-between; align-items: center; }
+    .participant-name { font-weight: 600; font-size: 1.05rem; }
+    .status-pill { padding: 4px 10px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+    .status-in { background: #dcfce7; color: #166534; }
+    .status-maybe { background: #fef9c3; color: #854d0e; }
+    .status-out { background: #fee2e2; color: #b91c1c; }
+    .status-waitlist { background: #e0e7ff; color: #3730a3; }
+    .status-invited { background: #dbeafe; color: #1d4ed8; }
+    .field-label { font-size: 0.8rem; text-transform: uppercase; color: #6b7280; }
+    .field-value { font-weight: 500; }
+    .form-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 12px; align-items: center; }
+    .form-row label { font-size: 0.9rem; color: #374151; }
+    .form-row input, .form-row select, .form-row textarea { padding: 6px 8px; border-radius: 6px; border: 1px solid #d1d5db; font-size: 0.9rem; }
+    .form-row textarea { width: 100%; min-height: 60px; }
+    .section-title { margin-top: 32px; margin-bottom: 12px; }
+    .btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; border: 1px solid #2563eb; background: #2563eb; color: #ffffff; font-size: 0.9rem; cursor: pointer; }
+    .btn-secondary { background: #ffffff; color: #2563eb; }
+    .btn-danger { border-color: #dc2626; background: #dc2626; }
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; background: #e5e7eb; color: #374151; }
+    .text-muted { color: #6b7280; font-size: 0.85rem; }
+    .itinerary-round { padding: 8px 0; border-bottom: 1px dashed #e5e7eb; }
+    .itinerary-round:last-child { border-bottom: none; }
+    .input-small { width: 80px; }
+    .input-medium { width: 140px; }
+    .input-large { width: 260px; }
+    .pills-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+    .pill { border-radius: 999px; border: 1px solid #d1d5db; padding: 4px 10px; font-size: 0.75rem; }
+    .status-in { color: #16a34a; }
+    .status-out { color: #dc2626; }
+    .status-maybe { color: #f59e42; }
+    .status-waitlist { color: #6366f1; }
+    .status-invited { color: #2563eb; }
+    .room-select { width: 110px; }
+  
+    /* Layout helpers for accommodations */
+    .layout-row {
+      display: flex;
+      gap: 32px;
+      align-items: flex-start;
+    }
+    .condos-column {
+      flex: 3 1 0;
+    }
+    .unassigned-sidebar {
+      flex: 1 1 0;
+      min-width: 220px;
+      background: #f3f4f6;
+      border-radius: 8px;
+      padding: 12px;
+    }
+
+    /* Golfer status grid */
+    .golfer-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    /* Mobile optimization */
+    @media (max-width: 768px) {
+      body {
+        background: #f8fafc;
+      }
+      .container {
+        max-width: 100%;
+        margin: 0;
+        padding: 16px;
+        border-radius: 0;
+        box-shadow: none;
+      }
+      h1 {
+        font-size: 1.4rem;
+        margin-bottom: 12px;
+      }
+      .summary-card,
+      .summary-box {
+        padding: 14px;
+        margin-bottom: 16px;
+        border-radius: 10px;
+      }
+      .cards-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 10px;
+      }
+      .participant-card {
+        padding: 12px;
+        gap: 8px;
+      }
+      .layout-row {
+        flex-direction: column;
+        gap: 16px;
+      }
+      .unassigned-sidebar {
+        order: -1;
+        width: 100%;
+        min-width: 0;
+      }
+      .condos-column {
+        width: 100%;
+      }
+      .golfer-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      #itineraryBox ul {
+        padding-left: 18px;
+        margin-top: 6px;
+        margin-bottom: 6px;
+      }
+      #tripSummary > div {
+        margin-bottom: 3px;
+      }
+      input,
+      select,
+      textarea,
+      button {
+        font-size: 15px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Myrtle Beach 2026 Golf Trip Tracker</h1>
+    <div id="tripSummary" class="summary-card">
+      <h2>Trip Summary</h2>
+      <div><strong>Group:</strong> <span id="groupName"></span></div>
+      <div><strong>Dates:</strong> <span id="dates"></span></div>
+      <div><strong>Res #:</strong> <span id="resNum"></span></div>
+      <div><strong>Group Size:</strong> <span id="groupSize"></span></div>
+      <div><strong>Per Person Price:</strong> <span id="perPersonPrice"></span></div>
+      <div><strong>Golf-only Price:</strong> <span id="golfOnlyPrice"></span></div>
+    </div>
+
+    <div class="cards-grid">
+      <div id="itineraryBox" class="participant-card">
+        <h2 class="section-title">Golf Schedule</h2>
+        <div id="itinerarySummary"></div>
+        <button id="editItineraryBtn" type="button" class="btn btn-secondary" style="margin-top:10px;">Edit Itinerary</button>
+        <form id="itineraryEditForm" style="margin-top:16px; display:none;">
+          <div id="itineraryFields"></div>
+          <button id="addRoundBtn" type="button" class="btn btn-secondary" style="margin-top:10px;">Add Round</button>
+          <button id="saveItineraryBtn" type="button" class="btn" style="margin-top:10px;">Save Itinerary</button>
+        </form>
+      </div>
+
+      <div id="statusBox" class="participant-card">
+        <h2 class="section-title">Golfer Status & Payments</h2>
+        <div id="golferStatus"></div>
+      </div>
+    </div>
+
+    <form id="tripForm">
+      <h2>Trip Details</h2>
+      <div class="form-row">
+        <label>Group Name
+          <input type="text" name="groupName" id="groupNameInput" class="input-large" />
+        </label>
+        <label>Arrival
+          <input type="date" name="arrivalDate" id="arrivalDate" />
+        </label>
+        <label>Departure
+          <input type="date" name="departureDate" id="departureDate" />
+        </label>
+      </div>
+      <div class="form-row">
+        <label>Group Size
+          <input type="number" name="groupSize" id="groupSizeInput" />
+        </label>
+        <label>Reservation Number
+          <input type="text" name="reservationNumber" id="reservationNumber" class="input-medium" />
+        </label>
+      </div>
+      <div class="form-row">
+        <label>Per Person Price ($)
+          <input type="number" name="perPersonPrice" id="perPersonPriceInput" step="0.01" />
+        </label>
+        <label>Golf-only Price ($)
+          <input type="number" name="golfOnlyPrice" id="golfOnlyPriceInput" step="0.01" />
+        </label>
+      </div>
+      <div class="form-row">
+        <label>Notes
+          <textarea name="tripNotes" id="tripNotes"></textarea>
+        </label>
+      </div>
+      <!-- Save Trip Details button removed -->
+    </form>
+
+    <h2>Accommodations</h2>
+    <button id="addParticipantBtn" style="margin-bottom:12px;">Add Golfer</button>
+    <div class="layout-row">
+      <div id="condoGroups" class="condos-column"></div>
+      <div id="unassignedSidebar" class="unassigned-sidebar">
+        <div class="form-row" style="margin-bottom:16px;">
+          <label>Base Group Size:
+            <select name="baseGroupSize" id="baseGroupSizeSelect"></select>
+          </label>
+        </div>
+        <strong>Unassigned Golfers</strong>
+        <div style="max-height:420px; overflow-y:auto; margin-top:10px;">
+          <ul id="unassignedList" style="list-style:none; padding-left:0; margin:0;"></ul>
+        </div>
+      </div>
+    </div>
+
+    <div id="summaryBox" class="summary-box"></div>
+  </div>
+
+  <script>
+    // --- Config ---
+    const tripId = null; // will be set after fetch
+    const statusOptions = ['invited','in','maybe','out','waitlist'];
+
+    // --- State ---
+    let trip = null;
+    let participants = [];
+
+    // --- Helpers ---
+    function $(selector) {
+      return document.querySelector(selector);
+    }
+
+    function formatCurrency(value) {
+      if (value == null || value === '') return '';
+      return '$' + Number(value).toFixed(2);
+    }
+
+    function formatDateString(dateStr) {
+      if (!dateStr) return '';
+      const d = new Date(dateStr);
+      return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    // --- Load Initial Trip (mocked static data for now) ---
+    async function loadTrip() {
+      trip = {
+        groupName: 'tommy knight Group - Barefoot',
+        arrivalDate: '2026-03-18',
+        departureDate: '2026-03-22',
+        groupSize: 20,
+        reservationNumber: '12972589',
+        perPersonPrice: 792.56,
+        golfOnlyPrice: 575.31,
+        notes: 'Barefoot Golf Villas, 2BR, 5 units, 4 golfers per condo.',
+        rounds: [
+          { course: 'World Tour Golf Links', date: '2026-03-18', time: '13:17', groupSize: 20, confirmation: '320052' },
+          { course: 'Wild Wing Avocet', date: '2026-03-19', time: '09:18', groupSize: 20, confirmation: '320052' },
+          { course: 'River Hills', date: '2026-03-20', time: '09:24', groupSize: 20, confirmation: '320052' },
+          { course: 'Long Bay', date: '2026-03-21', time: '09:28', groupSize: 20, confirmation: '320052' },
+          { course: 'MB National Kings North', date: '2026-03-22', time: '07:59', groupSize: 20, confirmation: '320052' }
+        ],
+        condoGroups: [
+          { name: 'Condo 1', roomType: '2BR Villa', golfers: [] },
+          { name: 'Condo 2', roomType: '2BR Villa', golfers: [] },
+          { name: 'Condo 3', roomType: '2BR Villa', golfers: [] },
+          { name: 'Condo 4', roomType: '2BR Villa', golfers: [] },
+          { name: 'Condo 5', roomType: '2BR Villa', golfers: [] }
+        ],
+        baseGroupSize: 4
+      };
+
+      participants = [
+        { _id: '1', name: 'Tommy Jr', status: 'in', totalPaidAmount: 200, wantsExtraNight: false },
+        { _id: '2', name: 'Tommy Sr', status: 'in', totalPaidAmount: 200, wantsExtraNight: false },
+        { _id: '3', name: 'Gary Knight', status: 'in', totalPaidAmount: 100, wantsExtraNight: true },
+        { _id: '4', name: 'Dennis Freeman', status: 'in', totalPaidAmount: 100, wantsExtraNight: true },
+        { _id: '5', name: 'Matt Shannon', status: 'in', totalPaidAmount: 0, wantsExtraNight: false },
+        { _id: '6', name: 'John Hyers', status: 'in', totalPaidAmount: 0, wantsExtraNight: false },
+        { _id: '7', name: 'Marcus Ordonez', status: 'in', totalPaidAmount: 0, wantsExtraNight: false },
+        { _id: '8', name: 'Manny Ordonez', status: 'in', totalPaidAmount: 0, wantsExtraNight: false },
+        { _id: '9', name: 'Reny Butler', status: 'in', totalPaidAmount: 0, wantsExtraNight: false },
+        { _id: '10', name: 'Tom Lasik', status: 'in', totalPaidAmount: 0, wantsExtraNight: false },
+        { _id: '11', name: 'Matt Meehan', status: 'in', totalPaidAmount: 0, wantsExtraNight: false },
+        { _id: '12', name: 'Glenn Dietz', status: 'in', totalPaidAmount: 0, wantsExtraNight: false },
+        { _id: '13', name: 'Kolby Madigan', status: 'in', totalPaidAmount: 0, wantsExtraNight: false },
+        { _id: '14', name: 'Joe Gillette', status: 'in', totalPaidAmount: 0, wantsExtraNight: false },
+        { _id: '15', name: 'Lance Darr', status: 'in', totalPaidAmount: 0, wantsExtraNight: false },
+        { _id: '16', name: 'Charles Dotson', status: 'in', totalPaidAmount: 0, wantsExtraNight: false },
+        { _id: '17', name: 'Larry Morikawa', status: 'in', totalPaidAmount: 0, wantsExtraNight: false },
+        { _id: '18', name: 'Delmar Christian', status: 'in', totalPaidAmount: 0, wantsExtraNight: false },
+        { _id: '19', name: 'Brandon Nice', status: 'in', totalPaidAmount: 0, wantsExtraNight: false },
+        { _id: '20', name: 'Larry Nice', status: 'in', totalPaidAmount: 0, wantsExtraNight: false }
+      ];
+
+      populateTripForm();
+      renderTripSummary();
+      renderItinerary();
+      renderParticipants();
+      populateBaseGroupSizeOptions();
+      renderSummaryBox();
+    }
+
+    function populateTripForm() {
+      $('#groupNameInput').value = trip.groupName;
+      $('#arrivalDate').value = trip.arrivalDate;
+      $('#departureDate').value = trip.departureDate;
+      $('#groupSizeInput').value = trip.groupSize;
+      $('#reservationNumber').value = trip.reservationNumber;
+      $('#perPersonPriceInput').value = trip.perPersonPrice;
+      $('#golfOnlyPriceInput').value = trip.golfOnlyPrice;
+      $('#tripNotes').value = trip.notes;
+    }
+
+    function renderTripSummary() {
+      $('#groupName').textContent = trip.groupName;
+      $('#dates').textContent = `${formatDateString(trip.arrivalDate)} - ${formatDateString(trip.departureDate)}`;
+      $('#resNum').textContent = trip.reservationNumber;
+      $('#groupSize').textContent = trip.groupSize;
+      $('#perPersonPrice').textContent = formatCurrency(trip.perPersonPrice);
+      $('#golfOnlyPrice').textContent = formatCurrency(trip.golfOnlyPrice);
+    }
+
+    function renderItinerary() {
+      const container = $('#itinerarySummary');
+      if (!trip.rounds || !trip.rounds.length) {
+        container.innerHTML = '<p class="text-muted">No rounds configured yet.</p>';
+        return;
+      }
+      const listHtml = trip.rounds.map(r => `
+        <div class="itinerary-round">
+          <div><strong>${r.course}</strong></div>
+          <div class="text-muted">${formatDateString(r.date)} @ ${r.time || ''}</div>
+          <div class="text-muted">Group size: ${r.groupSize || ''} | Conf: ${r.confirmation || ''}</div>
+        </div>
+      `).join('');
+      container.innerHTML = listHtml;
+    }
+
+    // Remove itinerary edit form and related editable fields
+    document.getElementById('itineraryEditForm').style.display = 'none';
+
+    document.getElementById('editItineraryBtn').onclick = function() {
+      const form = document.getElementById('itineraryEditForm');
+      form.style.display = (form.style.display === 'none' || form.style.display === '') ? '' : 'none';
+    };
+
+    function renderParticipants() {
+      const condosContainer = document.getElementById('condoGroups');
+      const unassignedList = document.getElementById('unassignedList');
+
+      condosContainer.innerHTML = '';
+      unassignedList.innerHTML = '';
+
+      if (!trip.condoGroups) trip.condoGroups = trip.condoGroups || [];
+
+      const assignedIds = new Set();
+      trip.condoGroups.forEach((condo, index) => {
+        const card = document.createElement('div');
+        card.className = 'condo-group';
+        card.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            <div>
+              <strong>${condo.name}</strong>
+              <span class="badge">${condo.roomType || '2BR Villa'}</span>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm remove-condo-btn" data-idx="${index}">Remove</button>
+          </div>
+          <div class="text-muted">Golfers in this condo:</div>
+          <ul class="condo-golfer-list" data-idx="${index}" style="list-style:none; padding-left:0; margin:8px 0;"></ul>
+          <div class="form-row">
+            <label>Add golfer:
+              <select class="condo-add-select" data-idx="${index}">
+                <option value="">Select...</option>
+              </select>
+            </label>
+          </div>
+        `;
+        condosContainer.appendChild(card);
+      });
+
+      const condoLists = document.querySelectorAll('.condo-golfer-list');
+      condoLists.forEach(list => {
+        const idx = parseInt(list.getAttribute('data-idx'), 10);
+        const condo = trip.condoGroups[idx];
+        condo.golfers = condo.golfers || [];
+        condo.golfers.forEach(pid => {
+          const p = participants.find(x => x._id === pid);
+          if (p) {
+            assignedIds.add(p._id);
+            const li = document.createElement('li');
+            li.textContent = p.name;
+            li.style.marginBottom = '4px';
+            const removeBtn = document.createElement('button');
+            removeBtn.textContent = 'Remove';
+            removeBtn.type = 'button';
+            removeBtn.className = 'btn btn-secondary btn-sm remove-from-condo-btn';
+            removeBtn.setAttribute('data-condo-idx', idx);
+            removeBtn.setAttribute('data-participant-id', p._id);
+            li.appendChild(removeBtn);
+            list.appendChild(li);
+          }
+        });
+      });
+
+      const unassigned = participants.filter(p => !assignedIds.has(p._id));
+      unassigned.forEach(p => {
+        const li = document.createElement('li');
+        li.style.marginBottom = '18px';
+        li.style.background = '#f9fafb';
+        li.style.borderRadius = '8px';
+        li.style.boxShadow = '0 1px 4px #0001';
+        li.style.padding = '14px';
+        li.innerHTML = `
+          <div style="display:flex; justify-content:space-between; align-items:center;">
+            <div>
+              <div style="font-weight:600;">${p.name}</div>
+              <div class="text-muted" style="font-size:0.8rem;">Status: ${p.status}</div>
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm assign-to-condo-btn" data-id="${p._id}">Assign</button>
+          </div>
+          <div style="margin-top:8px; font-size:0.8rem;">
+            Paid: ${formatCurrency(p.totalPaidAmount || 0)} | Extra night: ${p.wantsExtraNight ? 'Yes' : 'No'}
+          </div>
+        `;
+        unassignedList.appendChild(li);
+      });
+
+      const addSelects = document.querySelectorAll('.condo-add-select');
+      addSelects.forEach(sel => {
+        const idx = parseInt(sel.getAttribute('data-idx'), 10);
+        const condo = trip.condoGroups[idx];
+        const condoIds = new Set(condo.golfers || []);
+        sel.innerHTML = '<option value="">Select...</option>';
+        participants.forEach(p => {
+          if (!condoIds.has(p._id)) {
+            const opt = document.createElement('option');
+            opt.value = p._id;
+            opt.textContent = p.name;
+            sel.appendChild(opt);
+          }
+        });
+      });
+
+      renderGolferStatus();
+      attachParticipantHandlers();
+    }
+
+    function attachParticipantHandlers() {
+      document.querySelectorAll('.condo-add-select').forEach(sel => {
+        sel.onchange = function() {
+          const condoIdx = parseInt(this.getAttribute('data-idx'), 10);
+          const pid = this.value;
+          if (!pid) return;
+          trip.condoGroups[condoIdx].golfers = trip.condoGroups[condoIdx].golfers || [];
+          if (!trip.condoGroups[condoIdx].golfers.includes(pid)) {
+            trip.condoGroups[condoIdx].golfers.push(pid);
+          }
+          renderParticipants();
+        };
+      });
+
+      document.querySelectorAll('.remove-from-condo-btn').forEach(btn => {
+        btn.onclick = function() {
+          const condoIdx = parseInt(this.getAttribute('data-condo-idx'), 10);
+          const pid = this.getAttribute('data-participant-id');
+          trip.condoGroups[condoIdx].golfers = (trip.condoGroups[condoIdx].golfers || []).filter(x => x !== pid);
+          renderParticipants();
+        };
+      });
+
+      document.querySelectorAll('.remove-condo-btn').forEach(btn => {
+        btn.onclick = function() {
+          const idx = parseInt(this.getAttribute('data-idx'), 10);
+          trip.condoGroups.splice(idx, 1);
+          renderParticipants();
+        };
+      });
+
+      document.querySelectorAll('.assign-to-condo-btn').forEach(btn => {
+        btn.onclick = function() {
+          const pid = this.getAttribute('data-id');
+          if (!trip.condoGroups.length) {
+            alert('Add a condo first.');
+            return;
+          }
+          const firstCondo = trip.condoGroups[0];
+          firstCondo.golfers = firstCondo.golfers || [];
+          if (!firstCondo.golfers.includes(pid)) {
+            firstCondo.golfers.push(pid);
+          }
+          renderParticipants();
+        };
+      });
+
+      const addBtn = document.getElementById('addParticipantBtn');
+      addBtn.onclick = function() {
+        const name = prompt('Golfer name?');
+        if (!name) return;
+        const newP = {
+          _id: String(Date.now()),
+          name,
+          status: 'invited',
+          totalPaidAmount: 0,
+          wantsExtraNight: false
+        };
+        participants.push(newP);
+        renderParticipants();
+      };
+
+      const baseSelect = document.getElementById('baseGroupSizeSelect');
+      baseSelect.onchange = function() {
+        trip.baseGroupSize = Number(this.value) || 4;
+        renderSummaryBox();
+      };
+    }
+
+    function populateBaseGroupSizeOptions() {
+      const select = document.getElementById('baseGroupSizeSelect');
+      select.innerHTML = '';
+      [2,3,4,5].forEach(n => {
+        const opt = document.createElement('option');
+        opt.value = n;
+        opt.textContent = `${n} per condo`;
+        if (trip.baseGroupSize === n) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+
+    function renderGolferStatus() {
+      const container = document.getElementById('golferStatus');
+      if (!participants.length) {
+        container.innerHTML = '<p class="text-muted">No golfers yet.</p>';
+        return;
+      }
+
+      const statusLabels = {
+        invited: 'Invited',
+        in: 'In',
+        maybe: 'Maybe',
+        out: 'Out',
+        waitlist: 'Waitlist'
+      };
+      const statusOrder = ['in','out','maybe','waitlist','invited'];
+
+      const counts = { in:0, out:0, maybe:0, waitlist:0, invited:0 };
+      participants.forEach(p => {
+        if (counts.hasOwnProperty(p.status)) counts[p.status]++;
+      });
+
+      let summaryBar = `<div style='margin-bottom:8px;font-weight:500;'>` +
+        statusOrder.map(s => `<span style='margin-right:18px;'>${statusLabels[s]}: <span style='color:#2563eb;'>${counts[s]}</span></span>`).join('') +
+        `</div>`;
+
+      const sorted = [...participants].sort((a, b) => {
+        const sa = statusOrder.indexOf(a.status);
+        const sb = statusOrder.indexOf(b.status);
+        if (sa !== sb) return sa - sb;
+        return (a.name||'').localeCompare(b.name||'');
+      });
+
+        let tableHtml = `<strong>Golfer Status</strong>` + summaryBar +
+          `<div class="golfer-grid">`;
+        for (let p of sorted) {
+          tableHtml += `
+            <div>
+              <div style="font-weight:500;">${p.name || ''}</div>
+              <div>
+                <select class="golfer-status-dropdown" data-id="${p._id}" style="font-size:0.9rem;">
+                  ${statusOptions.map(opt => `<option value="${opt}"${p.status===opt?' selected':''}>${statusLabels[opt]}</option>`).join('')}
+                </select>
+                <input type="number" class="golfer-paid-input" data-id="${p._id}" value="${(p.totalPaidAmount||0).toFixed(2)}" step="0.01" style="width:70px; margin-left:4px;" placeholder="Paid">
+              </div>
+            </div>
+          `;
+        }
+        tableHtml += `</div>`;
+
+      container.innerHTML = tableHtml;
+
+      document.querySelectorAll('.golfer-status-dropdown').forEach(sel => {
+        sel.onchange = function() {
+          const id = this.getAttribute('data-id');
+          const p = participants.find(x => x._id === id);
+          if (!p) return;
+          p.status = this.value;
+          renderGolferStatus();
+          renderSummaryBox();
+        };
+      });
+      document.querySelectorAll('.golfer-paid-input').forEach(inp => {
+        inp.onchange = function() {
+          const id = this.getAttribute('data-id');
+          const p = participants.find(x => x._id === id);
+          if (!p) return;
+          p.totalPaidAmount = Number(this.value) || 0;
+          renderSummaryBox();
+        };
+      });
+    }
+
+    function renderSummaryBox() {
+      const total = participants.length;
+      const counts = { in:0, out:0, maybe:0, waitlist:0, invited:0 };
+      let depositTotal = 0;
+      let extraNightCount = 0;
+      participants.forEach(p => {
+        if (counts.hasOwnProperty(p.status)) counts[p.status]++;
+        depositTotal += p.totalPaidAmount || 0;
+        if (p.wantsExtraNight) extraNightCount++;
+      });
+      const extraNightCost = 130 / 4;
+      const extraNightTotal = extraNightCount * extraNightCost;
+      $('#summaryBox').innerHTML = `
+        <strong>Live Summary</strong><br>
+        Total participants: ${total}<br>
+        In: ${counts.in} | Maybe: ${counts.maybe} | Out: ${counts.out} | Waitlist: ${counts.waitlist} | Invited: ${counts.invited}<br>
+        Total deposits received: $${depositTotal}<br>
+        Wants extra night: ${extraNightCount} &times; $${extraNightCost} = <strong>$${extraNightTotal}</strong>
+      `;
+    }
+
+    // --- Initial Load ---
+    window.addEventListener('DOMContentLoaded', loadTrip);
+  </script>
+</body>
+</html>
