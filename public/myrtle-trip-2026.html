@@ -168,24 +168,16 @@
         { course: 'Long Bay', date: '2026-03-21', time: '9:28 AM', groupSize: 20 },
         { course: 'MB National King’s North', date: '2026-03-22', time: '7:59 AM', groupSize: 20 }
       ];
-      let condoInfo = `<li>(5) 2BR golf-course condos at <strong>Barefoot Golf Villas</strong>, 4 guys per condo.</li>`;
+      let condoInfo = `<li></li>`;
       $('#itineraryBox').innerHTML = `
         <strong>Golf Schedule (20 players)</strong><br>
         <ul>${rounds.map((r, idx) => `<li>${formatDate(r.date)}: ${r.course} @ ${r.time}</li>`).join('')}</ul>
         <div id="allParticipantsList" style="margin:18px 0 8px 0;"></div>
-        <strong>Lodging</strong><br>
         <ul>${condoInfo}</ul>
-        <div style="margin:16px 0 8px 0;"><strong>Price:</strong> $792.56 per person incl. lodging, 5 rounds, all taxes/fees (no breakfast).</div>
       `;
-      // Remove payment links from Lodging section in itinerary box
-      $('#itineraryBox').innerHTML += `
-        <strong>Lodging</strong><br>
-        <ul><li>(5) 2BR golf-course condos at <strong>Barefoot Golf Villas</strong>, 4 guys per condo.</li></ul>
-        <div style="margin:8px 0 0 0;"><strong>Price:</strong> $792.56 per person incl. lodging, 5 rounds, all taxes/fees (no breakfast).</div>
-      `;
+    
       // Remove price and payment info from Lodging section above Confirmed Golfers
       let lodgingHtml = `<div style='margin-bottom:12px;max-width:320px;background:#f1f5f9;padding:14px 18px;border-radius:10px;box-shadow:0 1px 6px #0001;'>` +
-        `<strong>Lodging:</strong> (5) 2BR golf-course condos at Barefoot Golf Villas, 4 guys per condo.<br>` +
         `</div>`;
       $('#inStatusBox')?.insertAdjacentHTML('beforebegin', lodgingHtml);
       // Render all participants below golf schedule
