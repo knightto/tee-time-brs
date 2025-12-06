@@ -98,517 +98,380 @@
     <div id="summaryBox" class="summary-box"></div>
   </div>
   <script>
-    // --- Config ---
-    const tripId = null; // will be set after fetch
-    const statusOptions = ['invited','in','maybe','out','waitlist'];
+  const STATUS_ORDER = ['in', 'out', 'maybe', 'waitlist', 'invited'];
+  const STATUS_LABELS = { invited: 'Invited', in: 'In', maybe: 'Maybe', out: 'Out', waitlist: 'Waitlist' };
+  const BASE_GROUP_SIZES = [4, 8, 12, 16, 20, 24];
+  const ROUNDS = [
+    { course: 'World Tour', date: '2026-03-18', time: '1:17 PM', groupSize: 20 },
+    { course: 'Wild Wing Avocet', date: '2026-03-19', time: '9:18 AM', groupSize: 20 },
+    { course: 'River Hills', date: '2026-03-20', time: '9:24 AM', groupSize: 20 },
+    { course: 'Long Bay', date: '2026-03-21', time: '9:28 AM', groupSize: 20 },
+    { course: "MB National King's North", date: '2026-03-22', time: '7:59 AM', groupSize: 20 }
+  ];
 
-    // --- State ---
-    let trip = null;
-    let participants = [];
+  let tripId = null;
+  let trip = null;
+  let participants = [];
 
-    // --- Helpers ---
-    function $(sel) { return document.querySelector(sel); }
-    function formatDate(d) {
-      if (!d) return '';
-      const date = new Date(d);
-      return date.toLocaleDateString();
-    }
-    // --- Helper: always add ?myrtleBeach2026=true for trip API calls ---
-    function tripApi(path) {
-      if (path.includes('?')) {
-        return path + '&myrtleBeach2026=true';
-      } else {
-        return path + '?myrtleBeach2026=true';
-      }
-    }
+  const $ = (sel) => document.querySelector(sel);
+  const formatDate = (d) => (d ? new Date(d).toLocaleDateString() : '');
+  const tripApi = (path) => (path.includes('?') ? `${path}&myrtleBeach2026=true` : `${path}?myrtleBeach2026=true`);
+  const safeNumber = (val) => (val === '' || isNaN(val) ? 0 : parseFloat(val));
 
-    // --- Fetch Trip + Participants ---
-    async function loadTrip() {
-      // Find Myrtle trip by name
-      const res = await fetch(tripApi('/api/trips'));
-      const trips = await res.json();
-      trip = trips.find(t => t.name && t.name.includes('Myrtle Beach'));
-      if (!trip) return alert('Trip not found');
-      window.tripId = trip._id;
-      const pRes = await fetch(tripApi(`/api/trips/${trip._id}/participants`));
-      participants = await pRes.json();
-      renderTrip();
-      renderParticipants();
-      renderSummary();
-    }
+  async function updateParticipant(id, body) {
+    await fetch(tripApi(`/api/trips/${tripId}/participants/${id}`), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    await loadTrip();
+  }
 
-    // --- Render Trip Summary ---
-    function renderTrip() {
-      $('#tripSummary').innerHTML = `
-        <div><strong>Trip Name:</strong> Myrtle Beach – Barefoot Group 3/18–3/22/26</div>
-        <div><strong>Location:</strong> Myrtle Beach, SC</div>
-        <div><strong>Arrival:</strong> Wed 3/18/26 - <strong>Departure:</strong> Sun 3/22/26</div>
-        <div><strong>Package Type:</strong> 4 Nights / 5 Rounds</div>
-        <div><strong>Reservation #:</strong> 12972589 | Myrtle Beach Golf Trips (866-694-2448)</div>
-        <div><strong>Price:</strong> $792.56 per person incl. lodging, 5 rounds, all taxes/fees (no breakfast).</div>
-      `;
-      const baseGroupSizeSelect = document.getElementById('baseGroupSizeSelect');
-      if (baseGroupSizeSelect) {
-        baseGroupSizeSelect.innerHTML = '';
-        [4,8,12,16,20,24].forEach(n => {
-          const opt = document.createElement('option');
-          opt.value = n;
-          opt.textContent = n;
-          if (trip.baseGroupSize == n) opt.selected = true;
-          baseGroupSizeSelect.appendChild(opt);
-        });
-      }
-      // Notes field removed
+  async function loadTrip() {
+    const res = await fetch(tripApi('/api/trips'));
+    const trips = await res.json();
+    trip = trips.find((t) => t.name && t.name.includes('Myrtle Beach'));
+    if (!trip) return alert('Trip not found');
+    tripId = trip._id;
+    window.tripId = trip._id;
+    const pRes = await fetch(tripApi(`/api/trips/${trip._id}/participants`));
+    participants = await pRes.json();
+    renderAll();
+  }
 
-      // Render itinerary/accommodations
-      let rounds = [
-        { course: 'World Tour', date: '2026-03-18', time: '1:17 PM', groupSize: 20 },
-        { course: 'Wild Wing Avocet', date: '2026-03-19', time: '9:18 AM', groupSize: 20 },
-        { course: 'River Hills', date: '2026-03-20', time: '9:24 AM', groupSize: 20 },
-        { course: 'Long Bay', date: '2026-03-21', time: '9:28 AM', groupSize: 20 },
-        { course: 'MB National King’s North', date: '2026-03-22', time: '7:59 AM', groupSize: 20 }
-      ];
-      $('#itineraryBox').innerHTML = `
-        <strong>Golf Schedule (20 players)</strong><br>
-        <ul>${rounds.map((r, idx) => `<li>${formatDate(r.date)}: ${r.course} @ ${r.time}</li>`).join('')}</ul>
-        <div id="allParticipantsList" style="margin:18px 0 8px 0;"></div>
-      `;
-    
-      // Remove price and payment info from Lodging section above Confirmed Golfers
-      let lodgingHtml = `<div style='margin-bottom:12px;max-width:320px;background:#f1f5f9;padding:14px 18px;border-radius:10px;box-shadow:0 1px 6px #0001;'>` +
-        `</div>`;
-      $('#inStatusBox')?.insertAdjacentHTML('beforebegin', lodgingHtml);
-      // Render all participants below golf schedule
-      if (Array.isArray(participants) && participants.length) {
-        // Use statusOptions for display order and label
-        const statusLabels = {
-          invited: 'Invited',
-          in: 'In',
-          maybe: 'Maybe',
-          out: 'Out',
-          waitlist: 'Waitlist'
-        };
-        const statusOrder = ['in','out','maybe','waitlist','invited'];
-        // Calculate status counts
-        const counts = { in:0, out:0, maybe:0, waitlist:0, invited:0 };
-        participants.forEach(p => {
-          if (counts.hasOwnProperty(p.status)) counts[p.status]++;
-        });
-        // Render summary bar
-        let summaryBar = `<div style='margin-bottom:8px;font-weight:500;'>` +
-          statusOrder.map(s => `<span style='margin-right:18px;'>${statusLabels[s]}: <span style='color:#2563eb;'>${counts[s]}</span></span>`).join('') +
-          `</div>`;
-        // Sort by status (in, maybe, out, waitlist, invited), then name
-        const sorted = [...participants].sort((a, b) => {
-          const sa = statusOrder.indexOf(a.status);
-          const sb = statusOrder.indexOf(b.status);
-          if (sa !== sb) return sa - sb;
-          return (a.name||'').localeCompare(b.name||'');
-        });
-        // Render as 4 columns
-        const colCount = 4;
-        const perCol = Math.ceil(sorted.length / colCount);
-        let cols = Array.from({ length: colCount }, (_, i) => sorted.slice(i * perCol, (i + 1) * perCol));
-        // Change Golfer Status list to 2 columns
-        let tableHtml = `<strong>Golfer Status</strong>` + summaryBar + `<div style='display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px;'>`;
-        for (let col of cols) {
-          tableHtml += `<ul style='margin:0;padding-left:18px;'>${col.map(p => `<li>${p.name} <select class='golfer-status-dropdown' data-id='${p._id}' style='font-size:13px;padding:2px 4px;margin-left:4px;'>${statusOrder.map(opt => `<option value='${opt}'${p.status===opt?' selected':''}>${statusLabels[opt]}</option>`).join('')}</select> <input type='number' class='golfer-paid-input' data-id='${p._id}' value='${(p.totalPaidAmount||0).toFixed(2)}' min='0' step='0.01' style='width:60px;font-size:13px;margin-left:4px;' placeholder='Paid'></li>`).join('')}</ul>`;
-        }
-        tableHtml += `</div>`;
-        document.getElementById('allParticipantsList').innerHTML = tableHtml;
-        // Add event listener for status change
-        document.querySelectorAll('.golfer-status-dropdown').forEach(sel => {
-          sel.addEventListener('change', async function() {
-            const id = this.dataset.id;
-            const status = this.value;
-            await fetch(tripApi(`/api/trips/${window.tripId}/participants/${id}`), {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ status })
-            });
-            await loadTrip();
-          });
-        });
-        // Add event listener for paid amount change
-        document.querySelectorAll('.golfer-paid-input').forEach(input => {
-          input.addEventListener('change', async function() {
-            const id = this.dataset.id;
-            let value = this.value;
-            if (value === '' || isNaN(value)) value = 0;
-            value = parseFloat(value);
-            await fetch(tripApi(`/api/trips/${window.tripId}/participants/${id}`), {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ totalPaidAmount: value })
-            });
-            await loadTrip();
-          });
-        });
-      }
-      // Hide edit form by default
-      $('#itineraryEditForm').style.display = 'none';
+  function renderAll() {
+    renderTripSummary();
+    renderItinerary();
+    renderParticipants();
+    renderSummary();
+  }
 
-      // Calculate number of 'in' golfers and next increment of 4
-      const inCount = participants.filter(p => p.status === 'in').length;
-      const nextIncrement = Math.ceil(Math.max(inCount, 1) / 4) * 4;
-      let needed = nextIncrement > inCount ? nextIncrement - inCount : 0;
-      let explanationHtml = `<div id='inStatusBox' style='margin-bottom:12px;max-width:320px;background:#f1f5f9;padding:14px 18px;border-radius:10px;box-shadow:0 1px 6px #0001;'>` +
-        `<strong>Confirmed Golfers:</strong> <span style='color:#2563eb;'>${inCount}</span><br>` +
-        (needed > 0
-          ? `We need <strong>${needed}</strong> more to reach the next full group of 4.<br>`
-          : `We have a full group of <strong>${inCount}</strong>!<br>`
-        ) +
-        `<span style='font-size:13px;color:#555;'>Condos and tee times are assigned in increments of 4.` +
-        (needed === 0 ? ` If adding more, we need to grow to <strong>${nextIncrement + 4}</strong> golfers for the next full group.` : '') +
-        `</span>` +
-        `</div>`;
-      // Place explanation box above the golf schedule
-      $('#itineraryBox').insertAdjacentHTML('beforebegin', explanationHtml);
-    }
-        // --- Itinerary Edit UI ---
-        document.addEventListener('click', function(e) {
-          if (e.target && e.target.id === 'editItineraryBtn') {
-            renderItineraryEditForm();
-          }
-        });
-
-        function renderItineraryEditForm() {
-          const tripRounds = trip.rounds || [];
-          const fieldsDiv = document.getElementById('itineraryFields');
-          fieldsDiv.innerHTML = '';
-          (tripRounds.length ? tripRounds : [
-            { date: '2026-03-22', course: 'MB National Kings North', time: '08:17 AM', groupSize: 12, confirmation: '17780283' }
-          ]).forEach((r, idx) => {
-            const row = document.createElement('div');
-            row.style.marginBottom = '8px';
-            row.innerHTML = `
-              <input type="date" value="${r.date}" class="round-date" data-idx="${idx}" style="width:120px;">
-              <input type="text" value="${r.course}" placeholder="Course" class="round-course" data-idx="${idx}" style="width:160px;">
-              <input type="text" value="${r.time}" placeholder="Time" class="round-time" data-idx="${idx}" style="width:90px;">
-              <input type="number" value="${r.groupSize||''}" placeholder="Group Size" class="round-group-size" data-idx="${idx}" style="width:90px;">
-              <input type="text" value="${r.confirmation||''}" placeholder="Confirmation" class="round-confirmation" data-idx="${idx}" style="width:120px;">
-              <button type="button" class="remove-round-btn" data-idx="${idx}">Remove</button>
-            `;
-            fieldsDiv.appendChild(row);
-          });
-          document.getElementById('itineraryEditForm').style.display = '';
-        }
-
-        document.getElementById('addRoundBtn').onclick = function() {
-          const fieldsDiv = document.getElementById('itineraryFields');
-          const idx = fieldsDiv.children.length;
-          const row = document.createElement('div');
-          row.style.marginBottom = '8px';
-          row.innerHTML = `
-            <input type="date" class="round-date" data-idx="${idx}" style="width:120px;">
-            <input type="text" placeholder="Course" class="round-course" data-idx="${idx}" style="width:160px;">
-            <input type="text" placeholder="Time" class="round-time" data-idx="${idx}" style="width:90px;">
-            <button type="button" class="remove-round-btn" data-idx="${idx}">Remove</button>
-          `;
-          fieldsDiv.appendChild(row);
-        };
-
-        document.getElementById('itineraryFields').addEventListener('click', function(e) {
-          if (e.target.classList.contains('remove-round-btn')) {
-            e.target.parentElement.remove();
-          }
-        });
-
-        document.getElementById('itineraryEditForm').onsubmit = async function(e) {
-          e.preventDefault();
-          const rounds = [];
-          const fieldsDiv = document.getElementById('itineraryFields');
-          for (let row of fieldsDiv.children) {
-            const date = row.querySelector('.round-date').value;
-            const course = row.querySelector('.round-course').value;
-            const time = row.querySelector('.round-time').value;
-            const groupSize = row.querySelector('.round-group-size')?.value;
-            const confirmation = row.querySelector('.round-confirmation')?.value;
-            if (date && course && time) {
-              rounds.push({ date, course, time, groupSize, confirmation });
-            }
-          }
-          await fetch(tripApi(`/api/trips/${window.tripId}`), {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ rounds })
-          });
-          document.getElementById('itineraryEditForm').style.display = 'none';
-          await loadTrip();
-        };
-
-    // --- Save Trip Details ---
-    $('#tripEditForm').onsubmit = async function(e) {
-      e.preventDefault();
-      const body = {
-        baseGroupSize: +this.baseGroupSize.value,
-        extraNightPricePerCondo: +this.extraNightPricePerCondo.value,
-        // Notes field removed
-      };
-      await fetch(tripApi(`/api/trips/${window.tripId}`), {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
+  function renderTripSummary() {
+    $('#tripSummary').innerHTML = `
+      <div><strong>Trip Name:</strong> Myrtle Beach - Barefoot Group 3/18-3/22/26</div>
+      <div><strong>Location:</strong> Myrtle Beach, SC</div>
+      <div><strong>Arrival:</strong> Wed 3/18/26 - <strong>Departure:</strong> Sun 3/22/26</div>
+      <div><strong>Package Type:</strong> 4 Nights / 5 Rounds</div>
+      <div><strong>Reservation #:</strong> 12972589 | Myrtle Beach Golf Trips (866-694-2448)</div>
+      <div><strong>Price:</strong> $792.56 per person incl. lodging, 5 rounds, all taxes/fees (no breakfast).</div>
+    `;
+    const baseGroupSizeSelect = $('#baseGroupSizeSelect');
+    if (baseGroupSizeSelect) {
+      baseGroupSizeSelect.innerHTML = '';
+      BASE_GROUP_SIZES.forEach((n) => {
+        const opt = document.createElement('option');
+        opt.value = n;
+        opt.textContent = n;
+        if (trip.baseGroupSize == n) opt.selected = true;
+        baseGroupSizeSelect.appendChild(opt);
       });
-      await loadTrip();
+    }
+  }
+
+  function renderItinerary() {
+    $('#inStatusBox')?.remove();
+    const itineraryBox = $('#itineraryBox');
+    if (!itineraryBox) return;
+    itineraryBox.innerHTML = `
+      <strong>Golf Schedule (${ROUNDS[0]?.groupSize || participants.length} players)</strong><br>
+      <ul>${ROUNDS.map((r) => `<li>${formatDate(r.date)}: ${r.course} @ ${r.time}</li>`).join('')}</ul>
+      <div id="allParticipantsList" style="margin:18px 0 8px 0;"></div>
+    `;
+
+    renderStatusList();
+
+    const inCount = participants.filter((p) => p.status === 'in').length;
+    const nextIncrement = Math.ceil(Math.max(inCount, 1) / 4) * 4;
+    const needed = Math.max(nextIncrement - inCount, 0);
+    const explanationHtml = `<div id='inStatusBox' style='margin-bottom:12px;max-width:320px;background:#f1f5f9;padding:14px 18px;border-radius:10px;box-shadow:0 1px 6px #0001;'>` +
+      `<strong>Confirmed Golfers:</strong> <span style='color:#2563eb;'>${inCount}</span><br>` +
+      (needed > 0
+        ? `We need <strong>${needed}</strong> more to reach the next full group of 4.<br>`
+        : `We have a full group of <strong>${inCount}</strong>!<br>`
+      ) +
+      `<span style='font-size:13px;color:#555;'>Condos and tee times are assigned in increments of 4.` +
+      (needed === 0 ? ` If adding more, we need to grow to <strong>${nextIncrement + 4}</strong> golfers for the next full group.` : '') +
+      `</span>` +
+      `</div>`;
+    itineraryBox.insertAdjacentHTML('beforebegin', explanationHtml);
+
+    $('#itineraryEditForm').style.display = 'none';
+  }
+
+  function renderStatusList() {
+    if (!Array.isArray(participants) || !participants.length) {
+      $('#allParticipantsList').innerHTML = '';
+      return;
+    }
+    const counts = { in: 0, out: 0, maybe: 0, waitlist: 0, invited: 0 };
+    participants.forEach((p) => { if (counts.hasOwnProperty(p.status)) counts[p.status]++; });
+    const summaryBar = `<div style='margin-bottom:8px;font-weight:500;'>` +
+      STATUS_ORDER.map((s) => `<span style='margin-right:18px;'>${STATUS_LABELS[s]}: <span style='color:#2563eb;'>${counts[s]}</span></span>`).join('') +
+      `</div>`;
+    const sorted = [...participants].sort((a, b) => {
+      const sa = STATUS_ORDER.indexOf(a.status);
+      const sb = STATUS_ORDER.indexOf(b.status);
+      if (sa !== sb) return sa - sb;
+      return (a.name || '').localeCompare(b.name || '');
+    });
+    const colCount = 4;
+    const perCol = Math.ceil(sorted.length / colCount);
+    const cols = Array.from({ length: colCount }, (_, i) => sorted.slice(i * perCol, (i + 1) * perCol));
+    let tableHtml = `<strong>Golfer Status</strong>${summaryBar}<div style='display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px;'>`;
+    for (const col of cols) {
+      tableHtml += `<ul style='margin:0;padding-left:18px;'>${col.map((p) =>
+        `<li>${p.name} <select class='golfer-status-dropdown' data-id='${p._id}' style='font-size:13px;padding:2px 4px;margin-left:4px;'>${STATUS_ORDER.map((opt) => `<option value='${opt}'${p.status === opt ? ' selected' : ''}>${STATUS_LABELS[opt]}</option>`).join('')}</select> <input type='number' class='golfer-paid-input' data-id='${p._id}' value='${(p.totalPaidAmount || 0).toFixed(2)}' min='0' step='0.01' style='width:60px;font-size:13px;margin-left:4px;' placeholder='Paid'></li>`
+      ).join('')}</ul>`;
+    }
+    tableHtml += `</div>`;
+    $('#allParticipantsList').innerHTML = tableHtml;
+
+    document.querySelectorAll('.golfer-status-dropdown').forEach((sel) => {
+      sel.addEventListener('change', async function () {
+        await updateParticipant(this.dataset.id, { status: this.value });
+      });
+    });
+    document.querySelectorAll('.golfer-paid-input').forEach((input) => {
+      input.addEventListener('change', async function () {
+        await updateParticipant(this.dataset.id, { totalPaidAmount: safeNumber(this.value) });
+      });
+    });
+  }
+
+  document.addEventListener('click', function (e) {
+    if (e.target && e.target.id === 'editItineraryBtn') renderItineraryEditForm();
+  });
+
+  function renderItineraryEditForm() {
+    const tripRounds = trip?.rounds || [];
+    const fieldsDiv = document.getElementById('itineraryFields');
+    fieldsDiv.innerHTML = '';
+    (tripRounds.length ? tripRounds : [
+      { date: '2026-03-22', course: 'MB National Kings North', time: '08:17 AM', groupSize: 12, confirmation: '17780283' }
+    ]).forEach((r, idx) => {
+      const row = document.createElement('div');
+      row.style.marginBottom = '8px';
+      row.innerHTML = `
+        <input type="date" value="${r.date}" class="round-date" data-idx="${idx}" style="width:120px;">
+        <input type="text" value="${r.course}" placeholder="Course" class="round-course" data-idx="${idx}" style="width:160px;">
+        <input type="text" value="${r.time}" placeholder="Time" class="round-time" data-idx="${idx}" style="width:90px;">
+        <input type="number" value="${r.groupSize || ''}" placeholder="Group Size" class="round-group-size" data-idx="${idx}" style="width:90px;">
+        <input type="text" value="${r.confirmation || ''}" placeholder="Confirmation" class="round-confirmation" data-idx="${idx}" style="width:120px;">
+        <button type="button" class="remove-round-btn" data-idx="${idx}">Remove</button>
+      `;
+      fieldsDiv.appendChild(row);
+    });
+    document.getElementById('itineraryEditForm').style.display = '';
+  }
+
+  document.getElementById('addRoundBtn').onclick = function () {
+    const fieldsDiv = document.getElementById('itineraryFields');
+    const idx = fieldsDiv.children.length;
+    const row = document.createElement('div');
+    row.style.marginBottom = '8px';
+    row.innerHTML = `
+      <input type="date" class="round-date" data-idx="${idx}" style="width:120px;">
+      <input type="text" placeholder="Course" class="round-course" data-idx="${idx}" style="width:160px;">
+      <input type="text" placeholder="Time" class="round-time" data-idx="${idx}" style="width:90px;">
+      <button type="button" class="remove-round-btn" data-idx="${idx}">Remove</button>
+    `;
+    fieldsDiv.appendChild(row);
+  };
+
+  document.getElementById('itineraryFields').addEventListener('click', function (e) {
+    if (e.target.classList.contains('remove-round-btn')) e.target.parentElement.remove();
+  });
+
+  document.getElementById('itineraryEditForm').onsubmit = async function (e) {
+    e.preventDefault();
+    const rounds = [];
+    const fieldsDiv = document.getElementById('itineraryFields');
+    for (const row of fieldsDiv.children) {
+      const date = row.querySelector('.round-date').value;
+      const course = row.querySelector('.round-course').value;
+      const time = row.querySelector('.round-time').value;
+      const groupSize = row.querySelector('.round-group-size')?.value;
+      const confirmation = row.querySelector('.round-confirmation')?.value;
+      if (date && course && time) rounds.push({ date, course, time, groupSize, confirmation });
+    }
+    await fetch(tripApi(`/api/trips/${tripId}`), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rounds })
+    });
+    document.getElementById('itineraryEditForm').style.display = 'none';
+    await loadTrip();
+  };
+
+  $('#tripEditForm').onsubmit = async function (e) {
+    e.preventDefault();
+    const body = {
+      baseGroupSize: +this.baseGroupSize?.value || undefined,
+      extraNightPricePerCondo: +this.extraNightPricePerCondo?.value || undefined
     };
+    await fetch(tripApi(`/api/trips/${tripId}`), {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    await loadTrip();
+  };
 
-    // --- Render Participants Table ---
-    function renderParticipants() {
-      // Always show 5 condos, each with up to 4 golfers
-      const container = document.getElementById('condoGroups');
-      container.innerHTML = '';
-      for (let i = 0; i < 5; i++) {
-        const div = document.createElement('div');
-        div.className = 'condo-group';
-        div.innerHTML = `<strong>Condo ${i + 1}</strong><div class="cards-grid"></div>`;
-        const grid = div.querySelector('.cards-grid');
-        // Find golfers assigned to this condo (roomAssignment format: "Condo N - Room X")
-        const group = participants.filter(p => {
-          if (!p.roomAssignment) return false;
-          const match = p.roomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
-          return match && parseInt(match[1], 10) === (i + 1);
-        });
-        for (const p of group) {
-          const card = document.createElement('div');
-          card.className = 'participant-card';
-          // Extract room from roomAssignment
-          let room = '';
-          const match = p.roomAssignment && p.roomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
-          if (match) room = match[2];
-          // Find current condo number
-          const currentCondo = match ? parseInt(match[1], 10) : null;
-          // Find which condos are not full
-          const condoCounts = [0,0,0,0,0];
-          participants.forEach(g => {
-            const m = g.roomAssignment && g.roomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
-            if (m) {
-              const idx = parseInt(m[1],10)-1;
-              if (idx >= 0 && idx < 5) condoCounts[idx]++;
-            }
-          });
-          let moveOptions = '';
-          moveOptions += `<option value="unassigned">Unassigned List</option>`;
-          for (let c = 1; c <= 5; c++) {
-            if (c !== currentCondo && condoCounts[c-1] < 4) {
-              moveOptions += `<option value="${c}">Condo ${c}</option>`;
-            }
-          }
-          card.innerHTML = `
-            <div><strong>Name:</strong> <input type="text" value="${p.name}" data-id="${p._id}" class="name-input"></div>
-            <div><strong>Bedroom:</strong> <select class="room-select" data-id="${p._id}">
-              <option value="A"${room==="A"?' selected':''}>A</option>
-              <option value="B"${room==="B"?' selected':''}>B</option>
-            </select></div>
-            <div><strong>Extra Night:</strong> <input type="checkbox" ${p.wantsExtraNight?'checked':''} class="extra-night-input" data-id="${p._id}"></div>
-            <!-- Notes field removed -->
-            <div class="actions">
-              <button class="remove-condo-btn" data-id="${p._id}">UNASSIGN</button>
-              ${moveOptions ? `<select class="move-condo-select" data-id="${p._id}" style="margin-left:8px;"><option value="">Move to...</option>${moveOptions}</select>` : ''}
-            </div>
-          `;
-          grid.appendChild(card);
-        }
-        container.appendChild(div);
-      }
+  function renderParticipants() {
+    const container = document.getElementById('condoGroups');
+    if (!container) return;
+    container.innerHTML = '';
 
-      // Sidebar: Unassigned golfers with condo dropdown and remove button
-      const unassigned = participants.filter(p => !p.roomAssignment);
-      const ul = document.getElementById('unassignedList');
-      const unassignedSidebar = document.getElementById('unassignedSidebar');
-      ul.innerHTML = '';
-      unassigned.forEach(p => {
-        const li = document.createElement('li');
-        li.style.marginBottom = '18px';
-        li.style.background = '#f9fafb';
-        li.style.borderRadius = '8px';
-        li.style.boxShadow = '0 1px 4px #0001';
-        li.style.padding = '14px';
-        li.innerHTML = `
-          <div style="margin-bottom:8px;"><strong>${p.name}</strong></div>
-          <div style="margin-bottom:8px;"><label style="font-weight:500;">Condo:</label> <select class="assign-condo-select" data-id="${p._id}" style="width:60px;text-align:center;">
-            <option value="">--</option>
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-          </select></div>
-          <div><button class="remove-golfer-btn" data-id="${p._id}" style="background:#dc2626;color:#fff;border:none;padding:4px 14px;border-radius:6px;">DELETE</button></div>
-        `;
-        const paidInput = li.querySelector('.unassigned-paid-input');
-        ul.appendChild(li);
-        // Add event listeners for PAID field save on change, blur, and Enter
-        if (paidInput) {
-          const savePaid = async () => {
-            const id = paidInput.dataset.id;
-            let value = paidInput.value;
-            if (value === '' || isNaN(value)) value = 0;
-            value = parseFloat(value);
-            // Always send a number, even if zero
-            await fetch(tripApi(`/api/trips/${window.tripId}/participants/${id}`), {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ totalPaidAmount: value })
-            });
-            // Only reload after the update completes
-            await loadTrip();
-          };
-          paidInput.addEventListener('change', savePaid);
-          paidInput.addEventListener('blur', function() {
-            // Only save if value actually changed
-            if (paidInput.value !== paidInput.defaultValue) {
-              savePaid();
-            }
-          });
-          paidInput.addEventListener('keydown', function(ev) {
-            if (ev.key === 'Enter') {
-              ev.preventDefault();
-              savePaid();
-            }
-          });
-        }
-      });
-      // --- Assign Condo Input & Status Dropdown Handler ---
-      if (unassignedSidebar._changeHandler) {
-        unassignedSidebar.removeEventListener('change', unassignedSidebar._changeHandler);
-      }
-      unassignedSidebar._changeHandler = async function(e) {
-              // (PAID field save now handled by direct listeners above)
-        if (e.target.classList.contains('assign-condo-select')) {
-          const id = e.target.dataset.id;
-          const condoNum = e.target.value;
-          if (!condoNum || condoNum < 1 || condoNum > 5) return;
-          // Assign to condo, default to room A if not set
-          await fetch(tripApi(`/api/trips/${window.tripId}/participants/${id}`), {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ roomAssignment: `Condo ${condoNum} - Room A` })
-          });
-          await loadTrip();
-        }
-        if (e.target.classList.contains('status-dropdown')) {
-          const id = e.target.dataset.id;
-          const status = e.target.value;
-          await fetch(tripApi(`/api/trips/${window.tripId}/participants/${id}`), {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ status })
-          });
-          await loadTrip();
-        }
-      };
-      unassignedSidebar.addEventListener('change', unassignedSidebar._changeHandler);
-      // --- Remove Golfer Button Handler ---
-      // Remove any previous handler before adding a new one
-      if (unassignedSidebar._removeHandler) {
-        unassignedSidebar.removeEventListener('click', unassignedSidebar._removeHandler);
-      }
-      unassignedSidebar._removeHandler = async function(e) {
-        if (e.target.classList.contains('remove-golfer-btn')) {
-          const id = e.target.dataset.id;
-          if (!confirm('Remove this golfer from the event?')) return;
-          await fetch(tripApi(`/api/trips/${window.tripId}/participants/${id}`), { method: 'DELETE' });
-          await loadTrip();
-        }
-      };
-      unassignedSidebar.addEventListener('click', unassignedSidebar._removeHandler);
-    }
-
-    // --- Save/Delete Participant (card layout) ---
-    document.getElementById('condoGroups').addEventListener('click', async function(e) {
-            if (e.target.classList.contains('move-condo-select')) {
-              const id = e.target.dataset.id;
-              const val = e.target.value;
-              if (!val) return;
-              if (val === 'unassigned') {
-                // Move back to unassigned list
-                await fetch(tripApi(`/api/trips/${window.tripId}/participants/${id}`), {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ roomAssignment: null })
-                });
-                await loadTrip();
-              } else if (val >= 1 && val <= 5) {
-                // Move golfer to selected condo, default to Room A
-                await fetch(tripApi(`/api/trips/${window.tripId}/participants/${id}`), {
-                  method: 'PUT',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ roomAssignment: `Condo ${val} - Room A` })
-                });
-                await loadTrip();
-              }
-            }
-      if (e.target.classList.contains('save-btn')) {
-        const id = e.target.dataset.id;
-        const card = e.target.closest('.participant-card');
-        // Find which condo this card is in
-        const condoDiv = card.closest('.condo-group');
-        const condoLabel = condoDiv.querySelector('strong').textContent;
-        const condoMatch = condoLabel.match(/Condo (\d+)/);
-        let condoNum = condoMatch ? condoMatch[1] : '';
-        const room = card.querySelector('.room-select').value;
-        const body = {
-          name: card.querySelector('.name-input').value,
-          status: card.querySelector('.status-input').value,
-          totalPaidAmount: +card.querySelector('.total-paid-input').value,
-          wantsExtraNight: card.querySelector('.extra-night-input').checked,
-          roomAssignment: `Condo ${condoNum} - Room ${room}`,
-          depositPaid: card.querySelector('.deposit-paid-checkbox').checked,
-          fullAmountPaid: card.querySelector('.full-paid-checkbox').checked
-        };
-        await fetch(tripApi(`/api/trips/${window.tripId}/participants/${id}`), {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-        await loadTrip();
-      }
-      if (e.target.classList.contains('delete-btn') || e.target.classList.contains('remove-condo-btn')) {
-        const id = e.target.dataset.id;
-        if (!confirm('Remove this golfer from the event?')) return;
-        await fetch(tripApi(`/api/trips/${window.tripId}/participants/${id}`), { method: 'DELETE' });
-        await loadTrip();
+    const condoCounts = [0, 0, 0, 0, 0];
+    participants.forEach((g) => {
+      const m = g.roomAssignment && g.roomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
+      if (m) {
+        const idx = parseInt(m[1], 10) - 1;
+        if (idx >= 0 && idx < 5) condoCounts[idx]++;
       }
     });
 
-    // --- Add Golfer ---
-    $('#addParticipantBtn').onclick = async function() {
-      const name = prompt('Golfer name:');
-      if (!name) return;
-      await fetch(tripApi(`/api/trips/${window.tripId}/participants`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, status: 'invited' })
+    for (let i = 0; i < 5; i++) {
+      const div = document.createElement('div');
+      div.className = 'condo-group';
+      div.innerHTML = `<strong>Condo ${i + 1}</strong><div class="cards-grid"></div>`;
+      const grid = div.querySelector('.cards-grid');
+      const group = participants.filter((p) => {
+        if (!p.roomAssignment) return false;
+        const match = p.roomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
+        return match && parseInt(match[1], 10) === i + 1;
       });
-      await loadTrip();
-    };
-
-    // --- Render Summary ---
-    function renderSummary() {
-      const total = participants.length;
-      const counts = { in:0, maybe:0, out:0, waitlist:0, invited:0 };
-      let depositTotal = 0;
-      let extraNightCount = 0;
-      participants.forEach(p => {
-        const status = counts.hasOwnProperty(p.status) ? p.status : 'invited';
-        counts[status] = (counts[status] || 0) + 1;
-        depositTotal += Number(p.totalPaidAmount || p.depositPaidAmount || 0);
-        if (p.wantsExtraNight) extraNightCount++;
-      });
-      const extraNightCost = 33;
-      const extraNightTotal = extraNightCount * extraNightCost;
-      $('#summaryBox').innerHTML = `
-        <strong>Live Summary</strong><br>
-        Total participants: ${total}<br>
-        In: ${counts.in} | Maybe: ${counts.maybe} | Out: ${counts.out} | Waitlist: ${counts.waitlist} | Invited: ${counts.invited}<br>
-        Total deposits received: $${depositTotal.toFixed(2)}<br>
-        Wants extra night: ${extraNightCount} &times; $${extraNightCost} = <strong>$${extraNightTotal}</strong>
-      `;
+      for (const p of group) {
+        const match = p.roomAssignment && p.roomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
+        const room = match ? match[2] : '';
+        const currentCondo = match ? parseInt(match[1], 10) : null;
+        let moveOptions = `<option value="unassigned">Unassigned List</option>`;
+        for (let c = 1; c <= 5; c++) {
+          if (c !== currentCondo && condoCounts[c - 1] < 4) moveOptions += `<option value="${c}">Condo ${c}</option>`;
+        }
+        const card = document.createElement('div');
+        card.className = 'participant-card';
+        card.innerHTML = `
+          <div><strong>Name:</strong> <input type="text" value="${p.name}" data-id="${p._id}" class="name-input"></div>
+          <div><strong>Bedroom:</strong> <select class="room-select" data-id="${p._id}">
+            <option value="A"${room === 'A' ? ' selected' : ''}>A</option>
+            <option value="B"${room === 'B' ? ' selected' : ''}>B</option>
+          </select></div>
+          <div><strong>Extra Night:</strong> <input type="checkbox" ${p.wantsExtraNight ? 'checked' : ''} class="extra-night-input" data-id="${p._id}"></div>
+          <div class="actions">
+            <button class="remove-condo-btn" data-id="${p._id}">UNASSIGN</button>
+            ${moveOptions ? `<select class="move-condo-select" data-id="${p._id}" style="margin-left:8px;"><option value="">Move to...</option>${moveOptions}</select>` : ''}
+          </div>
+        `;
+        grid.appendChild(card);
+      }
+      container.appendChild(div);
     }
 
-    // --- Initial Load ---
-    window.addEventListener('DOMContentLoaded', loadTrip);
-  </script>
+    const unassigned = participants.filter((p) => !p.roomAssignment);
+    const ul = document.getElementById('unassignedList');
+    const unassignedSidebar = document.getElementById('unassignedSidebar');
+    if (!ul || !unassignedSidebar) return;
+    ul.innerHTML = '';
+    unassigned.forEach((p) => {
+      const li = document.createElement('li');
+      li.style.marginBottom = '18px';
+      li.style.background = '#f9fafb';
+      li.style.borderRadius = '8px';
+      li.style.boxShadow = '0 1px 4px #0001';
+      li.style.padding = '14px';
+      li.innerHTML = `
+        <div style="margin-bottom:8px;"><strong>${p.name}</strong></div>
+        <div style="margin-bottom:8px;"><label style="font-weight:500;">Condo:</label> <select class="assign-condo-select" data-id="${p._id}" style="width:60px;text-align:center;">
+          <option value="">--</option>
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3">3</option>
+          <option value="4">4</option>
+          <option value="5">5</option>
+        </select></div>
+        <div><button class="remove-golfer-btn" data-id="${p._id}" style="background:#dc2626;color:#fff;border:none;padding:4px 14px;border-radius:6px;">DELETE</button></div>
+      `;
+      ul.appendChild(li);
+    });
+
+    if (unassignedSidebar._changeHandler) unassignedSidebar.removeEventListener('change', unassignedSidebar._changeHandler);
+    unassignedSidebar._changeHandler = async function (e) {
+      if (e.target.classList.contains('assign-condo-select')) {
+        const condoNum = e.target.value;
+        const id = e.target.dataset.id;
+        if (!condoNum || condoNum < 1 || condoNum > 5) return;
+        await updateParticipant(id, { roomAssignment: `Condo ${condoNum} - Room A` });
+      }
+    };
+    unassignedSidebar.addEventListener('change', unassignedSidebar._changeHandler);
+
+    if (unassignedSidebar._removeHandler) unassignedSidebar.removeEventListener('click', unassignedSidebar._removeHandler);
+    unassignedSidebar._removeHandler = async function (e) {
+      if (e.target.classList.contains('remove-golfer-btn')) {
+        const id = e.target.dataset.id;
+        if (!confirm('Remove this golfer from the event?')) return;
+        await fetch(tripApi(`/api/trips/${tripId}/participants/${id}`), { method: 'DELETE' });
+        await loadTrip();
+      }
+    };
+    unassignedSidebar.addEventListener('click', unassignedSidebar._removeHandler);
+  }
+
+  const condoGroups = document.getElementById('condoGroups');
+  if (condoGroups) {
+    condoGroups.addEventListener('click', async function (e) {
+      if (e.target.classList.contains('move-condo-select')) {
+        const id = e.target.dataset.id;
+        const val = e.target.value;
+        if (!val) return;
+        if (val === 'unassigned') {
+          await updateParticipant(id, { roomAssignment: null });
+        } else if (val >= 1 && val <= 5) {
+          await updateParticipant(id, { roomAssignment: `Condo ${val} - Room A` });
+        }
+      }
+      if (e.target.classList.contains('remove-condo-btn')) {
+        const id = e.target.dataset.id;
+        await updateParticipant(id, { roomAssignment: null });
+      }
+    });
+  }
+
+  $('#addParticipantBtn').onclick = async function () {
+    const name = prompt('Golfer name:');
+    if (!name) return;
+    await fetch(tripApi(`/api/trips/${tripId}/participants`), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, status: 'invited' })
+    });
+    await loadTrip();
+  };
+
+  function renderSummary() {
+    const total = participants.length;
+    const counts = { in: 0, maybe: 0, out: 0, waitlist: 0, invited: 0 };
+    let depositTotal = 0;
+    let extraNightCount = 0;
+    participants.forEach((p) => {
+      const status = counts.hasOwnProperty(p.status) ? p.status : 'invited';
+      counts[status] = (counts[status] || 0) + 1;
+      depositTotal += Number(p.totalPaidAmount || p.depositPaidAmount || 0);
+      if (p.wantsExtraNight) extraNightCount++;
+    });
+    const extraNightCost = 33;
+    const extraNightTotal = extraNightCount * extraNightCost;
+    $('#summaryBox').innerHTML = `
+      <strong>Live Summary</strong><br>
+      Total participants: ${total}<br>
+      In: ${counts.in} | Maybe: ${counts.maybe} | Out: ${counts.out} | Waitlist: ${counts.waitlist} | Invited: ${counts.invited}<br>
+      Total deposits received: $${depositTotal.toFixed(2)}<br>
+      Wants extra night: ${extraNightCount} &times; $${extraNightCost} = <strong>$${extraNightTotal}</strong>
+    `;
+  }
+
+  window.addEventListener('DOMContentLoaded', loadTrip);
+</script>
 </body>
 </html>

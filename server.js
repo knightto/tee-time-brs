@@ -41,14 +41,9 @@ async function alertNearlyFullTeeTimes() {
 const path = require('path');
 const express = require('express');
 const mongoose = require('mongoose');
-// Secondary connection for Myrtle Trip
-const mongooseSecondary = require('mongoose');
-const secondaryUri = process.env.MONGO_URI_SECONDARY;
-let secondaryConn = null;
-if (secondaryUri) {
-  secondaryConn = mongooseSecondary.createConnection(secondaryUri, { useNewUrlParser: true, useUnifiedTopology: true });
-  console.log('Secondary MongoDB connection for Myrtle Trip initialized.');
-}
+// Secondary connection for Myrtle Trip (kept in separate module to avoid circular requires)
+const { initSecondaryConn, getSecondaryConn } = require('./secondary-conn');
+initSecondaryConn();
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
@@ -74,7 +69,7 @@ app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.h
 // Debug endpoint: Query all trips and participants from secondary DB
 app.get('/api/debug/secondary-trips', async (req, res) => {
   try {
-    const { secondaryConn } = require('./server');
+    const secondaryConn = getSecondaryConn();
     if (!secondaryConn) return res.status(500).json({ error: 'No secondary connection' });
     const Trip = secondaryConn.model('Trip', require('./models/Trip').schema);
     const TripParticipant = secondaryConn.model('TripParticipant', require('./models/TripParticipant').schema);
@@ -86,15 +81,13 @@ app.get('/api/debug/secondary-trips', async (req, res) => {
   }
 });
 app.use('/api/trips', require('./routes/trips'));
-// Export secondaryConn for trip routes
-module.exports.secondaryConn = secondaryConn;
 // Handicap tracking removed
 
 // Health check / debug endpoint
 app.get('/api/health', (_req, res) => {
   let secondaryState = null;
   try {
-    const { secondaryConn } = require('./server');
+    const secondaryConn = getSecondaryConn();
     secondaryState = secondaryConn ? secondaryConn.readyState : null;
   } catch { secondaryState = null; }
   res.json({
