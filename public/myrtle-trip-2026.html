@@ -168,12 +168,10 @@
         { course: 'Long Bay', date: '2026-03-21', time: '9:28 AM', groupSize: 20 },
         { course: 'MB National King’s North', date: '2026-03-22', time: '7:59 AM', groupSize: 20 }
       ];
-      let condoInfo = `<li></li>`;
       $('#itineraryBox').innerHTML = `
         <strong>Golf Schedule (20 players)</strong><br>
         <ul>${rounds.map((r, idx) => `<li>${formatDate(r.date)}: ${r.course} @ ${r.time}</li>`).join('')}</ul>
         <div id="allParticipantsList" style="margin:18px 0 8px 0;"></div>
-        <ul>${condoInfo}</ul>
       `;
     
       // Remove price and payment info from Lodging section above Confirmed Golfers
@@ -417,8 +415,8 @@
       // Sidebar: Unassigned golfers with condo dropdown and remove button
       const unassigned = participants.filter(p => !p.roomAssignment);
       const ul = document.getElementById('unassignedList');
+      const unassignedSidebar = document.getElementById('unassignedSidebar');
       ul.innerHTML = '';
-      let condosCount = Math.ceil(participants.length / 4);
       unassigned.forEach(p => {
         const li = document.createElement('li');
         li.style.marginBottom = '18px';
@@ -438,34 +436,7 @@
           </select></div>
           <div><button class="remove-golfer-btn" data-id="${p._id}" style="background:#dc2626;color:#fff;border:none;padding:4px 14px;border-radius:6px;">DELETE</button></div>
         `;
-                // Add event listeners for PAID field save on change, blur, and Enter
-                const paidInput = li.querySelector('.unassigned-paid-input');
-                if (paidInput) {
-                  const savePaid = async () => {
-                    const id = paidInput.dataset.id;
-                    let value = paidInput.value;
-                    if (value === '' || isNaN(value)) value = 0;
-                    value = parseFloat(value);
-                    await fetch(tripApi(`/api/trips/${window.tripId}/participants/${id}`), {
-                      method: 'PUT',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ totalPaidAmount: value })
-                    });
-                    await loadTrip();
-                  };
-                  paidInput.addEventListener('change', savePaid);
-                  paidInput.addEventListener('blur', function() {
-                    if (paidInput.value !== paidInput.defaultValue) {
-                      savePaid();
-                    }
-                  });
-                  paidInput.addEventListener('keydown', function(ev) {
-                    if (ev.key === 'Enter') {
-                      ev.preventDefault();
-                      savePaid();
-                    }
-                  });
-                }
+        const paidInput = li.querySelector('.unassigned-paid-input');
         ul.appendChild(li);
         // Add event listeners for PAID field save on change, blur, and Enter
         if (paidInput) {
@@ -499,7 +470,10 @@
         }
       });
       // --- Assign Condo Input & Status Dropdown Handler ---
-      document.getElementById('unassignedSidebar').addEventListener('change', async function(e) {
+      if (unassignedSidebar._changeHandler) {
+        unassignedSidebar.removeEventListener('change', unassignedSidebar._changeHandler);
+      }
+      unassignedSidebar._changeHandler = async function(e) {
               // (PAID field save now handled by direct listeners above)
         if (e.target.classList.contains('assign-condo-select')) {
           const id = e.target.dataset.id;
@@ -523,10 +497,10 @@
           });
           await loadTrip();
         }
-      });
+      };
+      unassignedSidebar.addEventListener('change', unassignedSidebar._changeHandler);
       // --- Remove Golfer Button Handler ---
       // Remove any previous handler before adding a new one
-      const unassignedSidebar = document.getElementById('unassignedSidebar');
       if (unassignedSidebar._removeHandler) {
         unassignedSidebar.removeEventListener('click', unassignedSidebar._removeHandler);
       }
@@ -614,10 +588,12 @@
     function renderSummary() {
       const total = participants.length;
       const counts = { in:0, maybe:0, out:0, waitlist:0, invited:0 };
-      let depositTotal = 0, extraNightCount = 0;
+      let depositTotal = 0;
+      let extraNightCount = 0;
       participants.forEach(p => {
-        counts[p.status] = (counts[p.status]||0)+1;
-        totalPaid += p.totalPaidAmount||p.depositPaidAmount||0;
+        const status = counts.hasOwnProperty(p.status) ? p.status : 'invited';
+        counts[status] = (counts[status] || 0) + 1;
+        depositTotal += Number(p.totalPaidAmount || p.depositPaidAmount || 0);
         if (p.wantsExtraNight) extraNightCount++;
       });
       const extraNightCost = 33;
@@ -626,7 +602,7 @@
         <strong>Live Summary</strong><br>
         Total participants: ${total}<br>
         In: ${counts.in} | Maybe: ${counts.maybe} | Out: ${counts.out} | Waitlist: ${counts.waitlist} | Invited: ${counts.invited}<br>
-        Total deposits received: $${depositTotal}<br>
+        Total deposits received: $${depositTotal.toFixed(2)}<br>
         Wants extra night: ${extraNightCount} &times; $${extraNightCost} = <strong>$${extraNightTotal}</strong>
       `;
     }
