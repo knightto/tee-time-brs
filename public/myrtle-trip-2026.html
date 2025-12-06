@@ -51,8 +51,6 @@
       <strong>Price:</strong> $792.56 per person incl. lodging, 5 rounds, all taxes/fees (no breakfast).<br>
       <div style="margin:12px 0 0 0;">
         <a href="https://founders.teetimecentralonline.com/golfcentral/guests/Register.aspx?g=8ad2d184-cdb8-4b90-8dc6-55c68c26efe9&ResNum=12972589&arr=3/18/2026" target="_blank" style="display:block;margin-bottom:8px;color:#2563eb;font-weight:600;text-decoration:underline;font-size:1.1em;">TO JOIN THIS GOLF PACKAGE, CLICK HERE</a>
-        <div style="font-size:13px;color:#555;margin-bottom:8px;">Or, copy and paste the line below into your browser</div>
-        <div style="word-break:break-all;font-size:13px;margin-bottom:12px;">https://founders.teetimecentralonline.com/golfcentral/guests/Register.aspx?g=8ad2d184-cdb8-4b90-8dc6-55c68c26efe9&ResNum=12972589&arr=3/18/2026</div>
         <a href="https://venmo.com/tk-jr" target="_blank" style="color:#2563eb;font-weight:500;text-decoration:underline;">Or pay Tommy via Venmo</a>
       </div>
     </div>
@@ -240,14 +238,14 @@
     const colCount = 4;
     const perCol = Math.ceil(sorted.length / colCount);
     const cols = Array.from({ length: colCount }, (_, i) => sorted.slice(i * perCol, (i + 1) * perCol));
-    let tableHtml = `<strong>Golfer Status</strong>${summaryBar}<div style='display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px;'>`;
-    for (const col of cols) {
-      tableHtml += `<ul style='margin:0;padding-left:18px;'>${col.map((p) =>
-        `<li>${p.name} <select class='golfer-status-dropdown' data-id='${p._id}' style='font-size:13px;padding:2px 4px;margin-left:4px;'>${STATUS_ORDER.map((opt) => `<option value='${opt}'${p.status === opt ? ' selected' : ''}>${STATUS_LABELS[opt]}</option>`).join('')}</select> <input type='number' class='golfer-paid-input' data-id='${p._id}' value='${(p.totalPaidAmount || 0).toFixed(2)}' min='0' step='0.01' style='width:60px;font-size:13px;margin-left:4px;' placeholder='Paid'></li>`
-      ).join('')}</ul>`;
-    }
-    tableHtml += `</div>`;
-    $('#allParticipantsList').innerHTML = tableHtml;
+      let tableHtml = `<strong>Golfer Status</strong>${summaryBar}<div style='display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px;'>`;
+      for (const col of cols) {
+        tableHtml += `<ol style='margin:0;padding-left:18px;'>${col.map((p, idx) =>
+          `<li style="margin:0 0 4px 0;">${p.name} <select class='golfer-status-dropdown' data-id='${p._id}' style='font-size:13px;padding:2px 4px;margin-left:4px;'>${STATUS_ORDER.map((opt) => `<option value='${opt}'${p.status === opt ? ' selected' : ''}>${STATUS_LABELS[opt]}</option>`).join('')}</select> <input type='number' class='golfer-paid-input' data-id='${p._id}' value='${(p.totalPaidAmount || 0).toFixed(2)}' min='0' step='0.01' style='width:60px;font-size:13px;margin-left:4px;' placeholder='Paid'></li>`
+        ).join('')}</ol>`;
+      }
+      tableHtml += `</div>`;
+      $('#allParticipantsList').innerHTML = tableHtml;
 
     document.querySelectorAll('.golfer-status-dropdown').forEach((sel) => {
       sel.addEventListener('change', async function () {
