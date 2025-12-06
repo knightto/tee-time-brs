@@ -169,34 +169,57 @@
   }
 
   function renderItinerary() {
-    $('#inStatusBox')?.remove();
-    const itineraryBox = $('#itineraryBox');
-    if (!itineraryBox) return;
-    itineraryBox.innerHTML = `
-      <strong>Golf Schedule (${ROUNDS[0]?.groupSize || participants.length} players)</strong><br>
-      <ul>${ROUNDS.map((r) => `<li>${formatDate(r.date)}: ${r.course} @ ${r.time}</li>`).join('')}</ul>
+      $('#statusSummaryRow')?.remove();
+      $('#inStatusBox')?.remove();
+      const itineraryBox = $('#itineraryBox');
+      if (!itineraryBox) return;
+      itineraryBox.innerHTML = `
+        <strong>Golf Schedule (${ROUNDS[0]?.groupSize || participants.length} players)</strong><br>
+        <ul>${ROUNDS.map((r) => `<li>${formatDate(r.date)}: ${r.course} @ ${r.time}</li>`).join('')}</ul>
       <div id="allParticipantsList" style="margin:18px 0 8px 0;"></div>
     `;
 
     renderStatusList();
 
-    const inCount = participants.filter((p) => p.status === 'in').length;
-    const nextIncrement = Math.ceil(Math.max(inCount, 1) / 4) * 4;
-    const needed = Math.max(nextIncrement - inCount, 0);
-    const explanationHtml = `<div id='inStatusBox' style='margin-bottom:12px;max-width:320px;background:#f1f5f9;padding:14px 18px;border-radius:10px;box-shadow:0 1px 6px #0001;'>` +
-      `<strong>Confirmed Golfers:</strong> <span style='color:#2563eb;'>${inCount}</span><br>` +
-      (needed > 0
-        ? `We need <strong>${needed}</strong> more to reach the next full group of 4.<br>`
-        : `We have a full group of <strong>${inCount}</strong>!<br>`
-      ) +
-      `<span style='font-size:13px;color:#555;'>Condos and tee times are assigned in increments of 4.` +
-      (needed === 0 ? ` If adding more, we need to grow to <strong>${nextIncrement + 4}</strong> golfers for the next full group.` : '') +
-      `</span>` +
-      `</div>`;
-    itineraryBox.insertAdjacentHTML('beforebegin', explanationHtml);
+      const inCount = participants.filter((p) => p.status === 'in').length;
+      const nextIncrement = Math.ceil(Math.max(inCount, 1) / 4) * 4;
+      const needed = Math.max(nextIncrement - inCount, 0);
+      const statusRow = document.createElement('div');
+      statusRow.id = 'statusSummaryRow';
+      statusRow.style.display = 'flex';
+      statusRow.style.gap = '12px';
+      statusRow.style.flexWrap = 'wrap';
+      statusRow.style.alignItems = 'flex-start';
 
-    $('#itineraryEditForm').style.display = 'none';
-  }
+      const explanationBox = document.createElement('div');
+      explanationBox.id = 'inStatusBox';
+      explanationBox.style.marginBottom = '12px';
+      explanationBox.style.maxWidth = '320px';
+      explanationBox.style.background = '#f1f5f9';
+      explanationBox.style.padding = '14px 18px';
+      explanationBox.style.borderRadius = '10px';
+      explanationBox.style.boxShadow = '0 1px 6px #0001';
+      explanationBox.innerHTML = `<strong>Confirmed Golfers:</strong> <span style='color:#2563eb;'>${inCount}</span><br>` +
+        (needed > 0
+          ? `We need <strong>${needed}</strong> more to reach the next full group of 4.<br>`
+          : `We have a full group of <strong>${inCount}</strong>!<br>`
+        ) +
+        `<span style='font-size:13px;color:#555;'>Condos and tee times are assigned in increments of 4.` +
+        (needed === 0 ? ` If adding more, we need to grow to <strong>${nextIncrement + 4}</strong> golfers for the next full group.` : '') +
+        `</span>`;
+      statusRow.appendChild(explanationBox);
+
+      const summaryBox = document.getElementById('summaryBox');
+      if (summaryBox) {
+        summaryBox.style.marginTop = '0';
+        summaryBox.style.minWidth = '260px';
+        statusRow.appendChild(summaryBox);
+      }
+
+      itineraryBox.insertAdjacentElement('beforebegin', statusRow);
+
+      $('#itineraryEditForm').style.display = 'none';
+    }
 
   function renderStatusList() {
     if (!Array.isArray(participants) || !participants.length) {
