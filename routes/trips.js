@@ -1,6 +1,7 @@
 const express = require('express');
 const { getSecondaryConn, initSecondaryConn } = require('../secondary-conn');
 initSecondaryConn();
+const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
 const TripPrimary = require('../models/Trip');
 const TripParticipantPrimary = require('../models/TripParticipant');
 const router = express.Router();
@@ -12,6 +13,11 @@ function getSecondaryModels() {
     TripSecondary: conn.model('Trip', require('../models/Trip').schema),
     TripParticipantSecondary: conn.model('TripParticipant', require('../models/TripParticipant').schema),
   };
+}
+
+function isAdmin(req) {
+  const code = req.headers['x-admin-code'] || req.query.code || (req.body && req.body.adminCode);
+  return Boolean(ADMIN_DELETE_CODE && code && code === ADMIN_DELETE_CODE);
 }
 
 // List all trips
@@ -85,6 +91,10 @@ router.post('/:tripId/participants', async (req, res) => {
 
 // Update participant
 router.put('/:tripId/participants/:participantId', async (req, res) => {
+  const needsAdmin = ['status', 'totalPaidAmount', 'depositPaid', 'fullAmountPaid'].some((k) => k in req.body);
+  if (needsAdmin && !isAdmin(req)) {
+    return res.status(403).json({ error: 'Admin code required' });
+  }
   if (req.query.myrtleBeach2026 === 'true') {
     const { TripParticipantSecondary } = getSecondaryModels();
     if (TripParticipantSecondary) {
@@ -98,6 +108,9 @@ router.put('/:tripId/participants/:participantId', async (req, res) => {
 
 // Delete participant
 router.delete('/:tripId/participants/:participantId', async (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ error: 'Admin code required' });
+  }
   if (req.query.myrtleBeach2026 === 'true') {
     const { TripParticipantSecondary } = getSecondaryModels();
     if (TripParticipantSecondary) {
