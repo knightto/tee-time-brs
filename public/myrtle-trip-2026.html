@@ -236,8 +236,10 @@
     const perCol = Math.ceil(sorted.length / colCount);
     const cols = Array.from({ length: colCount }, (_, i) => sorted.slice(i * perCol, (i + 1) * perCol));
       let tableHtml = `<strong>Golfer Status</strong>${summaryBar}<div style='display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px;'>`;
-      for (const col of cols) {
-        tableHtml += `<ol style='margin:0;padding-left:18px;'>${col.map((p, idx) =>
+      for (let colIdx = 0; colIdx < cols.length; colIdx++) {
+        const col = cols[colIdx];
+        const start = colIdx * perCol + 1;
+        tableHtml += `<ol start='${start}' style='margin:0;padding-left:18px;'>${col.map((p) =>
           `<li style="margin:0 0 4px 0;">${p.name} <select class='golfer-status-dropdown' data-id='${p._id}' style='font-size:13px;padding:2px 4px;margin-left:4px;'>${STATUS_ORDER.map((opt) => `<option value='${opt}'${p.status === opt ? ' selected' : ''}>${STATUS_LABELS[opt]}</option>`).join('')}</select> <input type='number' class='golfer-paid-input' data-id='${p._id}' value='${(p.totalPaidAmount || 0).toFixed(2)}' min='0' step='0.01' style='width:60px;font-size:13px;margin-left:4px;' placeholder='Paid'></li>`
         ).join('')}</ol>`;
       }
