@@ -547,6 +547,32 @@ function reminderEmail(blocks, opts = {}){
   return frame(`Reminder: Empty Tee Times ${when}`, `${expl}${rows}${btn('Go to Sign-up Page')}`);
 }
 
+async function checkEmptyTeeTimesForAdminAlert() {
+  const blocks24 = await findEmptyTeeTimesForDay(1);
+  const blocks48 = await findEmptyTeeTimesForDay(2);
+
+  if (!blocks24.length && !blocks48.length) {
+    return { ok: true, sent: 0, message: 'No empty tee times' };
+  }
+
+  const renderSection = (blocks, title) => {
+    if (!blocks.length) return '';
+    const rows = blocks.map(b => {
+      const list = b.empties.map(t => `<li>${esc(t)}</li>`).join('');
+      return `<div style="margin:12px 0;padding:12px;border:1px solid #e5e7eb;border-radius:8px">
+        <p style="margin:0 0 6px 0"><strong>${esc(b.course)}</strong> — ${esc(b.dateLong)} (${esc(b.dateISO)})</p>
+        <p style="margin:0 0 6px 0">Empty tee times:</p>
+        <ul style="margin:0 0 0 18px">${list}</ul>
+      </div>`;
+    }).join('');
+    return `<h3 style="margin:8px 0 4px 0;">${title}</h3>${rows}`;
+  };
+
+  const body = `${renderSection(blocks24, 'Empty tee times in next 24 hours')}${renderSection(blocks48, 'Empty tee times in next 48 hours')}${btn('Go to Sign-up Page')}`;
+  const res = await sendAdminAlert('Admin Alert: Empty Tee Times', body);
+  return { ok: true, sent: res.sent, counts: { within24: blocks24.length, within48: blocks48.length } };
+}
+
 /* local YMD in a TZ */
 function ymdInTZ(d=new Date(), tz='America/New_York'){
   const fmt = new Intl.DateTimeFormat('en-CA',{ timeZone: tz, year:'numeric', month:'2-digit', day:'2-digit' });
