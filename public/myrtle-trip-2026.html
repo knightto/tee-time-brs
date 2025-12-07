@@ -89,16 +89,16 @@
     <div id="summaryBox" class="summary-box"></div>
   </div>
   <script>
-  const STATUS_ORDER = ['in', 'out', 'maybe', 'waitlist', 'invited'];
-  const STATUS_LABELS = { invited: 'Invited', in: 'In', maybe: 'Maybe', out: 'Out', waitlist: 'Waitlist' };
-  const BASE_GROUP_SIZES = [4, 8, 12, 16, 20, 24];
-  const ROUNDS = [
-    { course: 'World Tour', date: '2026-03-18', time: '1:17 PM', groupSize: 20 },
-    { course: 'Wild Wing Avocet', date: '2026-03-19', time: '9:18 AM', groupSize: 20 },
-    { course: 'River Hills', date: '2026-03-20', time: '9:24 AM', groupSize: 20 },
-    { course: 'Long Bay', date: '2026-03-21', time: '9:28 AM', groupSize: 20 },
-    { course: "MB National King's North", date: '2026-03-22', time: '7:59 AM', groupSize: 20 }
-  ];
+    const STATUS_ORDER = ['in', 'out', 'maybe', 'waitlist', 'invited'];
+    const STATUS_LABELS = { invited: 'Invited', in: 'In', maybe: 'Maybe', out: 'Out', waitlist: 'Waitlist' };
+    const BASE_GROUP_SIZES = [4, 8, 12, 16, 20, 24];
+    const ROUNDS = [
+      { course: 'World Tour', address: '2000 World Tour Blvd, Myrtle Beach, SC 29579', date: '2026-03-18', time: '1:17 PM', groupSize: 20 },
+      { course: 'Wild Wing Avocet', address: '1000 Wild Wing Blvd, Conway, SC 29526', date: '2026-03-19', time: '9:18 AM', groupSize: 20 },
+      { course: 'River Hills', address: '3670 Cedar Creek Run, Little River, SC 29566', date: '2026-03-20', time: '9:24 AM', groupSize: 20 },
+      { course: 'Long Bay', address: '350 Fox Tail Dr, Longs, SC 29568', date: '2026-03-21', time: '9:28 AM', groupSize: 20 },
+      { course: "MB National King's North", address: '4900 National Dr, Myrtle Beach, SC 29579', date: '2026-03-22', time: '7:59 AM', groupSize: 20 }
+    ];
 
   let tripId = null;
   let trip = null;
@@ -189,9 +189,9 @@
       if (!itineraryBox) return;
       itineraryBox.innerHTML = `
         <strong>Golf Schedule (${ROUNDS[0]?.groupSize || participants.length} players)</strong><br>
-        <ul>${ROUNDS.map((r) => `<li>${formatDate(r.date)}: ${r.course} @ ${r.time}</li>`).join('')}</ul>
-      <div id="allParticipantsList" style="margin:18px 0 8px 0;"></div>
-    `;
+        <ul>${ROUNDS.map((r) => `<li>${formatDate(r.date)}: ${r.course} @ ${r.time}<div style="color:#555;font-size:13px;margin-top:2px;">${r.address || ''}</div></li>`).join('')}</ul>
+        <div id="allParticipantsList" style="margin:18px 0 8px 0;"></div>
+      `;
 
     renderStatusList();
 
