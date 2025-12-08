@@ -439,7 +439,7 @@
         const condoNum = e.target.value;
         const id = e.target.dataset.id;
         if (!condoNum || condoNum < 1 || condoNum > 5) return;
-        await updateParticipant(id, { roomAssignment: `Condo ${condoNum} - Room A` });
+        await updateParticipant(id, { roomAssignment: `Condo ${condoNum} - Room A` }, { requireAdmin: true });
       }
     };
     unassignedSidebar.addEventListener('change', unassignedSidebar._changeHandler);
@@ -469,14 +469,14 @@
         const val = e.target.value;
         if (!val) return;
         if (val === 'unassigned') {
-          await updateParticipant(id, { roomAssignment: null });
+          await updateParticipant(id, { roomAssignment: null }, { requireAdmin: true });
         } else if (val >= 1 && val <= 5) {
-          await updateParticipant(id, { roomAssignment: `Condo ${val} - Room A` });
+          await updateParticipant(id, { roomAssignment: `Condo ${val} - Room A` }, { requireAdmin: true });
         }
         }
         if (e.target.classList.contains('remove-condo-btn')) {
           const id = e.target.dataset.id;
-          await updateParticipant(id, { roomAssignment: null });
+          await updateParticipant(id, { roomAssignment: null }, { requireAdmin: true });
         }
     });
   }
