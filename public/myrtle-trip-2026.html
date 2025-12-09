@@ -137,45 +137,72 @@
       gap: 14px;
       margin-top: 12px;
     }
-    .cards-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 12px;
-    }
-    .condo-group {
-      background: var(--panel-soft);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      padding: 12px;
-      display: grid;
-      gap: 10px;
-    }
-    .participant-card {
-      background: rgba(255,255,255,0.03);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 10px;
-      display: grid;
-      gap: 6px;
-    }
-    .participant-card input,
-    .participant-card select {
-      width: 100%;
-      padding: 8px;
-      border-radius: 8px;
-      border: 1px solid var(--border);
-      background: #0b1728;
-      color: var(--ink);
-      font-size: 0.95rem;
-    }
-    .actions {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-      gap: 8px;
-    }
-    button {
-      background: var(--accent);
-      color: #0b1626;
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+  }
+  #condoGroups.cards-grid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+  }
+  .condo-group {
+    background: var(--panel-soft);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px;
+    display: grid;
+    gap: 10px;
+  }
+  .participant-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px;
+    display: grid;
+    gap: 8px;
+    font-size: 0.95rem;
+  }
+  .participant-card input,
+  .participant-card select {
+    width: 100%;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #0b1728;
+    color: var(--ink);
+    font-size: 0.95rem;
+  }
+  .actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+  }
+  #condoGroups .actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+  }
+  #condoGroups .actions button,
+  #condoGroups .actions select {
+    padding: 8px 10px;
+    font-size: 0.9rem;
+  }
+  .fields-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+    align-items: center;
+  }
+  .stacked {
+    display: grid;
+    gap: 4px;
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+  }
+  button {
+    background: var(--accent);
+    color: #0b1626;
       border: none;
       padding: 10px 14px;
       border-radius: 10px;
@@ -533,19 +560,21 @@
           const match = p.roomAssignment && p.roomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
           const room = match ? match[2] : '';
           const currentCondo = match ? parseInt(match[1], 10) : null;
-          let moveOptions = `<option value="unassigned">Unassigned List</option>`;
+          let moveOptions = `<option value="unassigned">Unassigned</option>`;
           for (let c = 1; c <= 5; c++) {
             if (c !== currentCondo && condoCounts[c - 1] < 4) moveOptions += `<option value="${c}">Condo ${c}</option>`;
           }
           const card = document.createElement('div');
           card.className = 'participant-card';
           card.innerHTML = `
-            <div><strong>Name:</strong> <input type="text" value="${p.name || ''}" data-id="${p._id}" class="name-input"></div>
-            <div><strong>Bedroom:</strong> <select class="room-select" data-id="${p._id}">
-              <option value="A"${room === 'A' ? ' selected' : ''}>A</option>
-              <option value="B"${room === 'B' ? ' selected' : ''}>B</option>
-            </select></div>
-            <div><strong>Extra Night:</strong> <input type="checkbox" ${p.wantsExtraNight ? 'checked' : ''} class="extra-night-input" data-id="${p._id}"></div>
+            <div class="fields-row">
+              <label class="stacked"><span>Name</span><input type="text" value="${p.name || ''}" data-id="${p._id}" class="name-input"></label>
+              <label class="stacked"><span>Room</span><select class="room-select" data-id="${p._id}">
+                <option value="A"${room === 'A' ? ' selected' : ''}>A</option>
+                <option value="B"${room === 'B' ? ' selected' : ''}>B</option>
+              </select></label>
+              <label class="stacked"><span>Extra Night</span><input type="checkbox" ${p.wantsExtraNight ? 'checked' : ''} class="extra-night-input" data-id="${p._id}"></label>
+            </div>
             <div class="actions">
               <button class="remove-condo-btn" data-id="${p._id}">Unassign</button>
               ${moveOptions ? `<select class="move-condo-select" data-id="${p._id}" style="padding:10px;border-radius:10px;border:1px solid var(--border);background:#0b1728;color:var(--ink);"><option value="">Move to...</option>${moveOptions}</select>` : ''}
