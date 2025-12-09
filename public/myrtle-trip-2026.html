@@ -4,111 +4,284 @@
   <meta charset="UTF-8">
   <title>Myrtle Beach 2026 Golf Trip Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="/public/css/styles.css">
   <style>
-    body { font-family: system-ui, sans-serif; background: #f8fafc; margin: 0; }
-    .container { max-width: 1000px; margin: 24px auto; background: #fff; border-radius: 12px; box-shadow: 0 4px 16px #0002; padding: 16px; }
-    h1 { color: #2563eb; font-size: 2rem; margin-bottom: 12px; }
-    .summary-card { background: #f1f5f9; border-radius: 10px; padding: 16px; margin-bottom: 16px; box-shadow: 0 1px 6px #0001; }
-    .summary-box { background: #e0f7fa; border-radius: 10px; padding: 12px; margin-top: 18px; box-shadow: 0 1px 6px #0001; }
-    .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; margin-bottom: 18px; }
-    .participant-card { background: #f9fafb; border-radius: 10px; box-shadow: 0 2px 8px #0001; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
-    .condo-group { background: #f3f4f6; border-radius: 10px; padding: 10px; margin-bottom: 14px; box-shadow: 0 1px 4px #0001; }
-    table { width: 100%; border-collapse: collapse; margin-top: 14px; }
-    th, td { padding: 6px 8px; border-bottom: 1px solid #e5e7eb; }
-    th { background: #f1f5f9; text-align: left; }
-    tr:last-child td { border-bottom: none; }
-    .form-row { margin-bottom: 10px; }
-    input, select, textarea { padding: 6px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 15px; }
-    button { background: #2563eb; color: #fff; border: none; padding: 8px 18px; border-radius: 8px; font-size: 16px; cursor: pointer; transition: background 0.2s; }
-    button:hover { background: #1d4ed8; }
-    .actions { display: flex; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
-    .add-row { background: #fef3c7; border-radius: 6px; }
-    .status-in { color: #16a34a; }
-    .status-out { color: #dc2626; }
-    .status-maybe { color: #f59e42; }
-    .status-waitlist { color: #6366f1; }
-    .status-invited { color: #2563eb; }
-    .room-select { width: 90px; }
-    #topPricePayBox, #inStatusBox, .summary-card, .summary-box { box-sizing: border-box; }
-    @media (max-width: 600px) {
-      .container { padding: 4px; }
-      h1 { font-size: 1.2rem; }
-      .summary-card, #topPricePayBox, #inStatusBox, .summary-box { padding: 8px; margin-bottom: 10px; }
-      .cards-grid { grid-template-columns: 1fr; gap: 10px; }
-      .condo-group { padding: 6px; margin-bottom: 8px; }
-      .participant-card { padding: 8px; gap: 6px; }
-      #allParticipantsList div { grid-template-columns: 1fr 1fr; }
-      #itineraryBox { padding: 8px; }
+    :root {
+      --bg: #0d1726;
+      --panel: #0f2138;
+      --panel-soft: #132a45;
+      --accent: #e0b457;
+      --accent-2: #6dd3ff;
+      --ink: #e6edf7;
+      --ink-soft: #9fb6d4;
+      --muted: #6b82a3;
+      --border: rgba(255,255,255,0.08);
+      --shadow: 0 20px 50px rgba(0,0,0,0.35);
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      background: radial-gradient(circle at 20% 20%, rgba(109,211,255,0.08), transparent 35%),
+                  radial-gradient(circle at 80% 0%, rgba(224,180,87,0.10), transparent 30%),
+                  #0b1422;
+      margin: 0;
+      color: var(--ink);
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 18px auto 32px;
+      padding: 0 16px;
+    }
+    header.hero {
+      background: linear-gradient(135deg, #0f2138 0%, #0b1626 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 16px;
+      box-shadow: var(--shadow);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(8px);
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(1.4rem, 4vw, 2rem);
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      letter-spacing: 0.4px;
+    }
+    h1 span {
+      color: var(--accent);
+      font-size: 0.9rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .chip {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--ink-soft);
+      font-size: 0.85rem;
+    }
+    .panel {
+      background: linear-gradient(145deg, var(--panel) 0%, #0c1a2c 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      margin-top: 16px;
+    }
+    .summary-card {
+      display: grid;
+      gap: 12px;
+      color: var(--ink);
+      line-height: 1.6;
+    }
+    .summary-card strong { color: #fff; }
+    a.cta {
+      color: var(--accent-2);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    a.cta:hover { text-decoration: underline; }
+    .itinerary-list {
+      display: grid;
+      gap: 8px;
+      margin: 8px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    .itinerary-item {
+      background: var(--panel-soft);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      display: grid;
+      gap: 4px;
+    }
+    .itinerary-item small { color: var(--muted); }
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .status-pill {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      color: var(--ink);
+      font-size: 0.9rem;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 14px;
+      margin-top: 12px;
+    }
+    .cards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 12px;
+    }
+    .condo-group {
+      background: var(--panel-soft);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+    .participant-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 10px;
+      display: grid;
+      gap: 6px;
+    }
+    .participant-card input,
+    .participant-card select {
+      width: 100%;
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #0b1728;
+      color: var(--ink);
+      font-size: 0.95rem;
+    }
+    .actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 8px;
+    }
+    button {
+      background: var(--accent);
+      color: #0b1626;
+      border: none;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 10px 30px rgba(224,180,87,0.2);
+    }
+    button:hover { transform: translateY(-1px); }
+    button.secondary {
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--border);
+      box-shadow: none;
+    }
+    #unassignedSidebar {
+      background: linear-gradient(180deg, var(--panel) 0%, #0c192c 100%);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+    #unassignedSidebar ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 10px;
+    }
+    #unassignedSidebar li {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    #unassignedSidebar select,
+    #unassignedSidebar button {
+      width: 100%;
+    }
+    #summaryBox {
+      background: var(--panel-soft);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      line-height: 1.6;
+    }
+    .status-labels {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 8px;
+      margin: 8px 0;
+    }
+    .status-labels span {
+      color: var(--ink-soft);
+      font-size: 0.9rem;
+    }
+    /* Mobile-first adjustments */
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      header.hero { position: static; }
+      .actions { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 640px) {
+      .container { padding: 0 12px; }
+      .cards-grid { grid-template-columns: 1fr; }
+      .actions { grid-template-columns: 1fr; }
+      #allParticipantsList ol { padding-left: 20px; }
     }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Myrtle Beach 2026 Golf Trip Tracker</h1>
-    <div id="tripSummary" class="summary-card"></div>
-  <div id="itineraryBox" class="summary-card" style="margin-bottom:24px;"></div>
-    <form id="itineraryEditForm" class="summary-card" style="margin-bottom:24px; display:none;">
-        <strong>Edit Round Itinerary</strong><br>
-      <div class="form-row" style="margin-bottom:16px;">
-        <label for="totalCost">Total Cost of Trip:
-          <input type="number" id="totalCost" name="totalCost" style="width:120px;" min="0" step="1" placeholder="$">
-        </label>
+    <header class="hero">
+      <h1>Myrtle Beach 2026 Golf Trip <span>Group 3/18–3/22/26</span></h1>
+      <div class="chips">
+        <div class="chip">Myrtle Beach, SC</div>
+        <div class="chip">4 Nights / 5 Rounds</div>
+        <div class="chip">Reservation #12972589</div>
       </div>
-      <div class="form-row" style="margin-bottom:16px;">
-        <label>Extra Night Price Per Condo: <span>$33</span></label>
-      </div>
-      <div id="itineraryFields"></div>
-      <button type="button" id="addRoundBtn">Add Round</button>
-      <button type="submit">Save Itinerary</button>
-    </form>
-    <form id="tripEditForm" style="margin-bottom:24px;">
-      <!-- Base Group Size moved to sidebar above Unassigned Golfers -->
-        <!-- Extra Night Price Per Condo moved above itinerary -->
-      <div class="form-row">
-        <!-- Notes field removed -->
-      </div>
-      <!-- Save Trip Details button removed -->
-    </form>
-    <h2>Accommodations</h2>
-    <button id="addParticipantBtn" style="margin-bottom:12px;">Add Golfer</button>
-    <div style="display:flex; gap:32px; align-items:flex-start;">
-      <div id="condoGroups" style="flex:3 1 0;"></div>
-      <div id="unassignedSidebar" style="flex:1 1 0; min-width:220px; background:#f3f4f6; border-radius:8px; padding:12px;">
-        <div class="form-row" style="margin-bottom:16px;">
-          <label>Base Group Size:
-            <select name="baseGroupSize" id="baseGroupSizeSelect"></select>
-          </label>
+    </header>
+
+    <div class="panel summary-card" id="tripSummary"></div>
+    <div class="panel" id="itineraryBox" style="margin-bottom:12px;"></div>
+    <div class="layout">
+      <div class="panel">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+          <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Accommodations</h2>
+          <button id="addParticipantBtn" class="secondary" style="padding:8px 12px;font-weight:600;">Add Golfer</button>
         </div>
-        <strong>Unassigned Golfers</strong>
-        <div style="max-height:420px; overflow-y:auto; margin-top:10px;">
-          <ul id="unassignedList" style="list-style:none; padding-left:0; margin:0;"></ul>
-        </div>
+        <div id="condoGroups" class="cards-grid" style="margin-top:12px;"></div>
       </div>
+      <div id="unassignedSidebar"></div>
     </div>
-    <div id="summaryBox" class="summary-box"></div>
+    <div id="summaryBox" class="panel" style="margin-top:12px;"></div>
   </div>
-  <a href="https://founders.teetimecentralonline.com/golfcentral/guests/login.aspx?user=tommy.knight@gmail.com&pwd=3/18/2026" target="_blank" aria-label="Admin login" style="position:fixed;left:12px;bottom:12px;padding:8px 12px;border-radius:8px;background:#111827;color:#f9fafb;text-decoration:none;font-weight:600;box-shadow:0 2px 8px #0004;">ADMIN</a>
+  <a href="https://founders.teetimecentralonline.com/golfcentral/guests/login.aspx?user=tommy.knight@gmail.com&pwd=3/18/2026" target="_blank" aria-label="Admin login" style="position:fixed;left:12px;bottom:12px;padding:8px 12px;border-radius:10px;background:#0c1a2c;color:#f9fafb;text-decoration:none;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);">ADMIN</a>
   <script>
     const STATUS_ORDER = ['in', 'out', 'maybe', 'waitlist', 'invited'];
     const STATUS_LABELS = { invited: 'Invited', in: 'In', maybe: 'Maybe', out: 'Out', waitlist: 'Waitlist' };
     const BASE_GROUP_SIZES = [4, 8, 12, 16, 20, 24];
-    const ROUNDS = [
-      { course: 'World Tour Golf Links', address: '2000 World Tour Blvd, Myrtle Beach, SC 29579', date: '2026-03-18', time: '1:17 PM', groupSize: 24, confirmation: '320791', rate: 109.61 },
-      { course: 'Wild Wing Avocet', address: '1000 Wild Wing Blvd, Conway, SC 29526', date: '2026-03-19', time: '9:09 AM', groupSize: 24, confirmation: '320791', rate: 118.77 },
-      { course: "MB National King's North", address: '4900 National Dr, Myrtle Beach, SC 29579', date: '2026-03-20', time: '8:26 AM', groupSize: 24, confirmation: '320791', rate: 158.33 },
-      { course: 'River Hills', address: '3670 Cedar Creek Run, Little River, SC 29566', date: '2026-03-21', time: '9:15 AM', groupSize: 24, confirmation: '320791', rate: 93.55 },
-      { course: 'Long Bay', address: '350 Fox Tail Dr, Longs, SC 29568', date: '2026-03-22', time: '8:00 AM', groupSize: 24, confirmation: '320791', rate: 90.97 }
-    ];
 
-  let tripId = null;
-  let trip = null;
-  let participants = [];
+    let tripId = null;
+    let trip = null;
+    let participants = [];
 
-  const $ = (sel) => document.querySelector(sel);
-  const formatDate = (d) => (d ? new Date(d).toLocaleDateString() : '');
-  const tripApi = (path) => (path.includes('?') ? `${path}&myrtleBeach2026=true` : `${path}?myrtleBeach2026=true`);
-  const safeNumber = (val) => (val === '' || isNaN(val) ? 0 : parseFloat(val));
+    const $ = (sel) => document.querySelector(sel);
+    const formatDate = (d) => (d ? new Date(d).toLocaleDateString() : '');
+    const tripApi = (path) => (path.includes('?') ? `${path}&myrtleBeach2026=true` : `${path}?myrtleBeach2026=true`);
+    const safeNumber = (val) => (val === '' || isNaN(val) ? 0 : parseFloat(val));
 
     let adminCode = null;
     function getAdminCode() {
@@ -138,130 +311,136 @@
       await loadTrip();
     }
 
-  async function loadTrip() {
-    const res = await fetch(tripApi('/api/trips'));
-    const trips = await res.json();
-    trip = trips.find((t) => t.name && t.name.includes('Myrtle Beach'));
-    if (!trip) return alert('Trip not found');
-    tripId = trip._id;
-    window.tripId = trip._id;
-    const pRes = await fetch(tripApi(`/api/trips/${trip._id}/participants`));
-    participants = await pRes.json();
-    renderAll();
-  }
+    async function loadTrip() {
+      const res = await fetch(tripApi('/api/trips'));
+      const trips = await res.json();
+      trip = trips.find((t) => t.name && t.name.includes('Myrtle Beach'));
+      if (!trip) return alert('Trip not found');
+      tripId = trip._id;
+      window.tripId = trip._id;
+      const pRes = await fetch(tripApi(`/api/trips/${trip._id}/participants`));
+      participants = await pRes.json();
+      renderAll();
+    }
 
-  function renderAll() {
-    renderTripSummary();
-    renderItinerary();
-    renderParticipants();
-    renderSummary();
-  }
+    function renderAll() {
+      renderTripSummary();
+      renderItinerary();
+      renderParticipants();
+      renderSummary();
+    }
 
     function renderTripSummary() {
-      $('#tripSummary').innerHTML = `
-        <div><strong>Trip Name:</strong> Myrtle Beach - Barefoot Group 3/18-3/22/26</div>
-        <div><strong>Location:</strong> Myrtle Beach, SC</div>
-        <div><strong>Arrival:</strong> Wed 3/18/26 - <strong>Departure:</strong> Sun 3/22/26</div>
-        <div><strong>Package Type:</strong> 4 Nights / 5 Rounds</div>
-        <div><strong>Reservation #:</strong> 12972589 | Myrtle Beach Golf Trips (866-694-2448)</div>
-        <div><strong>Price:</strong> $792.56 per person incl. lodging, 5 rounds, all taxes/fees (no breakfast).</div>
-        <div style="margin-top:12px;">
-          <a href="https://founders.teetimecentralonline.com/golfcentral/guests/Register.aspx?g=8ad2d184-cdb8-4b90-8dc6-55c68c26efe9&ResNum=12972589&arr=3/18/2026" target="_blank" style="display:block;margin-bottom:8px;color:#2563eb;font-weight:600;text-decoration:underline;font-size:1.1em;">TO JOIN THIS GOLF PACKAGE, CLICK HERE</a>
-          <a href="https://venmo.com/tk-jr" target="_blank" style="color:#2563eb;font-weight:500;text-decoration:underline;">Or pay Tommy via Venmo</a>
+      const summary = `
+        <div style="display:grid;gap:6px;">
+          <div><strong>Trip Name:</strong> ${trip?.name || 'Myrtle Beach - Barefoot Group 3/18-3/22/26'}</div>
+          <div><strong>Location:</strong> ${trip?.location || 'Myrtle Beach, SC'}</div>
+          <div><strong>Arrival:</strong> Wed 3/18/26 &nbsp;|&nbsp; <strong>Departure:</strong> Sun 3/22/26</div>
+          <div><strong>Package:</strong> 4 Nights / 5 Rounds</div>
+          <div><strong>Reservation #:</strong> 12972589 &nbsp;|&nbsp; Myrtle Beach Golf Trips (866-694-2448)</div>
+          <div><strong>Price:</strong> $792.56 per person incl. lodging, 5 rounds, all taxes/fees (no breakfast).</div>
+          <div style="display:grid;gap:8px;margin-top:8px;">
+            <a class="cta" href="https://founders.teetimecentralonline.com/golfcentral/guests/Register.aspx?g=8ad2d184-cdb8-4b90-8dc6-55c68c26efe9&ResNum=12972589&arr=3/18/2026" target="_blank">Join Package (Register)</a>
+            <a class="cta" href="https://venmo.com/tk-jr" target="_blank">Pay via Venmo</a>
+          </div>
         </div>
       `;
+      $('#tripSummary').innerHTML = summary;
+
       const baseGroupSizeSelect = $('#baseGroupSizeSelect');
       if (baseGroupSizeSelect) {
         baseGroupSizeSelect.innerHTML = '';
         BASE_GROUP_SIZES.forEach((n) => {
-        const opt = document.createElement('option');
-        opt.value = n;
-        opt.textContent = n;
-        if (trip.baseGroupSize == n) opt.selected = true;
-        baseGroupSizeSelect.appendChild(opt);
-      });
+          const opt = document.createElement('option');
+          opt.value = n;
+          opt.textContent = n;
+          if (trip.baseGroupSize == n) opt.selected = true;
+          baseGroupSizeSelect.appendChild(opt);
+        });
+      }
     }
-  }
 
-  function renderItinerary() {
-      $('#statusSummaryRow')?.remove();
-      $('#inStatusBox')?.remove();
-      const itineraryBox = $('#itineraryBox');
-      if (!itineraryBox) return;
-      const scheduleGroupSize = ROUNDS.reduce((max, r) => Math.max(max, r.groupSize || 0), participants.length || 0) || participants.length;
-      itineraryBox.innerHTML = `
-        <strong>Golf Schedule (${scheduleGroupSize} players)</strong><br>
-        <ul>${ROUNDS.map((r) => `<li>${formatDate(r.date)}: ${r.course} @ ${r.time} (${r.groupSize || scheduleGroupSize})<div style="color:#555;font-size:13px;margin-top:2px;">${r.address || ''}</div><div style="color:#555;font-size:13px;margin-top:2px;">Conf: ${r.confirmation || '-'}${r.rate ? ` | $${r.rate.toFixed(2)}` : ''}</div></li>`).join('')}</ul>
-        <div id="allParticipantsList" style="margin:18px 0 8px 0;"></div>
+    function renderItinerary() {
+      $('#itineraryBox').innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+          <h2 style="margin:0;font-size:1.05rem;">Golf Schedule</h2>
+          <div class="status-labels" id="statusSummaryRow"></div>
+        </div>
+        <ul class="itinerary-list" id="itineraryList"></ul>
+        <div id="allParticipantsList" style="margin-top:12px;"></div>
       `;
 
-    renderStatusList();
+      const rounds = Array.isArray(trip?.rounds) && trip.rounds.length ? trip.rounds : [];
+      const list = $('#itineraryList');
+      if (rounds.length) {
+        list.innerHTML = rounds.map((r) => `
+          <li class="itinerary-item">
+            <strong>${formatDate(r.date)} • ${r.course || 'TBD'}</strong>
+            <small>${[r.time || '', r.address || ''].filter(Boolean).join(' — ')}</small>
+            ${r.confirmation ? `<small>Conf #${r.confirmation}</small>` : ''}
+            ${r.groupSize ? `<span style="color:var(--accent);">Group Size: ${r.groupSize}</span>` : ''}
+          </li>
+        `).join('');
+      } else {
+        list.innerHTML = `<li class="itinerary-item">Rounds not entered yet.</li>`;
+      }
+
+      renderStatusList();
 
       const inCount = participants.filter((p) => p.status === 'in').length;
       const nextIncrement = Math.ceil(Math.max(inCount, 1) / 4) * 4;
       const needed = Math.max(nextIncrement - inCount, 0);
-      const statusRow = document.createElement('div');
-      statusRow.id = 'statusSummaryRow';
-      statusRow.style.display = 'flex';
-      statusRow.style.gap = '12px';
-      statusRow.style.flexWrap = 'wrap';
-      statusRow.style.alignItems = 'flex-start';
-
-      const explanationBox = document.createElement('div');
-      explanationBox.id = 'inStatusBox';
-      explanationBox.style.marginBottom = '12px';
-      explanationBox.style.maxWidth = '320px';
-      explanationBox.style.background = '#f1f5f9';
-      explanationBox.style.padding = '14px 18px';
-      explanationBox.style.borderRadius = '10px';
-      explanationBox.style.boxShadow = '0 1px 6px #0001';
-      explanationBox.innerHTML = `<strong>Confirmed Golfers:</strong> <span style='color:#2563eb;'>${inCount}</span><br>` +
-        (needed > 0
-          ? `We need <strong>${needed}</strong> more to reach the next full group of 4.<br>`
-          : `We have a full group of <strong>${inCount}</strong>!<br>`
-        ) +
-        `<span style='font-size:13px;color:#555;'>Condos and tee times are assigned in increments of 4.` +
-        (needed === 0 ? ` If adding more, we need to grow to <strong>${nextIncrement + 4}</strong> golfers for the next full group.` : '') +
-        `</span>`;
-      statusRow.appendChild(explanationBox);
-
-      const summaryBox = document.getElementById('summaryBox');
-      if (summaryBox) {
-        summaryBox.style.marginTop = '0';
-        summaryBox.style.minWidth = '260px';
-        statusRow.appendChild(summaryBox);
+      const statusRow = $('#statusSummaryRow');
+      if (statusRow) {
+        statusRow.innerHTML = `
+          <div class="status-box" style="display:grid;gap:6px;background:var(--panel-soft);border:1px solid var(--border);border-radius:12px;padding:12px;">
+            <strong>Confirmed Golfers: <span style="color:var(--accent);">${inCount}</span></strong>
+            <span style="color:var(--muted);font-size:0.95rem;">
+              ${needed > 0
+                ? `Need ${needed} more to reach the next full group of 4.`
+                : `We have a full group of ${inCount}. Next target: ${nextIncrement + 4}.`}
+            </span>
+          </div>
+        `;
       }
-
-      itineraryBox.insertAdjacentElement('beforebegin', statusRow);
-
-      $('#itineraryEditForm').style.display = 'none';
     }
 
-  function renderStatusList() {
-    if (!Array.isArray(participants) || !participants.length) {
-      $('#allParticipantsList').innerHTML = '';
-      return;
-    }
-    const counts = { in: 0, out: 0, maybe: 0, waitlist: 0, invited: 0 };
-    participants.forEach((p) => { if (counts.hasOwnProperty(p.status)) counts[p.status]++; });
-    const summaryBar = `<div style='margin-bottom:8px;font-weight:500;'>` +
-      STATUS_ORDER.map((s) => `<span style='margin-right:18px;'>${STATUS_LABELS[s]}: <span style='color:#2563eb;'>${counts[s]}</span></span>`).join('') +
-      `</div>`;
-    const sorted = [...participants].sort((a, b) => {
-      const sa = STATUS_ORDER.indexOf(a.status);
-      const sb = STATUS_ORDER.indexOf(b.status);
-      if (sa !== sb) return sa - sb;
-      return (a.name || '').localeCompare(b.name || '');
-    });
-    const colCount = 4;
-    const perCol = Math.ceil(sorted.length / colCount);
-    const cols = Array.from({ length: colCount }, (_, i) => sorted.slice(i * perCol, (i + 1) * perCol));
-      let tableHtml = `<strong>Golfer Status</strong>${summaryBar}<div style='display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:8px;'>`;
+    function renderStatusList() {
+      if (!Array.isArray(participants) || !participants.length) {
+        $('#allParticipantsList').innerHTML = '';
+        return;
+      }
+      const counts = { in: 0, out: 0, maybe: 0, waitlist: 0, invited: 0 };
+      participants.forEach((p) => { if (counts.hasOwnProperty(p.status)) counts[p.status]++; });
+
+      const sorted = [...participants].sort((a, b) => {
+        const sa = STATUS_ORDER.indexOf(a.status);
+        const sb = STATUS_ORDER.indexOf(b.status);
+        if (sa !== sb) return sa - sb;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+      const perCol = Math.ceil(sorted.length / 2);
+      const cols = [sorted.slice(0, perCol), sorted.slice(perCol)];
+
+      let tableHtml = `
+        <div class="status-grid">
+          ${STATUS_ORDER.map((s) => `<div class="status-pill"><span>${STATUS_LABELS[s]}</span><strong>${counts[s]}</strong></div>`).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
+      `;
       for (let colIdx = 0; colIdx < cols.length; colIdx++) {
         const col = cols[colIdx];
         const start = colIdx * perCol + 1;
-        tableHtml += `<ol start='${start}' style='margin:0;padding-left:18px;'>${col.map((p) =>
-          `<li style="margin:0 0 4px 0;">${p.name} <select class='golfer-status-dropdown' data-id='${p._id}' style='font-size:13px;padding:2px 4px;margin-left:4px;'>${STATUS_ORDER.map((opt) => `<option value='${opt}'${p.status === opt ? ' selected' : ''}>${STATUS_LABELS[opt]}</option>`).join('')}</select> <input type='number' class='golfer-paid-input' data-id='${p._id}' value='${(p.totalPaidAmount || 0).toFixed(2)}' min='0' step='0.01' style='width:60px;font-size:13px;margin-left:4px;' placeholder='Paid'></li>`
+        tableHtml += `<ol start='${start}' style='margin:0;padding-left:18px;display:grid;gap:6px;'>${col.map((p) =>
+          `<li style="margin:0;display:grid;gap:6px;">
+            <div style="font-weight:600;color:#fff;">${p.name}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+              <select class='golfer-status-dropdown' data-id='${p._id}' style='font-size:13px;padding:8px;border-radius:8px;border:1px solid var(--border);background:#0b1728;color:var(--ink);'>
+                ${STATUS_ORDER.map((opt) => `<option value='${opt}'${p.status === opt ? ' selected' : ''}>${STATUS_LABELS[opt]}</option>`).join('')}
+              </select>
+              <input type='number' class='golfer-paid-input' data-id='${p._id}' value='${(p.totalPaidAmount || 0).toFixed(2)}' min='0' step='0.01' style='padding:8px;border-radius:8px;border:1px solid var(--border);background:#0b1728;color:var(--ink);' placeholder='Paid'>
+            </div>
+          </li>`
         ).join('')}</ol>`;
       }
       tableHtml += `</div>`;
@@ -277,173 +456,117 @@
           await updateParticipant(this.dataset.id, { totalPaidAmount: safeNumber(this.value) }, { requireAdmin: true });
         });
       });
-  }
-
-  document.addEventListener('click', function (e) {
-    if (e.target && e.target.id === 'editItineraryBtn') renderItineraryEditForm();
-  });
-
-  function renderItineraryEditForm() {
-    const tripRounds = trip?.rounds || [];
-    const fieldsDiv = document.getElementById('itineraryFields');
-    fieldsDiv.innerHTML = '';
-    (tripRounds.length ? tripRounds : ROUNDS).forEach((r, idx) => {
-      const row = document.createElement('div');
-      row.style.marginBottom = '8px';
-      row.innerHTML = `
-        <input type="date" value="${r.date}" class="round-date" data-idx="${idx}" style="width:120px;">
-        <input type="text" value="${r.course}" placeholder="Course" class="round-course" data-idx="${idx}" style="width:160px;">
-        <input type="text" value="${r.time}" placeholder="Time" class="round-time" data-idx="${idx}" style="width:90px;">
-        <input type="number" value="${r.groupSize || ''}" placeholder="Group Size" class="round-group-size" data-idx="${idx}" style="width:90px;">
-        <input type="text" value="${r.confirmation || ''}" placeholder="Confirmation" class="round-confirmation" data-idx="${idx}" style="width:120px;">
-        <button type="button" class="remove-round-btn" data-idx="${idx}">Remove</button>
-      `;
-      fieldsDiv.appendChild(row);
-    });
-    document.getElementById('itineraryEditForm').style.display = '';
-  }
-
-  document.getElementById('addRoundBtn').onclick = function () {
-    const fieldsDiv = document.getElementById('itineraryFields');
-    const idx = fieldsDiv.children.length;
-    const row = document.createElement('div');
-    row.style.marginBottom = '8px';
-    row.innerHTML = `
-      <input type="date" class="round-date" data-idx="${idx}" style="width:120px;">
-      <input type="text" placeholder="Course" class="round-course" data-idx="${idx}" style="width:160px;">
-      <input type="text" placeholder="Time" class="round-time" data-idx="${idx}" style="width:90px;">
-      <button type="button" class="remove-round-btn" data-idx="${idx}">Remove</button>
-    `;
-    fieldsDiv.appendChild(row);
-  };
-
-  document.getElementById('itineraryFields').addEventListener('click', function (e) {
-    if (e.target.classList.contains('remove-round-btn')) e.target.parentElement.remove();
-  });
-
-  document.getElementById('itineraryEditForm').onsubmit = async function (e) {
-    e.preventDefault();
-    const rounds = [];
-    const fieldsDiv = document.getElementById('itineraryFields');
-    for (const row of fieldsDiv.children) {
-      const date = row.querySelector('.round-date').value;
-      const course = row.querySelector('.round-course').value;
-      const time = row.querySelector('.round-time').value;
-      const groupSize = row.querySelector('.round-group-size')?.value;
-      const confirmation = row.querySelector('.round-confirmation')?.value;
-      if (date && course && time) rounds.push({ date, course, time, groupSize, confirmation });
     }
-    await fetch(tripApi(`/api/trips/${tripId}`), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rounds })
-    });
-    document.getElementById('itineraryEditForm').style.display = 'none';
-    await loadTrip();
-  };
 
-  $('#tripEditForm').onsubmit = async function (e) {
-    e.preventDefault();
-    const body = {
-      baseGroupSize: +this.baseGroupSize?.value || undefined,
-      extraNightPricePerCondo: +this.extraNightPricePerCondo?.value || undefined
-    };
-    await fetch(tripApi(`/api/trips/${tripId}`), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    await loadTrip();
-  };
+    function renderParticipants() {
+      const container = document.getElementById('condoGroups');
+      if (!container) return;
+      container.innerHTML = '';
 
-  function renderParticipants() {
-    const container = document.getElementById('condoGroups');
-    if (!container) return;
-    container.innerHTML = '';
-
-    const condoCounts = [0, 0, 0, 0, 0];
-    participants.forEach((g) => {
-      const m = g.roomAssignment && g.roomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
-      if (m) {
-        const idx = parseInt(m[1], 10) - 1;
-        if (idx >= 0 && idx < 5) condoCounts[idx]++;
-      }
-    });
-
-    for (let i = 0; i < 5; i++) {
-      const div = document.createElement('div');
-      div.className = 'condo-group';
-      div.innerHTML = `<strong>Condo ${i + 1}</strong><div class="cards-grid"></div>`;
-      const grid = div.querySelector('.cards-grid');
-      const group = participants.filter((p) => {
-        if (!p.roomAssignment) return false;
-        const match = p.roomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
-        return match && parseInt(match[1], 10) === i + 1;
-      });
-      for (const p of group) {
-        const match = p.roomAssignment && p.roomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
-        const room = match ? match[2] : '';
-        const currentCondo = match ? parseInt(match[1], 10) : null;
-        let moveOptions = `<option value="unassigned">Unassigned List</option>`;
-        for (let c = 1; c <= 5; c++) {
-          if (c !== currentCondo && condoCounts[c - 1] < 4) moveOptions += `<option value="${c}">Condo ${c}</option>`;
+      const condoCounts = [0, 0, 0, 0, 0];
+      participants.forEach((g) => {
+        const m = g.roomAssignment && g.roomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
+        if (m) {
+          const idx = parseInt(m[1], 10) - 1;
+          if (idx >= 0 && idx < 5) condoCounts[idx]++;
         }
-        const card = document.createElement('div');
-        card.className = 'participant-card';
-        card.innerHTML = `
-          <div><strong>Name:</strong> <input type="text" value="${p.name}" data-id="${p._id}" class="name-input"></div>
-          <div><strong>Bedroom:</strong> <select class="room-select" data-id="${p._id}">
-            <option value="A"${room === 'A' ? ' selected' : ''}>A</option>
-            <option value="B"${room === 'B' ? ' selected' : ''}>B</option>
-          </select></div>
-          <div><strong>Extra Night:</strong> <input type="checkbox" ${p.wantsExtraNight ? 'checked' : ''} class="extra-night-input" data-id="${p._id}"></div>
-          <div class="actions">
-            <button class="remove-condo-btn" data-id="${p._id}">UNASSIGN</button>
-            ${moveOptions ? `<select class="move-condo-select" data-id="${p._id}" style="margin-left:8px;"><option value="">Move to...</option>${moveOptions}</select>` : ''}
+      });
+
+      for (let i = 0; i < 5; i++) {
+        const div = document.createElement('div');
+        div.className = 'condo-group';
+        div.innerHTML = `<strong>Condo ${i + 1}</strong><div class="cards-grid"></div>`;
+        const grid = div.querySelector('.cards-grid');
+        const group = participants.filter((p) => {
+          if (!p.roomAssignment) return false;
+          const match = p.roomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
+          return match && parseInt(match[1], 10) === i + 1;
+        });
+        for (const p of group) {
+          const match = p.roomAssignment && p.roomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
+          const room = match ? match[2] : '';
+          const currentCondo = match ? parseInt(match[1], 10) : null;
+          let moveOptions = `<option value="unassigned">Unassigned List</option>`;
+          for (let c = 1; c <= 5; c++) {
+            if (c !== currentCondo && condoCounts[c - 1] < 4) moveOptions += `<option value="${c}">Condo ${c}</option>`;
+          }
+          const card = document.createElement('div');
+          card.className = 'participant-card';
+          card.innerHTML = `
+            <div><strong>Name:</strong> <input type="text" value="${p.name || ''}" data-id="${p._id}" class="name-input"></div>
+            <div><strong>Bedroom:</strong> <select class="room-select" data-id="${p._id}">
+              <option value="A"${room === 'A' ? ' selected' : ''}>A</option>
+              <option value="B"${room === 'B' ? ' selected' : ''}>B</option>
+            </select></div>
+            <div><strong>Extra Night:</strong> <input type="checkbox" ${p.wantsExtraNight ? 'checked' : ''} class="extra-night-input" data-id="${p._id}"></div>
+            <div class="actions">
+              <button class="remove-condo-btn" data-id="${p._id}">Unassign</button>
+              ${moveOptions ? `<select class="move-condo-select" data-id="${p._id}" style="padding:10px;border-radius:10px;border:1px solid var(--border);background:#0b1728;color:var(--ink);"><option value="">Move to...</option>${moveOptions}</select>` : ''}
+            </div>
+          `;
+          grid.appendChild(card);
+        }
+        container.appendChild(div);
+      }
+
+      const unassigned = participants.filter((p) => !p.roomAssignment);
+      const unassignedSidebar = document.getElementById('unassignedSidebar');
+      if (unassignedSidebar) {
+        unassignedSidebar.innerHTML = `
+          <div style="display:grid;gap:8px;">
+            <div>
+              <label style="color:var(--ink-soft);font-size:0.9rem;">Base Group Size</label>
+              <select name="baseGroupSize" id="baseGroupSizeSelect" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:#0b1728;color:var(--ink);"></select>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+              <strong>Unassigned</strong>
+              <span style="color:var(--muted);font-size:0.9rem;">${unassigned.length}</span>
+            </div>
+            <div style="max-height:420px;overflow-y:auto;">
+              <ul id="unassignedList"></ul>
+            </div>
           </div>
         `;
-        grid.appendChild(card);
       }
-      container.appendChild(div);
-    }
 
-    const unassigned = participants.filter((p) => !p.roomAssignment);
-    const ul = document.getElementById('unassignedList');
-    const unassignedSidebar = document.getElementById('unassignedSidebar');
-    if (!ul || !unassignedSidebar) return;
-    ul.innerHTML = '';
-    unassigned.forEach((p) => {
-      const li = document.createElement('li');
-      li.style.marginBottom = '18px';
-      li.style.background = '#f9fafb';
-      li.style.borderRadius = '8px';
-      li.style.boxShadow = '0 1px 4px #0001';
-      li.style.padding = '14px';
-      li.innerHTML = `
-        <div style="margin-bottom:8px;"><strong>${p.name}</strong></div>
-        <div style="margin-bottom:8px;"><label style="font-weight:500;">Condo:</label> <select class="assign-condo-select" data-id="${p._id}" style="width:60px;text-align:center;">
-          <option value="">--</option>
-          <option value="1">1</option>
-          <option value="2">2</option>
-          <option value="3">3</option>
-          <option value="4">4</option>
-          <option value="5">5</option>
-        </select></div>
-        <div><button class="remove-golfer-btn" data-id="${p._id}" style="background:#dc2626;color:#fff;border:none;padding:4px 14px;border-radius:6px;">DELETE</button></div>
-      `;
-      ul.appendChild(li);
-    });
+      const ul = document.getElementById('unassignedList');
+      if (!ul || !unassignedSidebar) return;
+      ul.innerHTML = '';
+      unassigned.forEach((p) => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <div style="margin-bottom:6px;font-weight:600;">${p.name}</div>
+          <select class="assign-condo-select" data-id="${p._id}">
+            <option value="">Assign to condo…</option>
+            <option value="1">Condo 1</option>
+            <option value="2">Condo 2</option>
+            <option value="3">Condo 3</option>
+            <option value="4">Condo 4</option>
+            <option value="5">Condo 5</option>
+          </select>
+          <button class="remove-golfer-btn" data-id="${p._id}" style="margin-top:8px;background:#c93636;color:#fff;">Delete</button>
+        `;
+        ul.appendChild(li);
+      });
 
-    if (unassignedSidebar._changeHandler) unassignedSidebar.removeEventListener('change', unassignedSidebar._changeHandler);
-    unassignedSidebar._changeHandler = async function (e) {
-      if (e.target.classList.contains('assign-condo-select')) {
-        const condoNum = e.target.value;
-        const id = e.target.dataset.id;
-        if (!condoNum || condoNum < 1 || condoNum > 5) return;
-        await updateParticipant(id, { roomAssignment: `Condo ${condoNum} - Room A` }, { requireAdmin: true });
-      }
-    };
-    unassignedSidebar.addEventListener('change', unassignedSidebar._changeHandler);
+      if (unassignedSidebar._changeHandler) unassignedSidebar.removeEventListener('change', unassignedSidebar._changeHandler);
+      unassignedSidebar._changeHandler = async function (e) {
+        if (e.target.classList.contains('assign-condo-select')) {
+          const condoNum = e.target.value;
+          const id = e.target.dataset.id;
+          if (!condoNum || condoNum < 1 || condoNum > 5) return;
+          await updateParticipant(id, { roomAssignment: `Condo ${condoNum} - Room A` }, { requireAdmin: true });
+        }
+        if (e.target.id === 'baseGroupSizeSelect') {
+          await fetch(tripApi(`/api/trips/${tripId}`), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ baseGroupSize: Number(e.target.value) || undefined })
+          });
+          await loadTrip();
+        }
+      };
+      unassignedSidebar.addEventListener('change', unassignedSidebar._changeHandler);
 
       if (unassignedSidebar._removeHandler) unassignedSidebar.removeEventListener('click', unassignedSidebar._removeHandler);
       unassignedSidebar._removeHandler = async function (e) {
@@ -460,62 +583,81 @@
         }
       };
       unassignedSidebar.addEventListener('click', unassignedSidebar._removeHandler);
-  }
+    }
 
-  const condoGroups = document.getElementById('condoGroups');
-  if (condoGroups) {
-    condoGroups.addEventListener('click', async function (e) {
-      if (e.target.classList.contains('move-condo-select')) {
-        const id = e.target.dataset.id;
-        const val = e.target.value;
-        if (!val) return;
-        if (val === 'unassigned') {
-          await updateParticipant(id, { roomAssignment: null }, { requireAdmin: true });
-        } else if (val >= 1 && val <= 5) {
-          await updateParticipant(id, { roomAssignment: `Condo ${val} - Room A` }, { requireAdmin: true });
-        }
+    function renderSummary() {
+      const total = participants.length;
+      const counts = { in: 0, maybe: 0, out: 0, waitlist: 0, invited: 0 };
+      let depositTotal = 0;
+      let extraNightCount = 0;
+      participants.forEach((p) => {
+        const status = counts.hasOwnProperty(p.status) ? p.status : 'invited';
+        counts[status] = (counts[status] || 0) + 1;
+        depositTotal += Number(p.totalPaidAmount || p.depositPaidAmount || 0);
+        if (p.wantsExtraNight) extraNightCount++;
+      });
+      const extraNightCost = 33;
+      const extraNightTotal = extraNightCount * extraNightCost;
+      $('#summaryBox').innerHTML = `
+        <strong>Live Summary</strong><br>
+        Total participants: ${total}<br>
+        In: ${counts.in} | Maybe: ${counts.maybe} | Out: ${counts.out} | Waitlist: ${counts.waitlist} | Invited: ${counts.invited}<br>
+        Total deposits received: $${depositTotal.toFixed(2)}<br>
+        Wants extra night: ${extraNightCount} × $${extraNightCost} = <strong>$${extraNightTotal}</strong>
+      `;
+    }
+
+    const condoGroups = document.getElementById('condoGroups');
+    if (condoGroups) {
+      condoGroups.addEventListener('click', async function (e) {
+        if (e.target.classList.contains('move-condo-select')) {
+          const id = e.target.dataset.id;
+          const val = e.target.value;
+          if (!val) return;
+          if (val === 'unassigned') {
+            await updateParticipant(id, { roomAssignment: null }, { requireAdmin: true });
+          } else if (val >= 1 && val <= 5) {
+            await updateParticipant(id, { roomAssignment: `Condo ${val} - Room A` }, { requireAdmin: true });
+          }
         }
         if (e.target.classList.contains('remove-condo-btn')) {
           const id = e.target.dataset.id;
           await updateParticipant(id, { roomAssignment: null }, { requireAdmin: true });
         }
-    });
-  }
+      });
+      condoGroups.addEventListener('change', async function (e) {
+        if (e.target.classList.contains('room-select')) {
+          const id = e.target.dataset.id;
+          const room = e.target.value;
+          const match = participants.find((p) => p._id === id)?.roomAssignment?.match(/^Condo (\d+) - Room ([AB])$/);
+          const condoNum = match ? match[1] : null;
+          if (condoNum) {
+            await updateParticipant(id, { roomAssignment: `Condo ${condoNum} - Room ${room}` }, { requireAdmin: true });
+          }
+        }
+        if (e.target.classList.contains('name-input')) {
+          const id = e.target.dataset.id;
+          await updateParticipant(id, { name: e.target.value });
+        }
+        if (e.target.classList.contains('extra-night-input')) {
+          const id = e.target.dataset.id;
+          await updateParticipant(id, { wantsExtraNight: e.target.checked });
+        }
+      });
+    }
 
-  $('#addParticipantBtn').onclick = async function () {
-    const name = prompt('Golfer name:');
-    if (!name) return;
-    await fetch(tripApi(`/api/trips/${tripId}/participants`), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, status: 'invited' })
-    });
-    await loadTrip();
-  };
+    document.getElementById('addParticipantBtn').onclick = async function () {
+      const name = prompt('Golfer name:');
+      if (!name) return;
+      await fetch(tripApi(`/api/trips/${tripId}/participants`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, status: 'invited' })
+      });
+      await loadTrip();
+    };
 
-  function renderSummary() {
-    const total = participants.length;
-    const counts = { in: 0, maybe: 0, out: 0, waitlist: 0, invited: 0 };
-    let depositTotal = 0;
-    let extraNightCount = 0;
-    participants.forEach((p) => {
-      const status = counts.hasOwnProperty(p.status) ? p.status : 'invited';
-      counts[status] = (counts[status] || 0) + 1;
-      depositTotal += Number(p.totalPaidAmount || p.depositPaidAmount || 0);
-      if (p.wantsExtraNight) extraNightCount++;
-    });
-    const extraNightCost = 33;
-    const extraNightTotal = extraNightCount * extraNightCost;
-    $('#summaryBox').innerHTML = `
-      <strong>Live Summary</strong><br>
-      Total participants: ${total}<br>
-      In: ${counts.in} | Maybe: ${counts.maybe} | Out: ${counts.out} | Waitlist: ${counts.waitlist} | Invited: ${counts.invited}<br>
-      Total deposits received: $${depositTotal.toFixed(2)}<br>
-      Wants extra night: ${extraNightCount} &times; $${extraNightCost} = <strong>$${extraNightTotal}</strong>
-    `;
-  }
-
-  window.addEventListener('DOMContentLoaded', loadTrip);
-</script>
+    window.addEventListener('DOMContentLoaded', loadTrip);
+  </script>
 </body>
 </html>
