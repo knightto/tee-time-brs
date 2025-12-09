@@ -279,7 +279,7 @@
 <body>
   <div class="container">
     <header class="hero">
-      <h1>Myrtle Beach 2026 Golf Trip <span>Group 3/18–3/22/26</span></h1>
+      <h1>Myrtle Beach 2026 Golf Trip <span>Group 3/18-3/22/26</span></h1>
       <div class="chips">
         <div class="chip">Myrtle Beach, SC</div>
         <div class="chip">4 Nights / 5 Rounds</div>
@@ -293,7 +293,7 @@
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
           <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Accommodations</h2>
-          <button id="addParticipantBtn" class="secondary" style="padding:8px 12px;font-weight:600;">Add Golfer</button>
+          <button id="addParticipantBtn" style="padding:10px 14px;font-weight:700;">Add Golfer</button>
         </div>
         <div id="condoGroups" class="cards-grid" style="margin-top:12px;"></div>
       </div>
@@ -406,7 +406,7 @@
           <div><strong>Package:</strong> ${t.package || '4 Nights / 5 Rounds'}</div>
           <div><strong>Group Size:</strong> ${t.groupSize || 24}</div>
           <div><strong>Reservation #:</strong> ${t.reservationNumber || '12972589'} &nbsp;|&nbsp; ${t.preparedBy || 'Myrtle Beach Golf Trips'} (${t.phone || '(877) 283-2122'})</div>
-          <div><strong>Accommodations:</strong> ${accom?.resort || 'Barefoot Golf Villas'} — ${accom?.unitType || '2 Bedroom Golf Course'} • Units: ${accom?.units || 6} • Conf: ${accom?.confirmations || ''} • ${formatDate(accom?.arrivalDate) || '3/18/2026'} → ${formatDate(accom?.departureDate) || '3/22/2026'}</div>
+          <div><strong>Accommodations:</strong> ${accom?.resort || 'Barefoot Golf Villas'} | ${accom?.unitType || '2 Bedroom Golf Course'} | Units: ${accom?.units || 6} | Conf: ${accom?.confirmations || ''} | ${formatDate(accom?.arrivalDate) || '3/18/2026'} -> ${formatDate(accom?.departureDate) || '3/22/2026'}</div>
           <div><strong>Price:</strong> ${t.price || '$792.56 per person incl. lodging, 5 rounds, all taxes/fees (no breakfast).'}</div>
           <div style="display:grid;gap:8px;margin-top:8px;">
             <a class="cta" href="https://founders.teetimecentralonline.com/golfcentral/guests/Register.aspx?g=8ad2d184-cdb8-4b90-8dc6-55c68c26efe9&ResNum=12972589&arr=3/18/2026" target="_blank">Join Package (Register)</a>
@@ -415,18 +415,6 @@
         </div>
       `;
       $('#tripSummary').innerHTML = summary;
-
-      const baseGroupSizeSelect = $('#baseGroupSizeSelect');
-      if (baseGroupSizeSelect) {
-        baseGroupSizeSelect.innerHTML = '';
-        BASE_GROUP_SIZES.forEach((n) => {
-          const opt = document.createElement('option');
-          opt.value = n;
-          opt.textContent = n;
-          if (trip.baseGroupSize == n) opt.selected = true;
-          baseGroupSizeSelect.appendChild(opt);
-        });
-      }
     }
 
     function renderItinerary() {
@@ -446,10 +434,10 @@
           const label = r.course || 'TBD';
           const link = buildWazeLink(r.course, r.address);
           const courseMarkup = link ? `<a class="waze-link" href="${link}" target="_blank" rel="noopener">${label}</a>` : label;
-          const timeAddress = [r.time || '', r.address || ''].filter(Boolean).join(' • ');
+          const timeAddress = [r.time || '', r.address || ''].filter(Boolean).join(' | ');
           return `
             <li class="itinerary-item">
-              <strong>${formatDate(r.date)} • ${courseMarkup}</strong>
+              <strong>${formatDate(r.date)} | ${courseMarkup}</strong>
               ${timeAddress ? `<small>${timeAddress}</small>` : ''}
               ${r.confirmation ? `<small>Conf #${r.confirmation}</small>` : ''}
             </li>
@@ -532,6 +520,19 @@
       });
     }
 
+    function renderBaseGroupSizeSelect() {
+      const select = $('#baseGroupSizeSelect');
+      if (!select) return;
+      select.innerHTML = '';
+      BASE_GROUP_SIZES.forEach((n) => {
+        const opt = document.createElement('option');
+        opt.value = n;
+        opt.textContent = `${n} players`;
+        if (trip?.baseGroupSize == n) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+
     function renderParticipants() {
       const container = document.getElementById('condoGroups');
       if (!container) return;
@@ -603,27 +604,32 @@
             </div>
           </div>
         `;
+        renderBaseGroupSizeSelect();
       }
 
       const ul = document.getElementById('unassignedList');
       if (!ul || !unassignedSidebar) return;
       ul.innerHTML = '';
-      unassigned.forEach((p) => {
-        const li = document.createElement('li');
-        li.innerHTML = `
-          <div style="margin-bottom:6px;font-weight:600;">${p.name}</div>
-          <select class="assign-condo-select" data-id="${p._id}">
-            <option value="">Assign to condo…</option>
-            <option value="1">Condo 1</option>
-            <option value="2">Condo 2</option>
-            <option value="3">Condo 3</option>
-            <option value="4">Condo 4</option>
-            <option value="5">Condo 5</option>
-          </select>
-          <button class="remove-golfer-btn" data-id="${p._id}" style="margin-top:8px;background:#c93636;color:#fff;">Delete</button>
-        `;
-        ul.appendChild(li);
-      });
+      if (!unassigned.length) {
+        ul.innerHTML = `<li style="color:var(--muted);">Everyone is assigned.</li>`;
+      } else {
+        unassigned.forEach((p) => {
+          const li = document.createElement('li');
+          li.innerHTML = `
+            <div style="margin-bottom:6px;font-weight:600;">${p.name}</div>
+            <select class="assign-condo-select" data-id="${p._id}">
+              <option value="">Assign to condo...</option>
+              <option value="1">Condo 1</option>
+              <option value="2">Condo 2</option>
+              <option value="3">Condo 3</option>
+              <option value="4">Condo 4</option>
+              <option value="5">Condo 5</option>
+            </select>
+            <button class="remove-golfer-btn" data-id="${p._id}" style="margin-top:8px;background:#c93636;color:#fff;">Delete</button>
+          `;
+          ul.appendChild(li);
+        });
+      }
 
       if (unassignedSidebar._changeHandler) unassignedSidebar.removeEventListener('change', unassignedSidebar._changeHandler);
       unassignedSidebar._changeHandler = async function (e) {
@@ -679,7 +685,7 @@
         Total participants: ${total}<br>
         In: ${counts.in} | Maybe: ${counts.maybe} | Out: ${counts.out} | Waitlist: ${counts.waitlist} | Invited: ${counts.invited}<br>
         Total deposits received: $${depositTotal.toFixed(2)}<br>
-        Wants extra night: ${extraNightCount} × $${extraNightCost} = <strong>$${extraNightTotal}</strong>
+        Wants extra night: ${extraNightCount} x $${extraNightCost} = <strong>$${extraNightTotal}</strong>
       `;
     }
 
@@ -722,16 +728,19 @@
       });
     }
 
-    document.getElementById('addParticipantBtn').onclick = async function () {
-      const name = prompt('Golfer name:');
-      if (!name) return;
-      await fetch(tripApi(`/api/trips/${tripId}/participants`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, status: 'invited' })
-      });
-      await loadTrip();
-    };
+    const addBtn = document.getElementById('addParticipantBtn');
+    if (addBtn) {
+      addBtn.onclick = async function () {
+        const name = prompt('Golfer name:');
+        if (!name) return;
+        await fetch(tripApi(`/api/trips/${tripId}/participants`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, status: 'invited' })
+        });
+        await loadTrip();
+      };
+    }
 
     window.addEventListener('DOMContentLoaded', loadTrip);
   </script>
