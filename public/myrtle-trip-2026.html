@@ -287,7 +287,10 @@
       </div>
     </header>
 
-    <div class="panel summary-card" id="tripSummary"></div>
+    <div class="panel summary-card" id="summaryTop" style="display:grid;gap:12px;">
+      <div id="tripSummary"></div>
+      <div id="summaryBox" class="panel" style="margin:0;background:linear-gradient(145deg, var(--panel) 0%, #0c1a2c 100%);border:1px solid var(--border);border-radius:12px;padding:12px;line-height:1.5;"></div>
+    </div>
     <div class="panel" id="itineraryBox" style="margin-bottom:12px;"></div>
     <div class="layout">
       <div class="panel">
@@ -299,7 +302,6 @@
       </div>
       <div id="unassignedSidebar"></div>
     </div>
-    <div id="summaryBox" class="panel" style="margin-top:12px;"></div>
   </div>
   <a href="https://founders.teetimecentralonline.com/golfcentral/guests/login.aspx?user=tommy.knight@gmail.com&pwd=3/18/2026" target="_blank" aria-label="Admin login" style="position:fixed;left:12px;bottom:12px;padding:8px 12px;border-radius:10px;background:#0c1a2c;color:#f9fafb;text-decoration:none;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);">ADMIN</a>
   <script>
@@ -680,12 +682,19 @@
       });
       const extraNightCost = 33;
       const extraNightTotal = extraNightCount * extraNightCost;
-      $('#summaryBox').innerHTML = `
-        <strong>Live Summary</strong><br>
-        Total participants: ${total}<br>
-        In: ${counts.in} | Maybe: ${counts.maybe} | Out: ${counts.out} | Waitlist: ${counts.waitlist} | Invited: ${counts.invited}<br>
-        Total deposits received: $${depositTotal.toFixed(2)}<br>
-        Wants extra night: ${extraNightCount} x $${extraNightCost} = <strong>$${extraNightTotal}</strong>
+      const summaryEl = $('#summaryBox');
+      if (!summaryEl) return;
+      summaryEl.innerHTML = `
+        <div style="display:grid;gap:4px;color:var(--ink);">
+          <div style="display:flex;align-items:center;justify-content:space-between;">
+            <strong>Live Summary</strong>
+            <span style="color:var(--muted);font-size:0.9rem;">Updated</span>
+          </div>
+          <div>Total participants: ${total}</div>
+          <div>In: ${counts.in} | Maybe: ${counts.maybe} | Out: ${counts.out} | Waitlist: ${counts.waitlist} | Invited: ${counts.invited}</div>
+          <div>Total deposits received: $${depositTotal.toFixed(2)}</div>
+          <div>Wants extra night: ${extraNightCount} x $${extraNightCost} = <strong>$${extraNightTotal}</strong></div>
+        </div>
       `;
     }
 
