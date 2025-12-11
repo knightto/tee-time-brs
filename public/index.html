@@ -193,12 +193,12 @@
   <footer style="position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.9);color:#fff;padding:4px 12px;font-size:11px;z-index:9999;display:none;max-height:200px;overflow-y:auto;" id="debugFooter">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;position:sticky;top:0;background:rgba(0,0,0,0.95);padding:4px 0;">
       <strong>Errors & Debug Info</strong>
-      <button onclick="document.getElementById('debugFooter').style.display='none';document.getElementById('showLogsBtn').style.display='block'" style="background:transparent;border:1px solid #666;color:#fff;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px;">Close</button>
+      <button data-close-logs type="button" style="background:transparent;border:1px solid #666;color:#fff;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px;">Close</button>
     </div>
     <div id="debugLogs" style="font-family:monospace;white-space:pre-wrap;word-break:break-all;"></div>
   </footer>
   
-  <button id="showLogsBtn" onclick="document.getElementById('debugFooter').style.display='block';this.style.display='none'" style="position:fixed;bottom:12px;right:12px;background:#dc2626;color:#fff;border:1px solid #991b1b;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;z-index:9998;box-shadow:0 2px 8px rgba(0,0,0,0.3);">Show Errors</button>
+  <button id="showLogsBtn" data-show-logs type="button" style="position:fixed;bottom:12px;right:12px;background:#dc2626;color:#fff;border:1px solid #991b1b;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;z-index:9998;box-shadow:0 2px 8px rgba(0,0,0,0.3);">Show Errors</button>
 
   <!-- Admin Link -->
   <div style="position:fixed;bottom:12px;left:12px;z-index:9998;">

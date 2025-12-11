@@ -59,7 +59,6 @@ const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
 const SITE_URL = (process.env.SITE_URL || 'https://tee-time-brs.onrender.com/').replace(/\/$/, '') + '/';
 const LOCAL_TZ = process.env.LOCAL_TZ || 'America/New_York';
 
-app.use(express.json());
 app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true }));
 app.use(rateLimit({ windowMs: 60 * 1000, max: 200 }));
 
@@ -696,6 +695,17 @@ function nextTeeTimeForEvent(ev, mins = 9, defaultTime = '07:00') {
 app.get('/api/events', async (_req, res) => {
   const items = await Event.find().sort({ date: 1 }).lean();
   res.json(items);
+});
+
+// Fetch a single event by id for targeted refreshes
+app.get('/api/events/:id', async (req, res) => {
+  try {
+    const ev = await Event.findById(req.params.id).lean();
+    if (!ev) return res.status(404).json({ error: 'Event not found' });
+    res.json(ev);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/api/events', async (req, res) => {

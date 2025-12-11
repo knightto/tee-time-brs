@@ -12,18 +12,39 @@ if ('serviceWorker' in navigator) {
   const $ = (s, r=document) => r.querySelector(s);
   const on = (el, ev, fn) => el && el.addEventListener(ev, fn);
 
+  const debugFooter = $('#debugFooter');
+  const debugLogsEl = $('#debugLogs');
+  const showLogsBtn = $('[data-show-logs]');
+  const closeLogsBtn = $('[data-close-logs]');
+  let debugActive = (window.location.search || '').includes('debug=1');
+  try {
+    debugActive = debugActive || localStorage.getItem('debugLogs') === '1';
+  } catch (_) {}
+
+  function setDebugActive(on) {
+    debugActive = !!on;
+    try {
+      if (debugActive) localStorage.setItem('debugLogs', '1');
+      else localStorage.removeItem('debugLogs');
+    } catch (_) {}
+    if (debugFooter) debugFooter.style.display = debugActive ? 'block' : 'none';
+    if (showLogsBtn) showLogsBtn.style.display = debugActive ? 'none' : '';
+  }
+
+  // Apply persisted debug state on load
+  if (debugActive) setDebugActive(true);
+
   // Debug logging
   const debugLog = (type, message, data) => {
-    const debugLogs = $('#debugLogs');
-    if (!debugLogs) return;
+    if (!debugActive || !debugLogsEl) return;
     const timestamp = new Date().toLocaleTimeString();
     const color = type === 'error' ? '#ff6b6b' : type === 'success' ? '#51cf66' : type === 'warn' ? '#ffd43b' : '#74c0fc';
     const icon = type === 'error' ? '❌' : type === 'success' ? '✅' : type === 'warn' ? '⚠️' : 'ℹ️';
     const logEntry = document.createElement('div');
     logEntry.style.cssText = `border-left:3px solid ${color};padding:4px 8px;margin:4px 0;background:rgba(255,255,255,0.05)`;
     logEntry.innerHTML = `<span style="color:#888">[${timestamp}]</span> ${icon} <strong style="color:${color}">${type.toUpperCase()}</strong>: ${message}${data ? `\n${JSON.stringify(data, null, 2)}` : ''}`;
-    debugLogs.appendChild(logEntry);
-    debugLogs.scrollTop = debugLogs.scrollHeight;
+    debugLogsEl.appendChild(logEntry);
+    debugLogsEl.scrollTop = debugLogsEl.scrollHeight;
   };
 
   // Override console methods to capture logs
@@ -45,6 +66,16 @@ if ('serviceWorker' in navigator) {
     debugLog('warn', args.join(' '));
     originalConsoleWarn.apply(console, args);
   };
+
+  on(showLogsBtn, 'click', (e) => {
+    e.preventDefault();
+    setDebugActive(true);
+  });
+
+  on(closeLogsBtn, 'click', (e) => {
+    e.preventDefault();
+    setDebugActive(false);
+  });
 
   const eventsEl = $('#events');
   const modal = $('#eventModal');
@@ -337,7 +368,7 @@ if ('serviceWorker' in navigator) {
       await api('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       modal?.close?.();
       eventForm.reset();
-      courseInfoCard.style.display = 'none';
+      if (courseInfoCard) courseInfoCard.style.display = 'none';
       selectedCourseData = null;
       load();
     } catch (err) {
@@ -596,8 +627,7 @@ if ('serviceWorker' in navigator) {
   // Fetch a single event by ID
   async function fetchEventById(eventId) {
     try {
-      return await api(`/api/events`)
-        .then(list => (Array.isArray(list) ? list.find(ev => ev._id === eventId) : null));
+      return await api(`/api/events/${eventId}`);
     } catch (e) {
       console.error('Failed to fetch event by ID:', e);
       return null;
