@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tee-time-brs-v1';
+const CACHE_NAME = 'tee-time-brs-v2';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -29,11 +29,21 @@ self.addEventListener('activate', event => {
 
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+
+  // Always go to network for API calls so data is fresh; fall back to cache only on failure.
+  if (url.pathname.startsWith('/api/')) {
+    event.respondWith(
+      fetch(event.request).catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Cache-first for static assets
   event.respondWith(
     caches.match(event.request).then(cached =>
       cached ||
       fetch(event.request).then(response => {
-        // Optionally cache new requests here
         return response;
       }).catch(() => {
         // Optionally return fallback page/image here
