@@ -89,6 +89,7 @@ if ('serviceWorker' in navigator) {
   const subMsg = $('#subMsg');
   const subscribeModal = $('#subscribeModal');
   const openSubscribeBtn = $('#openSubscribeBtn');
+  const REFRESH_INTERVAL_MS = 30000;
 
   // Calendar elements
   const calendarGrid = $('#calendarGrid');
@@ -96,11 +97,17 @@ if ('serviceWorker' in navigator) {
   const prevMonthBtn = $('#prevMonth');
   const nextMonthBtn = $('#nextMonth');
   const selectedDateTitle = $('#selectedDateTitle');
+  const refreshBtn = $('#refreshBtn');
+  const lastUpdatedEl = $('#lastUpdated');
 
   // State
   let allEvents = [];
   let currentDate = new Date();
   let selectedDate = null;
+  let isLoading = false;
+  let loadPending = false;
+  let autoRefreshTimer = null;
+  let lastUpdatedAt = null;
 
   // Inject Edit dialog
   function ensureEditDialog(){
@@ -207,6 +214,22 @@ if ('serviceWorker' in navigator) {
   const auditLogContent = $('#auditLogContent');
 
   if (!eventsEl) return;
+
+  function updateLastUpdated(text){
+    if (!lastUpdatedEl) return;
+    lastUpdatedEl.textContent = text;
+  }
+
+  function stampLastUpdated(){
+    lastUpdatedAt = new Date();
+    updateLastUpdated(`Updated ${lastUpdatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+  }
+
+  function setLoading(isBusy){
+    if (!refreshBtn) return;
+    refreshBtn.disabled = !!isBusy;
+    refreshBtn.textContent = isBusy ? 'Refreshing…' : 'Refresh';
+  }
 
   // Generate time options from 6:00 AM to 7:00 PM in 9-minute intervals
   function generateTimeOptions() {
@@ -595,6 +618,17 @@ if ('serviceWorker' in navigator) {
   }
   
 
+  on(refreshBtn, 'click', (e) => {
+    e.preventDefault();
+    load(true);
+  });
+
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) load(true);
+  });
+
+  window.addEventListener('online', () => load(true));
+
   // Calendar navigation
   on(prevMonthBtn, 'click', () => {
     currentDate.setMonth(currentDate.getMonth() - 1);
@@ -608,7 +642,17 @@ if ('serviceWorker' in navigator) {
 
   // No MutationObserver: only call load() after successful actions
 
-  async function load(){ 
+  async function load(force=false){ 
+    if (isLoading) { 
+      loadPending = true; 
+      return; 
+    }
+    if (!force && document.hidden) {
+      loadPending = true;
+      return;
+    }
+    isLoading = true;
+    setLoading(true);
     try{ 
       const list = await api('/api/events'); 
       allEvents = Array.isArray(list) ? list : [];
@@ -618,10 +662,27 @@ if ('serviceWorker' in navigator) {
       } else {
         eventsEl.innerHTML = '';
       }
+      stampLastUpdated();
     } catch(e) { 
       console.error(e); 
       eventsEl.innerHTML='<div class="card">Failed to load events.</div>'; 
+      updateLastUpdated('Refresh failed');
+    } finally {
+      isLoading = false;
+      setLoading(false);
+      if (loadPending) {
+        loadPending = false;
+        load(true);
+      }
     } 
+  }
+
+  function startAutoRefresh(){
+    if (autoRefreshTimer) clearInterval(autoRefreshTimer);
+    autoRefreshTimer = setInterval(() => {
+      if (document.hidden) return;
+      load();
+    }, REFRESH_INTERVAL_MS);
   }
 
   // Fetch a single event by ID
@@ -1433,5 +1494,7 @@ if ('serviceWorker' in navigator) {
     }
   }
 
+  updateLastUpdated('Loading…');
   load();
+  startAutoRefresh();
 })();

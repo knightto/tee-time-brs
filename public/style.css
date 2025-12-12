@@ -61,6 +61,10 @@ main{padding:20px}
   padding:20px;
   position:sticky;
   top:80px;
+  max-height:calc(100vh - 120px);
+  overflow-y:auto;
+  -webkit-overflow-scrolling:touch;
+  overscroll-behavior-y:contain;
 }
 
 .calendar-header{
@@ -191,10 +195,29 @@ main{padding:20px}
 
 .events-container{
   min-height:400px;
+  width:100%;
+  overflow-x:hidden;
 }
 
 .events-header{
   margin-bottom:16px;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  flex-wrap:wrap;
+}
+
+.event-controls{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+.event-meta{
+  color:var(--slate-700);
+  font-size:12px;
 }
 
 .events-header h2{
@@ -512,6 +535,31 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
     margin: 12px auto 40px auto;
   }
   
+  body{
+    background:linear-gradient(135deg, rgba(26,90,26,.9) 0%, rgba(45,122,45,.8) 100%);
+    background-attachment:scroll;
+  }
+  
+  header{
+    position:static;
+    box-shadow:0 3px 8px rgba(0,0,0,.25);
+  }
+  
+  .calendar-sidebar{
+    position:static;
+    top:auto;
+    max-height:none;
+    overflow:visible;
+  }
+  
+  .card-header{
+    position:static;
+  }
+  
+  .events-container{
+    overflow:visible;
+  }
+  
   .tee-content {
     padding: 14px;
   }
@@ -521,6 +569,26 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
     padding-inline:8px;
     min-height:30px;
     height:auto;
+  }
+}
+
+@media (max-width:640px){
+  main{
+    padding:12px;
+  }
+  
+  #events{
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+  
+  .events-header{
+    align-items:flex-start;
+  }
+  
+  .event-controls{
+    width:100%;
+    justify-content:space-between;
   }
 }
 
