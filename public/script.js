@@ -906,10 +906,18 @@ if ('serviceWorker' in navigator) {
       if(t.dataset.delPlayer){
         const [eventId, teeId, playerId] = t.dataset.delPlayer.split(':');
         if(!confirm('Remove this player?')) return;
+        const origText = t.textContent;
         t.disabled = true;
         t.textContent = '...';
-        await api(`/api/events/${eventId}/tee-times/${teeId}/players/${playerId}`, { method: 'DELETE' });
-        await updateEventCard(eventId);
+        try {
+          await api(`/api/events/${eventId}/tee-times/${teeId}/players/${playerId}`, { method: 'DELETE' });
+          await updateEventCard(eventId);
+        } catch (err) {
+          console.error(err);
+          t.disabled = false;
+          t.textContent = origText || 'x';
+          alert('Remove player failed: ' + (err.message || 'Unknown error'));
+        }
         return;
       }
       if(t.dataset.addTee){
@@ -1005,15 +1013,6 @@ if ('serviceWorker' in navigator) {
         }
         return;
       }
-      if(t.dataset.delPlayer){
-        const [eventId, teeId, playerId] = t.dataset.delPlayer.split(':');
-        if(!confirm('Remove this player?')) return;
-        t.disabled = true;
-        t.textContent = '...';
-        await api(`/api/events/${eventId}/tee-times/${teeId}/players/${playerId}`, { method: 'DELETE' });
-        await updateEventCard(eventId);
-        return;
-      }
       if(t.dataset.addPlayer){
         const [id,teeId]=t.dataset.addPlayer.split(':');
         const name=prompt('Player name'); if(!name) return;
@@ -1081,25 +1080,6 @@ if ('serviceWorker' in navigator) {
         editTeeForm.elements['teeId'].value = teeId;
         editTeeForm.elements['isTeam'].value = isTeam ? '1' : '0';
         editTeeModal.showModal();
-        return;
-      }
-      if(t.dataset.del){
-        const code=prompt('Admin delete code:'); if(!code) return;
-        t.disabled = true;
-        t.textContent = 'Deleting...';
-        t.style.background = '#dc2626';
-        t.style.color = 'white';
-        try {
-          await api(`/api/events/${t.dataset.del}?code=${encodeURIComponent(code)}`,{method:'DELETE'});
-          await updateEventCard(t.dataset.del);
-        } catch(err) {
-          console.error(err);
-          t.disabled = false;
-          t.textContent = 'Delete';
-          t.style.background = '';
-          t.style.color = '';
-          alert('Delete failed: ' + (err.message || 'Invalid code or network error'));
-        }
         return;
       }
     }catch(err){

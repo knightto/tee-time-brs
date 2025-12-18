@@ -1017,7 +1017,7 @@ app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
   // Send notification email only if notifications are enabled
   if (ev.notificationsEnabled !== false) {
     const teeLabel = getTeeLabel(ev, tt._id);
-    await sendEmailToAll(
+    sendEmailToAll(
       `Player Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
       frame('Player Signed Up!',
         `<p><strong>${esc(trimmedName)}</strong> has signed up for:</p>
@@ -1025,7 +1025,7 @@ app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
          <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
          <p><strong>${ev.isTeamEvent ? 'Team' : 'Tee Time'}:</strong> ${esc(teeLabel)}</p>
          ${btn('View Event')}`)
-    );
+    ).catch(err => console.error('Failed to send player add email:', err));
   }
 
   res.json(ev);
@@ -1067,16 +1067,17 @@ app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res
       teeLabel: teeLabel
     });
 
-    // Send notification email
-    await sendEmailToAll(
-      `Player Removed: ${ev.course} (${fmt.dateISO(ev.date)})`,
-      frame('Player Removed',
-        `<p><strong>${esc(playerName)}</strong> has been removed from:</p>
-         <p><strong>Event:</strong> ${esc(ev.course)}</p>
-         <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
-         <p><strong>${ev.isTeamEvent ? 'Team' : 'Tee Time'}:</strong> ${esc(teeLabel)}</p>
-         ${btn('View Event')}`)
-    );
+    if (ev.notificationsEnabled !== false) {
+      sendEmailToAll(
+        `Player Removed: ${ev.course} (${fmt.dateISO(ev.date)})`,
+        frame('Player Removed',
+          `<p><strong>${esc(playerName)}</strong> has been removed from:</p>
+           <p><strong>Event:</strong> ${esc(ev.course)}</p>
+           <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
+           <p><strong>${ev.isTeamEvent ? 'Team' : 'Tee Time'}:</strong> ${esc(teeLabel)}</p>
+           ${btn('View Event')}`)
+      ).catch(err => console.error('Failed to send player removal email:', err));
+    }
 
     return res.json(ev);
   } catch (e) {
