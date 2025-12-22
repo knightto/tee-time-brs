@@ -126,7 +126,7 @@ app.post('/webhooks/resend', async (req, res) => {
     const fromAddress = event.data.from || '';
     const toList = event.data.to || [];
     const allowedTo = ['teetime@xenailexou.resend.app'];
-    const allowedFrom = ['tommy.knight@gmail.com'];
+    const allowedFrom = ['tommy.knight@gmail.com', 'no-reply@foreupsoftware.com'];
 
     const toAllowed =
       Array.isArray(toList) &&
@@ -216,6 +216,11 @@ app.post('/webhooks/resend', async (req, res) => {
         playersArr = Array(parsed.players).fill(null); // or fill with empty strings if preferred
       }
 
+      // Tag event with source email note for traceability
+      const sourceEmail = email.from || fromAddress || '';
+      const sourceNote = sourceEmail ? `Email source: ${sourceEmail}` : '';
+      const combinedNotes = [notes, sourceNote].filter(Boolean).join(' | ');
+
       // Normalize date to YYYY-MM-DD and time to HH:MM 24h
       function normalizeDate(dateStr) {
         // Accept MM/DD/YY or MM/DD/YYYY and convert to YYYY-MM-DD
@@ -245,7 +250,7 @@ app.post('/webhooks/resend', async (req, res) => {
       const eventPayload = {
         course: facility || parsed.course || email.subject || 'Unknown Course',
         date: normalizedDate,
-        notes: notes,
+        notes: combinedNotes,
         isTeamEvent: false,
         teamSizeMax: 4,
         teeTime: normalizedTime // UI expects 'teeTime' for first tee time
@@ -297,6 +302,19 @@ app.post('/webhooks/resend', async (req, res) => {
           });
           if (deleted) {
             console.log('[webhook] Event cancelled from email:', deleted._id);
+            // Notify subscribers about the cancellation (non-blocking)
+            const teeMatch = (deleted.teeTimes || []).find(tt => tt && tt.time === eventPayload.teeTime);
+            const teeLabel = teeMatch && teeMatch.time ? fmt.tee(teeMatch.time) : null;
+            sendEmailToAll(
+              `Event Cancelled: ${deleted.course || 'Event'} (${fmt.dateISO(deleted.date)})`,
+              frame('Golf Event Cancelled',
+                `<p>The following event has been cancelled:</p>
+                 <p><strong>Event:</strong> ${esc(fmt.dateShortTitle(deleted.date))}</p>
+                 <p><strong>Course:</strong> ${esc(deleted.course||'')}</p>
+                 <p><strong>Date:</strong> ${esc(fmt.dateLong(deleted.date))}</p>
+                 ${teeLabel ? `<p><strong>Tee Time:</strong> ${esc(teeLabel)}</p>` : ''}
+                 <p>We apologize for any inconvenience.</p>${btn('View Other Events')}`))
+              .catch(err => console.error('[webhook] Failed to send cancellation email:', err));
             return res.status(200).json({ ok: true, cancelled: true, eventId: deleted._id });
           } else {
             console.warn('[webhook] Cancel: no matching event found');

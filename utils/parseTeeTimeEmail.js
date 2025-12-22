@@ -19,6 +19,11 @@ function parseTeeTimeEmail(bodyText, subject) {
   if (joined.includes('your reservation has been booked')) result.action = 'CREATE';
   else if (joined.includes('your reservation was cancelled')) result.action = 'CANCEL';
 
+  // Fallback: derive action from subject line keywords
+  const subj = (subject || '').toLowerCase();
+  if (!result.action && subj.includes('reservation was cancelled')) result.action = 'CANCEL';
+  if (!result.action && subj.includes('tee time reservation confirmation')) result.action = 'CREATE';
+
   // Extract details from DETAILS section
   let detailsIdx = lines.findIndex(l => /^details\b/i.test(l));
   if (detailsIdx === -1) {
