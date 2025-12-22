@@ -209,13 +209,6 @@ app.post('/webhooks/resend', async (req, res) => {
         }
       }
 
-      // Compose event data
-      // Ensure players is an array (not a number)
-      let playersArr = [];
-      if (typeof parsed.players === 'number' && parsed.players > 0) {
-        playersArr = Array(parsed.players).fill(null); // or fill with empty strings if preferred
-      }
-
       // Tag event with source email note for traceability
       const sourceEmail = email.from || fromAddress || '';
       const sourceNote = sourceEmail ? `Email source: ${sourceEmail}` : '';
@@ -246,6 +239,12 @@ app.post('/webhooks/resend', async (req, res) => {
       const normalizedDate = normalizeDate(parsed.dateStr || '');
       const normalizedTime = normalizeTime(parsed.timeStr || '');
 
+      // Derive number of tee times from golfers count (4 per tee)
+      const teeTimeCount = (typeof parsed.players === 'number' && parsed.players > 0)
+        ? Math.max(1, Math.ceil(parsed.players / 4))
+        : null;
+      const teeTimesFromCount = teeTimeCount ? genTeeTimes(normalizedTime, teeTimeCount, 9) : undefined;
+
       // Compose event payload as expected by /api/events (UI form)
       const eventPayload = {
         course: facility || parsed.course || email.subject || 'Unknown Course',
@@ -253,7 +252,8 @@ app.post('/webhooks/resend', async (req, res) => {
         notes: combinedNotes,
         isTeamEvent: false,
         teamSizeMax: 4,
-        teeTime: normalizedTime // UI expects 'teeTime' for first tee time
+        teeTime: normalizedTime, // UI expects 'teeTime' for first tee time
+        teeTimes: teeTimesFromCount
       };
       console.log('[webhook] Event payload to be created:', JSON.stringify(eventPayload));
 
