@@ -325,7 +325,8 @@ app.post('/webhooks/resend', async (req, res) => {
           return res.status(500).send('Error cancelling event');
         }
       } else {
-        return res.status(200).send('No event created or cancelled (not CREATE/CANCEL or missing fields)');
+        console.log('[webhook] Ignoring non-create/cancel email action:', parsed.action);
+        return res.status(200).send(`No event created or cancelled (action=${parsed.action || 'unknown'})`);
       }
     } catch (err) {
       console.error('[webhook] Error fetching email content from Resend:', err);

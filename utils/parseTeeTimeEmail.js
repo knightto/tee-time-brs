@@ -18,11 +18,31 @@ function parseTeeTimeEmail(bodyText, subject) {
   const joined = lines.join(' ').toLowerCase();
   if (joined.includes('your reservation has been booked')) result.action = 'CREATE';
   else if (joined.includes('your reservation was cancelled')) result.action = 'CANCEL';
+  else if (
+    joined.includes('reservation has been updated') ||
+    joined.includes('has been updated') ||
+    joined.includes('reservation has been modified') ||
+    joined.includes('player added') ||
+    joined.includes('added to your reservation') ||
+    joined.includes('player removed') ||
+    joined.includes('removed from your reservation')
+  ) {
+    result.action = 'UPDATE';
+  }
 
   // Fallback: derive action from subject line keywords
   const subj = (subject || '').toLowerCase();
   if (!result.action && subj.includes('reservation was cancelled')) result.action = 'CANCEL';
   if (!result.action && subj.includes('tee time reservation confirmation')) result.action = 'CREATE';
+  if (!result.action && (
+    subj.includes('reservation update') ||
+    subj.includes('reservation was updated') ||
+    subj.includes('player added') ||
+    subj.includes('player removed') ||
+    subj.includes('reservation modified')
+  )) {
+    result.action = 'UPDATE';
+  }
 
   // Extract details from DETAILS section
   let detailsIdx = lines.findIndex(l => /^details\b/i.test(l));
@@ -65,7 +85,9 @@ function parseTeeTimeEmail(bodyText, subject) {
   }
 
   if (!result.action && result.dateStr && result.timeStr && result.holes && result.players) {
-    result.action = 'CREATE';
+    // If details exist but we don't see a clear create/cancel keyword,
+    // treat it as an update to avoid accidentally creating duplicate events.
+    result.action = 'UPDATE';
   }
   if (!result.action) {
     console.warn('[parseTeeTimeEmail] Unknown action and insufficient reservation details:', lines[0]);
