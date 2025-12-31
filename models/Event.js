@@ -16,6 +16,7 @@ const SlotSchema = new mongoose.Schema({
 
 const EventSchema = new mongoose.Schema({
   course: { type: String, required: true, trim: true },
+  dedupeKey: { type: String, default: null },   // YYYY-MM-DD|08:00,08:09,08:18 (tee-time events)
   courseInfo: {
     city: { type: String, default: null },
     state: { type: String, default: null },
@@ -65,5 +66,6 @@ EventSchema.pre('validate', function(next){
 EventSchema.index({ date: 1 });
 EventSchema.index({ isTeamEvent: 1 });
 EventSchema.index({ 'teeTimes._id': 1 });
+EventSchema.index({ dedupeKey: 1 }, { unique: true, sparse: true });
 
 module.exports = mongoose.model('Event', EventSchema);

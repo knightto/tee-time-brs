@@ -58,6 +58,7 @@ const PORT = process.env.PORT || 5000;
 const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
 const SITE_URL = (process.env.SITE_URL || 'https://tee-time-brs.onrender.com/').replace(/\/$/, '') + '/';
 const LOCAL_TZ = process.env.LOCAL_TZ || 'America/New_York';
+const processedEmailIds = new Map(); // simple idempotency guard for inbound emails
 
 app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true }));
 app.use(rateLimit({ windowMs: 60 * 1000, max: 200 }));
@@ -121,6 +122,16 @@ app.post('/webhooks/resend', async (req, res) => {
       console.warn('[webhook] No email_id in event data');
       return res.status(200).send('No email_id');
     }
+    // Idempotency guard: ignore repeat webhook deliveries for the same email_id (Resend can retry)
+    const nowMs = Date.now();
+    for (const [id, ts] of [...processedEmailIds.entries()]) {
+      if (nowMs - ts > 10 * 60 * 1000) processedEmailIds.delete(id); // expire after 10 minutes
+    }
+    if (processedEmailIds.has(emailId)) {
+      console.log('[webhook] Skipping already-processed email', emailId);
+      return res.status(200).send('Already processed');
+    }
+    processedEmailIds.set(emailId, nowMs);
 
     // Restrict to your expected sender and recipient for now
     const fromAddress = event.data.from || '';
@@ -244,6 +255,7 @@ app.post('/webhooks/resend', async (req, res) => {
         ? Math.max(1, Math.ceil(parsed.players / 4))
         : null;
       const teeTimesFromCount = teeTimeCount ? genTeeTimes(normalizedTime, teeTimeCount, 9) : undefined;
+      const dedupeKey = buildDedupeKey(eventDateObj, teeTimesFromCount || [{ time: normalizedTime }], false);
 
       // Compose event payload as expected by /api/events (UI form)
       const eventPayload = {
@@ -253,26 +265,95 @@ app.post('/webhooks/resend', async (req, res) => {
         isTeamEvent: false,
         teamSizeMax: 4,
         teeTime: normalizedTime, // UI expects 'teeTime' for first tee time
-        teeTimes: teeTimesFromCount
+        teeTimes: teeTimesFromCount,
+        dedupeKey
       };
       console.log('[webhook] Event payload to be created:', JSON.stringify(eventPayload));
 
-      if (parsed.action === 'CREATE' && eventPayload.course && eventPayload.date && eventPayload.teeTime) {
-        try {
-          // Use the same API as the UI to create the event
-          const fetchRes = await fetch(`${SITE_URL}api/events`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(eventPayload)
-          });
-          if (!fetchRes.ok) {
-            const text = await fetchRes.text();
-            console.error('[webhook] Error creating event via API:', fetchRes.status, text);
-            return res.status(500).send('Error creating event via API');
+      const eventDateObj = asUTCDate(normalizedDate);
+      if (isNaN(eventDateObj)) {
+        console.warn('[webhook] Invalid date parsed from email, skipping');
+        return res.status(200).send('Invalid date in email');
+      }
+
+      const escapeRegex = (s = '') => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const findMatchingEvents = async () => {
+        // Prefer exact course + time match, then time-only match on same date
+        const queries = [];
+        if (eventPayload.teeTime) {
+          if (eventPayload.course) {
+            queries.push({
+              date: eventDateObj,
+              'teeTimes.time': eventPayload.teeTime,
+              course: new RegExp(`^${escapeRegex(eventPayload.course)}$`, 'i')
+            });
           }
-          const created = await fetchRes.json();
-          console.log('[webhook] Event created from email via API:', created._id);
-          // Send notification email to all subscribers (same as /api/events)
+          queries.push({ date: eventDateObj, 'teeTimes.time': eventPayload.teeTime });
+        } else {
+          queries.push({ date: eventDateObj });
+        }
+        for (const q of queries) {
+          const found = await Event.find(q).sort({ createdAt: 1 });
+          if (found.length) return found;
+        }
+        return [];
+      };
+
+      const updateEventFromPayload = async (ev) => {
+        ev.course = eventPayload.course || ev.course;
+        ev.notes = eventPayload.notes || ev.notes || '';
+        ev.date = eventDateObj;
+        ev.isTeamEvent = false;
+        ev.teamSizeMax = 4;
+
+        const hasPlayers = Array.isArray(ev.teeTimes) && ev.teeTimes.some((tt) => Array.isArray(tt.players) && tt.players.length);
+        if (Array.isArray(eventPayload.teeTimes) && eventPayload.teeTimes.length && !hasPlayers) {
+          ev.teeTimes = eventPayload.teeTimes;
+        } else if (eventPayload.teeTime) {
+          if (Array.isArray(ev.teeTimes) && ev.teeTimes.length) {
+            ev.teeTimes[0].time = eventPayload.teeTime;
+          } else {
+            ev.teeTimes = [{ time: eventPayload.teeTime, players: [] }];
+          }
+        }
+        return ev.save();
+      };
+
+      const dedupeExtras = async (matches, keepId) => {
+        const extras = matches.filter((m) => String(m._id) !== String(keepId));
+        if (!extras.length) return 0;
+        await Event.deleteMany({ _id: { $in: extras.map((m) => m._id) } });
+        return extras.length;
+      };
+
+      const createEventThroughApi = async (reason = 'CREATE') => {
+        const body = { ...eventPayload, date: normalizedDate };
+        const fetchRes = await fetch(`${SITE_URL}api/events`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        if (!fetchRes.ok) {
+          const text = await fetchRes.text();
+          throw new Error(`API ${reason} create failed: ${fetchRes.status} ${text}`);
+        }
+        const created = await fetchRes.json();
+        console.log(`[webhook] Event created from email (${reason}) via API:`, created._id);
+        return created;
+      };
+
+      if ((parsed.action === 'CREATE' || parsed.action === 'UPDATE') && eventPayload.course && eventPayload.date && eventPayload.teeTime) {
+        try {
+          const matches = await findMatchingEvents();
+          if (matches.length) {
+            const updated = await updateEventFromPayload(matches[0]);
+            const deduped = await dedupeExtras(matches, updated._id);
+            console.log('[webhook] Event matched existing, updated instead of creating new', { id: updated._id, deduped });
+            return res.status(200).json({ ok: true, eventId: updated._id, updated: true, deduped });
+          }
+
+          const created = await createEventThroughApi(parsed.action);
+          // Send notification email to all subscribers (same as /api/events) for brand new events only
           try {
             const eventUrl = `${SITE_URL}?event=${created._id}`;
             await sendEmailToAll(`New Event: ${created.course} (${fmt.dateISO(created.date)})`,
@@ -287,35 +368,33 @@ app.post('/webhooks/resend', async (req, res) => {
           } catch (e) {
             console.error('[webhook] Failed to send notification email:', e);
           }
-          return res.status(201).json({ ok: true, eventId: created._id });
+          return res.status(201).json({ ok: true, eventId: created._id, created: true });
         } catch (err) {
-          console.error('[webhook] Error creating event via API:', err);
-          return res.status(500).send('Error creating event via API');
+          console.error('[webhook] Error creating/updating event via email:', err);
+          return res.status(500).send('Error creating/updating event via API');
         }
       } else if (parsed.action === 'CANCEL' && eventPayload.course && eventPayload.date && eventPayload.teeTime) {
         try {
-          // Find and delete the event by course, date, and tee time
-          const deleted = await Event.findOneAndDelete({
-            course: eventPayload.course,
-            date: new Date(eventPayload.date + 'T12:00:00Z'),
-            'teeTimes.time': eventPayload.teeTime
-          });
-          if (deleted) {
-            console.log('[webhook] Event cancelled from email:', deleted._id);
+          const matches = await findMatchingEvents();
+          if (matches.length) {
+            const primary = matches[0];
+            const idsToDelete = matches.map((m) => m._id);
+            await Event.deleteMany({ _id: { $in: idsToDelete } });
+            console.log('[webhook] Event cancelled from email (removed matches):', idsToDelete);
             // Notify subscribers about the cancellation (non-blocking)
-            const teeMatch = (deleted.teeTimes || []).find(tt => tt && tt.time === eventPayload.teeTime);
+            const teeMatch = (primary.teeTimes || []).find(tt => tt && tt.time === eventPayload.teeTime);
             const teeLabel = teeMatch && teeMatch.time ? fmt.tee(teeMatch.time) : null;
             sendEmailToAll(
-              `Event Cancelled: ${deleted.course || 'Event'} (${fmt.dateISO(deleted.date)})`,
+              `Event Cancelled: ${primary.course || 'Event'} (${fmt.dateISO(primary.date)})`,
               frame('Golf Event Cancelled',
                 `<p>The following event has been cancelled:</p>
-                 <p><strong>Event:</strong> ${esc(fmt.dateShortTitle(deleted.date))}</p>
-                 <p><strong>Course:</strong> ${esc(deleted.course||'')}</p>
-                 <p><strong>Date:</strong> ${esc(fmt.dateLong(deleted.date))}</p>
+                 <p><strong>Event:</strong> ${esc(fmt.dateShortTitle(primary.date))}</p>
+                 <p><strong>Course:</strong> ${esc(primary.course||'')}</p>
+                 <p><strong>Date:</strong> ${esc(fmt.dateLong(primary.date))}</p>
                  ${teeLabel ? `<p><strong>Tee Time:</strong> ${esc(teeLabel)}</p>` : ''}
                  <p>We apologize for any inconvenience.</p>${btn('View Other Events')}`))
               .catch(err => console.error('[webhook] Failed to send cancellation email:', err));
-            return res.status(200).json({ ok: true, cancelled: true, eventId: deleted._id });
+            return res.status(200).json({ ok: true, cancelled: true, eventIds: idsToDelete });
           } else {
             console.warn('[webhook] Cancel: no matching event found');
             return res.status(200).send('Cancel: no matching event found');
@@ -540,6 +619,16 @@ const fmt = {
   dateShortTitle(x){ const d = asUTCDate(x); return isNaN(d) ? '' : d.toLocaleDateString(undefined,{ weekday:'short', month:'numeric', day:'numeric', timeZone:'UTC' }); },
   tee(t){ if(!t) return ''; const m=/^(\d{1,2}):(\d{2})$/.exec(t); if(!m) return t; const H=+m[1], M=m[2]; const ap=H>=12?'PM':'AM'; const h=(H%12)||12; return `${h}:${M} ${ap}`; }
 };
+function buildDedupeKey(dateVal, teeTimes = [], isTeam = false) {
+  if (isTeam) return null;
+  if (!dateVal || !Array.isArray(teeTimes) || !teeTimes.length) return null;
+  const d = asUTCDate(dateVal);
+  if (isNaN(d)) return null;
+  const dateISO = d.toISOString().slice(0, 10);
+  const times = teeTimes.map((t) => t && t.time).filter(Boolean).sort();
+  if (!times.length) return null;
+  return `${dateISO}|${times.join(',')}`;
+}
 function btn(label='Go to Sign-up Page'){
   return `<p style="margin:24px 0"><a href="${esc(SITE_URL)}" style="background:#2563eb;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;display:inline-block">${esc(label)}</a></p>`;
 }
@@ -757,26 +846,45 @@ app.post('/api/events', async (req, res) => {
       tt = Array.isArray(teeTimes) && teeTimes.length ? teeTimes : genTeeTimes(teeTime, 3, 9);
     }
     const eventDate = /^\d{4}-\d{2}-\d{2}$/.test(String(date||'')) ? new Date(String(date)+'T12:00:00Z') : asUTCDate(date);
+    const dedupeKey = buildDedupeKey(eventDate, tt, !!isTeamEvent);
     
     // Fetch weather forecast
     const weatherData = await fetchWeatherForecast(eventDate);
     
-    const created = await Event.create({
-      course,
-      courseInfo: courseInfo || {},
-      date: eventDate,
-      notes,
-      isTeamEvent: !!isTeamEvent,
-      teamSizeMax: Math.max(2, Math.min(4, Number(teamSizeMax || 4))),
-      teeTimes: tt,
-      weather: {
-        condition: weatherData.condition,
-        icon: weatherData.icon,
-        temp: weatherData.temp,
-        description: weatherData.description,
-        lastFetched: weatherData.lastFetched
+    if (dedupeKey) {
+      const existing = await Event.findOne({ dedupeKey });
+      if (existing) {
+        return res.status(200).json(existing);
       }
-    });
+    }
+
+    let created;
+    try {
+      created = await Event.create({
+        course,
+        courseInfo: courseInfo || {},
+        date: eventDate,
+        notes,
+        isTeamEvent: !!isTeamEvent,
+        teamSizeMax: Math.max(2, Math.min(4, Number(teamSizeMax || 4))),
+        teeTimes: tt,
+        dedupeKey,
+        weather: {
+          condition: weatherData.condition,
+          icon: weatherData.icon,
+          temp: weatherData.temp,
+          description: weatherData.description,
+          lastFetched: weatherData.lastFetched
+        }
+      });
+    } catch (err) {
+      // If another request created the event at the same time, return the existing one
+      if (err && err.code === 11000 && dedupeKey) {
+        const existing = await Event.findOne({ dedupeKey });
+        if (existing) return res.status(200).json(existing);
+      }
+      throw err;
+    }
     res.status(201).json(created);
     const eventUrl = `${SITE_URL}?event=${created._id}`;
     await sendEmailToAll(`New Event: ${created.course} (${fmt.dateISO(created.date)})`,
@@ -800,6 +908,8 @@ app.put('/api/events/:id', async (req, res) => {
     if (notes !== undefined) ev.notes = String(notes);
     if (isTeamEvent !== undefined) ev.isTeamEvent = !!isTeamEvent;
     if (teamSizeMax !== undefined) ev.teamSizeMax = Math.max(2, Math.min(4, Number(teamSizeMax || 4)));
+    // Recompute dedupeKey for tee-time events after changes
+    ev.dedupeKey = buildDedupeKey(ev.date, ev.teeTimes, ev.isTeamEvent);
     await ev.save();
     res.json(ev);
   } catch (e) { res.status(400).json({ error: e.message }); }
@@ -823,6 +933,58 @@ app.delete('/api/events/:id', async (req, res) => {
            <p><strong>Date:</strong> ${esc(fmt.dateLong(del.date))}</p>
            <p>We apologize for any inconvenience.</p>${btn('View Other Events')}`))
     .catch(err => console.error('Failed to send deletion emails:', err));
+});
+
+// Remove duplicate tee-time events for the same date/time/tee-count, keeping the requested event
+app.post('/api/events/:id/dedupe', async (req, res) => {
+  try {
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    if (ev.isTeamEvent) return res.status(400).json({ error: 'Dedupe only supported for tee-time events' });
+    if (!Array.isArray(ev.teeTimes) || !ev.teeTimes.length || !ev.teeTimes[0].time) {
+      return res.status(400).json({ error: 'Event missing tee time data' });
+    }
+
+    const baseDate = asUTCDate(ev.date);
+    if (isNaN(baseDate)) return res.status(400).json({ error: 'Invalid event date' });
+
+    const start = new Date(Date.UTC(baseDate.getUTCFullYear(), baseDate.getUTCMonth(), baseDate.getUTCDate(), 0, 0, 0));
+    const end = new Date(Date.UTC(baseDate.getUTCFullYear(), baseDate.getUTCMonth(), baseDate.getUTCDate(), 23, 59, 59, 999));
+
+    const baseTimes = (ev.teeTimes || []).map((t) => t && t.time).filter(Boolean).sort();
+    const baseCount = baseTimes.length;
+    if (!baseCount) return res.status(400).json({ error: 'No tee times to match' });
+    const baseKey = baseTimes.join('|');
+
+    const candidates = await Event.find({
+      isTeamEvent: false,
+      date: { $gte: start, $lte: end }
+    }).sort({ createdAt: 1 });
+
+    const matches = candidates.filter((e) => {
+      const times = (e.teeTimes || []).map((t) => t && t.time).filter(Boolean).sort();
+      if (times.length !== baseCount) return false;
+      return times.join('|') === baseKey;
+    });
+
+    if (matches.length <= 1) {
+      return res.json({ ok: true, removed: 0, keptId: ev._id, matched: matches.length });
+    }
+
+    // Prefer to keep the requested event; if not in matches, keep the earliest
+    const keepId = matches.some((m) => String(m._id) === String(ev._id))
+      ? ev._id
+      : matches[0]._id;
+
+    const toRemove = matches.filter((m) => String(m._id) !== String(keepId)).map((m) => m._id);
+    const delResult = await Event.deleteMany({ _id: { $in: toRemove } });
+    console.log('[dedupe] Removed duplicate events', { keepId: String(keepId), removed: delResult.deletedCount, ids: toRemove.map(String) });
+
+    return res.json({ ok: true, keptId: keepId, removed: delResult.deletedCount, removedIds: toRemove, matched: matches.length });
+  } catch (e) {
+    console.error('[dedupe] Error removing duplicates', e);
+    return res.status(500).json({ error: 'Failed to remove duplicates', details: e.message });
+  }
 });
 
 /* tee/team, players, move endpoints remain as in your current server.js */
@@ -1081,10 +1243,10 @@ app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res
     await ev.save();
 
     // Audit log
-    await logAudit(ev._id, 'remove_player', playerName, {
-      teeId: tt._id,
-      teeLabel: teeLabel
-    });
+  await logAudit(ev._id, 'remove_player', playerName, {
+    teeId: tt._id,
+    teeLabel: teeLabel
+  });
 
     if (ev.notificationsEnabled !== false) {
       sendEmailToAll(
