@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+<!-- Mobile compact pass: row height/padding tweaked for ~36-40px rows on <=480px; adjust in style.css @media (max-width:480px) and .handicap-display/.handicap-card-body spacing. -->
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -58,9 +59,10 @@
     </form>
   </dialog>
 
+  
   <script>
     const grid = document.getElementById('handicapGrid');
-      const statusMsg = document.getElementById('statusMsg');
+    const statusMsg = document.getElementById('statusMsg');
     const addBtn = document.getElementById('addGolferBtn');
     const dlg = document.getElementById('golferDialog');
     const form = document.getElementById('golferForm');
@@ -102,7 +104,8 @@
     }
 
     async function loadHandicaps() {
-      setStatus('Loading…');
+      document.body.classList.add('compact-mode'); // enable compact styling (mobile-first toggle)
+      setStatus('Loading.');
       try {
         const list = await api('/api/handicaps');
         render(list || []);
@@ -123,15 +126,17 @@
         const card = document.createElement('div');
         card.className = 'handicap-card';
         const hcp = (h.handicapIndex === 0 || h.handicapIndex) ? Number(h.handicapIndex).toFixed(1) : 'N/A';
+        const detailsId = `details-${h._id}`;
         card.innerHTML = `
           <div class="handicap-card-header">
             <div>
-              <div style="font-weight:700;color:#0b1827;font-size:16px">${h.name || 'Unknown'}</div>
+              <div class="handicap-name">${h.name || 'Unknown'}</div>
               ${h.clubName ? `<div class="handicap-meta">${h.clubName}</div>` : ''}
             </div>
             <div class="handicap-actions">
-              <button class="small" data-edit="${h._id}">Edit</button>
-              <button class="small danger" data-del="${h._id}">Delete</button>
+              <button class="small icon-btn" data-edit="${h._id}" aria-label="Edit ${h.name || 'golfer'}">✏️</button>
+              <button class="small icon-btn danger" data-del="${h._id}" aria-label="Delete ${h.name || 'golfer'}">🗑️</button>
+              <button class="small icon-btn secondary" data-expand="${detailsId}" aria-expanded="false" aria-controls="${detailsId}" title="Details">⋯</button>
             </div>
           </div>
           <div class="handicap-card-body">
@@ -140,6 +145,10 @@
               <div class="handicap-label">Handicap Index</div>
             </div>
             ${h.updatedAt ? `<div class="handicap-meta">Updated ${fmtDate(h.updatedAt)}</div>` : ''}
+          </div>
+          <div id="${detailsId}" class="handicap-extra" hidden>
+            ${h.ghinNumber ? `<div class="handicap-meta">GHIN: ${h.ghinNumber}</div>` : ''}
+            <div class="handicap-meta">Use your personal code to edit. Admin override allowed.</div>
           </div>
         `;
         grid.appendChild(card);
@@ -184,17 +193,26 @@
     });
 
     document.addEventListener('click', async (e) => {
-      const btn = e.target.closest('[data-edit],[data-del],[data-cancel]');
+      const btn = e.target.closest('[data-edit],[data-del],[data-cancel],[data-expand]');
       if (!btn) return;
       if (btn.dataset.cancel !== undefined) {
         dlg.close();
         return;
       }
+      if (btn.dataset.expand) {
+        const section = document.getElementById(btn.dataset.expand);
+        if (section) {
+          const isHidden = section.hasAttribute('hidden');
+          if (isHidden) section.removeAttribute('hidden'); else section.setAttribute('hidden', '');
+          btn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+        }
+        return;
+      }
       if (btn.dataset.edit) {
         const id = btn.dataset.edit;
         const currentCard = btn.closest('.handicap-card');
-        const name = currentCard?.querySelector('div[style*="font-weight:700"]')?.textContent || '';
-        const ghin = currentCard?.querySelector('.handicap-meta')?.textContent?.replace('GHIN: ','') || '';
+        const name = currentCard?.querySelector('.handicap-name')?.textContent || '';
+        const ghin = currentCard?.querySelector('.handicap-extra .handicap-meta')?.textContent?.replace('GHIN: ','') || '';
         const hcpText = currentCard?.querySelector('.handicap-index')?.textContent || '';
         const notesEl = currentCard?.querySelectorAll('.handicap-meta')?.[1];
         openDialog({
@@ -231,5 +249,6 @@
 
     loadHandicaps();
   </script>
+
 </body>
 </html>

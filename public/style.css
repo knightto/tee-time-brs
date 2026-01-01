@@ -43,6 +43,62 @@ header input[type=email]{padding:.5rem .7rem;border-radius:12px;border:1px solid
 #subMsg{color:var(--slate-700);font-size:.9rem}
 main{padding:20px}
 
+/* Unified top bar */
+.topbar{
+  display:flex;
+  align-items:center;
+  gap:12px;
+  padding:12px 16px;
+  background:linear-gradient(135deg, var(--golf-green-dark) 0%, var(--golf-green) 100%);
+  border-bottom:3px solid var(--golf-green-fairway);
+  box-shadow:0 4px 12px rgba(26,90,26,.4);
+  position:sticky;
+  top:0;
+  z-index:30;
+}
+.topbar h1{
+  margin:0;
+  font-size:22px;
+  font-weight:800;
+  color:#fff;
+  letter-spacing:.2px;
+  text-shadow:0 2px 4px rgba(0,0,0,.25);
+}
+.topbar .topbar-links{
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+.pill-link{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:7px 12px;
+  border-radius:10px;
+  border:1px solid rgba(255,255,255,.35);
+  color:#fff;
+  text-decoration:none;
+  font-weight:600;
+  font-size:13px;
+  background:rgba(255,255,255,0.06);
+  transition:all 0.2s ease;
+}
+.pill-link:hover{
+  background:rgba(255,255,255,0.14);
+  transform:translateY(-1px);
+  box-shadow:0 6px 16px rgba(0,0,0,.25);
+}
+.pill-primary{
+  border-color:var(--green-500);
+  background:var(--green-600);
+  color:#fff;
+}
+.pill-primary:hover{
+  background:var(--green-500);
+}
+
 /* Calendar Layout */
 .main-layout{
   display:grid;
@@ -798,6 +854,12 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   color:var(--slate-900);
 }
 
+.handicap-name{
+  font-weight:700;
+  color:#0b1827;
+  font-size:16px;
+}
+
 .handicap-card-header{
   display:flex;
   justify-content:space-between;
@@ -810,6 +872,20 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
 .handicap-actions{
   display:flex;
   gap:4px;
+}
+
+.icon-btn{
+  min-width:44px;
+  min-height:44px;
+  padding:8px 10px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+}
+.icon-btn.secondary{
+  background:#eef2ff;
+  border-color:#c7d2fe;
+  color:#1e3a8a;
 }
 
 .handicap-card-body{
@@ -851,6 +927,12 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   gap:2px;
   color:var(--slate-700);
   font-size:12px;
+}
+
+.handicap-extra{
+  padding:10px 12px;
+  border-top:1px solid rgba(26,90,26,.08);
+  background:rgba(255,255,255,0.8);
 }
 
 .status{
@@ -899,6 +981,71 @@ nav a:hover{
   .handicap-actions{
     width:100%;
     justify-content:flex-end;
+  }
+}
+
+/* Mobile compact: tighter rows & hidden extras until expanded */
+@media (max-width:480px){
+  body.compact-mode .handicap-container{
+    padding:8px 8px 16px;
+  }
+  body.compact-mode .handicap-header{
+    margin-bottom:12px;
+  }
+  body.compact-mode #addGolferBtn{
+    padding:8px 12px;
+    font-size:13px;
+  }
+  body.compact-mode .handicap-grid{
+    grid-template-columns:1fr;
+    gap:8px;
+  }
+  body.compact-mode .handicap-card{
+    border-radius:12px;
+  }
+  body.compact-mode .handicap-card-header{
+    padding:8px 10px;
+  }
+  body.compact-mode .handicap-name{
+    font-size:14px;
+  }
+  body.compact-mode .handicap-meta{
+    font-size:11px;
+  }
+  body.compact-mode .handicap-card-body{
+    padding:8px 10px;
+    flex-direction:row;
+    gap:8px;
+  }
+  body.compact-mode .handicap-display{
+    padding:6px 8px;
+  }
+  body.compact-mode .handicap-index{
+    font-size:18px;
+    min-width:36px;
+  }
+  body.compact-mode .handicap-label{
+    font-size:10px;
+    letter-spacing:0.3px;
+  }
+  body.compact-mode .icon-btn{
+    min-width:40px;
+    min-height:40px;
+    padding:6px 8px;
+  }
+  body.compact-mode dialog form{
+    padding:12px !important;
+    gap:10px !important;
+  }
+  body.compact-mode dialog input{
+    padding:8px 10px !important;
+    font-size:14px !important;
+  }
+  body.compact-mode dialog button.primary{
+    padding:8px 12px;
+  }
+  body.compact-mode dialog menu{
+    flex-wrap:wrap;
   }
 }
 
