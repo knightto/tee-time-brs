@@ -1,11 +1,14 @@
-const CACHE_NAME = 'tee-time-brs-v2';
+const CACHE_NAME = 'tee-time-brs-v3';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
   '/admin.html',
+  '/handicaps.html',
+  '/handicap-import.html',
   '/user-guide.html',
   '/style.css',
   '/script.js',
+  '/admin.js',
   '/manifest.json',
   '/favicon.svg',
   '/icons/icon-192.png',
