@@ -770,6 +770,7 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
 .handicap-container{
   max-width:1400px;
   margin:0 auto;
+  color:var(--slate-900);
 }
 
 .handicap-header{
@@ -788,6 +789,7 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   border-radius:var(--radius);
   box-shadow:var(--shadow);
   overflow:hidden;
+  color:var(--slate-900);
 }
 
 .handicap-card-header{
