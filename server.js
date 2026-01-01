@@ -432,6 +432,9 @@ app.post('/webhooks/resend', async (req, res) => {
         // Prefer exact course + time match, then time-only match on same date
         const queries = [];
         if (eventPayload.teeTime) {
+          if (eventPayload.dedupeKey) {
+            queries.push({ dedupeKey: eventPayload.dedupeKey });
+          }
           if (eventPayload.course) {
             queries.push({
               date: eventDateObj,
@@ -498,10 +501,9 @@ app.post('/webhooks/resend', async (req, res) => {
           const matches = await findMatchingEvents();
           if (matches.length) {
             const updated = await updateEventFromPayload(matches[0]);
-            const deduped = await dedupeExtras(matches, updated._id);
-            console.log('[webhook] Event matched existing, updated instead of creating new', { id: updated._id, deduped });
+            console.log('[webhook] Event matched existing, updated instead of creating new', { id: updated._id });
             markProcessed();
-            return res.status(200).json({ ok: true, eventId: updated._id, updated: true, deduped });
+            return res.status(200).json({ ok: true, eventId: updated._id, updated: true, deduped: 0 });
           }
 
           const created = await createEventThroughApi(parsed.action);
@@ -531,9 +533,8 @@ app.post('/webhooks/resend', async (req, res) => {
           const matches = await findMatchingEvents();
           if (matches.length) {
             const primary = matches[0];
-            const idsToDelete = matches.map((m) => m._id);
-            await Event.deleteMany({ _id: { $in: idsToDelete } });
-            console.log('[webhook] Event cancelled from email (removed matches):', idsToDelete);
+            await Event.findByIdAndDelete(primary._id);
+            console.log('[webhook] Event cancelled from email (removed match):', primary._id);
             // Notify subscribers about the cancellation (non-blocking)
             const teeMatch = (primary.teeTimes || []).find(tt => tt && tt.time === eventPayload.teeTime);
             const teeLabel = teeMatch && teeMatch.time ? fmt.tee(teeMatch.time) : null;
@@ -548,7 +549,7 @@ app.post('/webhooks/resend', async (req, res) => {
                  <p>We apologize for any inconvenience.</p>${btn('View Other Events')}`))
               .catch(err => console.error('[webhook] Failed to send cancellation email:', err));
             markProcessed();
-            return res.status(200).json({ ok: true, cancelled: true, eventIds: idsToDelete });
+            return res.status(200).json({ ok: true, cancelled: true, eventIds: [primary._id] });
           } else {
             console.warn('[webhook] Cancel: no matching event found');
             markProcessed();
@@ -596,9 +597,8 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'tommy.knight@gmail.com,jvhyer
 // Default location (Richmond, VA area - adjust for your region)
 const DEFAULT_LAT = process.env.DEFAULT_LAT || '37.5407';
 const DEFAULT_LON = process.env.DEFAULT_LON || '-77.4360';
-const weatherCache = new Map(); // key: `${dateISO}|${lat}|${lon}` -> { data, ts, isError }
-const WEATHER_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
-const WEATHER_ERROR_TTL_MS = 60 * 60 * 1000; // 1 hour cooldown on failures
+const weatherCache = new Map(); // key: `${dateISO}|${lat}|${lon}` -> { data, ts }
+const WEATHER_TTL_MS = 3 * 60 * 60 * 1000; // 3 hours
 
 function getWeatherIcon(weatherCode, isDay = true) {
   // WMO Weather interpretation codes
@@ -631,10 +631,8 @@ async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) 
     const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
     const cacheKey = `${dateStr}|${lat}|${lon}`;
     const cached = weatherCache.get(cacheKey);
-    if (cached) {
-      const age = Date.now() - cached.ts;
-      if (!cached.isError && age < WEATHER_TTL_MS) return cached.data;
-      if (cached.isError && age < WEATHER_ERROR_TTL_MS) return cached.data;
+    if (cached && Date.now() - cached.ts < WEATHER_TTL_MS) {
+      return cached.data;
     }
     const today = new Date();
     const daysAhead = Math.ceil((date - today) / (1000 * 60 * 60 * 24));
@@ -674,7 +672,7 @@ async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) 
       description: `${weatherInfo.desc} • ${Math.round(tempMin)}°-${Math.round(tempMax)}°F`,
       lastFetched: new Date()
     };
-    weatherCache.set(cacheKey, { data: out, ts: Date.now(), isError: false });
+    weatherCache.set(cacheKey, { data: out, ts: Date.now() });
     return out;
   } catch (e) {
     let dateStr = 'undefined';
@@ -682,16 +680,14 @@ async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) 
       dateStr = date.toISOString().split('T')[0];
     }
     console.error('Weather fetch error:', e.message, '(Date:', dateStr, 'Lat:', lat, 'Lon:', lon, ')');
-    const errOut = {
+    return {
       success: false,
       condition: 'error',
-      icon: '🌤️',
+      icon: '🌧️',
       temp: null,
-      description: e.message || 'Weather unavailable',
-      lastFetched: new Date()
+      description: 'Weather unavailable',
+      lastFetched: null
     };
-    weatherCache.set(`${dateStr}|${lat}|${lon}`, { data: errOut, ts: Date.now(), isError: true });
-    return errOut;
   }
 }
 
