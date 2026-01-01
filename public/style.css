@@ -785,8 +785,8 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
 
 .handicap-grid{
   display:grid;
-  grid-template-columns:repeat(auto-fill, minmax(260px, 1fr));
-  gap:12px;
+  grid-template-columns:repeat(auto-fill, minmax(220px, 1fr));
+  gap:10px;
 }
 
 .handicap-card{
@@ -802,7 +802,7 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   display:flex;
   justify-content:space-between;
   align-items:flex-start;
-  padding:12px 14px;
+  padding:10px 12px;
   border-bottom:1px solid rgba(26,90,26,.08);
   background:rgba(255,255,255,0.9);
 }
@@ -813,7 +813,7 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
 }
 
 .handicap-card-body{
-  padding:12px 14px;
+  padding:10px 12px;
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -831,15 +831,15 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
 }
 
 .handicap-index{
-  font-size:28px;
+  font-size:22px;
   font-weight:800;
   color:var(--green-700);
   line-height:1;
-  min-width:52px;
+  min-width:42px;
 }
 
 .handicap-label{
-  font-size:12px;
+  font-size:11px;
   font-weight:600;
   color:var(--slate-700);
   text-transform:uppercase;
@@ -850,7 +850,7 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   display:grid;
   gap:2px;
   color:var(--slate-700);
-  font-size:13px;
+  font-size:12px;
 }
 
 .status{
