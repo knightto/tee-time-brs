@@ -114,7 +114,8 @@ app.get('/api/handicaps', async (_req, res) => {
   try {
     if (!Handicap) return res.status(500).json({ error: 'Handicap model unavailable' });
     const list = await Handicap.find().sort({ name: 1 }).lean();
-    res.json(list);
+    const scrubbed = list.map(({ ownerCode, ...rest }) => rest);
+    res.json(scrubbed);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -122,18 +123,27 @@ app.get('/api/handicaps', async (_req, res) => {
 app.post('/api/handicaps', async (req, res) => {
   try {
     if (!Handicap) return res.status(500).json({ error: 'Handicap model unavailable' });
-    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
-    const { name, ghinNumber, handicapIndex, notes } = req.body || {};
+    const isAdminUser = isAdmin(req);
+    const { name, ghinNumber, handicapIndex, notes, ownerCode, clubName } = req.body || {};
     if (!name) return res.status(400).json({ error: 'name required' });
+    if (!isAdminUser && !ownerCode) return res.status(400).json({ error: 'ownerCode required' });
     const payload = {
       name: String(name).trim(),
+      clubName: clubName ? String(clubName).trim() : '',
       notes: notes ? String(notes).trim() : '',
       handicapIndex: handicapIndex === '' || handicapIndex === null || handicapIndex === undefined ? null : Number(handicapIndex)
     };
     const ghin = ghinNumber ? String(ghinNumber).trim() : '';
     if (ghin) payload.ghinNumber = ghin;
+    if (isAdminUser) {
+      payload.ownerCode = ownerCode ? String(ownerCode).trim() : payload.ownerCode;
+    } else {
+      payload.ownerCode = String(ownerCode || '').trim();
+    }
+    if (!payload.ownerCode) return res.status(400).json({ error: 'ownerCode required' });
     const created = await Handicap.create(payload);
-    res.status(201).json(created);
+    const { ownerCode: _, ...rest } = created.toObject();
+    res.status(201).json(rest);
   } catch (err) {
     if (err && err.code === 11000) {
       return res.status(409).json({ error: 'duplicate ghinNumber' });
@@ -144,12 +154,17 @@ app.post('/api/handicaps', async (req, res) => {
 app.put('/api/handicaps/:id', async (req, res) => {
   try {
     if (!Handicap) return res.status(500).json({ error: 'Handicap model unavailable' });
-    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+    const isAdminUser = isAdmin(req);
     const h = await Handicap.findById(req.params.id);
     if (!h) return res.status(404).json({ error: 'Not found' });
-    const { name, ghinNumber, handicapIndex, notes } = req.body || {};
+    if (!isAdminUser) {
+      const provided = String((req.body && req.body.ownerCode) || '').trim();
+      if (!provided || provided !== (h.ownerCode || '')) return res.status(403).json({ error: 'Forbidden' });
+    }
+    const { name, ghinNumber, handicapIndex, notes, ownerCode, clubName } = req.body || {};
     if (name !== undefined) h.name = String(name).trim();
     if (notes !== undefined) h.notes = String(notes).trim();
+    if (clubName !== undefined) h.clubName = String(clubName || '').trim();
     if (handicapIndex !== undefined) {
       h.handicapIndex = handicapIndex === '' || handicapIndex === null ? null : Number(handicapIndex);
     }
@@ -157,8 +172,12 @@ app.put('/api/handicaps/:id', async (req, res) => {
       const ghin = String(ghinNumber || '').trim();
       h.ghinNumber = ghin || undefined;
     }
+    if (ownerCode !== undefined && (isAdminUser || ownerCode)) {
+      h.ownerCode = String(ownerCode || '').trim();
+    }
     await h.save();
-    res.json(h);
+    const { ownerCode: _, ...rest } = h.toObject();
+    res.json(rest);
   } catch (err) {
     if (err && err.code === 11000) {
       return res.status(409).json({ error: 'duplicate ghinNumber' });
@@ -169,9 +188,14 @@ app.put('/api/handicaps/:id', async (req, res) => {
 app.delete('/api/handicaps/:id', async (req, res) => {
   try {
     if (!Handicap) return res.status(500).json({ error: 'Handicap model unavailable' });
-    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
-    const del = await Handicap.findByIdAndDelete(req.params.id);
-    if (!del) return res.status(404).json({ error: 'Not found' });
+    const isAdminUser = isAdmin(req);
+    const h = await Handicap.findById(req.params.id);
+    if (!h) return res.status(404).json({ error: 'Not found' });
+    if (!isAdminUser) {
+      const provided = String((req.body && req.body.ownerCode) || req.query.ownerCode || '').trim();
+      if (!provided || provided !== (h.ownerCode || '')) return res.status(403).json({ error: 'Forbidden' });
+    }
+    await h.deleteOne();
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

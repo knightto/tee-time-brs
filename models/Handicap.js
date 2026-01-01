@@ -4,6 +4,8 @@ const mongoose = require('mongoose');
 const HandicapSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   ghinNumber: { type: String, trim: true, unique: true, sparse: true },
+  clubName: { type: String, default: '', trim: true },
+  ownerCode: { type: String, required: false, trim: true }, // personal code for this entry
   handicapIndex: { type: Number, default: null },
   notes: { type: String, default: '' },
   lastFetchedAt: { type: Date, default: null },
