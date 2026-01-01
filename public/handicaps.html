@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Golfer Handicaps</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link href="/style.css" rel="stylesheet">
+</head>
+<body style="background:linear-gradient(180deg,#0b1827 0%,#0f243a 100%);color:#e5f0ff;">
+  <header class="bar" style="position:sticky;top:0;z-index:5;">
+    <h1 class="title">Golfer Handicaps</h1>
+    <nav style="display:flex;gap:10px;align-items:center;margin-left:auto">
+      <a href="/" class="handicap-link">Back to Tee Times</a>
+    </nav>
+  </header>
+
+  <main class="handicap-container">
+    <div class="handicap-header">
+      <div>
+        <p style="margin:0;color:#9fb6d4;font-size:13px;">Track the latest handicaps for the group</p>
+      </div>
+      <button id="addGolferBtn" class="primary">Add Golfer</button>
+    </div>
+
+    <div id="statusMsg" class="muted" style="margin-bottom:10px;font-size:13px;"></div>
+    <div id="handicapGrid" class="handicap-grid"></div>
+  </main>
+
+  <dialog id="golferDialog" style="border:none;border-radius:12px;max-width:420px;padding:0;box-shadow:0 20px 40px rgba(0,0,0,0.35);">
+    <form id="golferForm" method="dialog" style="padding:18px;display:grid;gap:12px;">
+      <h3 style="margin:0;font-size:18px;">Golfer</h3>
+      <label style="display:grid;gap:6px;font-size:14px;">
+        Name
+        <input name="name" required placeholder="Full name">
+      </label>
+      <label style="display:grid;gap:6px;font-size:14px;">
+        GHIN / VSGA Number (optional)
+        <input name="ghinNumber" placeholder="GHIN #">
+      </label>
+      <label style="display:grid;gap:6px;font-size:14px;">
+        Handicap Index
+        <input name="handicapIndex" type="number" step="0.1" min="-5" max="60" placeholder="e.g., 12.4">
+      </label>
+      <label style="display:grid;gap:6px;font-size:14px;">
+        Notes
+        <textarea name="notes" rows="2" placeholder="Optional notes"></textarea>
+      </label>
+      <label style="display:grid;gap:6px;font-size:14px;">
+        Admin Code
+        <input name="adminCode" type="password" placeholder="Required to save">
+      </label>
+      <input type="hidden" name="id">
+      <menu style="display:flex;justify-content:flex-end;gap:8px;margin:0;">
+        <button type="button" data-cancel>Cancel</button>
+        <button type="submit" class="primary">Save</button>
+      </menu>
+    </form>
+  </dialog>
+
+  <script>
+    const grid = document.getElementById('handicapGrid');
+    const statusMsg = document.getElementById('statusMsg');
+    const addBtn = document.getElementById('addGolferBtn');
+    const dlg = document.getElementById('golferDialog');
+    const form = document.getElementById('golferForm');
+    const adminField = form?.elements?.adminCode;
+
+    function fmtDate(val) {
+      if (!val) return '';
+      const d = new Date(val);
+      if (isNaN(d)) return '';
+      return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    }
+
+    function setStatus(text, color = '#9fb6d4') {
+      if (!statusMsg) return;
+      statusMsg.textContent = text || '';
+      statusMsg.style.color = color;
+    }
+
+    async function api(path, opts = {}) {
+      const res = await fetch(path, { headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) }, ...opts });
+      const isJson = (res.headers.get('content-type') || '').includes('application/json');
+      const body = isJson ? await res.json() : await res.text();
+      if (!res.ok) {
+        const msg = body && body.error ? body.error : (body && body.message) ? body.message : res.statusText;
+        throw new Error(msg || 'Request failed');
+      }
+      return body;
+    }
+
+    function openDialog(data = null) {
+      form.reset();
+      form.elements.id.value = data?._id || '';
+      form.elements.name.value = data?.name || '';
+      form.elements.ghinNumber.value = data?.ghinNumber || '';
+      form.elements.handicapIndex.value = data?.handicapIndex ?? '';
+      form.elements.notes.value = data?.notes || '';
+      const savedAdmin = localStorage.getItem('handicapAdminCode');
+      if (savedAdmin) form.elements.adminCode.value = savedAdmin;
+      dlg.showModal();
+    }
+
+    async function loadHandicaps() {
+      setStatus('Loading…');
+      try {
+        const list = await api('/api/handicaps');
+        render(list || []);
+        setStatus(`Loaded ${list.length} golfers`);
+      } catch (e) {
+        console.error(e);
+        setStatus('Failed to load handicaps: ' + e.message, '#ef4444');
+      }
+    }
+
+    function render(list) {
+      grid.innerHTML = '';
+      if (!list.length) {
+        grid.innerHTML = '<div class="handicap-card" style="grid-column:1/-1;text-align:center;color:#9fb6d4;">No golfers yet.</div>';
+        return;
+      }
+      for (const h of list) {
+        const card = document.createElement('div');
+        card.className = 'handicap-card';
+        const hcp = (h.handicapIndex === 0 || h.handicapIndex) ? Number(h.handicapIndex).toFixed(1) : 'N/A';
+        card.innerHTML = `
+          <div class="handicap-card-header">
+            <div>
+              <div style="font-weight:700;color:#fff;font-size:16px">${h.name || 'Unknown'}</div>
+              ${h.ghinNumber ? `<div class="handicap-meta">GHIN: ${h.ghinNumber}</div>` : ''}
+              ${h.notes ? `<div class="handicap-meta">${h.notes}</div>` : ''}
+            </div>
+            <div class="handicap-actions">
+              <button class="small" data-edit="${h._id}">Edit</button>
+              <button class="small danger" data-del="${h._id}">Delete</button>
+            </div>
+          </div>
+          <div class="handicap-card-body">
+            <div class="handicap-display">
+              <div class="handicap-index">${hcp}</div>
+              <div class="handicap-label">Handicap Index</div>
+            </div>
+            ${h.updatedAt ? `<div class="handicap-meta">Updated ${fmtDate(h.updatedAt)}</div>` : ''}
+          </div>
+        `;
+        grid.appendChild(card);
+      }
+    }
+
+    addBtn?.addEventListener('click', () => openDialog());
+
+    form?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      try {
+        const data = Object.fromEntries(new FormData(form).entries());
+        const admin = data.adminCode?.trim();
+        if (!admin) return alert('Admin code required to save.');
+        localStorage.setItem('handicapAdminCode', admin);
+        const payload = {
+          name: data.name,
+          ghinNumber: data.ghinNumber || undefined,
+          handicapIndex: data.handicapIndex === '' ? null : Number(data.handicapIndex),
+          notes: data.notes || ''
+        };
+        const id = data.id;
+        if (id) {
+          await api(`/api/handicaps/${id}`, { method: 'PUT', body: JSON.stringify(payload), headers: { 'x-admin-code': admin } });
+        } else {
+          await api('/api/handicaps', { method: 'POST', body: JSON.stringify(payload), headers: { 'x-admin-code': admin } });
+        }
+        dlg.close();
+        loadHandicaps();
+      } catch (err) {
+        console.error(err);
+        alert('Save failed: ' + err.message);
+      }
+    });
+
+    document.addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-edit],[data-del],[data-cancel]');
+      if (!btn) return;
+      if (btn.dataset.cancel !== undefined) {
+        dlg.close();
+        return;
+      }
+      if (btn.dataset.edit) {
+        const id = btn.dataset.edit;
+        const currentCard = btn.closest('.handicap-card');
+        const name = currentCard?.querySelector('div[style*="font-weight:700"]')?.textContent || '';
+        const ghin = currentCard?.querySelector('.handicap-meta')?.textContent?.replace('GHIN: ','') || '';
+        const hcpText = currentCard?.querySelector('.handicap-index')?.textContent || '';
+        const notesEl = currentCard?.querySelectorAll('.handicap-meta')?.[1];
+        openDialog({
+          _id: id,
+          name,
+          ghinNumber: ghin || '',
+          handicapIndex: hcpText && hcpText !== 'N/A' ? Number(hcpText) : '',
+          notes: notesEl ? notesEl.textContent : ''
+        });
+        return;
+      }
+      if (btn.dataset.del) {
+        const id = btn.dataset.del;
+        if (!confirm('Delete this golfer?')) return;
+        const admin = localStorage.getItem('handicapAdminCode') || prompt('Admin code required:');
+        if (!admin) return;
+        try {
+          await api(`/api/handicaps/${id}`, { method: 'DELETE', headers: { 'x-admin-code': admin } });
+          loadHandicaps();
+        } catch (err) {
+          console.error(err);
+          alert('Delete failed: ' + err.message);
+        }
+      }
+    });
+
+    dlg?.addEventListener('click', (e) => {
+      if (e.target.dataset.cancel !== undefined) {
+        dlg.close();
+      }
+    });
+
+    loadHandicaps();
+  </script>
+</body>
+</html>

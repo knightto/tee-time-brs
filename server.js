@@ -47,6 +47,9 @@ initSecondaryConn();
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
+const multer = require('multer');
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const { importHandicapsFromCsv } = require('./services/handicapImportService');
 
 // Polyfill fetch for Node < 18
 const fetch = global.fetch || require('node-fetch');
@@ -99,10 +102,156 @@ app.get('/api/health', (_req, res) => {
       hasResendKey: !!process.env.RESEND_API_KEY,
       hasResendFrom: !!process.env.RESEND_FROM,
       hasSubscriberModel: !!Subscriber,
+      hasHandicapModels: !!(Golfer && HandicapSnapshot && ImportBatch),
       port: PORT,
       nodeEnv: process.env.NODE_ENV || 'development'
     }
   });
+});
+
+// --- Handicap directory (manual list) ---
+app.get('/api/handicaps', async (_req, res) => {
+  try {
+    if (!Handicap) return res.status(500).json({ error: 'Handicap model unavailable' });
+    const list = await Handicap.find().sort({ name: 1 }).lean();
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+app.post('/api/handicaps', async (req, res) => {
+  try {
+    if (!Handicap) return res.status(500).json({ error: 'Handicap model unavailable' });
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+    const { name, ghinNumber, handicapIndex, notes } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const payload = {
+      name: String(name).trim(),
+      notes: notes ? String(notes).trim() : '',
+      handicapIndex: handicapIndex === '' || handicapIndex === null || handicapIndex === undefined ? null : Number(handicapIndex)
+    };
+    const ghin = ghinNumber ? String(ghinNumber).trim() : '';
+    if (ghin) payload.ghinNumber = ghin;
+    const created = await Handicap.create(payload);
+    res.status(201).json(created);
+  } catch (err) {
+    if (err && err.code === 11000) {
+      return res.status(409).json({ error: 'duplicate ghinNumber' });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+app.put('/api/handicaps/:id', async (req, res) => {
+  try {
+    if (!Handicap) return res.status(500).json({ error: 'Handicap model unavailable' });
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+    const h = await Handicap.findById(req.params.id);
+    if (!h) return res.status(404).json({ error: 'Not found' });
+    const { name, ghinNumber, handicapIndex, notes } = req.body || {};
+    if (name !== undefined) h.name = String(name).trim();
+    if (notes !== undefined) h.notes = String(notes).trim();
+    if (handicapIndex !== undefined) {
+      h.handicapIndex = handicapIndex === '' || handicapIndex === null ? null : Number(handicapIndex);
+    }
+    if (ghinNumber !== undefined) {
+      const ghin = String(ghinNumber || '').trim();
+      h.ghinNumber = ghin || undefined;
+    }
+    await h.save();
+    res.json(h);
+  } catch (err) {
+    if (err && err.code === 11000) {
+      return res.status(409).json({ error: 'duplicate ghinNumber' });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+app.delete('/api/handicaps/:id', async (req, res) => {
+  try {
+    if (!Handicap) return res.status(500).json({ error: 'Handicap model unavailable' });
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+    const del = await Handicap.findByIdAndDelete(req.params.id);
+    if (!del) return res.status(404).json({ error: 'Not found' });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Golfer list with current handicap from latest snapshot
+app.get('/api/clubs/:clubId/golfers', async (req, res) => {
+  try {
+    if (!Golfer || !HandicapSnapshot) return res.status(500).json({ error: 'Handicap models unavailable' });
+    const clubId = req.params.clubId;
+    const golfers = await Golfer.find({ clubId }).lean();
+    const ids = golfers.map((g) => g._id);
+    const snaps = await HandicapSnapshot.find({ golferId: { $in: ids } }).sort({ asOfDate: -1, importedAt: -1 }).lean();
+    const latestByGolfer = new Map();
+    for (const snap of snaps) {
+      const key = String(snap.golferId);
+      if (!latestByGolfer.has(key)) latestByGolfer.set(key, snap);
+    }
+    const output = golfers.map((g) => {
+      const latest = latestByGolfer.get(String(g._id));
+      return {
+        ...g,
+        current_handicap_index: latest ? latest.handicapIndex : null,
+        current_as_of_date: latest ? latest.asOfDate : null
+      };
+    });
+    res.json(output);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin import (CSV upload)
+app.post('/api/admin/clubs/:clubId/handicaps/import', upload.single('file'), async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+    if (!Golfer || !HandicapSnapshot || !ImportBatch) return res.status(500).json({ error: 'Handicap models unavailable' });
+    const clubId = req.params.clubId;
+    const dryRun = String(req.query.dryRun || '').toLowerCase() === 'true';
+    if (!req.file) return res.status(400).json({ error: 'file required' });
+    const csvText = req.file.buffer.toString('utf8');
+    const result = await importHandicapsFromCsv({
+      csvText,
+      clubId,
+      dryRun,
+      importedBy: 'admin',
+      fileName: req.file.originalname,
+      models: { Golfer, HandicapSnapshot, ImportBatch }
+    });
+    res.json(result);
+  } catch (err) {
+    console.error('Handicap import error', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/admin/import-batches', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+    if (!ImportBatch) return res.status(500).json({ error: 'ImportBatch model unavailable' });
+    const q = {};
+    if (req.query.clubId) q.clubId = req.query.clubId;
+    const list = await ImportBatch.find(q).sort({ createdAt: -1 }).limit(200).lean();
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/admin/import-batches/:batchId', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+    if (!ImportBatch) return res.status(500).json({ error: 'ImportBatch model unavailable' });
+    const batch = await ImportBatch.findById(req.params.batchId).lean();
+    if (!batch) return res.status(404).json({ error: 'Not found' });
+    res.json(batch);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 
@@ -428,7 +577,10 @@ let Event; try { Event = require('./models/Event'); } catch { Event = require('.
 let Subscriber; try { Subscriber = require('./models/Subscriber'); } catch { Subscriber = null; }
 let AuditLog; try { AuditLog = require('./models/AuditLog'); } catch { AuditLog = null; }
 let Settings; try { Settings = require('./models/Settings'); } catch { Settings = null; }
-// Handicap model removed
+let Handicap; try { Handicap = require('./models/Handicap'); } catch { Handicap = null; }
+let Golfer; try { Golfer = require('./models/Golfer'); } catch { Golfer = null; }
+let HandicapSnapshot; try { HandicapSnapshot = require('./models/HandicapSnapshot'); } catch { HandicapSnapshot = null; }
+let ImportBatch; try { ImportBatch = require('./models/ImportBatch'); } catch { ImportBatch = null; }
 
 /* ---------------- Admin Configuration ---------------- */
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'tommy.knight@gmail.com,jvhyers@gmail.com').split(',').map(e => e.trim()).filter(Boolean);
@@ -437,6 +589,8 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'tommy.knight@gmail.com,jvhyer
 // Default location (Richmond, VA area - adjust for your region)
 const DEFAULT_LAT = process.env.DEFAULT_LAT || '37.5407';
 const DEFAULT_LON = process.env.DEFAULT_LON || '-77.4360';
+const weatherCache = new Map(); // key: `${dateISO}|${lat}|${lon}` -> { data, ts }
+const WEATHER_TTL_MS = 3 * 60 * 60 * 1000; // 3 hours
 
 function getWeatherIcon(weatherCode, isDay = true) {
   // WMO Weather interpretation codes
@@ -467,6 +621,11 @@ async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) 
       };
     }
     const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
+    const cacheKey = `${dateStr}|${lat}|${lon}`;
+    const cached = weatherCache.get(cacheKey);
+    if (cached && Date.now() - cached.ts < WEATHER_TTL_MS) {
+      return cached.data;
+    }
     const today = new Date();
     const daysAhead = Math.ceil((date - today) / (1000 * 60 * 60 * 24));
     // Open-Meteo provides forecasts up to 16 days ahead
@@ -497,7 +656,7 @@ async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) 
     const tempMin = data.daily.temperature_2m_min[0];
     const avgTemp = Math.round((tempMax + tempMin) / 2);
     const weatherInfo = getWeatherIcon(weatherCode, true);
-    return {
+    const out = {
       success: true,
       condition: weatherInfo.condition,
       icon: weatherInfo.icon,
@@ -505,6 +664,8 @@ async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) 
       description: `${weatherInfo.desc} • ${Math.round(tempMin)}°-${Math.round(tempMax)}°F`,
       lastFetched: new Date()
     };
+    weatherCache.set(cacheKey, { data: out, ts: Date.now() });
+    return out;
   } catch (e) {
     let dateStr = 'undefined';
     if (date && date instanceof Date && !isNaN(date.getTime())) {
@@ -619,6 +780,10 @@ const fmt = {
   dateShortTitle(x){ const d = asUTCDate(x); return isNaN(d) ? '' : d.toLocaleDateString(undefined,{ weekday:'short', month:'numeric', day:'numeric', timeZone:'UTC' }); },
   tee(t){ if(!t) return ''; const m=/^(\d{1,2}):(\d{2})$/.exec(t); if(!m) return t; const H=+m[1], M=m[2]; const ap=H>=12?'PM':'AM'; const h=(H%12)||12; return `${h}:${M} ${ap}`; }
 };
+function isAdmin(req){
+  const code = (req.headers['x-admin-code'] || req.query.code || req.body?.code || '').trim();
+  return ADMIN_DELETE_CODE && code === ADMIN_DELETE_CODE;
+}
 function buildDedupeKey(dateVal, teeTimes = [], isTeam = false) {
   if (isTeam) return null;
   if (!dateVal || !Array.isArray(teeTimes) || !teeTimes.length) return null;
@@ -1625,6 +1790,7 @@ app.post('/api/events/weather/refresh-all', async (_req, res) => {
     let updated = 0;
     let failed = 0;
     let errors = [];
+    const weatherByDate = new Map();
     for (const ev of events) {
       try {
         if (!ev.date || !(ev.date instanceof Date) || isNaN(ev.date.getTime())) {
@@ -1633,7 +1799,11 @@ app.post('/api/events/weather/refresh-all', async (_req, res) => {
           console.error('Weather refresh skipped for event', ev._id, 'due to missing/invalid date:', ev.date);
           continue;
         }
-        const weatherData = await fetchWeatherForecast(ev.date);
+        const dateKey = ev.date.toISOString().slice(0, 10);
+        if (!weatherByDate.has(dateKey)) {
+          weatherByDate.set(dateKey, fetchWeatherForecast(ev.date));
+        }
+        const weatherData = await weatherByDate.get(dateKey);
         if (!ev.weather) ev.weather = {};
         ev.weather.condition = weatherData.condition;
         ev.weather.icon = weatherData.icon;
@@ -2194,9 +2364,14 @@ async function refreshWeatherForUpcomingEvents() {
     });
     
     let updated = 0;
+    const weatherByDate = new Map();
     for (const ev of events) {
       try {
-        const weatherData = await fetchWeatherForecast(ev.date);
+        const dateKey = ev.date.toISOString().slice(0, 10);
+        if (!weatherByDate.has(dateKey)) {
+          weatherByDate.set(dateKey, fetchWeatherForecast(ev.date));
+        }
+        const weatherData = await weatherByDate.get(dateKey);
         
         if (!ev.weather) ev.weather = {};
         ev.weather.condition = weatherData.condition;

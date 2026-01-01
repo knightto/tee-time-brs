@@ -152,6 +152,13 @@ Tee Time BRS is a comprehensive golf event management system with real-time noti
 3. Add/edit player handicaps
 4. View all handicaps in sortable list
 
+### 13. **Handicap Import (CSV)** (Admin)
+1. Open `/handicap-import.html` and enter admin code.
+2. CSV headers required: `club_id, club_name, ghin, first_name, last_name, handicap_index_raw, handicap_index, as_of_date, notes`.
+3. `handicap_index` is preferred; if blank, `handicap_index_raw` is parsed (e.g., “+1.2” becomes `-1.2`). Valid range: -15.0 to 54.0.
+4. Use **Preview** (dry-run) to see errors with row numbers; **Import** to save.
+5. Imports upsert golfers (unique per club + GHIN) and create snapshots; current handicap comes from the latest snapshot (as_of_date/imported_at).
+
 ---
 
 ## Weekend Game Rules

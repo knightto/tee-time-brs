@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Handicap Import (Admin)</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link href="/style.css" rel="stylesheet">
+</head>
+<body style="background:#0b1422;color:#e6edf7;font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif;">
+  <header class="bar" style="position:sticky;top:0;z-index:5;">
+    <h1 class="title">Handicap Import</h1>
+    <nav style="display:flex;gap:10px;align-items:center;margin-left:auto">
+      <a href="/" class="handicap-link">Back to Tee Times</a>
+      <a href="/admin.html" class="handicap-link">Admin Home</a>
+    </nav>
+  </header>
+
+  <main class="handicap-container" style="max-width:960px;margin:20px auto;padding:16px;">
+    <div class="panel" style="background:linear-gradient(135deg,#0f2138 0%,#0c1a2c 100%);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px;">
+      <div style="display:grid;gap:12px;">
+        <label style="display:grid;gap:6px;">
+          Club ID
+          <input id="clubIdInput" placeholder="e.g., westham" style="padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:#0b1728;color:#e6edf7;">
+        </label>
+        <label style="display:grid;gap:6px;">
+          Admin Code
+          <input id="adminCodeInput" type="password" placeholder="Admin delete code" style="padding:10px;border-radius:10px;border:1px solid rgba(255,255,255,0.08);background:#0b1728;color:#e6edf7;">
+        </label>
+        <label style="display:grid;gap:6px;">
+          CSV File
+          <input id="fileInput" type="file" accept=".csv">
+        </label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button id="previewBtn">Preview (Dry Run)</button>
+          <button id="importBtn" class="secondary">Import</button>
+        </div>
+        <div id="status" style="color:#9fb6d4;font-size:14px;"></div>
+        <div id="summary" style="color:#e6edf7;font-size:14px;"></div>
+        <div id="errorsTable"></div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const clubIdInput = document.getElementById('clubIdInput');
+    const adminCodeInput = document.getElementById('adminCodeInput');
+    const statusEl = document.getElementById('status');
+    const summaryEl = document.getElementById('summary');
+    const errorsTable = document.getElementById('errorsTable');
+
+    function setStatus(text, color='#9fb6d4') {
+      statusEl.textContent = text || '';
+      statusEl.style.color = color;
+    }
+
+    async function runImport(dryRun) {
+      const clubId = clubIdInput.value.trim();
+      const admin = adminCodeInput.value.trim();
+      if (!clubId) return setStatus('Club ID required', '#ef4444');
+      if (!fileInput.files.length) return setStatus('Choose a CSV file', '#ef4444');
+      setStatus(dryRun ? 'Previewing…' : 'Importing…', '#9fb6d4');
+      const fd = new FormData();
+      fd.append('file', fileInput.files[0]);
+      try {
+        const res = await fetch(`/api/admin/clubs/${encodeURIComponent(clubId)}/handicaps/import?dryRun=${dryRun ? 'true' : 'false'}`, {
+          method: 'POST',
+          headers: { 'x-admin-code': admin },
+          body: fd
+        });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || 'Request failed');
+        summaryEl.innerHTML = `Rows: ${body.rowCount || 0} | Success: ${body.successCount || 0} | Errors: ${body.errorCount || 0}` +
+          (body.importBatchId ? ` | Batch: ${body.importBatchId}` : '');
+        renderErrors(body.errors || []);
+        setStatus(dryRun ? 'Preview complete' : 'Import complete', '#10b981');
+      } catch (err) {
+        console.error(err);
+        setStatus(err.message, '#ef4444');
+      }
+    }
+
+    function renderErrors(list) {
+      if (!list.length) {
+        errorsTable.innerHTML = '<div style="color:#9fb6d4;">No errors</div>';
+        return;
+      }
+      const rows = list.slice(0, 200).map(e => `
+        <tr>
+          <td>${e.rowNumber ?? ''}</td>
+          <td>${e.ghin ?? ''}</td>
+          <td>${e.field ?? ''}</td>
+          <td>${e.message || ''}</td>
+        </tr>
+      `).join('');
+      errorsTable.innerHTML = `
+        <div style="margin-top:10px;color:#e6edf7;font-weight:600;">Errors (first 200)</div>
+        <table style="width:100%;border-collapse:collapse;margin-top:6px;">
+          <thead>
+            <tr style="background:rgba(255,255,255,0.05);">
+              <th style="text-align:left;padding:6px;">Row</th>
+              <th style="text-align:left;padding:6px;">GHIN</th>
+              <th style="text-align:left;padding:6px;">Field</th>
+              <th style="text-align:left;padding:6px;">Message</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
+      `;
+    }
+
+    document.getElementById('previewBtn')?.addEventListener('click', () => runImport(true));
+    document.getElementById('importBtn')?.addEventListener('click', () => runImport(false));
+
+    // Restore last values
+    clubIdInput.value = localStorage.getItem('clubIdLast') || '';
+    adminCodeInput.value = localStorage.getItem('adminCodeLast') || '';
+    clubIdInput.addEventListener('input', () => localStorage.setItem('clubIdLast', clubIdInput.value));
+    adminCodeInput.addEventListener('input', () => localStorage.setItem('adminCodeLast', adminCodeInput.value));
+  </script>
+</body>
+</html>

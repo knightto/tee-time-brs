@@ -1,5 +1,6 @@
 // Test server helper functions exported by server.js
 const srv = require('../server');
+const mongoose = require('mongoose');
 
 function run(){
   const tests = [
@@ -18,3 +19,8 @@ function run(){
 }
 
 run();
+
+// Close mongoose connections so tests can exit cleanly
+setTimeout(() => {
+  mongoose.connection.close().finally(() => process.exit(0));
+}, 50);

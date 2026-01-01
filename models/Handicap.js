@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 
 const HandicapSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
-  ghinNumber: { type: String, required: true, trim: true, unique: true },
+  ghinNumber: { type: String, trim: true, unique: true, sparse: true },
   handicapIndex: { type: Number, default: null },
   notes: { type: String, default: '' },
   lastFetchedAt: { type: Date, default: null },
@@ -12,7 +12,7 @@ const HandicapSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Index for efficient lookups
-HandicapSchema.index({ ghinNumber: 1 });
+// ghinNumber already marked unique+sparse on the field; keep only name index here to avoid duplicate warnings
 HandicapSchema.index({ name: 1 });
 
 module.exports = mongoose.model('Handicap', HandicapSchema);
