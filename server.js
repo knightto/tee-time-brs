@@ -276,11 +276,11 @@ app.post('/webhooks/resend', async (req, res) => {
     for (const [id, ts] of [...processedEmailIds.entries()]) {
       if (nowMs - ts > 10 * 60 * 1000) processedEmailIds.delete(id); // expire after 10 minutes
     }
+    const markProcessed = () => processedEmailIds.set(emailId, Date.now());
     if (processedEmailIds.has(emailId)) {
       console.log('[webhook] Skipping already-processed email', emailId);
       return res.status(200).send('Already processed');
     }
-    processedEmailIds.set(emailId, nowMs);
 
     // Restrict to your expected sender and recipient for now
     const fromAddress = event.data.from || '';
@@ -305,11 +305,13 @@ app.post('/webhooks/resend', async (req, res) => {
         from: fromAddress,
         to: toList,
       });
+      markProcessed();
       return res.status(200).send('Ignored: to/from not allowed');
     }
 
     if (!process.env.RESEND_API_KEY) {
       console.warn('[webhook] RESEND_API_KEY not configured');
+      markProcessed();
       return res.status(200).send('Resend not configured');
     }
 
@@ -398,6 +400,12 @@ app.post('/webhooks/resend', async (req, res) => {
 
       const normalizedDate = normalizeDate(parsed.dateStr || '');
       const normalizedTime = normalizeTime(parsed.timeStr || '');
+      const eventDateObj = asUTCDate(normalizedDate);
+      if (isNaN(eventDateObj)) {
+        console.warn('[webhook] Invalid date parsed from email, skipping');
+        markProcessed();
+        return res.status(200).send('Invalid date in email');
+      }
 
       // Derive number of tee times from golfers count (4 per tee)
       const teeTimeCount = (typeof parsed.players === 'number' && parsed.players > 0)
@@ -418,12 +426,6 @@ app.post('/webhooks/resend', async (req, res) => {
         dedupeKey
       };
       console.log('[webhook] Event payload to be created:', JSON.stringify(eventPayload));
-
-      const eventDateObj = asUTCDate(normalizedDate);
-      if (isNaN(eventDateObj)) {
-        console.warn('[webhook] Invalid date parsed from email, skipping');
-        return res.status(200).send('Invalid date in email');
-      }
 
       const escapeRegex = (s = '') => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const findMatchingEvents = async () => {
@@ -498,6 +500,7 @@ app.post('/webhooks/resend', async (req, res) => {
             const updated = await updateEventFromPayload(matches[0]);
             const deduped = await dedupeExtras(matches, updated._id);
             console.log('[webhook] Event matched existing, updated instead of creating new', { id: updated._id, deduped });
+            markProcessed();
             return res.status(200).json({ ok: true, eventId: updated._id, updated: true, deduped });
           }
 
@@ -517,6 +520,7 @@ app.post('/webhooks/resend', async (req, res) => {
           } catch (e) {
             console.error('[webhook] Failed to send notification email:', e);
           }
+          markProcessed();
           return res.status(201).json({ ok: true, eventId: created._id, created: true });
         } catch (err) {
           console.error('[webhook] Error creating/updating event via email:', err);
@@ -543,9 +547,11 @@ app.post('/webhooks/resend', async (req, res) => {
                  ${teeLabel ? `<p><strong>Tee Time:</strong> ${esc(teeLabel)}</p>` : ''}
                  <p>We apologize for any inconvenience.</p>${btn('View Other Events')}`))
               .catch(err => console.error('[webhook] Failed to send cancellation email:', err));
+            markProcessed();
             return res.status(200).json({ ok: true, cancelled: true, eventIds: idsToDelete });
           } else {
             console.warn('[webhook] Cancel: no matching event found');
+            markProcessed();
             return res.status(200).send('Cancel: no matching event found');
           }
         } catch (err) {
@@ -554,6 +560,7 @@ app.post('/webhooks/resend', async (req, res) => {
         }
       } else {
         console.log('[webhook] Ignoring non-create/cancel email action:', parsed.action);
+        markProcessed();
         return res.status(200).send(`No event created or cancelled (action=${parsed.action || 'unknown'})`);
       }
     } catch (err) {
