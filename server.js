@@ -589,8 +589,9 @@ const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'tommy.knight@gmail.com,jvhyer
 // Default location (Richmond, VA area - adjust for your region)
 const DEFAULT_LAT = process.env.DEFAULT_LAT || '37.5407';
 const DEFAULT_LON = process.env.DEFAULT_LON || '-77.4360';
-const weatherCache = new Map(); // key: `${dateISO}|${lat}|${lon}` -> { data, ts }
-const WEATHER_TTL_MS = 3 * 60 * 60 * 1000; // 3 hours
+const weatherCache = new Map(); // key: `${dateISO}|${lat}|${lon}` -> { data, ts, isError }
+const WEATHER_TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+const WEATHER_ERROR_TTL_MS = 60 * 60 * 1000; // 1 hour cooldown on failures
 
 function getWeatherIcon(weatherCode, isDay = true) {
   // WMO Weather interpretation codes
@@ -623,8 +624,10 @@ async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) 
     const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
     const cacheKey = `${dateStr}|${lat}|${lon}`;
     const cached = weatherCache.get(cacheKey);
-    if (cached && Date.now() - cached.ts < WEATHER_TTL_MS) {
-      return cached.data;
+    if (cached) {
+      const age = Date.now() - cached.ts;
+      if (!cached.isError && age < WEATHER_TTL_MS) return cached.data;
+      if (cached.isError && age < WEATHER_ERROR_TTL_MS) return cached.data;
     }
     const today = new Date();
     const daysAhead = Math.ceil((date - today) / (1000 * 60 * 60 * 24));
@@ -664,7 +667,7 @@ async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) 
       description: `${weatherInfo.desc} • ${Math.round(tempMin)}°-${Math.round(tempMax)}°F`,
       lastFetched: new Date()
     };
-    weatherCache.set(cacheKey, { data: out, ts: Date.now() });
+    weatherCache.set(cacheKey, { data: out, ts: Date.now(), isError: false });
     return out;
   } catch (e) {
     let dateStr = 'undefined';
@@ -672,14 +675,16 @@ async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) 
       dateStr = date.toISOString().split('T')[0];
     }
     console.error('Weather fetch error:', e.message, '(Date:', dateStr, 'Lat:', lat, 'Lon:', lon, ')');
-    return {
+    const errOut = {
       success: false,
       condition: 'error',
       icon: '🌤️',
       temp: null,
-      description: 'Weather unavailable',
-      lastFetched: null
+      description: e.message || 'Weather unavailable',
+      lastFetched: new Date()
     };
+    weatherCache.set(`${dateStr}|${lat}|${lon}`, { data: errOut, ts: Date.now(), isError: true });
+    return errOut;
   }
 }
 
