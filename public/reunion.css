@@ -44,6 +44,36 @@ a{color:inherit}
 
 .reunion-shell{max-width:1240px;margin:0 auto;padding:22px 18px 36px;display:flex;flex-direction:column;gap:18px}
 
+.banner-photo{
+  position:relative;
+  border-radius:20px;
+  overflow:hidden;
+  background:#0b1224;
+  box-shadow:var(--r-shadow);
+  border:1px solid rgba(255,255,255,0.14);
+}
+.banner-img{
+  width:100%;
+  height:auto;
+  display:block;
+  object-fit:contain;
+  object-position:center;
+  aspect-ratio:752/474;
+  max-height:420px;
+}
+.banner-overlay{
+  position:absolute;
+  inset:0;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-end;
+  padding:18px;
+  color:#f8fafc;
+  background:linear-gradient(180deg,transparent 45%,rgba(0,0,0,0.55) 100%);
+}
+.banner-overlay h2{margin:4px 0 0;font-size:22px;color:#fff}
+.banner-overlay .subtext{color:rgba(248,250,252,0.85);margin:4px 0 0}
+
 .hero-grid{
   display:grid;
   grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
@@ -254,5 +284,6 @@ button.full{width:100%}
 
 @media (max-width:720px){
   .topbar.reunion-topbar{flex-direction:column;align-items:flex-start}
+  .banner-photo{min-height:260px}
   .card-header{flex-direction:column;align-items:flex-start}
 }

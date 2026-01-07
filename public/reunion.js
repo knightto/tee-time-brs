@@ -1,6 +1,7 @@
 (() => {
   const STORAGE_KEY = 'reunion-35-hq-v1';
   const EVENT_DATE = '2026-06-13';
+  const PIN_CODE = '123';
 
   const defaultState = {
     startedAt: Date.now(),
@@ -154,6 +155,11 @@
   const uid = () => Math.random().toString(36).slice(2, 9);
 
   const cloneDefaults = () => JSON.parse(JSON.stringify(defaultState));
+
+  const ensurePin = (actionLabel = 'continue') => {
+    const input = window.prompt(`Enter PIN to ${actionLabel}:`);
+    return input === PIN_CODE;
+  };
 
   const loadState = () => {
     try {
@@ -461,6 +467,10 @@
   el('eventInfoForm')?.addEventListener('submit', (e) => {
     e.preventDefault();
     const form = e.target;
+    if (!ensurePin('save event info')) {
+      renderEventInfo();
+      return;
+    }
     state.eventInfo = {
       location: form.location.value.trim(),
       contact: form.contact.value.trim(),
@@ -490,6 +500,7 @@
   el('logisticsForm')?.addEventListener('submit', (e) => {
     e.preventDefault();
     const form = e.target;
+    if (!ensurePin('add a logistics item')) return;
     state.logistics.push({
       id: uid(),
       category: form.category.value,
@@ -507,6 +518,7 @@
   el('scheduleForm')?.addEventListener('submit', (e) => {
     e.preventDefault();
     const form = e.target;
+    if (!ensurePin('add to the schedule')) return;
     state.schedule.push({
       id: uid(),
       date: form.date.value,
@@ -525,6 +537,7 @@
   el('meetingForm')?.addEventListener('submit', (e) => {
     e.preventDefault();
     const form = e.target;
+    if (!ensurePin('add a meeting')) return;
     state.meetings.push({
       id: uid(),
       date: form.date.value,
@@ -544,6 +557,10 @@
   el('attendeeList')?.addEventListener('change', (e) => {
     const select = e.target;
     if (select.dataset.action === 'attendee-status') {
+      if (!ensurePin('update attendee status')) {
+        renderAttendees();
+        return;
+      }
       const attendee = state.attendees.find((a) => a.id === select.dataset.id);
       if (attendee) attendee.status = select.value;
       saveState();
@@ -553,6 +570,10 @@
   el('attendeeList')?.addEventListener('click', (e) => {
     const id = e.target.dataset.removeAttendee;
     if (!id) return;
+    if (!ensurePin('remove attendee')) {
+      renderAttendees();
+      return;
+    }
     state.attendees = state.attendees.filter((a) => a.id !== id);
     saveState();
     renderAttendees();
@@ -561,6 +582,10 @@
   el('logisticsList')?.addEventListener('change', (e) => {
     const select = e.target;
     if (select.dataset.action === 'logistics-status') {
+      if (!ensurePin('update logistics status')) {
+        renderLogistics();
+        return;
+      }
       const item = state.logistics.find((l) => l.id === select.dataset.id);
       if (item) item.status = select.value;
       saveState();
@@ -570,6 +595,10 @@
   el('logisticsList')?.addEventListener('click', (e) => {
     const id = e.target.dataset.removeLogistics;
     if (!id) return;
+    if (!ensurePin('remove logistics item')) {
+      renderLogistics();
+      return;
+    }
     state.logistics = state.logistics.filter((l) => l.id !== id);
     saveState();
     renderLogistics();
@@ -578,6 +607,10 @@
   el('scheduleList')?.addEventListener('change', (e) => {
     const select = e.target;
     if (select.dataset.action === 'schedule-status') {
+      if (!ensurePin('update schedule status')) {
+        renderSchedule();
+        return;
+      }
       const item = state.schedule.find((s) => s.id === select.dataset.id);
       if (item) item.status = select.value;
       saveState();
@@ -587,6 +620,10 @@
   el('scheduleList')?.addEventListener('click', (e) => {
     const id = e.target.dataset.removeSchedule;
     if (!id) return;
+    if (!ensurePin('remove schedule item')) {
+      renderSchedule();
+      return;
+    }
     state.schedule = state.schedule.filter((s) => s.id !== id);
     saveState();
     renderSchedule();
@@ -595,6 +632,10 @@
   el('meetingList')?.addEventListener('change', (e) => {
     const select = e.target;
     if (select.dataset.action === 'meeting-status') {
+      if (!ensurePin('update meeting status')) {
+        renderMeetings();
+        return;
+      }
       const item = state.meetings.find((m) => m.id === select.dataset.id);
       if (item) item.status = select.value;
       saveState();
@@ -604,6 +645,10 @@
   el('meetingList')?.addEventListener('click', (e) => {
     const id = e.target.dataset.removeMeeting;
     if (!id) return;
+    if (!ensurePin('remove meeting')) {
+      renderMeetings();
+      return;
+    }
     state.meetings = state.meetings.filter((m) => m.id !== id);
     saveState();
     renderMeetings();
@@ -622,6 +667,7 @@
   });
 
   el('resetData')?.addEventListener('click', () => {
+    if (!ensurePin('reset all planning data')) return;
     const confirmed = window.confirm('Reset reunion planning data to the starter template? This only affects your browser.');
     if (!confirmed) return;
     state = cloneDefaults();
