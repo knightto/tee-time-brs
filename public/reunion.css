@@ -287,3 +287,19 @@ button.full{width:100%}
   .banner-photo{min-height:260px}
   .card-header{flex-direction:column;align-items:flex-start}
 }
+
+@media (max-width:640px){
+  .reunion-shell{padding:16px 12px 28px}
+  .reunion-card{padding:14px;border-radius:14px}
+  .banner-photo{border-radius:14px}
+  .banner-img{max-height:320px}
+  .banner-overlay h2{font-size:19px}
+  .hero-grid,
+  .reunion-grid{gap:12px}
+  .form-grid,
+  .form-grid.compact{grid-template-columns:1fr}
+  .item-card .item-head{flex-direction:column;align-items:flex-start}
+  .item-card .controls{flex-direction:column;align-items:flex-start}
+  .topbar.reunion-topbar .topbar-actions{width:100%;justify-content:flex-start;gap:8px}
+  .topbar.reunion-topbar button{width:auto}
+}
