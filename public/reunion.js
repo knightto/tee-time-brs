@@ -1,7 +1,7 @@
 (() => {
-  const STORAGE_KEY = 'reunion-35-hq-v1';
   const EVENT_DATE = '2026-06-13';
   const PIN_CODE = '123';
+  const API_BASE = '/api/reunion';
 
   const defaultState = {
     startedAt: Date.now(),
@@ -10,138 +10,16 @@
       location: 'Set city + main venue',
       contact: '',
       lodging: '',
-      notes: '35th reunion — keep the weekend welcoming, nostalgic, and simple.',
+      notes: '35th reunion - keep the weekend welcoming, nostalgic, and simple.',
     },
-    attendees: [
-      {
-        id: 'a1',
-        name: 'Alex Morgan',
-        status: 'going',
-        role: 'Check-in + name badges',
-        origin: 'Austin',
-        notes: 'Arrives Fri mid-day, can run registration table.',
-      },
-      {
-        id: 'a2',
-        name: 'Sam Lee',
-        status: 'maybe',
-        role: 'Playlist + photo slideshow',
-        origin: 'Chicago',
-        notes: 'Needs photos by Apr 30; DJ option TBD.',
-      },
-      {
-        id: 'a3',
-        name: 'Taylor Kim',
-        status: 'pending',
-        role: 'Outreach to classmates',
-        origin: 'Seattle',
-        notes: 'Will text the west coast group.',
-      },
-    ],
-    logistics: [
-      {
-        id: 'l1',
-        category: 'venue',
-        title: 'Confirm contract with Riverview Hotel ballroom',
-        owner: 'Jamie',
-        due: '2026-02-15',
-        status: 'in-progress',
-        notes: 'Need deposit + AV package details.',
-      },
-      {
-        id: 'l2',
-        category: 'catering',
-        title: 'Decide menu + vegan/veg options',
-        owner: 'Alex',
-        due: '2026-03-01',
-        status: 'open',
-        notes: 'Collect dietary needs from attendees.',
-      },
-      {
-        id: 'l3',
-        category: 'outreach',
-        title: 'Send save-the-date email + social post',
-        owner: 'Taylor',
-        due: '2025-12-15',
-        status: 'done',
-        notes: 'Draft approved; ready to send.',
-      },
-    ],
-    schedule: [
-      {
-        id: 's1',
-        date: '2026-06-12',
-        time: '18:00',
-        title: 'Welcome mixer',
-        location: 'Riverview Hotel lobby bar',
-        type: 'social',
-        status: 'planned',
-        notes: 'Name badges + check-in QR code.',
-      },
-      {
-        id: 's2',
-        date: '2026-06-13',
-        time: '11:00',
-        title: 'Campus walk + photo',
-        location: 'Old Main entrance',
-        type: 'program',
-        status: 'planned',
-        notes: 'Group photo at noon.',
-      },
-      {
-        id: 's3',
-        date: '2026-06-13',
-        time: '18:30',
-        title: 'Reunion dinner',
-        location: 'Riverview Ballroom',
-        type: 'program',
-        status: 'planned',
-        notes: 'Emcee + short remarks at 7:15p.',
-      },
-      {
-        id: 's4',
-        date: '2026-06-14',
-        time: '10:30',
-        title: 'Farewell brunch',
-        location: 'Westside Diner',
-        type: 'social',
-        status: 'planned',
-        notes: 'Optional; pay-as-you-go.',
-      },
-    ],
-    meetings: [
-      {
-        id: 'm1',
-        date: '2026-01-15',
-        time: '19:00',
-        topic: 'Budget + ticket price',
-        host: 'Jamie',
-        channel: 'Zoom',
-        status: 'scheduled',
-        notes: 'Share budget draft by Jan 12.',
-      },
-      {
-        id: 'm2',
-        date: '2026-02-05',
-        time: '19:00',
-        topic: 'Program, music, slideshow',
-        host: 'Sam',
-        channel: 'Zoom',
-        status: 'scheduled',
-        notes: 'Collect photos; decide MC.',
-      },
-    ],
+    attendees: [],
+    logistics: [],
+    schedule: [],
+    meetings: [],
   };
 
   const el = (id) => document.getElementById(id);
   const countdownDate = new Date(`${EVENT_DATE}T00:00:00`);
-
-  const formatDate = (value) => {
-    if (!value) return '';
-    const [y, m, d] = value.split('-').map(Number);
-    const date = new Date(y, (m || 1) - 1, d || 1);
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
-  };
 
   const escapeHtml = (str = '') =>
     str
@@ -152,43 +30,55 @@
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
 
-  const uid = () => Math.random().toString(36).slice(2, 9);
+  const formatDate = (value) => {
+    if (!value) return '';
+    const [y, m, d] = value.split('-').map(Number);
+    const date = new Date(y, (m || 1) - 1, d || 1);
+    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  };
 
   const cloneDefaults = () => JSON.parse(JSON.stringify(defaultState));
 
+  const normalizePlan = (plan = {}) => ({
+    startedAt: plan.startedAt ? new Date(plan.startedAt).getTime() : Date.now(),
+    lastSaved: plan.updatedAt ? new Date(plan.updatedAt).getTime() : Date.now(),
+    eventInfo: { ...defaultState.eventInfo, ...(plan.eventInfo || {}) },
+    attendees: Array.isArray(plan.attendees) ? plan.attendees : [],
+    logistics: Array.isArray(plan.logistics) ? plan.logistics : [],
+    schedule: Array.isArray(plan.schedule) ? plan.schedule : [],
+    meetings: Array.isArray(plan.meetings) ? plan.meetings : [],
+  });
+
+  let state = cloneDefaults();
+
+  const api = async (path, options = {}) => {
+    const res = await fetch(path, {
+      method: options.method || 'GET',
+      headers: { 'Content-Type': 'application/json', ...(options.headers || {}) },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    });
+    let data = null;
+    try {
+      data = await res.json();
+    } catch {
+      data = null;
+    }
+    if (!res.ok) {
+      throw new Error((data && data.error) || res.statusText || 'Request failed');
+    }
+    return data;
+  };
+
   const ensurePin = (actionLabel = 'continue') => {
     const input = window.prompt(`Enter PIN to ${actionLabel}:`);
-    return input === PIN_CODE;
-  };
-
-  const loadState = () => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return {
-          ...cloneDefaults(),
-          ...parsed,
-          attendees: parsed.attendees || [],
-          logistics: parsed.logistics || [],
-          schedule: parsed.schedule || [],
-          meetings: parsed.meetings || [],
-        };
-      }
-    } catch (err) {
-      console.warn('Falling back to defaults', err);
+    if (input !== PIN_CODE) {
+      if (input !== null) alert('Incorrect PIN.');
+      return null;
     }
-    return cloneDefaults();
+    return input;
   };
 
-  let state = loadState();
-  state.startedAt = state.startedAt || Date.now();
-
-  const saveState = () => {
-    state.lastSaved = Date.now();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    renderMeta();
-  };
+  const getId = (item) => (item && (item.id || item._id || item._id?.toString())) || '';
 
   const renderMeta = () => {
     const lastSavedEl = el('lastSaved');
@@ -262,6 +152,12 @@
         return 'Booked';
       case 'done':
         return 'Done';
+      case 'firm':
+        return 'Firm';
+      case 'planned':
+        return 'Planned';
+      case 'scheduled':
+        return 'Scheduled';
       default:
         return status || 'Unknown';
     }
@@ -303,7 +199,7 @@
       .sort((a, b) => order[a.status] - order[b.status])
       .map(
         (a) => `
-        <div class="item-card" data-id="${a.id}">
+        <div class="item-card" data-id="${getId(a)}">
           <div class="item-head">
             <h3>${escapeHtml(a.name)}</h3>
             <span class="status-pill status-${a.status}">${statusLabel(a.status)}</span>
@@ -315,13 +211,13 @@
           ${a.notes ? `<p class="notes">${escapeHtml(a.notes)}</p>` : ''}
           <div class="controls">
             <label style="font-weight:700;font-size:12px;color:#334155">Status
-              <select data-action="attendee-status" data-id="${a.id}">
+              <select data-action="attendee-status" data-id="${getId(a)}">
                 <option value="going"${a.status === 'going' ? ' selected' : ''}>Going</option>
                 <option value="maybe"${a.status === 'maybe' ? ' selected' : ''}>Maybe</option>
                 <option value="pending"${a.status === 'pending' ? ' selected' : ''}>Not yet</option>
               </select>
             </label>
-            <button data-remove-attendee="${a.id}" class="ghost danger" type="button">Remove</button>
+            <button data-remove-attendee="${getId(a)}" class="ghost danger" type="button">Remove</button>
           </div>
         </div>`
       )
@@ -341,7 +237,7 @@
       .sort((a, b) => (a.due || '').localeCompare(b.due || ''))
       .map(
         (item) => `
-        <div class="item-card" data-id="${item.id}">
+        <div class="item-card" data-id="${getId(item)}">
           <div class="item-head">
             <h3>${escapeHtml(item.title)}</h3>
             <span class="badge">${typeLabel(item.category)}</span>
@@ -353,14 +249,14 @@
           ${item.notes ? `<p class="notes">${escapeHtml(item.notes)}</p>` : ''}
           <div class="controls">
             <label style="font-weight:700;font-size:12px;color:#334155">Status
-              <select data-action="logistics-status" data-id="${item.id}">
+              <select data-action="logistics-status" data-id="${getId(item)}">
                 <option value="open"${item.status === 'open' ? ' selected' : ''}>Open</option>
                 <option value="in-progress"${item.status === 'in-progress' ? ' selected' : ''}>In progress</option>
                 <option value="booked"${item.status === 'booked' ? ' selected' : ''}>Booked</option>
                 <option value="done"${item.status === 'done' ? ' selected' : ''}>Done</option>
               </select>
             </label>
-            <button data-remove-logistics="${item.id}" class="ghost danger" type="button">Remove</button>
+            <button data-remove-logistics="${getId(item)}" class="ghost danger" type="button">Remove</button>
           </div>
         </div>`
       )
@@ -380,7 +276,7 @@
       .sort((a, b) => `${a.date || ''} ${a.time || ''}`.localeCompare(`${b.date || ''} ${b.time || ''}`))
       .map(
         (item) => `
-        <div class="item-card" data-id="${item.id}">
+        <div class="item-card" data-id="${getId(item)}">
           <div class="item-head">
             <h3>${escapeHtml(item.title)}</h3>
             <span class="badge">${typeLabel(item.type)}</span>
@@ -392,13 +288,13 @@
           ${item.notes ? `<p class="notes">${escapeHtml(item.notes)}</p>` : ''}
           <div class="controls">
             <label style="font-weight:700;font-size:12px;color:#334155">Status
-              <select data-action="schedule-status" data-id="${item.id}">
+              <select data-action="schedule-status" data-id="${getId(item)}">
                 <option value="planned"${item.status === 'planned' ? ' selected' : ''}>Planned</option>
                 <option value="firm"${item.status === 'firm' ? ' selected' : ''}>Firm</option>
                 <option value="done"${item.status === 'done' ? ' selected' : ''}>Done</option>
               </select>
             </label>
-            <button data-remove-schedule="${item.id}" class="ghost danger" type="button">Remove</button>
+            <button data-remove-schedule="${getId(item)}" class="ghost danger" type="button">Remove</button>
           </div>
         </div>`
       )
@@ -418,7 +314,7 @@
       .sort((a, b) => `${a.date || ''} ${a.time || ''}`.localeCompare(`${b.date || ''} ${b.time || ''}`))
       .map(
         (item) => `
-        <div class="item-card" data-id="${item.id}">
+        <div class="item-card" data-id="${getId(item)}">
           <div class="item-head">
             <h3>${escapeHtml(item.topic)}</h3>
             <span class="status-pill ${item.status === 'done' ? 'status-done' : 'status-maybe'}">${statusLabel(item.status)}</span>
@@ -431,12 +327,12 @@
           ${item.notes ? `<p class="notes">${escapeHtml(item.notes)}</p>` : ''}
           <div class="controls">
             <label style="font-weight:700;font-size:12px;color:#334155">Status
-              <select data-action="meeting-status" data-id="${item.id}">
+              <select data-action="meeting-status" data-id="${getId(item)}">
                 <option value="scheduled"${item.status === 'scheduled' ? ' selected' : ''}>Scheduled</option>
                 <option value="done"${item.status === 'done' ? ' selected' : ''}>Done</option>
               </select>
             </label>
-            <button data-remove-meeting="${item.id}" class="ghost danger" type="button">Remove</button>
+            <button data-remove-meeting="${getId(item)}" class="ghost danger" type="button">Remove</button>
           </div>
         </div>`
       )
@@ -463,195 +359,298 @@
     renderMeta();
   };
 
-  // Form handlers
-  el('eventInfoForm')?.addEventListener('submit', (e) => {
+  const handleError = (err, fallbackRender) => {
+    console.error(err);
+    alert(err.message || 'Request failed');
+    if (typeof fallbackRender === 'function') fallbackRender();
+  };
+
+  const loadPlan = async () => {
+    try {
+      const data = await api(API_BASE);
+      state = normalizePlan(data.plan);
+    } catch (err) {
+      console.error('Failed to load reunion data from server, using defaults.', err);
+      state = cloneDefaults();
+    }
+    renderAll();
+  };
+
+  el('eventInfoForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
-    if (!ensurePin('save event info')) {
+    const pin = ensurePin('save event info');
+    if (!pin) {
       renderEventInfo();
       return;
     }
-    state.eventInfo = {
-      location: form.location.value.trim(),
-      contact: form.contact.value.trim(),
-      lodging: form.lodging.value.trim(),
-      notes: form.notes.value.trim(),
-    };
-    saveState();
-    renderEventInfo();
+    try {
+      const data = await api(`${API_BASE}/event-info`, {
+        method: 'POST',
+        body: {
+          pin,
+          eventInfo: {
+            location: form.location.value.trim(),
+            contact: form.contact.value.trim(),
+            lodging: form.lodging.value.trim(),
+            notes: form.notes.value.trim(),
+          },
+        },
+      });
+      state = normalizePlan(data.plan);
+      renderAll();
+    } catch (err) {
+      handleError(err, renderEventInfo);
+    }
   });
 
-  el('attendeeForm')?.addEventListener('submit', (e) => {
+  el('attendeeForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
-    state.attendees.push({
-      id: uid(),
-      name: form.name.value.trim(),
-      status: form.status.value,
-      role: form.role.value.trim(),
-      origin: form.origin.value.trim(),
-      notes: form.notes.value.trim(),
-    });
-    form.reset();
-    saveState();
-    renderAttendees();
+    try {
+      const data = await api(`${API_BASE}/attendees`, {
+        method: 'POST',
+        body: {
+          name: form.name.value.trim(),
+          status: form.status.value,
+          role: form.role.value.trim(),
+          origin: form.origin.value.trim(),
+          notes: form.notes.value.trim(),
+        },
+      });
+      form.reset();
+      state = normalizePlan(data.plan);
+      renderAll();
+    } catch (err) {
+      handleError(err, renderAttendees);
+    }
   });
 
-  el('logisticsForm')?.addEventListener('submit', (e) => {
+  el('logisticsForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
-    if (!ensurePin('add a logistics item')) return;
-    state.logistics.push({
-      id: uid(),
-      category: form.category.value,
-      title: form.title.value.trim(),
-      owner: form.owner.value.trim(),
-      due: form.due.value,
-      status: form.status.value,
-      notes: form.notes.value.trim(),
-    });
-    form.reset();
-    saveState();
-    renderLogistics();
+    const pin = ensurePin('add a logistics item');
+    if (!pin) return;
+    try {
+      const data = await api(`${API_BASE}/logistics`, {
+        method: 'POST',
+        body: {
+          pin,
+          category: form.category.value,
+          title: form.title.value.trim(),
+          owner: form.owner.value.trim(),
+          due: form.due.value,
+          status: form.status.value,
+          notes: form.notes.value.trim(),
+        },
+      });
+      form.reset();
+      state = normalizePlan(data.plan);
+      renderAll();
+    } catch (err) {
+      handleError(err, renderLogistics);
+    }
   });
 
-  el('scheduleForm')?.addEventListener('submit', (e) => {
+  el('scheduleForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
-    if (!ensurePin('add to the schedule')) return;
-    state.schedule.push({
-      id: uid(),
-      date: form.date.value,
-      time: form.time.value,
-      title: form.title.value.trim(),
-      location: form.location.value.trim(),
-      type: form.type.value,
-      status: 'planned',
-      notes: form.notes.value.trim(),
-    });
-    form.reset();
-    saveState();
-    renderSchedule();
+    const pin = ensurePin('add to the schedule');
+    if (!pin) return;
+    try {
+      const data = await api(`${API_BASE}/schedule`, {
+        method: 'POST',
+        body: {
+          pin,
+          date: form.date.value,
+          time: form.time.value,
+          title: form.title.value.trim(),
+          location: form.location.value.trim(),
+          type: form.type.value,
+          notes: form.notes.value.trim(),
+        },
+      });
+      form.reset();
+      state = normalizePlan(data.plan);
+      renderAll();
+    } catch (err) {
+      handleError(err, renderSchedule);
+    }
   });
 
-  el('meetingForm')?.addEventListener('submit', (e) => {
+  el('meetingForm')?.addEventListener('submit', async (e) => {
     e.preventDefault();
     const form = e.target;
-    if (!ensurePin('add a meeting')) return;
-    state.meetings.push({
-      id: uid(),
-      date: form.date.value,
-      time: form.time.value,
-      topic: form.topic.value.trim(),
-      host: form.host.value.trim(),
-      channel: form.channel.value.trim(),
-      status: form.status.value,
-      notes: form.notes.value.trim(),
-    });
-    form.reset();
-    saveState();
-    renderMeetings();
+    const pin = ensurePin('add a meeting');
+    if (!pin) return;
+    try {
+      const data = await api(`${API_BASE}/meetings`, {
+        method: 'POST',
+        body: {
+          pin,
+          date: form.date.value,
+          time: form.time.value,
+          topic: form.topic.value.trim(),
+          host: form.host.value.trim(),
+          channel: form.channel.value.trim(),
+          status: form.status.value,
+          notes: form.notes.value.trim(),
+        },
+      });
+      form.reset();
+      state = normalizePlan(data.plan);
+      renderAll();
+    } catch (err) {
+      handleError(err, renderMeetings);
+    }
   });
 
-  // Status updates and deletes
-  el('attendeeList')?.addEventListener('change', (e) => {
+  el('attendeeList')?.addEventListener('change', async (e) => {
     const select = e.target;
     if (select.dataset.action === 'attendee-status') {
-      if (!ensurePin('update attendee status')) {
+      const pin = ensurePin('update attendee status');
+      if (!pin) {
         renderAttendees();
         return;
       }
-      const attendee = state.attendees.find((a) => a.id === select.dataset.id);
-      if (attendee) attendee.status = select.value;
-      saveState();
-      renderAttendees();
+      try {
+        const data = await api(`${API_BASE}/attendees/${select.dataset.id}/status`, {
+          method: 'PUT',
+          body: { status: select.value, pin },
+        });
+        state = normalizePlan(data.plan);
+        renderAll();
+      } catch (err) {
+        handleError(err, renderAttendees);
+      }
     }
   });
-  el('attendeeList')?.addEventListener('click', (e) => {
+  el('attendeeList')?.addEventListener('click', async (e) => {
     const id = e.target.dataset.removeAttendee;
     if (!id) return;
-    if (!ensurePin('remove attendee')) {
+    const pin = ensurePin('remove attendee');
+    if (!pin) {
       renderAttendees();
       return;
     }
-    state.attendees = state.attendees.filter((a) => a.id !== id);
-    saveState();
-    renderAttendees();
+    try {
+      const data = await api(`${API_BASE}/attendees/${id}`, { method: 'DELETE', body: { pin } });
+      state = normalizePlan(data.plan);
+      renderAll();
+    } catch (err) {
+      handleError(err, renderAttendees);
+    }
   });
 
-  el('logisticsList')?.addEventListener('change', (e) => {
+  el('logisticsList')?.addEventListener('change', async (e) => {
     const select = e.target;
     if (select.dataset.action === 'logistics-status') {
-      if (!ensurePin('update logistics status')) {
+      const pin = ensurePin('update logistics status');
+      if (!pin) {
         renderLogistics();
         return;
       }
-      const item = state.logistics.find((l) => l.id === select.dataset.id);
-      if (item) item.status = select.value;
-      saveState();
-      renderLogistics();
+      try {
+        const data = await api(`${API_BASE}/logistics/${select.dataset.id}/status`, {
+          method: 'PUT',
+          body: { status: select.value, pin },
+        });
+        state = normalizePlan(data.plan);
+        renderAll();
+      } catch (err) {
+        handleError(err, renderLogistics);
+      }
     }
   });
-  el('logisticsList')?.addEventListener('click', (e) => {
+  el('logisticsList')?.addEventListener('click', async (e) => {
     const id = e.target.dataset.removeLogistics;
     if (!id) return;
-    if (!ensurePin('remove logistics item')) {
+    const pin = ensurePin('remove logistics item');
+    if (!pin) {
       renderLogistics();
       return;
     }
-    state.logistics = state.logistics.filter((l) => l.id !== id);
-    saveState();
-    renderLogistics();
+    try {
+      const data = await api(`${API_BASE}/logistics/${id}`, { method: 'DELETE', body: { pin } });
+      state = normalizePlan(data.plan);
+      renderAll();
+    } catch (err) {
+      handleError(err, renderLogistics);
+    }
   });
 
-  el('scheduleList')?.addEventListener('change', (e) => {
+  el('scheduleList')?.addEventListener('change', async (e) => {
     const select = e.target;
     if (select.dataset.action === 'schedule-status') {
-      if (!ensurePin('update schedule status')) {
+      const pin = ensurePin('update schedule status');
+      if (!pin) {
         renderSchedule();
         return;
       }
-      const item = state.schedule.find((s) => s.id === select.dataset.id);
-      if (item) item.status = select.value;
-      saveState();
-      renderSchedule();
+      try {
+        const data = await api(`${API_BASE}/schedule/${select.dataset.id}/status`, {
+          method: 'PUT',
+          body: { status: select.value, pin },
+        });
+        state = normalizePlan(data.plan);
+        renderAll();
+      } catch (err) {
+        handleError(err, renderSchedule);
+      }
     }
   });
-  el('scheduleList')?.addEventListener('click', (e) => {
+  el('scheduleList')?.addEventListener('click', async (e) => {
     const id = e.target.dataset.removeSchedule;
     if (!id) return;
-    if (!ensurePin('remove schedule item')) {
+    const pin = ensurePin('remove schedule item');
+    if (!pin) {
       renderSchedule();
       return;
     }
-    state.schedule = state.schedule.filter((s) => s.id !== id);
-    saveState();
-    renderSchedule();
+    try {
+      const data = await api(`${API_BASE}/schedule/${id}`, { method: 'DELETE', body: { pin } });
+      state = normalizePlan(data.plan);
+      renderAll();
+    } catch (err) {
+      handleError(err, renderSchedule);
+    }
   });
 
-  el('meetingList')?.addEventListener('change', (e) => {
+  el('meetingList')?.addEventListener('change', async (e) => {
     const select = e.target;
     if (select.dataset.action === 'meeting-status') {
-      if (!ensurePin('update meeting status')) {
+      const pin = ensurePin('update meeting status');
+      if (!pin) {
         renderMeetings();
         return;
       }
-      const item = state.meetings.find((m) => m.id === select.dataset.id);
-      if (item) item.status = select.value;
-      saveState();
-      renderMeetings();
+      try {
+        const data = await api(`${API_BASE}/meetings/${select.dataset.id}/status`, {
+          method: 'PUT',
+          body: { status: select.value, pin },
+        });
+        state = normalizePlan(data.plan);
+        renderAll();
+      } catch (err) {
+        handleError(err, renderMeetings);
+      }
     }
   });
-  el('meetingList')?.addEventListener('click', (e) => {
+  el('meetingList')?.addEventListener('click', async (e) => {
     const id = e.target.dataset.removeMeeting;
     if (!id) return;
-    if (!ensurePin('remove meeting')) {
+    const pin = ensurePin('remove meeting');
+    if (!pin) {
       renderMeetings();
       return;
     }
-    state.meetings = state.meetings.filter((m) => m.id !== id);
-    saveState();
-    renderMeetings();
+    try {
+      const data = await api(`${API_BASE}/meetings/${id}`, { method: 'DELETE', body: { pin } });
+      state = normalizePlan(data.plan);
+      renderAll();
+    } catch (err) {
+      handleError(err, renderMeetings);
+    }
   });
 
   el('exportData')?.addEventListener('click', () => {
@@ -666,14 +665,19 @@
     URL.revokeObjectURL(url);
   });
 
-  el('resetData')?.addEventListener('click', () => {
-    if (!ensurePin('reset all planning data')) return;
-    const confirmed = window.confirm('Reset reunion planning data to the starter template? This only affects your browser.');
+  el('resetData')?.addEventListener('click', async () => {
+    const pin = ensurePin('reset all planning data');
+    if (!pin) return;
+    const confirmed = window.confirm('Reset reunion planning data to the starter template? This only affects your browser view of the live data.');
     if (!confirmed) return;
-    state = cloneDefaults();
-    saveState();
-    renderAll();
+    try {
+      const data = await api(`${API_BASE}/reset`, { method: 'POST', body: { pin } });
+      state = normalizePlan(data.plan);
+      renderAll();
+    } catch (err) {
+      handleError(err, renderAll);
+    }
   });
 
-  renderAll();
+  loadPlan();
 })();
