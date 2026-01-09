@@ -908,12 +908,7 @@ if ('serviceWorker' in navigator) {
       if(t.dataset.delTee){
         const [eventId, teeId] = t.dataset.delTee.split(':');
         if(!confirm('Remove this tee/team?')) return;
-        const ev = allEvents.find(ev => ev._id === eventId);
-        const isTeamEvent = !!(ev && ev.isTeamEvent);
-        let notifyClub = false;
-        if (!isTeamEvent) {
-          notifyClub = confirm('Notify the club via email and CC tommy.knight@gmail.com?');
-        }
+        const notifyClub = confirm('Notify the club via email and CC tommy.knight@gmail.com?');
         t.disabled = true;
         t.textContent = notifyClub ? 'Sending...' : 'Removing...';
         try {
