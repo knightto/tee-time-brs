@@ -757,6 +757,43 @@ async function sendEmail(to, subject, html) {
   }
 }
 
+// HTTP fallback to Resend API (avoids SMTP egress issues)
+async function sendEmailViaResendApi(to, subject, html, options = {}) {
+  if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM) {
+    return { ok: false, error: { message: 'Resend API key/from not configured' } };
+  }
+  const payload = {
+    from: process.env.RESEND_FROM,
+    to: Array.isArray(to) ? to : [to],
+    subject,
+    html,
+  };
+  if (options.cc) payload.cc = Array.isArray(options.cc) ? options.cc : [options.cc];
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const resp = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!resp.ok) {
+      const text = await resp.text();
+      return { ok: false, error: { message: `Resend HTTP ${resp.status}: ${text}` } };
+    }
+    const data = await resp.json();
+    return { ok: true, data };
+  } catch (err) {
+    clearTimeout(timer);
+    return { ok: false, error: { message: err.message } };
+  }
+}
+
 /* Helper to check if notifications are globally enabled */
 async function areNotificationsEnabled() {
   if (!Settings) return true; // Default to enabled if Settings model not available
@@ -1354,7 +1391,7 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
   const notifyClub = String(req.query.notifyClub || '0') === '1';
   if (notifyClub) {
     const clubEmail = process.env.CLUB_CANCEL_EMAIL || 'Brian.Jones@blueridgeshadows.com';
-      const subj = `Cancel tee time: ${ev.course || 'Course'} ${fmt.dateISO(ev.date)} ${teeLabel} - KNIGHT GROUP TEE TIMES`;
+    const subj = `Cancel tee time: ${ev.course || 'Course'} ${fmt.dateISO(ev.date)} ${teeLabel} - KNIGHT GROUP TEE TIMES`;
     const html = `<p>Please cancel the tee time below:</p>
       <ul>
         <li><strong>Course:</strong> ${esc(ev.course || '')}</li>
@@ -1365,9 +1402,16 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
       </ul>
       <p>Please remove this tee time from your system to release it back to inventory. If already cancelled, no further action needed.</p>`;
     const cc = process.env.CLUB_CANCEL_CC || 'tommy.knight@gmail.com';
-    sendEmail(clubEmail, subj, html, cc ? { cc } : undefined)
-      .then(mailRes => console.log('[tee-time] Club cancel email sent', { clubEmail, cc, subject: subj, result: mailRes }))
-      .catch(err => console.error('Failed to send club cancel email:', err));
+    // Try HTTP API first (more reliable on free hosts); fall back to SMTP if it fails
+    const httpRes = await sendEmailViaResendApi(clubEmail, subj, html, cc ? { cc } : undefined);
+    if (httpRes.ok) {
+      console.log('[tee-time] Club cancel email sent (HTTP)', { clubEmail, cc, subject: subj, result: httpRes });
+    } else {
+      console.warn('[tee-time] HTTP send failed, falling back to SMTP', httpRes.error);
+      sendEmail(clubEmail, subj, html, cc ? { cc } : undefined)
+        .then(mailRes => console.log('[tee-time] Club cancel email sent (SMTP fallback)', { clubEmail, cc, subject: subj, result: mailRes }))
+        .catch(err => console.error('Failed to send club cancel email (SMTP)', err));
+    }
   }
 
   res.json({ ok: true, notifyClub, eventId: ev._id, teeLabel });
