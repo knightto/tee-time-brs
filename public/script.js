@@ -841,6 +841,7 @@ if ('serviceWorker' in navigator) {
       const editTitle = 'Edit team name';
       editBtn = `<button class="icon small" title="${editTitle}" data-edit-tee="${ev._id}:${tt._id}">✎</button>`;
     }
+    const cancelBtn = !isTeams ? `<button class="small danger" data-cancel-tee="${ev._id}:${tt._id}">Email club to cancel time</button>` : '';
     return `<div class="tee ${full ? 'tee-full' : ''}">
       <div class="tee-meta">
         <div class="tee-time">${left}</div>
@@ -850,14 +851,15 @@ if ('serviceWorker' in navigator) {
         </div>
       </div>
       <div class="tee-players">${chips}</div>
-      <div class="row">
+      <div class="row" style="gap:8px;flex-wrap:wrap">
         <button class="small" data-add-player="${ev._id}:${tt._id}" ${full?'disabled':''}>Add\nPlayer</button>
+        ${cancelBtn}
       </div>
     </div>`;
   }
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-edit-tee],[data-dedupe]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-cancel-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-edit-tee],[data-dedupe]')||e.target);
     try{
       if(t.dataset.addMaybe){
         const id=t.dataset.addMaybe;
@@ -903,6 +905,24 @@ if ('serviceWorker' in navigator) {
           t.disabled = false;
           t.textContent = orig;
         }
+        return;
+      }
+      if(t.dataset.cancelTee){
+        const [eventId, teeId] = t.dataset.cancelTee.split(':');
+        if(!confirm('Email the club and remove this tee time?')) return;
+        const orig = t.textContent;
+        t.disabled = true;
+        t.textContent = 'Sending...';
+        try {
+          await api(`/api/events/${eventId}/tee-times/${teeId}?notifyClub=1`, { method: 'DELETE' });
+        } catch (err) {
+          console.error(err);
+          t.disabled = false;
+          t.textContent = orig || '×';
+          alert('Cancel request failed: ' + (err.message || 'Unknown error'));
+          return;
+        }
+        await updateEventCard(eventId);
         return;
       }
       if(t.dataset.delTee){

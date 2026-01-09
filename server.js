@@ -1321,20 +1321,26 @@ app.put('/api/events/:id/tee-times/:teeId', async (req, res) => {
 app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
   try {
     console.log('[tee-time] Remove request', { eventId: req.params.id, teeId: req.params.teeId });
-    // Use $pull to remove the tee/team atomically
-    const ev = await Event.findByIdAndUpdate(
-      req.params.id,
-      { $pull: { teeTimes: { _id: req.params.teeId } } },
-      { new: true }
-    );
+
+    const ev = await Event.findById(req.params.id);
     if (!ev) {
       console.error('[tee-time] Remove failed: event not found', { eventId: req.params.id });
       return res.status(404).json({ error: 'Not found' });
     }
-    // For notification, try to get the removed tee/team label from the previous event doc
-    // (This is a limitation: we can't get the label after removal, unless we fetch before)
-    // For now, just send a generic notification
-    // Send email notification in the background (non-blocking)
+
+    const tt = ev.teeTimes.id(req.params.teeId);
+    if (!tt) {
+      console.error('[tee-time] Remove failed: tee/team not found', { eventId: req.params.id, teeId: req.params.teeId });
+      return res.status(404).json({ error: 'Tee/team not found' });
+    }
+
+    const rawTime = tt.time || '';
+    const teeLabel = ev.isTeamEvent ? (tt.name || 'Team') : (rawTime ? fmt.tee(rawTime) : 'Tee time');
+
+    tt.deleteOne();
+    await ev.save();
+
+    // Notify subscribers (existing behavior)
     sendEmailToAll(
       `${ev.isTeamEvent ? 'Team' : 'Tee Time'} Removed: ${ev.course} (${fmt.dateISO(ev.date)})`,
       frame(`${ev.isTeamEvent ? 'Team' : 'Tee Time'} Removed`,
@@ -1343,6 +1349,21 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
          <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
          ${btn('View Event')}`)
     ).catch(err => console.error('Failed to send tee/team removal email:', err));
+
+    // Send club cancellation email via Resend configuration
+    const clubEmail = process.env.CLUB_CANCEL_EMAIL || 'Brian.Jones@blueridgeshadows.com';
+    const subj = `Cancel tee time: ${ev.course || 'Course'} ${fmt.dateISO(ev.date)} ${teeLabel}`;
+    const html = `<p>Please cancel the tee time below:</p>
+      <ul>
+        <li><strong>Course:</strong> ${esc(ev.course || '')}</li>
+        <li><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</li>
+        <li><strong>Tee time:</strong> ${esc(teeLabel)}</li>
+        <li><strong>Source:</strong> Tee Time booking app</li>
+      </ul>
+      <p>If this was already cancelled, no further action needed.</p>`;
+    const cc = process.env.CLUB_CANCEL_CC || 'tommy.knight@gmail.com';
+    sendEmail(clubEmail, subj, html, cc ? { cc } : undefined).catch(err => console.error('Failed to send club cancel email:', err));
+
     res.json(ev);
   } catch (e) {
     console.error('[tee-time] Remove error', { eventId: req.params.id, teeId: req.params.teeId, error: e.message });
