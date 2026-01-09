@@ -1352,14 +1352,15 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
 
   // Send club cancellation email via Resend configuration when requested
   const notifyClub = String(req.query.notifyClub || '0') === '1';
-  if (notifyClub) {
-    const clubEmail = process.env.CLUB_CANCEL_EMAIL || 'Brian.Jones@blueridgeshadows.com';
-      const subj = `Cancel tee time: ${ev.course || 'Course'} ${fmt.dateISO(ev.date)} ${teeLabel}`;
+    if (notifyClub) {
+      const clubEmail = process.env.CLUB_CANCEL_EMAIL || 'Brian.Jones@blueridgeshadows.com';
+      const subj = `Cancel tee time: ${ev.course || 'Course'} ${fmt.dateISO(ev.date)} ${teeLabel} - KNIGHT GROUP TEE TIMES`;
       const html = `<p>Please cancel the tee time below:</p>
         <ul>
           <li><strong>Course:</strong> ${esc(ev.course || '')}</li>
           <li><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</li>
           <li><strong>Tee time:</strong> ${esc(teeLabel)}</li>
+          <li><strong>Group:</strong> KNIGHT GROUP TEE TIMES</li>
           <li><strong>Source:</strong> Tee Time booking app</li>
         </ul>
         <p>If this was already cancelled, no further action needed.</p>`;
