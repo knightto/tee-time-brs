@@ -908,11 +908,16 @@ if ('serviceWorker' in navigator) {
       if(t.dataset.delTee){
         const [eventId, teeId] = t.dataset.delTee.split(':');
         if(!confirm('Remove this tee/team?')) return;
+        const adminCode = prompt('Admin delete code (club can be notified after this step):');
+        if(adminCode === null) return;
         const notifyClub = confirm('Notify the club via email and CC tommy.knight@gmail.com?');
         t.disabled = true;
         t.textContent = notifyClub ? 'Sending...' : 'Removing...';
         try {
-          const url = `/api/events/${eventId}/tee-times/${teeId}${notifyClub ? '?notifyClub=1' : ''}`;
+          const params = new URLSearchParams();
+          if (notifyClub) params.set('notifyClub', '1');
+          if (adminCode) params.set('code', adminCode);
+          const url = `/api/events/${eventId}/tee-times/${teeId}${params.toString() ? `?${params.toString()}` : ''}`;
           await api(url, { method: 'DELETE' });
         } catch (err) {
           console.error(err);
