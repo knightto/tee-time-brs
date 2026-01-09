@@ -1341,36 +1341,33 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
   await ev.save();
 
   // Notify subscribers (existing behavior)
-    await sendEmailToAll(
-      `${ev.isTeamEvent ? 'Team' : 'Tee Time'} Removed: ${ev.course} (${fmt.dateISO(ev.date)})`,
-      frame(`${ev.isTeamEvent ? 'Team' : 'Tee Time'} Removed`,
-        `<p>A ${ev.isTeamEvent ? 'team' : 'tee time'} has been removed:</p>
-         <p><strong>Event:</strong> ${esc(ev.course)}</p>
-         <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
-         ${btn('View Event')}`)
-    ).catch(err => console.error('Failed to send tee/team removal email:', err));
+  sendEmailToAll(
+    `${ev.isTeamEvent ? 'Team' : 'Tee Time'} Removed: ${ev.course} (${fmt.dateISO(ev.date)})`,
+    frame(`${ev.isTeamEvent ? 'Team' : 'Tee Time'} Removed`,
+      `<p>A ${ev.isTeamEvent ? 'team' : 'tee time'} has been removed:</p>
+       <p><strong>Event:</strong> ${esc(ev.course)}</p>
+       <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
+       ${btn('View Event')}`)
+  ).catch(err => console.error('Failed to send tee/team removal email:', err));
 
   // Send club cancellation email via Resend configuration when requested
   const notifyClub = String(req.query.notifyClub || '0') === '1';
-    if (notifyClub) {
-      const clubEmail = process.env.CLUB_CANCEL_EMAIL || 'Brian.Jones@blueridgeshadows.com';
+  if (notifyClub) {
+    const clubEmail = process.env.CLUB_CANCEL_EMAIL || 'Brian.Jones@blueridgeshadows.com';
       const subj = `Cancel tee time: ${ev.course || 'Course'} ${fmt.dateISO(ev.date)} ${teeLabel} - KNIGHT GROUP TEE TIMES`;
-      const html = `<p>Please cancel the tee time below:</p>
-        <ul>
-          <li><strong>Course:</strong> ${esc(ev.course || '')}</li>
-          <li><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</li>
-          <li><strong>Tee time:</strong> ${esc(teeLabel)}</li>
-          <li><strong>Group:</strong> KNIGHT GROUP TEE TIMES</li>
-          <li><strong>Source:</strong> Tee Time booking app</li>
-        </ul>
-        <p>Please remove this tee time from your system to release it back to inventory. If already cancelled, no further action needed.</p>`;
-      const cc = process.env.CLUB_CANCEL_CC || 'tommy.knight@gmail.com';
-    try {
-      const mailRes = await sendEmail(clubEmail, subj, html, cc ? { cc } : undefined);
-      console.log('[tee-time] Club cancel email sent', { clubEmail, cc, subject: subj, result: mailRes });
-    } catch (err) {
-      console.error('Failed to send club cancel email:', err);
-    }
+    const html = `<p>Please cancel the tee time below:</p>
+      <ul>
+        <li><strong>Course:</strong> ${esc(ev.course || '')}</li>
+        <li><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</li>
+        <li><strong>Tee time:</strong> ${esc(teeLabel)}</li>
+        <li><strong>Group:</strong> KNIGHT GROUP TEE TIMES</li>
+        <li><strong>Source:</strong> Tee Time booking app</li>
+      </ul>
+      <p>Please remove this tee time from your system to release it back to inventory. If already cancelled, no further action needed.</p>`;
+    const cc = process.env.CLUB_CANCEL_CC || 'tommy.knight@gmail.com';
+    sendEmail(clubEmail, subj, html, cc ? { cc } : undefined)
+      .then(mailRes => console.log('[tee-time] Club cancel email sent', { clubEmail, cc, subject: subj, result: mailRes }))
+      .catch(err => console.error('Failed to send club cancel email:', err));
   }
 
   res.json({ ok: true, notifyClub, eventId: ev._id, teeLabel });
