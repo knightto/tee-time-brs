@@ -1363,7 +1363,7 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
           <li><strong>Group:</strong> KNIGHT GROUP TEE TIMES</li>
           <li><strong>Source:</strong> Tee Time booking app</li>
         </ul>
-        <p>If this was already cancelled, no further action needed.</p>`;
+        <p>Please remove this tee time from your system to release it back to inventory. If already cancelled, no further action needed.</p>`;
       const cc = process.env.CLUB_CANCEL_CC || 'tommy.knight@gmail.com';
     try {
       const mailRes = await sendEmail(clubEmail, subj, html, cc ? { cc } : undefined);
