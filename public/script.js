@@ -908,7 +908,7 @@ if ('serviceWorker' in navigator) {
       if(t.dataset.delTee){
         const [eventId, teeId] = t.dataset.delTee.split(':');
         if(!confirm('Remove this tee/team?')) return;
-        const adminCode = prompt('Admin delete code (club can be notified after this step):');
+        const adminCode = prompt('Admin delete code (club will be notified on the next step if you choose):');
         if(adminCode === null) return;
         const notifyClub = confirm('Notify the club via email and CC tommy.knight@gmail.com?');
         t.disabled = true;
@@ -918,7 +918,12 @@ if ('serviceWorker' in navigator) {
           if (notifyClub) params.set('notifyClub', '1');
           if (adminCode) params.set('code', adminCode);
           const url = `/api/events/${eventId}/tee-times/${teeId}${params.toString() ? `?${params.toString()}` : ''}`;
-          await api(url, { method: 'DELETE' });
+          const resp = await api(url, { method: 'DELETE' });
+          if (resp && resp.notifyClub) {
+            alert('Club notified and tee time removed.');
+          } else {
+            alert('Tee time removed.');
+          }
         } catch (err) {
           console.error(err);
           t.disabled = false;

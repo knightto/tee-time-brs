@@ -1326,22 +1326,22 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
     if (!ev) {
       console.error('[tee-time] Remove failed: event not found', { eventId: req.params.id });
       return res.status(404).json({ error: 'Not found' });
-    }
+  }
 
-    const tt = ev.teeTimes.id(req.params.teeId);
-    if (!tt) {
-      console.error('[tee-time] Remove failed: tee/team not found', { eventId: req.params.id, teeId: req.params.teeId });
+  const tt = ev.teeTimes.id(req.params.teeId);
+  if (!tt) {
+    console.error('[tee-time] Remove failed: tee/team not found', { eventId: req.params.id, teeId: req.params.teeId });
       return res.status(404).json({ error: 'Tee/team not found' });
     }
 
     const rawTime = tt.time || '';
     const teeLabel = ev.isTeamEvent ? (tt.name || 'Team') : (rawTime ? fmt.tee(rawTime) : 'Tee time');
 
-    tt.deleteOne();
-    await ev.save();
+  tt.deleteOne();
+  await ev.save();
 
-    // Notify subscribers (existing behavior)
-    sendEmailToAll(
+  // Notify subscribers (existing behavior)
+    await sendEmailToAll(
       `${ev.isTeamEvent ? 'Team' : 'Tee Time'} Removed: ${ev.course} (${fmt.dateISO(ev.date)})`,
       frame(`${ev.isTeamEvent ? 'Team' : 'Tee Time'} Removed`,
         `<p>A ${ev.isTeamEvent ? 'team' : 'tee time'} has been removed:</p>
@@ -1350,10 +1350,10 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
          ${btn('View Event')}`)
     ).catch(err => console.error('Failed to send tee/team removal email:', err));
 
-    // Send club cancellation email via Resend configuration when requested
-    const notifyClub = String(req.query.notifyClub || '0') === '1';
-    if (notifyClub) {
-      const clubEmail = process.env.CLUB_CANCEL_EMAIL || 'Brian.Jones@blueridgeshadows.com';
+  // Send club cancellation email via Resend configuration when requested
+  const notifyClub = String(req.query.notifyClub || '0') === '1';
+  if (notifyClub) {
+    const clubEmail = process.env.CLUB_CANCEL_EMAIL || 'Brian.Jones@blueridgeshadows.com';
       const subj = `Cancel tee time: ${ev.course || 'Course'} ${fmt.dateISO(ev.date)} ${teeLabel}`;
       const html = `<p>Please cancel the tee time below:</p>
         <ul>
@@ -1364,14 +1364,19 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
         </ul>
         <p>If this was already cancelled, no further action needed.</p>`;
       const cc = process.env.CLUB_CANCEL_CC || 'tommy.knight@gmail.com';
-      sendEmail(clubEmail, subj, html, cc ? { cc } : undefined).catch(err => console.error('Failed to send club cancel email:', err));
+    try {
+      const mailRes = await sendEmail(clubEmail, subj, html, cc ? { cc } : undefined);
+      console.log('[tee-time] Club cancel email sent', { clubEmail, cc, subject: subj, result: mailRes });
+    } catch (err) {
+      console.error('Failed to send club cancel email:', err);
     }
-
-    res.json(ev);
-  } catch (e) {
-    console.error('[tee-time] Remove error', { eventId: req.params.id, teeId: req.params.teeId, error: e.message });
-    res.status(500).json({ error: e.message });
   }
+
+  res.json({ ok: true, notifyClub, eventId: ev._id, teeLabel });
+} catch (e) {
+  console.error('[tee-time] Remove error', { eventId: req.params.id, teeId: req.params.teeId, error: e.message });
+  res.status(500).json({ error: e.message });
+}
 });
 app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
   const { name } = req.body || {};
