@@ -283,6 +283,16 @@
     </div>
 
 
+    <div class="test-section" style="background:#ecfdf3; border-color:#22c55e;">
+      <h2 style="color:#14532d;">📝 Tee-Time Change Log</h2>
+      <p style="margin:6px 0 12px 0;color:#0f172a;font-size:14px;">See recent adds, edits, and deletes (including club notify attempts).</p>
+      <div class="test-buttons">
+        <button class="btn-test" style="background:#22c55e;" id="teeLogBtn">View Recent Changes</button>
+      </div>
+      <div id="teeLogResult" class="test-result" style="display:block;"></div>
+      <div id="teeLogTable" style="margin-top:12px;"></div>
+    </div>
+
     <h2 style="margin-top: 24px; color: #111827;">👥 Subscriber Management</h2>
 
     <div class="stats">
@@ -361,6 +371,8 @@
       loadSubscribers();
       loadNotificationSettings();
       checkGolfApiHealth(); // Check API health on load
+      const teeLogBtn = document.getElementById('teeLogBtn');
+      if (teeLogBtn) teeLogBtn.addEventListener('click', loadTeeTimeLog);
     }
 
     // Golf API Health Check - test by fetching courses
@@ -492,6 +504,56 @@
         return `(${cleaned.slice(0,3)}) ${cleaned.slice(3,6)}-${cleaned.slice(6)}`;
       }
       return phone;
+    }
+
+    async function loadTeeTimeLog() {
+      const result = document.getElementById('teeLogResult');
+      const tableWrap = document.getElementById('teeLogTable');
+      result.className = 'test-result';
+      result.style.display = 'block';
+      result.textContent = 'Loading log...';
+      tableWrap.innerHTML = '';
+      try {
+        const res = await fetch(`/api/admin/tee-time-log?code=${encodeURIComponent(ADMIN_CODE)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const logs = await res.json();
+        result.classList.add('success');
+        result.textContent = `Loaded ${logs.length} recent changes`;
+        if (!logs.length) {
+          tableWrap.innerHTML = '<div class="empty-state">No tee-time changes logged yet</div>';
+          return;
+        }
+        const rows = logs.map(l => `
+          <tr>
+            <td>${escapeHtml(l.action || '')}</td>
+            <td>${escapeHtml(l.labelBefore || '')}</td>
+            <td>${escapeHtml(l.labelAfter || '')}</td>
+            <td>${escapeHtml(l.course || '')}</td>
+            <td>${escapeHtml(l.dateISO || '')}</td>
+            <td>${l.isTeamEvent ? 'Team' : 'Tee'}</td>
+            <td>${l.notifyClub ? 'Yes' : 'No'}</td>
+            <td>${escapeHtml(l.mailMethod || '')}</td>
+            <td>${escapeHtml(l.mailError || '')}</td>
+            <td>${l.createdAt ? new Date(l.createdAt).toLocaleString() : ''}</td>
+          </tr>
+        `).join('');
+        tableWrap.innerHTML = `
+          <div style="overflow-x:auto">
+            <table>
+              <thead>
+                <tr>
+                  <th>Action</th><th>Before</th><th>After</th><th>Course</th><th>Date</th><th>Type</th><th>Notify</th><th>Method</th><th>Error</th><th>When</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        `;
+      } catch (err) {
+        console.error('Log load error', err);
+        result.classList.add('error');
+        result.textContent = `Error loading log: ${err.message}`;
+      }
     }
 
 

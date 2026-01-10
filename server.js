@@ -614,9 +614,32 @@ let Handicap; try { Handicap = require('./models/Handicap'); } catch { Handicap 
 let Golfer; try { Golfer = require('./models/Golfer'); } catch { Golfer = null; }
 let HandicapSnapshot; try { HandicapSnapshot = require('./models/HandicapSnapshot'); } catch { HandicapSnapshot = null; }
 let ImportBatch; try { ImportBatch = require('./models/ImportBatch'); } catch { ImportBatch = null; }
+let TeeTimeLog; try { TeeTimeLog = require('./models/TeeTimeLog'); } catch { TeeTimeLog = null; }
 
 /* ---------------- Admin Configuration ---------------- */
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'tommy.knight@gmail.com,jvhyers@gmail.com').split(',').map(e => e.trim()).filter(Boolean);
+
+/* ---------------- Tee time change logging ---------------- */
+async function logTeeTimeChange(entry = {}) {
+  if (!TeeTimeLog) return;
+  try {
+    await TeeTimeLog.create({
+      eventId: entry.eventId,
+      teeId: entry.teeId,
+      action: entry.action,
+      labelBefore: entry.labelBefore || '',
+      labelAfter: entry.labelAfter || '',
+      isTeamEvent: !!entry.isTeamEvent,
+      course: entry.course || '',
+      dateISO: entry.dateISO || '',
+      notifyClub: !!entry.notifyClub,
+      mailMethod: entry.mailMethod || null,
+      mailError: entry.mailError || null,
+    });
+  } catch (err) {
+    console.error('[tee-time] Failed to log tee time change', err.message);
+  }
+}
 
 /* ---------------- Weather helpers ---------------- */
 // Default location (Richmond, VA area - adjust for your region)
@@ -1263,7 +1286,6 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
       { new: true }
     );
     console.log('[tee-time] Team added', { eventId: ev._id, teamName: name, time });
-    // Send notification for new team
     const eventUrl = `${SITE_URL}?event=${ev._id}`;
     await sendEmailToAll(
       `New Team Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
@@ -1274,6 +1296,16 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
          <p><strong>Team:</strong> ${esc(name)}</p>
          <p>Please <a href="${eventUrl}" style="color:#166534;text-decoration:underline">click here to view this event directly</a>.</p>${btn('View Event', eventUrl)}`)
     );
+    const added = pushResult && pushResult.teeTimes ? pushResult.teeTimes[pushResult.teeTimes.length - 1] : null;
+    await logTeeTimeChange({
+      eventId: pushResult?._id,
+      teeId: added?._id,
+      action: 'add',
+      labelAfter: added ? (added.name || '') : name,
+      isTeamEvent: true,
+      course: pushResult?.course,
+      dateISO: fmt.dateISO(pushResult?.date),
+    });
     return res.json(pushResult);
   }
   // For tee times: accept optional time. If missing, compute next time using event data.
@@ -1283,12 +1315,12 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
     newTime = nextTeeTimeForEvent(ev, 9, '07:00');
   }
   // Validate HH:MM and ranges
-  const m = /^(\d{1,2}):(\d{2})$/.exec(newTime);
-  if (!m) {
+  const mTime = /^(\d{1,2}):(\d{2})$/.exec(newTime);
+  if (!mTime) {
     console.error('[tee-time] Add failed: invalid time format', { eventId: ev._id, time: newTime });
     return res.status(400).json({ error: 'time required HH:MM' });
   }
-  const hh = parseInt(m[1], 10); const mm = parseInt(m[2], 10);
+  const hh = parseInt(mTime[1], 10); const mm = parseInt(mTime[2], 10);
   if (Number.isNaN(hh) || Number.isNaN(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) {
     console.error('[tee-time] Add failed: invalid time value', { eventId: ev._id, time: newTime });
     return res.status(400).json({ error: 'invalid time' });
@@ -1297,17 +1329,14 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
     console.error('[tee-time] Add failed: duplicate time', { eventId: ev._id, time: newTime });
     return res.status(409).json({ error: 'duplicate time' });
   }
-  // Add the new tee time, then sort all teeTimes by time ascending
   ev.teeTimes.push({ time: newTime, players: [] });
   ev.teeTimes.sort((a, b) => {
-    // Compare times as HH:MM
     const [ah, am] = a.time.split(":").map(Number);
     const [bh, bm] = b.time.split(":").map(Number);
     return ah !== bh ? ah - bh : am - bm;
   });
   await ev.save();
   console.log('[tee-time] Tee time added', { eventId: ev._id, time: newTime });
-  // Send notification for new tee time
   const eventUrl = `${SITE_URL}?event=${ev._id}&time=${encodeURIComponent(newTime)}`;
   await sendEmailToAll(
     `New Tee Time Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
@@ -1318,36 +1347,54 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
        <p><strong>Tee Time:</strong> ${esc(fmt.tee(newTime))}</p>
        <p>Please <a href="${eventUrl}" style="color:#166534;text-decoration:underline">click here to view this tee time directly</a>.</p>${btn('View Event', eventUrl)}`)
   );
+  const added = ev.teeTimes[ev.teeTimes.length - 1];
+  await logTeeTimeChange({
+    eventId: ev._id,
+    teeId: added?._id,
+    action: 'add',
+    labelAfter: added ? (added.time || '') : newTime,
+    isTeamEvent: false,
+    course: ev.course,
+    dateISO: fmt.dateISO(ev.date),
+  });
   res.json(ev);
 });
+
 
 // Edit tee time or team name
 app.put('/api/events/:id/tee-times/:teeId', async (req, res) => {
   try {
     const ev = await Event.findById(req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
-    
     const tt = ev.teeTimes.id(req.params.teeId);
     if (!tt) return res.status(404).json({ error: 'tee/team not found' });
-    
+    const beforeLabel = ev.isTeamEvent ? (tt.name || '') : (tt.time || '');
+
     if (ev.isTeamEvent) {
-      // Edit team name
       const { name } = req.body || {};
       if (!name || !name.trim()) return res.status(400).json({ error: 'name required' });
       tt.name = name.trim();
     } else {
-      // Edit tee time - accept any HH:MM format without validation
       const { time } = req.body || {};
       if (!time || !time.trim()) return res.status(400).json({ error: 'time required' });
       const timeStr = time.trim();
-      // Basic format check only - allow any HH:MM
       if (!/^\d{1,2}:\d{2}$/.test(timeStr)) {
         return res.status(400).json({ error: 'time must be HH:MM format' });
       }
       tt.time = timeStr;
     }
-    
     await ev.save();
+    const afterLabel = ev.isTeamEvent ? (tt.name || '') : (tt.time || '');
+    await logTeeTimeChange({
+      eventId: ev._id,
+      teeId: tt._id,
+      action: 'update',
+      labelBefore: beforeLabel,
+      labelAfter: afterLabel,
+      isTeamEvent: ev.isTeamEvent,
+      course: ev.course,
+      dateISO: fmt.dateISO(ev.date),
+    });
     res.json(ev);
   } catch (e) {
     console.error('Edit tee time error:', e);
@@ -1355,71 +1402,98 @@ app.put('/api/events/:id/tee-times/:teeId', async (req, res) => {
   }
 });
 
+
 app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
   try {
-    console.log('[tee-time] Remove request', { eventId: req.params.id, teeId: req.params.teeId });
+    const notifyClub = String(req.query.notifyClub || '0') === '1';
+    const adminCode = (req.query.code || '').trim();
+    console.log('[tee-time] Remove request', { eventId: req.params.id, teeId: req.params.teeId, notifyClub, hasCode: !!adminCode });
 
     const ev = await Event.findById(req.params.id);
     if (!ev) {
       console.error('[tee-time] Remove failed: event not found', { eventId: req.params.id });
       return res.status(404).json({ error: 'Not found' });
-  }
+    }
 
-  const tt = ev.teeTimes.id(req.params.teeId);
-  if (!tt) {
-    console.error('[tee-time] Remove failed: tee/team not found', { eventId: req.params.id, teeId: req.params.teeId });
+    const tt = ev.teeTimes.id(req.params.teeId);
+    if (!tt) {
+      console.error('[tee-time] Remove failed: tee/team not found', { eventId: req.params.id, teeId: req.params.teeId });
       return res.status(404).json({ error: 'Tee/team not found' });
     }
 
     const rawTime = tt.time || '';
     const teeLabel = ev.isTeamEvent ? (tt.name || 'Team') : (rawTime ? fmt.tee(rawTime) : 'Tee time');
 
-  tt.deleteOne();
-  await ev.save();
+    tt.deleteOne();
+    await ev.save();
 
-  // Notify subscribers (existing behavior)
-  sendEmailToAll(
-    `${ev.isTeamEvent ? 'Team' : 'Tee Time'} Removed: ${ev.course} (${fmt.dateISO(ev.date)})`,
-    frame(`${ev.isTeamEvent ? 'Team' : 'Tee Time'} Removed`,
-      `<p>A ${ev.isTeamEvent ? 'team' : 'tee time'} has been removed:</p>
-       <p><strong>Event:</strong> ${esc(ev.course)}</p>
-       <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
-       ${btn('View Event')}`)
-  ).catch(err => console.error('Failed to send tee/team removal email:', err));
+    // Notify subscribers (existing behavior) - fire and forget
+    sendEmailToAll(
+      `${ev.isTeamEvent ? 'Team' : 'Tee Time'} Removed: ${ev.course} (${fmt.dateISO(ev.date)})`,
+      frame(`${ev.isTeamEvent ? 'Team' : 'Tee Time'} Removed`,
+        `<p>A ${ev.isTeamEvent ? 'team' : 'tee time'} has been removed:</p>
+         <p><strong>Event:</strong> ${esc(ev.course)}</p>
+         <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
+         ${btn('View Event')}`)
+    ).catch(err => console.error('Failed to send tee/team removal email:', err));
 
-  // Send club cancellation email via Resend configuration when requested
-  const notifyClub = String(req.query.notifyClub || '0') === '1';
-  if (notifyClub) {
-    const clubEmail = process.env.CLUB_CANCEL_EMAIL || 'Brian.Jones@blueridgeshadows.com';
-    const subj = `Cancel tee time: ${ev.course || 'Course'} ${fmt.dateISO(ev.date)} ${teeLabel} - KNIGHT GROUP TEE TIMES`;
-    const html = `<p>Please cancel the tee time below:</p>
-      <ul>
-        <li><strong>Course:</strong> ${esc(ev.course || '')}</li>
-        <li><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</li>
-        <li><strong>Tee time:</strong> ${esc(teeLabel)}</li>
-        <li><strong>Group:</strong> KNIGHT GROUP TEE TIMES</li>
-        <li><strong>Source:</strong> Tee Time booking app</li>
-      </ul>
-      <p>Please remove this tee time from your system to release it back to inventory. If already cancelled, no further action needed.</p>`;
-    const cc = process.env.CLUB_CANCEL_CC || 'tommy.knight@gmail.com';
-    // Try HTTP API first (more reliable on free hosts); fall back to SMTP if it fails
-    const httpRes = await sendEmailViaResendApi(clubEmail, subj, html, cc ? { cc } : undefined);
-    if (httpRes.ok) {
-      console.log('[tee-time] Club cancel email sent (HTTP)', { clubEmail, cc, subject: subj, result: httpRes });
-    } else {
-      console.warn('[tee-time] HTTP send failed, falling back to SMTP', httpRes.error);
-      sendEmail(clubEmail, subj, html, cc ? { cc } : undefined)
-        .then(mailRes => console.log('[tee-time] Club cancel email sent (SMTP fallback)', { clubEmail, cc, subject: subj, result: mailRes }))
-        .catch(err => console.error('Failed to send club cancel email (SMTP)', err));
+    let mailMethod = null;
+    let mailError = null;
+    if (notifyClub) {
+      const clubEmail = process.env.CLUB_CANCEL_EMAIL || 'Brian.Jones@blueridgeshadows.com';
+      const subj = `Cancel tee time: ${ev.course || 'Course'} ${fmt.dateISO(ev.date)} ${teeLabel} - KNIGHT GROUP TEE TIMES`;
+      const html = `<p>Please cancel the tee time below:</p>
+        <ul>
+          <li><strong>Course:</strong> ${esc(ev.course || '')}</li>
+          <li><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</li>
+          <li><strong>Tee time:</strong> ${esc(teeLabel)}</li>
+          <li><strong>Group:</strong> KNIGHT GROUP TEE TIMES</li>
+          <li><strong>Source:</strong> Tee Time booking app</li>
+        </ul>
+        <p>Please remove this tee time from your system to release it back to inventory. If already cancelled, no further action needed.</p>`;
+      const cc = process.env.CLUB_CANCEL_CC || 'tommy.knight@gmail.com';
+      const httpRes = await sendEmailViaResendApi(clubEmail, subj, html, cc ? { cc } : undefined);
+      if (httpRes.ok) {
+        mailMethod = 'http';
+        console.log('[tee-time] Club cancel email sent (HTTP)', { clubEmail, cc, subject: subj, result: httpRes });
+      } else {
+        console.warn('[tee-time] HTTP send failed, falling back to SMTP', httpRes.error);
+        try {
+          const mailRes = await sendEmail(clubEmail, subj, html, cc ? { cc } : undefined);
+          mailMethod = 'smtp';
+          console.log('[tee-time] Club cancel email sent (SMTP fallback)', { clubEmail, cc, subject: subj, result: mailRes });
+        } catch (err) {
+          mailError = err.message || 'SMTP send failed';
+          console.error('Failed to send club cancel email (SMTP)', err);
+        }
+      }
     }
-  }
 
-  res.json({ ok: true, notifyClub, eventId: ev._id, teeLabel });
-} catch (e) {
-  console.error('[tee-time] Remove error', { eventId: req.params.id, teeId: req.params.teeId, error: e.message });
-  res.status(500).json({ error: e.message });
-}
+    await logTeeTimeChange({
+      eventId: ev._id,
+      teeId: req.params.teeId,
+      action: 'delete',
+      labelBefore: teeLabel,
+      labelAfter: '',
+      isTeamEvent: ev.isTeamEvent,
+      course: ev.course,
+      dateISO: fmt.dateISO(ev.date),
+      notifyClub,
+      mailMethod,
+      mailError,
+    });
+
+    if (mailError) {
+      return res.status(500).json({ error: 'Failed to send club cancel email', details: mailError, notifyClub: true, eventId: ev._id, teeLabel });
+    }
+
+    res.json({ ok: true, notifyClub, eventId: ev._id, teeLabel, mailMethod });
+  } catch (e) {
+    console.error('[tee-time] Remove error', { eventId: req.params.id, teeId: req.params.teeId, error: e.message });
+    res.status(500).json({ error: e.message });
+  }
 });
+
 app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
   const { name } = req.body || {};
   if (!name) return res.status(400).json({ error: 'name required' });
@@ -2162,6 +2236,21 @@ app.delete('/api/admin/subscribers/:id', async (req, res) => {
     res.json({ ok: true });
   } catch (e) {
     console.error('Delete subscriber error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Admin - Tee time change log
+app.get('/api/admin/tee-time-log', async (req, res) => {
+  if (!ADMIN_DELETE_CODE || (req.query.code || req.body?.code || '') !== ADMIN_DELETE_CODE) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  if (!TeeTimeLog) return res.status(500).json({ error: 'TeeTimeLog model not available' });
+  try {
+    const logs = await TeeTimeLog.find({}).sort({ createdAt: -1 }).limit(200).lean();
+    res.json(logs);
+  } catch (e) {
+    console.error('Tee time log error:', e);
     res.status(500).json({ error: e.message });
   }
 });
