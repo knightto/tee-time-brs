@@ -23,56 +23,60 @@
 </head>
 <body style="background:#f8fafc;">
   <main class="guide-wrap">
-    <h1><span class="pill">ƒ>3</span> User Guide &amp; Features</h1>
-    <p class="callout">Tip: Event notes include the source email when tee times are created from inbound messages.</p>
+    <h1><span class="pill">Tee Time BRS</span> What this app does</h1>
+    <p class="callout">Built for golf group captains: fewer texts, fewer mistakes, and a clean, automated sign-up flow.</p>
 
-    <h2>Getting Started</h2>
+    <h2>Why use it?</h2>
     <ul>
-      <li>Enter your group access code to view the calendar and events for that group.</li>
-      <li>Select any date to see events; use the “New Tee-Time Event” or “New Team Event” buttons to add one.</li>
+      <li>One live calendar for all events — tee times and team (shotgun) formats — so nobody asks “what time are we?”</li>
+      <li>Automatic emails: new events, updates, cancellations, empty-tee reminders, and optional club notifications when you delete a tee time.</li>
+      <li>Frictionless player moves: add, remove, or move golfers with capacity checks; “Maybe” list catches interest without overbooking.</li>
+      <li>Admin clarity: audit log of who changed what and when; admin code required for destructive actions.</li>
+      <li>Extras for your group: Myrtle trip tracking and the 35th Reunion planner live in the same site.</li>
     </ul>
 
-    <h2>Create Tee-Time Events</h2>
+    <h2>Core workflows</h2>
     <ul>
-      <li><strong>Manual:</strong> Pick course, date, first tee time, notes, and choose how many tee times (9-minute spacing).</li>
-      <li><strong>Email import:</strong> Course emails sent to <code>teetime@xenailexou.resend.app</code> (from <code>no-reply@foreupsoftware.com</code> or your Gmail) are auto-parsed. Subjects like “Tee Time Reservation Confirmation” create events; golfer count ÷ 4 sets how many tee times are generated.</li>
+      <li><strong>Create events fast:</strong> Pick course, date, first tee time, and how many times (9-minute spacing). For teams, set team size and start type.</li>
+      <li><strong>Auto-create from email:</strong> Send course confirmations to <code>teetime@xenailexou.resend.app</code> (from <code>no-reply@foreupsoftware.com</code> or your Gmail). Subjects like “Tee Time Reservation Confirmation” create events automatically; golfer count ÷ 4 sets tee-time count. Cancellation emails with “Reservation was cancelled” remove the matching event.</li>
+      <li><strong>Manage tee times:</strong> Add/remove/rename times; delete with an admin code and optionally notify the club (CC your admin).</li>
+      <li><strong>Manage teams:</strong> Shotgun or staggered; auto-names teams; capacity enforced per team size.</li>
+      <li><strong>Players:</strong> Add, move between tees/teams, remove, or park on the Maybe list.</li>
     </ul>
 
-    <h2>Cancel via Email</h2>
+    <h2>Helpful automation</h2>
     <ul>
-      <li>Subjects containing “Reservation was cancelled” delete the matching event and notify subscribers.</li>
+      <li><strong>Club notification on delete:</strong> When you remove a tee time, choose to email the course (and CC your admin) with KNIGHT GROUP TEE TIMES in the subject and clear “please remove from your system” instructions.</li>
+      <li><strong>Course intelligence:</strong> Live golf course search with location, phone, website, par/holes; cached for speed.</li>
+      <li><strong>Weather glance:</strong> Icons + temps for events within 16 days.</li>
     </ul>
 
-    <h2>Team Events</h2>
+    <h2>Admin &amp; guardrails</h2>
     <ul>
-      <li>Shotgun or Tee-Time start; set team size (2–4). Three teams created by default; add more anytime.</li>
+      <li><strong>Admin code required</strong> for destructive actions (event/tee delete) to prevent accidents.</li>
+      <li><strong>Audit log</strong> shows who was added/removed/moved and when.</li>
+      <li><strong>Subscriber management:</strong> Admin page to manage the list and send reminders.</li>
     </ul>
 
-    <h2>Player Management</h2>
+    <h2>Special pages you can use</h2>
     <ul>
-      <li>Add/remove/move players with capacity checks; “Maybe” list for interested golfers.</li>
+      <li><strong>Myrtle Trip:</strong> Dedicated tracker at <code>/myrtle-trip-2026.html</code> with trip-specific data.</li>
+      <li><strong>Reunion HQ:</strong> <code>/reunion.html</code> to manage attendees, logistics, schedule, and planning meetings (PIN-protected edits).</li>
     </ul>
 
-    <h2>Course Search &amp; Info</h2>
+    <h2>How to onboard your group</h2>
     <ul>
-      <li>Live Golf API search with inline location, phone, website, and holes/par; cached for speed.</li>
+      <li>Share the site link and the access code for your group.</li>
+      <li>Ask golfers to subscribe (top bar) so they get automatic emails instead of texting you.</li>
+      <li>Tell them they can click a date, pick an event, and add themselves—no spreadsheets or reply-all threads.</li>
     </ul>
 
-    <h2>Weather</h2>
+    <h2>Daily playbook for captains</h2>
     <ul>
-      <li>Auto weather icons, temps, and descriptions for events within 16 days.</li>
-    </ul>
-
-    <h2>Notifications</h2>
-    <ul>
-      <li>Subscribers get emails for new events, updates, cancellations, reminders for empty tee times, and admin alerts. Unsubscribe links are included.</li>
-    </ul>
-
-    <h2>Admin &amp; Extras</h2>
-    <ul>
-      <li>Admin dashboard: manage subscribers, send reminders, verify course data, view stats.</li>
-      <li>Audit log shows who was added/removed/moved and when.</li>
-      <li>PWA support with offline caching and golf favicon.</li>
+      <li>Create or import the event, confirm course/time count.</li>
+      <li>Watch sign-ups; move players to balance groups; use Maybe for overflow.</li>
+      <li>If the course cancels a time, delete the tee and choose “notify club” so the course and CC get the message.</li>
+      <li>Check audit log if anything looks off; resend reminders from the admin page if a tee is empty.</li>
     </ul>
 
     <a class="back-link" href="/">&larr; Back to Tee Times</a>
