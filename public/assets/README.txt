@@ -1,1 +1,0 @@
-Place your background image here or update public/style.css url().
