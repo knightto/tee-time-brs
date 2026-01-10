@@ -89,4 +89,7 @@ reunionPlanSchema.set('toJSON', {
   },
 });
 
-module.exports = mongoose.model('ReunionPlan', reunionPlanSchema);
+const ReunionPlanModel = mongoose.model('ReunionPlan', reunionPlanSchema);
+ReunionPlanModel.schema = reunionPlanSchema;
+
+module.exports = ReunionPlanModel;

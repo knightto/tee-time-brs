@@ -1,5 +1,12 @@
 const express = require('express');
-const ReunionPlan = require('../models/ReunionPlan');
+const mongoose = require('mongoose');
+const { getSecondaryConn } = require('../secondary-conn');
+const ReunionPlanBase = require('../models/ReunionPlan');
+
+const conn = getSecondaryConn();
+const ReunionPlan = conn
+  ? (conn.models.ReunionPlan || conn.model('ReunionPlan', ReunionPlanBase.schema))
+  : (mongoose.models.ReunionPlan || mongoose.model('ReunionPlan', ReunionPlanBase.schema));
 
 const router = express.Router();
 
