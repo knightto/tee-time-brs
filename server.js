@@ -1495,67 +1495,84 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
 });
 
 app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
-  const { name } = req.body || {};
-  if (!name) return res.status(400).json({ error: 'name required' });
-  const trimmedName = String(name).trim();
-  if (!trimmedName) return res.status(400).json({ error: 'name cannot be empty' });
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'database unavailable' });
+    }
 
-  const ev = await Event.findById(req.params.id);
-  if (!ev) return res.status(404).json({ error: 'Not found' });
-  const tt = ev.teeTimes.id(req.params.teeId);
-  if (!tt) return res.status(404).json({ error: 'tee time not found' });
-  if (!Array.isArray(tt.players)) tt.players = [];
+    const { name } = req.body || {};
+    if (!name) return res.status(400).json({ error: 'name required' });
+    const trimmedName = String(name).trim();
+    if (!trimmedName) return res.status(400).json({ error: 'name cannot be empty' });
 
-  // Extra logging for debugging
-  console.log('[add_player] Request', {
-    eventId: req.params.id,
-    teeId: req.params.teeId,
-    playerName: trimmedName,
-    eventDate: ev.date,
-    now: new Date().toISOString(),
-    players: tt.players.map(p => p.name)
-  });
-  // Special test message for event on 11/16
-  const eventDateStr = ev.date instanceof Date ? ev.date.toISOString().slice(0,10) : String(ev.date).slice(0,10);
-  if (eventDateStr === '2025-11-16') {
-    console.log('[add_player][TEST] Adding player to 11/16 event:', trimmedName);
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    const tt = ev.teeTimes.id(req.params.teeId);
+    if (!tt) return res.status(404).json({ error: 'tee time not found' });
+    if (!Array.isArray(tt.players)) tt.players = [];
+
+    // Extra logging for debugging
+    console.log('[add_player] Request', {
+      eventId: req.params.id,
+      teeId: req.params.teeId,
+      playerName: trimmedName,
+      eventDate: ev.date,
+      now: new Date().toISOString(),
+      players: tt.players.map(p => p.name)
+    });
+    // Special test message for event on 11/16
+    const eventDateStr = ev.date instanceof Date ? ev.date.toISOString().slice(0,10) : String(ev.date).slice(0,10);
+    if (eventDateStr === '2025-11-16') {
+      console.log('[add_player][TEST] Adding player to 11/16 event:', trimmedName);
+    }
+
+    const maxSize = ev.isTeamEvent ? (ev.teamSizeMax || 4) : 4;
+    if (tt.players.length >= maxSize) return res.status(400).json({ error: ev.isTeamEvent ? 'team full' : 'tee time full' });
+
+    // Anti-chaos check: duplicate name prevention
+    if (isDuplicatePlayerName(ev, trimmedName)) {
+      return res.status(409).json({ error: 'duplicate player name', message: 'A player with this name already exists. Use a nickname (e.g., "John S" or "John 2").' });
+    }
+
+    tt.players.push({ name: trimmedName });
+    await ev.save();
+
+    // Audit log
+    await logAudit(ev._id, 'add_player', trimmedName, {
+      teeId: tt._id,
+      teeLabel: getTeeLabel(ev, tt._id)
+    });
+
+    // Send notification email only if notifications are enabled
+    if (ev.notificationsEnabled !== false) {
+      const teeLabel = getTeeLabel(ev, tt._id);
+      sendEmailToAll(
+        `Player Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
+        frame('Player Signed Up!',
+          `<p><strong>${esc(trimmedName)}</strong> has signed up for:</p>
+           <p><strong>Event:</strong> ${esc(ev.course)}</p>
+           <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
+           <p><strong>${ev.isTeamEvent ? 'Team' : 'Tee Time'}:</strong> ${esc(teeLabel)}</p>
+           ${btn('View Event')}`)
+      ).catch(err => console.error('Failed to send player add email:', err));
+    }
+
+    res.json(ev);
+  } catch (e) {
+    console.error('[add_player] Error', {
+      eventId: req.params.id,
+      teeId: req.params.teeId,
+      error: e.message
+    });
+    res.status(500).json({ error: e.message || 'Internal server error' });
   }
-
-  const maxSize = ev.isTeamEvent ? (ev.teamSizeMax || 4) : 4;
-  if (tt.players.length >= maxSize) return res.status(400).json({ error: ev.isTeamEvent ? 'team full' : 'tee time full' });
-
-  // Anti-chaos check: duplicate name prevention
-  if (isDuplicatePlayerName(ev, trimmedName)) {
-    return res.status(409).json({ error: 'duplicate player name', message: 'A player with this name already exists. Use a nickname (e.g., "John S" or "John 2").' });
-  }
-
-  tt.players.push({ name: trimmedName });
-  await ev.save();
-
-  // Audit log
-  await logAudit(ev._id, 'add_player', trimmedName, {
-    teeId: tt._id,
-    teeLabel: getTeeLabel(ev, tt._id)
-  });
-
-  // Send notification email only if notifications are enabled
-  if (ev.notificationsEnabled !== false) {
-    const teeLabel = getTeeLabel(ev, tt._id);
-    sendEmailToAll(
-      `Player Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
-      frame('Player Signed Up!',
-        `<p><strong>${esc(trimmedName)}</strong> has signed up for:</p>
-         <p><strong>Event:</strong> ${esc(ev.course)}</p>
-         <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
-         <p><strong>${ev.isTeamEvent ? 'Team' : 'Tee Time'}:</strong> ${esc(teeLabel)}</p>
-         ${btn('View Event')}`)
-    ).catch(err => console.error('Failed to send player add email:', err));
-  }
-
-  res.json(ev);
 });
 app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res) => {
   try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'database unavailable' });
+    }
+
     const ev = await Event.findById(req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     const tt = ev.teeTimes.id(req.params.teeId);
@@ -1605,47 +1622,68 @@ app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res
 
     return res.json(ev);
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    console.error('[remove_player] Error', {
+      eventId: req.params.id,
+      teeId: req.params.teeId,
+      playerId: req.params.playerId,
+      error: e.message
+    });
+    return res.status(500).json({ error: e.message || 'Internal server error' });
   }
 });
 app.post('/api/events/:id/move-player', async (req, res) => {
-  const { fromTeeId, toTeeId, playerId } = req.body || {};
-  if (!fromTeeId || !toTeeId || !playerId) return res.status(400).json({ error: 'fromTeeId, toTeeId, playerId required' });
-  const ev = await Event.findById(req.params.id);
-  if (!ev) return res.status(404).json({ error: 'Not found' });
-  const fromTT = ev.teeTimes.id(fromTeeId);
-  const toTT = ev.teeTimes.id(toTeeId);
-  if (!fromTT || !toTT) return res.status(404).json({ error: 'tee time not found' });
-  if (!Array.isArray(fromTT.players)) fromTT.players = [];
-  if (!Array.isArray(toTT.players)) toTT.players = [];
-  const idx = fromTT.players.findIndex(p => String(p._id) === String(playerId));
-  if (idx === -1) return res.status(404).json({ error: 'player not found' });
-  const maxSize = ev.isTeamEvent ? (ev.teamSizeMax || 4) : 4;
-  if (toTT.players.length >= maxSize) return res.status(400).json({ error: 'destination full' });
-  
-  const [player] = fromTT.players.splice(idx, 1);
-  const playerName = player.name;
-  
-  // Anti-chaos check: ensure player isn't already on another tee (shouldn't happen, but defensive)
-  const conflict = isPlayerOnAnotherTee(ev, playerName, toTeeId);
-  if (conflict.found) {
-    // Roll back the splice
-    fromTT.players.splice(idx, 0, player);
-    return res.status(409).json({ error: 'player conflict', message: `${playerName} is already on ${conflict.teeName}` });
+  try {
+    if (mongoose.connection.readyState !== 1) {
+      return res.status(503).json({ error: 'database unavailable' });
+    }
+
+    const { fromTeeId, toTeeId, playerId } = req.body || {};
+    if (!fromTeeId || !toTeeId || !playerId) return res.status(400).json({ error: 'fromTeeId, toTeeId, playerId required' });
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    const fromTT = ev.teeTimes.id(fromTeeId);
+    const toTT = ev.teeTimes.id(toTeeId);
+    if (!fromTT || !toTT) return res.status(404).json({ error: 'tee time not found' });
+    if (!Array.isArray(fromTT.players)) fromTT.players = [];
+    if (!Array.isArray(toTT.players)) toTT.players = [];
+    const idx = fromTT.players.findIndex(p => String(p._id) === String(playerId));
+    if (idx === -1) return res.status(404).json({ error: 'player not found' });
+    const maxSize = ev.isTeamEvent ? (ev.teamSizeMax || 4) : 4;
+    if (toTT.players.length >= maxSize) return res.status(400).json({ error: 'destination full' });
+    
+    const [player] = fromTT.players.splice(idx, 1);
+    const playerName = player.name;
+    
+    // Anti-chaos check: ensure player isn't already on another tee (shouldn't happen, but defensive)
+    const conflict = isPlayerOnAnotherTee(ev, playerName, toTeeId);
+    if (conflict.found) {
+      // Roll back the splice
+      fromTT.players.splice(idx, 0, player);
+      return res.status(409).json({ error: 'player conflict', message: `${playerName} is already on ${conflict.teeName}` });
+    }
+    
+    toTT.players.push({ name: playerName });
+    await ev.save();
+    
+    // Audit log
+    await logAudit(ev._id, 'move_player', playerName, {
+      fromTeeId: fromTT._id,
+      toTeeId: toTT._id,
+      fromTeeLabel: getTeeLabel(ev, fromTT._id),
+      toTeeLabel: getTeeLabel(ev, toTT._id)
+    });
+    
+    res.json(ev);
+  } catch (e) {
+    console.error('[move_player] Error', {
+      eventId: req.params.id,
+      fromTeeId: req.body?.fromTeeId,
+      toTeeId: req.body?.toTeeId,
+      playerId: req.body?.playerId,
+      error: e.message
+    });
+    res.status(500).json({ error: e.message || 'Internal server error' });
   }
-  
-  toTT.players.push({ name: playerName });
-  await ev.save();
-  
-  // Audit log
-  await logAudit(ev._id, 'move_player', playerName, {
-    fromTeeId: fromTT._id,
-    toTeeId: toTT._id,
-    fromTeeLabel: getTeeLabel(ev, fromTT._id),
-    toTeeLabel: getTeeLabel(ev, toTT._id)
-  });
-  
-  res.json(ev);
 });
 
 /* ---------------- Golf Course API ---------------- */
