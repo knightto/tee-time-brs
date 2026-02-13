@@ -309,11 +309,13 @@
     const STATUS_ORDER = ['in', 'out', 'maybe', 'waitlist', 'invited'];
     const STATUS_LABELS = { invited: 'Invited', in: 'In', maybe: 'Maybe', out: 'Out', waitlist: 'Waitlist' };
     const BASE_GROUP_SIZES = [4, 8, 12, 16, 20, 24];
+    const MYRTLE_ARRIVAL_DATE = '2026-03-18';
+    const MYRTLE_DEPARTURE_DATE = '2026-03-22';
     const DEFAULT_TRIP = {
       name: 'tommy knight Group - Barefoot',
       location: 'Myrtle Beach, SC',
-      arrivalDate: '2026-03-18',
-      departureDate: '2026-03-22',
+      arrivalDate: MYRTLE_ARRIVAL_DATE,
+      departureDate: MYRTLE_DEPARTURE_DATE,
       package: '4 Nights / 5 Rounds',
       groupSize: 24,
       preparedBy: 'Myrtle Beach Golf Trips',
@@ -324,8 +326,8 @@
         unitType: '2 Bedroom Golf Course',
         units: 6,
         confirmations: '90612 90613 90615 90614 90611',
-        arrivalDate: '2026-03-18',
-        departureDate: '2026-03-22'
+        arrivalDate: MYRTLE_ARRIVAL_DATE,
+        departureDate: MYRTLE_DEPARTURE_DATE
       }
     };
     const DEFAULT_ROUNDS = [
@@ -401,15 +403,17 @@
     function renderTripSummary() {
       const t = trip || DEFAULT_TRIP;
       const accom = t.accommodations || DEFAULT_TRIP.accommodations;
+      const arrivalDateDisplay = formatDate(MYRTLE_ARRIVAL_DATE) || '3/18/2026';
+      const departureDateDisplay = formatDate(MYRTLE_DEPARTURE_DATE) || '3/22/2026';
       const summary = `
         <div style="display:grid;gap:6px;">
           <div><strong>Trip Name:</strong> ${t.name || 'Myrtle Beach - Barefoot Group 3/18-3/22/26'}</div>
           <div><strong>Location:</strong> ${t.location || 'Myrtle Beach, SC'}</div>
-          <div><strong>Arrival:</strong> ${formatDate(t.arrivalDate) || 'Wed 3/18/26'} &nbsp;|&nbsp; <strong>Departure:</strong> ${formatDate(t.departureDate) || 'Sun 3/22/26'}</div>
+          <div><strong>Arrival:</strong> ${arrivalDateDisplay} &nbsp;|&nbsp; <strong>Departure:</strong> ${departureDateDisplay}</div>
           <div><strong>Package:</strong> ${t.package || '4 Nights / 5 Rounds'}</div>
           <div><strong>Group Size:</strong> ${t.groupSize || 24}</div>
           <div><strong>Reservation #:</strong> ${t.reservationNumber || '12972589'} &nbsp;|&nbsp; ${t.preparedBy || 'Myrtle Beach Golf Trips'} (${t.phone || '(877) 283-2122'})</div>
-          <div><strong>Accommodations:</strong> ${accom?.resort || 'Barefoot Golf Villas'} | ${accom?.unitType || '2 Bedroom Golf Course'} | Units: ${accom?.units || 6} | Conf: ${accom?.confirmations || ''} | ${formatDate(accom?.arrivalDate) || '3/18/2026'} -> ${formatDate(accom?.departureDate) || '3/22/2026'}</div>
+          <div><strong>Accommodations:</strong> ${accom?.resort || 'Barefoot Golf Villas'} | ${accom?.unitType || '2 Bedroom Golf Course'} | Units: ${accom?.units || 6} | Conf: ${accom?.confirmations || ''} | ${arrivalDateDisplay} -> ${departureDateDisplay}</div>
           <div><strong>Price:</strong> ${t.price || '$792.56 per person incl. lodging, 5 rounds, all taxes/fees (no breakfast).'}</div>
           <div style="display:grid;gap:8px;margin-top:8px;">
             <a class="cta" href="https://founders.teetimecentralonline.com/golfcentral/guests/Register.aspx?g=8ad2d184-cdb8-4b90-8dc6-55c68c26efe9&ResNum=12972589&arr=3/18/2026" target="_blank">Join Package (Register)</a>
