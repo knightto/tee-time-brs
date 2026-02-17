@@ -166,6 +166,84 @@
       background: linear-gradient(160deg, #f2cf96 0%, #cf8b38 100%);
       border-color: rgba(242, 207, 150, 0.5);
     }
+    input, select, textarea, button {
+      font: inherit;
+    }
+    .field {
+      display: grid;
+      gap: 5px;
+      margin-bottom: 8px;
+    }
+    .field input, .field select, .field textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      background: #140f0c;
+      color: var(--ink);
+    }
+    .tools {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 12px;
+    }
+    .tool-card {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: linear-gradient(145deg, #201711 0%, #1a120e 100%);
+      padding: 12px;
+    }
+    .tool-card h3 {
+      margin: 0 0 8px;
+      color: var(--accent-soft);
+      font-size: 0.95rem;
+    }
+    .tool-card p {
+      margin: 0 0 8px;
+      color: var(--ink-soft);
+      font-size: 0.85rem;
+    }
+    .tool-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+    .msg {
+      margin-top: 8px;
+      font-size: 0.82rem;
+      color: var(--accent-soft);
+      min-height: 1.1em;
+    }
+    .table-wrap {
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    th, td {
+      border-bottom: 1px solid var(--border);
+      padding: 8px 6px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .tiny {
+      padding: 5px 8px;
+      border-radius: 7px;
+      border: 1px solid var(--border);
+      background: #2d241d;
+      color: var(--ink);
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 0.77rem;
+    }
+    .tiny.primary {
+      background: linear-gradient(160deg, #f2cf96 0%, #cf8b38 100%);
+      color: #1a130e;
+    }
     @media (max-width: 880px) {
       .grid { grid-template-columns: 1fr; }
     }
@@ -238,9 +316,106 @@
         <p class="muted" style="margin-top:10px;">This is now a first-class page in the main Tee Time site, matching the Myrtle trip style and deployment model.</p>
       </article>
     </section>
+
+    <section class="tools">
+      <article class="tool-card">
+        <h3>Member Sign-In + RSVP</h3>
+        <p>Members can sign in and RSVP for a specific event night.</p>
+        <form id="memberForm">
+          <label class="field">
+            <span>Name</span>
+            <input id="memberNameInput" type="text" required placeholder="Your name">
+          </label>
+          <label class="field">
+            <span>Member Passcode</span>
+            <input id="memberPasscodeInput" type="password" required placeholder="Passcode">
+          </label>
+          <label class="field">
+            <span>Event Night</span>
+            <select id="eventSelect" required></select>
+          </label>
+          <div class="tool-actions">
+            <button class="tiny primary" type="submit">Sign In + RSVP</button>
+          </div>
+          <div class="msg" id="memberMsg"></div>
+        </form>
+      </article>
+
+      <article class="tool-card">
+        <h3>Reserve Bottle Selection</h3>
+        <p>Submit reserve bottle requests for the host inventory review.</p>
+        <form id="reserveForm">
+          <label class="field">
+            <span>Member Name</span>
+            <input id="reserveNameInput" type="text" required placeholder="Member name">
+          </label>
+          <label class="field">
+            <span>Bottle</span>
+            <select id="reserveBottleSelect" required>
+              <option value="">Select a bottle...</option>
+              <option value="Weller Antique 107">Weller Antique 107</option>
+              <option value="Blanton's Single Barrel">Blanton's Single Barrel</option>
+              <option value="Booker's Bourbon">Booker's Bourbon</option>
+              <option value="E.H. Taylor Small Batch">E.H. Taylor Small Batch</option>
+              <option value="Host Choice">Host Choice</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Request Notes</span>
+            <textarea id="reserveNotesInput" rows="2" placeholder="Optional notes"></textarea>
+          </label>
+          <div class="tool-actions">
+            <button class="tiny primary" type="submit">Submit Request</button>
+          </div>
+          <div class="msg" id="reserveMsg"></div>
+        </form>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="panel">
+        <h2>Event Roster + Check-In</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Event</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="rosterBody"></tbody>
+          </table>
+        </div>
+        <div class="tool-actions">
+          <button id="exportRosterBtn" class="tiny">Export Attendance CSV</button>
+          <button id="clearRosterBtn" class="tiny">Clear Local Data</button>
+        </div>
+      </article>
+
+      <article class="panel">
+        <h2>Reserve Request Queue</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Member</th>
+                <th>Bottle</th>
+                <th>Notes</th>
+              </tr>
+            </thead>
+            <tbody id="reserveBody"></tbody>
+          </table>
+        </div>
+      </article>
+    </section>
   </div>
 
   <script>
+    const STORAGE_KEY = "valleySipSmokeState";
+    const MEMBER_PASSCODE = "sipsmoke";
+
     function nextDatesByWeekday(weekday, count) {
       const out = [];
       const d = new Date();
@@ -255,10 +430,166 @@
       return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
     }
 
+    function buildSchedule() {
+      const thursdays = nextDatesByWeekday(4, 4).map((d, idx) => ({
+        id: `thu-${idx + 1}`,
+        date: d,
+        label: "Thursday Night Pour",
+        state: "Open RSVP",
+        hour: 18,
+        minute: 30
+      }));
+      const sundays = nextDatesByWeekday(0, 4).map((d, idx) => ({
+        id: `sun-${idx + 1}`,
+        date: d,
+        label: "Sunday Smoke Session",
+        state: "Waitlist",
+        hour: 16,
+        minute: 0
+      }));
+      return thursdays.concat(sundays).sort((a, b) => a.date - b.date);
+    }
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return { attendees: [], reserveRequests: [] };
+        const parsed = JSON.parse(raw);
+        return {
+          attendees: Array.isArray(parsed.attendees) ? parsed.attendees : [],
+          reserveRequests: Array.isArray(parsed.reserveRequests) ? parsed.reserveRequests : []
+        };
+      } catch {
+        return { attendees: [], reserveRequests: [] };
+      }
+    }
+
+    function saveState(state) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }
+
+    function escapeHtml(val) {
+      return String(val || "")
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+    }
+
+    function fmtEventLabel(eventId, schedule) {
+      const e = schedule.find((x) => x.id === eventId);
+      return e ? `${e.label} (${fmtDate(e.date)})` : "Unknown event";
+    }
+
+    function toICSDate(d, hour, minute) {
+      const x = new Date(d);
+      x.setHours(hour, minute, 0, 0);
+      const y = x.getUTCFullYear();
+      const m = String(x.getUTCMonth() + 1).padStart(2, "0");
+      const day = String(x.getUTCDate()).padStart(2, "0");
+      const hh = String(x.getUTCHours()).padStart(2, "0");
+      const mm = String(x.getUTCMinutes()).padStart(2, "0");
+      return `${y}${m}${day}T${hh}${mm}00Z`;
+    }
+
+    function downloadEventICS(item) {
+      const start = toICSDate(item.date, item.hour, item.minute);
+      const end = toICSDate(item.date, item.hour + 2, item.minute);
+      const uid = `${item.id}-${Date.now()}@valleysipsmoke`;
+      const ics = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//Valley Sip and Smoke//EN",
+        "BEGIN:VEVENT",
+        `UID:${uid}`,
+        `DTSTAMP:${toICSDate(new Date(), 0, 0)}`,
+        `DTSTART:${start}`,
+        `DTEND:${end}`,
+        `SUMMARY:${item.label}`,
+        "LOCATION:On Cue Sports Bar and Grill, Front Royal, VA",
+        "DESCRIPTION:Valley Sip and Smoke event night",
+        "END:VEVENT",
+        "END:VCALENDAR"
+      ].join("\r\n");
+      const blob = new Blob([ics], { type: "text/calendar;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${item.label.replace(/\s+/g, "-").toLowerCase()}.ics`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function renderEventSelect(schedule) {
+      const select = document.getElementById("eventSelect");
+      if (!select) return;
+      select.innerHTML = schedule.map((item) => `<option value="${item.id}">${item.label} - ${fmtDate(item.date)}</option>`).join("");
+    }
+
+    function renderRoster(state, schedule) {
+      const body = document.getElementById("rosterBody");
+      if (!body) return;
+      if (!state.attendees.length) {
+        body.innerHTML = `<tr><td colspan="4" class="muted">No members signed in yet.</td></tr>`;
+        return;
+      }
+      body.innerHTML = state.attendees.map((a) => `
+        <tr>
+          <td>${escapeHtml(a.name)}</td>
+          <td>${escapeHtml(fmtEventLabel(a.eventId, schedule))}</td>
+          <td>${a.checkedIn ? "Checked In" : "RSVP Only"}</td>
+          <td>
+            <button class="tiny${a.checkedIn ? "" : " primary"}" data-action="toggle-checkin" data-id="${a.id}">
+              ${a.checkedIn ? "Undo Check-In" : "Mark Check-In"}
+            </button>
+            <button class="tiny" data-action="remove-attendee" data-id="${a.id}">Remove</button>
+          </td>
+        </tr>
+      `).join("");
+    }
+
+    function renderReserveQueue(state) {
+      const body = document.getElementById("reserveBody");
+      if (!body) return;
+      if (!state.reserveRequests.length) {
+        body.innerHTML = `<tr><td colspan="3" class="muted">No reserve requests submitted.</td></tr>`;
+        return;
+      }
+      body.innerHTML = state.reserveRequests.map((r) => `
+        <tr>
+          <td>${escapeHtml(r.name)}</td>
+          <td>${escapeHtml(r.bottle)}</td>
+          <td>${escapeHtml(r.notes || "-")}</td>
+        </tr>
+      `).join("");
+    }
+
+    function exportRoster(state, schedule) {
+      if (!state.attendees.length) return;
+      const rows = [["name", "event", "status"]].concat(
+        state.attendees.map((a) => [
+          a.name,
+          fmtEventLabel(a.eventId, schedule),
+          a.checkedIn ? "checked_in" : "rsvp_only"
+        ])
+      );
+      const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "valley-sip-and-smoke-attendance.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
     function renderSchedule() {
-      const thursdays = nextDatesByWeekday(4, 4).map((d) => ({ date: d, label: "Thursday Night Pour", state: "Open RSVP" }));
-      const sundays = nextDatesByWeekday(0, 4).map((d) => ({ date: d, label: "Sunday Smoke Session", state: "Waitlist" }));
-      const all = thursdays.concat(sundays).sort((a, b) => a.date - b.date);
+      const all = buildSchedule();
       const list = document.getElementById("scheduleList");
       if (!list) return;
       list.innerHTML = all.map((item) => {
@@ -269,13 +600,138 @@
               <div><strong>${item.label}</strong></div>
               <div class="muted">${fmtDate(item.date)}</div>
             </div>
-            <span class="status${wait ? " wait" : ""}">${item.state}</span>
+            <div style="display:grid;justify-items:end;gap:6px;">
+              <span class="status${wait ? " wait" : ""}">${item.state}</span>
+              <div class="tool-actions" style="margin:0;">
+                <button class="tiny" data-action="rsvp" data-event-id="${item.id}">RSVP</button>
+                <button class="tiny" data-action="ics" data-event-id="${item.id}">Add to Calendar</button>
+              </div>
+            </div>
           </li>
         `;
       }).join("");
+      return all;
     }
 
-    window.addEventListener("DOMContentLoaded", renderSchedule);
+    window.addEventListener("DOMContentLoaded", () => {
+      const schedule = renderSchedule() || [];
+      const state = loadState();
+      renderEventSelect(schedule);
+      renderRoster(state, schedule);
+      renderReserveQueue(state);
+
+      const memberForm = document.getElementById("memberForm");
+      const reserveForm = document.getElementById("reserveForm");
+      const memberMsg = document.getElementById("memberMsg");
+      const reserveMsg = document.getElementById("reserveMsg");
+      const eventSelect = document.getElementById("eventSelect");
+
+      const scheduleList = document.getElementById("scheduleList");
+      if (scheduleList) {
+        scheduleList.addEventListener("click", (e) => {
+          const btn = e.target.closest("button");
+          if (!btn) return;
+          const eventId = btn.dataset.eventId;
+          const item = schedule.find((x) => x.id === eventId);
+          if (!item) return;
+          if (btn.dataset.action === "rsvp") {
+            if (eventSelect) eventSelect.value = eventId;
+            const nameInput = document.getElementById("memberNameInput");
+            if (nameInput) nameInput.focus();
+          }
+          if (btn.dataset.action === "ics") {
+            downloadEventICS(item);
+          }
+        });
+      }
+
+      if (memberForm) {
+        memberForm.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const name = (document.getElementById("memberNameInput")?.value || "").trim();
+          const passcode = (document.getElementById("memberPasscodeInput")?.value || "").trim();
+          const eventId = (eventSelect?.value || "").trim();
+          if (!name || !eventId) {
+            memberMsg.textContent = "Enter your name and choose an event.";
+            return;
+          }
+          if (passcode !== MEMBER_PASSCODE) {
+            memberMsg.textContent = "Invalid member passcode.";
+            return;
+          }
+          const exists = state.attendees.some((a) => a.eventId === eventId && a.name.toLowerCase() === name.toLowerCase());
+          if (exists) {
+            memberMsg.textContent = "You are already RSVP'd for this event.";
+            return;
+          }
+          state.attendees.push({
+            id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            name,
+            eventId,
+            checkedIn: false
+          });
+          saveState(state);
+          renderRoster(state, schedule);
+          memberForm.reset();
+          renderEventSelect(schedule);
+          memberMsg.textContent = "Signed in and RSVP saved.";
+        });
+      }
+
+      if (reserveForm) {
+        reserveForm.addEventListener("submit", (e) => {
+          e.preventDefault();
+          const name = (document.getElementById("reserveNameInput")?.value || "").trim();
+          const bottle = (document.getElementById("reserveBottleSelect")?.value || "").trim();
+          const notes = (document.getElementById("reserveNotesInput")?.value || "").trim();
+          if (!name || !bottle) {
+            reserveMsg.textContent = "Enter name and select a bottle.";
+            return;
+          }
+          state.reserveRequests.push({ name, bottle, notes });
+          saveState(state);
+          renderReserveQueue(state);
+          reserveForm.reset();
+          reserveMsg.textContent = "Reserve request submitted.";
+        });
+      }
+
+      const rosterBody = document.getElementById("rosterBody");
+      if (rosterBody) {
+        rosterBody.addEventListener("click", (e) => {
+          const btn = e.target.closest("button");
+          if (!btn) return;
+          const id = btn.dataset.id;
+          const action = btn.dataset.action;
+          if (!id || !action) return;
+          if (action === "toggle-checkin") {
+            state.attendees = state.attendees.map((a) => (a.id === id ? { ...a, checkedIn: !a.checkedIn } : a));
+          }
+          if (action === "remove-attendee") {
+            state.attendees = state.attendees.filter((a) => a.id !== id);
+          }
+          saveState(state);
+          renderRoster(state, schedule);
+        });
+      }
+
+      const exportRosterBtn = document.getElementById("exportRosterBtn");
+      if (exportRosterBtn) {
+        exportRosterBtn.addEventListener("click", () => exportRoster(state, schedule));
+      }
+
+      const clearRosterBtn = document.getElementById("clearRosterBtn");
+      if (clearRosterBtn) {
+        clearRosterBtn.addEventListener("click", () => {
+          if (!window.confirm("Clear all saved RSVP/check-in and reserve request data on this device?")) return;
+          state.attendees = [];
+          state.reserveRequests = [];
+          saveState(state);
+          renderRoster(state, schedule);
+          renderReserveQueue(state);
+        });
+      }
+    });
   </script>
 </body>
 </html>
