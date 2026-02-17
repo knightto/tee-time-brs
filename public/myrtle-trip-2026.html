@@ -346,6 +346,15 @@
     const formatDate = (d) => (d ? new Date(d).toLocaleDateString() : '');
     const tripApi = (path) => (path.includes('?') ? `${path}&myrtleBeach2026=true` : `${path}?myrtleBeach2026=true`);
     const safeNumber = (val) => (val === '' || isNaN(val) ? 0 : parseFloat(val));
+    const getCondoCount = () => {
+      const size = Number(trip?.baseGroupSize) || Number(trip?.groupSize) || DEFAULT_TRIP.groupSize;
+      return Math.max(1, Math.ceil(size / 4));
+    };
+    const getCondoNumber = (assignment) => {
+      const match = assignment && assignment.match(/^Condo (\d+) - Room ([AB])$/);
+      const condoNum = match ? parseInt(match[1], 10) : null;
+      return Number.isFinite(condoNum) ? condoNum : null;
+    };
     const buildWazeLink = (course, address) => {
       const query = address || course;
       if (!query) return '';
@@ -417,7 +426,6 @@
           <div><strong>Price:</strong> ${t.price || '$792.56 per person incl. lodging, 5 rounds, all taxes/fees (no breakfast).'}</div>
           <div style="display:grid;gap:8px;margin-top:8px;">
             <a class="cta" href="https://founders.teetimecentralonline.com/golfcentral/guests/Register.aspx?g=8ad2d184-cdb8-4b90-8dc6-55c68c26efe9&ResNum=12972589&arr=3/18/2026" target="_blank">Join Package (Register)</a>
-            <a class="cta" href="https://venmo.com/tk-jr" target="_blank">Pay via Venmo</a>
           </div>
         </div>
       `;
@@ -545,31 +553,29 @@
       if (!container) return;
       container.innerHTML = '';
 
-      const condoCounts = [0, 0, 0, 0, 0];
+      const condoCount = getCondoCount();
+      const condoCounts = Array(condoCount).fill(0);
       participants.forEach((g) => {
-        const m = g.roomAssignment && g.roomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
-        if (m) {
-          const idx = parseInt(m[1], 10) - 1;
-          if (idx >= 0 && idx < 5) condoCounts[idx]++;
-        }
+        const condoNum = getCondoNumber(g.roomAssignment);
+        if (!condoNum) return;
+        const idx = condoNum - 1;
+        if (idx >= 0 && idx < condoCount) condoCounts[idx]++;
       });
 
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < condoCount; i++) {
         const div = document.createElement('div');
         div.className = 'condo-group';
         div.innerHTML = `<strong>Condo ${i + 1}</strong><div class="cards-grid"></div>`;
         const grid = div.querySelector('.cards-grid');
         const group = participants.filter((p) => {
-          if (!p.roomAssignment) return false;
-          const match = p.roomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
-          return match && parseInt(match[1], 10) === i + 1;
+          return getCondoNumber(p.roomAssignment) === i + 1;
         });
         for (const p of group) {
           const match = p.roomAssignment && p.roomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
           const room = match ? match[2] : '';
-          const currentCondo = match ? parseInt(match[1], 10) : null;
+          const currentCondo = getCondoNumber(p.roomAssignment);
           let moveOptions = `<option value="unassigned">Unassigned</option>`;
-          for (let c = 1; c <= 5; c++) {
+          for (let c = 1; c <= condoCount; c++) {
             if (c !== currentCondo && condoCounts[c - 1] < 4) moveOptions += `<option value="${c}">Condo ${c}</option>`;
           }
           const card = document.createElement('div');
@@ -593,7 +599,10 @@
         container.appendChild(div);
       }
 
-      const unassigned = participants.filter((p) => !p.roomAssignment);
+      const unassigned = participants.filter((p) => {
+        const condoNum = getCondoNumber(p.roomAssignment);
+        return !condoNum || condoNum < 1 || condoNum > condoCount;
+      });
       const unassignedSidebar = document.getElementById('unassignedSidebar');
       if (unassignedSidebar) {
         unassignedSidebar.innerHTML = `
@@ -620,17 +629,14 @@
       if (!unassigned.length) {
         ul.innerHTML = `<li style="color:var(--muted);">Everyone is assigned.</li>`;
       } else {
+        const condoOptions = Array.from({ length: condoCount }, (_, idx) => `<option value="${idx + 1}">Condo ${idx + 1}</option>`).join('');
         unassigned.forEach((p) => {
           const li = document.createElement('li');
           li.innerHTML = `
             <div style="margin-bottom:6px;font-weight:600;">${p.name}</div>
             <select class="assign-condo-select" data-id="${p._id}">
               <option value="">Assign to condo...</option>
-              <option value="1">Condo 1</option>
-              <option value="2">Condo 2</option>
-              <option value="3">Condo 3</option>
-              <option value="4">Condo 4</option>
-              <option value="5">Condo 5</option>
+              ${condoOptions}
             </select>
             <button class="remove-golfer-btn" data-id="${p._id}" style="margin-top:8px;background:#c93636;color:#fff;">Delete</button>
           `;
@@ -641,9 +647,9 @@
       if (unassignedSidebar._changeHandler) unassignedSidebar.removeEventListener('change', unassignedSidebar._changeHandler);
       unassignedSidebar._changeHandler = async function (e) {
         if (e.target.classList.contains('assign-condo-select')) {
-          const condoNum = e.target.value;
+          const condoNum = Number(e.target.value);
           const id = e.target.dataset.id;
-          if (!condoNum || condoNum < 1 || condoNum > 5) return;
+          if (!condoNum || condoNum < 1 || condoNum > condoCount) return;
           await updateParticipant(id, { roomAssignment: `Condo ${condoNum} - Room A` }, { requireAdmin: true });
         }
         if (e.target.id === 'baseGroupSizeSelect') {
@@ -710,9 +716,10 @@
           const id = e.target.dataset.id;
           const val = e.target.value;
           if (!val) return;
+          const condoCount = getCondoCount();
           if (val === 'unassigned') {
             await updateParticipant(id, { roomAssignment: null }, { requireAdmin: true });
-          } else if (val >= 1 && val <= 5) {
+          } else if (Number(val) >= 1 && Number(val) <= condoCount) {
             await updateParticipant(id, { roomAssignment: `Condo ${val} - Room A` }, { requireAdmin: true });
           }
         }
