@@ -254,7 +254,7 @@
     <header class="top">
       <a href="/" class="btn" style="width:max-content;">Back to Tee Times</a>
       <h1>Valley Sip and Smoke</h1>
-      <small>On Cue Sports Bar and Grill - Front Royal, VA</small>
+      <small>The Knight Club Lounge at On Cue - Front Royal, VA</small>
       <div class="row">
         <span class="chip">Bourbon + cigar nights</span>
         <span class="chip">Member and locker plans</span>
@@ -266,7 +266,7 @@
       <article class="panel">
         <h2>Event Overview</h2>
         <div class="facts">
-          <div><strong>Venue:</strong> On Cue Sports Bar and Grill</div>
+          <div><strong>Venue:</strong> The Knight Club Lounge at On Cue</div>
           <div><strong>City:</strong> Front Royal, Virginia</div>
           <div><strong>Format:</strong> Social bourbon and cigar sessions with reserve bottle access.</div>
           <div><strong>Host flow:</strong> Member sign-in, check-in, reserve bottle selection, and event roster.</div>
@@ -431,7 +431,7 @@
     }
 
     function buildSchedule() {
-      const thursdays = nextDatesByWeekday(4, 4).map((d, idx) => ({
+      const thursdays = nextDatesByWeekday(4, 3).map((d, idx) => ({
         id: `thu-${idx + 1}`,
         date: d,
         label: "Thursday Night Pour",
@@ -439,7 +439,7 @@
         hour: 18,
         minute: 30
       }));
-      const sundays = nextDatesByWeekday(0, 4).map((d, idx) => ({
+      const sundays = nextDatesByWeekday(0, 3).map((d, idx) => ({
         id: `sun-${idx + 1}`,
         date: d,
         label: "Sunday Smoke Session",
@@ -447,7 +447,12 @@
         hour: 16,
         minute: 0
       }));
-      return thursdays.concat(sundays).sort((a, b) => a.date - b.date);
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() + 14);
+      return thursdays
+        .concat(sundays)
+        .filter((item) => item.date <= cutoff)
+        .sort((a, b) => a.date - b.date);
     }
 
     function loadState() {
@@ -507,7 +512,7 @@
         `DTSTART:${start}`,
         `DTEND:${end}`,
         `SUMMARY:${item.label}`,
-        "LOCATION:On Cue Sports Bar and Grill, Front Royal, VA",
+        "LOCATION:The Knight Club Lounge at On Cue, Front Royal, VA",
         "DESCRIPTION:Valley Sip and Smoke event night",
         "END:VEVENT",
         "END:VCALENDAR"
