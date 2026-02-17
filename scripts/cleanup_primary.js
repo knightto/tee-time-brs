@@ -1,6 +1,6 @@
 /**
  * Cleanup script for primary MongoDB: drops legacy collections that are now
- * stored in the secondary DB (reunion + Myrtle trip).
+ * stored in the secondary DB (Myrtle trip).
  *
  * Dry run (default): node scripts/cleanup_primary.js
  * Apply (drop collections): node scripts/cleanup_primary.js --apply
@@ -12,7 +12,7 @@ const mongoose = require('mongoose');
 const APPLY = process.argv.includes('--apply');
 const mongoUri = process.env.MONGO_URI;
 const mongoDb = process.env.MONGO_DB || undefined;
-const targets = ['reunionplans', 'trips', 'tripparticipants'];
+const targets = ['trips', 'tripparticipants'];
 
 if (!mongoUri) {
   console.error('Missing MONGO_URI env var. Aborting.');

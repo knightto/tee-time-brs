@@ -68,7 +68,6 @@ app.use(rateLimit({ windowMs: 60 * 1000, max: 200 }));
 
 // Define routes before static middleware to ensure they take precedence
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
-app.use('/api/reunion', require('./routes/reunion'));
 // --- Myrtle Beach Trip Tracker API ---
 // Debug endpoint: Query all trips and participants from secondary DB
 app.get('/api/debug/secondary-trips', async (req, res) => {
