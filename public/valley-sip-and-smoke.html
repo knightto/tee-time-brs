@@ -380,11 +380,19 @@
 
       <article class="tool-card">
         <h3>Reserve Bottle Selection</h3>
-        <p>Submit reserve bottle requests for the host inventory review.</p>
+        <p>Submit reserve bottle requests for a specific event using your member passcode.</p>
         <form id="reserveForm">
           <label class="field">
             <span>Member Name</span>
             <input id="reserveNameInput" type="text" required placeholder="Member name">
+          </label>
+          <label class="field">
+            <span>Member Passcode</span>
+            <input id="reservePasscodeInput" type="password" required placeholder="Passcode">
+          </label>
+          <label class="field">
+            <span>Event Night</span>
+            <select id="reserveEventSelect" required></select>
           </label>
           <label class="field">
             <span>Bottle</span>
@@ -427,7 +435,7 @@
         </div>
         <div class="tool-actions">
           <button id="exportRosterBtn" class="tiny">Export Attendance CSV</button>
-          <button id="clearRosterBtn" class="tiny">Clear Local Data</button>
+          <button id="clearRosterBtn" class="tiny">Clear Shared Data</button>
         </div>
       </article>
 
@@ -438,6 +446,7 @@
             <thead>
               <tr>
                 <th>Member</th>
+                <th>Event</th>
                 <th>Bottle</th>
                 <th>Notes</th>
               </tr>
@@ -450,65 +459,7 @@
   </div>
 
   <script>
-    const STORAGE_KEY = "valleySipSmokeState";
-    const MEMBER_PASSCODE = "sipsmoke";
-
-    function nextDatesByWeekday(weekday, count) {
-      const out = [];
-      const d = new Date();
-      while (out.length < count) {
-        d.setDate(d.getDate() + 1);
-        if (d.getDay() === weekday) out.push(new Date(d));
-      }
-      return out;
-    }
-
-    function fmtDate(d) {
-      return d.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
-    }
-
-    function buildSchedule() {
-      const thursdays = nextDatesByWeekday(4, 3).map((d, idx) => ({
-        id: `thu-${idx + 1}`,
-        date: d,
-        label: "Thursday Night Pour",
-        state: "Open RSVP",
-        hour: 18,
-        minute: 30
-      }));
-      const sundays = nextDatesByWeekday(0, 3).map((d, idx) => ({
-        id: `sun-${idx + 1}`,
-        date: d,
-        label: "Sunday Smoke Session",
-        state: "Waitlist",
-        hour: 16,
-        minute: 0
-      }));
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() + 14);
-      return thursdays
-        .concat(sundays)
-        .filter((item) => item.date <= cutoff)
-        .sort((a, b) => a.date - b.date);
-    }
-
-    function loadState() {
-      try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return { attendees: [], reserveRequests: [] };
-        const parsed = JSON.parse(raw);
-        return {
-          attendees: Array.isArray(parsed.attendees) ? parsed.attendees : [],
-          reserveRequests: Array.isArray(parsed.reserveRequests) ? parsed.reserveRequests : []
-        };
-      } catch {
-        return { attendees: [], reserveRequests: [] };
-      }
-    }
-
-    function saveState(state) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-    }
+    let appState = { schedule: [], attendees: [], reserveRequests: [] };
 
     function escapeHtml(val) {
       return String(val || "")
@@ -519,9 +470,27 @@
         .replace(/'/g, "&#39;");
     }
 
-    function fmtEventLabel(eventId, schedule) {
-      const e = schedule.find((x) => x.id === eventId);
-      return e ? `${e.label} (${fmtDate(e.date)})` : "Unknown event";
+    function fmtDate(d) {
+      return new Date(d).toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
+    }
+
+    async function api(path, opts = {}) {
+      const res = await fetch(path, opts);
+      let data = null;
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
+      }
+      if (!res.ok) throw new Error((data && data.error) || `Request failed (${res.status})`);
+      return data;
+    }
+
+    function fmtEventLabel(attendee, schedule) {
+      const e = schedule.find((x) => x.id === attendee.eventId);
+      if (e) return `${e.label} (${fmtDate(e.date)})`;
+      if (attendee.eventLabel) return attendee.eventLabel;
+      return "Unknown event";
     }
 
     function toICSDate(d, hour, minute) {
@@ -566,75 +535,17 @@
     }
 
     function renderEventSelect(schedule) {
+      const optionHtml = schedule.map((item) => `<option value="${item.id}">${item.label} - ${fmtDate(item.date)}</option>`).join("");
       const select = document.getElementById("eventSelect");
-      if (!select) return;
-      select.innerHTML = schedule.map((item) => `<option value="${item.id}">${item.label} - ${fmtDate(item.date)}</option>`).join("");
+      if (select) select.innerHTML = optionHtml;
+      const reserveSelect = document.getElementById("reserveEventSelect");
+      if (reserveSelect) reserveSelect.innerHTML = optionHtml;
     }
 
-    function renderRoster(state, schedule) {
-      const body = document.getElementById("rosterBody");
-      if (!body) return;
-      if (!state.attendees.length) {
-        body.innerHTML = `<tr><td colspan="4" class="muted">No members signed in yet.</td></tr>`;
-        return;
-      }
-      body.innerHTML = state.attendees.map((a) => `
-        <tr>
-          <td>${escapeHtml(a.name)}</td>
-          <td>${escapeHtml(fmtEventLabel(a.eventId, schedule))}</td>
-          <td>${a.checkedIn ? "Checked In" : "RSVP Only"}</td>
-          <td>
-            <button class="tiny${a.checkedIn ? "" : " primary"}" data-action="toggle-checkin" data-id="${a.id}">
-              ${a.checkedIn ? "Undo Check-In" : "Mark Check-In"}
-            </button>
-            <button class="tiny" data-action="remove-attendee" data-id="${a.id}">Remove</button>
-          </td>
-        </tr>
-      `).join("");
-    }
-
-    function renderReserveQueue(state) {
-      const body = document.getElementById("reserveBody");
-      if (!body) return;
-      if (!state.reserveRequests.length) {
-        body.innerHTML = `<tr><td colspan="3" class="muted">No reserve requests submitted.</td></tr>`;
-        return;
-      }
-      body.innerHTML = state.reserveRequests.map((r) => `
-        <tr>
-          <td>${escapeHtml(r.name)}</td>
-          <td>${escapeHtml(r.bottle)}</td>
-          <td>${escapeHtml(r.notes || "-")}</td>
-        </tr>
-      `).join("");
-    }
-
-    function exportRoster(state, schedule) {
-      if (!state.attendees.length) return;
-      const rows = [["name", "event", "status"]].concat(
-        state.attendees.map((a) => [
-          a.name,
-          fmtEventLabel(a.eventId, schedule),
-          a.checkedIn ? "checked_in" : "rsvp_only"
-        ])
-      );
-      const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
-      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "valley-sip-and-smoke-attendance.csv";
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }
-
-    function renderSchedule() {
-      const all = buildSchedule();
+    function renderSchedule(schedule) {
       const list = document.getElementById("scheduleList");
       if (!list) return;
-      list.innerHTML = all.map((item) => {
+      list.innerHTML = schedule.map((item) => {
         const wait = item.state.toLowerCase().includes("wait");
         return `
           <li>
@@ -652,21 +563,94 @@
           </li>
         `;
       }).join("");
-      return all;
     }
 
-    window.addEventListener("DOMContentLoaded", () => {
-      const schedule = renderSchedule() || [];
-      const state = loadState();
-      renderEventSelect(schedule);
-      renderRoster(state, schedule);
-      renderReserveQueue(state);
+    function renderRoster(state, schedule) {
+      const body = document.getElementById("rosterBody");
+      if (!body) return;
+      if (!state.attendees.length) {
+        body.innerHTML = `<tr><td colspan="4" class="muted">No members signed in yet.</td></tr>`;
+        return;
+      }
+      body.innerHTML = state.attendees.map((a) => `
+        <tr>
+          <td>${escapeHtml(a.name)}</td>
+          <td>${escapeHtml(fmtEventLabel(a, schedule))}</td>
+          <td>${a.checkedIn ? "Checked In" : "RSVP Only"}</td>
+          <td>
+            <button class="tiny${a.checkedIn ? "" : " primary"}" data-action="toggle-checkin" data-id="${a._id}">
+              ${a.checkedIn ? "Undo Check-In" : "Mark Check-In"}
+            </button>
+            <button class="tiny" data-action="remove-attendee" data-id="${a._id}">Remove</button>
+          </td>
+        </tr>
+      `).join("");
+    }
 
+    function renderReserveQueue(state) {
+      const body = document.getElementById("reserveBody");
+      if (!body) return;
+      if (!state.reserveRequests.length) {
+        body.innerHTML = `<tr><td colspan="4" class="muted">No reserve requests submitted.</td></tr>`;
+        return;
+      }
+      body.innerHTML = state.reserveRequests.map((r) => `
+        <tr>
+          <td>${escapeHtml(r.name)}</td>
+          <td>${escapeHtml(fmtEventLabel(r, appState.schedule))}</td>
+          <td>${escapeHtml(r.bottle)}</td>
+          <td>${escapeHtml(r.notes || "-")}</td>
+        </tr>
+      `).join("");
+    }
+
+    function exportRoster(state, schedule) {
+      if (!state.attendees.length) return;
+      const rows = [["name", "event", "status"]].concat(
+        state.attendees.map((a) => [
+          a.name,
+          fmtEventLabel(a, schedule),
+          a.checkedIn ? "checked_in" : "rsvp_only"
+        ])
+      );
+      const csv = rows.map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(",")).join("\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "valley-sip-and-smoke-attendance.csv";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    async function refreshState() {
+      const data = await api("/api/valley/state");
+      appState = {
+        schedule: Array.isArray(data.schedule) ? data.schedule : [],
+        attendees: Array.isArray(data.attendees) ? data.attendees : [],
+        reserveRequests: Array.isArray(data.reserveRequests) ? data.reserveRequests : []
+      };
+      renderSchedule(appState.schedule);
+      renderEventSelect(appState.schedule);
+      renderRoster(appState, appState.schedule);
+      renderReserveQueue(appState);
+    }
+
+    window.addEventListener("DOMContentLoaded", async () => {
       const memberForm = document.getElementById("memberForm");
       const reserveForm = document.getElementById("reserveForm");
       const memberMsg = document.getElementById("memberMsg");
       const reserveMsg = document.getElementById("reserveMsg");
       const eventSelect = document.getElementById("eventSelect");
+      const reserveEventSelect = document.getElementById("reserveEventSelect");
+
+      try {
+        await refreshState();
+      } catch (err) {
+        memberMsg.textContent = `Unable to load Valley data: ${err.message}`;
+      }
 
       const scheduleList = document.getElementById("scheduleList");
       if (scheduleList) {
@@ -674,7 +658,7 @@
           const btn = e.target.closest("button");
           if (!btn) return;
           const eventId = btn.dataset.eventId;
-          const item = schedule.find((x) => x.id === eventId);
+          const item = appState.schedule.find((x) => x.id === eventId);
           if (!item) return;
           if (btn.dataset.action === "rsvp") {
             if (eventSelect) eventSelect.value = eventId;
@@ -688,7 +672,7 @@
       }
 
       if (memberForm) {
-        memberForm.addEventListener("submit", (e) => {
+        memberForm.addEventListener("submit", async (e) => {
           e.preventDefault();
           const name = (document.getElementById("memberNameInput")?.value || "").trim();
           const passcode = (document.getElementById("memberPasscodeInput")?.value || "").trim();
@@ -697,80 +681,94 @@
             memberMsg.textContent = "Enter your name and choose an event.";
             return;
           }
-          if (passcode !== MEMBER_PASSCODE) {
-            memberMsg.textContent = "Invalid member passcode.";
-            return;
+          try {
+            await api("/api/valley/attendees", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name, passcode, eventId })
+            });
+            await refreshState();
+            memberForm.reset();
+            renderEventSelect(appState.schedule);
+            memberMsg.textContent = "Signed in and RSVP saved.";
+          } catch (err) {
+            memberMsg.textContent = err.message;
           }
-          const exists = state.attendees.some((a) => a.eventId === eventId && a.name.toLowerCase() === name.toLowerCase());
-          if (exists) {
-            memberMsg.textContent = "You are already RSVP'd for this event.";
-            return;
-          }
-          state.attendees.push({
-            id: `a-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-            name,
-            eventId,
-            checkedIn: false
-          });
-          saveState(state);
-          renderRoster(state, schedule);
-          memberForm.reset();
-          renderEventSelect(schedule);
-          memberMsg.textContent = "Signed in and RSVP saved.";
         });
       }
 
       if (reserveForm) {
-        reserveForm.addEventListener("submit", (e) => {
+        reserveForm.addEventListener("submit", async (e) => {
           e.preventDefault();
           const name = (document.getElementById("reserveNameInput")?.value || "").trim();
+          const passcode = (document.getElementById("reservePasscodeInput")?.value || "").trim();
+          const eventId = (reserveEventSelect?.value || "").trim();
           const bottle = (document.getElementById("reserveBottleSelect")?.value || "").trim();
           const notes = (document.getElementById("reserveNotesInput")?.value || "").trim();
-          if (!name || !bottle) {
-            reserveMsg.textContent = "Enter name and select a bottle.";
+          if (!name || !passcode || !eventId || !bottle) {
+            reserveMsg.textContent = "Enter member name/passcode, event, and bottle.";
             return;
           }
-          state.reserveRequests.push({ name, bottle, notes });
-          saveState(state);
-          renderReserveQueue(state);
-          reserveForm.reset();
-          reserveMsg.textContent = "Reserve request submitted.";
+          try {
+            await api("/api/valley/reserve-requests", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ name, passcode, eventId, bottle, notes })
+            });
+            await refreshState();
+            reserveForm.reset();
+            renderEventSelect(appState.schedule);
+            reserveMsg.textContent = "Reserve request submitted.";
+          } catch (err) {
+            reserveMsg.textContent = err.message;
+          }
         });
       }
 
       const rosterBody = document.getElementById("rosterBody");
       if (rosterBody) {
-        rosterBody.addEventListener("click", (e) => {
+        rosterBody.addEventListener("click", async (e) => {
           const btn = e.target.closest("button");
           if (!btn) return;
           const id = btn.dataset.id;
           const action = btn.dataset.action;
           if (!id || !action) return;
-          if (action === "toggle-checkin") {
-            state.attendees = state.attendees.map((a) => (a.id === id ? { ...a, checkedIn: !a.checkedIn } : a));
+          try {
+            if (action === "toggle-checkin") {
+              const row = appState.attendees.find((a) => a._id === id);
+              await api(`/api/valley/attendees/${id}/check-in`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ checkedIn: !(row && row.checkedIn) })
+              });
+            }
+            if (action === "remove-attendee") {
+              await api(`/api/valley/attendees/${id}`, { method: "DELETE" });
+            }
+            await refreshState();
+          } catch (err) {
+            memberMsg.textContent = err.message;
           }
-          if (action === "remove-attendee") {
-            state.attendees = state.attendees.filter((a) => a.id !== id);
-          }
-          saveState(state);
-          renderRoster(state, schedule);
         });
       }
 
       const exportRosterBtn = document.getElementById("exportRosterBtn");
       if (exportRosterBtn) {
-        exportRosterBtn.addEventListener("click", () => exportRoster(state, schedule));
+        exportRosterBtn.addEventListener("click", () => exportRoster(appState, appState.schedule));
       }
 
       const clearRosterBtn = document.getElementById("clearRosterBtn");
       if (clearRosterBtn) {
-        clearRosterBtn.addEventListener("click", () => {
-          if (!window.confirm("Clear all saved RSVP/check-in and reserve request data on this device?")) return;
-          state.attendees = [];
-          state.reserveRequests = [];
-          saveState(state);
-          renderRoster(state, schedule);
-          renderReserveQueue(state);
+        clearRosterBtn.addEventListener("click", async () => {
+          if (!window.confirm("Clear all RSVP/check-in and reserve request data from the shared database?")) return;
+          const code = window.prompt("Enter admin code to clear shared data:");
+          if (!code) return;
+          try {
+            await api(`/api/valley/state?code=${encodeURIComponent(code)}`, { method: "DELETE" });
+            await refreshState();
+          } catch (err) {
+            memberMsg.textContent = err.message;
+          }
         });
       }
     });

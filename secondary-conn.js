@@ -1,8 +1,8 @@
 const mongoose = require('mongoose');
-const secondaryUri = process.env.MONGO_URI_SECONDARY;
 let secondaryConn = null;
 
 function initSecondaryConn() {
+  const secondaryUri = String(process.env.MONGO_URI_SECONDARY || '').trim();
   if (secondaryConn || !secondaryUri) return secondaryConn;
   secondaryConn = mongoose.createConnection(secondaryUri, {
     // useNewUrlParser/useUnifiedTopology are no-ops on driver >=4

@@ -39,6 +39,7 @@ async function alertNearlyFullTeeTimes() {
 }
 /* server.js v3.13 — daily 5pm empty-tee reminder + manual trigger */
 const path = require('path');
+require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 // Secondary connection for Myrtle Trip (kept in separate module to avoid circular requires)
@@ -46,7 +47,6 @@ const { initSecondaryConn, getSecondaryConn } = require('./secondary-conn');
 initSecondaryConn();
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
-require('dotenv').config();
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 const { importHandicapsFromCsv } = require('./services/handicapImportService');
@@ -84,6 +84,7 @@ app.get('/api/debug/secondary-trips', async (req, res) => {
   }
 });
 app.use('/api/trips', require('./routes/trips'));
+app.use('/api/valley', require('./routes/valley'));
 // Handicap tracking removed
 
 // Health check / debug endpoint
