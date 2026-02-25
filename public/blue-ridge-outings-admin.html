@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blue Ridge Outings Admin</title>
+  <style>
+    :root {
+      --bg: #0b1730;
+      --panel: #11274a;
+      --panel-soft: #1a355f;
+      --accent: #dfb45c;
+      --ink: #f4f8ff;
+      --muted: #b3c7e2;
+      --border: rgba(255,255,255,0.14);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(180deg, #0a1730 0%, #081224 100%);
+      color: var(--ink);
+      min-height: 100vh;
+    }
+    .wrap { max-width: 1200px; margin: 0 auto; padding: 16px; }
+    .panel {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: linear-gradient(145deg, var(--panel) 0%, #0e203c 100%);
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    h1, h2 { margin: 0 0 10px; }
+    h1 { color: var(--accent); }
+    .muted { color: var(--muted); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 8px;
+    }
+    label { display: grid; gap: 4px; font-size: 0.9rem; }
+    input, select, textarea, button {
+      font: inherit;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      padding: 8px;
+      background: #0b1a33;
+      color: var(--ink);
+    }
+    textarea { min-height: 80px; }
+    .checks {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .check {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px;
+      background: var(--panel-soft);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    button { cursor: pointer; font-weight: 700; }
+    button.primary { background: linear-gradient(150deg, #efc977 0%, #d29f3a 100%); color: #1e1506; border-color: rgba(223,180,92,0.7); }
+    button.secondary { background: transparent; color: var(--muted); }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid var(--border); padding: 8px 6px; text-align: left; }
+    .msg { min-height: 1.2em; color: var(--accent); margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="panel">
+      <h1>Blue Ridge Outings Admin</h1>
+      <p class="muted">Create/edit outings and control registration format rules. Uses admin code + secondary database.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input id="adminCode" type="password" placeholder="Admin code" style="max-width:260px;">
+        <button id="saveCodeBtn" class="secondary" type="button">Save Code</button>
+        <button id="reloadBtn" type="button">Reload Events</button>
+      </div>
+      <div id="topMsg" class="msg"></div>
+    </section>
+
+    <section class="panel">
+      <h2 id="formTitle">Create Outing</h2>
+      <form id="outingForm">
+        <input id="eventId" type="hidden">
+        <div class="grid">
+          <label>Event Name<input id="name" required></label>
+          <label>Format Type<input id="formatType" required placeholder="Scramble, Shamble, Match Play..."></label>
+          <label>Start Date<input id="startDate" type="date" required></label>
+          <label>End Date<input id="endDate" type="date" required></label>
+          <label>Signup Open<input id="signupOpenAt" type="datetime-local"></label>
+          <label>Signup Close<input id="signupCloseAt" type="datetime-local"></label>
+          <label>Status
+            <select id="status">
+              <option value="draft">Draft</option>
+              <option value="open">Open</option>
+              <option value="closed">Closed</option>
+              <option value="waitlist">Waitlist</option>
+              <option value="completed">Completed</option>
+            </select>
+          </label>
+          <label>Team Size Min<input id="teamSizeMin" type="number" min="1" max="8" value="1"></label>
+          <label>Team Size Max<input id="teamSizeMax" type="number" min="1" max="8" value="4"></label>
+          <label>Team Size Exact<input id="teamSizeExact" type="number" min="1" max="8"></label>
+          <label>Max Teams<input id="maxTeams" type="number" min="1"></label>
+          <label>Max Players<input id="maxPlayers" type="number" min="1"></label>
+          <label>Entry Fee<input id="entryFee" type="number" min="0" step="0.01"></label>
+          <label>Handicap Min<input id="handicapMinIndex" type="number" step="0.1"></label>
+          <label>Handicap Max<input id="handicapMaxIndex" type="number" step="0.1"></label>
+          <label>Flights/Divisions<input id="flights" placeholder="Optional"></label>
+        </div>
+
+        <div class="checks">
+          <label class="check"><input id="allowSingles" type="checkbox" checked>Allow singles</label>
+          <label class="check"><input id="allowSeekingPartner" type="checkbox" checked>Allow seeking partner</label>
+          <label class="check"><input id="allowSeekingTeam" type="checkbox" checked>Allow seeking team</label>
+          <label class="check"><input id="allowPartialTeamSignup" type="checkbox" checked>Allow partial team signup</label>
+          <label class="check"><input id="allowFullTeamSignup" type="checkbox" checked>Allow full team signup</label>
+          <label class="check"><input id="allowMemberGuestSignup" type="checkbox">Allow member + guest</label>
+          <label class="check"><input id="allowCaptainSignup" type="checkbox" checked>Allow captain signup</label>
+          <label class="check"><input id="allowJoinExistingTeam" type="checkbox" checked>Allow joining existing teams</label>
+          <label class="check"><input id="allowGuests" type="checkbox">Allow guests</label>
+          <label class="check"><input id="memberOnly" type="checkbox" checked>Member-only</label>
+          <label class="check"><input id="handicapRequired" type="checkbox">Handicap required</label>
+          <label class="check"><input id="requirePartner" type="checkbox">Require partner</label>
+          <label class="check"><input id="autoWaitlist" type="checkbox" checked>Auto waitlist</label>
+        </div>
+
+        <div class="grid" style="margin-top:8px;">
+          <label>Registration Notes<textarea id="registrationNotes"></textarea></label>
+          <label>Cancellation Policy<textarea id="cancellationPolicy"></textarea></label>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <button type="submit" class="primary">Save Outing</button>
+          <button type="button" id="resetBtn" class="secondary">Reset Form</button>
+        </div>
+        <div id="formMsg" class="msg"></div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Existing Outings</h2>
+      <div style="overflow:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Name</th>
+              <th>Status</th>
+              <th>Format</th>
+              <th>Players</th>
+              <th>Teams</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="eventsBody"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const FIELDS = [
+      'name','formatType','startDate','endDate','signupOpenAt','signupCloseAt','status',
+      'teamSizeMin','teamSizeMax','teamSizeExact','maxTeams','maxPlayers','entryFee','handicapMinIndex','handicapMaxIndex','flights',
+      'allowSingles','allowSeekingPartner','allowSeekingTeam','allowPartialTeamSignup','allowFullTeamSignup','allowMemberGuestSignup',
+      'allowCaptainSignup','allowJoinExistingTeam','allowGuests','memberOnly','handicapRequired','requirePartner','autoWaitlist',
+      'registrationNotes','cancellationPolicy'
+    ];
+
+    let outings = [];
+
+    function getCode() {
+      return (document.getElementById('adminCode').value || localStorage.getItem('brsOutingsAdminCode') || '').trim();
+    }
+
+    async function api(path, opts = {}) {
+      const code = getCode();
+      const query = path.includes('?') ? '&' : '?';
+      const fullPath = code ? `${path}${query}code=${encodeURIComponent(code)}` : path;
+      const res = await fetch(fullPath, opts);
+      let data = null;
+      try { data = await res.json(); } catch (_) { data = null; }
+      if (!res.ok) throw new Error((data && data.error) || `Request failed (${res.status})`);
+      return data;
+    }
+
+    function setTopMsg(msg) {
+      document.getElementById('topMsg').textContent = msg || '';
+    }
+
+    function toLocalDateInput(value) {
+      if (!value) return '';
+      const d = new Date(value);
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+    }
+
+    function toLocalDateTimeInput(value) {
+      if (!value) return '';
+      const d = new Date(value);
+      const pad = (n) => String(n).padStart(2, '0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function collectPayload() {
+      const payload = {};
+      for (const id of FIELDS) {
+        const el = document.getElementById(id);
+        if (!el) continue;
+        if (el.type === 'checkbox') payload[id] = Boolean(el.checked);
+        else payload[id] = el.value;
+      }
+      return payload;
+    }
+
+    function resetForm() {
+      document.getElementById('outingForm').reset();
+      document.getElementById('eventId').value = '';
+      document.getElementById('formTitle').textContent = 'Create Outing';
+      document.getElementById('formMsg').textContent = '';
+      document.getElementById('memberOnly').checked = true;
+      document.getElementById('allowSingles').checked = true;
+      document.getElementById('allowSeekingPartner').checked = true;
+      document.getElementById('allowSeekingTeam').checked = true;
+      document.getElementById('allowPartialTeamSignup').checked = true;
+      document.getElementById('allowFullTeamSignup').checked = true;
+      document.getElementById('allowCaptainSignup').checked = true;
+      document.getElementById('allowJoinExistingTeam').checked = true;
+      document.getElementById('autoWaitlist').checked = true;
+      document.getElementById('teamSizeMin').value = '1';
+      document.getElementById('teamSizeMax').value = '4';
+      document.getElementById('status').value = 'draft';
+    }
+
+    function loadIntoForm(event) {
+      document.getElementById('eventId').value = event._id;
+      document.getElementById('formTitle').textContent = `Edit Outing: ${event.name}`;
+      document.getElementById('name').value = event.name || '';
+      document.getElementById('formatType').value = event.formatType || '';
+      document.getElementById('startDate').value = toLocalDateInput(event.startDate);
+      document.getElementById('endDate').value = toLocalDateInput(event.endDate);
+      document.getElementById('signupOpenAt').value = toLocalDateTimeInput(event.signupOpenAt);
+      document.getElementById('signupCloseAt').value = toLocalDateTimeInput(event.signupCloseAt);
+      document.getElementById('status').value = event.status || 'draft';
+      document.getElementById('teamSizeMin').value = event.teamSizeMin || '';
+      document.getElementById('teamSizeMax').value = event.teamSizeMax || '';
+      document.getElementById('teamSizeExact').value = event.teamSizeExact || '';
+      document.getElementById('maxTeams').value = event.maxTeams || '';
+      document.getElementById('maxPlayers').value = event.maxPlayers || '';
+      document.getElementById('entryFee').value = event.entryFee || '';
+      document.getElementById('handicapMinIndex').value = event.handicapMinIndex || '';
+      document.getElementById('handicapMaxIndex').value = event.handicapMaxIndex || '';
+      document.getElementById('flights').value = event.flights || '';
+      document.getElementById('registrationNotes').value = event.registrationNotes || '';
+      document.getElementById('cancellationPolicy').value = event.cancellationPolicy || '';
+
+      const checks = ['allowSingles','allowSeekingPartner','allowSeekingTeam','allowPartialTeamSignup','allowFullTeamSignup','allowMemberGuestSignup','allowCaptainSignup','allowJoinExistingTeam','allowGuests','memberOnly','handicapRequired','requirePartner','autoWaitlist'];
+      checks.forEach((id) => {
+        const el = document.getElementById(id);
+        el.checked = Boolean(event[id]);
+      });
+      document.getElementById('formMsg').textContent = '';
+    }
+
+    function renderTable() {
+      const body = document.getElementById('eventsBody');
+      if (!outings.length) {
+        body.innerHTML = '<tr><td colspan="7" class="muted">No outings found.</td></tr>';
+        return;
+      }
+      body.innerHTML = outings.map((e) => `
+        <tr>
+          <td>${new Date(e.startDate).toLocaleDateString()}${new Date(e.endDate).toDateString() !== new Date(e.startDate).toDateString() ? ' - ' + new Date(e.endDate).toLocaleDateString() : ''}</td>
+          <td>${e.name}</td>
+          <td>${e.status}</td>
+          <td>${e.formatType}</td>
+          <td>${e.metrics.players}${e.maxPlayers ? ' / ' + e.maxPlayers : ''}</td>
+          <td>${e.metrics.teams}${e.maxTeams ? ' / ' + e.maxTeams : ''}</td>
+          <td><button type="button" data-edit-id="${e._id}">Edit</button></td>
+        </tr>
+      `).join('');
+    }
+
+    async function loadEvents() {
+      outings = await api('/api/outings/admin/events');
+      renderTable();
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      const saved = localStorage.getItem('brsOutingsAdminCode');
+      if (saved) document.getElementById('adminCode').value = saved;
+
+      document.getElementById('saveCodeBtn').addEventListener('click', () => {
+        const code = (document.getElementById('adminCode').value || '').trim();
+        if (code) {
+          localStorage.setItem('brsOutingsAdminCode', code);
+          setTopMsg('Admin code saved locally for this browser.');
+        } else {
+          localStorage.removeItem('brsOutingsAdminCode');
+          setTopMsg('Admin code cleared.');
+        }
+      });
+
+      document.getElementById('reloadBtn').addEventListener('click', async () => {
+        try {
+          await loadEvents();
+          setTopMsg('Events reloaded.');
+        } catch (err) {
+          setTopMsg(err.message);
+        }
+      });
+
+      document.getElementById('outingForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const msg = document.getElementById('formMsg');
+        msg.textContent = '';
+        const eventId = document.getElementById('eventId').value;
+        const payload = collectPayload();
+        try {
+          if (eventId) {
+            await api(`/api/outings/admin/events/${encodeURIComponent(eventId)}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+            msg.textContent = 'Outing updated.';
+          } else {
+            await api('/api/outings/admin/events', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload),
+            });
+            msg.textContent = 'Outing created.';
+          }
+          await loadEvents();
+          resetForm();
+        } catch (err) {
+          msg.textContent = err.message;
+        }
+      });
+
+      document.getElementById('resetBtn').addEventListener('click', resetForm);
+
+      document.getElementById('eventsBody').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-edit-id]');
+        if (!btn) return;
+        const event = outings.find((x) => x._id === btn.dataset.editId);
+        if (event) loadIntoForm(event);
+      });
+
+      resetForm();
+      try {
+        await loadEvents();
+      } catch (err) {
+        setTopMsg(err.message);
+      }
+    });
+  </script>
+</body>
+</html>

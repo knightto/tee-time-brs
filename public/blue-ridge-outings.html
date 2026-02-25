@@ -1,0 +1,675 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Blue Ridge Shadows Annual Course Outings</title>
+  <link rel="icon" type="image/png" href="/assets/knight-club-icon.png">
+  <style>
+    :root {
+      --bg: #0a1830;
+      --panel: #102645;
+      --panel-soft: #173359;
+      --gold: #dfb45c;
+      --ink: #f4f8ff;
+      --muted: #b7c7df;
+      --border: rgba(255, 255, 255, 0.14);
+      --good: #6ad5a7;
+      --bad: #f08f8f;
+      --warn: #efcd76;
+      --shadow: 0 20px 44px rgba(0, 0, 0, 0.32);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 20% 12%, rgba(223, 180, 92, 0.12), transparent 30%),
+        radial-gradient(circle at 84% 4%, rgba(73, 136, 198, 0.2), transparent 30%),
+        linear-gradient(180deg, #0a1830 0%, #081325 100%);
+      min-height: 100vh;
+    }
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 16px;
+    }
+    .hero {
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      background: linear-gradient(150deg, #132c4d 0%, #0c1d36 100%);
+      padding: 18px;
+      box-shadow: var(--shadow);
+      position: sticky;
+      top: 8px;
+      z-index: 5;
+    }
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(1.25rem, 3.3vw, 2rem);
+      letter-spacing: 0.4px;
+    }
+    .hero p {
+      margin: 8px 0 0;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .layout {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 12px;
+      align-items: start;
+    }
+    .sidebar {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: linear-gradient(145deg, #0f2240 0%, #0b1b34 100%);
+      box-shadow: var(--shadow);
+      padding: 10px;
+      position: sticky;
+      top: 110px;
+      max-height: calc(100vh - 130px);
+      overflow-y: auto;
+    }
+    .sidebar h2 {
+      margin: 4px 4px 10px;
+      font-size: 0.98rem;
+      color: var(--gold);
+    }
+    .outing-list {
+      display: grid;
+      gap: 6px;
+    }
+    .outing-item {
+      width: 100%;
+      text-align: left;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .outing-item small {
+      display: block;
+      color: var(--muted);
+      margin-top: 2px;
+      font-size: 0.78rem;
+    }
+    .outing-item.active {
+      border-color: rgba(223, 180, 92, 0.7);
+      box-shadow: inset 0 0 0 1px rgba(223, 180, 92, 0.35);
+      background: rgba(223, 180, 92, 0.12);
+    }
+    .featured {
+      display: grid;
+      gap: 12px;
+    }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: linear-gradient(145deg, var(--panel) 0%, #0e203a 100%);
+      padding: 14px;
+      box-shadow: var(--shadow);
+      display: grid;
+      gap: 10px;
+    }
+    .card h2 {
+      margin: 0;
+      font-size: 1.1rem;
+      color: var(--gold);
+    }
+    .meta {
+      display: grid;
+      gap: 4px;
+      color: var(--muted);
+      font-size: 0.92rem;
+    }
+    .pill {
+      display: inline-block;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 5px 10px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .pill.open { color: #0e2a1f; background: var(--good); }
+    .pill.waitlist { color: #3d2f04; background: var(--warn); }
+    .pill.closed, .pill.completed { color: #380f0f; background: var(--bad); }
+    .pill.draft { color: #a4b7d3; background: rgba(255, 255, 255, 0.08); }
+    .rules {
+      color: var(--muted);
+      font-size: 0.87rem;
+      line-height: 1.4;
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+    }
+    .spots {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+      font-size: 0.85rem;
+    }
+    .spot {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.04);
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 7px;
+    }
+    button, input, textarea, select {
+      font: inherit;
+    }
+    button {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px 11px;
+      background: #1b365f;
+      color: var(--ink);
+      font-weight: 700;
+      cursor: pointer;
+    }
+    button.primary {
+      background: linear-gradient(150deg, #efc977 0%, #d29f3a 100%);
+      color: #1f1706;
+      border-color: rgba(223, 180, 92, 0.7);
+    }
+    button.secondary {
+      background: transparent;
+      color: var(--muted);
+    }
+    .status-check {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 6px;
+    }
+    input, select, textarea {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px;
+      background: #0b1a33;
+      color: var(--ink);
+    }
+    .tiny-msg {
+      min-height: 1.1em;
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    dialog {
+      width: min(760px, calc(100vw - 24px));
+      border: none;
+      border-radius: 14px;
+      background: linear-gradient(140deg, #0f2441 0%, #0b1b34 100%);
+      color: var(--ink);
+      box-shadow: var(--shadow);
+      padding: 0;
+    }
+    dialog::backdrop { background: rgba(0, 0, 0, 0.6); }
+    .modal {
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+    .grid2 {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .players {
+      display: grid;
+      gap: 8px;
+    }
+    .player-row {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px;
+      background: var(--panel-soft);
+      display: grid;
+      gap: 7px;
+    }
+    .row-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .msg {
+      min-height: 1.2em;
+      color: var(--warn);
+      font-size: 0.88rem;
+    }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar {
+        position: static;
+        max-height: unset;
+      }
+    }
+    @media (max-width: 760px) {
+      .grid2 { grid-template-columns: 1fr; }
+      .spots { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <h1>Blue Ridge Shadows Annual Course Outings</h1>
+      <p>Official 2026 event schedule and online signup. Team formats, partner/team search, member/guest rules, and waitlist options are enforced per event.</p>
+    </section>
+
+    <section class="layout" id="outingsLayout" aria-live="polite">
+      <aside class="sidebar">
+        <h2>All Outings</h2>
+        <div id="outingsList" class="outing-list"></div>
+      </aside>
+      <section id="featuredOuting" class="featured"></section>
+    </section>
+  </main>
+
+  <dialog id="signupDialog">
+    <form id="signupForm" class="modal" method="dialog">
+      <h3 id="signupTitle" style="margin:0;"></h3>
+      <div id="signupSubtitle" class="tiny-msg"></div>
+      <input type="hidden" id="formEventId">
+      <input type="hidden" id="formMode">
+
+      <div class="grid2">
+        <label>Team Name (if creating team)
+          <input id="teamNameInput" type="text" placeholder="Example: Fairway Fighters">
+        </label>
+        <label id="teamSelectWrap" hidden>Join Existing Team
+          <select id="teamSelect"></select>
+        </label>
+      </div>
+
+      <label>Optional Notes
+        <textarea id="notesInput" rows="2" placeholder="Any special notes for the golf staff"></textarea>
+      </label>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <strong>Players</strong>
+        <button id="addPlayerBtn" class="secondary" type="button">Add Player</button>
+      </div>
+      <div id="playersWrap" class="players"></div>
+
+      <div class="msg" id="signupMsg"></div>
+      <div class="row-actions">
+        <button type="button" class="secondary" id="cancelSignupBtn">Cancel</button>
+        <button type="submit" class="primary">Submit Registration</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script>
+    let outings = [];
+    let cachedEventDetails = new Map();
+    let selectedEventId = null;
+
+    function esc(v) {
+      return String(v || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    async function api(path, opts = {}) {
+      const res = await fetch(path, opts);
+      let data = null;
+      try { data = await res.json(); } catch (_) { data = null; }
+      if (!res.ok) throw new Error((data && data.error) || `Request failed (${res.status})`);
+      return data;
+    }
+
+    function modeButton(label, mode, eventId) {
+      return `<button type="button" data-action="open-signup" data-event-id="${eventId}" data-mode="${mode}">${label}</button>`;
+    }
+
+    function statusClass(status) {
+      const s = String(status || '').toLowerCase();
+      if (s === 'open') return 'open';
+      if (s === 'waitlist') return 'waitlist';
+      if (s === 'closed') return 'closed';
+      if (s === 'completed') return 'completed';
+      return 'draft';
+    }
+
+    function findUpcomingEventId() {
+      if (!outings.length) return null;
+      const now = new Date();
+      const upcoming = outings.find((event) => new Date(event.endDate) >= now);
+      return (upcoming || outings[0])._id;
+    }
+
+    function renderOutingsList() {
+      const list = document.getElementById('outingsList');
+      if (!list) return;
+      if (!outings.length) {
+        list.innerHTML = '<div class="tiny-msg">No outings loaded.</div>';
+        return;
+      }
+      list.innerHTML = outings.map((event) => `
+        <button type="button" class="outing-item${event._id === selectedEventId ? ' active' : ''}" data-action="select-event" data-event-id="${event._id}">
+          <strong>${esc(event.name)}</strong>
+          <small>${esc(event.dateLabel)} | ${esc(event.status)}</small>
+        </button>
+      `).join('');
+    }
+
+    function renderFeaturedOuting() {
+      const wrap = document.getElementById('featuredOuting');
+      if (!wrap) return;
+      if (!outings.length) {
+        wrap.innerHTML = '<article class="card"><p>No outings found. Ask an admin to seed the annual schedule.</p></article>';
+        return;
+      }
+
+      const event = outings.find((x) => x._id === selectedEventId) || outings[0];
+      selectedEventId = event._id;
+
+      const actions = [];
+      const canSignup = String(event.status || '').toLowerCase() === 'open';
+      if (canSignup && event.allowSingles) actions.push(modeButton('Sign Up as Single', 'single', event._id));
+      if (canSignup && event.allowSeekingPartner) actions.push(modeButton('Find a Partner', 'seeking_partner', event._id));
+      if (canSignup && event.allowSeekingTeam) actions.push(modeButton('Find a Team', 'seeking_team', event._id));
+      if (canSignup && event.allowFullTeamSignup) actions.push(modeButton('Create Team', 'full_team', event._id));
+      if (canSignup && event.allowPartialTeamSignup) actions.push(modeButton('Partial Team Signup', 'partial_team', event._id));
+      if (canSignup && event.allowCaptainSignup) actions.push(modeButton('Captain Signup', 'captain', event._id));
+      if (canSignup && event.allowMemberGuestSignup) actions.push(modeButton('Member + Guest', 'member_guest', event._id));
+      if (canSignup && event.allowJoinExistingTeam) actions.push(modeButton('Join Existing Team', 'join_team', event._id));
+
+      const showWaitlist = Boolean(event.autoWaitlist) || String(event.status || '').toLowerCase() === 'waitlist';
+
+      wrap.innerHTML = `
+        <article class="card" data-event-card="${event._id}">
+          <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;">
+            <h2>${esc(event.name)}</h2>
+            <span class="pill ${statusClass(event.status)}">${esc(event.status)}</span>
+          </div>
+
+          <div class="meta">
+            <div><strong>Date:</strong> ${esc(event.dateLabel)}</div>
+            <div><strong>Format:</strong> ${esc(event.formatType)}</div>
+            <div><strong>Signup Deadline:</strong> ${event.signupCloseAt ? esc(new Date(event.signupCloseAt).toLocaleString()) : 'TBD'}</div>
+            <div><strong>Entry Fee:</strong> ${event.entryFee ? '$' + Number(event.entryFee).toFixed(2) : 'Not set'}</div>
+          </div>
+
+          <div class="spots">
+            <div class="spot"><strong>Players:</strong> ${event.metrics.players}${event.maxPlayers ? ' / ' + event.maxPlayers : ''}${event.spotsRemainingPlayers !== null ? ' (' + event.spotsRemainingPlayers + ' left)' : ''}</div>
+            <div class="spot"><strong>Teams:</strong> ${event.metrics.teams}${event.maxTeams ? ' / ' + event.maxTeams : ''}${event.spotsRemainingTeams !== null ? ' (' + event.spotsRemainingTeams + ' left)' : ''}</div>
+          </div>
+
+          <div class="rules">${esc(event.ruleSummary)}</div>
+
+          <div class="actions">
+            ${actions.join('')}
+            ${showWaitlist ? `<button type="button" data-action="waitlist" data-event-id="${event._id}">Join Waitlist</button>` : ''}
+          </div>
+
+          <div class="status-check">
+            <input type="email" placeholder="your@email.com" data-status-email="${event._id}">
+            <button type="button" data-action="check-status" data-event-id="${event._id}">Check Status</button>
+          </div>
+          <div class="tiny-msg" data-status-msg="${event._id}"></div>
+        </article>
+      `;
+    }
+
+    function renderOutings() {
+      if (!selectedEventId) selectedEventId = findUpcomingEventId();
+      renderOutingsList();
+      renderFeaturedOuting();
+    }
+
+    function playerRowTemplate(index) {
+      return `
+        <div class="player-row" data-player-row="${index}">
+          <div class="grid2">
+            <label>Name
+              <input type="text" data-player-name required>
+            </label>
+            <label>Email
+              <input type="email" data-player-email required>
+            </label>
+          </div>
+          <div class="grid2">
+            <label>Phone
+              <input type="text" data-player-phone>
+            </label>
+            <label>Handicap Index
+              <input type="number" step="0.1" data-player-hcp>
+            </label>
+          </div>
+          <div style="display:flex;gap:12px;align-items:center;justify-content:space-between;">
+            <label><input type="checkbox" data-player-guest> Guest</label>
+            <button type="button" class="secondary" data-action="remove-player">Remove</button>
+          </div>
+        </div>
+      `;
+    }
+
+    function setPlayerCount(count) {
+      const wrap = document.getElementById('playersWrap');
+      if (!wrap) return;
+      const safeCount = Math.max(1, count);
+      wrap.innerHTML = Array.from({ length: safeCount }, (_, i) => playerRowTemplate(i + 1)).join('');
+    }
+
+    async function fetchEventDetail(eventId) {
+      if (cachedEventDetails.has(eventId)) return cachedEventDetails.get(eventId);
+      const detail = await api(`/api/outings/${encodeURIComponent(eventId)}`);
+      cachedEventDetails.set(eventId, detail);
+      return detail;
+    }
+
+    function requiredPlayerCountFromMode(mode, detail) {
+      const exact = Number(detail.teamSizeExact || 0);
+      if (mode === 'single' || mode === 'seeking_partner' || mode === 'seeking_team' || mode === 'join_team' || mode === 'captain') return 1;
+      if (mode === 'full_team') return exact > 0 ? exact : Math.max(2, Number(detail.teamSizeMax || 4));
+      if (mode === 'member_guest') return Math.max(2, exact > 0 ? exact : 2);
+      if (mode === 'partial_team') return Math.min(Math.max(2, Number(detail.teamSizeMin || 2)), Math.max(2, Number(detail.teamSizeMax || 4)));
+      return 1;
+    }
+
+    async function openSignup(eventId, mode) {
+      const detail = await fetchEventDetail(eventId);
+      const dialog = document.getElementById('signupDialog');
+      const title = document.getElementById('signupTitle');
+      const subtitle = document.getElementById('signupSubtitle');
+      const formEventId = document.getElementById('formEventId');
+      const formMode = document.getElementById('formMode');
+      const teamSelectWrap = document.getElementById('teamSelectWrap');
+      const teamSelect = document.getElementById('teamSelect');
+      const addBtn = document.getElementById('addPlayerBtn');
+      const msg = document.getElementById('signupMsg');
+
+      if (!dialog || !title || !subtitle || !formEventId || !formMode || !teamSelectWrap || !teamSelect || !addBtn || !msg) return;
+      msg.textContent = '';
+
+      formEventId.value = eventId;
+      formMode.value = mode;
+      title.textContent = `${detail.name} - ${mode.replace(/_/g, ' ')}`;
+      subtitle.textContent = `${detail.formatType} | ${detail.ruleSummary}`;
+
+      const showTeamSelect = mode === 'join_team';
+      teamSelectWrap.hidden = !showTeamSelect;
+      if (showTeamSelect) {
+        const joinable = (detail.teams || []).filter((t) => t.canJoin);
+        if (!joinable.length) {
+          msg.textContent = 'No joinable teams are currently available.';
+        }
+        teamSelect.innerHTML = joinable.map((t) => `<option value="${t._id}">${esc(t.name)} (${t.memberCount} players)</option>`).join('');
+      }
+
+      document.getElementById('teamNameInput').value = '';
+      document.getElementById('notesInput').value = '';
+      setPlayerCount(requiredPlayerCountFromMode(mode, detail));
+
+      const teamNameNeeded = mode === 'full_team' || mode === 'partial_team' || mode === 'member_guest' || mode === 'captain';
+      document.getElementById('teamNameInput').closest('label').style.display = teamNameNeeded ? '' : 'none';
+
+      const addAllowed = !(mode === 'single' || mode === 'seeking_partner' || mode === 'seeking_team' || mode === 'join_team' || mode === 'captain');
+      addBtn.style.display = addAllowed ? '' : 'none';
+
+      if (!dialog.open) dialog.showModal();
+    }
+
+    function collectPlayers() {
+      const rows = Array.from(document.querySelectorAll('[data-player-row]'));
+      return rows.map((row) => ({
+        name: (row.querySelector('[data-player-name]')?.value || '').trim(),
+        email: (row.querySelector('[data-player-email]')?.value || '').trim(),
+        phone: (row.querySelector('[data-player-phone]')?.value || '').trim(),
+        handicapIndex: (row.querySelector('[data-player-hcp]')?.value || '').trim(),
+        isGuest: Boolean(row.querySelector('[data-player-guest]')?.checked),
+      }));
+    }
+
+    async function submitSignup(e) {
+      e.preventDefault();
+      const msg = document.getElementById('signupMsg');
+      msg.textContent = '';
+
+      const eventId = document.getElementById('formEventId').value;
+      const mode = document.getElementById('formMode').value;
+      const teamName = (document.getElementById('teamNameInput').value || '').trim();
+      const teamId = (document.getElementById('teamSelect').value || '').trim();
+      const notes = (document.getElementById('notesInput').value || '').trim();
+      const players = collectPlayers();
+
+      if (!players.length) {
+        msg.textContent = 'At least one player is required.';
+        return;
+      }
+
+      try {
+        await api(`/api/outings/${encodeURIComponent(eventId)}/register`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode, teamName, teamId, notes, players }),
+        });
+
+        const dialog = document.getElementById('signupDialog');
+        if (dialog.open) dialog.close();
+        await loadOutings();
+      } catch (err) {
+        msg.textContent = err.message;
+      }
+    }
+
+    async function joinWaitlist(eventId) {
+      const name = window.prompt('Name for waitlist:');
+      if (!name) return;
+      const email = window.prompt('Email for waitlist:');
+      if (!email) return;
+      const phone = window.prompt('Phone (optional):') || '';
+      const notes = window.prompt('Notes (optional):') || '';
+      try {
+        await api(`/api/outings/${encodeURIComponent(eventId)}/waitlist`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, email, phone, notes, mode: 'single' }),
+        });
+        await loadOutings();
+      } catch (err) {
+        window.alert(err.message);
+      }
+    }
+
+    async function checkStatus(eventId) {
+      const input = document.querySelector(`[data-status-email="${eventId}"]`);
+      const msg = document.querySelector(`[data-status-msg="${eventId}"]`);
+      if (!input || !msg) return;
+      const email = (input.value || '').trim();
+      if (!email) {
+        msg.textContent = 'Enter your email to check status.';
+        return;
+      }
+      try {
+        const status = await api(`/api/outings/${encodeURIComponent(eventId)}/status?email=${encodeURIComponent(email)}`);
+        if (status.isRegistered) {
+          msg.textContent = 'You are currently registered for this event.';
+        } else if (status.isWaitlisted) {
+          msg.textContent = 'You are on the waitlist for this event.';
+        } else {
+          msg.textContent = 'No active signup found for this email.';
+        }
+      } catch (err) {
+        msg.textContent = err.message;
+      }
+    }
+
+    async function loadOutings() {
+      outings = await api('/api/outings');
+      cachedEventDetails = new Map();
+      if (!selectedEventId) selectedEventId = findUpcomingEventId();
+      if (!outings.some((x) => x._id === selectedEventId)) selectedEventId = findUpcomingEventId();
+      renderOutings();
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      const layout = document.getElementById('outingsLayout');
+      layout.addEventListener('click', async (e) => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const eventId = btn.dataset.eventId;
+        if (!action || !eventId) return;
+
+        if (action === 'select-event') {
+          selectedEventId = eventId;
+          renderOutings();
+          return;
+        }
+        if (action === 'open-signup') {
+          try {
+            await openSignup(eventId, btn.dataset.mode);
+          } catch (err) {
+            window.alert(err.message);
+          }
+        }
+        if (action === 'waitlist') await joinWaitlist(eventId);
+        if (action === 'check-status') await checkStatus(eventId);
+      });
+
+      const signupForm = document.getElementById('signupForm');
+      signupForm.addEventListener('submit', submitSignup);
+
+      document.getElementById('playersWrap').addEventListener('click', (e) => {
+        const btn = e.target.closest('button[data-action="remove-player"]');
+        if (!btn) return;
+        const rows = document.querySelectorAll('[data-player-row]');
+        if (rows.length <= 1) return;
+        btn.closest('[data-player-row]').remove();
+      });
+
+      document.getElementById('addPlayerBtn').addEventListener('click', () => {
+        const wrap = document.getElementById('playersWrap');
+        const idx = wrap.querySelectorAll('[data-player-row]').length + 1;
+        wrap.insertAdjacentHTML('beforeend', playerRowTemplate(idx));
+      });
+
+      document.getElementById('cancelSignupBtn').addEventListener('click', () => {
+        const d = document.getElementById('signupDialog');
+        if (d.open) d.close();
+      });
+
+      try {
+        await loadOutings();
+      } catch (err) {
+        document.getElementById('featuredOuting').innerHTML = `<article class="card"><p>${esc(err.message)}</p></article>`;
+      }
+    });
+  </script>
+</body>
+</html>

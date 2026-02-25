@@ -84,6 +84,7 @@ app.get('/api/debug/secondary-trips', async (req, res) => {
   }
 });
 app.use('/api/trips', require('./routes/trips'));
+app.use('/api/outings', require('./routes/outings'));
 app.use('/api/valley', require('./routes/valley'));
 // Handicap tracking removed
 
