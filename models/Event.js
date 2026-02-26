@@ -16,7 +16,7 @@ const SlotSchema = new mongoose.Schema({
 
 const EventSchema = new mongoose.Schema({
   course: { type: String, required: true, trim: true },
-  dedupeKey: { type: String, default: null },   // YYYY-MM-DD|08:00,08:09,08:18 (tee-time events)
+  dedupeKey: { type: String, default: undefined },   // YYYY-MM-DD|08:00,08:09,08:18 (tee-time events)
   courseInfo: {
     city: { type: String, default: null },
     state: { type: String, default: null },

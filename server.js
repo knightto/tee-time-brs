@@ -1127,7 +1127,7 @@ app.post('/api/events', async (req, res) => {
         isTeamEvent: !!isTeamEvent,
         teamSizeMax: Math.max(2, Math.min(4, Number(teamSizeMax || 4))),
         teeTimes: tt,
-        dedupeKey,
+        dedupeKey: dedupeKey || undefined,
         weather: {
           condition: weatherData.condition,
           icon: weatherData.icon,
@@ -1168,7 +1168,7 @@ app.put('/api/events/:id', async (req, res) => {
     if (isTeamEvent !== undefined) ev.isTeamEvent = !!isTeamEvent;
     if (teamSizeMax !== undefined) ev.teamSizeMax = Math.max(2, Math.min(4, Number(teamSizeMax || 4)));
     // Recompute dedupeKey for tee-time events after changes
-    ev.dedupeKey = buildDedupeKey(ev.date, ev.teeTimes, ev.isTeamEvent);
+    ev.dedupeKey = buildDedupeKey(ev.date, ev.teeTimes, ev.isTeamEvent) || undefined;
     await ev.save();
     res.json(ev);
   } catch (e) { res.status(400).json({ error: e.message }); }
