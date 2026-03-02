@@ -1211,7 +1211,13 @@ app.post('/api/events/:id/request-extra-tee-time', async (req, res) => {
       .join(', ');
 
     const clubEmail = process.env.CLUB_CANCEL_EMAIL || 'Brian.Jones@blueridgeshadows.com';
-    const cc = process.env.CLUB_CANCEL_CC || 'tommy.knight@gmail.com';
+    const defaultCcList = ['tommy.knight@gmail.com', 'jvhyers@gmail.com'];
+    const envCcList = String(process.env.CLUB_CANCEL_CC || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+    const ccList = Array.from(new Set([...defaultCcList, ...envCcList]));
+    const smtpRecipients = Array.from(new Set([clubEmail, ...ccList]));
     const subj = `Request additional tee time: ${ev.course || 'Course'} ${fmt.dateISO(ev.date)} - KNIGHT GROUP TEE TIMES`;
     const html = `<p>Please add an additional tee time for the event below:</p>
       <ul>
@@ -1225,14 +1231,14 @@ app.post('/api/events/:id/request-extra-tee-time', async (req, res) => {
       ${note ? `<p><strong>Request note:</strong> ${esc(note)}</p>` : ''}
       <p>Thank you.</p>`;
 
-    const httpRes = await sendEmailViaResendApi(clubEmail, subj, html, cc ? { cc } : undefined);
+    const httpRes = await sendEmailViaResendApi(clubEmail, subj, html, ccList.length ? { cc: ccList } : undefined);
     if (httpRes.ok) {
-      return res.json({ ok: true, mailMethod: 'http', to: clubEmail });
+      return res.json({ ok: true, mailMethod: 'http', to: clubEmail, cc: ccList });
     }
 
-    const smtpRes = await sendEmail(clubEmail, subj, html);
+    const smtpRes = await sendEmail(smtpRecipients, subj, html);
     if (smtpRes && smtpRes.ok) {
-      return res.json({ ok: true, mailMethod: 'smtp', to: clubEmail });
+      return res.json({ ok: true, mailMethod: 'smtp', to: smtpRecipients });
     }
 
     return res.status(500).json({
