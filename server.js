@@ -1339,7 +1339,7 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
     );
     console.log('[tee-time] Team added', { eventId: ev._id, teamName: name, time });
     const eventUrl = `${SITE_URL}?event=${ev._id}`;
-    await sendEmailToAll(
+    sendEmailToAll(
       `New Team Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
       frame('New Team Added!',
         `<p>A new team has been added:</p>
@@ -1347,7 +1347,7 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
          <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
          <p><strong>Team:</strong> ${esc(name)}</p>
          <p>Please <a href="${eventUrl}" style="color:#166534;text-decoration:underline">click here to view this event directly</a>.</p>${btn('View Event', eventUrl)}`)
-    );
+    ).catch(err => console.error('[tee-time] Failed to send team add email:', err));
     const added = pushResult && pushResult.teeTimes ? pushResult.teeTimes[pushResult.teeTimes.length - 1] : null;
     await logTeeTimeChange({
       eventId: pushResult?._id,
@@ -1390,7 +1390,7 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
   await ev.save();
   console.log('[tee-time] Tee time added', { eventId: ev._id, time: newTime });
   const eventUrl = `${SITE_URL}?event=${ev._id}&time=${encodeURIComponent(newTime)}`;
-  await sendEmailToAll(
+  sendEmailToAll(
     `New Tee Time Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
     frame('New Tee Time Added!',
       `<p>A new tee time has been added:</p>
@@ -1398,7 +1398,7 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
        <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
        <p><strong>Tee Time:</strong> ${esc(fmt.tee(newTime))}</p>
        <p>Please <a href="${eventUrl}" style="color:#166534;text-decoration:underline">click here to view this tee time directly</a>.</p>${btn('View Event', eventUrl)}`)
-  );
+  ).catch(err => console.error('[tee-time] Failed to send tee add email:', err));
   const added = ev.teeTimes[ev.teeTimes.length - 1];
   await logTeeTimeChange({
     eventId: ev._id,
@@ -1457,6 +1457,7 @@ app.put('/api/events/:id/tee-times/:teeId', async (req, res) => {
 
 app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
   try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
     const notifyClub = String(req.query.notifyClub || '0') === '1';
     const adminCode = (req.query.code || '').trim();
     console.log('[tee-time] Remove request', { eventId: req.params.id, teeId: req.params.teeId, notifyClub, hasCode: !!adminCode });
@@ -1608,6 +1609,7 @@ app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
 });
 app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res) => {
   try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
     const ev = await Event.findById(req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     const tt = ev.teeTimes.id(req.params.teeId);
@@ -2095,6 +2097,7 @@ app.post('/api/events/:id/maybe', async (req, res) => {
 // Remove player from maybe list
 app.delete('/api/events/:id/maybe/:index', async (req, res) => {
   try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
     const ev = await Event.findById(req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     

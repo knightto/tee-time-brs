@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tee-time-brs-v3';
+const CACHE_NAME = 'tee-time-brs-v4';
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
@@ -44,15 +44,20 @@ self.addEventListener('fetch', event => {
     return;
   }
 
-  // Cache-first for static assets
-  event.respondWith(
-    caches.match(event.request).then(cached =>
-      cached ||
-      fetch(event.request).then(response => {
-        return response;
-      }).catch(() => {
-        // Optionally return fallback page/image here
-      })
-    )
-  );
+  // Network-first for same-origin app shell/assets to avoid stale UI buttons.
+  if (url.origin === self.location.origin) {
+    event.respondWith(
+      fetch(event.request)
+        .then(response => {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(event.request, copy)).catch(() => {});
+          return response;
+        })
+        .catch(() => caches.match(event.request))
+    );
+    return;
+  }
+
+  // Fallback behavior for cross-origin requests.
+  event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request)));
 });

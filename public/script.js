@@ -756,12 +756,14 @@ if ('serviceWorker' in navigator) {
               </div>
               ${courseDetails}
             </div>
-        <div class="button-row">
-          <button class="small" data-request-extra-tee="${ev._id}" title="Email Brian Jones to request an additional tee time">Request Extra Tee</button>
-          <button class="small" data-add-tee="${ev._id}">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>
-          <button class="small" data-dedupe="${ev._id}" title="Remove duplicate events on this day that share this time and tee count">Clean duplicates</button>
-          <button class="small" data-edit="${ev._id}">Edit</button>
-          <button class="small" data-del="${ev._id}">Delete</button>
+        <div class="card-actions">
+          <button class="small event-actions-toggle" data-toggle-actions title="Show/hide event actions">Actions</button>
+          <div class="button-row">
+            <button class="small" data-add-tee="${ev._id}">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>
+            <button class="small" data-edit="${ev._id}">Edit</button>
+            <button class="small" data-del="${ev._id}">Delete</button>
+            <button class="small" data-request-extra-tee="${ev._id}" title="Email Brian Jones to request an additional tee time">Request Tee</button>
+          </div>
         </div>
           </div>
           <div class="card-content">
@@ -858,8 +860,15 @@ if ('serviceWorker' in navigator) {
   }
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-edit-tee],[data-dedupe],[data-request-extra-tee]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-edit-tee],[data-request-extra-tee],[data-toggle-actions]')||e.target);
     try{
+      if(t.dataset.toggleActions !== undefined){
+        const header = t.closest('.card-header');
+        if (!header) return;
+        const open = header.classList.toggle('actions-open');
+        t.textContent = open ? 'Hide Actions' : 'Actions';
+        return;
+      }
       if(t.dataset.addMaybe){
         const id=t.dataset.addMaybe;
         const name=prompt('Enter your name to add to the Maybe list:'); 
@@ -880,30 +889,14 @@ if ('serviceWorker' in navigator) {
       if(t.dataset.removeMaybe){
         const [id, index] = t.dataset.removeMaybe.split(':');
         if(!confirm('Remove from maybe list?')) return;
-        await api(`/api/events/${id}/maybe/${index}`,{ method:'DELETE' });
+        const code = (prompt('Admin delete code:') || '').trim();
+        if(!code) return;
+        await api(`/api/events/${id}/maybe/${index}?code=${encodeURIComponent(code)}`,{ method:'DELETE' });
         return load();
       }
       if(t.dataset.audit){
         const id=t.dataset.audit;
         await openAuditLog(id);
-        return;
-      }
-      if(t.dataset.dedupe){
-        const id = t.dataset.dedupe;
-        if(!confirm('Remove duplicate events on this date/time/tee-count? This keeps the current event and deletes exact matches.')) return;
-        const orig = t.textContent;
-        t.disabled = true;
-        t.textContent = 'Cleaning...';
-        try {
-          await api(`/api/events/${id}/dedupe`, { method: 'POST' });
-          await updateEventCard(id);
-        } catch (err) {
-          console.error(err);
-          alert('Dedupe failed: ' + (err.message || 'Unknown error'));
-        } finally {
-          t.disabled = false;
-          t.textContent = orig;
-        }
         return;
       }
       if(t.dataset.requestExtraTee){
@@ -931,8 +924,8 @@ if ('serviceWorker' in navigator) {
       if(t.dataset.delTee){
         const [eventId, teeId] = t.dataset.delTee.split(':');
         if(!confirm('Remove this tee/team?')) return;
-        const adminCode = prompt('Admin delete code (club will be notified on the next step if you choose):');
-        if(adminCode === null) return;
+        const adminCode = (prompt('Admin delete code (required):') || '').trim();
+        if(!adminCode) return;
         const notifyClub = confirm('Notify the club via email and CC tommy.knight@gmail.com?');
         t.disabled = true;
         t.textContent = notifyClub ? 'Sending...' : 'Removing...';
@@ -960,11 +953,13 @@ if ('serviceWorker' in navigator) {
       if(t.dataset.delPlayer){
         const [eventId, teeId, playerId] = t.dataset.delPlayer.split(':');
         if(!confirm('Remove this player?')) return;
+        const code = (prompt('Admin delete code:') || '').trim();
+        if(!code) return;
         const origText = t.textContent;
         t.disabled = true;
         t.textContent = '...';
         try {
-          await api(`/api/events/${eventId}/tee-times/${teeId}/players/${playerId}`, { method: 'DELETE' });
+          await api(`/api/events/${eventId}/tee-times/${teeId}/players/${playerId}?code=${encodeURIComponent(code)}`, { method: 'DELETE' });
           await updateEventCard(eventId);
         } catch (err) {
           console.error(err);
@@ -980,18 +975,16 @@ if ('serviceWorker' in navigator) {
         const ev=(list||[]).find(x=>x._id===id);
         if(!ev) return;
         if(ev.isTeamEvent){
-            // Build a set of displayed team names (includes unnamed teams rendered as "Team {index+1}")
-            const used = new Set();
-            (ev.teeTimes || []).forEach((tt, idx) => {
-              if (tt && tt.name) used.add(String(tt.name).trim());
-              else used.add(`Team ${idx+1}`);
-            });
-            // Find the smallest Team N not already used
-            let nextTeamNum = 1;
-            while (used.has(`Team ${nextTeamNum}`)) nextTeamNum++;
-            const name = `Team ${nextTeamNum}`;
-            await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ name }) });
-            await updateEventCard(id);
+            const origText = t.textContent;
+            t.disabled = true;
+            t.textContent = 'Adding...';
+            try {
+              await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({}) });
+              await updateEventCard(id);
+            } finally {
+              t.disabled = false;
+              t.textContent = origText;
+            }
         }else{
             // For tee time events, show a select dialog for time
             let dialog = document.getElementById('teeTimeSelectDialog');
@@ -1049,7 +1042,7 @@ if ('serviceWorker' in navigator) {
         return;
       }
       if(t.dataset.del){
-        const code=prompt('Admin delete code:'); if(!code) return;
+        const code=(prompt('Admin delete code:') || '').trim(); if(!code) return;
         t.disabled = true;
         t.textContent = 'Deleting...';
         t.style.background = '#dc2626';
@@ -1521,7 +1514,7 @@ if ('serviceWorker' in navigator) {
       const courseDetails = ev.courseInfo && (ev.courseInfo.city || ev.courseInfo.phone || ev.courseInfo.website) 
         ? `<div style=\"font-size:13px;color:var(--slate-700);margin-top:4px\">\n          ${ev.courseInfo.city && ev.courseInfo.state ? `<span>📍 ${ev.courseInfo.city}, ${ev.courseInfo.state}</span>` : ''}\n          ${ev.courseInfo.phone ? `<span style=\"margin-left:12px\">📞 ${ev.courseInfo.phone}</span>` : ''}\n          ${ev.courseInfo.website ? `<span style=\"margin-left:12px\"><a href=\"${ev.courseInfo.website}\" target=\"_blank\" style=\"color:var(--blue-600);text-decoration:none\">🔗 Website</a></span>` : ''}\n          ${ev.courseInfo.holes && ev.courseInfo.par ? `<span style=\"margin-left:12px\">⛳ ${ev.courseInfo.holes} holes, Par ${ev.courseInfo.par}</span>` : ''}\n        </div>`
         : '';
-      card.innerHTML = `\n      <div class=\"card-header\">\n        <div class=\"card-header-left\">\n          <h3 class=\"card-title\">${ev.course || 'Course'}</h3>\n          <div class=\"card-date\">\n            ${fmtDate(ev.date)} ${weatherIcon}\n            <button class=\"small\" data-audit=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7\" title=\"View Audit Log\">📋</button>\n          </div>\n          ${courseDetails}\n        </div>\n        <div class=\"button-row\">\n          <button class=\"small\" data-request-extra-tee=\"${ev._id}\" title=\"Email Brian Jones to request an additional tee time\">Request Extra Tee</button>\n          <button class=\"small\" data-add-tee=\"${ev._id}\">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>\n          <button class=\"small\" data-dedupe=\"${ev._id}\" title=\"Remove duplicate events on this day that share this time and tee count\">Clean duplicates</button>\n          <button class=\"small\" data-edit=\"${ev._id}\">Edit</button>\n          <button class=\"small\" data-del=\"${ev._id}\">Delete</button>\n        </div>\n      </div>\n      <div class=\"card-content\">\n        ${maybeSection}\n        <div class=\"tees\">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>\n        ${ev.notes ? `<div class=\"notes\">${ev.notes}</div>` : ''}\n      </div>`;
+      card.innerHTML = `\n      <div class=\"card-header\">\n        <div class=\"card-header-left\">\n          <h3 class=\"card-title\">${ev.course || 'Course'}</h3>\n          <div class=\"card-date\">\n            ${fmtDate(ev.date)} ${weatherIcon}\n            <button class=\"small\" data-audit=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7\" title=\"View Audit Log\">📋</button>\n          </div>\n          ${courseDetails}\n        </div>\n        <div class=\"card-actions\">\n          <button class=\"small event-actions-toggle\" data-toggle-actions title=\"Show/hide event actions\">Actions</button>\n          <div class=\"button-row\">\n            <button class=\"small\" data-add-tee=\"${ev._id}\">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>\n            <button class=\"small\" data-edit=\"${ev._id}\">Edit</button>\n            <button class=\"small\" data-del=\"${ev._id}\">Delete</button>\n            <button class=\"small\" data-request-extra-tee=\"${ev._id}\" title=\"Email Brian Jones to request an additional tee time\">Request Tee</button>\n          </div>\n        </div>\n      </div>\n      <div class=\"card-content\">\n        ${maybeSection}\n        <div class=\"tees\">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>\n        ${ev.notes ? `<div class=\"notes\">${ev.notes}</div>` : ''}\n      </div>`;
     } catch (e) {
       console.error('Failed to update event card:', e);
       load();

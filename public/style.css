@@ -99,6 +99,59 @@ main{padding:20px}
   background:var(--green-500);
 }
 
+.topbar-dropdown{
+  position:relative;
+}
+
+.topbar-dropdown summary{
+  list-style:none;
+  cursor:pointer;
+  user-select:none;
+}
+
+.topbar-dropdown summary::-webkit-details-marker{
+  display:none;
+}
+
+.topbar-dropdown summary::after{
+  content:' ▼';
+  font-size:11px;
+  opacity:0.85;
+}
+
+.topbar-dropdown[open] summary::after{
+  content:' ▲';
+}
+
+.topbar-dropdown-menu{
+  position:absolute;
+  right:0;
+  top:calc(100% + 8px);
+  min-width:260px;
+  background:rgba(20,83,45,.98);
+  border:1px solid rgba(255,255,255,.25);
+  border-radius:10px;
+  box-shadow:0 10px 24px rgba(0,0,0,.28);
+  padding:8px;
+  display:grid;
+  gap:6px;
+  z-index:40;
+}
+
+.topbar-dropdown-item{
+  display:block;
+  padding:8px 10px;
+  border-radius:8px;
+  color:#fff;
+  text-decoration:none;
+  font-weight:600;
+  font-size:13px;
+}
+
+.topbar-dropdown-item:hover{
+  background:rgba(255,255,255,.14);
+}
+
 /* Calendar Layout */
 .main-layout{
   display:grid;
@@ -380,6 +433,17 @@ main{padding:20px}
   font-weight:500;
 }
 
+.card-actions{
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:8px;
+}
+
+.event-actions-toggle{
+  display:none;
+}
+
 .card-content{
   padding:20px;
   display:flex;
@@ -610,6 +674,32 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   
   .card-header{
     position:static;
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+
+  .card-actions{
+    align-items:stretch;
+  }
+
+  .event-actions-toggle{
+    display:inline-flex;
+    align-self:flex-end;
+  }
+
+  .card-header .button-row{
+    display:none;
+    width:100%;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:8px;
+  }
+
+  .card-header.actions-open .button-row{
+    display:grid;
+  }
+
+  .card-header .button-row button{
+    width:100%;
   }
   
   .events-container{
@@ -645,6 +735,12 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   .event-controls{
     width:100%;
     justify-content:space-between;
+  }
+
+  .topbar-dropdown-menu{
+    right:auto;
+    left:0;
+    min-width:220px;
   }
 }
 
