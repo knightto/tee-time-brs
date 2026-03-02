@@ -1194,6 +1194,57 @@ app.delete('/api/events/:id', async (req, res) => {
     .catch(err => console.error('Failed to send deletion emails:', err));
 });
 
+app.post('/api/events/:id/request-extra-tee-time', async (req, res) => {
+  try {
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+
+    const note = String(req.body?.note || '').trim();
+    const teeCount = Array.isArray(ev.teeTimes) ? ev.teeTimes.length : 0;
+    const teeLabels = (ev.teeTimes || [])
+      .map((tt, idx) => {
+        if (ev.isTeamEvent) return tt?.name || `Team ${idx + 1}`;
+        if (!tt?.time) return `Tee ${idx + 1}`;
+        return fmt.tee(tt.time);
+      })
+      .filter(Boolean)
+      .join(', ');
+
+    const clubEmail = process.env.CLUB_CANCEL_EMAIL || 'Brian.Jones@blueridgeshadows.com';
+    const cc = process.env.CLUB_CANCEL_CC || 'tommy.knight@gmail.com';
+    const subj = `Request additional tee time: ${ev.course || 'Course'} ${fmt.dateISO(ev.date)} - KNIGHT GROUP TEE TIMES`;
+    const html = `<p>Please add an additional tee time for the event below:</p>
+      <ul>
+        <li><strong>Course:</strong> ${esc(ev.course || '')}</li>
+        <li><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</li>
+        <li><strong>Current ${ev.isTeamEvent ? 'teams' : 'tee times'}:</strong> ${teeCount}</li>
+        <li><strong>Current list:</strong> ${esc(teeLabels || 'None')}</li>
+        <li><strong>Group:</strong> KNIGHT GROUP TEE TIMES</li>
+        <li><strong>Source:</strong> Tee Time booking app</li>
+      </ul>
+      ${note ? `<p><strong>Request note:</strong> ${esc(note)}</p>` : ''}
+      <p>Thank you.</p>`;
+
+    const httpRes = await sendEmailViaResendApi(clubEmail, subj, html, cc ? { cc } : undefined);
+    if (httpRes.ok) {
+      return res.json({ ok: true, mailMethod: 'http', to: clubEmail });
+    }
+
+    const smtpRes = await sendEmail(clubEmail, subj, html);
+    if (smtpRes && smtpRes.ok) {
+      return res.json({ ok: true, mailMethod: 'smtp', to: clubEmail });
+    }
+
+    return res.status(500).json({
+      error: 'Failed to send additional tee time request',
+      details: (smtpRes && smtpRes.error && smtpRes.error.message) || (httpRes.error && httpRes.error.message) || 'Unknown email error',
+    });
+  } catch (e) {
+    console.error('[extra-tee-request] Error', { eventId: req.params.id, error: e.message });
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Remove duplicate tee-time events for the same date/time/tee-count, keeping the requested event
 app.post('/api/events/:id/dedupe', async (req, res) => {
   try {

@@ -757,6 +757,7 @@ if ('serviceWorker' in navigator) {
               ${courseDetails}
             </div>
         <div class="button-row">
+          <button class="small" data-request-extra-tee="${ev._id}" title="Email Brian Jones to request an additional tee time">Request Extra Tee</button>
           <button class="small" data-add-tee="${ev._id}">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>
           <button class="small" data-dedupe="${ev._id}" title="Remove duplicate events on this day that share this time and tee count">Clean duplicates</button>
           <button class="small" data-edit="${ev._id}">Edit</button>
@@ -857,7 +858,7 @@ if ('serviceWorker' in navigator) {
   }
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-edit-tee],[data-dedupe]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-edit-tee],[data-dedupe],[data-request-extra-tee]')||e.target);
     try{
       if(t.dataset.addMaybe){
         const id=t.dataset.addMaybe;
@@ -899,6 +900,28 @@ if ('serviceWorker' in navigator) {
         } catch (err) {
           console.error(err);
           alert('Dedupe failed: ' + (err.message || 'Unknown error'));
+        } finally {
+          t.disabled = false;
+          t.textContent = orig;
+        }
+        return;
+      }
+      if(t.dataset.requestExtraTee){
+        const id = t.dataset.requestExtraTee;
+        const note = prompt('Optional note for Brian Jones (leave blank for none):', '') || '';
+        const orig = t.textContent;
+        t.disabled = true;
+        t.textContent = 'Sending...';
+        try {
+          await api(`/api/events/${id}/request-extra-tee-time`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ note })
+          });
+          alert('Additional tee time request emailed to Brian Jones.');
+        } catch (err) {
+          console.error(err);
+          alert('Request failed: ' + (err.message || 'Unknown error'));
         } finally {
           t.disabled = false;
           t.textContent = orig;
@@ -1498,7 +1521,7 @@ if ('serviceWorker' in navigator) {
       const courseDetails = ev.courseInfo && (ev.courseInfo.city || ev.courseInfo.phone || ev.courseInfo.website) 
         ? `<div style=\"font-size:13px;color:var(--slate-700);margin-top:4px\">\n          ${ev.courseInfo.city && ev.courseInfo.state ? `<span>📍 ${ev.courseInfo.city}, ${ev.courseInfo.state}</span>` : ''}\n          ${ev.courseInfo.phone ? `<span style=\"margin-left:12px\">📞 ${ev.courseInfo.phone}</span>` : ''}\n          ${ev.courseInfo.website ? `<span style=\"margin-left:12px\"><a href=\"${ev.courseInfo.website}\" target=\"_blank\" style=\"color:var(--blue-600);text-decoration:none\">🔗 Website</a></span>` : ''}\n          ${ev.courseInfo.holes && ev.courseInfo.par ? `<span style=\"margin-left:12px\">⛳ ${ev.courseInfo.holes} holes, Par ${ev.courseInfo.par}</span>` : ''}\n        </div>`
         : '';
-      card.innerHTML = `\n      <div class=\"card-header\">\n        <div class=\"card-header-left\">\n          <h3 class=\"card-title\">${ev.course || 'Course'}</h3>\n          <div class=\"card-date\">\n            ${fmtDate(ev.date)} ${weatherIcon}\n            <button class=\"small\" data-audit=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7\" title=\"View Audit Log\">📋</button>\n          </div>\n          ${courseDetails}\n        </div>\n        <div class=\"button-row\">\n          <button class=\"small\" data-add-tee=\"${ev._id}\">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>\n          <button class=\"small\" data-dedupe=\"${ev._id}\" title=\"Remove duplicate events on this day that share this time and tee count\">Clean duplicates</button>\n          <button class=\"small\" data-edit=\"${ev._id}\">Edit</button>\n          <button class=\"small\" data-del=\"${ev._id}\">Delete</button>\n        </div>\n      </div>\n      <div class=\"card-content\">\n        ${maybeSection}\n        <div class=\"tees\">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>\n        ${ev.notes ? `<div class=\"notes\">${ev.notes}</div>` : ''}\n      </div>`;
+      card.innerHTML = `\n      <div class=\"card-header\">\n        <div class=\"card-header-left\">\n          <h3 class=\"card-title\">${ev.course || 'Course'}</h3>\n          <div class=\"card-date\">\n            ${fmtDate(ev.date)} ${weatherIcon}\n            <button class=\"small\" data-audit=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7\" title=\"View Audit Log\">📋</button>\n          </div>\n          ${courseDetails}\n        </div>\n        <div class=\"button-row\">\n          <button class=\"small\" data-request-extra-tee=\"${ev._id}\" title=\"Email Brian Jones to request an additional tee time\">Request Extra Tee</button>\n          <button class=\"small\" data-add-tee=\"${ev._id}\">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>\n          <button class=\"small\" data-dedupe=\"${ev._id}\" title=\"Remove duplicate events on this day that share this time and tee count\">Clean duplicates</button>\n          <button class=\"small\" data-edit=\"${ev._id}\">Edit</button>\n          <button class=\"small\" data-del=\"${ev._id}\">Delete</button>\n        </div>\n      </div>\n      <div class=\"card-content\">\n        ${maybeSection}\n        <div class=\"tees\">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>\n        ${ev.notes ? `<div class=\"notes\">${ev.notes}</div>` : ''}\n      </div>`;
     } catch (e) {
       console.error('Failed to update event card:', e);
       load();
