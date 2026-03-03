@@ -699,6 +699,17 @@ button[disabled]{opacity:.5;cursor:not-allowed;filter:grayscale(0.5)}
   background:#fee2e2;
   color:#dc2626;
 }
+.chip.checked-in{
+  border-color:#86efac;
+  background:#f0fdf4;
+}
+.chip button.ok{
+  color:#166534;
+}
+.chip button.ok:hover{
+  background:#dcfce7;
+  color:#14532d;
+}
 
 dialog::backdrop{
   background:rgba(2,6,23,.30);

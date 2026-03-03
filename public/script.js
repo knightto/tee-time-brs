@@ -844,9 +844,11 @@ if ('serviceWorker' in navigator) {
     const chips = (tt.players || []).map(p => {
       // keep a safe-quoted title for tooltips so long names can be seen on hover
       const safe = String(p.name || '').replace(/"/g, '&quot;');
-      return `<span class="chip" title="${safe}">
+      const checkedIn = !!p.checkedIn;
+      return `<span class="chip ${checkedIn ? 'checked-in' : ''}" title="${safe}">
         <span class="chip-label" title="${safe}">${p.name}</span>
         <span class="chip-actions">
+          <button class="icon small ${checkedIn ? 'ok' : ''}" title="${checkedIn ? 'Checked in' : 'Mark checked in'}" data-toggle-checkin="${ev._id}:${tt._id}:${p._id}:${checkedIn ? '1' : '0'}">${checkedIn ? '✓' : '○'}</button>
           <button class="icon small" title="Move" data-move="${ev._id}:${tt._id}:${p._id}">↔</button>
           <button class="icon small danger" title="Remove" data-del-player="${ev._id}:${tt._id}:${p._id}">×</button>
         </span>
@@ -882,7 +884,7 @@ if ('serviceWorker' in navigator) {
   }
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-export-csv],[data-toggle-actions]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-export-csv],[data-toggle-checkin],[data-toggle-actions]')||e.target);
     try{
       if(t.dataset.toggleActions !== undefined){
         const header = t.closest('.card-header');
@@ -964,6 +966,27 @@ if ('serviceWorker' in navigator) {
         } finally {
           t.disabled = false;
           t.textContent = orig;
+        }
+        return;
+      }
+      if(t.dataset.toggleCheckin){
+        const [eventId, teeId, playerId, currentFlag] = t.dataset.toggleCheckin.split(':');
+        const code = (prompt('Admin delete code:') || '').trim();
+        if(!code) return;
+        const nextCheckedIn = currentFlag !== '1';
+        t.disabled = true;
+        try {
+          await api(`/api/events/${eventId}/tee-times/${teeId}/players/${playerId}/check-in?code=${encodeURIComponent(code)}`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ checkedIn: nextCheckedIn })
+          });
+          await updateEventCard(eventId);
+        } catch (err) {
+          console.error(err);
+          alert('Check-in update failed: ' + (err.message || 'Unknown error'));
+        } finally {
+          t.disabled = false;
         }
         return;
       }
@@ -1293,6 +1316,10 @@ if ('serviceWorker' in navigator) {
           desc = `➖ Removed <strong>${log.playerName}</strong> from ${log.teeLabel}`;
         } else if (log.action === 'move_player') {
           desc = `↔️ Moved <strong>${log.playerName}</strong> from ${log.fromTeeLabel} to ${log.toTeeLabel}`;
+        } else if (log.action === 'check_in_player') {
+          desc = `✅ Checked in <strong>${log.playerName}</strong> at ${log.teeLabel}`;
+        } else if (log.action === 'undo_check_in_player') {
+          desc = `⬜ Marked not checked in: <strong>${log.playerName}</strong> at ${log.teeLabel}`;
         }
         return `<div style="padding:8px;border-bottom:1px solid var(--slate-200)">
           <div style="font-size:14px;color:var(--slate-900)">${desc}</div>

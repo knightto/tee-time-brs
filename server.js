@@ -1240,7 +1240,7 @@ app.get('/api/events/:id/export.csv', async (req, res) => {
           label,
           time,
           p.name || '',
-          'Registered'
+          p.checkedIn ? 'Checked In' : 'Registered'
         ]);
       });
     });
@@ -1781,7 +1781,7 @@ app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPla
     return res.status(409).json({ error: 'duplicate player name', message: 'A player with this name already exists. Use a nickname (e.g., "John S" or "John 2").' });
   }
 
-  tt.players.push({ name: trimmedName });
+  tt.players.push({ name: trimmedName, checkedIn: false });
   await ev.save();
 
   // Audit log
@@ -1900,7 +1900,7 @@ app.post('/api/events/:id/move-player', async (req, res) => {
     return res.status(409).json({ error: 'player conflict', message: `${playerName} is already on ${conflict.teeName}` });
   }
   
-  toTT.players.push({ name: playerName });
+  toTT.players.push({ name: playerName, checkedIn: !!player.checkedIn });
   await ev.save();
   
   // Audit log
@@ -1912,6 +1912,34 @@ app.post('/api/events/:id/move-player', async (req, res) => {
   });
   
   res.json(ev);
+});
+
+app.post('/api/events/:id/tee-times/:teeId/players/:playerId/check-in', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+    const checkedIn = req.body && req.body.checkedIn;
+    if (typeof checkedIn !== 'boolean') return res.status(400).json({ error: 'checkedIn boolean required' });
+
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    const tt = ev.teeTimes.id(req.params.teeId);
+    if (!tt) return res.status(404).json({ error: 'tee/team not found' });
+    if (!Array.isArray(tt.players)) tt.players = [];
+    const p = tt.players.id(req.params.playerId);
+    if (!p) return res.status(404).json({ error: 'player not found' });
+
+    p.checkedIn = checkedIn;
+    await ev.save();
+
+    await logAudit(ev._id, checkedIn ? 'check_in_player' : 'undo_check_in_player', p.name, {
+      teeId: tt._id,
+      teeLabel: getTeeLabel(ev, tt._id)
+    });
+
+    res.json(ev);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.post('/api/events/:id/pairings/suggest', async (req, res) => {
@@ -1993,7 +2021,7 @@ app.post('/api/events/:id/pairings/apply', async (req, res) => {
         }
       }
 
-      target.players = group.names.map((name) => ({ name }));
+      target.players = group.names.map((name) => ({ name, checkedIn: false }));
       if (ev.isTeamEvent && !target.name) target.name = `Team ${i + 1}`;
       if (!ev.isTeamEvent && !target.time) target.time = nextTeeTimeForEvent(ev, 9, '07:00');
     }
@@ -2426,7 +2454,7 @@ app.post('/api/events/:id/maybe/fill', async (req, res) => {
       return res.status(409).json({ error: teeId ? 'selected slot full' : 'all slots full' });
     }
 
-    slot.players.push({ name: pickedName });
+    slot.players.push({ name: pickedName, checkedIn: false });
     ev.maybeList.splice(maybeIndex, 1);
     await ev.save();
 
