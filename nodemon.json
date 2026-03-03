@@ -1,0 +1,22 @@
+{
+  "watch": [
+    "server.js",
+    "routes",
+    "models",
+    "services",
+    "utils",
+    "public",
+    "scripts"
+  ],
+  "ext": "js,json,html,css",
+  "ignore": [
+    ".git",
+    "node_modules",
+    "logs",
+    "tests",
+    "scripts-archive",
+    "dev-tee-time-brs"
+  ],
+  "legacyWatch": true,
+  "delay": "300"
+}
