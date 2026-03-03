@@ -1065,6 +1065,111 @@ function nextTeeTimeForEvent(ev, mins = 9, defaultTime = '07:00') {
   return defaultTime;
 }
 
+function normalizePlayerName(name = '') {
+  return String(name).trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+async function getHandicapIndexByNameMap(playerNames = []) {
+  const byName = new Map();
+  if (!Handicap || !playerNames.length) return byName;
+  const normalizedWanted = new Set(playerNames.map((n) => normalizePlayerName(n)).filter(Boolean));
+  if (!normalizedWanted.size) return byName;
+  const handicaps = await Handicap.find({}, { name: 1, handicapIndex: 1 }).lean();
+  for (const h of handicaps) {
+    const key = normalizePlayerName(h.name);
+    if (!key || !normalizedWanted.has(key) || byName.has(key)) continue;
+    const idx = Number(h.handicapIndex);
+    byName.set(key, Number.isFinite(idx) ? idx : null);
+  }
+  return byName;
+}
+
+async function buildPairingSuggestion(ev) {
+  const maxSize = ev.isTeamEvent ? (ev.teamSizeMax || 4) : 4;
+  const sourcePlayers = [];
+  for (const tt of (ev.teeTimes || [])) {
+    for (const p of (tt.players || [])) {
+      const playerId = String(p._id);
+      const name = String(p.name || '').trim();
+      if (!name) continue;
+      const item = {
+        playerId,
+        name,
+        sourceTeeId: String(tt._id),
+        sourceLabel: ev.isTeamEvent ? (tt.name || 'Team') : fmt.tee(tt.time)
+      };
+      sourcePlayers.push(item);
+    }
+  }
+  if (!sourcePlayers.length) {
+    return { groupSize: maxSize, groups: [], totalPlayers: 0, unassignedPlayers: [] };
+  }
+
+  const handicapMap = await getHandicapIndexByNameMap(sourcePlayers.map((p) => p.name));
+  const playersWithHcp = sourcePlayers.map((p) => {
+    const normalized = normalizePlayerName(p.name);
+    const handicapIndex = handicapMap.has(normalized) ? handicapMap.get(normalized) : null;
+    return { ...p, handicapIndex };
+  });
+
+  playersWithHcp.sort((a, b) => {
+    const aIdx = Number.isFinite(a.handicapIndex) ? a.handicapIndex : 999;
+    const bIdx = Number.isFinite(b.handicapIndex) ? b.handicapIndex : 999;
+    if (aIdx !== bIdx) return bIdx - aIdx;
+    return a.name.localeCompare(b.name);
+  });
+
+  const groupCount = Math.max(1, Math.ceil(playersWithHcp.length / maxSize));
+  const groups = Array.from({ length: groupCount }, (_, index) => ({
+    index,
+    teeId: ev.teeTimes[index] ? String(ev.teeTimes[index]._id) : null,
+    players: [],
+    totalHandicap: 0,
+    knownHandicapCount: 0
+  }));
+
+  for (const player of playersWithHcp) {
+    const candidates = groups.filter((g) => g.players.length < maxSize);
+    candidates.sort((a, b) => {
+      if (a.totalHandicap !== b.totalHandicap) return a.totalHandicap - b.totalHandicap;
+      return a.players.length - b.players.length;
+    });
+    const target = candidates[0];
+    target.players.push(player);
+    if (Number.isFinite(player.handicapIndex)) {
+      target.totalHandicap += player.handicapIndex;
+      target.knownHandicapCount += 1;
+    }
+  }
+
+  const outputGroups = groups.map((g, index) => {
+    const existingSlot = ev.teeTimes[index];
+    const label = ev.isTeamEvent
+      ? (existingSlot?.name || `Team ${index + 1}`)
+      : (existingSlot?.time ? fmt.tee(existingSlot.time) : `Group ${index + 1}`);
+    return {
+      teeId: g.teeId,
+      label,
+      playerCount: g.players.length,
+      avgHandicap: g.knownHandicapCount ? Number((g.totalHandicap / g.knownHandicapCount).toFixed(1)) : null,
+      players: g.players.map((p) => ({
+        playerId: p.playerId,
+        name: p.name,
+        handicapIndex: p.handicapIndex,
+        sourceTeeId: p.sourceTeeId,
+        sourceLabel: p.sourceLabel
+      }))
+    };
+  });
+
+  return {
+    groupSize: maxSize,
+    groups: outputGroups,
+    totalPlayers: playersWithHcp.length,
+    unassignedPlayers: []
+  };
+}
+
 app.get('/api/events', cacheJson(10 * 1000), async (_req, res) => {
   const items = await Event.find().sort({ date: 1 }).lean();
   res.json(items);
@@ -1615,6 +1720,19 @@ app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPla
          <p><strong>${ev.isTeamEvent ? 'Team' : 'Tee Time'}:</strong> ${esc(teeLabel)}</p>
          ${btn('View Event')}`)
     ).catch(err => console.error('Failed to send player add email:', err));
+
+    const oneSpotLeft = tt.players.length === Math.max(1, maxSize - 1);
+    if (oneSpotLeft) {
+      sendEmailToAll(
+        `Need 1 More: ${ev.course} (${fmt.dateISO(ev.date)})`,
+        frame('One Spot Left',
+          `<p>${esc(ev.isTeamEvent ? 'Team' : 'Tee time')} <strong>${esc(teeLabel)}</strong> has just one spot left.</p>
+           <p><strong>Event:</strong> ${esc(ev.course)}</p>
+           <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
+           <p>Last call if you want in.</p>
+           ${btn('Join This Event')}`)
+      ).catch(err => console.error('Failed to send one-spot-left email:', err));
+    }
   }
 
   res.json(ev);
@@ -1712,6 +1830,97 @@ app.post('/api/events/:id/move-player', async (req, res) => {
   });
   
   res.json(ev);
+});
+
+app.post('/api/events/:id/pairings/suggest', async (req, res) => {
+  try {
+    const ev = await Event.findById(req.params.id).lean();
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    const suggestion = await buildPairingSuggestion(ev);
+    res.json({
+      eventId: String(ev._id),
+      course: ev.course,
+      date: ev.date,
+      groupSize: suggestion.groupSize,
+      totalPlayers: suggestion.totalPlayers,
+      groups: suggestion.groups,
+      unassignedPlayers: suggestion.unassignedPlayers
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/events/:id/pairings/apply', async (req, res) => {
+  try {
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+
+    const suggestion = await buildPairingSuggestion(ev);
+    const requestedGroups = Array.isArray(req.body?.groups) ? req.body.groups : suggestion.groups;
+    if (!requestedGroups.length) return res.status(400).json({ error: 'No suggested groups to apply' });
+
+    const maxSize = ev.isTeamEvent ? (ev.teamSizeMax || 4) : 4;
+    const playerIndex = new Map();
+    for (const tt of (ev.teeTimes || [])) {
+      for (const p of (tt.players || [])) {
+        playerIndex.set(String(p._id), String(p.name || '').trim());
+      }
+    }
+
+    const seenPlayerIds = new Set();
+    const materialized = [];
+    for (let i = 0; i < requestedGroups.length; i++) {
+      const group = requestedGroups[i] || {};
+      const ids = Array.isArray(group.playerIds)
+        ? group.playerIds
+        : Array.isArray(group.players)
+          ? group.players.map((p) => p && (p.playerId || p._id)).filter(Boolean)
+          : [];
+      if (!ids.length) continue;
+      if (ids.length > maxSize) return res.status(400).json({ error: `Group ${i + 1} exceeds max size (${maxSize})` });
+      const names = [];
+      for (const rawId of ids) {
+        const id = String(rawId);
+        if (!playerIndex.has(id)) return res.status(400).json({ error: `Unknown player in group ${i + 1}` });
+        if (seenPlayerIds.has(id)) return res.status(400).json({ error: `Duplicate player assignment in group ${i + 1}` });
+        seenPlayerIds.add(id);
+        names.push(playerIndex.get(id));
+      }
+      materialized.push({ teeId: group.teeId ? String(group.teeId) : null, names });
+    }
+
+    for (const tt of (ev.teeTimes || [])) tt.players = [];
+
+    let nextGeneratedTime = nextTeeTimeForEvent(ev, 9, '07:00');
+    for (let i = 0; i < materialized.length; i++) {
+      const group = materialized[i];
+      let target = null;
+      if (group.teeId) target = ev.teeTimes.id(group.teeId);
+      if (!target) target = ev.teeTimes[i];
+
+      if (!target) {
+        const slotPayload = ev.isTeamEvent
+          ? { name: `Team ${i + 1}`, players: [] }
+          : { time: nextGeneratedTime, players: [] };
+        ev.teeTimes.push(slotPayload);
+        target = ev.teeTimes[ev.teeTimes.length - 1];
+        if (!ev.isTeamEvent) {
+          const tempEvent = { teeTimes: [{ time: nextGeneratedTime }] };
+          nextGeneratedTime = nextTeeTimeForEvent(tempEvent, 9, nextGeneratedTime);
+        }
+      }
+
+      target.players = group.names.map((name) => ({ name }));
+      if (ev.isTeamEvent && !target.name) target.name = `Team ${i + 1}`;
+      if (!ev.isTeamEvent && !target.time) target.time = nextTeeTimeForEvent(ev, 9, '07:00');
+    }
+
+    await ev.save();
+    res.json(ev);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 /* ---------------- Golf Course API ---------------- */
