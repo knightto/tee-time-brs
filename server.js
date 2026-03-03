@@ -1942,6 +1942,32 @@ app.post('/api/events/:id/tee-times/:teeId/players/:playerId/check-in', async (r
   }
 });
 
+app.post('/api/events/:id/tee-times/:teeId/check-in-all', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+    const checkedIn = req.body && req.body.checkedIn;
+    if (typeof checkedIn !== 'boolean') return res.status(400).json({ error: 'checkedIn boolean required' });
+
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    const tt = ev.teeTimes.id(req.params.teeId);
+    if (!tt) return res.status(404).json({ error: 'tee/team not found' });
+    if (!Array.isArray(tt.players) || !tt.players.length) return res.status(400).json({ error: 'no players in slot' });
+
+    for (const p of tt.players) p.checkedIn = checkedIn;
+    await ev.save();
+
+    await logAudit(ev._id, checkedIn ? 'bulk_check_in' : 'bulk_clear_check_in', 'ALL_PLAYERS', {
+      teeId: tt._id,
+      teeLabel: getTeeLabel(ev, tt._id)
+    });
+
+    res.json(ev);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/events/:id/pairings/suggest', async (req, res) => {
   try {
     const ev = await Event.findById(req.params.id).lean();

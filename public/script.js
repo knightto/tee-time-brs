@@ -716,11 +716,13 @@ if ('serviceWorker' in navigator) {
         const slotCap = isTeams ? (ev.teamSizeMax || 4) : 4;
         const slotCount = teesArr.length;
         const registeredCount = teesArr.reduce((sum, tt) => sum + ((tt.players || []).length), 0);
+        const checkedInCount = teesArr.reduce((sum, tt) => sum + ((tt.players || []).filter((p) => !!p.checkedIn).length), 0);
         const totalCapacity = slotCount * slotCap;
         const openCount = Math.max(0, totalCapacity - registeredCount);
         const maybeCount = (ev.maybeList || []).length;
         const summaryRow = `<div class="row" style="gap:8px;flex-wrap:wrap;margin:6px 0 10px 0;font-size:12px;color:var(--slate-700)">
           <span><strong>${registeredCount}</strong> registered</span>
+          <span><strong>${checkedInCount}</strong> checked in</span>
           <span><strong>${openCount}</strong> open</span>
           <span><strong>${maybeCount}</strong> maybe</span>
           <span><strong>${slotCount}</strong> ${isTeams ? 'teams' : 'tee times'}</span>
@@ -857,8 +859,10 @@ if ('serviceWorker' in navigator) {
     const max = ev.teamSizeMax || 4;
     const slotMax = isTeams ? max : 4;
     const count = (tt.players || []).length;
+    const checkedInCount = (tt.players || []).filter((p) => !!p.checkedIn).length;
     const openSpots = Math.max(0, slotMax - count);
     const full = count >= slotMax;
+    const allCheckedIn = count > 0 && checkedInCount === count;
     const left = isTeams ? (tt.name ? tt.name : `Team ${idx+1}`) : (tt.time ? fmtTime(tt.time) : '—');
     const delTitle = isTeams ? 'Remove team' : 'Remove tee time';
     // Only show edit button for teams, not tee times
@@ -879,12 +883,13 @@ if ('serviceWorker' in navigator) {
       <div style="font-size:11px;color:var(--slate-700);margin-top:4px">${openSpots} spot${openSpots === 1 ? '' : 's'} open</div>
       <div class="row" style="gap:8px;flex-wrap:wrap">
         <button class="small" data-add-player="${ev._id}:${tt._id}" ${full?'disabled':''}>Add\nPlayer</button>
+        <button class="small" data-checkin-all="${ev._id}:${tt._id}:${allCheckedIn ? '1' : '0'}" ${count ? '' : 'disabled'}>${allCheckedIn ? 'Clear Check-In' : 'Check In All'}</button>
       </div>
     </div>`;
   }
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-export-csv],[data-toggle-checkin],[data-toggle-actions]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-export-csv],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions]')||e.target);
     try{
       if(t.dataset.toggleActions !== undefined){
         const header = t.closest('.card-header');
@@ -985,6 +990,27 @@ if ('serviceWorker' in navigator) {
         } catch (err) {
           console.error(err);
           alert('Check-in update failed: ' + (err.message || 'Unknown error'));
+        } finally {
+          t.disabled = false;
+        }
+        return;
+      }
+      if(t.dataset.checkinAll){
+        const [eventId, teeId, allFlag] = t.dataset.checkinAll.split(':');
+        const code = (prompt('Admin delete code:') || '').trim();
+        if(!code) return;
+        const nextChecked = allFlag !== '1';
+        t.disabled = true;
+        try {
+          await api(`/api/events/${eventId}/tee-times/${teeId}/check-in-all?code=${encodeURIComponent(code)}`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ checkedIn: nextChecked })
+          });
+          await updateEventCard(eventId);
+        } catch (err) {
+          console.error(err);
+          alert('Bulk check-in failed: ' + (err.message || 'Unknown error'));
         } finally {
           t.disabled = false;
         }
@@ -1320,6 +1346,10 @@ if ('serviceWorker' in navigator) {
           desc = `✅ Checked in <strong>${log.playerName}</strong> at ${log.teeLabel}`;
         } else if (log.action === 'undo_check_in_player') {
           desc = `⬜ Marked not checked in: <strong>${log.playerName}</strong> at ${log.teeLabel}`;
+        } else if (log.action === 'bulk_check_in') {
+          desc = `✅ Checked in all players at ${log.teeLabel}`;
+        } else if (log.action === 'bulk_clear_check_in') {
+          desc = `⬜ Cleared check-in for all players at ${log.teeLabel}`;
         }
         return `<div style="padding:8px;border-bottom:1px solid var(--slate-200)">
           <div style="font-size:14px;color:var(--slate-900)">${desc}</div>
@@ -1625,10 +1655,11 @@ if ('serviceWorker' in navigator) {
       const slotCap = isTeams ? (ev.teamSizeMax || 4) : 4;
       const slotCount = teesArr.length;
       const registeredCount = teesArr.reduce((sum, tt) => sum + ((tt.players || []).length), 0);
+      const checkedInCount = teesArr.reduce((sum, tt) => sum + ((tt.players || []).filter((p) => !!p.checkedIn).length), 0);
       const totalCapacity = slotCount * slotCap;
       const openCount = Math.max(0, totalCapacity - registeredCount);
       const maybeCount = (ev.maybeList || []).length;
-      const summaryRow = `<div class=\"row\" style=\"gap:8px;flex-wrap:wrap;margin:6px 0 10px 0;font-size:12px;color:var(--slate-700)\">\n        <span><strong>${registeredCount}</strong> registered</span>\n        <span><strong>${openCount}</strong> open</span>\n        <span><strong>${maybeCount}</strong> maybe</span>\n        <span><strong>${slotCount}</strong> ${isTeams ? 'teams' : 'tee times'}</span>\n      </div>`;
+      const summaryRow = `<div class=\"row\" style=\"gap:8px;flex-wrap:wrap;margin:6px 0 10px 0;font-size:12px;color:var(--slate-700)\">\n        <span><strong>${registeredCount}</strong> registered</span>\n        <span><strong>${checkedInCount}</strong> checked in</span>\n        <span><strong>${openCount}</strong> open</span>\n        <span><strong>${maybeCount}</strong> maybe</span>\n        <span><strong>${slotCount}</strong> ${isTeams ? 'teams' : 'tee times'}</span>\n      </div>`;
       const tees = teesArr.map((tt,idx)=>teeRow(ev,tt,idx,isTeams)).join('');
       const maybeList = (ev.maybeList || []).map((name, idx) => {
         const safe = String(name).replace(/"/g, '&quot;');
