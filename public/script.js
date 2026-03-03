@@ -764,6 +764,7 @@ if ('serviceWorker' in navigator) {
           <div class="button-row">
             <button class="small" data-add-tee="${ev._id}">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>
             ${isTeams ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Pairings</button>`}
+            <button class="small" data-export-csv="${ev._id}" title="Download event roster CSV">Export CSV</button>
             <button class="small" data-edit="${ev._id}">Edit</button>
             <button class="small" data-del="${ev._id}">Delete</button>
             <button class="small" data-request-extra-tee="${ev._id}" title="Email Brian Jones to request an additional tee time">Request Tee</button>
@@ -864,7 +865,7 @@ if ('serviceWorker' in navigator) {
   }
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-toggle-actions]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-export-csv],[data-toggle-actions]')||e.target);
     try{
       if(t.dataset.toggleActions !== undefined){
         const header = t.closest('.card-header');
@@ -947,6 +948,11 @@ if ('serviceWorker' in navigator) {
           t.disabled = false;
           t.textContent = orig;
         }
+        return;
+      }
+      if(t.dataset.exportCsv){
+        const id = t.dataset.exportCsv;
+        window.open(`/api/events/${encodeURIComponent(id)}/export.csv`, '_blank');
         return;
       }
       if(t.dataset.suggestPairings){
@@ -1584,7 +1590,7 @@ if ('serviceWorker' in navigator) {
       const courseDetails = ev.courseInfo && (ev.courseInfo.city || ev.courseInfo.phone || ev.courseInfo.website) 
         ? `<div style=\"font-size:13px;color:var(--slate-700);margin-top:4px\">\n          ${ev.courseInfo.city && ev.courseInfo.state ? `<span>📍 ${ev.courseInfo.city}, ${ev.courseInfo.state}</span>` : ''}\n          ${ev.courseInfo.phone ? `<span style=\"margin-left:12px\">📞 ${ev.courseInfo.phone}</span>` : ''}\n          ${ev.courseInfo.website ? `<span style=\"margin-left:12px\"><a href=\"${ev.courseInfo.website}\" target=\"_blank\" style=\"color:var(--blue-600);text-decoration:none\">🔗 Website</a></span>` : ''}\n          ${ev.courseInfo.holes && ev.courseInfo.par ? `<span style=\"margin-left:12px\">⛳ ${ev.courseInfo.holes} holes, Par ${ev.courseInfo.par}</span>` : ''}\n        </div>`
         : '';
-      card.innerHTML = `\n      <div class=\"card-header\">\n        <div class=\"card-header-left\">\n          <h3 class=\"card-title\">${ev.course || 'Course'}</h3>\n          <div class=\"card-date\">\n            ${fmtDate(ev.date)} ${weatherIcon}\n            <button class=\"small\" data-audit=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7\" title=\"View Audit Log\">📋</button>\n          </div>\n          ${courseDetails}\n        </div>\n        <div class=\"card-actions\">\n          <button class=\"small event-actions-toggle\" data-toggle-actions title=\"Show/hide event actions\">Actions</button>\n          <div class=\"button-row\">\n            <button class=\"small\" data-add-tee=\"${ev._id}\">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>\n            ${isTeams ? '' : `<button class=\"small\" data-suggest-pairings=\"${ev._id}\" title=\"Suggest balanced groups using handicap data\">Pairings</button>`}\n            <button class=\"small\" data-edit=\"${ev._id}\">Edit</button>\n            <button class=\"small\" data-del=\"${ev._id}\">Delete</button>\n            <button class=\"small\" data-request-extra-tee=\"${ev._id}\" title=\"Email Brian Jones to request an additional tee time\">Request Tee</button>\n          </div>\n        </div>\n      </div>\n      <div class=\"card-content\">\n        ${maybeSection}\n        <div class=\"tees\">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>\n        ${ev.notes ? `<div class=\"notes\">${ev.notes}</div>` : ''}\n      </div>`;
+      card.innerHTML = `\n      <div class=\"card-header\">\n        <div class=\"card-header-left\">\n          <h3 class=\"card-title\">${ev.course || 'Course'}</h3>\n          <div class=\"card-date\">\n            ${fmtDate(ev.date)} ${weatherIcon}\n            <button class=\"small\" data-audit=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7\" title=\"View Audit Log\">📋</button>\n          </div>\n          ${courseDetails}\n        </div>\n        <div class=\"card-actions\">\n          <button class=\"small event-actions-toggle\" data-toggle-actions title=\"Show/hide event actions\">Actions</button>\n          <div class=\"button-row\">\n            <button class=\"small\" data-add-tee=\"${ev._id}\">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>\n            ${isTeams ? '' : `<button class=\"small\" data-suggest-pairings=\"${ev._id}\" title=\"Suggest balanced groups using handicap data\">Pairings</button>`}\n            <button class=\"small\" data-export-csv=\"${ev._id}\" title=\"Download event roster CSV\">Export CSV</button>\n            <button class=\"small\" data-edit=\"${ev._id}\">Edit</button>\n            <button class=\"small\" data-del=\"${ev._id}\">Delete</button>\n            <button class=\"small\" data-request-extra-tee=\"${ev._id}\" title=\"Email Brian Jones to request an additional tee time\">Request Tee</button>\n          </div>\n        </div>\n      </div>\n      <div class=\"card-content\">\n        ${maybeSection}\n        <div class=\"tees\">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>\n        ${ev.notes ? `<div class=\"notes\">${ev.notes}</div>` : ''}\n      </div>`;
     } catch (e) {
       console.error('Failed to update event card:', e);
       load();
