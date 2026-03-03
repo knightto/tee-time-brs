@@ -42,6 +42,7 @@ const path = require('path');
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
+const compression = require('compression');
 // Secondary connection for Myrtle Trip (kept in separate module to avoid circular requires)
 const { initSecondaryConn, getSecondaryConn } = require('./secondary-conn');
 initSecondaryConn();
@@ -50,6 +51,10 @@ const rateLimit = require('express-rate-limit');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 const { importHandicapsFromCsv } = require('./services/handicapImportService');
+const { requestContext } = require('./middleware/requestContext');
+const { cacheJson } = require('./middleware/responseCache');
+const { validateBody, validateCreateEvent, validateAddPlayer } = require('./middleware/validate');
+const { buildSystemRouter } = require('./routes/system');
 
 // Polyfill fetch for Node < 18
 const fetch = global.fetch || require('node-fetch');
@@ -65,6 +70,8 @@ const processedEmailIds = new Map(); // simple idempotency guard for inbound ema
 
 app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true }));
 app.use(rateLimit({ windowMs: 60 * 1000, max: 200 }));
+app.use(compression());
+app.use(requestContext);
 
 // Define routes before static middleware to ensure they take precedence
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
@@ -84,32 +91,9 @@ app.get('/api/debug/secondary-trips', async (req, res) => {
   }
 });
 app.use('/api/trips', require('./routes/trips'));
-app.use('/api/outings', require('./routes/outings'));
+app.use('/api/outings', cacheJson(15 * 1000), require('./routes/outings'));
 app.use('/api/valley', require('./routes/valley'));
 // Handicap tracking removed
-
-// Health check / debug endpoint
-app.get('/api/health', (_req, res) => {
-  let secondaryState = null;
-  try {
-    const secondaryConn = getSecondaryConn();
-    secondaryState = secondaryConn ? secondaryConn.readyState : null;
-  } catch { secondaryState = null; }
-  res.json({
-    status: 'ok',
-    timestamp: new Date().toISOString(),
-    config: {
-      mongoConnected: mongoose.connection.readyState === 1,
-      secondaryMongoConnected: secondaryState === 1,
-      hasResendKey: !!process.env.RESEND_API_KEY,
-      hasResendFrom: !!process.env.RESEND_FROM,
-      hasSubscriberModel: !!Subscriber,
-      hasHandicapModels: !!(Golfer && HandicapSnapshot && ImportBatch),
-      port: PORT,
-      nodeEnv: process.env.NODE_ENV || 'development'
-    }
-  });
-});
 
 // --- Handicap directory (manual list) ---
 app.get('/api/handicaps', async (_req, res) => {
@@ -600,7 +584,17 @@ app.post('/webhooks/resend', async (req, res) => {
   }
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'public'), {
+  maxAge: '1h',
+  etag: true,
+  setHeaders: (res, filePath) => {
+    if (/\.(js|css|png|svg|ico|webp|json)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=300');
+    } else if (/\.html$/i.test(filePath)) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  },
+}));
 
 const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/teetimes';
 mongoose.connect(mongoUri, { dbName: process.env.MONGO_DB || undefined })
@@ -616,6 +610,18 @@ let Golfer; try { Golfer = require('./models/Golfer'); } catch { Golfer = null; 
 let HandicapSnapshot; try { HandicapSnapshot = require('./models/HandicapSnapshot'); } catch { HandicapSnapshot = null; }
 let ImportBatch; try { ImportBatch = require('./models/ImportBatch'); } catch { ImportBatch = null; }
 let TeeTimeLog; try { TeeTimeLog = require('./models/TeeTimeLog'); } catch { TeeTimeLog = null; }
+
+app.use('/api', buildSystemRouter({
+  mongoose,
+  getSecondaryConn,
+  getFeatures: () => ({
+    hasResendKey: !!process.env.RESEND_API_KEY,
+    hasResendFrom: !!process.env.RESEND_FROM,
+    hasSubscriberModel: !!Subscriber,
+    hasHandicapModels: !!(Golfer && HandicapSnapshot && ImportBatch),
+  }),
+  port: PORT,
+}));
 
 /* ---------------- Admin Configuration ---------------- */
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'tommy.knight@gmail.com,jvhyers@gmail.com').split(',').map(e => e.trim()).filter(Boolean);
@@ -1059,13 +1065,13 @@ function nextTeeTimeForEvent(ev, mins = 9, defaultTime = '07:00') {
   return defaultTime;
 }
 
-app.get('/api/events', async (_req, res) => {
+app.get('/api/events', cacheJson(10 * 1000), async (_req, res) => {
   const items = await Event.find().sort({ date: 1 }).lean();
   res.json(items);
 });
 
 // Fetch a single event by id for targeted refreshes
-app.get('/api/events/:id', async (req, res) => {
+app.get('/api/events/:id', cacheJson(10 * 1000), async (req, res) => {
   try {
     const ev = await Event.findById(req.params.id).lean();
     if (!ev) return res.status(404).json({ error: 'Event not found' });
@@ -1075,7 +1081,7 @@ app.get('/api/events/:id', async (req, res) => {
   }
 });
 
-app.post('/api/events', async (req, res) => {
+app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
   try {
     const { course, courseInfo, date, teeTime, teeTimes, notes, isTeamEvent, teamSizeMax, teamStartType, teamStartTime } = req.body || {};
     let tt;
@@ -1553,7 +1559,7 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
   }
 });
 
-app.post('/api/events/:id/tee-times/:teeId/players', async (req, res) => {
+app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPlayer), async (req, res) => {
   const { name } = req.body || {};
   if (!name) return res.status(400).json({ error: 'name required' });
   const trimmedName = String(name).trim();

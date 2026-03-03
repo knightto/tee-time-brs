@@ -59,3 +59,23 @@ npm run seed:outings
 ```
 
 This script upserts the 2026 annual outings list in the secondary DB.
+
+## Operational Improvements
+
+This project now includes a cleanup/performance toolkit:
+
+- `npm run build:frontend`: minify frontend assets into `public/dist`
+- `npm run gen:sw-assets`: regenerate service worker cache list (`public/sw-assets.js`)
+- `npm run db:index:review`: print current primary/secondary Mongo index definitions
+- `npm run db:index:sync`: sync schema indexes to Mongo
+- `npm run test:reset`: remove test-created E2E records
+- `npm run test:e2e`: full scripted end-to-end smoke pass
+
+Health/readiness endpoints:
+
+- `GET /api/health`
+- `GET /api/ready`
+
+Architecture notes:
+
+- See `docs/architecture.md`

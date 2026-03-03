@@ -1,0 +1,6 @@
+node_modules/
+scripts-archive/
+logs/
+public/assets/
+public/dist/
+public/sw-assets.js

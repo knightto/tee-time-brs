@@ -2,7 +2,8 @@
   "env": {
     "node": true,
     "es2021": true,
-    "browser": true
+    "browser": true,
+    "serviceworker": true
   },
   "extends": [
     "eslint:recommended",
@@ -10,14 +11,13 @@
   ],
   "parserOptions": {
     "ecmaVersion": "latest",
-    "sourceType": "module"
+    "sourceType": "script"
   },
   "rules": {
     "no-unused-vars": ["warn", { "argsIgnorePattern": "^_" }],
-    "no-console": ["warn", { "allow": ["warn", "error"] }]
-  },
-  "ignorePatterns": [
-    "node_modules/",
-    "scripts-archive/"
-  ]
+    "no-console": ["warn", { "allow": ["log", "warn", "error"] }],
+    "no-empty": "off",
+    "no-inner-declarations": "off",
+    "no-useless-escape": "off"
+  }
 }

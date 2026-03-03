@@ -26,7 +26,7 @@
           <a href="/handicaps.html" class="topbar-dropdown-item">Handicaps</a>
         </div>
       </details>
-      <button id="openSubscribeBtn" class="pill-link pill-primary" style="border:none;">Subscribe</button>
+      <button id="openSubscribeBtn" class="pill-link pill-primary topbar-subscribe-btn">Subscribe</button>
     </nav>
   </header>
 
@@ -39,7 +39,7 @@
         <input type="email" name="email" id="emailInput" placeholder="your@email.com" required>
       </label>
 
-      <span id="subMsg" class="muted" style="display:block;margin:12px 0"></span>
+      <span id="subMsg" class="muted subscribe-msg"></span>
 
       <menu>
         <button type="button" data-cancel>Cancel</button>
@@ -79,7 +79,7 @@
   </main>
 
   <!-- Create Event Modal -->
-  <dialog id="eventModal" style="max-width:550px;border-radius:12px;border:none;box-shadow:0 20px 25px -5px rgba(0,0,0,0.1),0 10px 10px -5px rgba(0,0,0,0.04)">
+  <dialog id="eventModal" class="event-modal">
     <form id="eventForm" method="dialog">
       <h3 id="eventFormTitle" style="margin:0 0 16px 0;font-size:20px;color:#111827;display:flex;align-items:center;gap:6px">
         <span style="font-size:24px">🏌️</span> Create Golf Event
@@ -203,19 +203,19 @@
   <!-- Edit + Move dialogs are injected by script.js -->
 
   <!-- Debug/Error Console Footer -->
-  <footer style="position:fixed;bottom:0;left:0;right:0;background:rgba(0,0,0,0.9);color:#fff;padding:4px 12px;font-size:11px;z-index:9999;display:none;max-height:200px;overflow-y:auto;" id="debugFooter">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;position:sticky;top:0;background:rgba(0,0,0,0.95);padding:4px 0;">
+  <footer class="debug-footer" id="debugFooter">
+    <div class="debug-footer-header">
       <strong>Errors & Debug Info</strong>
-      <button data-close-logs type="button" style="background:transparent;border:1px solid #666;color:#fff;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:10px;">Close</button>
+      <button data-close-logs type="button" class="debug-footer-close">Close</button>
     </div>
-    <div id="debugLogs" style="font-family:monospace;white-space:pre-wrap;word-break:break-all;"></div>
+    <div id="debugLogs" class="debug-logs"></div>
   </footer>
   
-  <button id="showLogsBtn" data-show-logs type="button" style="position:fixed;bottom:12px;right:12px;background:#dc2626;color:#fff;border:1px solid #991b1b;padding:6px 12px;border-radius:6px;cursor:pointer;font-size:11px;z-index:9998;box-shadow:0 2px 8px rgba(0,0,0,0.3);">Show Errors</button>
+  <button id="showLogsBtn" data-show-logs type="button" class="show-logs-btn">Show Errors</button>
 
   <!-- Admin Link -->
-  <div style="position:fixed;bottom:12px;left:12px;z-index:9998;">
-    <a href="/admin.html" target="_blank" style="display:inline-block;background:#475569;color:#fff;padding:6px 12px;border-radius:6px;text-decoration:none;font-size:11px;box-shadow:0 2px 8px rgba(0,0,0,0.3);transition:background 0.2s;" onmouseover="this.style.background='#334155'" onmouseout="this.style.background='#475569'">⚙️ Admin</a>
+  <div class="admin-link-wrap">
+    <a href="/admin.html" target="_blank" class="admin-link">Admin</a>
   </div>
 
   <script src="/script.js" defer></script>

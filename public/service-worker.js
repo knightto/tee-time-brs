@@ -1,19 +1,7 @@
-const CACHE_NAME = 'tee-time-brs-v5';
-const ASSETS_TO_CACHE = [
-  '/',
-  '/index.html',
-  '/admin.html',
-  '/handicaps.html',
-  '/handicap-import.html',
-  '/user-guide.html',
-  '/style.css',
-  '/script.js',
-  '/manifest.json',
-  '/favicon.svg',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png'
-  // Add more assets if needed (e.g., images in /assets/)
-];
+importScripts('/sw-assets.js');
+
+const CACHE_NAME = 'tee-time-brs-v6';
+const ASSETS_TO_CACHE = Array.isArray(self.__SW_ASSETS) ? self.__SW_ASSETS : ['/', '/index.html', '/style.css', '/script.js'];
 
 self.addEventListener('install', event => {
   event.waitUntil(
