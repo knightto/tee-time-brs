@@ -713,6 +713,18 @@ if ('serviceWorker' in navigator) {
             return ah !== bh ? ah - bh : am - bm;
           });
         }
+        const slotCap = isTeams ? (ev.teamSizeMax || 4) : 4;
+        const slotCount = teesArr.length;
+        const registeredCount = teesArr.reduce((sum, tt) => sum + ((tt.players || []).length), 0);
+        const totalCapacity = slotCount * slotCap;
+        const openCount = Math.max(0, totalCapacity - registeredCount);
+        const maybeCount = (ev.maybeList || []).length;
+        const summaryRow = `<div class="row" style="gap:8px;flex-wrap:wrap;margin:6px 0 10px 0;font-size:12px;color:var(--slate-700)">
+          <span><strong>${registeredCount}</strong> registered</span>
+          <span><strong>${openCount}</strong> open</span>
+          <span><strong>${maybeCount}</strong> maybe</span>
+          <span><strong>${slotCount}</strong> ${isTeams ? 'teams' : 'tee times'}</span>
+        </div>`;
         const tees = teesArr.map((tt,idx)=>teeRow(ev,tt,idx,isTeams)).join('');
         // Render maybe list
         const maybeList = (ev.maybeList || []).map((name, idx) => {
@@ -773,6 +785,7 @@ if ('serviceWorker' in navigator) {
           </div>
           <div class="card-content">
             ${maybeSection}
+            ${summaryRow}
             <div class="tees">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>
             ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
           </div>`;
@@ -840,7 +853,10 @@ if ('serviceWorker' in navigator) {
       </span>`;
     }).join('') || '—';
     const max = ev.teamSizeMax || 4;
-    const full = (tt.players || []).length >= (isTeams ? max : 4);
+    const slotMax = isTeams ? max : 4;
+    const count = (tt.players || []).length;
+    const openSpots = Math.max(0, slotMax - count);
+    const full = count >= slotMax;
     const left = isTeams ? (tt.name ? tt.name : `Team ${idx+1}`) : (tt.time ? fmtTime(tt.time) : '—');
     const delTitle = isTeams ? 'Remove team' : 'Remove tee time';
     // Only show edit button for teams, not tee times
@@ -851,13 +867,14 @@ if ('serviceWorker' in navigator) {
     }
     return `<div class="tee ${full ? 'tee-full' : ''}">
       <div class="tee-meta">
-        <div class="tee-time">${left}</div>
+        <div class="tee-time">${left} <span style="font-size:11px;opacity:0.8">(${count}/${slotMax})</span></div>
         <div class="tee-actions">
           ${editBtn}
           <button class="icon small danger" title="${delTitle}" data-del-tee="${ev._id}:${tt._id}">×</button>
         </div>
       </div>
       <div class="tee-players">${chips}</div>
+      <div style="font-size:11px;color:var(--slate-700);margin-top:4px">${openSpots} spot${openSpots === 1 ? '' : 's'} open</div>
       <div class="row" style="gap:8px;flex-wrap:wrap">
         <button class="small" data-add-player="${ev._id}:${tt._id}" ${full?'disabled':''}>Add\nPlayer</button>
       </div>
@@ -1578,6 +1595,13 @@ if ('serviceWorker' in navigator) {
           return ah !== bh ? ah - bh : am - bm;
         });
       }
+      const slotCap = isTeams ? (ev.teamSizeMax || 4) : 4;
+      const slotCount = teesArr.length;
+      const registeredCount = teesArr.reduce((sum, tt) => sum + ((tt.players || []).length), 0);
+      const totalCapacity = slotCount * slotCap;
+      const openCount = Math.max(0, totalCapacity - registeredCount);
+      const maybeCount = (ev.maybeList || []).length;
+      const summaryRow = `<div class=\"row\" style=\"gap:8px;flex-wrap:wrap;margin:6px 0 10px 0;font-size:12px;color:var(--slate-700)\">\n        <span><strong>${registeredCount}</strong> registered</span>\n        <span><strong>${openCount}</strong> open</span>\n        <span><strong>${maybeCount}</strong> maybe</span>\n        <span><strong>${slotCount}</strong> ${isTeams ? 'teams' : 'tee times'}</span>\n      </div>`;
       const tees = teesArr.map((tt,idx)=>teeRow(ev,tt,idx,isTeams)).join('');
       const maybeList = (ev.maybeList || []).map((name, idx) => {
         const safe = String(name).replace(/"/g, '&quot;');
@@ -1590,7 +1614,7 @@ if ('serviceWorker' in navigator) {
       const courseDetails = ev.courseInfo && (ev.courseInfo.city || ev.courseInfo.phone || ev.courseInfo.website) 
         ? `<div style=\"font-size:13px;color:var(--slate-700);margin-top:4px\">\n          ${ev.courseInfo.city && ev.courseInfo.state ? `<span>📍 ${ev.courseInfo.city}, ${ev.courseInfo.state}</span>` : ''}\n          ${ev.courseInfo.phone ? `<span style=\"margin-left:12px\">📞 ${ev.courseInfo.phone}</span>` : ''}\n          ${ev.courseInfo.website ? `<span style=\"margin-left:12px\"><a href=\"${ev.courseInfo.website}\" target=\"_blank\" style=\"color:var(--blue-600);text-decoration:none\">🔗 Website</a></span>` : ''}\n          ${ev.courseInfo.holes && ev.courseInfo.par ? `<span style=\"margin-left:12px\">⛳ ${ev.courseInfo.holes} holes, Par ${ev.courseInfo.par}</span>` : ''}\n        </div>`
         : '';
-      card.innerHTML = `\n      <div class=\"card-header\">\n        <div class=\"card-header-left\">\n          <h3 class=\"card-title\">${ev.course || 'Course'}</h3>\n          <div class=\"card-date\">\n            ${fmtDate(ev.date)} ${weatherIcon}\n            <button class=\"small\" data-audit=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7\" title=\"View Audit Log\">📋</button>\n          </div>\n          ${courseDetails}\n        </div>\n        <div class=\"card-actions\">\n          <button class=\"small event-actions-toggle\" data-toggle-actions title=\"Show/hide event actions\">Actions</button>\n          <div class=\"button-row\">\n            <button class=\"small\" data-add-tee=\"${ev._id}\">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>\n            ${isTeams ? '' : `<button class=\"small\" data-suggest-pairings=\"${ev._id}\" title=\"Suggest balanced groups using handicap data\">Pairings</button>`}\n            <button class=\"small\" data-export-csv=\"${ev._id}\" title=\"Download event roster CSV\">Export CSV</button>\n            <button class=\"small\" data-edit=\"${ev._id}\">Edit</button>\n            <button class=\"small\" data-del=\"${ev._id}\">Delete</button>\n            <button class=\"small\" data-request-extra-tee=\"${ev._id}\" title=\"Email Brian Jones to request an additional tee time\">Request Tee</button>\n          </div>\n        </div>\n      </div>\n      <div class=\"card-content\">\n        ${maybeSection}\n        <div class=\"tees\">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>\n        ${ev.notes ? `<div class=\"notes\">${ev.notes}</div>` : ''}\n      </div>`;
+      card.innerHTML = `\n      <div class=\"card-header\">\n        <div class=\"card-header-left\">\n          <h3 class=\"card-title\">${ev.course || 'Course'}</h3>\n          <div class=\"card-date\">\n            ${fmtDate(ev.date)} ${weatherIcon}\n            <button class=\"small\" data-audit=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7\" title=\"View Audit Log\">📋</button>\n          </div>\n          ${courseDetails}\n        </div>\n        <div class=\"card-actions\">\n          <button class=\"small event-actions-toggle\" data-toggle-actions title=\"Show/hide event actions\">Actions</button>\n          <div class=\"button-row\">\n            <button class=\"small\" data-add-tee=\"${ev._id}\">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>\n            ${isTeams ? '' : `<button class=\"small\" data-suggest-pairings=\"${ev._id}\" title=\"Suggest balanced groups using handicap data\">Pairings</button>`}\n            <button class=\"small\" data-export-csv=\"${ev._id}\" title=\"Download event roster CSV\">Export CSV</button>\n            <button class=\"small\" data-edit=\"${ev._id}\">Edit</button>\n            <button class=\"small\" data-del=\"${ev._id}\">Delete</button>\n            <button class=\"small\" data-request-extra-tee=\"${ev._id}\" title=\"Email Brian Jones to request an additional tee time\">Request Tee</button>\n          </div>\n        </div>\n      </div>\n      <div class=\"card-content\">\n        ${maybeSection}\n        ${summaryRow}\n        <div class=\"tees\">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>\n        ${ev.notes ? `<div class=\"notes\">${ev.notes}</div>` : ''}\n      </div>`;
     } catch (e) {
       console.error('Failed to update event card:', e);
       load();
