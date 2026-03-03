@@ -993,6 +993,23 @@ function getTeeLabel(ev, teeId) {
   return tt.time ? fmt.tee(tt.time) : 'Unknown';
 }
 
+function findNextOpenSlot(ev, preferredTeeId = null) {
+  const maxSize = ev.isTeamEvent ? (ev.teamSizeMax || 4) : 4;
+  if (preferredTeeId) {
+    const preferred = ev.teeTimes.id(preferredTeeId);
+    if (preferred) {
+      if (!Array.isArray(preferred.players)) preferred.players = [];
+      if (preferred.players.length < maxSize) return preferred;
+      return null;
+    }
+  }
+  for (const tt of (ev.teeTimes || [])) {
+    if (!Array.isArray(tt.players)) tt.players = [];
+    if (tt.players.length < maxSize) return tt;
+  }
+  return null;
+}
+
 // Log audit entry
 async function logAudit(eventId, action, playerName, data = {}) {
   if (!AuditLog) return;
@@ -2310,6 +2327,66 @@ app.post('/api/events/:id/maybe', async (req, res) => {
     res.json(ev);
   } catch (e) {
     res.status(500).json({ error: e.message });
+  }
+});
+
+// Promote a maybe-list player into an open tee/team slot
+app.post('/api/events/:id/maybe/fill', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+    const { name, teeId } = req.body || {};
+    const ev = await Event.findById(req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    if (!Array.isArray(ev.maybeList)) ev.maybeList = [];
+    if (!Array.isArray(ev.teeTimes) || !ev.teeTimes.length) {
+      return res.status(400).json({ error: 'No tee/team slots available' });
+    }
+    if (!ev.maybeList.length) return res.status(400).json({ error: 'Maybe list is empty' });
+
+    let maybeIndex = 0;
+    if (name) {
+      const normalized = String(name).trim().toLowerCase();
+      maybeIndex = ev.maybeList.findIndex((n) => String(n).trim().toLowerCase() === normalized);
+      if (maybeIndex === -1) return res.status(404).json({ error: 'Name not found on maybe list' });
+    }
+
+    const pickedName = String(ev.maybeList[maybeIndex] || '').trim();
+    if (!pickedName) return res.status(400).json({ error: 'Invalid maybe list name' });
+    if (isDuplicatePlayerName(ev, pickedName)) {
+      return res.status(409).json({ error: 'duplicate player name', message: 'Player already registered on this event.' });
+    }
+
+    const slot = findNextOpenSlot(ev, teeId || null);
+    if (!slot) {
+      return res.status(409).json({ error: teeId ? 'selected slot full' : 'all slots full' });
+    }
+
+    slot.players.push({ name: pickedName });
+    ev.maybeList.splice(maybeIndex, 1);
+    await ev.save();
+
+    const teeLabel = getTeeLabel(ev, slot._id);
+    await logAudit(ev._id, 'add_player', pickedName, {
+      teeId: slot._id,
+      teeLabel,
+      source: 'maybe_list'
+    });
+
+    if (ev.notificationsEnabled !== false) {
+      sendEmailToAll(
+        `Player Confirmed: ${ev.course} (${fmt.dateISO(ev.date)})`,
+        frame('Maybe List Player Confirmed',
+          `<p><strong>${esc(pickedName)}</strong> moved from maybe list to active ${esc(ev.isTeamEvent ? 'team' : 'tee time')}.</p>
+           <p><strong>Event:</strong> ${esc(ev.course)}</p>
+           <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
+           <p><strong>${ev.isTeamEvent ? 'Team' : 'Tee Time'}:</strong> ${esc(teeLabel)}</p>
+           ${btn('View Event')}`)
+      ).catch((err) => console.error('Failed maybe fill email:', err));
+    }
+
+    return res.json({ ok: true, event: ev, addedName: pickedName, teeLabel });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
   }
 });
 

@@ -726,7 +726,10 @@ if ('serviceWorker' in navigator) {
           <div class="maybe-section">
             <div class="maybe-header">
               <h4>🤔 Maybe List</h4>
-              <button class="small" data-add-maybe="${ev._id}" style="font-size:11px;padding:3px 8px">+ Interested</button>
+              <div class="row" style="gap:6px;flex-wrap:wrap">
+                <button class="small" data-add-maybe="${ev._id}" style="font-size:11px;padding:3px 8px">+ Interested</button>
+                <button class="small" data-fill-maybe="${ev._id}" style="font-size:11px;padding:3px 8px" title="Admin: move someone from maybe list into an open spot">Fill Spot</button>
+              </div>
             </div>
             <div class="maybe-list">
               ${maybeList || '<em style="color:var(--slate-700);font-size:11px;opacity:0.7">No one yet</em>'}
@@ -861,7 +864,7 @@ if ('serviceWorker' in navigator) {
   }
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-toggle-actions]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-toggle-actions]')||e.target);
     try{
       if(t.dataset.toggleActions !== undefined){
         const header = t.closest('.card-header');
@@ -886,6 +889,30 @@ if ('serviceWorker' in navigator) {
           }
           return;
         }
+      }
+      if(t.dataset.fillMaybe){
+        const id = t.dataset.fillMaybe;
+        const code = (prompt('Admin delete code:') || '').trim();
+        if(!code) return;
+        const name = prompt('Optional maybe-list name to confirm now (leave blank for first in list):', '') || '';
+        const original = t.textContent;
+        t.disabled = true;
+        t.textContent = 'Filling...';
+        try {
+          await api(`/api/events/${id}/maybe/fill?code=${encodeURIComponent(code)}`, {
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ name: name.trim() || undefined })
+          });
+          await updateEventCard(id);
+        } catch (err) {
+          console.error(err);
+          alert('Fill failed: ' + (err.message || 'Unknown error'));
+        } finally {
+          t.disabled = false;
+          t.textContent = original;
+        }
+        return;
       }
       if(t.dataset.removeMaybe){
         const [id, index] = t.dataset.removeMaybe.split(':');
@@ -1550,7 +1577,7 @@ if ('serviceWorker' in navigator) {
         const safe = String(name).replace(/"/g, '&quot;');
         return `<span class=\"maybe-chip\" title=\"${safe}\">\n        <span class=\"maybe-name\">${name}</span>\n        <button class=\"icon small danger\" title=\"Remove\" data-remove-maybe=\"${ev._id}:${idx}\">×</button>\n      </span>`;
       }).join('');
-      const maybeSection = `\n      <div class=\"maybe-section\">\n        <div class=\"maybe-header\">\n          <h4>🤔 Maybe List</h4>\n          <button class=\"small\" data-add-maybe=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px\">+ Interested</button>\n        </div>\n        <div class=\"maybe-list\">\n          ${maybeList || '<em style=\"color:var(--slate-700);font-size:11px;opacity:0.7\">No one yet</em>'}\n        </div>\n      </div>\n    `;
+      const maybeSection = `\n      <div class=\"maybe-section\">\n        <div class=\"maybe-header\">\n          <h4>🤔 Maybe List</h4>\n          <div class=\"row\" style=\"gap:6px;flex-wrap:wrap\">\n            <button class=\"small\" data-add-maybe=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px\">+ Interested</button>\n            <button class=\"small\" data-fill-maybe=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px\" title=\"Admin: move someone from maybe list into an open spot\">Fill Spot</button>\n          </div>\n        </div>\n        <div class=\"maybe-list\">\n          ${maybeList || '<em style=\"color:var(--slate-700);font-size:11px;opacity:0.7\">No one yet</em>'}\n        </div>\n      </div>\n    `;
       const weatherIcon = ev.weather && ev.weather.icon 
         ? `<span class=\"weather-inline\" style=\"font-size:3em;cursor:pointer\" title=\"${ev.weather.description || 'Weather forecast'}\" data-weather-info='${JSON.stringify({temp: ev.weather.temp, desc: ev.weather.description, icon: ev.weather.icon})}'>${ev.weather.icon}</span>` 
         : '';
