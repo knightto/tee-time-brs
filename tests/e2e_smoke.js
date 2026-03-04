@@ -123,13 +123,7 @@ async function main() {
     expect(results, Boolean(playerId), 'Player id returned', playerId || 'missing');
 
     const delPlayerNoCode = await api(`/api/events/${teeEventId}/tee-times/${teeId}/players/${playerId}`, { method: 'DELETE' });
-    expect(results, delPlayerNoCode.status === 403, 'Player delete blocked without admin code', `status=${delPlayerNoCode.status}`);
-    if (ADMIN_CODE) {
-      const delPlayerWithCode = await api(`/api/events/${teeEventId}/tee-times/${teeId}/players/${playerId}?code=${encodeURIComponent(ADMIN_CODE)}`, { method: 'DELETE' });
-      expect(results, delPlayerWithCode.status === 200, 'Player delete with admin code', `status=${delPlayerWithCode.status}`);
-    } else {
-      expect(results, false, 'Player delete with admin code', 'ADMIN_DELETE_CODE missing in env');
-    }
+    expect(results, delPlayerNoCode.status === 200, 'Player delete without admin code', `status=${delPlayerNoCode.status}`);
 
     const reqExtra = await api(`/api/events/${teeEventId}/request-extra-tee-time`, {
       method: 'POST',

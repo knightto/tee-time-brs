@@ -25,47 +25,6 @@
       border: 2px solid rgba(45,122,45,.25);
     }
 
-    .admin-toolbar {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-
-    .back-link {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      margin: 0;
-      padding: 6px 10px;
-      border-radius: 999px;
-      border: 1px solid #cbd5e1;
-      background: #fff;
-      color: #334155;
-      text-decoration: none;
-      font-weight: 600;
-      font-size: 13px;
-    }
-
-    .back-link:hover {
-      color: #0f172a;
-      border-color: #94a3b8;
-      background: #f8fafc;
-      text-decoration: none;
-    }
-
-    .dashboard-title {
-      margin: 0 0 12px 0;
-      color: #1a5a1a;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      font-size: 30px;
-      font-weight: 800;
-      border-bottom: 3px solid #2d7a2d;
-      padding-bottom: 10px;
-    }
-
     .section-nav {
       position: sticky;
       top: 72px;
@@ -455,10 +414,6 @@
         border-radius: 12px;
       }
 
-      .dashboard-title {
-        font-size: 26px;
-      }
-
       .section-nav {
         top: 62px;
       }
@@ -471,11 +426,6 @@
 
       .admin-container {
         padding: 10px;
-      }
-
-      .dashboard-title {
-        font-size: 22px;
-        margin-bottom: 10px;
       }
 
       .admin-section {
@@ -584,21 +534,9 @@
       <a href="/" class="pill-link">Tee Times</a>
       <a href="/handicaps.html" class="pill-link">Handicaps</a>
       <a href="/handicap-import.html" class="pill-link">Handicap Import</a>
-      <a href="#teeLogSection" class="pill-link pill-primary">Tee-Time Log</a>
     </nav>
   </header>
   <div class="admin-container">
-    <div class="admin-toolbar">
-      <a href="/" class="back-link">← Back to Events</a>
-      <a href="/handicaps.html" class="back-link">View Handicaps</a>
-      <a href="/handicap-import.html" class="back-link">Handicap Import</a>
-    </div>
-    
-    <h1 class="dashboard-title">
-      <span>⚙️</span>
-      Admin Dashboard
-    </h1>
-
     <nav class="section-nav">
       <a href="#quickActionsSection">Quick Actions</a>
       <a href="#notificationsSection">Notifications</a>

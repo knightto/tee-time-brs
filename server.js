@@ -900,10 +900,6 @@ function btn(label='Go to Sign-up Page'){
 function frame(title, body){
   return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f6f7f9;padding:24px"><tr><td align="center"><table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:#ffffff;border-radius:10px;padding:24px;border:1px solid #e5e7eb"><tr><td><h2 style="margin:0 0 12px 0;color:#111827;font-size:20px">${esc(title)}</h2>${body}<p style="color:#6b7280;font-size:12px;margin-top:24px">You received this because you subscribed to tee time updates.</p></td></tr></table></td></tr></table>`;
 }
-function csvCell(v = '') {
-  const s = String(v ?? '');
-  return `"${s.replace(/"/g, '""')}"`;
-}
 function reminderEmail(blocks, opts = {}){
   // blocks: [{course, dateISO, dateLong, empties: ['08:18 AM','08:28 AM']}]
   if (!blocks.length) return '';
@@ -1202,67 +1198,6 @@ app.get('/api/events/:id', cacheJson(10 * 1000), async (req, res) => {
     const ev = await Event.findById(req.params.id).lean();
     if (!ev) return res.status(404).json({ error: 'Event not found' });
     res.json(ev);
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.get('/api/events/:id/export.csv', async (req, res) => {
-  try {
-    const ev = await Event.findById(req.params.id).lean();
-    if (!ev) return res.status(404).json({ error: 'Event not found' });
-    const rows = [];
-    const eventName = ev.course || 'Course';
-    const eventDate = fmt.dateISO(ev.date);
-    const slotType = ev.isTeamEvent ? 'Team' : 'Tee Time';
-
-    (ev.teeTimes || []).forEach((tt, idx) => {
-      const label = ev.isTeamEvent ? (tt.name || `Team ${idx + 1}`) : (tt.time ? fmt.tee(tt.time) : `Tee ${idx + 1}`);
-      const time = tt.time || '';
-      const members = Array.isArray(tt.players) ? tt.players : [];
-      if (!members.length) {
-        rows.push([
-          eventName,
-          eventDate,
-          slotType,
-          label,
-          time,
-          '',
-          'Open Slot'
-        ]);
-        return;
-      }
-      members.forEach((p) => {
-        rows.push([
-          eventName,
-          eventDate,
-          slotType,
-          label,
-          time,
-          p.name || '',
-          p.checkedIn ? 'Checked In' : 'Registered'
-        ]);
-      });
-    });
-
-    (ev.maybeList || []).forEach((name) => {
-      rows.push([
-        eventName,
-        eventDate,
-        slotType,
-        'Maybe List',
-        '',
-        name,
-        'Maybe'
-      ]);
-    });
-
-    const header = ['Event', 'Date', 'Slot Type', 'Slot', 'Time', 'Player', 'Status'];
-    const csv = [header, ...rows].map((r) => r.map(csvCell).join(',')).join('\n');
-    const safeName = `${eventName}-${eventDate}`.replace(/[^a-z0-9\-_.]+/gi, '_');
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="${safeName}.csv"`);
-    res.send(csv);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -1821,7 +1756,6 @@ app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPla
 });
 app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res) => {
   try {
-    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
     const ev = await Event.findById(req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     const tt = ev.teeTimes.id(req.params.teeId);
