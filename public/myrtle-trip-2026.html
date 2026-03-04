@@ -290,7 +290,6 @@
 
     <div class="panel summary-card" id="summaryTop" style="display:grid;gap:12px;">
       <div id="tripSummary"></div>
-      <div id="summaryBox" class="panel" style="margin:0;background:linear-gradient(145deg, var(--panel) 0%, #0c1a2c 100%);border:1px solid var(--border);border-radius:12px;padding:12px;line-height:1.5;"></div>
     </div>
     <div class="panel" id="itineraryBox" style="margin-bottom:12px;"></div>
     <div class="layout">
@@ -300,6 +299,7 @@
           <button id="addParticipantBtn" style="padding:10px 14px;font-weight:700;">Add Golfer</button>
         </div>
         <div id="condoGroups" class="cards-grid" style="margin-top:12px;"></div>
+        <div id="statusSummaryRow" style="margin-top:12px;"></div>
       </div>
       <div id="unassignedSidebar"></div>
     </div>
@@ -467,10 +467,7 @@
           <div><strong>Trip Name:</strong> ${t.name || 'Myrtle Beach - Barefoot Group 3/18-3/22/26'}</div>
           <div><strong>Location:</strong> ${t.location || 'Myrtle Beach, SC'}</div>
           <div><strong>Package:</strong> ${t.package || '4 Nights / 5 Rounds'}</div>
-          <div><strong>Group Size:</strong> ${t.groupSize || 24}</div>
           <div><strong>Reservation #:</strong> ${t.reservationNumber || '12972589'} &nbsp;|&nbsp; ${t.preparedBy || 'Myrtle Beach Golf Trips'} (${t.phone || '(877) 283-2122'})</div>
-          <div><strong>Accommodations:</strong> ${accom?.resort || 'Barefoot Golf Villas'} | ${accom?.unitType || '2 Bedroom Golf Course'} | Units: ${accom?.units || 6} | Conf: ${accom?.confirmations || ''} | ${arrivalDateDisplay} -> ${departureDateDisplay}</div>
-          <div><strong>Price:</strong> ${t.price || '$792.56 per person incl. lodging, 5 rounds, all taxes/fees (no breakfast).'}</div>
           <div style="display:grid;gap:8px;margin-top:8px;">
             <a class="cta" href="https://founders.teetimecentralonline.com/golfcentral/guests/Register.aspx?g=8ad2d184-cdb8-4b90-8dc6-55c68c26efe9&ResNum=12972589&arr=3/18/2026" target="_blank">Join Package (Register)</a>
           </div>
@@ -483,10 +480,10 @@
       $('#itineraryBox').innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
           <h2 style="margin:0;font-size:1.05rem;">Golf Schedule</h2>
-          <div class="status-labels" id="statusSummaryRow"></div>
         </div>
         <ul class="itinerary-list" id="itineraryList"></ul>
         <div id="condoWazeLinks" style="margin-top:12px;"></div>
+        <div id="summaryBox" style="margin-top:12px;"></div>
         <div id="allParticipantsList" style="margin-top:12px;"></div>
       `;
 
