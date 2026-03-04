@@ -337,6 +337,43 @@
       { course: 'River Hills', address: '3670 Cedar Creek Run, Little River, SC 29566', date: '2026-03-21', time: '09:15' },
       { course: 'Long Bay', address: '350 Fox Tail Dr, Longs, SC 29568', date: '2026-03-22', time: '08:00' }
     ];
+    const CONDO_ADDRESSES = [
+      {
+        label: '5802 Oyster Catcher Dr',
+        address: '5802 Oyster Catcher Dr, North Myrtle Beach, SC 29582',
+        unit: 'Ironwood 1121',
+        guestbook: 'https://guide.ruebarue.com/guestbook/7427693178089342',
+        occupants: ['Chris Neff', 'Caleb Hart', 'Jeremy Bridges', 'Jay Quimby']
+      },
+      {
+        label: '5810 Oyster Catcher Dr',
+        address: '5810 Oyster Catcher Dr, North Myrtle Beach, SC 29582',
+        unit: 'Ironwood 721',
+        guestbook: 'https://guide.ruebarue.com/guestbook/7840614159287489',
+        occupants: ['Tommy Knight', 'Tommy Knight Sr', 'Joe Gillette', 'Josh Browne']
+      },
+      {
+        label: '5801 Oyster Catcher Dr',
+        address: '5801 Oyster Catcher Dr, North Myrtle Beach, SC 29582',
+        unit: 'Ironwood 1021',
+        guestbook: 'https://guide.ruebarue.com/guestbook/8331472348472874',
+        occupants: ['Matt Shannon', 'Duane Harris', 'John Hyers', 'Dennis Freeman']
+      },
+      {
+        label: '5804 Oyster Catcher Dr',
+        address: '5804 Oyster Catcher Dr, North Myrtle Beach, SC 29582',
+        unit: 'Ironwood 1233',
+        guestbook: 'https://guide.ruebarue.com/guestbook/6212242310575679',
+        occupants: ['Manuel Ordonez', 'Marcus Ordonez', 'Delmar Christian', 'Chad Jones']
+      },
+      {
+        label: '5805 Oyster Catcher Dr',
+        address: '5805 Oyster Catcher Dr, North Myrtle Beach, SC 29582',
+        unit: 'Ironwood 1311',
+        guestbook: 'https://guide.ruebarue.com/guestbook/4183582435648033',
+        occupants: ['Reny Butler', 'Thomas Lasik', 'Chris Manuel', 'Lance Darr']
+      }
+    ];
 
     let tripId = null;
     let trip = null;
@@ -449,6 +486,7 @@
           <div class="status-labels" id="statusSummaryRow"></div>
         </div>
         <ul class="itinerary-list" id="itineraryList"></ul>
+        <div id="condoWazeLinks" style="margin-top:12px;"></div>
         <div id="allParticipantsList" style="margin-top:12px;"></div>
       `;
 
@@ -470,6 +508,28 @@
         }).join('');
       } else {
         list.innerHTML = `<li class="itinerary-item">Rounds not entered yet.</li>`;
+      }
+
+      const condoWazeLinks = $('#condoWazeLinks');
+      if (condoWazeLinks) {
+        condoWazeLinks.innerHTML = `
+          <div style="display:grid;gap:8px;">
+            <strong>Condo Waze Links</strong>
+            <ul class="itinerary-list">
+              ${CONDO_ADDRESSES.map((c) => {
+                const link = buildWazeLink(c.label, c.address);
+                return `
+                  <li class="itinerary-item">
+                    <strong><a class="waze-link" href="${link}" target="_blank" rel="noopener">${c.label}</a></strong>
+                    <small>${c.unit} | ${c.address}</small>
+                    <small><strong>Staying:</strong> ${c.occupants.join(', ')}</small>
+                    <small><a class="waze-link" href="${c.guestbook}" target="_blank" rel="noopener">LINK TO CONDO INFORMATION</a></small>
+                  </li>
+                `;
+              }).join('')}
+            </ul>
+          </div>
+        `;
       }
 
       renderStatusList();
