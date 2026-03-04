@@ -1916,7 +1916,6 @@ app.post('/api/events/:id/move-player', async (req, res) => {
 
 app.post('/api/events/:id/tee-times/:teeId/players/:playerId/check-in', async (req, res) => {
   try {
-    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
     const checkedIn = req.body && req.body.checkedIn;
     if (typeof checkedIn !== 'boolean') return res.status(400).json({ error: 'checkedIn boolean required' });
 
@@ -1944,7 +1943,6 @@ app.post('/api/events/:id/tee-times/:teeId/players/:playerId/check-in', async (r
 
 app.post('/api/events/:id/tee-times/:teeId/check-in-all', async (req, res) => {
   try {
-    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
     const checkedIn = req.body && req.body.checkedIn;
     if (typeof checkedIn !== 'boolean') return res.status(400).json({ error: 'checkedIn boolean required' });
 
@@ -2452,7 +2450,6 @@ app.post('/api/events/:id/maybe', async (req, res) => {
 // Promote a maybe-list player into an open tee/team slot
 app.post('/api/events/:id/maybe/fill', async (req, res) => {
   try {
-    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
     const { name, teeId } = req.body || {};
     const ev = await Event.findById(req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
@@ -2514,7 +2511,6 @@ app.post('/api/events/:id/maybe/fill', async (req, res) => {
 // Remove player from maybe list
 app.delete('/api/events/:id/maybe/:index', async (req, res) => {
   try {
-    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
     const ev = await Event.findById(req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     

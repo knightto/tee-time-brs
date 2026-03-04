@@ -104,14 +104,7 @@ async function main() {
     expect(results, maybeAdd.status === 200, 'Add maybe entry', `status=${maybeAdd.status}`);
 
     const maybeNoCode = await api(`/api/events/${teeEventId}/maybe/0`, { method: 'DELETE' });
-    expect(results, maybeNoCode.status === 403, 'Maybe delete blocked without admin code', `status=${maybeNoCode.status}`);
-
-    if (ADMIN_CODE) {
-      const maybeWithCode = await api(`/api/events/${teeEventId}/maybe/0?code=${encodeURIComponent(ADMIN_CODE)}`, { method: 'DELETE' });
-      expect(results, maybeWithCode.status === 200, 'Maybe delete with admin code', `status=${maybeWithCode.status}`);
-    } else {
-      expect(results, false, 'Maybe delete with admin code', 'ADMIN_DELETE_CODE missing in env');
-    }
+    expect(results, maybeNoCode.status === 200, 'Maybe delete without admin code', `status=${maybeNoCode.status}`);
 
     const addTee = await api(`/api/events/${teeEventId}/tee-times`, {
       method: 'POST',

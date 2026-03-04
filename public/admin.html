@@ -7,225 +7,572 @@
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="style.css">
   <style>
-    body { 
-      padding: 20px;
+    body {
+      padding: 12px 14px 24px;
       background: linear-gradient(135deg, rgba(26,90,26,.75) 0%, rgba(45,122,45,.60) 50%, rgba(26,90,26,.75) 100%),
                   repeating-linear-gradient(90deg, transparent, transparent 100px, rgba(255,255,255,.03) 100px, rgba(255,255,255,.03) 102px),
                   url('./assets/desertgolf.jpg') center/cover fixed;
       min-height: 100vh;
     }
+
     .admin-container {
-      max-width: 1200px;
+      max-width: 1080px;
       margin: 0 auto;
-      background: linear-gradient(135deg, rgba(255,255,255,.98) 0%, rgba(168,213,168,.12) 100%);
-      border-radius: 16px;
-      padding: 32px;
-      box-shadow: 0 10px 30px rgba(26,90,26,.35);
-      border: 3px solid rgba(45,122,45,.3);
+      background: linear-gradient(135deg, rgba(255,255,255,.98) 0%, rgba(168,213,168,.10) 100%);
+      border-radius: 14px;
+      padding: 20px;
+      box-shadow: 0 10px 30px rgba(26,90,26,.30);
+      border: 2px solid rgba(45,122,45,.25);
     }
-    h1 {
-      margin: 0 0 28px 0;
-      color: #1a5a1a;
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      font-size: 32px;
-      font-weight: 700;
-      border-bottom: 4px solid #2d7a2d;
-      padding-bottom: 16px;
-    }
-    .stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      margin-bottom: 24px;
-    }
-    .stat-card {
-      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-      color: white;
-      padding: 16px;
-      border-radius: 8px;
-      box-shadow: 0 2px 8px rgba(37, 99, 235, 0.3);
-    }
-    .stat-card h3 {
-      margin: 0 0 8px 0;
-      font-size: 14px;
-      opacity: 0.9;
-    }
-    .stat-card .value {
-      font-size: 32px;
-      font-weight: bold;
-      margin: 0;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 16px;
-    }
-    th {
-      background: #f1f5f9;
-      text-align: left;
-      padding: 12px;
-      font-weight: 600;
-      color: #334155;
-      border-bottom: 2px solid #cbd5e1;
-    }
-    td {
-      padding: 12px;
-      border-bottom: 1px solid #e2e8f0;
-      color: #1e293b;
-    }
-    tr:hover {
-      background: #f8fafc;
-    }
-    .badge {
-      display: inline-block;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-    .badge-email {
-      background: #dbeafe;
-      color: #1e40af;
-    }
-    .badge-sms {
-      background: #d1fae5;
-      color: #065f46;
-    }
-    .btn-delete {
-      background: #dc2626;
-      color: white;
-      border: none;
-      padding: 6px 12px;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 14px;
-    }
-    .btn-delete:hover {
-      background: #b91c1c;
-    }
-    .empty-state {
-      text-align: center;
-      padding: 48px;
-      color: #475569;
-      font-size: 16px;
-    }
-    .loading {
-      text-align: center;
-      padding: 48px;
-      color: #475569;
-      font-size: 16px;
-    }
-    .back-link {
-      display: inline-block;
-      margin-bottom: 16px;
-      color: #334155;
-      text-decoration: none;
-      font-weight: 500;
-    }
-    .back-link:hover {
-      color: #0f172a;
-      text-decoration: underline;
-    }
-    .test-section {
-      background: #fef3c7;
-      border: 2px solid #f59e0b;
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 24px;
-    }
-    .test-section h2 {
-      margin: 0 0 12px 0;
-      color: #92400e;
-      font-size: 18px;
-    }
-    .test-buttons {
+
+    .admin-toolbar {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
+      margin-bottom: 12px;
     }
-    .btn-test {
-      background: #f59e0b;
-      color: white;
+
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin: 0;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: #334155;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .back-link:hover {
+      color: #0f172a;
+      border-color: #94a3b8;
+      background: #f8fafc;
+      text-decoration: none;
+    }
+
+    .dashboard-title {
+      margin: 0 0 12px 0;
+      color: #1a5a1a;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 30px;
+      font-weight: 800;
+      border-bottom: 3px solid #2d7a2d;
+      padding-bottom: 10px;
+    }
+
+    .section-nav {
+      position: sticky;
+      top: 72px;
+      z-index: 5;
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding: 8px;
+      margin: 0 0 14px 0;
+      border-radius: 10px;
+      border: 1px solid #dbe5f1;
+      background: rgba(255,255,255,.90);
+      backdrop-filter: blur(4px);
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .section-nav a {
+      flex: 0 0 auto;
+      white-space: nowrap;
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 700;
+      color: #1e3a8a;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid #bfdbfe;
+      background: #eff6ff;
+    }
+
+    .section-nav a:hover {
+      background: #dbeafe;
+    }
+
+    .admin-section {
+      border: 1px solid #d6dde8;
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 14px;
+      background: #fff;
+    }
+
+    .admin-section h2 {
+      margin: 0 0 10px 0;
+      font-size: 18px;
+      line-height: 1.25;
+    }
+
+    .section-quick {
+      background: #eff6ff;
+      border-color: #93c5fd;
+    }
+
+    .section-quick h2 {
+      color: #1e40af;
+    }
+
+    .section-notifications {
+      background: #fffbeb;
+      border-color: #fcd34d;
+    }
+
+    .section-notifications h2 {
+      color: #92400e;
+    }
+
+    .section-log {
+      background: #ecfdf3;
+      border-color: #86efac;
+    }
+
+    .section-log h2 {
+      color: #14532d;
+    }
+
+    .section-subscribers h2 {
+      color: #111827;
+    }
+
+    .section-intro {
+      margin: 0 0 10px 0;
+      color: #334155;
+      font-size: 13px;
+    }
+
+    .test-buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 8px;
+    }
+
+    button.btn-test,
+    button.btn-delete {
       border: none;
-      padding: 8px 16px;
-      border-radius: 6px;
+      box-shadow: none;
+      transform: none;
+      font-weight: 700;
+    }
+
+    button.btn-test:hover,
+    button.btn-delete:hover {
+      transform: none;
+      box-shadow: none;
+    }
+
+    .btn-test {
+      color: white;
+      padding: 9px 12px;
+      border-radius: 8px;
       cursor: pointer;
-      font-size: 14px;
-      font-weight: 500;
+      font-size: 13px;
+      line-height: 1.2;
     }
-    .btn-test:hover {
-      background: #d97706;
-    }
-    .test-result {
-      margin-top: 12px;
+
+    .btn-amber { background: #f59e0b; }
+    .btn-amber:hover { background: #d97706; }
+    .btn-blue { background: #3b82f6; }
+    .btn-blue:hover { background: #2563eb; }
+    .btn-green { background: #10b981; }
+    .btn-green:hover { background: #059669; }
+    .btn-purple { background: #8b5cf6; }
+    .btn-purple:hover { background: #7c3aed; }
+    .btn-log { background: #22c55e; }
+    .btn-log:hover { background: #16a34a; }
+
+    .toggle-card {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+      background: #fff;
+      border-radius: 10px;
       padding: 12px;
-      border-radius: 6px;
+      border: 1px solid #f5d68f;
+    }
+
+    .toggle-title {
+      margin: 0;
+      color: #111827;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .toggle-text {
+      margin: 4px 0 0 0;
+      color: #6b7280;
+      font-size: 12px;
+      line-height: 1.4;
+      max-width: 56ch;
+    }
+
+    .toggle-control {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .toggle-status {
+      font-size: 13px;
+      color: #6b7280;
+      font-weight: 700;
+    }
+
+    .toggle-input {
+      width: 22px;
+      height: 22px;
+      cursor: pointer;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .stat-card {
+      background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+      color: white;
+      padding: 12px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(37,99,235,.25);
+    }
+
+    .stat-card h3 {
+      margin: 0 0 5px 0;
+      font-size: 12px;
+      letter-spacing: .3px;
+      opacity: 0.9;
+      text-transform: uppercase;
+    }
+
+    .stat-card .value {
+      font-size: 28px;
+      font-weight: 800;
+      margin: 0;
+      line-height: 1.1;
+    }
+
+    .table-shell {
+      margin-top: 8px;
+      overflow-x: auto;
+      border: 1px solid #d9e2ec;
+      border-radius: 10px;
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0;
       font-size: 14px;
+      background: #fff;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f1f5f9;
+      text-align: left;
+      padding: 10px;
+      font-weight: 700;
+      color: #334155;
+      border-bottom: 1px solid #cbd5e1;
+    }
+
+    td {
+      padding: 10px;
+      border-bottom: 1px solid #e2e8f0;
+      color: #1e293b;
+      vertical-align: top;
+    }
+
+    tr:hover {
+      background: #f8fafc;
+    }
+
+    .admin-table td:last-child,
+    .admin-table th:last-child {
+      text-align: right;
+    }
+
+    .log-table-shell {
+      display: block;
+    }
+
+    .log-mobile-list {
+      display: none;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .log-card {
+      border: 1px solid #d9e2ec;
+      border-radius: 10px;
+      background: #fff;
+      padding: 10px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .log-card-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 6px;
+    }
+
+    .log-title {
+      margin: 0;
+      font-size: 13px;
+      font-weight: 800;
+      color: #14532d;
+      text-transform: capitalize;
+    }
+
+    .log-type {
+      display: inline-block;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .log-type.team {
+      background: #dbeafe;
+      color: #1d4ed8;
+      border: 1px solid #93c5fd;
+    }
+
+    .log-type.tee {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #86efac;
+    }
+
+    .log-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 12px;
+    }
+
+    .log-key {
+      color: #64748b;
+      font-weight: 700;
+      min-width: 62px;
+    }
+
+    .log-val {
+      color: #0f172a;
+      text-align: right;
+      overflow-wrap: anywhere;
+      font-weight: 600;
+    }
+
+    .log-error .log-val {
+      color: #b91c1c;
+      font-weight: 700;
+    }
+
+    .btn-delete {
+      background: #dc2626;
+      color: white;
+      padding: 7px 10px;
+      border-radius: 7px;
+      cursor: pointer;
+      font-size: 12px;
+    }
+
+    .btn-delete:hover {
+      background: #b91c1c;
+    }
+
+    .test-result {
+      margin-top: 10px;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.4;
       display: none;
     }
+
     .test-result.success {
       background: #d1fae5;
       color: #065f46;
       display: block;
     }
+
     .test-result.error {
       background: #fee2e2;
       color: #991b1b;
       display: block;
     }
 
-    /* Mobile responsive styles */
-    @media (max-width: 768px) {
-      body {
-        padding: 12px;
-      }
+    .empty-state,
+    .loading {
+      text-align: center;
+      padding: 22px;
+      color: #475569;
+      font-size: 14px;
+    }
+
+    #customMessageDialog {
+      border: none;
+      border-radius: 12px;
+      padding: 0;
+      max-width: 620px;
+      width: min(620px, 92vw);
+      box-shadow: 0 20px 60px rgba(0,0,0,.3);
+    }
+
+    #customMessageDialog::backdrop {
+      background: rgba(2,6,23,.55);
+      backdrop-filter: blur(2px);
+    }
+
+    @media (max-width: 900px) {
       .admin-container {
-        padding: 16px;
-        border-radius: 8px;
+        padding: 14px;
+        border-radius: 12px;
       }
-      h1 {
-        font-size: 24px;
-        margin-bottom: 20px;
+
+      .dashboard-title {
+        font-size: 26px;
       }
-      .stats {
-        grid-template-columns: 1fr;
-        gap: 12px;
+
+      .section-nav {
+        top: 62px;
       }
-      .stat-card {
-        padding: 12px;
+    }
+
+    @media (max-width: 680px) {
+      body {
+        padding: 8px 8px 18px;
       }
-      .stat-card .value {
-        font-size: 24px;
+
+      .admin-container {
+        padding: 10px;
       }
-      /* Make tables scroll horizontally on mobile */
-      table {
-        display: block;
-        overflow-x: auto;
-        -webkit-overflow-scrolling: touch;
-        white-space: nowrap;
+
+      .dashboard-title {
+        font-size: 22px;
+        margin-bottom: 10px;
       }
-      th, td {
-        padding: 8px;
-        font-size: 13px;
+
+      .admin-section {
+        padding: 10px;
+        margin-bottom: 10px;
       }
-      .test-section {
-        padding: 12px;
-      }
-      .test-section h2 {
+
+      .admin-section h2 {
         font-size: 16px;
       }
+
       .test-buttons {
+        grid-template-columns: 1fr;
+      }
+
+      .toggle-card {
         flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
       }
-      .btn-test {
+
+      .toggle-control {
+        justify-content: space-between;
+      }
+
+      .table-shell {
+        border: none;
+        border-radius: 0;
+        background: transparent;
+      }
+
+      .admin-table thead {
+        display: none;
+      }
+
+      .admin-table,
+      .admin-table tbody,
+      .admin-table tr,
+      .admin-table td {
+        display: block;
         width: 100%;
-        padding: 12px;
       }
-      /* Stack grid items on mobile */
-      div[style*="grid-template-columns"] {
-        grid-template-columns: 1fr !important;
+
+      .admin-table tr {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 8px;
+        margin-bottom: 8px;
+      }
+
+      .admin-table tr:hover {
+        background: #fff;
+      }
+
+      .admin-table td {
+        border: none;
+        padding: 5px 0;
+        font-size: 13px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
+        text-align: left !important;
+      }
+
+      .admin-table td::before {
+        content: attr(data-label);
+        color: #64748b;
+        font-weight: 700;
+        min-width: 86px;
+      }
+
+      .admin-table td[data-label="Actions"] {
+        justify-content: flex-end;
+        padding-top: 8px;
+      }
+
+      .admin-table td[data-label="Actions"]::before {
+        content: '';
+        display: none;
+      }
+
+      .log-table-shell {
+        display: none;
+      }
+
+      .log-mobile-list {
+        display: grid;
+      }
+
+      #customMessageDialog {
+        width: 96vw;
+      }
+
+      #customMessageDialog form {
+        padding: 14px !important;
       }
     }
   </style>
@@ -241,71 +588,76 @@
     </nav>
   </header>
   <div class="admin-container">
-    <div style="display:flex;gap:10px;align-items:center;">
+    <div class="admin-toolbar">
       <a href="/" class="back-link">← Back to Events</a>
       <a href="/handicaps.html" class="back-link">View Handicaps</a>
       <a href="/handicap-import.html" class="back-link">Handicap Import</a>
     </div>
     
-    <h1>
+    <h1 class="dashboard-title">
       <span>⚙️</span>
       Admin Dashboard
     </h1>
 
-    <!-- Quick Actions Section -->
+    <nav class="section-nav">
+      <a href="#quickActionsSection">Quick Actions</a>
+      <a href="#notificationsSection">Notifications</a>
+      <a href="#teeLogSection">Change Log</a>
+      <a href="#subscribersSection">Subscribers</a>
+    </nav>
 
-    <div class="test-section" style="background: #dbeafe; border-color: #3b82f6;">
-      <h2 style="color: #1e40af;">⚡ Quick Actions</h2>
+    <section id="quickActionsSection" class="admin-section section-quick">
+      <h2>⚡ Quick Actions</h2>
       <div class="test-buttons">
-        <button class="btn-test" style="background: #f59e0b;" onclick="checkEmptyTees()">⚠️ Check Empty Tees Now</button>
-        <button class="btn-test" style="background: #3b82f6;" onclick="refreshAllWeather()">🌤️ Refresh All Weather</button>
-        <button class="btn-test" style="background: #10b981;" onclick="verifyCourseData()">🏌️ Verify Golf Course Data</button>
-        <button class="btn-test" style="background: #8b5cf6;" onclick="showCustomMessageDialog()">💬 Message All Subscribers</button>
+        <button class="btn-test btn-amber" onclick="checkEmptyTees()">⚠️ Check Empty Tees Now</button>
+        <button class="btn-test btn-blue" onclick="refreshAllWeather()">🌤️ Refresh All Weather</button>
+        <button class="btn-test btn-green" onclick="verifyCourseData()">🏌️ Verify Golf Course Data</button>
+        <button class="btn-test btn-purple" onclick="showCustomMessageDialog()">💬 Message All Subscribers</button>
       </div>
       <div id="quickResult" class="test-result"></div>
       <div id="emptyTeeResults" class="test-result" style="display:block;"></div>
-    </div>
+    </section>
 
-    <!-- Notification Toggle Section -->
-    <div class="test-section" style="background: #fef3c7; border-color: #f59e0b;">
-      <h2 style="color: #92400e;">🔔 Global Notification Settings</h2>
-      <div style="display: flex; align-items: center; justify-content: space-between; background: white; padding: 16px; border-radius: 8px; margin: 12px 0;">
+    <section id="notificationsSection" class="admin-section section-notifications">
+      <h2>🔔 Global Notification Settings</h2>
+      <div class="toggle-card">
         <div>
-          <strong style="color: #111827; font-size: 16px;">Event Notifications</strong>
-          <p style="margin: 4px 0 0 0; color: #6b7280; font-size: 13px;">Send email notifications for all event changes (new events, player sign-ups, etc.)</p>
+          <p class="toggle-title">Event Notifications</p>
+          <p class="toggle-text">Send email notifications for all event changes (new events, player sign-ups, etc.)</p>
         </div>
-        <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
-          <span id="notifStatusText" style="font-size: 14px; color: #6b7280; font-weight: 600;">Loading...</span>
+        <label class="toggle-control">
+          <span id="notifStatusText" class="toggle-status">Loading...</span>
           <input type="checkbox" id="notifToggle" onchange="toggleGlobalNotifications(this.checked)" 
-                 style="width: 24px; height: 24px; cursor: pointer;">
+                 class="toggle-input">
         </label>
       </div>
       <div id="notifResult" class="test-result"></div>
-    </div>
+    </section>
 
-
-    <div id="teeLogSection" class="test-section" style="background:#ecfdf3; border-color:#22c55e;">
-      <h2 style="color:#14532d;">📝 Tee-Time Change Log</h2>
-      <p style="margin:6px 0 12px 0;color:#0f172a;font-size:14px;">See recent adds, edits, and deletes (including club notify attempts).</p>
+    <section id="teeLogSection" class="admin-section section-log">
+      <h2>📝 Tee-Time Change Log</h2>
+      <p class="section-intro">See recent adds, edits, and deletes (including club notify attempts).</p>
       <div class="test-buttons">
-        <button class="btn-test" style="background:#22c55e;" id="teeLogBtn">View Recent Changes</button>
+        <button class="btn-test btn-log" id="teeLogBtn">View Recent Changes</button>
       </div>
       <div id="teeLogResult" class="test-result" style="display:block;"></div>
       <div id="teeLogTable" style="margin-top:12px;"></div>
-    </div>
+    </section>
 
-    <h2 style="margin-top: 24px; color: #111827;">👥 Subscriber Management</h2>
+    <section id="subscribersSection" class="admin-section section-subscribers">
+      <h2>👥 Subscriber Management</h2>
 
-    <div class="stats">
-      <div class="stat-card">
-        <h3>Total Subscribers</h3>
-        <p class="value" id="totalCount">-</p>
+      <div class="stats">
+        <div class="stat-card">
+          <h3>Total Subscribers</h3>
+          <p class="value" id="totalCount">-</p>
+        </div>
       </div>
-    </div>
 
-    <div id="content" class="loading">
-      Loading subscribers...
-    </div>
+      <div id="content" class="loading">
+        Loading subscribers...
+      </div>
+    </section>
   </div>
 
   <!-- Custom Message Dialog -->
@@ -367,7 +719,6 @@
     const ADMIN_CODE = prompt('Enter admin code:');
     if (!ADMIN_CODE) {
       document.getElementById('content').innerHTML = '<div class="empty-state">Admin access required</div>';
-      document.getElementById('eventsOverview').innerHTML = '<div class="empty-state">Admin access required</div>';
     } else {
       loadSubscribers();
       loadNotificationSettings();
@@ -378,39 +729,45 @@
 
     // Golf API Health Check - test by fetching courses
     async function checkGolfApiHealth() {
+      const lastCheckedEl = document.getElementById('lastChecked');
+      const apiStatusEl = document.getElementById('apiStatus');
+      const apiEnvironmentEl = document.getElementById('apiEnvironment');
+      const apiVersionEl = document.getElementById('apiVersion');
+      if (!lastCheckedEl || !apiStatusEl || !apiEnvironmentEl || !apiVersionEl) return;
+
       try {
         // Test the API by fetching a small course list
         const response = await fetch('/api/golf-courses/list?limit=1');
         const data = await response.json();
         
         // Update timestamp
-        document.getElementById('lastChecked').textContent = new Date().toLocaleTimeString();
+        lastCheckedEl.textContent = new Date().toLocaleTimeString();
         
         // If we got data (even fallback), show status
         if (Array.isArray(data) && data.length > 0) {
           // Try to determine if it's using API or fallback
           if (data[0].id && data[0].id.startsWith('custom-')) {
             // Using fallback data
-            document.getElementById('apiStatus').textContent = '⚠ Using Fallback';
-            document.getElementById('apiStatus').style.color = '#f59e0b';
-            document.getElementById('apiEnvironment').textContent = 'Fallback';
-            document.getElementById('apiVersion').textContent = '6 Local Courses';
+            apiStatusEl.textContent = '⚠ Using Fallback';
+            apiStatusEl.style.color = '#f59e0b';
+            apiEnvironmentEl.textContent = 'Fallback';
+            apiVersionEl.textContent = '6 Local Courses';
           } else {
             // Using real API
-            document.getElementById('apiStatus').textContent = '✓ Available';
-            document.getElementById('apiStatus').style.color = '#059669';
-            document.getElementById('apiEnvironment').textContent = 'Live API';
-            document.getElementById('apiVersion').textContent = 'Connected';
+            apiStatusEl.textContent = '✓ Available';
+            apiStatusEl.style.color = '#059669';
+            apiEnvironmentEl.textContent = 'Live API';
+            apiVersionEl.textContent = 'Connected';
           }
         } else {
           throw new Error('No course data');
         }
       } catch (error) {
-        document.getElementById('apiStatus').textContent = '✗ Error';
-        document.getElementById('apiStatus').style.color = '#dc2626';
-        document.getElementById('apiEnvironment').textContent = 'N/A';
-        document.getElementById('apiVersion').textContent = 'N/A';
-        document.getElementById('lastChecked').textContent = new Date().toLocaleTimeString();
+        apiStatusEl.textContent = '✗ Error';
+        apiStatusEl.style.color = '#dc2626';
+        apiEnvironmentEl.textContent = 'N/A';
+        apiVersionEl.textContent = 'N/A';
+        lastCheckedEl.textContent = new Date().toLocaleTimeString();
         console.error('Golf API health check failed:', error);
       }
     }
@@ -445,7 +802,8 @@
         }
         
         content.innerHTML = `
-          <table>
+          <div class="table-shell">
+          <table class="admin-table">
             <thead>
               <tr>
                 <th>Email</th>
@@ -456,9 +814,9 @@
             <tbody>
               ${subscribers.map(s => `
                 <tr>
-                  <td>${escapeHtml(s.email)}</td>
-                  <td>${new Date(s.createdAt).toLocaleDateString()}</td>
-                  <td>
+                  <td data-label="Email">${escapeHtml(s.email)}</td>
+                  <td data-label="Subscribed">${new Date(s.createdAt).toLocaleDateString()}</td>
+                  <td data-label="Actions">
                     <button class="btn-delete" onclick="deleteSubscriber('${s._id}', '${escapeHtml(s.email)}')">
                       Delete
                     </button>
@@ -467,6 +825,7 @@
               `).join('')}
             </tbody>
           </table>
+          </div>
         `;
       } catch (error) {
         console.error('Error loading subscribers:', error);
@@ -524,7 +883,7 @@
           tableWrap.innerHTML = '<div class="empty-state">No tee-time changes logged yet</div>';
           return;
         }
-        const rows = logs.map(l => `
+        const rows = logs.map((l) => `
           <tr>
             <td>${escapeHtml(l.action || '')}</td>
             <td>${escapeHtml(l.labelBefore || '')}</td>
@@ -538,9 +897,36 @@
             <td>${l.createdAt ? new Date(l.createdAt).toLocaleString() : ''}</td>
           </tr>
         `).join('');
+        const mobileCards = logs.map((l) => {
+          const action = escapeHtml(l.action || 'change');
+          const before = escapeHtml(l.labelBefore || '—');
+          const after = escapeHtml(l.labelAfter || '—');
+          const course = escapeHtml(l.course || '—');
+          const dateISO = escapeHtml(l.dateISO || '—');
+          const type = l.isTeamEvent ? 'Team' : 'Tee';
+          const notify = l.notifyClub ? 'Yes' : 'No';
+          const method = escapeHtml(l.mailMethod || '—');
+          const when = l.createdAt ? new Date(l.createdAt).toLocaleString() : '—';
+          const mailError = escapeHtml(l.mailError || '');
+          return `
+          <article class="log-card">
+            <div class="log-card-head">
+              <p class="log-title">${action}</p>
+              <span class="log-type ${l.isTeamEvent ? 'team' : 'tee'}">${type}</span>
+            </div>
+            <div class="log-row"><span class="log-key">Course</span><span class="log-val">${course}</span></div>
+            <div class="log-row"><span class="log-key">Date</span><span class="log-val">${dateISO}</span></div>
+            <div class="log-row"><span class="log-key">Before</span><span class="log-val">${before}</span></div>
+            <div class="log-row"><span class="log-key">After</span><span class="log-val">${after}</span></div>
+            <div class="log-row"><span class="log-key">Notify</span><span class="log-val">${notify}</span></div>
+            <div class="log-row"><span class="log-key">Method</span><span class="log-val">${method}</span></div>
+            <div class="log-row"><span class="log-key">When</span><span class="log-val">${when}</span></div>
+            ${mailError ? `<div class="log-row log-error"><span class="log-key">Error</span><span class="log-val">${mailError}</span></div>` : ''}
+          </article>`;
+        }).join('');
         tableWrap.innerHTML = `
-          <div style="overflow-x:auto">
-            <table>
+          <div class="table-shell log-table-shell">
+            <table class="log-table">
               <thead>
                 <tr>
                   <th>Action</th><th>Before</th><th>After</th><th>Course</th><th>Date</th><th>Type</th><th>Notify</th><th>Method</th><th>Error</th><th>When</th>
@@ -549,6 +935,7 @@
               <tbody>${rows}</tbody>
             </table>
           </div>
+          <div class="log-mobile-list">${mobileCards}</div>
         `;
       } catch (err) {
         console.error('Log load error', err);
@@ -592,13 +979,13 @@
             grouped[key].teeTimes.push(item.teeTime);
           });
           let out = `<h3 style=\"margin:16px 0 8px 0;color:#92400e;\">${title}</h3>`;
-          out += '<table><thead><tr><th>Course</th><th>Date</th><th>Tee Time</th></tr></thead><tbody>';
+          out += '<div class="table-shell"><table><thead><tr><th>Course</th><th>Date</th><th>Tee Time</th></tr></thead><tbody>';
           Object.values(grouped).forEach(ev => {
             ev.teeTimes.forEach(tt => {
               out += `<tr><td>${escapeHtml(ev.course)}</td><td>${escapeHtml(ev.dateLong)}</td><td>${escapeHtml(tt)}</td></tr>`;
             });
           });
-          out += '</tbody></table>';
+          out += '</tbody></table></div>';
           return out;
         }
         let hasResults = false;
@@ -682,7 +1069,7 @@
         if (!response.ok) throw new Error('Failed to refresh weather');
         const result = await response.json();
         showQuickResult(`✅ Weather refreshed for ${result.updated} events`);
-        loadEventsOverview();
+        if (typeof loadEventsOverview === 'function') loadEventsOverview();
       } catch (error) {
         showQuickResult(`❌ Error: ${error.message}`, false);
       }
