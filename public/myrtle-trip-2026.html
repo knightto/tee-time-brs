@@ -469,7 +469,7 @@
           <div><strong>Package:</strong> ${t.package || '4 Nights / 5 Rounds'}</div>
           <div><strong>Reservation #:</strong> ${t.reservationNumber || '12972589'} &nbsp;|&nbsp; ${t.preparedBy || 'Myrtle Beach Golf Trips'} (${t.phone || '(877) 283-2122'})</div>
           <div style="display:grid;gap:8px;margin-top:8px;">
-            <a class="cta" href="https://founders.teetimecentralonline.com/golfcentral/guests/Register.aspx?g=8ad2d184-cdb8-4b90-8dc6-55c68c26efe9&ResNum=12972589&arr=3/18/2026" target="_blank">Join Package (Register)</a>
+            <a class="cta" href="https://founders.teetimecentralonline.com/golfcentral/guests/Register.aspx?g=8ad2d184-cdb8-4b90-8dc6-55c68c26efe9&ResNum=12972589&arr=3/18/2026" target="_blank">Join Package / Register / Sign In (Already Registered)</a>
           </div>
         </div>
       `;
@@ -494,7 +494,8 @@
           const label = r.course || 'TBD';
           const link = buildWazeLink(r.course, r.address);
           const courseMarkup = link ? `<a class="waze-link" href="${link}" target="_blank" rel="noopener">${label}</a>` : label;
-          const timeAddress = [r.time || '', r.address || ''].filter(Boolean).join(' | ');
+          const teeTimeText = r.time ? `Tee Time: ${r.time}` : '';
+          const timeAddress = [teeTimeText, r.address || ''].filter(Boolean).join(' | ');
           return `
             <li class="itinerary-item">
               <strong>${formatDate(r.date)} | ${courseMarkup}</strong>
