@@ -597,10 +597,15 @@ app.use(express.static(path.join(__dirname, 'public'), {
   },
 }));
 
+const skipMongoConnect = process.env.SKIP_MONGO_CONNECT === '1';
 const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/teetimes';
-mongoose.connect(mongoUri, { dbName: process.env.MONGO_DB || undefined })
-  .then(() => console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'Mongo connected', uri:mongoUri })))
-  .catch((e) => { console.error('Mongo connection error', e); process.exit(1); });
+if (!skipMongoConnect) {
+  mongoose.connect(mongoUri, { dbName: process.env.MONGO_DB || undefined })
+    .then(() => console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'Mongo connected', uri:mongoUri })))
+    .catch((e) => { console.error('Mongo connection error', e); process.exit(1); });
+} else {
+  console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'Mongo connect skipped for test mode' }));
+}
 
 let Event; try { Event = require('./models/Event'); } catch { Event = require('./Event'); }
 let Subscriber; try { Subscriber = require('./models/Subscriber'); } catch { Subscriber = null; }
@@ -768,6 +773,14 @@ async function ensureTransporter() {
   return transporter;
 }
 
+function normalizeEmailSubject(subject = '') {
+  const raw = String(subject || '').trim();
+  if (process.env.E2E_TEST_MODE === '1' && !/^THIS IS A TEST\b/i.test(raw)) {
+    return `THIS IS A TEST - ${raw}`;
+  }
+  return raw;
+}
+
 async function sendEmail(to, subject, html) {
   const mailer = await ensureTransporter();
   if (!mailer || !process.env.RESEND_FROM) {
@@ -776,10 +789,11 @@ async function sendEmail(to, subject, html) {
   }
   
   try {
+    const normalizedSubject = normalizeEmailSubject(subject);
     const info = await mailer.sendMail({
       from: process.env.RESEND_FROM,
       to: to,
-      subject: subject,
+      subject: normalizedSubject,
       html: html
     });
     return { ok: true, data: { id: info.messageId } };
@@ -793,10 +807,11 @@ async function sendEmailViaResendApi(to, subject, html, options = {}) {
   if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM) {
     return { ok: false, error: { message: 'Resend API key/from not configured' } };
   }
+  const normalizedSubject = normalizeEmailSubject(subject);
   const payload = {
     from: process.env.RESEND_FROM,
     to: Array.isArray(to) ? to : [to],
-    subject,
+    subject: normalizedSubject,
     html,
   };
   if (options.cc) payload.cc = Array.isArray(options.cc) ? options.cc : [options.cc];

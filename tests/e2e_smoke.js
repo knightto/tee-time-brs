@@ -46,7 +46,7 @@ async function waitForBoot() {
 async function main() {
   const results = [];
   const child = spawn(process.execPath, ['server.js'], {
-    env: { ...process.env, PORT: String(PORT) },
+    env: { ...process.env, PORT: String(PORT), E2E_TEST_MODE: '1' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 

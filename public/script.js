@@ -642,8 +642,8 @@ if ('serviceWorker' in navigator) {
     currentMonthEl.textContent = new Date(year, month, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
     if (monthCalendarBtn) {
       const shortMonth = new Date(year, month, 1).toLocaleDateString(undefined, { month: 'short' });
-      monthCalendarBtn.textContent = `Add ${shortMonth}`;
-      monthCalendarBtn.title = `Export ${shortMonth} ${year} tee times to your phone calendar`;
+      monthCalendarBtn.textContent = `Save ${shortMonth}`;
+      monthCalendarBtn.title = `Download all ${shortMonth} ${year} tee times as a calendar file (.ics)`;
     }
     
     // Clear grid
