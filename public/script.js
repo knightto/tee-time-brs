@@ -97,6 +97,7 @@ if ('serviceWorker' in navigator) {
   const prevMonthBtn = $('#prevMonth');
   const nextMonthBtn = $('#nextMonth');
   const selectedDateTitle = $('#selectedDateTitle');
+  const monthCalendarBtn = $('#monthCalendarBtn');
   const refreshBtn = $('#refreshBtn');
   const lastUpdatedEl = $('#lastUpdated');
 
@@ -258,6 +259,145 @@ if ('serviceWorker' in navigator) {
     } catch { return '—'; }
   }
   function fmtTime(hhmm){ if(!hhmm) return ''; const m=/^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(hhmm); if(!m) return hhmm; let h=parseInt(m[1],10); const min=m[2]; const ap=h>=12?'PM':'AM'; h=h%12||12; return `${h}:${min} ${ap}`; }
+  const CALENDAR_EVENT_DURATION_MINUTES = 270;
+
+  function toDateISO(val) {
+    const str = String(val || '').trim();
+    const match = /^(\d{4}-\d{2}-\d{2})/.exec(str);
+    if (match) return match[1];
+    const d = new Date(str);
+    if (Number.isNaN(d.getTime())) return '';
+    const y = d.getUTCFullYear();
+    const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  function parseHHMMToMinutes(rawTime = '') {
+    const m = /^(\d{1,2}):(\d{2})$/.exec(String(rawTime).trim());
+    if (!m) return null;
+    const h = Number(m[1]);
+    const mm = Number(m[2]);
+    if (!Number.isInteger(h) || !Number.isInteger(mm) || h < 0 || h > 23 || mm < 0 || mm > 59) return null;
+    return (h * 60) + mm;
+  }
+
+  function eventStartMinutes(ev) {
+    let min = null;
+    for (const tt of (ev && ev.teeTimes) || []) {
+      const mins = parseHHMMToMinutes(tt && tt.time);
+      if (mins === null) continue;
+      if (min === null || mins < min) min = mins;
+    }
+    return min;
+  }
+
+  function pad2(n) {
+    return String(n).padStart(2, '0');
+  }
+
+  function fmtCalendarDate(date) {
+    return `${date.getUTCFullYear()}${pad2(date.getUTCMonth() + 1)}${pad2(date.getUTCDate())}`;
+  }
+
+  function fmtCalendarDateTime(date) {
+    return `${fmtCalendarDate(date)}T${pad2(date.getUTCHours())}${pad2(date.getUTCMinutes())}00`;
+  }
+
+  function fmtOutlookDate(date) {
+    return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}-${pad2(date.getUTCDate())}`;
+  }
+
+  function fmtOutlookDateTime(date) {
+    return `${fmtOutlookDate(date)}T${pad2(date.getUTCHours())}:${pad2(date.getUTCMinutes())}:00`;
+  }
+
+  function eventCalendarTiming(ev) {
+    const dateISO = toDateISO(ev && ev.date);
+    if (!dateISO) return null;
+    const [year, month, day] = dateISO.split('-').map(Number);
+    if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return null;
+    const startMinutes = eventStartMinutes(ev);
+    if (startMinutes === null) {
+      const startDate = new Date(Date.UTC(year, month - 1, day, 0, 0, 0));
+      const endDate = new Date(startDate.getTime() + (24 * 60 * 60 * 1000));
+      return { allDay: true, startDate, endDate };
+    }
+    const start = new Date(Date.UTC(year, month - 1, day, Math.floor(startMinutes / 60), startMinutes % 60, 0));
+    const end = new Date(start.getTime() + (CALENDAR_EVENT_DURATION_MINUTES * 60 * 1000));
+    return { allDay: false, start, end };
+  }
+
+  function calendarTitle(ev) {
+    const mode = ev && ev.isTeamEvent ? 'Team Event' : 'Tee-Time Event';
+    const course = ev && ev.course ? String(ev.course).trim() : 'Golf Event';
+    return `${course} (${mode})`;
+  }
+
+  function calendarDescription(ev) {
+    const lines = ['Tee Time Manager Event'];
+    if (ev && ev.course) lines.push(`Course: ${String(ev.course).trim()}`);
+    lines.push(`Date: ${fmtDate(ev && ev.date)}`);
+    const slotLines = ((ev && ev.teeTimes) || [])
+      .map((tt, idx) => {
+        if (tt && tt.time) {
+          if (ev && ev.isTeamEvent) return `${tt.name || `Team ${idx + 1}`}: ${fmtTime(tt.time)}`;
+          return `Tee ${idx + 1}: ${fmtTime(tt.time)}`;
+        }
+        if (ev && ev.isTeamEvent) return tt && tt.name ? String(tt.name) : `Team ${idx + 1}`;
+        return '';
+      })
+      .filter(Boolean);
+    if (slotLines.length) lines.push(`${ev && ev.isTeamEvent ? 'Teams' : 'Tee Times'}: ${slotLines.join(', ')}`);
+    if (ev && ev.notes) lines.push(`Notes: ${String(ev.notes).trim()}`);
+    if (ev && ev._id) lines.push(`Event Link: ${window.location.origin}/?event=${encodeURIComponent(ev._id)}`);
+    return lines.join('\n');
+  }
+
+  function buildGoogleCalendarUrl(ev) {
+    const timing = eventCalendarTiming(ev);
+    if (!timing) return '';
+    const params = new URLSearchParams();
+    params.set('action', 'TEMPLATE');
+    params.set('text', calendarTitle(ev));
+    params.set('details', calendarDescription(ev));
+    params.set('location', ev && ev.course ? String(ev.course) : 'Golf Course');
+    if (timing.allDay) {
+      params.set('dates', `${fmtCalendarDate(timing.startDate)}/${fmtCalendarDate(timing.endDate)}`);
+    } else {
+      params.set('dates', `${fmtCalendarDateTime(timing.start)}/${fmtCalendarDateTime(timing.end)}`);
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (tz) params.set('ctz', tz);
+    }
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  }
+
+  function buildOutlookCalendarUrl(ev) {
+    const timing = eventCalendarTiming(ev);
+    if (!timing) return '';
+    const params = new URLSearchParams();
+    params.set('path', '/calendar/action/compose');
+    params.set('rru', 'addevent');
+    params.set('subject', calendarTitle(ev));
+    params.set('body', calendarDescription(ev));
+    params.set('location', ev && ev.course ? String(ev.course) : 'Golf Course');
+    if (timing.allDay) {
+      params.set('allday', 'true');
+      params.set('startdt', fmtOutlookDate(timing.startDate));
+      params.set('enddt', fmtOutlookDate(timing.endDate));
+    } else {
+      params.set('startdt', fmtOutlookDateTime(timing.start));
+      params.set('enddt', fmtOutlookDateTime(timing.end));
+    }
+    return `https://outlook.office.com/calendar/0/deeplink/compose?${params.toString()}`;
+  }
+
+  function upsertCachedEvent(ev) {
+    if (!ev || !ev._id) return;
+    const idx = allEvents.findIndex((item) => String(item && item._id) === String(ev._id));
+    if (idx >= 0) allEvents[idx] = ev;
+    else allEvents.push(ev);
+  }
 
   function normalizeForm(form){
     const data=Object.fromEntries(new FormData(form).entries());
@@ -478,6 +618,11 @@ if ('serviceWorker' in navigator) {
     
     // Update month/year title
     currentMonthEl.textContent = new Date(year, month, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+    if (monthCalendarBtn) {
+      const shortMonth = new Date(year, month, 1).toLocaleDateString(undefined, { month: 'short' });
+      monthCalendarBtn.textContent = `Add ${shortMonth}`;
+      monthCalendarBtn.title = `Export ${shortMonth} ${year} tee times to your phone calendar`;
+    }
     
     // Clear grid
     calendarGrid.innerHTML = '';
@@ -626,6 +771,14 @@ if ('serviceWorker' in navigator) {
     load(true);
   });
 
+  on(monthCalendarBtn, 'click', (e) => {
+    e.preventDefault();
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth() + 1;
+    const url = `/api/events/calendar/month.ics?year=${encodeURIComponent(year)}&month=${encodeURIComponent(month)}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  });
+
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) load(true);
   });
@@ -696,6 +849,14 @@ if ('serviceWorker' in navigator) {
       console.error('Failed to fetch event by ID:', e);
       return null;
     }
+  }
+
+  async function getEventForAction(eventId) {
+    const cached = allEvents.find((item) => String(item && item._id) === String(eventId));
+    if (cached) return cached;
+    const fetched = await fetchEventById(eventId);
+    if (fetched) upsertCachedEvent(fetched);
+    return fetched;
   }
 
   function render(list){
@@ -794,6 +955,9 @@ if ('serviceWorker' in navigator) {
             <button class="small" data-edit="${ev._id}">Edit</button>
             <button class="small" data-del="${ev._id}">Delete</button>
             <button class="small" data-request-extra-tee="${ev._id}" title="Email Brian Jones to request an additional tee time">Request Tee</button>
+            <button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button>
+            <button class="small" data-calendar-outlook="${ev._id}" title="Add this event to Outlook Calendar">Outlook</button>
+            <button class="small" data-calendar-ics="${ev._id}" title="Download .ics file for Apple/Outlook/Google import">ICS</button>
           </div>
         </div>
           </div>
@@ -901,13 +1065,38 @@ if ('serviceWorker' in navigator) {
   }
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-outlook],[data-calendar-ics]')||e.target);
     try{
       if(t.dataset.toggleActions !== undefined){
         const header = t.closest('.card-header');
         if (!header) return;
         const open = header.classList.toggle('actions-open');
         t.textContent = open ? 'Hide Actions' : 'Actions';
+        return;
+      }
+      if(t.dataset.calendarGoogle){
+        const ev = await getEventForAction(t.dataset.calendarGoogle);
+        const url = ev ? buildGoogleCalendarUrl(ev) : '';
+        if (!url) {
+          alert('Unable to build Google Calendar link for this event.');
+          return;
+        }
+        window.open(url, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      if(t.dataset.calendarOutlook){
+        const ev = await getEventForAction(t.dataset.calendarOutlook);
+        const url = ev ? buildOutlookCalendarUrl(ev) : '';
+        if (!url) {
+          alert('Unable to build Outlook Calendar link for this event.');
+          return;
+        }
+        window.open(url, '_blank', 'noopener,noreferrer');
+        return;
+      }
+      if(t.dataset.calendarIcs){
+        const id = String(t.dataset.calendarIcs);
+        window.open(`/api/events/${encodeURIComponent(id)}/calendar.ics`, '_blank', 'noopener,noreferrer');
         return;
       }
       if(t.dataset.addMaybe){
@@ -1637,6 +1826,7 @@ if ('serviceWorker' in navigator) {
     try {
       const ev = prefetchedEvent || await fetchEventById(eventId);
       if (!ev) return load(); // fallback
+      upsertCachedEvent(ev);
       // Find the card
       const card = document.querySelector(`.card [data-edit='${eventId}']`)?.closest('.card');
       if (!card) return load(); // fallback
@@ -1672,7 +1862,7 @@ if ('serviceWorker' in navigator) {
         ? `<div style=\"font-size:13px;color:var(--slate-700);margin-top:4px\">\n          ${ev.courseInfo.city && ev.courseInfo.state ? `<span>📍 ${ev.courseInfo.city}, ${ev.courseInfo.state}</span>` : ''}\n          ${ev.courseInfo.phone ? `<span style=\"margin-left:12px\">📞 ${ev.courseInfo.phone}</span>` : ''}\n          ${ev.courseInfo.website ? `<span style=\"margin-left:12px\"><a href=\"${ev.courseInfo.website}\" target=\"_blank\" style=\"color:var(--blue-600);text-decoration:none\">🔗 Website</a></span>` : ''}\n          ${ev.courseInfo.holes && ev.courseInfo.par ? `<span style=\"margin-left:12px\">⛳ ${ev.courseInfo.holes} holes, Par ${ev.courseInfo.par}</span>` : ''}\n        </div>`
         : '';
       const eventActionLegend = `\n          <div class=\"event-action-legend\" aria-label=\"Golfer action legend\">\n            <span class=\"event-action-title\">Actions</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol\">○</span>Individual check-in</span>\n            <span class=\"event-action-item\"><span class=\"event-action-pill\">All</span>Group check-in</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol\">↔</span>Move golfer</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol danger\">×</span>Delete golfer</span>\n          </div>\n      `;
-      card.innerHTML = `\n      <div class=\"card-header\">\n        <div class=\"card-header-left\">\n          <h3 class=\"card-title\">${ev.course || 'Course'}</h3>\n          <div class=\"card-date\">\n            ${fmtDate(ev.date)} ${weatherIcon}\n            <button class=\"small\" data-audit=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7\" title=\"View Audit Log\">📋</button>\n          </div>\n          ${eventActionLegend}\n          ${courseDetails}\n        </div>\n        <div class=\"card-actions\">\n          <button class=\"small event-actions-toggle\" data-toggle-actions title=\"Show/hide event actions\">Actions</button>\n          <div class=\"button-row\">\n            <button class=\"small\" data-add-tee=\"${ev._id}\">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>\n            ${isTeams ? '' : `<button class=\"small\" data-suggest-pairings=\"${ev._id}\" title=\"Suggest balanced groups using handicap data\">Pairings</button>`}\n            <button class=\"small\" data-edit=\"${ev._id}\">Edit</button>\n            <button class=\"small\" data-del=\"${ev._id}\">Delete</button>\n            <button class=\"small\" data-request-extra-tee=\"${ev._id}\" title=\"Email Brian Jones to request an additional tee time\">Request Tee</button>\n          </div>\n        </div>\n      </div>\n      <div class=\"card-content\">\n        ${maybeSection}\n        ${summaryRow}\n        <div class=\"tees\">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>\n        ${ev.notes ? `<div class=\"notes\">${ev.notes}</div>` : ''}\n      </div>`;
+      card.innerHTML = `\n      <div class=\"card-header\">\n        <div class=\"card-header-left\">\n          <h3 class=\"card-title\">${ev.course || 'Course'}</h3>\n          <div class=\"card-date\">\n            ${fmtDate(ev.date)} ${weatherIcon}\n            <button class=\"small\" data-audit=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7\" title=\"View Audit Log\">📋</button>\n          </div>\n          ${eventActionLegend}\n          ${courseDetails}\n        </div>\n        <div class=\"card-actions\">\n          <button class=\"small event-actions-toggle\" data-toggle-actions title=\"Show/hide event actions\">Actions</button>\n          <div class=\"button-row\">\n            <button class=\"small\" data-add-tee=\"${ev._id}\">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>\n            ${isTeams ? '' : `<button class=\"small\" data-suggest-pairings=\"${ev._id}\" title=\"Suggest balanced groups using handicap data\">Pairings</button>`}\n            <button class=\"small\" data-edit=\"${ev._id}\">Edit</button>\n            <button class=\"small\" data-del=\"${ev._id}\">Delete</button>\n            <button class=\"small\" data-request-extra-tee=\"${ev._id}\" title=\"Email Brian Jones to request an additional tee time\">Request Tee</button>\n            <button class=\"small\" data-calendar-google=\"${ev._id}\" title=\"Add this event to Google Calendar\">Google</button>\n            <button class=\"small\" data-calendar-outlook=\"${ev._id}\" title=\"Add this event to Outlook Calendar\">Outlook</button>\n            <button class=\"small\" data-calendar-ics=\"${ev._id}\" title=\"Download .ics file for Apple/Outlook/Google import\">ICS</button>\n          </div>\n        </div>\n      </div>\n      <div class=\"card-content\">\n        ${maybeSection}\n        ${summaryRow}\n        <div class=\"tees\">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>\n        ${ev.notes ? `<div class=\"notes\">${ev.notes}</div>` : ''}\n      </div>`;
     } catch (e) {
       console.error('Failed to update event card:', e);
       load();

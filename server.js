@@ -66,6 +66,7 @@ const PORT = process.env.PORT || 5000;
 const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
 const SITE_URL = (process.env.SITE_URL || 'https://tee-time-brs.onrender.com/').replace(/\/$/, '') + '/';
 const LOCAL_TZ = process.env.LOCAL_TZ || 'America/New_York';
+const CALENDAR_EVENT_DURATION_MINUTES = Math.max(30, Number(process.env.CALENDAR_EVENT_DURATION_MINUTES || 270) || 270);
 const processedEmailIds = new Map(); // simple idempotency guard for inbound emails
 
 app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true }));
@@ -880,6 +881,196 @@ const fmt = {
   dateShortTitle(x){ const d = asUTCDate(x); return isNaN(d) ? '' : d.toLocaleDateString(undefined,{ weekday:'short', month:'numeric', day:'numeric', timeZone:'UTC' }); },
   tee(t){ if(!t) return ''; const m=/^(\d{1,2}):(\d{2})$/.exec(t); if(!m) return t; const H=+m[1], M=m[2]; const ap=H>=12?'PM':'AM'; const h=(H%12)||12; return `${h}:${M} ${ap}`; }
 };
+
+function parseHHMMToMinutes(rawTime = '') {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(String(rawTime).trim());
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+  return (hours * 60) + minutes;
+}
+
+function calendarDateParts(dateVal) {
+  const d = asUTCDate(dateVal);
+  if (Number.isNaN(d.getTime())) return null;
+  return {
+    year: d.getUTCFullYear(),
+    month: d.getUTCMonth() + 1,
+    day: d.getUTCDate(),
+    iso: d.toISOString().slice(0, 10),
+  };
+}
+
+function eventCalendarTiming(ev, durationMinutes = CALENDAR_EVENT_DURATION_MINUTES) {
+  const parts = calendarDateParts(ev && ev.date);
+  if (!parts) return null;
+
+  let startMinutes = null;
+  for (const tt of (ev && ev.teeTimes) || []) {
+    const mins = parseHHMMToMinutes(tt && tt.time);
+    if (mins === null) continue;
+    if (startMinutes === null || mins < startMinutes) startMinutes = mins;
+  }
+
+  if (startMinutes === null) {
+    const startDate = new Date(Date.UTC(parts.year, parts.month - 1, parts.day, 0, 0, 0));
+    const endDate = new Date(startDate.getTime() + (24 * 60 * 60 * 1000));
+    return { allDay: true, dateISO: parts.iso, startDate, endDate };
+  }
+
+  const start = new Date(Date.UTC(parts.year, parts.month - 1, parts.day, Math.floor(startMinutes / 60), startMinutes % 60, 0));
+  const end = new Date(start.getTime() + (durationMinutes * 60 * 1000));
+  return { allDay: false, dateISO: parts.iso, start, end };
+}
+
+function twoDigits(n) {
+  return String(n).padStart(2, '0');
+}
+
+function formatIcsUtcStamp(date) {
+  return `${date.getUTCFullYear()}${twoDigits(date.getUTCMonth() + 1)}${twoDigits(date.getUTCDate())}T${twoDigits(date.getUTCHours())}${twoDigits(date.getUTCMinutes())}${twoDigits(date.getUTCSeconds())}Z`;
+}
+
+function formatIcsFloatingDateTime(date) {
+  return `${date.getUTCFullYear()}${twoDigits(date.getUTCMonth() + 1)}${twoDigits(date.getUTCDate())}T${twoDigits(date.getUTCHours())}${twoDigits(date.getUTCMinutes())}${twoDigits(date.getUTCSeconds())}`;
+}
+
+function formatIcsDateValue(date) {
+  return `${date.getUTCFullYear()}${twoDigits(date.getUTCMonth() + 1)}${twoDigits(date.getUTCDate())}`;
+}
+
+function escapeIcsText(value = '') {
+  return String(value)
+    .replace(/\\/g, '\\\\')
+    .replace(/\r?\n/g, '\\n')
+    .replace(/,/g, '\\,')
+    .replace(/;/g, '\\;');
+}
+
+function foldIcsLine(line) {
+  const maxLen = 74;
+  if (line.length <= maxLen) return line;
+  const chunks = [];
+  for (let i = 0; i < line.length; i += maxLen) {
+    chunks.push(i === 0 ? line.slice(i, i + maxLen) : ` ${line.slice(i, i + maxLen)}`);
+  }
+  return chunks.join('\r\n');
+}
+
+function eventCalendarSummary(ev) {
+  const mode = ev && ev.isTeamEvent ? 'Team Event' : 'Tee-Time Event';
+  const course = ev && ev.course ? String(ev.course).trim() : 'Golf Event';
+  return `${course} (${mode})`;
+}
+
+function eventCalendarDescription(ev) {
+  const lines = ['Tee Time Manager Event'];
+  if (ev && ev.course) lines.push(`Course: ${String(ev.course).trim()}`);
+  lines.push(`Date: ${fmt.dateLong(ev && ev.date) || fmt.dateISO(ev && ev.date)}`);
+
+  const slotTimes = ((ev && ev.teeTimes) || [])
+    .map((tt, idx) => {
+      if (tt && tt.time) {
+        if (ev && ev.isTeamEvent) return `${tt.name || `Team ${idx + 1}`}: ${fmt.tee(tt.time)}`;
+        return `Tee ${idx + 1}: ${fmt.tee(tt.time)}`;
+      }
+      if (ev && ev.isTeamEvent) return tt && tt.name ? String(tt.name) : `Team ${idx + 1}`;
+      return '';
+    })
+    .filter(Boolean);
+  if (slotTimes.length) lines.push(`${ev && ev.isTeamEvent ? 'Teams' : 'Tee Times'}: ${slotTimes.join(', ')}`);
+
+  if (ev && ev.notes) lines.push(`Notes: ${String(ev.notes).trim()}`);
+  if (ev && ev._id) lines.push(`Event Link: ${SITE_URL}?event=${String(ev._id)}`);
+  return lines.join('\n');
+}
+
+function eventCalendarFileName(ev) {
+  const dateISO = fmt.dateISO(ev && ev.date) || 'event';
+  const courseSlug = String((ev && ev.course) || 'golf-event')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'golf-event';
+  return `tee-time-${dateISO}-${courseSlug}.ics`;
+}
+
+function buildIcsEventLines(ev, stampDate = new Date()) {
+  const timing = eventCalendarTiming(ev);
+  if (!timing) return null;
+
+  const uid = `${(ev && ev._id) ? String(ev._id) : Date.now()}@tee-time-brs`;
+  const summary = eventCalendarSummary(ev);
+  const description = eventCalendarDescription(ev);
+  const location = ev && ev.course ? String(ev.course).trim() : 'Golf Course';
+  const url = `${SITE_URL}?event=${(ev && ev._id) ? String(ev._id) : ''}`;
+
+  return [
+    'BEGIN:VEVENT',
+    `UID:${escapeIcsText(uid)}`,
+    `DTSTAMP:${formatIcsUtcStamp(stampDate)}`,
+    timing.allDay
+      ? `DTSTART;VALUE=DATE:${formatIcsDateValue(timing.startDate)}`
+      : `DTSTART:${formatIcsFloatingDateTime(timing.start)}`,
+    timing.allDay
+      ? `DTEND;VALUE=DATE:${formatIcsDateValue(timing.endDate)}`
+      : `DTEND:${formatIcsFloatingDateTime(timing.end)}`,
+    `SUMMARY:${escapeIcsText(summary)}`,
+    `DESCRIPTION:${escapeIcsText(description)}`,
+    `LOCATION:${escapeIcsText(location)}`,
+    `URL:${escapeIcsText(url)}`,
+    'STATUS:CONFIRMED',
+    'END:VEVENT',
+  ];
+}
+
+function buildEventIcs(ev) {
+  const eventLines = buildIcsEventLines(ev);
+  if (!eventLines) return null;
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Tee Time Manager//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    ...eventLines,
+    'END:VCALENDAR',
+  ];
+  return `${lines.map(foldIcsLine).join('\r\n')}\r\n`;
+}
+
+function buildEventsIcs(events = [], opts = {}) {
+  const calName = String(opts.calName || 'Tee Time Events').trim();
+  const calDesc = String(opts.calDesc || 'Golf events from Tee Time Manager').trim();
+  const stampDate = opts.stampDate instanceof Date ? opts.stampDate : new Date();
+  const sorted = Array.isArray(events) ? events.slice() : [];
+  sorted.sort((a, b) => {
+    const ta = eventCalendarTiming(a);
+    const tb = eventCalendarTiming(b);
+    const aStamp = ta ? (ta.allDay ? ta.startDate.getTime() : ta.start.getTime()) : Number.MAX_SAFE_INTEGER;
+    const bStamp = tb ? (tb.allDay ? tb.startDate.getTime() : tb.start.getTime()) : Number.MAX_SAFE_INTEGER;
+    return aStamp - bStamp;
+  });
+
+  const lines = [
+    'BEGIN:VCALENDAR',
+    'VERSION:2.0',
+    'PRODID:-//Tee Time Manager//EN',
+    'CALSCALE:GREGORIAN',
+    'METHOD:PUBLISH',
+    `X-WR-CALNAME:${escapeIcsText(calName)}`,
+    `X-WR-CALDESC:${escapeIcsText(calDesc)}`,
+  ];
+  for (const ev of sorted) {
+    const eventLines = buildIcsEventLines(ev, stampDate);
+    if (eventLines) lines.push(...eventLines);
+  }
+  lines.push(
+    'END:VCALENDAR',
+  );
+  return `${lines.map(foldIcsLine).join('\r\n')}\r\n`;
+}
+
 function isAdmin(req){
   const code = (req.headers['x-admin-code'] || req.query.code || req.body?.code || '').trim();
   return ADMIN_DELETE_CODE && code === ADMIN_DELETE_CODE;
@@ -1192,12 +1383,63 @@ app.get('/api/events', cacheJson(10 * 1000), async (_req, res) => {
   res.json(items);
 });
 
+app.get('/api/events/calendar/month.ics', async (req, res) => {
+  try {
+    const localYmd = ymdInTZ(new Date(), LOCAL_TZ);
+    const [defaultYear, defaultMonth] = localYmd.split('-').map((v) => Number(v));
+    const year = Number(req.query.year || defaultYear);
+    const month = Number(req.query.month || defaultMonth);
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+      return res.status(400).json({ error: 'Invalid year; use YYYY' });
+    }
+    if (!Number.isInteger(month) || month < 1 || month > 12) {
+      return res.status(400).json({ error: 'Invalid month; use 1-12' });
+    }
+
+    const includeTeamEvents = ['1', 'true', 'yes'].includes(String(req.query.includeTeams || '').trim().toLowerCase());
+    const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
+    const end = new Date(Date.UTC(year, month, 1, 0, 0, 0));
+    const query = {
+      date: { $gte: start, $lt: end },
+      ...(includeTeamEvents ? {} : { isTeamEvent: false }),
+    };
+    const events = await Event.find(query).lean();
+
+    const monthLabel = `${year}-${twoDigits(month)}`;
+    const calName = includeTeamEvents ? `Golf Events ${monthLabel}` : `Tee Times ${monthLabel}`;
+    const calDesc = includeTeamEvents
+      ? `Monthly golf events export for ${monthLabel}`
+      : `Monthly tee-time export for ${monthLabel}`;
+    const icsBody = buildEventsIcs(events, { calName, calDesc });
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="tee-times-${monthLabel}.ics"`);
+    res.send(icsBody);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Fetch a single event by id for targeted refreshes
 app.get('/api/events/:id', cacheJson(10 * 1000), async (req, res) => {
   try {
     const ev = await Event.findById(req.params.id).lean();
     if (!ev) return res.status(404).json({ error: 'Event not found' });
     res.json(ev);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/events/:id/calendar.ics', async (req, res) => {
+  try {
+    const ev = await Event.findById(req.params.id).lean();
+    if (!ev) return res.status(404).json({ error: 'Event not found' });
+    const icsBody = buildEventIcs(ev);
+    if (!icsBody) return res.status(400).json({ error: 'Unable to build calendar event' });
+    const filename = eventCalendarFileName(ev);
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(icsBody);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -3059,3 +3301,6 @@ module.exports = app;
 // Export helpers for testing
 module.exports.nextTeamNameForEvent = nextTeamNameForEvent;
 module.exports.nextTeeTimeForEvent = nextTeeTimeForEvent;
+module.exports.buildEventIcs = buildEventIcs;
+module.exports.eventCalendarTiming = eventCalendarTiming;
+module.exports.buildEventsIcs = buildEventsIcs;

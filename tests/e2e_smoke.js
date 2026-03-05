@@ -97,6 +97,28 @@ async function main() {
     teeEventId = createTee.body?._id;
     expect(results, Boolean(teeEventId), 'Tee event id returned', teeEventId || 'missing');
 
+    const calendarIcs = await api(`/api/events/${teeEventId}/calendar.ics`, {
+      headers: { Accept: 'text/calendar' },
+    });
+    expect(results, calendarIcs.status === 200, 'Calendar ICS download route', `status=${calendarIcs.status}`);
+    expect(
+      results,
+      typeof calendarIcs.body === 'string' && calendarIcs.body.includes('BEGIN:VCALENDAR') && calendarIcs.body.includes('BEGIN:VEVENT'),
+      'Calendar ICS content shape',
+      typeof calendarIcs.body === 'string' ? 'calendar payload found' : `bodyType=${typeof calendarIcs.body}`,
+    );
+
+    const monthCalendarIcs = await api('/api/events/calendar/month.ics?year=2026&month=12', {
+      headers: { Accept: 'text/calendar' },
+    });
+    expect(results, monthCalendarIcs.status === 200, 'Monthly calendar ICS download route', `status=${monthCalendarIcs.status}`);
+    expect(
+      results,
+      typeof monthCalendarIcs.body === 'string' && monthCalendarIcs.body.includes('BEGIN:VCALENDAR') && monthCalendarIcs.body.includes(teeCourse),
+      'Monthly calendar ICS includes created event',
+      typeof monthCalendarIcs.body === 'string' ? 'event found in monthly payload' : `bodyType=${typeof monthCalendarIcs.body}`,
+    );
+
     const maybeAdd = await api(`/api/events/${teeEventId}/maybe`, {
       method: 'POST',
       body: JSON.stringify({ name: `E2E Maybe ${runId}` }),
