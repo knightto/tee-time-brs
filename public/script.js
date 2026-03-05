@@ -98,8 +98,15 @@ if ('serviceWorker' in navigator) {
   const nextMonthBtn = $('#nextMonth');
   const selectedDateTitle = $('#selectedDateTitle');
   const monthCalendarBtn = $('#monthCalendarBtn');
+  const requestClubTimeBtn = $('#requestClubTimeBtn');
   const refreshBtn = $('#refreshBtn');
   const lastUpdatedEl = $('#lastUpdated');
+  const requestClubTimeModal = $('#requestClubTimeModal');
+  const requestClubTimeForm = $('#requestClubTimeForm');
+  const requestClubDateInput = $('#requestClubDate');
+  const requestClubPreferredTimeInput = $('#requestClubPreferredTime');
+  const requestClubRequesterNameInput = $('#requestClubRequesterName');
+  const requestClubNameOptions = $('#requestClubNameOptions');
 
   // State
   let allEvents = [];
@@ -786,11 +793,94 @@ if ('serviceWorker' in navigator) {
       render(filtered);
     }
   }
+
+  function gatherKnownGolferNames() {
+    const names = new Set();
+    for (const ev of (allEvents || [])) {
+      for (const tt of (ev.teeTimes || [])) {
+        for (const p of (tt.players || [])) {
+          const n = String((p && p.name) || '').trim();
+          if (n) names.add(n);
+        }
+      }
+      for (const maybeName of (ev.maybeList || [])) {
+        const n = String(maybeName || '').trim();
+        if (n) names.add(n);
+      }
+    }
+    return Array.from(names).sort((a, b) => a.localeCompare(b));
+  }
+
+  function openRequestClubTimeModal() {
+    if (!requestClubTimeModal || !requestClubDateInput || !requestClubPreferredTimeInput || !requestClubRequesterNameInput || !requestClubNameOptions) return;
+    const todayIso = new Date().toISOString().slice(0, 10);
+    requestClubDateInput.value = selectedDate || todayIso;
+    requestClubPreferredTimeInput.value = '';
+
+    const golfers = gatherKnownGolferNames();
+    requestClubNameOptions.innerHTML = '';
+    if (!golfers.length) {
+      requestClubRequesterNameInput.value = '';
+    } else {
+      if (!requestClubRequesterNameInput.value) requestClubRequesterNameInput.value = golfers[0];
+      for (const name of golfers) {
+        const opt = document.createElement('option');
+        opt.value = name;
+        requestClubNameOptions.appendChild(opt);
+      }
+    }
+    requestClubTimeModal.showModal();
+  }
   
 
   on(refreshBtn, 'click', (e) => {
     e.preventDefault();
     load(true);
+  });
+
+  on(requestClubTimeBtn, 'click', (e) => {
+    e.preventDefault();
+    openRequestClubTimeModal();
+  });
+
+  on(requestClubTimeModal, 'click', (e) => {
+    if (e.target && e.target.dataset && e.target.dataset.closeRequestClubTime !== undefined) {
+      requestClubTimeModal.close();
+    }
+  });
+
+  on(requestClubTimeForm, 'submit', async (e) => {
+    e.preventDefault();
+    const submitBtn = requestClubTimeForm.querySelector('button[type="submit"]');
+    const originalText = submitBtn ? submitBtn.textContent : 'Send Request';
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Sending...';
+    }
+    try {
+      const fd = new FormData(requestClubTimeForm);
+      const payload = {
+        date: String(fd.get('date') || '').trim(),
+        preferredTime: String(fd.get('preferredTime') || '').trim(),
+        requesterName: String(fd.get('requesterName') || '').trim(),
+        note: String(fd.get('note') || '').trim(),
+      };
+      await api('/api/request-club-time', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      requestClubTimeModal.close();
+      alert('Club time request sent.');
+    } catch (err) {
+      console.error(err);
+      alert('Request failed: ' + (err.message || 'Unknown error'));
+    } finally {
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+      }
+    }
   });
 
   on(monthCalendarBtn, 'click', (e) => {
@@ -966,25 +1056,21 @@ if ('serviceWorker' in navigator) {
                 ${fmtDate(ev.date)} ${weatherIcon}
                 <button class="small" data-audit="${ev._id}" style="font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7" title="View Audit Log">📋</button>
               </div>
-              ${eventActionLegend}
               ${courseDetails}
             </div>
         <div class="card-actions">
           <button class="small event-actions-toggle" data-toggle-actions title="Show/hide event actions">Actions</button>
           <div class="button-row">
-            <button class="small" data-add-tee="${ev._id}">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>
+            ${isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<div class="time-action-pair"><button class="small" data-add-tee="${ev._id}">Add Existing Time</button><button class="small" data-request-extra-tee="${ev._id}" title="Email Brian Jones to request an additional tee time">Request Club Time</button></div>`}
             ${isTeams ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Pairings</button>`}
-            <button class="small" data-edit="${ev._id}">Edit</button>
-            <button class="small" data-del="${ev._id}">Delete</button>
-            <button class="small" data-request-extra-tee="${ev._id}" title="Email Brian Jones to request an additional tee time">Request Tee</button>
-            <button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button>
-            <button class="small" data-calendar-outlook="${ev._id}" title="Add this event to Outlook Calendar">Outlook</button>
-            <button class="small" data-calendar-ics="${ev._id}" title="Download .ics file for Apple/Outlook/Google import">ICS</button>
+            <div class="action-pair"><button class="small" data-edit="${ev._id}">Edit</button><button class="small" data-del="${ev._id}">Delete</button></div>
+            <div class="action-pair"><button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button><button class="small" data-calendar-ics="${ev._id}" title="Download .ics file for Apple/Outlook/Google import">ICS</button></div>
           </div>
         </div>
           </div>
           <div class="card-content">
             ${maybeSection}
+            ${eventActionLegend}
             ${summaryRow}
             <div class="tees">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>
             ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
@@ -1072,22 +1158,22 @@ if ('serviceWorker' in navigator) {
     return `<div class="tee ${full ? 'tee-full' : ''}">
       <div class="tee-meta">
         <div class="tee-time">${left} <span style="font-size:11px;opacity:0.8">(${count}/${slotMax})</span></div>
+        <div class="tee-summary" style="font-size:11px;color:var(--slate-700)">${openSpots} open</div>
         <div class="tee-actions">
           ${editBtn}
           <button class="icon small danger" title="${delTitle}" data-del-tee="${ev._id}:${tt._id}">×</button>
         </div>
       </div>
       <div class="tee-players">${chips}</div>
-      <div style="font-size:11px;color:var(--slate-700);margin-top:4px">${openSpots} spot${openSpots === 1 ? '' : 's'} open</div>
-      <div class="row" style="gap:8px;flex-wrap:wrap">
-        <button class="small" data-add-player="${ev._id}:${tt._id}" ${full?'disabled':''}>Add\nPlayer</button>
+            <div class="row" style="gap:8px;flex-wrap:wrap">
+        <button class="small" data-add-player="${ev._id}:${tt._id}" ${full?'disabled':''}>Add Player</button>
         <button class="small" data-checkin-all="${ev._id}:${tt._id}:${allCheckedIn ? '1' : '0'}" ${count ? '' : 'disabled'}>${allCheckedIn ? 'Clear Check-In' : 'Check In All'}</button>
       </div>
     </div>`;
   }
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-outlook],[data-calendar-ics]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-ics]')||e.target);
     try{
       if(t.dataset.toggleActions !== undefined){
         const header = t.closest('.card-header');
@@ -1102,14 +1188,6 @@ if ('serviceWorker' in navigator) {
           return ev ? buildGoogleCalendarUrl(ev) : '';
         });
         if (!ok) alert('Unable to build Google Calendar link for this event.');
-        return;
-      }
-      if(t.dataset.calendarOutlook){
-        const ok = await openExternalCalendarUrlSafely(async () => {
-          const ev = await getEventForAction(t.dataset.calendarOutlook);
-          return ev ? buildOutlookCalendarUrl(ev) : '';
-        });
-        if (!ok) alert('Unable to build Outlook Calendar link for this event.');
         return;
       }
       if(t.dataset.calendarIcs){
@@ -1171,7 +1249,9 @@ if ('serviceWorker' in navigator) {
       }
       if(t.dataset.requestExtraTee){
         const id = t.dataset.requestExtraTee;
-        const note = prompt('Optional note for Brian Jones (leave blank for none):', '') || '';
+        const noteInput = prompt('Leave your name so the club knows who requested this:', '');
+        if (noteInput === null) return; // user cancelled
+        const note = String(noteInput).trim();
         const orig = t.textContent;
         t.disabled = true;
         t.textContent = 'Sending...';
@@ -1880,7 +1960,7 @@ if ('serviceWorker' in navigator) {
         ? `<div style=\"font-size:13px;color:var(--slate-700);margin-top:4px\">\n          ${ev.courseInfo.city && ev.courseInfo.state ? `<span>📍 ${ev.courseInfo.city}, ${ev.courseInfo.state}</span>` : ''}\n          ${ev.courseInfo.phone ? `<span style=\"margin-left:12px\">📞 ${ev.courseInfo.phone}</span>` : ''}\n          ${ev.courseInfo.website ? `<span style=\"margin-left:12px\"><a href=\"${ev.courseInfo.website}\" target=\"_blank\" style=\"color:var(--blue-600);text-decoration:none\">🔗 Website</a></span>` : ''}\n          ${ev.courseInfo.holes && ev.courseInfo.par ? `<span style=\"margin-left:12px\">⛳ ${ev.courseInfo.holes} holes, Par ${ev.courseInfo.par}</span>` : ''}\n        </div>`
         : '';
       const eventActionLegend = `\n          <div class=\"event-action-legend\" aria-label=\"Golfer action legend\">\n            <span class=\"event-action-title\">Actions</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol\">○</span>Individual check-in</span>\n            <span class=\"event-action-item\"><span class=\"event-action-pill\">All</span>Group check-in</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol\">↔</span>Move golfer</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol danger\">×</span>Delete golfer</span>\n          </div>\n      `;
-      card.innerHTML = `\n      <div class=\"card-header\">\n        <div class=\"card-header-left\">\n          <h3 class=\"card-title\">${ev.course || 'Course'}</h3>\n          <div class=\"card-date\">\n            ${fmtDate(ev.date)} ${weatherIcon}\n            <button class=\"small\" data-audit=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7\" title=\"View Audit Log\">📋</button>\n          </div>\n          ${eventActionLegend}\n          ${courseDetails}\n        </div>\n        <div class=\"card-actions\">\n          <button class=\"small event-actions-toggle\" data-toggle-actions title=\"Show/hide event actions\">Actions</button>\n          <div class=\"button-row\">\n            <button class=\"small\" data-add-tee=\"${ev._id}\">${isTeams ? 'Add Team' : 'Add Tee Time'}</button>\n            ${isTeams ? '' : `<button class=\"small\" data-suggest-pairings=\"${ev._id}\" title=\"Suggest balanced groups using handicap data\">Pairings</button>`}\n            <button class=\"small\" data-edit=\"${ev._id}\">Edit</button>\n            <button class=\"small\" data-del=\"${ev._id}\">Delete</button>\n            <button class=\"small\" data-request-extra-tee=\"${ev._id}\" title=\"Email Brian Jones to request an additional tee time\">Request Tee</button>\n            <button class=\"small\" data-calendar-google=\"${ev._id}\" title=\"Add this event to Google Calendar\">Google</button>\n            <button class=\"small\" data-calendar-outlook=\"${ev._id}\" title=\"Add this event to Outlook Calendar\">Outlook</button>\n            <button class=\"small\" data-calendar-ics=\"${ev._id}\" title=\"Download .ics file for Apple/Outlook/Google import\">ICS</button>\n          </div>\n        </div>\n      </div>\n      <div class=\"card-content\">\n        ${maybeSection}\n        ${summaryRow}\n        <div class=\"tees\">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>\n        ${ev.notes ? `<div class=\"notes\">${ev.notes}</div>` : ''}\n      </div>`;
+      card.innerHTML = `\n      <div class=\"card-header\">\n        <div class=\"card-header-left\">\n          <h3 class=\"card-title\">${ev.course || 'Course'}</h3>\n          <div class=\"card-date\">\n            ${fmtDate(ev.date)} ${weatherIcon}\n            <button class=\"small\" data-audit=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7\" title=\"View Audit Log\">📋</button>\n          </div>\n          ${courseDetails}\n        </div>\n        <div class=\"card-actions\">\n          <button class=\"small event-actions-toggle\" data-toggle-actions title=\"Show/hide event actions\">Actions</button>\n          <div class=\"button-row\">\n            ${isTeams ? `<button class=\"small\" data-add-tee=\"${ev._id}\">Add Team</button>` : `<div class=\"time-action-pair\"><button class=\"small\" data-add-tee=\"${ev._id}\">Add Existing Time</button><button class=\"small\" data-request-extra-tee=\"${ev._id}\" title=\"Email Brian Jones to request an additional tee time\">Request Club Time</button></div>`}\n            ${isTeams ? '' : `<button class=\"small\" data-suggest-pairings=\"${ev._id}\" title=\"Suggest balanced groups using handicap data\">Pairings</button>`}\\n            <div class=\\"action-pair\\"><button class=\\"small\\" data-edit=\\"${ev._id}\\">Edit</button><button class=\\"small\\" data-del=\\"${ev._id}\\">Delete</button></div>\\n            <div class=\\"action-pair\\"><button class=\\"small\\" data-calendar-google=\\"${ev._id}\\" title=\\"Add this event to Google Calendar\\">Google</button><button class=\\"small\\" data-calendar-ics=\\"${ev._id}\\" title=\\"Download .ics file for Apple/Outlook/Google import\\">ICS</button></div>\n          </div>\n        </div>\n      </div>\n      <div class=\"card-content\">\n        ${maybeSection}\n        ${eventActionLegend}\n        ${summaryRow}\n        <div class=\"tees\">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>\n        ${ev.notes ? `<div class=\"notes\">${ev.notes}</div>` : ''}\n      </div>`;
     } catch (e) {
       console.error('Failed to update event card:', e);
       load();
@@ -1891,3 +1971,9 @@ if ('serviceWorker' in navigator) {
   load();
   startAutoRefresh();
 })();
+
+
+
+
+
+

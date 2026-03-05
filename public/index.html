@@ -70,6 +70,7 @@
           <h2 id="selectedDateTitle">Select a date</h2>
           <div class="event-controls">
             <span id="lastUpdated" class="event-meta">Updated just now</span>
+            <button id="requestClubTimeBtn" class="small" type="button" title="Request a tee time from the club for a selected date">Request Tee Time</button>
             <button id="monthCalendarBtn" class="small" type="button" title="Download this month's tee times as a calendar file (.ics)">Save Month</button>
             <button id="refreshBtn" class="small" type="button">Refresh</button>
           </div>
@@ -78,6 +79,33 @@
       </div>
     </div>
   </main>
+
+  <dialog id="requestClubTimeModal">
+    <form id="requestClubTimeForm" method="dialog">
+      <h3>Request Club Tee Time</h3>
+      <label>
+        Date
+        <input id="requestClubDate" name="date" type="date" required>
+      </label>
+      <label>
+        Preferred Time
+        <input id="requestClubPreferredTime" name="preferredTime" type="time" required>
+      </label>
+      <label>
+        Who's Asking
+        <input id="requestClubRequesterName" name="requesterName" list="requestClubNameOptions" required>
+        <datalist id="requestClubNameOptions"></datalist>
+      </label>
+      <label>
+        Optional note
+        <textarea name="note" rows="3" placeholder="Any details for the club..."></textarea>
+      </label>
+      <menu>
+        <button value="cancel" type="button" data-close-request-club-time>Cancel</button>
+        <button value="ok" type="submit" class="primary">Send Request</button>
+      </menu>
+    </form>
+  </dialog>
 
   <!-- Create Event Modal -->
   <dialog id="eventModal" class="event-modal">

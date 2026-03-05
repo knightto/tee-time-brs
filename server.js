@@ -1636,6 +1636,66 @@ app.post('/api/events/:id/request-extra-tee-time', async (req, res) => {
   }
 });
 
+app.post('/api/request-club-time', async (req, res) => {
+  try {
+    const requestDateRaw = String(req.body?.date || '').trim();
+    const preferredTimeRaw = String(req.body?.preferredTime || '').trim();
+    const requesterName = String(req.body?.requesterName || '').trim();
+    const note = String(req.body?.note || '').trim();
+    if (!requestDateRaw || !/^\d{4}-\d{2}-\d{2}$/.test(requestDateRaw)) {
+      return res.status(400).json({ error: 'date required (YYYY-MM-DD)' });
+    }
+    if (!preferredTimeRaw || !/^\d{1,2}:\d{2}$/.test(preferredTimeRaw)) {
+      return res.status(400).json({ error: 'preferredTime required (HH:MM)' });
+    }
+    const preferredMinutes = parseHHMMToMinutes(preferredTimeRaw);
+    if (preferredMinutes === null) return res.status(400).json({ error: 'invalid preferredTime' });
+    if (!requesterName) return res.status(400).json({ error: 'requesterName required' });
+
+    const requestDate = asUTCDate(requestDateRaw);
+    if (Number.isNaN(requestDate.getTime())) return res.status(400).json({ error: 'invalid date' });
+
+    const clubEmail = process.env.CLUB_CANCEL_EMAIL || 'Brian.Jones@blueridgeshadows.com';
+    const defaultCcList = ['tommy.knight@gmail.com', 'jvhyers@gmail.com'];
+    const envCcList = String(process.env.CLUB_CANCEL_CC || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+    const ccList = Array.from(new Set([...defaultCcList, ...envCcList]));
+    const smtpRecipients = Array.from(new Set([clubEmail, ...ccList]));
+    const preferredTimeText = fmt.tee(preferredTimeRaw);
+    const subj = `Request additional tee time: ${fmt.dateISO(requestDate)} ${preferredTimeText} - KNIGHT GROUP TEE TIMES`;
+    const html = `<p>Please add an additional tee time for the date below:</p>
+      <ul>
+        <li><strong>Date requested:</strong> ${esc(fmt.dateLong(requestDate))}</li>
+        <li><strong>Preferred time:</strong> ${esc(preferredTimeText)}</li>
+        <li><strong>Requested by:</strong> ${esc(requesterName)}</li>
+        <li><strong>Group:</strong> KNIGHT GROUP TEE TIMES</li>
+        <li><strong>Source:</strong> Monthly calendar request</li>
+      </ul>
+      ${note ? `<p><strong>Request note:</strong> ${esc(note)}</p>` : ''}
+      <p>Thank you.</p>`;
+
+    const httpRes = await sendEmailViaResendApi(clubEmail, subj, html, ccList.length ? { cc: ccList } : undefined);
+    if (httpRes.ok) {
+      return res.json({ ok: true, mailMethod: 'http', to: clubEmail, cc: ccList });
+    }
+
+    const smtpRes = await sendEmail(smtpRecipients, subj, html);
+    if (smtpRes && smtpRes.ok) {
+      return res.json({ ok: true, mailMethod: 'smtp', to: smtpRecipients });
+    }
+
+    return res.status(500).json({
+      error: 'Failed to send club time request',
+      details: (smtpRes && smtpRes.error && smtpRes.error.message) || (httpRes.error && httpRes.error.message) || 'Unknown email error',
+    });
+  } catch (e) {
+    console.error('[calendar-club-request] Error', { error: e.message });
+    return res.status(500).json({ error: e.message });
+  }
+});
+
 // Remove duplicate tee-time events for the same date/time/tee-count, keeping the requested event
 app.post('/api/events/:id/dedupe', async (req, res) => {
   try {

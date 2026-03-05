@@ -487,10 +487,10 @@ main{padding:20px}
   border-bottom:1px solid var(--line);
   border-radius:var(--radius) var(--radius) 0 0;
   box-shadow:0 2px 4px rgba(0,0,0,0.05);
-  display:grid;
-  grid-template-columns:1fr auto;
-  gap:20px;
-  align-items:start;
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  align-items:stretch;
   position:relative;
 }
 
@@ -519,6 +519,8 @@ main{padding:20px}
   font-weight:800;
   color:var(--green-700);
   letter-spacing:-0.01em;
+  line-height:1.15;
+  word-break:normal;
 }
 .card-title::before{content:'🏌️ '}
 
@@ -591,22 +593,35 @@ main{padding:20px}
 }
 
 .card-header .button-row{
-  display:flex;
-  flex-direction:column;
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(128px, 1fr));
   gap:8px;
-  flex-shrink:0;
+  width:100%;
 }
 
 .card-header .button-row button{
-  width:120px;
+  width:100%;
   font-weight:500;
+}
+
+.time-action-pair{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:8px;
+  width:100%;
+  grid-column:1 / -1;
+}
+
+.time-action-pair button{
+  width:100% !important;
 }
 
 .card-actions{
   display:flex;
   flex-direction:column;
-  align-items:flex-end;
+  align-items:stretch;
   gap:8px;
+  width:100%;
 }
 
 .event-actions-toggle{
@@ -659,7 +674,7 @@ button[disabled]{opacity:.5;cursor:not-allowed;filter:grayscale(0.5)}
   border:1px solid var(--line);
   border-radius:var(--radius);
   overflow:hidden;
-  min-height:120px; /* slightly reduced card height for compactness */
+  min-height:72px;
 }
 
 .tee-header{
@@ -689,7 +704,7 @@ button[disabled]{opacity:.5;cursor:not-allowed;filter:grayscale(0.5)}
   display:grid;
   grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));
   column-gap:8px; /* tighter columns */
-  row-gap:6px; /* tighter rows */
+  row-gap:5px;
   align-content:start;
   min-height:40px; /* reduced to allow more compact lists */
   padding:0 2px 2px; /* trim wrapper padding */
@@ -707,7 +722,7 @@ button[disabled]{opacity:.5;cursor:not-allowed;filter:grayscale(0.5)}
   padding-inline:8px; /* slightly tighter horizontal padding */
   box-shadow:var(--shadow-sm);
   transition:all 0.18s ease;
-  min-height:32px; /* allow natural height but keep compact baseline */
+  min-height:30px;
   height:auto;
   min-width:0;
 }
@@ -729,8 +744,8 @@ button[disabled]{opacity:.5;cursor:not-allowed;filter:grayscale(0.5)}
   font-weight:500;
   color:var(--green-700);
   letter-spacing:0.1px;
-  line-height:1.15; /* slightly taller than 1 to avoid clipping */
-  font-size:0.92rem; /* slight font-size reduction */
+  line-height:1.1;
+  font-size:0.9rem;
   margin:0;
   text-align:left;
 }
@@ -851,11 +866,7 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
     overflow:visible;
   }
   
-  .card-header{
-    position:static;
-    grid-template-columns:1fr;
-    gap:10px;
-  }
+  .card-header{ position:static; gap:10px; }
 
   .card-actions{
     align-items:stretch;
@@ -880,6 +891,7 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   .card-header .button-row button{
     width:100%;
   }
+  .card-title{ font-size:20px; }
   
   .events-container{
     overflow:visible;
@@ -948,14 +960,17 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   header .subscribe{order:3;width:100%}
   header input[type=email]{flex:1;min-width:0}
 
-  /* Adjust to single column on very small screens */
+  /* Keep compact two-column chips on most phones */
   .tee-players{
-    grid-template-columns:1fr;
-    gap:8px;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:6px;
   }
   
   .card-header {
     padding: 14px 16px;
+  }
+  .card-title{
+    font-size:18px;
   }
   
   .card-content {
@@ -968,15 +983,187 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
     margin-bottom:2px;
   }
   
-  .chip {
-    padding-block:3px;
-    padding-inline:8px;
-    min-height:30px;
-    height:auto;
-  }
+  .chip { padding-block:2px; padding-inline:7px; min-height:28px; height:auto; }
   
-  .chip-label {
-    font-size: 0.90rem;
+  .chip-label { font-size:0.84rem; }
+}
+
+@media (max-width:420px){
+  .tee-players{
+    grid-template-columns:1fr;
+  }
+}
+
+/* Event header organization: keep all content above Maybe List evenly spaced */
+.card-header{
+  gap:14px;
+}
+
+.card-header-left{
+  display:grid;
+  gap:8px;
+}
+
+.card-title{
+  margin:0;
+}
+
+.card-date{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+  margin:0;
+}
+
+.event-action-legend{
+  margin:0;
+  padding:8px 10px;
+  border:1px solid rgba(148,163,184,.28);
+  border-radius:10px;
+  background:rgba(255,255,255,.35);
+}
+
+.card-actions{
+  gap:10px;
+}
+
+.card-header .button-row{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:10px;
+  width:100%;
+}
+
+.card-header .button-row > button{
+  width:100%;
+  min-height:40px;
+}
+
+/* Compact specific action buttons to reduce header crowding */
+.card-header .button-row button[data-calendar-google],
+.card-header .button-row button[data-calendar-ics],
+.card-header .button-row button[data-edit],
+.card-header .button-row button[data-del]{
+  min-height:32px;
+  padding:.2rem .5rem;
+  font-size:.8rem;
+  line-height:1.05;
+}
+
+.time-action-pair{
+  grid-column:1 / -1;
+}
+
+.time-action-pair button{
+  min-height:40px;
+}
+
+@media (max-width:768px){
+  .card-header{
+    gap:12px;
+  }
+
+  .card-actions{
+    width:100%;
+  }
+
+  .card-header .button-row{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:8px;
+  }
+}
+
+@media (max-width:480px){
+  .card-header-left{
+    gap:7px;
+  }
+
+  .card-header .button-row > button,
+  .time-action-pair button{
+    min-height:36px;
+  }
+}
+
+/* Compact action-row layout: shrink buttons horizontally + vertically */
+.card-header .button-row{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px;
+}
+
+.card-header .button-row > button{
+  width:auto;
+  min-width:92px;
+  min-height:32px;
+  padding:.22rem .5rem;
+  font-size:.8rem;
+  line-height:1.05;
+}
+
+.time-action-pair{
+  display:inline-flex;
+  flex-wrap:wrap;
+  gap:8px;
+  width:auto;
+  grid-column:auto;
+}
+
+.time-action-pair button{
+  width:auto !important;
+  min-width:120px;
+  min-height:34px;
+  padding:.24rem .55rem;
+  font-size:.82rem;
+}
+
+.action-pair{
+  display:inline-flex;
+  gap:8px;
+  flex-wrap:nowrap;
+}
+
+.action-pair button{
+  width:auto !important;
+  min-width:92px;
+  min-height:32px;
+  padding:.22rem .5rem;
+  font-size:.8rem;
+  line-height:1.05;
+}
+
+@media (max-width:768px){
+  .card-header .button-row{
+    display:none;
+    width:100%;
+  }
+
+  .card-header.actions-open .button-row{
+    display:flex;
+  }
+
+  .card-header .button-row > button{
+    min-width:86px;
+  }
+
+  .time-action-pair{
+    width:100%;
+    justify-content:flex-start;
+  }
+
+  .time-action-pair button{
+    min-width:0;
+    flex:1 1 140px;
+  }
+
+  .action-pair{
+    width:100%;
+  }
+
+  .action-pair button{
+    min-width:0;
+    flex:1 1 120px;
   }
 }
 
@@ -1024,20 +1211,24 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
 
 /* Add player button position */
 .tee .row{
-  padding:8px 16px 12px; /* trimmed vertical padding for Add Player row */
-  background:var(--panel);
-  border-top:1px solid var(--line);
+  padding:6px 10px 8px;
   display:flex;
   justify-content:center;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
 }
 
 .tee .row button{
-  min-width:120px;
+  min-width:106px;
   text-align:center;
   font-weight:500;
   background:var(--panel);
   border:1px solid var(--slate-300);
   transition:all 0.2s ease;
+  padding:.28rem .55rem;
+  font-size:.8rem;
+  line-height:1.1;
 }
 
 .tee .row button:hover{
@@ -1368,4 +1559,71 @@ nav a:hover{
   font-weight:700;
   color: #dc2626;
   margin-left:8px;
+}
+
+/* Compact tee card layout to reduce vertical space */
+.tee{
+  min-height:72px;
+}
+
+.tee-meta{
+  justify-content:space-between;
+  align-items:center;
+  gap:8px;
+  position:static;
+  padding:6px 10px 2px;
+}
+
+.tee-time{
+  width:auto;
+  margin-right:auto;
+  font-size:15px;
+  line-height:1.1;
+}
+
+.tee-summary{
+  white-space:nowrap;
+}
+
+.tee-actions{
+  position:static;
+  transform:none;
+  margin-left:0;
+}
+
+.tee-players{
+  grid-template-columns:repeat(2, minmax(0, 1fr));
+  gap:5px;
+  min-height:0;
+  padding:0 8px 0;
+}
+
+.chip{
+  min-height:28px;
+  padding:2px 7px;
+}
+
+.chip-label{
+  font-size:0.84rem;
+  line-height:1.05;
+}
+
+.tee .row{
+  padding:5px 8px 7px;
+  border-top:0;
+  justify-content:flex-start;
+  gap:6px;
+}
+
+.tee .row button{
+  min-width:98px;
+  padding:.24rem .5rem;
+  font-size:.78rem;
+  line-height:1.05;
+}
+
+@media (max-width:420px){
+  .tee-players{
+    grid-template-columns:1fr;
+  }
 }
