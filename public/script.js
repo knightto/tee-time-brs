@@ -648,9 +648,9 @@ if ('serviceWorker' in navigator) {
     // Update month/year title
     currentMonthEl.textContent = new Date(year, month, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
     if (monthCalendarBtn) {
-      const shortMonth = new Date(year, month, 1).toLocaleDateString(undefined, { month: 'short' });
-      monthCalendarBtn.textContent = `Save ${shortMonth}`;
-      monthCalendarBtn.title = `Download all ${shortMonth} ${year} tee times as a calendar file (.ics)`;
+      const fullMonth = new Date(year, month, 1).toLocaleDateString(undefined, { month: 'long' });
+      monthCalendarBtn.textContent = `Download ${fullMonth} Calendar (.ics)`;
+      monthCalendarBtn.title = `Download all ${fullMonth} ${year} tee times as an .ics file to import into your calendar`;
     }
     
     // Clear grid
@@ -1070,10 +1070,10 @@ if ('serviceWorker' in navigator) {
           </div>
           <div class="card-content">
             ${maybeSection}
-            ${eventActionLegend}
             ${summaryRow}
             <div class="tees">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>
             ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
+            ${eventActionLegend}
           </div>`;
         frag.appendChild(card);
       }
@@ -1960,7 +1960,33 @@ if ('serviceWorker' in navigator) {
         ? `<div style=\"font-size:13px;color:var(--slate-700);margin-top:4px\">\n          ${ev.courseInfo.city && ev.courseInfo.state ? `<span>📍 ${ev.courseInfo.city}, ${ev.courseInfo.state}</span>` : ''}\n          ${ev.courseInfo.phone ? `<span style=\"margin-left:12px\">📞 ${ev.courseInfo.phone}</span>` : ''}\n          ${ev.courseInfo.website ? `<span style=\"margin-left:12px\"><a href=\"${ev.courseInfo.website}\" target=\"_blank\" style=\"color:var(--blue-600);text-decoration:none\">🔗 Website</a></span>` : ''}\n          ${ev.courseInfo.holes && ev.courseInfo.par ? `<span style=\"margin-left:12px\">⛳ ${ev.courseInfo.holes} holes, Par ${ev.courseInfo.par}</span>` : ''}\n        </div>`
         : '';
       const eventActionLegend = `\n          <div class=\"event-action-legend\" aria-label=\"Golfer action legend\">\n            <span class=\"event-action-title\">Actions</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol\">○</span>Individual check-in</span>\n            <span class=\"event-action-item\"><span class=\"event-action-pill\">All</span>Group check-in</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol\">↔</span>Move golfer</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol danger\">×</span>Delete golfer</span>\n          </div>\n      `;
-      card.innerHTML = `\n      <div class=\"card-header\">\n        <div class=\"card-header-left\">\n          <h3 class=\"card-title\">${ev.course || 'Course'}</h3>\n          <div class=\"card-date\">\n            ${fmtDate(ev.date)} ${weatherIcon}\n            <button class=\"small\" data-audit=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7\" title=\"View Audit Log\">📋</button>\n          </div>\n          ${courseDetails}\n        </div>\n        <div class=\"card-actions\">\n          <button class=\"small event-actions-toggle\" data-toggle-actions title=\"Show/hide event actions\">Actions</button>\n          <div class=\"button-row\">\n            ${isTeams ? `<button class=\"small\" data-add-tee=\"${ev._id}\">Add Team</button>` : `<div class=\"time-action-pair\"><button class=\"small\" data-add-tee=\"${ev._id}\">Add Existing Time</button><button class=\"small\" data-request-extra-tee=\"${ev._id}\" title=\"Email Brian Jones to request an additional tee time\">Request Club Time</button></div>`}\n            ${isTeams ? '' : `<button class=\"small\" data-suggest-pairings=\"${ev._id}\" title=\"Suggest balanced groups using handicap data\">Pairings</button>`}\\n            <div class=\\"action-pair\\"><button class=\\"small\\" data-edit=\\"${ev._id}\\">Edit</button><button class=\\"small\\" data-del=\\"${ev._id}\\">Delete</button></div>\\n            <div class=\\"action-pair\\"><button class=\\"small\\" data-calendar-google=\\"${ev._id}\\" title=\\"Add this event to Google Calendar\\">Google</button><button class=\\"small\\" data-calendar-ics=\\"${ev._id}\\" title=\\"Download .ics file for Apple/Outlook/Google import\\">ICS</button></div>\n          </div>\n        </div>\n      </div>\n      <div class=\"card-content\">\n        ${maybeSection}\n        ${eventActionLegend}\n        ${summaryRow}\n        <div class=\"tees\">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>\n        ${ev.notes ? `<div class=\"notes\">${ev.notes}</div>` : ''}\n      </div>`;
+      card.innerHTML = `
+      <div class="card-header">
+        <div class="card-header-left">
+          <h3 class="card-title">${ev.course || 'Course'}</h3>
+          <div class="card-date">
+            ${fmtDate(ev.date)} ${weatherIcon}
+            <button class="small" data-audit="${ev._id}" style="font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7" title="View Audit Log">📋</button>
+          </div>
+          ${courseDetails}
+        </div>
+        <div class="card-actions">
+          <button class="small event-actions-toggle" data-toggle-actions title="Show/hide event actions">Actions</button>
+          <div class="button-row">
+            ${isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<div class="time-action-pair"><button class="small" data-add-tee="${ev._id}">Add Existing Time</button><button class="small" data-request-extra-tee="${ev._id}" title="Email Brian Jones to request an additional tee time">Request Club Time</button></div>`}
+            ${isTeams ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Pairings</button>`}
+            <div class="action-pair"><button class="small" data-edit="${ev._id}">Edit</button><button class="small" data-del="${ev._id}">Delete</button></div>
+            <div class="action-pair"><button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button><button class="small" data-calendar-ics="${ev._id}" title="Download .ics file for Apple/Outlook/Google import">ICS</button></div>
+          </div>
+        </div>
+      </div>
+      <div class="card-content">
+        ${maybeSection}
+        ${summaryRow}
+        <div class="tees">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>
+        ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
+        ${eventActionLegend}
+      </div>`;
     } catch (e) {
       console.error('Failed to update event card:', e);
       load();
@@ -1971,6 +1997,7 @@ if ('serviceWorker' in navigator) {
   load();
   startAutoRefresh();
 })();
+
 
 
 
