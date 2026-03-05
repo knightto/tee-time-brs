@@ -392,6 +392,28 @@ if ('serviceWorker' in navigator) {
     return `https://outlook.office.com/calendar/0/deeplink/compose?${params.toString()}`;
   }
 
+  function openExternalCalendarUrlSafely(urlBuilder) {
+    const popup = window.open('about:blank', '_blank', 'noopener,noreferrer');
+    return Promise.resolve()
+      .then(urlBuilder)
+      .then((url) => {
+        if (!url) {
+          if (popup && !popup.closed) popup.close();
+          return false;
+        }
+        if (popup && !popup.closed) {
+          popup.location = url;
+          return true;
+        }
+        window.open(url, '_blank', 'noopener,noreferrer');
+        return true;
+      })
+      .catch((err) => {
+        if (popup && !popup.closed) popup.close();
+        throw err;
+      });
+  }
+
   function upsertCachedEvent(ev) {
     if (!ev || !ev._id) return;
     const idx = allEvents.findIndex((item) => String(item && item._id) === String(ev._id));
@@ -776,7 +798,7 @@ if ('serviceWorker' in navigator) {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth() + 1;
     const url = `/api/events/calendar/month.ics?year=${encodeURIComponent(year)}&month=${encodeURIComponent(month)}`;
-    window.open(url, '_blank', 'noopener,noreferrer');
+    window.location.assign(url);
   });
 
   document.addEventListener('visibilitychange', () => {
@@ -1075,28 +1097,24 @@ if ('serviceWorker' in navigator) {
         return;
       }
       if(t.dataset.calendarGoogle){
-        const ev = await getEventForAction(t.dataset.calendarGoogle);
-        const url = ev ? buildGoogleCalendarUrl(ev) : '';
-        if (!url) {
-          alert('Unable to build Google Calendar link for this event.');
-          return;
-        }
-        window.open(url, '_blank', 'noopener,noreferrer');
+        const ok = await openExternalCalendarUrlSafely(async () => {
+          const ev = await getEventForAction(t.dataset.calendarGoogle);
+          return ev ? buildGoogleCalendarUrl(ev) : '';
+        });
+        if (!ok) alert('Unable to build Google Calendar link for this event.');
         return;
       }
       if(t.dataset.calendarOutlook){
-        const ev = await getEventForAction(t.dataset.calendarOutlook);
-        const url = ev ? buildOutlookCalendarUrl(ev) : '';
-        if (!url) {
-          alert('Unable to build Outlook Calendar link for this event.');
-          return;
-        }
-        window.open(url, '_blank', 'noopener,noreferrer');
+        const ok = await openExternalCalendarUrlSafely(async () => {
+          const ev = await getEventForAction(t.dataset.calendarOutlook);
+          return ev ? buildOutlookCalendarUrl(ev) : '';
+        });
+        if (!ok) alert('Unable to build Outlook Calendar link for this event.');
         return;
       }
       if(t.dataset.calendarIcs){
         const id = String(t.dataset.calendarIcs);
-        window.open(`/api/events/${encodeURIComponent(id)}/calendar.ics`, '_blank', 'noopener,noreferrer');
+        window.location.assign(`/api/events/${encodeURIComponent(id)}/calendar.ics`);
         return;
       }
       if(t.dataset.addMaybe){
