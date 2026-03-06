@@ -274,10 +274,19 @@ main{padding:20px}
 
 .calendar-header{
   display:flex;
-  align-items:center;
+  align-items:flex-start;
   justify-content:space-between;
   margin-bottom:16px;
   gap:12px;
+}
+
+.calendar-month-controls{
+  flex:1;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  gap:4px;
+  min-width:0;
 }
 
 .calendar-header h2{
@@ -286,13 +295,32 @@ main{padding:20px}
   font-weight:700;
   color:var(--green-700);
   text-align:center;
-  flex:1;
+  width:100%;
 }
 
 .calendar-header button.icon{
   padding:8px 12px;
   font-size:20px;
   font-weight:700;
+}
+
+.calendar-month-link{
+  border:none;
+  background:transparent;
+  box-shadow:none;
+  color:var(--blue-600);
+  text-decoration:underline;
+  font-size:12px;
+  font-weight:600;
+  padding:0;
+  border-radius:0;
+}
+
+.calendar-month-link:hover{
+  transform:none;
+  box-shadow:none;
+  background:transparent;
+  color:var(--blue-700);
 }
 
 .calendar-grid{
@@ -495,18 +523,41 @@ main{padding:20px}
 }
 
 .weather-inline{
-  display:inline-block;
-  margin-left:8px;
-  font-size:20px;
+  display:inline-flex;
+  margin-left:0;
+  font-size:16px;
   line-height:1;
-  cursor:help;
+  cursor:default;
   vertical-align:middle;
-  filter:drop-shadow(0 2px 4px rgba(0,0,0,0.15));
-  transition:transform 0.2s ease;
+  filter:none;
+  transition:none;
 }
 
 .weather-inline:hover{
-  transform:scale(1.15);
+  transform:none;
+}
+
+.weather-summary{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:2px 8px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.35);
+  background:rgba(148,163,184,.12);
+  color:var(--slate-700);
+  font-size:12px;
+  font-weight:600;
+  line-height:1.2;
+  max-width:100%;
+}
+
+.weather-summary-muted{
+  opacity:0.8;
+}
+
+.weather-text{
+  overflow-wrap:anywhere;
 }
 
 .card-header-left{
@@ -525,6 +576,10 @@ main{padding:20px}
 .card-title::before{content:'🏌️ '}
 
 .card-date{
+  display:flex;
+  flex-wrap:wrap;
+  align-items:center;
+  gap:8px;
   color:var(--slate-700);
   font-size:0.95rem;
   font-weight:500;

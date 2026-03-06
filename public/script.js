@@ -218,8 +218,6 @@ if ('serviceWorker' in navigator) {
   const editTeeLabel = $('#editTeeLabel');
   const editTeeInput = $('#editTeeInput');
   const editTeeSelect = $('#editTeeSelect');
-  const auditModal = $('#auditModal');
-  const auditLogContent = $('#auditLogContent');
 
   if (!eventsEl) return;
 
@@ -239,20 +237,6 @@ if ('serviceWorker' in navigator) {
     refreshBtn.textContent = isBusy ? 'Refreshing…' : 'Refresh';
   }
 
-  // Generate time options from 6:00 AM to 7:00 PM in 9-minute intervals
-  function generateTimeOptions() {
-    const options = [];
-    const startMinutes = 6 * 60; // 6:00 AM
-    const endMinutes = 19 * 60; // 7:00 PM
-    for (let minutes = startMinutes; minutes <= endMinutes; minutes += 9) {
-      const h = Math.floor(minutes / 60);
-      const m = minutes % 60;
-      const time = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-      options.push(time);
-    }
-    return options;
-  }
-
   function fmtDate(val){
     try{
       if (!val) return '—';
@@ -266,6 +250,23 @@ if ('serviceWorker' in navigator) {
     } catch { return '—'; }
   }
   function fmtTime(hhmm){ if(!hhmm) return ''; const m=/^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(hhmm); if(!m) return hhmm; let h=parseInt(m[1],10); const min=m[2]; const ap=h>=12?'PM':'AM'; h=h%12||12; return `${h}:${min} ${ap}`; }
+  function escapeHtml(value = '') {
+    return String(value).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  }
+  function weatherSummaryMarkup(ev) {
+    const weather = ev && ev.weather ? ev.weather : null;
+    if (!weather) {
+      return '<span class="weather-summary weather-summary-muted"><span class="weather-text">Forecast unavailable</span></span>';
+    }
+    const icon = weather.icon ? `<span class="weather-inline" aria-hidden="true">${escapeHtml(weather.icon)}</span>` : '';
+    const details = [];
+    if (Number.isFinite(Number(weather.temp))) details.push(`${Math.round(Number(weather.temp))}\u00b0F`);
+    const desc = String(weather.description || weather.condition || '').trim();
+    if (desc) details.push(desc);
+    const text = details.join(' • ') || 'Forecast unavailable';
+    const safeText = escapeHtml(text);
+    return `<span class="weather-summary${details.length ? '' : ' weather-summary-muted'}" title="${safeText}">${icon}<span class="weather-text">${safeText}</span></span>`;
+  }
   const CALENDAR_EVENT_DURATION_MINUTES = 270;
 
   function toDateISO(val) {
@@ -309,14 +310,6 @@ if ('serviceWorker' in navigator) {
 
   function fmtCalendarDateTime(date) {
     return `${fmtCalendarDate(date)}T${pad2(date.getUTCHours())}${pad2(date.getUTCMinutes())}00`;
-  }
-
-  function fmtOutlookDate(date) {
-    return `${date.getUTCFullYear()}-${pad2(date.getUTCMonth() + 1)}-${pad2(date.getUTCDate())}`;
-  }
-
-  function fmtOutlookDateTime(date) {
-    return `${fmtOutlookDate(date)}T${pad2(date.getUTCHours())}:${pad2(date.getUTCMinutes())}:00`;
   }
 
   function eventCalendarTiming(ev) {
@@ -377,26 +370,6 @@ if ('serviceWorker' in navigator) {
       if (tz) params.set('ctz', tz);
     }
     return `https://calendar.google.com/calendar/render?${params.toString()}`;
-  }
-
-  function buildOutlookCalendarUrl(ev) {
-    const timing = eventCalendarTiming(ev);
-    if (!timing) return '';
-    const params = new URLSearchParams();
-    params.set('path', '/calendar/action/compose');
-    params.set('rru', 'addevent');
-    params.set('subject', calendarTitle(ev));
-    params.set('body', calendarDescription(ev));
-    params.set('location', ev && ev.course ? String(ev.course) : 'Golf Course');
-    if (timing.allDay) {
-      params.set('allday', 'true');
-      params.set('startdt', fmtOutlookDate(timing.startDate));
-      params.set('enddt', fmtOutlookDate(timing.endDate));
-    } else {
-      params.set('startdt', fmtOutlookDateTime(timing.start));
-      params.set('enddt', fmtOutlookDateTime(timing.end));
-    }
-    return `https://outlook.office.com/calendar/0/deeplink/compose?${params.toString()}`;
   }
 
   function openExternalCalendarUrlSafely(urlBuilder) {
@@ -649,8 +622,8 @@ if ('serviceWorker' in navigator) {
     currentMonthEl.textContent = new Date(year, month, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
     if (monthCalendarBtn) {
       const fullMonth = new Date(year, month, 1).toLocaleDateString(undefined, { month: 'long' });
-      monthCalendarBtn.textContent = `Download ${fullMonth} Calendar (.ics)`;
-      monthCalendarBtn.title = `Download all ${fullMonth} ${year} tee times as an .ics file to import into your calendar`;
+      monthCalendarBtn.textContent = 'add tee times to your calendar for this month';
+      monthCalendarBtn.title = `Add all ${fullMonth} ${year} tee times to your calendar`;
     }
     
     // Clear grid
@@ -1026,10 +999,7 @@ if ('serviceWorker' in navigator) {
             </div>
           </div>
         `;
-        // Weather icon inline with date (doubled size)
-        const weatherIcon = ev.weather && ev.weather.icon 
-          ? `<span class="weather-inline" style="font-size:3em;cursor:pointer" title="${ev.weather.description || 'Weather forecast'}" data-weather-info='${JSON.stringify({temp: ev.weather.temp, desc: ev.weather.description, icon: ev.weather.icon})}'>${ev.weather.icon}</span>` 
-          : '';
+        const weatherSummary = weatherSummaryMarkup(ev);
         // Course details
         const courseDetails = ev.courseInfo && (ev.courseInfo.city || ev.courseInfo.phone || ev.courseInfo.website) 
           ? `<div style="font-size:13px;color:var(--slate-700);margin-top:4px">
@@ -1053,7 +1023,8 @@ if ('serviceWorker' in navigator) {
             <div class="card-header-left">
               <h3 class="card-title">${ev.course || 'Course'}</h3>
               <div class="card-date">
-                ${fmtDate(ev.date)} ${weatherIcon}
+                <span>${fmtDate(ev.date)}</span>
+                ${weatherSummary}
                 <button class="small" data-audit="${ev._id}" style="font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7" title="View Audit Log">📋</button>
               </div>
               ${courseDetails}
@@ -1079,51 +1050,6 @@ if ('serviceWorker' in navigator) {
       }
       eventsEl.appendChild(frag);
     });
-    // Add touch/click handler for weather icon to show temp/desc on mobile
-    setTimeout(() => {
-      document.querySelectorAll('.weather-inline').forEach(el => {
-        // Remove any previous handler
-        el.removeEventListener('touchstart', el._weatherTouchHandler);
-        el.removeEventListener('click', el._weatherTouchHandler);
-        // Handler
-        el._weatherTouchHandler = function(e) {
-          e.preventDefault();
-          e.stopPropagation();
-          // Remove any existing popup
-          document.querySelectorAll('.weather-popup').forEach(p => p.remove());
-          const info = el.dataset.weatherInfo ? JSON.parse(el.dataset.weatherInfo) : {};
-          const popup = document.createElement('div');
-          popup.className = 'weather-popup';
-          popup.style.position = 'fixed';
-          popup.style.zIndex = 9999;
-          popup.style.background = '#fff';
-          popup.style.color = '#222';
-          popup.style.border = '1px solid #bbb';
-          popup.style.borderRadius = '8px';
-          popup.style.boxShadow = '0 2px 8px rgba(0,0,0,0.15)';
-          popup.style.padding = '12px 18px';
-          popup.style.fontSize = '1.1em';
-          popup.style.minWidth = '120px';
-          popup.style.textAlign = 'center';
-          popup.innerHTML = `<div style="font-size:2em">${info.icon||''}</div><div style="margin:4px 0">${info.temp !== undefined && info.temp !== null ? info.temp + '°F' : ''}</div><div style="font-size:0.95em;color:#555">${info.desc||''}</div>`;
-          // Position popup near touch/click
-          let x = (e.touches && e.touches[0] ? e.touches[0].clientX : e.clientX) || 100;
-          let y = (e.touches && e.touches[0] ? e.touches[0].clientY : e.clientY) || 100;
-          popup.style.left = Math.max(10, x - 60) + 'px';
-          popup.style.top = Math.max(10, y + 10) + 'px';
-          document.body.appendChild(popup);
-          // Remove popup on next touch/click/scroll
-          const removePopup = () => { popup.remove(); document.removeEventListener('touchstart', removePopup, true); document.removeEventListener('click', removePopup, true); document.removeEventListener('scroll', removePopup, true); };
-          setTimeout(() => {
-            document.addEventListener('touchstart', removePopup, true);
-            document.addEventListener('click', removePopup, true);
-            document.addEventListener('scroll', removePopup, true);
-          }, 10);
-        };
-        el.addEventListener('touchstart', el._weatherTouchHandler);
-        el.addEventListener('click', el._weatherTouchHandler);
-      });
-    }, 0);
   }
 
   function teeRow(ev, tt, idx, isTeams){
@@ -1953,9 +1879,7 @@ if ('serviceWorker' in navigator) {
         return `<span class=\"maybe-chip\" title=\"${safe}\">\n        <span class=\"maybe-name\">${name}</span>\n        <button class=\"icon small danger\" title=\"Remove\" data-remove-maybe=\"${ev._id}:${idx}\">×</button>\n      </span>`;
       }).join('');
       const maybeSection = `\n      <div class=\"maybe-section\">\n        <div class=\"maybe-header\">\n          <h4>🤔 Maybe List</h4>\n          <div class=\"row\" style=\"gap:6px;flex-wrap:wrap\">\n            <button class=\"small\" data-add-maybe=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px\">+ Interested</button>\n            <button class=\"small\" data-fill-maybe=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px\" title=\"Move someone from maybe list into an open spot\">Fill Spot</button>\n          </div>\n        </div>\n        <div class=\"maybe-list\">\n          ${maybeList || '<em style=\"color:var(--slate-700);font-size:11px;opacity:0.7\">No one yet</em>'}\n        </div>\n      </div>\n    `;
-      const weatherIcon = ev.weather && ev.weather.icon 
-        ? `<span class=\"weather-inline\" style=\"font-size:3em;cursor:pointer\" title=\"${ev.weather.description || 'Weather forecast'}\" data-weather-info='${JSON.stringify({temp: ev.weather.temp, desc: ev.weather.description, icon: ev.weather.icon})}'>${ev.weather.icon}</span>` 
-        : '';
+      const weatherSummary = weatherSummaryMarkup(ev);
       const courseDetails = ev.courseInfo && (ev.courseInfo.city || ev.courseInfo.phone || ev.courseInfo.website) 
         ? `<div style=\"font-size:13px;color:var(--slate-700);margin-top:4px\">\n          ${ev.courseInfo.city && ev.courseInfo.state ? `<span>📍 ${ev.courseInfo.city}, ${ev.courseInfo.state}</span>` : ''}\n          ${ev.courseInfo.phone ? `<span style=\"margin-left:12px\">📞 ${ev.courseInfo.phone}</span>` : ''}\n          ${ev.courseInfo.website ? `<span style=\"margin-left:12px\"><a href=\"${ev.courseInfo.website}\" target=\"_blank\" style=\"color:var(--blue-600);text-decoration:none\">🔗 Website</a></span>` : ''}\n          ${ev.courseInfo.holes && ev.courseInfo.par ? `<span style=\"margin-left:12px\">⛳ ${ev.courseInfo.holes} holes, Par ${ev.courseInfo.par}</span>` : ''}\n        </div>`
         : '';
@@ -1965,7 +1889,8 @@ if ('serviceWorker' in navigator) {
         <div class="card-header-left">
           <h3 class="card-title">${ev.course || 'Course'}</h3>
           <div class="card-date">
-            ${fmtDate(ev.date)} ${weatherIcon}
+            <span>${fmtDate(ev.date)}</span>
+            ${weatherSummary}
             <button class="small" data-audit="${ev._id}" style="font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7" title="View Audit Log">📋</button>
           </div>
           ${courseDetails}

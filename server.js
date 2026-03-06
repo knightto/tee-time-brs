@@ -781,7 +781,14 @@ function normalizeEmailSubject(subject = '') {
   return raw;
 }
 
+function isE2ETestMode() {
+  return process.env.E2E_TEST_MODE === '1';
+}
+
 async function sendEmail(to, subject, html) {
+  if (isE2ETestMode()) {
+    return { ok: true, simulated: true, data: { to, subject: normalizeEmailSubject(subject), bytes: String(html || '').length } };
+  }
   const mailer = await ensureTransporter();
   if (!mailer || !process.env.RESEND_FROM) {
     console.warn(JSON.stringify({ level:'warn', msg:'Email disabled', reason:'missing key/from' }));
@@ -804,6 +811,10 @@ async function sendEmail(to, subject, html) {
 
 // HTTP fallback to Resend API (avoids SMTP egress issues)
 async function sendEmailViaResendApi(to, subject, html, options = {}) {
+  if (isE2ETestMode()) {
+    const normalizedSubject = normalizeEmailSubject(subject);
+    return { ok: true, simulated: true, data: { to, cc: options && options.cc, subject: normalizedSubject, bytes: String(html || '').length } };
+  }
   if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM) {
     return { ok: false, error: { message: 'Resend API key/from not configured' } };
   }
