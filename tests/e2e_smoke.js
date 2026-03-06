@@ -107,6 +107,15 @@ async function main() {
       'Calendar ICS content shape',
       typeof calendarIcs.body === 'string' ? 'calendar payload found' : `bodyType=${typeof calendarIcs.body}`,
     );
+    expect(
+      results,
+      typeof calendarIcs.body === 'string'
+      && calendarIcs.body.includes('BEGIN:VALARM')
+      && calendarIcs.body.includes('TRIGGER:-PT4320M')
+      && calendarIcs.body.includes('TRIGGER:-PT1440M'),
+      'Calendar ICS includes 3-day and 1-day reminders',
+      typeof calendarIcs.body === 'string' ? 'reminder blocks found' : `bodyType=${typeof calendarIcs.body}`,
+    );
 
     const monthCalendarIcs = await api('/api/events/calendar/month.ics?year=2026&month=12', {
       headers: { Accept: 'text/calendar' },
@@ -117,6 +126,15 @@ async function main() {
       typeof monthCalendarIcs.body === 'string' && monthCalendarIcs.body.includes('BEGIN:VCALENDAR') && monthCalendarIcs.body.includes(teeCourse),
       'Monthly calendar ICS includes created event',
       typeof monthCalendarIcs.body === 'string' ? 'event found in monthly payload' : `bodyType=${typeof monthCalendarIcs.body}`,
+    );
+    expect(
+      results,
+      typeof monthCalendarIcs.body === 'string'
+      && monthCalendarIcs.body.includes('BEGIN:VALARM')
+      && monthCalendarIcs.body.includes('TRIGGER:-PT4320M')
+      && monthCalendarIcs.body.includes('TRIGGER:-PT1440M'),
+      'Monthly calendar ICS includes 3-day and 1-day reminders',
+      typeof monthCalendarIcs.body === 'string' ? 'reminder blocks found' : `bodyType=${typeof monthCalendarIcs.body}`,
     );
 
     const maybeAdd = await api(`/api/events/${teeEventId}/maybe`, {

@@ -622,7 +622,7 @@ if ('serviceWorker' in navigator) {
     currentMonthEl.textContent = new Date(year, month, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
     if (monthCalendarBtn) {
       const fullMonth = new Date(year, month, 1).toLocaleDateString(undefined, { month: 'long' });
-      monthCalendarBtn.textContent = 'add tee times to your calendar for this month';
+      monthCalendarBtn.textContent = 'Add this month\'s tee times';
       monthCalendarBtn.title = `Add all ${fullMonth} ${year} tee times to your calendar`;
     }
     

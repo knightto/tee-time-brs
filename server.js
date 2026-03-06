@@ -69,6 +69,22 @@ const LOCAL_TZ = process.env.LOCAL_TZ || 'America/New_York';
 const CALENDAR_EVENT_DURATION_MINUTES = Math.max(30, Number(process.env.CALENDAR_EVENT_DURATION_MINUTES || 270) || 270);
 const processedEmailIds = new Map(); // simple idempotency guard for inbound emails
 
+function parseIcsReminderMinutes(input = '') {
+  const parsed = String(input || '')
+    .split(',')
+    .map((value) => Number(String(value).trim()))
+    .filter((n) => Number.isInteger(n) && n > 0 && n <= 60 * 24 * 30);
+  const unique = Array.from(new Set(parsed));
+  unique.sort((a, b) => b - a);
+  return unique;
+}
+
+const REQUIRED_ICS_REMINDER_MINUTES = [4320, 1440]; // 3 days, 1 day
+const ICS_REMINDER_MINUTES = Array.from(new Set([
+  ...REQUIRED_ICS_REMINDER_MINUTES,
+  ...parseIcsReminderMinutes(process.env.ICS_REMINDER_MINUTES || ''),
+])).sort((a, b) => b - a);
+
 app.use(cors({ origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : true }));
 app.use(rateLimit({ windowMs: 60 * 1000, max: 200 }));
 app.use(compression());
@@ -1030,6 +1046,13 @@ function buildIcsEventLines(ev, stampDate = new Date()) {
   const description = eventCalendarDescription(ev);
   const location = ev && ev.course ? String(ev.course).trim() : 'Golf Course';
   const url = `${SITE_URL}?event=${(ev && ev._id) ? String(ev._id) : ''}`;
+  const alarms = ICS_REMINDER_MINUTES.flatMap((minutes) => ([
+    'BEGIN:VALARM',
+    `TRIGGER:-PT${minutes}M`,
+    'ACTION:DISPLAY',
+    `DESCRIPTION:${escapeIcsText(`Tee time reminder: ${summary}`)}`,
+    'END:VALARM',
+  ]));
 
   return [
     'BEGIN:VEVENT',
@@ -1046,6 +1069,7 @@ function buildIcsEventLines(ev, stampDate = new Date()) {
     `LOCATION:${escapeIcsText(location)}`,
     `URL:${escapeIcsText(url)}`,
     'STATUS:CONFIRMED',
+    ...alarms,
     'END:VEVENT',
   ];
 }
