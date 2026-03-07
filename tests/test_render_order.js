@@ -13,8 +13,6 @@ function sortEvents(list){
   return items;
 }
 
-function iso(d){ return new Date(d).toISOString().slice(0,10); }
-
 const unsorted = [
   { id: 'a', date: '2025-12-10' },
   { id: 'b', date: '2025-10-01' },

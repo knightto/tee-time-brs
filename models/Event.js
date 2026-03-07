@@ -37,6 +37,9 @@ const EventSchema = new mongoose.Schema({
     condition: { type: String, default: null },  // 'sunny', 'cloudy', 'rainy', 'stormy', etc.
     icon: { type: String, default: null },       // Weather emoji
     temp: { type: Number, default: null },       // Temperature in Fahrenheit
+    tempLow: { type: Number, default: null },    // Low temp in Fahrenheit
+    tempHigh: { type: Number, default: null },   // High temp in Fahrenheit
+    rainChance: { type: Number, default: null }, // Daily precipitation probability (%)
     description: { type: String, default: null },// Human readable description
     lastFetched: { type: Date, default: null }
   }

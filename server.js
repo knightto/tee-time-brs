@@ -117,7 +117,11 @@ app.get('/api/handicaps', async (_req, res) => {
   try {
     if (!Handicap) return res.status(500).json({ error: 'Handicap model unavailable' });
     const list = await Handicap.find().sort({ name: 1 }).lean();
-    const scrubbed = list.map(({ ownerCode, ...rest }) => rest);
+    const scrubbed = list.map((doc) => {
+      const rest = { ...doc };
+      delete rest.ownerCode;
+      return rest;
+    });
     res.json(scrubbed);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -145,7 +149,8 @@ app.post('/api/handicaps', async (req, res) => {
     }
     if (!payload.ownerCode) return res.status(400).json({ error: 'ownerCode required' });
     const created = await Handicap.create(payload);
-    const { ownerCode: _, ...rest } = created.toObject();
+    const rest = created.toObject();
+    delete rest.ownerCode;
     res.status(201).json(rest);
   } catch (err) {
     if (err && err.code === 11000) {
@@ -179,7 +184,8 @@ app.put('/api/handicaps/:id', async (req, res) => {
       h.ownerCode = String(ownerCode || '').trim();
     }
     await h.save();
-    const { ownerCode: _, ...rest } = h.toObject();
+    const rest = h.toObject();
+    delete rest.ownerCode;
     res.json(rest);
   } catch (err) {
     if (err && err.code === 11000) {
@@ -384,10 +390,8 @@ app.post('/webhooks/resend', async (req, res) => {
       // Extract additional details from the email body (Facility, TTID, etc.)
       let facility = '';
       let notes = '';
-      let ttid = '';
       for (const line of (parsed.rawLines || [])) {
         if (/^facility:/i.test(line)) facility = line.replace(/^facility:/i, '').trim();
-        if (/^ttid:/i.test(line)) ttid = line.replace(/^ttid:/i, '').trim();
         if (/^details:/i.test(line)) notes = line.replace(/^details:/i, '').trim();
       }
       // Fallback: try to extract facility from the first lines if not found
@@ -498,13 +502,6 @@ app.post('/webhooks/resend', async (req, res) => {
           }
         }
         return ev.save();
-      };
-
-      const dedupeExtras = async (matches, keepId) => {
-        const extras = matches.filter((m) => String(m._id) !== String(keepId));
-        if (!extras.length) return 0;
-        await Event.deleteMany({ _id: { $in: extras.map((m) => m._id) } });
-        return extras.length;
       };
 
       const createEventThroughApi = async (reason = 'CREATE') => {
@@ -701,6 +698,9 @@ async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) 
         condition: 'error',
         icon: '🌤️',
         temp: null,
+        tempLow: null,
+        tempHigh: null,
+        rainChance: null,
         description: 'Invalid or missing event date',
         lastFetched: null
       };
@@ -721,11 +721,14 @@ async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) 
         condition: 'unknown',
         icon: '🌤️',
         temp: null,
+        tempLow: null,
+        tempHigh: null,
+        rainChance: null,
         description: 'Forecast not yet available',
         lastFetched: null
       };
     }
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`;
     const response = await fetch(url);
     if (!response.ok) {
       console.error(`Weather API HTTP error: ${response.status} ${response.statusText}`);
@@ -739,14 +742,21 @@ async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) 
     const weatherCode = data.daily.weather_code[0];
     const tempMax = data.daily.temperature_2m_max[0];
     const tempMin = data.daily.temperature_2m_min[0];
+    const precipMax = data.daily.precipitation_probability_max ? data.daily.precipitation_probability_max[0] : null;
     const avgTemp = Math.round((tempMax + tempMin) / 2);
     const weatherInfo = getWeatherIcon(weatherCode, true);
+    const roundedLow = Number.isFinite(Number(tempMin)) ? Math.round(Number(tempMin)) : null;
+    const roundedHigh = Number.isFinite(Number(tempMax)) ? Math.round(Number(tempMax)) : null;
+    const rainChance = Number.isFinite(Number(precipMax)) ? Math.round(Number(precipMax)) : null;
     const out = {
       success: true,
       condition: weatherInfo.condition,
       icon: weatherInfo.icon,
       temp: avgTemp,
-      description: `${weatherInfo.desc} • ${Math.round(tempMin)}°-${Math.round(tempMax)}°F`,
+      tempLow: roundedLow,
+      tempHigh: roundedHigh,
+      rainChance,
+      description: weatherInfo.desc,
       lastFetched: new Date()
     };
     weatherCache.set(cacheKey, { data: out, ts: Date.now() });
@@ -762,10 +772,25 @@ async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) 
       condition: 'error',
       icon: '🌧️',
       temp: null,
+      tempLow: null,
+      tempHigh: null,
+      rainChance: null,
       description: 'Weather unavailable',
       lastFetched: null
     };
   }
+}
+
+function assignWeatherToEvent(ev, weatherData = {}) {
+  if (!ev.weather) ev.weather = {};
+  ev.weather.condition = weatherData.condition || null;
+  ev.weather.icon = weatherData.icon || null;
+  ev.weather.temp = Number.isFinite(Number(weatherData.temp)) ? Number(weatherData.temp) : null;
+  ev.weather.tempLow = Number.isFinite(Number(weatherData.tempLow)) ? Number(weatherData.tempLow) : null;
+  ev.weather.tempHigh = Number.isFinite(Number(weatherData.tempHigh)) ? Number(weatherData.tempHigh) : null;
+  ev.weather.rainChance = Number.isFinite(Number(weatherData.rainChance)) ? Number(weatherData.rainChance) : null;
+  ev.weather.description = weatherData.description || null;
+  ev.weather.lastFetched = weatherData.lastFetched || null;
 }
 
 /* ---------------- Email helpers ---------------- */
@@ -1552,6 +1577,9 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
           condition: weatherData.condition,
           icon: weatherData.icon,
           temp: weatherData.temp,
+          tempLow: weatherData.tempLow,
+          tempHigh: weatherData.tempHigh,
+          rainChance: weatherData.rainChance,
           description: weatherData.description,
           lastFetched: weatherData.lastFetched
         }
@@ -2490,7 +2518,6 @@ app.get('/api/golf-courses/list', async (req, res) => {
   
   try {
     // Allow state and limit to be passed as query params for testing
-    const state = req.query.state || 'Virginia';
     const limit = Math.min(parseInt(req.query.limit) || 100, 200);
     
     // Use search endpoint - the API searches by course name, so cast a wide net
@@ -2641,13 +2668,7 @@ app.post('/api/events/:id/weather', async (req, res) => {
     if (!ev) return res.status(404).json({ error: 'Not found' });
     
     const weatherData = await fetchWeatherForecast(ev.date);
-    
-    if (!ev.weather) ev.weather = {};
-    ev.weather.condition = weatherData.condition;
-    ev.weather.icon = weatherData.icon;
-    ev.weather.temp = weatherData.temp;
-    ev.weather.description = weatherData.description;
-    ev.weather.lastFetched = weatherData.lastFetched;
+    assignWeatherToEvent(ev, weatherData);
     
     await ev.save();
     res.json(ev);
@@ -2677,12 +2698,7 @@ app.post('/api/events/weather/refresh-all', async (_req, res) => {
           weatherByDate.set(dateKey, fetchWeatherForecast(ev.date));
         }
         const weatherData = await weatherByDate.get(dateKey);
-        if (!ev.weather) ev.weather = {};
-        ev.weather.condition = weatherData.condition;
-        ev.weather.icon = weatherData.icon;
-        ev.weather.temp = weatherData.temp;
-        ev.weather.description = weatherData.description;
-        ev.weather.lastFetched = weatherData.lastFetched;
+        assignWeatherToEvent(ev, weatherData);
         await ev.save();
         if (weatherData.success) updated++;
         else {
@@ -3319,14 +3335,7 @@ async function refreshWeatherForUpcomingEvents() {
           weatherByDate.set(dateKey, fetchWeatherForecast(ev.date));
         }
         const weatherData = await weatherByDate.get(dateKey);
-        
-        if (!ev.weather) ev.weather = {};
-        ev.weather.condition = weatherData.condition;
-        ev.weather.icon = weatherData.icon;
-        ev.weather.temp = weatherData.temp;
-        ev.weather.description = weatherData.description;
-        ev.weather.lastFetched = weatherData.lastFetched;
-        
+        assignWeatherToEvent(ev, weatherData);
         await ev.save();
         updated++;
       } catch (e) {

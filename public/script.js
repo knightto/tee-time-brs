@@ -2,7 +2,10 @@
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     navigator.serviceWorker.register('/service-worker.js')
-      .then(reg => console.log('Service Worker registered:', reg.scope))
+      .then(reg => {
+        console.log('Service Worker registered:', reg.scope);
+        reg.update().catch(() => {});
+      })
       .catch(err => console.error('Service Worker registration failed:', err));
   });
 }
@@ -89,7 +92,7 @@ if ('serviceWorker' in navigator) {
   const subMsg = $('#subMsg');
   const subscribeModal = $('#subscribeModal');
   const openSubscribeBtn = $('#openSubscribeBtn');
-  const REFRESH_INTERVAL_MS = 30000;
+  const REFRESH_INTERVAL_MS = 15000;
 
   // Calendar elements
   const calendarGrid = $('#calendarGrid');
@@ -116,6 +119,7 @@ if ('serviceWorker' in navigator) {
   let loadPending = false;
   let autoRefreshTimer = null;
   let lastUpdatedAt = null;
+  let lastResumeRefreshAt = 0;
 
   // Inject Edit dialog
   function ensureEditDialog(){
@@ -260,7 +264,17 @@ if ('serviceWorker' in navigator) {
     }
     const icon = weather.icon ? `<span class="weather-inline" aria-hidden="true">${escapeHtml(weather.icon)}</span>` : '';
     const details = [];
-    if (Number.isFinite(Number(weather.temp))) details.push(`${Math.round(Number(weather.temp))}\u00b0F`);
+    const low = Number.isFinite(Number(weather.tempLow)) ? Math.round(Number(weather.tempLow)) : null;
+    const high = Number.isFinite(Number(weather.tempHigh)) ? Math.round(Number(weather.tempHigh)) : null;
+    if (Number.isFinite(low) && Number.isFinite(high)) {
+      details.push(`L${low}\u00b0 / H${high}\u00b0`);
+    } else if (Number.isFinite(Number(weather.temp))) {
+      details.push(`${Math.round(Number(weather.temp))}\u00b0F`);
+    }
+    const rainChance = Number.isFinite(Number(weather.rainChance)) ? Math.round(Number(weather.rainChance)) : null;
+    if (Number.isFinite(rainChance) && rainChance > 15) {
+      details.push(`Rain ${rainChance}%`);
+    }
     const desc = String(weather.description || weather.condition || '').trim();
     if (desc) details.push(desc);
     const text = details.join(' • ') || 'Forecast unavailable';
@@ -416,34 +430,62 @@ if ('serviceWorker' in navigator) {
     return data;
   }
   async function api(path, opts){ 
-    debugLog('info', `API Request: ${opts?.method || 'GET'} ${path}`, opts?.body ? JSON.parse(opts.body) : null);
+    const method = String(opts?.method || 'GET').toUpperCase();
+    let requestPath = path;
+    const mergedHeaders = { ...(opts?.headers || {}) };
+    if (method === 'GET') {
+      // Force fresh API reads, especially after mobile app resume.
+      mergedHeaders['Cache-Control'] = mergedHeaders['Cache-Control'] || 'no-cache';
+      mergedHeaders.Pragma = mergedHeaders.Pragma || 'no-cache';
+      try {
+        const u = new URL(path, window.location.origin);
+        if (!u.searchParams.has('fresh')) u.searchParams.set('fresh', '1');
+        requestPath = u.origin === window.location.origin
+          ? `${u.pathname}${u.search}${u.hash}`
+          : u.toString();
+      } catch (_) {}
+    }
+    debugLog('info', `API Request: ${method} ${requestPath}`, opts?.body ? JSON.parse(opts.body) : null);
     
     // Add timeout for slow requests
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
     
     try {
-      const r=await fetch(path, { ...opts, signal: controller.signal }); 
+      const r=await fetch(requestPath, {
+        ...opts,
+        headers: mergedHeaders,
+        cache: method === 'GET' ? 'no-store' : opts?.cache,
+        signal: controller.signal,
+      }); 
       clearTimeout(timeoutId);
       
       const ct=r.headers.get('content-type')||''; 
       const body = ct.includes('application/json') ? await r.json() : await r.text();
       if(!r.ok) {
         const msg = (typeof body === 'object' && body.message) || (typeof body === 'object' && body.error) || body || ('HTTP '+r.status);
-        debugLog('error', `API Error: ${opts?.method || 'GET'} ${path} (${r.status})`, body);
+        debugLog('error', `API Error: ${method} ${requestPath} (${r.status})`, body);
         throw new Error(msg);
       }
-      debugLog('success', `API Success: ${opts?.method || 'GET'} ${path}`, body);
+      debugLog('success', `API Success: ${method} ${requestPath}`, body);
       return body;
     } catch (err) {
       clearTimeout(timeoutId);
       if (err.name === 'AbortError') {
-        debugLog('error', `API Timeout: ${opts?.method || 'GET'} ${path}`, { error: 'Request timed out after 30 seconds' });
+        debugLog('error', `API Timeout: ${method} ${requestPath}`, { error: 'Request timed out after 30 seconds' });
         throw new Error('Request timed out. Please check your connection and try again.');
       }
-      debugLog('error', `API Failed: ${opts?.method || 'GET'} ${path}`, { error: err.message });
+      debugLog('error', `API Failed: ${method} ${requestPath}`, { error: err.message });
       throw err;
     }
+  }
+
+  function refreshOnResume(reason) {
+    const now = Date.now();
+    if (now - lastResumeRefreshAt < 1500) return;
+    lastResumeRefreshAt = now;
+    debugLog('info', `Resume refresh: ${reason}`);
+    load(true);
   }
 
   // Create Event: open modal in the requested mode (tees or teams)
@@ -865,10 +907,14 @@ if ('serviceWorker' in navigator) {
   });
 
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) load(true);
+    if (!document.hidden) refreshOnResume('visibility');
   });
-
-  window.addEventListener('online', () => load(true));
+  window.addEventListener('pageshow', (e) => {
+    if (e && e.persisted) refreshOnResume('pageshow-bfcache');
+    else refreshOnResume('pageshow');
+  });
+  window.addEventListener('focus', () => refreshOnResume('focus'));
+  window.addEventListener('online', () => refreshOnResume('online'));
 
   // Calendar navigation
   on(prevMonthBtn, 'click', () => {
