@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1a5a1a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <title>Features - Tee Time BRS</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    .feature-wrap{max-width:980px;margin:32px auto;padding:24px;background:linear-gradient(135deg,#ecfeff 0%,#cffafe 100%);border:2px solid #67e8f9;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.12);}
+    .feature-wrap h1{margin:0 0 12px 0;color:#155e75;font-size:28px;display:flex;align-items:center;gap:8px;}
+    .feature-wrap h2{margin:20px 0 8px 0;color:#0e7490;font-size:18px;}
+    .feature-wrap ul{margin:0 0 16px 20px;color:#0f172a;line-height:1.6;}
+    .feature-wrap p{color:#0f172a;line-height:1.6;}
+    .pill{display:inline-flex;align-items:center;gap:6px;background:#155e75;color:#ecfeff;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:0.01em;}
+    .page-links{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0 8px 0;}
+    .page-links a{color:#0e7490;font-weight:700;text-decoration:none;}
+    .callout{background:#ecfeff;border:1px solid #a5f3fc;border-radius:8px;padding:10px 12px;margin:12px 0;font-size:13px;color:#0f172a;}
+    .back-link{display:inline-block;margin-top:12px;color:#0e7490;text-decoration:none;font-weight:700;}
+  </style>
+</head>
+<body style="background:#f8fafc;">
+  <main class="feature-wrap">
+    <h1><span class="pill">Tee Time BRS</span> Features</h1>
+    <p class="callout">This page lists options and capabilities. For usage steps, open the User Guide.</p>
+    <div class="page-links">
+      <a href="/user-guide.html">Open User Guide</a>
+      <a href="/admin.html">Open Admin Page</a>
+    </div>
+
+    <h2>User Options</h2>
+    <ul>
+      <li><strong>Info navigation:</strong> User Guide, Features, Blue Ridge Outings, Weekend Rules, Handicaps.</li>
+      <li><strong>Subscribe:</strong> opt in for event notification emails.</li>
+      <li><strong>Calendar navigation:</strong> month switching, date selection, and event list by day.</li>
+      <li><strong>Monthly calendar export:</strong> one-click ICS download for the visible month.</li>
+      <li><strong>Calendar tee-time request:</strong> send a date/time request to the club.</li>
+      <li><strong>Event creation:</strong> tee-time events and team events with appropriate settings.</li>
+      <li><strong>Event actions:</strong> add time/team, request club time, pairings, edit, delete, Google, ICS, audit.</li>
+      <li><strong>Player actions:</strong> add, move, remove, individual check-in, and check-in all.</li>
+      <li><strong>Maybe list:</strong> interested list, fill spot, and remove entries.</li>
+      <li><strong>Course details:</strong> city/state, phone, website, holes/par when available.</li>
+      <li><strong>Weather display:</strong> forecast icon, low/high temps, rain chance display.</li>
+      <li><strong>Visual urgency:</strong> red empty tee rows and red calendar markers within 3 days.</li>
+      <li><strong>Fresh mobile behavior:</strong> automatic refresh on resume/focus/online/pageshow.</li>
+      <li><strong>Email import:</strong> auto-create/cancel events from forwarded club emails.</li>
+      <li><strong>Calendar reminders in ICS:</strong> 3-day and 1-day reminders included.</li>
+    </ul>
+
+    <h2>Special User Pages</h2>
+    <ul>
+      <li><strong>Blue Ridge Outings:</strong> <code>/blue-ridge-outings.html</code></li>
+      <li><strong>Handicaps:</strong> <code>/handicaps.html</code></li>
+      <li><strong>Weekend Rules:</strong> <code>/rules.html</code></li>
+      <li><strong>Myrtle Trip:</strong> <code>/myrtle-trip-2026.html</code></li>
+    </ul>
+
+    <h2>Admin Functions</h2>
+    <ul>
+      <li><strong>Global notifications toggle:</strong> enable/disable system-wide subscriber emails.</li>
+      <li><strong>Automated scheduler toggle:</strong> pause or resume all scheduled jobs.</li>
+      <li><strong>Scheduled email rule toggles:</strong>
+        4 PM Brian empty-tee alert, 5 PM 48-hour reminder, 5 PM 24-hour reminder, 5 PM nearly-full alert, 6-hour admin empty-tee alerts.
+      </li>
+      <li><strong>Quick actions:</strong> check empty tees, refresh all weather, verify course data, message all subscribers.</li>
+      <li><strong>Subscriber management:</strong> view subscriber list and delete subscribers.</li>
+      <li><strong>Tee-time change log:</strong> audit adds, edits, deletes, moves, and check-ins.</li>
+      <li><strong>Protected actions via admin code:</strong> event delete, tee/time delete, club-notify delete path.</li>
+      <li><strong>Manual admin endpoints:</strong> reminder runs, Brian empty-tee alert run, empty-tee report, course verification.</li>
+    </ul>
+
+    <a class="back-link" href="/">&larr; Back to Tee Times</a>
+  </main>
+</body>
+</html>

@@ -1379,7 +1379,15 @@ if ('serviceWorker' in navigator) {
         if(!confirm('Remove this tee/team?')) return;
         const adminCode = (prompt('Admin delete code (required):') || '').trim();
         if(!adminCode) return;
-        const notifyClub = confirm('Notify the club via email and CC tommy.knight@gmail.com?');
+        const ev = await getEventForAction(eventId);
+        const isTeamEvent = !!(ev && ev.isTeamEvent);
+        let notifyClub = false;
+        if (!isTeamEvent) {
+          const notifyChoice = String(
+            prompt('Notify the club to remove this tee time from their books? Type "yes" or "no".', 'no') || 'no'
+          ).trim().toLowerCase();
+          notifyClub = notifyChoice === 'yes' || notifyChoice === 'y';
+        }
         t.disabled = true;
         t.textContent = notifyClub ? 'Sending...' : 'Removing...';
         try {
@@ -1391,7 +1399,7 @@ if ('serviceWorker' in navigator) {
           if (resp && resp.notifyClub) {
             alert('Club notified and tee time removed.');
           } else {
-            alert('Tee time removed.');
+            alert(isTeamEvent ? 'Team removed.' : 'Tee time removed without club notification.');
           }
         } catch (err) {
           console.error(err);

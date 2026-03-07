@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -9,97 +9,105 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <link rel="apple-touch-icon" href="/icons/icon-192.png">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-  <title>User Guide &amp; Features - Tee Time BRS</title>
+  <title>User Guide - Tee Time BRS</title>
   <link rel="stylesheet" href="style.css">
   <style>
-    .guide-wrap{max-width:960px;margin:32px auto;padding:24px;background:linear-gradient(135deg,#f0fdf4 0%,#dcfce7 100%);border:2px solid #86efac;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.12);}
+    .guide-wrap{max-width:980px;margin:32px auto;padding:24px;background:linear-gradient(135deg,#f0fdf4 0%,#dcfce7 100%);border:2px solid #86efac;border-radius:12px;box-shadow:0 8px 24px rgba(0,0,0,0.12);}
     .guide-wrap h1{margin:0 0 12px 0;color:#14532d;font-size:28px;display:flex;align-items:center;gap:8px;}
     .guide-wrap h2{margin:20px 0 8px 0;color:#166534;font-size:18px;}
     .guide-wrap ul{margin:0 0 16px 20px;color:#0f172a;line-height:1.6;}
+    .guide-wrap p{color:#0f172a;line-height:1.6;}
     .pill{display:inline-flex;align-items:center;gap:6px;background:#14532d;color:#ecfdf3;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:700;letter-spacing:0.01em;}
+    .page-links{display:flex;gap:12px;flex-wrap:wrap;margin:14px 0 8px 0;}
+    .page-links a{color:#166534;font-weight:700;text-decoration:none;}
     .back-link{display:inline-block;margin-top:12px;color:#166534;text-decoration:none;font-weight:700;}
     .callout{background:#ecfdf3;border:1px solid #bbf7d0;border-radius:8px;padding:10px 12px;margin:12px 0;font-size:13px;color:#0f172a;}
   </style>
 </head>
 <body style="background:#f8fafc;">
   <main class="guide-wrap">
-    <h1><span class="pill">Tee Time BRS</span> In plain English</h1>
-    <p class="callout">This is the one place your golf group can see dates, sign up, and stay in sync—without text storms.</p>
+    <h1><span class="pill">Tee Time BRS</span> User Guide</h1>
+    <p class="callout">Use this page for step-by-step usage. For a full capability list, open the Features page.</p>
+    <div class="page-links">
+      <a href="/features.html">Open Features Page</a>
+      <a href="/admin.html">Open Admin Page</a>
+    </div>
 
-    <h2>What it does for you</h2>
+    <h2>Quick Start</h2>
     <ul>
-      <li>Keeps a live calendar for tee times and team events so everyone knows when and where.</li>
-      <li>Sends the right emails: new events, updates, cancellations, empty-tee reminders, and (if you choose) a note to the club when you delete a tee time.</li>
-      <li>Makes moving golfers easy: add, remove, move between times/teams, or park them on a “Maybe” list.</li>
-      <li>Adds day-of tools: individual check-in, bulk check-in per tee/team, and checked-in totals.</li>
-      <li>Gives quick exports: event roster CSV, single-event calendar links, and monthly calendar file download.</li>
-      <li>Shows who changed what with an admin code for protected actions, so accidents and mysteries are rare.</li>
-      <li>Includes extras your group uses: Myrtle trip tracker.</li>
+      <li>Open the main page and click <strong>Subscribe</strong> to get email updates.</li>
+      <li>Pick a date on the calendar to view events for that day.</li>
+      <li>Create an event with <strong>New Tee-Time Event</strong> or <strong>New Team Event</strong>.</li>
+      <li>Open an event and use <strong>Actions</strong> to add times/teams, add players, and share calendar links.</li>
+      <li>Use <strong>Refresh</strong> any time to force a fresh data pull.</li>
     </ul>
 
-    <h2>Everyday tasks</h2>
+    <h2>Top Bar Options</h2>
     <ul>
-      <li><strong>Create events quickly:</strong> Pick course, date, first tee time, and how many times (auto-spaced). For teams, pick team size and start type.</li>
-      <li><strong>Auto-create from email:</strong> Forward course confirmations to <code>teetime@xenailexou.resend.app</code>. It reads the email, makes the event, and sets tee-time count. Cancellation emails remove the match.</li>
-      <li><strong>Manage tee times:</strong> Add existing times, request new club time, remove/rename times; when deleting, enter the admin code and choose whether to notify the club (CC your admin).</li>
-      <li><strong>Manage teams:</strong> Shotgun or staggered; teams auto-named; team size enforced.</li>
-      <li><strong>Players:</strong> Add/move/remove golfers, mark check-in, bulk check-in a whole tee/team, and keep overflow in Maybe.</li>
-      <li><strong>Maybe to active:</strong> Use <em>Fill Spot</em> to promote someone from Maybe into the next open slot.</li>
-      <li><strong>Pairings:</strong> Use <em>Pairings</em> to suggest/apply balanced groups using handicap data for tee-time events.</li>
+      <li><strong>Info menu:</strong> User Guide, Features, Blue Ridge Outings, Weekend Game Rules, Handicaps.</li>
+      <li><strong>Subscribe:</strong> saves your email for event notifications.</li>
     </ul>
 
-    <h2>Calendar &amp; exports</h2>
+    <h2>Calendar Options</h2>
     <ul>
-      <li><strong>Event calendar actions:</strong> Per event, add to Google Calendar or download ICS.</li>
-      <li><strong>Monthly export:</strong> Use <em>Save Month</em> to download all tee times in the visible month as one ICS file.</li>
-      <li><strong>Request from calendar:</strong> Use <em>Request Tee Time</em> at top of calendar, pick date + preferred time + requester name, then send to club.</li>
-      <li><strong>Roster export:</strong> Download event CSV showing slots, players, registered/maybe, and check-in status.</li>
+      <li><strong>Previous/Next month:</strong> arrow buttons in the calendar header.</li>
+      <li><strong>Select day:</strong> tap any date cell to load events for that day.</li>
+      <li><strong>Add tee times to your calendar for this month:</strong> downloads a monthly ICS file.</li>
+      <li><strong>Request a Tee Time for Blue Ridge Shadows:</strong> sends a date/time request to the club.</li>
+      <li><strong>New Tee-Time Event / New Team Event:</strong> create events directly from the sidebar.</li>
     </ul>
 
-    <h2>Helpful automation</h2>
+    <h2>Event Card Options</h2>
     <ul>
-      <li><strong>Club notice on delete:</strong> If you choose, the course gets an email (with CC) asking them to remove the tee time from their system.</li>
-      <li><strong>Club request email:</strong> <em>Request Club Time</em> sends an extra-time request for that event date with your note.</li>
-      <li><strong>Course info:</strong> Search shows location, phone, website, and par/holes.</li>
-      <li><strong>Weather glance:</strong> Quick icon and temps for events within 16 days.</li>
-      <li><strong>Capacity awareness:</strong> Event/tee cards show registered, checked-in, open spots, and full indicators.</li>
+      <li><strong>Actions toggle:</strong> show/hide event action buttons.</li>
+      <li><strong>Add Existing Time</strong> (tee-time events) or <strong>Add Team</strong> (team events).</li>
+      <li><strong>Request Club Time:</strong> sends an additional tee-time request for that event date.</li>
+      <li><strong>Pairings:</strong> suggests and applies handicap-balanced groups for tee-time events.</li>
+      <li><strong>Edit / Delete:</strong> edit event details, or delete with admin code.</li>
+      <li><strong>Google / ICS:</strong> add a single event to calendar apps.</li>
+      <li><strong>Audit button (clipboard icon):</strong> view event change history.</li>
     </ul>
 
-    <h2>Admin safety</h2>
+    <h2>Tee Time and Team Row Options</h2>
     <ul>
-      <li>Admin code required for deletes and protected actions.</li>
-      <li>Audit log shows adds/removes/moves/check-in actions.</li>
-      <li>Admin page manages subscribers and reminders.</li>
+      <li><strong>Add Player:</strong> add a golfer to a tee time/team.</li>
+      <li><strong>Check In All:</strong> mark or clear check-in for the entire tee/team.</li>
+      <li><strong>Individual actions:</strong> check in, move, or remove each golfer.</li>
+      <li><strong>Edit team name:</strong> rename teams in team events.</li>
+      <li><strong>Remove tee/team:</strong> delete a slot (with optional club notification path when prompted).</li>
     </ul>
 
-    <h2>Special pages</h2>
+    <h2>Maybe List Options</h2>
     <ul>
-      <li><strong>Myrtle Trip:</strong> <code>/myrtle-trip-2026.html</code> for trip details.</li>
-      <li><strong>Valley Sip and Smoke:</strong> <code>/valley-sip-and-smoke.html</code> for membership and event schedule overview.</li>
-      <li><strong>Blue Ridge Outings:</strong> <code>/blue-ridge-outings.html</code> for annual outings and online signup.</li>
-      <li><strong>Blue Ridge Outings Admin:</strong> <code>/blue-ridge-outings-admin.html</code> to create/edit outings and team rules.</li>
+      <li><strong>+ Interested:</strong> add someone to the maybe list.</li>
+      <li><strong>Fill Spot:</strong> promote someone from maybe to an open spot.</li>
+      <li><strong>Remove (x):</strong> remove a maybe entry.</li>
     </ul>
 
-    <h2>How to roll it out</h2>
+    <h2>Status and Visual Cues</h2>
     <ul>
-      <li>Share the site and your access code.</li>
-      <li>Ask players to click “Subscribe” so they get emails instead of texting you.</li>
-      <li>Tell them: pick a date, pick an event, add yourself—no spreadsheets or reply-all.</li>
+      <li><strong>Weather summary:</strong> day icon, low/high, and rain percentage when relevant.</li>
+      <li><strong>Full tee rows:</strong> muted/grey styling with full indicator.</li>
+      <li><strong>Empty tee rows inside 3 days:</strong> bright red warning style.</li>
+      <li><strong>Calendar marker inside 3 days:</strong> red golf marker on affected dates.</li>
     </ul>
 
-    <h2>Captain’s daily playbook</h2>
+    <h2>Email Import Workflow</h2>
     <ul>
-      <li>Create or import the event; check times look right.</li>
-      <li>Watch sign-ups; move players to balance groups; use Maybe for overflow; use Fill Spot to confirm from Maybe.</li>
-      <li>Run Pairings for tee-time events when you need balanced groups.</li>
-      <li>On event day, use individual or group check-in to track arrivals.</li>
-      <li>If a tee is cancelled, delete it, enter the admin code, and choose “notify club.”</li>
-      <li>Use Request Tee Time (calendar top) for new date/time asks, or Request Club Time inside an event.</li>
-      <li>Check audit log if something seems off; export CSV/calendar when you need to share lineups.</li>
+      <li>Forward tee-time confirmation emails to <code>teetime@xenailexou.resend.app</code>.</li>
+      <li>The system parses date/time/course and creates the event automatically.</li>
+      <li>Cancellation emails remove matching events when detected.</li>
+    </ul>
+
+    <h2>Tips For Captains</h2>
+    <ul>
+      <li>Create events early, then use Maybe + Fill Spot while the list settles.</li>
+      <li>Use Pairings close to event day for better handicap balancing.</li>
+      <li>Use Check In All and individual check-in to track arrivals quickly.</li>
+      <li>Use the admin audit view if any roster change looks unexpected.</li>
     </ul>
 
     <a class="back-link" href="/">&larr; Back to Tee Times</a>
   </main>
 </body>
 </html>
-

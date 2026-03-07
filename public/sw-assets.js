@@ -9,6 +9,7 @@ self.__SW_ASSETS = [
   "/dist/script.min.js",
   "/dist/style.min.css",
   "/favicon.svg",
+  "/features.html",
   "/handicap-import.html",
   "/handicaps.html",
   "/icons/icon-192.png",
