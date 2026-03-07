@@ -1525,8 +1525,8 @@ if ('serviceWorker' in navigator) {
         try {
           t.disabled = true;
           t.textContent = 'Adding...';
-          await api(`/api/events/${id}/tee-times/${teeId}/players`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
-          await updateEventCard(id);
+          const updatedEvent = await api(`/api/events/${id}/tee-times/${teeId}/players`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
+          await updateEventCard(id, updatedEvent);
           return;
         } catch (err) {
           console.error(err);
@@ -1626,8 +1626,9 @@ if ('serviceWorker' in navigator) {
     const playerId=moveForm.elements['playerId'].value;
     const toTeeId=moveForm.elements['dest'].value;
     try{
-      await api(`/api/events/${eventId}/move-player`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fromTeeId,toTeeId,playerId})});
-      moveModal.close?.(); load();
+      const updatedEvent = await api(`/api/events/${eventId}/move-player`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fromTeeId,toTeeId,playerId})});
+      moveModal.close?.();
+      await updateEventCard(eventId, updatedEvent);
     }catch(err){ 
       console.error(err);
       const msg = err.message || 'Move failed';
