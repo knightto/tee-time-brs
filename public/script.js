@@ -784,6 +784,8 @@ if ('serviceWorker' in navigator) {
         if (teamEventDates.has(dateStr)) dayEl.classList.add('has-team-events');
         if (urgentTeeEventDates.has(dateStr)) dayEl.classList.add('has-urgent-tee-events');
         if (nonBlueRidgeTeeEventDates.has(dateStr)) dayEl.classList.add('has-non-brs-tee-events');
+        if (dateStr < todayStr) dayEl.classList.add('past-event-day');
+        else dayEl.classList.add('upcoming-event-day');
       }
       
       if (selectedDate && dateStr === selectedDate) {
