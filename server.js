@@ -2615,6 +2615,56 @@ app.get('/api/golf-courses/list', async (req, res) => {
       website: null,
       holes: 18,
       par: 72
+    },
+    {
+      id: 'custom-7',
+      name: 'World Tour Golf Links',
+      city: 'Myrtle Beach',
+      state: 'SC',
+      phone: null,
+      website: null,
+      holes: 18,
+      par: 72
+    },
+    {
+      id: 'custom-8',
+      name: 'Wild Wing Avocet',
+      city: 'Conway',
+      state: 'SC',
+      phone: null,
+      website: null,
+      holes: 18,
+      par: 72
+    },
+    {
+      id: 'custom-9',
+      name: 'MB National Kings North',
+      city: 'Myrtle Beach',
+      state: 'SC',
+      phone: null,
+      website: null,
+      holes: 18,
+      par: 72
+    },
+    {
+      id: 'custom-10',
+      name: 'River Hills',
+      city: 'Little River',
+      state: 'SC',
+      phone: null,
+      website: null,
+      holes: 18,
+      par: 72
+    },
+    {
+      id: 'custom-11',
+      name: 'Long Bay',
+      city: 'Longs',
+      state: 'SC',
+      phone: null,
+      website: null,
+      holes: 18,
+      par: 72
     }
   ];
 
@@ -2698,7 +2748,12 @@ app.get('/api/golf-courses/search', async (req, res) => {
     { id: 'custom-3', name: 'Rock Harbor Golf Club', city: 'Winchester', state: 'VA', phone: '(540) 722-7111', website: 'https://www.rockharborgolf.com', holes: 18, par: 72 },
     { id: 'custom-4', name: 'Shenandoah Valley Golf Club', city: 'Front Royal', state: 'VA', phone: '(540) 636-4653', website: 'https://svgcgolf.com', holes: 27, par: 72 },
     { id: 'custom-5', name: 'Shenvalee Golf Resort', city: 'New Market', state: 'VA', phone: '(540) 740-3181', website: 'https://shenvalee.com', holes: 27, par: 72 },
-    { id: 'custom-6', name: 'The Club at Ironwood', city: 'Greenville', state: 'VA', phone: '(540) 337-1234', website: null, holes: 18, par: 72 }
+    { id: 'custom-6', name: 'The Club at Ironwood', city: 'Greenville', state: 'VA', phone: '(540) 337-1234', website: null, holes: 18, par: 72 },
+    { id: 'custom-7', name: 'World Tour Golf Links', city: 'Myrtle Beach', state: 'SC', phone: null, website: null, holes: 18, par: 72 },
+    { id: 'custom-8', name: 'Wild Wing Avocet', city: 'Conway', state: 'SC', phone: null, website: null, holes: 18, par: 72 },
+    { id: 'custom-9', name: 'MB National Kings North', city: 'Myrtle Beach', state: 'SC', phone: null, website: null, holes: 18, par: 72 },
+    { id: 'custom-10', name: 'River Hills', city: 'Little River', state: 'SC', phone: null, website: null, holes: 18, par: 72 },
+    { id: 'custom-11', name: 'Long Bay', city: 'Longs', state: 'SC', phone: null, website: null, holes: 18, par: 72 }
   ];
   
   if (!query || query.length < 2) {

@@ -1114,7 +1114,6 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
 
 /* Compact specific action buttons to reduce header crowding */
 .card-header .button-row button[data-calendar-google],
-.card-header .button-row button[data-calendar-ics],
 .card-header .button-row button[data-edit],
 .card-header .button-row button[data-del]{
   min-height:32px;
@@ -1163,79 +1162,69 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   flex-wrap:wrap;
   align-items:center;
   gap:8px;
+  width:100%;
 }
 
 .card-header .button-row > button{
   width:auto;
-  min-width:92px;
-  min-height:32px;
-  padding:.22rem .5rem;
-  font-size:.8rem;
+  min-width:88px;
+  min-height:34px;
+  padding:.24rem .58rem;
+  font-size:.82rem;
   line-height:1.05;
 }
 
 .time-action-pair{
-  display:inline-flex;
+  display:flex;
   flex-wrap:wrap;
   gap:8px;
-  width:auto;
-  grid-column:auto;
+  width:100%;
+  flex:1 1 100%;
+  margin-right:2px;
 }
 
 .time-action-pair button{
   width:auto !important;
-  min-width:120px;
-  min-height:34px;
-  padding:.24rem .55rem;
+  min-width:132px;
+  min-height:36px;
+  padding:.24rem .58rem;
   font-size:.82rem;
 }
 
-.action-pair{
-  display:inline-flex;
-  gap:8px;
-  flex-wrap:nowrap;
+.card-header .button-row > button[data-calendar-google]{
+  min-width:96px;
 }
 
-.action-pair button{
-  width:auto !important;
-  min-width:92px;
-  min-height:32px;
-  padding:.22rem .5rem;
-  font-size:.8rem;
-  line-height:1.05;
+.card-header .button-row > button[data-del]{
+  color:#991b1b;
+  border-color:#ef4444;
+  background:linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
 }
 
 @media (max-width:768px){
   .card-header .button-row{
     display:none;
     width:100%;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:8px;
   }
 
   .card-header.actions-open .button-row{
-    display:flex;
-  }
-
-  .card-header .button-row > button{
-    min-width:86px;
+    display:grid;
   }
 
   .time-action-pair{
+    display:grid;
+    grid-template-columns:repeat(2, minmax(0, 1fr));
     width:100%;
-    justify-content:flex-start;
+    grid-column:1 / -1;
+    margin-right:0;
   }
 
+  .card-header .button-row > button,
   .time-action-pair button{
     min-width:0;
-    flex:1 1 140px;
-  }
-
-  .action-pair{
-    width:100%;
-  }
-
-  .action-pair button{
-    min-width:0;
-    flex:1 1 120px;
+    width:100% !important;
   }
 }
 

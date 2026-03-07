@@ -1116,8 +1116,9 @@ if ('serviceWorker' in navigator) {
           <div class="button-row">
             ${isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<div class="time-action-pair"><button class="small" data-add-tee="${ev._id}">Add Existing Time</button><button class="small" data-request-extra-tee="${ev._id}" title="Email Brian Jones to request an additional tee time">Request Club Time</button></div>`}
             ${isTeams ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Pairings</button>`}
-            <div class="action-pair"><button class="small" data-edit="${ev._id}">Edit</button><button class="small" data-del="${ev._id}">Delete</button></div>
-            <div class="action-pair"><button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button><button class="small" data-calendar-ics="${ev._id}" title="Download .ics file for Apple/Outlook/Google import">ICS</button></div>
+            <button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button>
+            <button class="small" data-edit="${ev._id}">Edit</button>
+            <button class="small" data-del="${ev._id}">Delete</button>
           </div>
         </div>
           </div>
@@ -2006,8 +2007,9 @@ if ('serviceWorker' in navigator) {
           <div class="button-row">
             ${isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<div class="time-action-pair"><button class="small" data-add-tee="${ev._id}">Add Existing Time</button><button class="small" data-request-extra-tee="${ev._id}" title="Email Brian Jones to request an additional tee time">Request Club Time</button></div>`}
             ${isTeams ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Pairings</button>`}
-            <div class="action-pair"><button class="small" data-edit="${ev._id}">Edit</button><button class="small" data-del="${ev._id}">Delete</button></div>
-            <div class="action-pair"><button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button><button class="small" data-calendar-ics="${ev._id}" title="Download .ics file for Apple/Outlook/Google import">ICS</button></div>
+            <button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button>
+            <button class="small" data-edit="${ev._id}">Edit</button>
+            <button class="small" data-del="${ev._id}">Delete</button>
           </div>
         </div>
       </div>
