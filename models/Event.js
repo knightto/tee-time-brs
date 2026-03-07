@@ -21,11 +21,15 @@ const EventSchema = new mongoose.Schema({
   courseInfo: {
     city: { type: String, default: null },
     state: { type: String, default: null },
+    address: { type: String, default: null },
+    fullAddress: { type: String, default: null },
     phone: { type: String, default: null },
     website: { type: String, default: null },
     holes: { type: Number, default: 18 },
     par: { type: Number, default: null },
-    imageUrl: { type: String, default: null }
+    imageUrl: { type: String, default: null },
+    latitude: { type: Number, default: null },
+    longitude: { type: Number, default: null }
   },
   date:   { type: Date,   required: true },
   notes:  { type: String, default: '' },

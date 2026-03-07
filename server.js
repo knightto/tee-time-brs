@@ -691,6 +691,9 @@ const DEFAULT_LAT = process.env.DEFAULT_LAT || '37.5407';
 const DEFAULT_LON = process.env.DEFAULT_LON || '-77.4360';
 const weatherCache = new Map(); // key: `${dateISO}|${lat}|${lon}` -> { data, ts }
 const WEATHER_TTL_MS = 3 * 60 * 60 * 1000; // 3 hours
+const weatherGeocodeCache = new Map(); // key: normalized query -> { data, ok, ts }
+const WEATHER_GEOCODE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+const WEATHER_GEOCODE_NEG_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 function getWeatherIcon(weatherCode, isDay = true) {
   // WMO Weather interpretation codes
@@ -705,6 +708,158 @@ function getWeatherIcon(weatherCode, isDay = true) {
   if (weatherCode >= 80 && weatherCode <= 82) return { icon: '🌦️', condition: 'showers', desc: 'Rain showers' };
   if (weatherCode >= 95) return { icon: '⛈️', condition: 'stormy', desc: 'Thunderstorm' };
   return { icon: '🌤️', condition: 'unknown', desc: 'Unknown' };
+}
+
+function toNullableString(value) {
+  const raw = String(value || '').trim();
+  return raw || null;
+}
+
+function toFiniteNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function toLatitude(value) {
+  const n = toFiniteNumber(value);
+  if (n === null) return null;
+  if (n < -90 || n > 90) return null;
+  return n;
+}
+
+function toLongitude(value) {
+  const n = toFiniteNumber(value);
+  if (n === null) return null;
+  if (n < -180 || n > 180) return null;
+  return n;
+}
+
+function normalizeCourseInfo(input = {}) {
+  const courseInfo = (input && typeof input === 'object') ? input : {};
+  const out = {};
+  const city = toNullableString(courseInfo.city);
+  const state = toNullableString(courseInfo.state);
+  const phone = toNullableString(courseInfo.phone);
+  const website = toNullableString(courseInfo.website);
+  const imageUrl = toNullableString(courseInfo.imageUrl);
+  const address = toNullableString(courseInfo.address);
+  const fullAddress = toNullableString(courseInfo.fullAddress);
+  const holesRaw = toFiniteNumber(courseInfo.holes);
+  const parRaw = toFiniteNumber(courseInfo.par);
+  const latitude = toLatitude(courseInfo.latitude ?? courseInfo.lat);
+  const longitude = toLongitude(courseInfo.longitude ?? courseInfo.lon ?? courseInfo.lng);
+
+  if (city) out.city = city;
+  if (state) out.state = state;
+  if (phone) out.phone = phone;
+  if (website) out.website = website;
+  if (imageUrl) out.imageUrl = imageUrl;
+  if (address) out.address = address;
+  if (fullAddress) out.fullAddress = fullAddress;
+  if (holesRaw !== null && holesRaw > 0) out.holes = Math.round(holesRaw);
+  if (parRaw !== null && parRaw > 0) out.par = Math.round(parRaw);
+  if (latitude !== null) out.latitude = latitude;
+  if (longitude !== null) out.longitude = longitude;
+  return out;
+}
+
+function uniqueLocationQueries(queries = []) {
+  const out = [];
+  const seen = new Set();
+  for (const q of queries) {
+    const value = String(q || '').trim().replace(/\s+/g, ' ');
+    if (!value) continue;
+    const key = value.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(value);
+  }
+  return out;
+}
+
+async function geocodeLocationQuery(query) {
+  const normalizedQuery = String(query || '').trim().replace(/\s+/g, ' ');
+  if (!normalizedQuery) return null;
+
+  const cacheKey = normalizedQuery.toLowerCase();
+  const cached = weatherGeocodeCache.get(cacheKey);
+  if (cached) {
+    const ttl = cached.ok ? WEATHER_GEOCODE_TTL_MS : WEATHER_GEOCODE_NEG_TTL_MS;
+    if (Date.now() - cached.ts < ttl) return cached.data;
+  }
+
+  try {
+    const url = `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(normalizedQuery)}&count=5&language=en&format=json`;
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Geocoding HTTP ${response.status}`);
+
+    const payload = await response.json();
+    const results = Array.isArray(payload && payload.results) ? payload.results : [];
+    const findValid = (list = []) => list.find((entry) => toLatitude(entry.latitude) !== null && toLongitude(entry.longitude) !== null);
+    const usMatch = findValid(results.filter((entry) => String(entry.country_code || '').toUpperCase() === 'US'));
+    const best = usMatch || findValid(results);
+
+    const geocoded = best
+      ? {
+          lat: Number(best.latitude),
+          lon: Number(best.longitude),
+          source: 'geocoded',
+          query: normalizedQuery,
+        }
+      : null;
+
+    weatherGeocodeCache.set(cacheKey, { data: geocoded, ok: !!geocoded, ts: Date.now() });
+    return geocoded;
+  } catch (err) {
+    console.warn('Weather geocode error:', err.message, '(query:', normalizedQuery, ')');
+    weatherGeocodeCache.set(cacheKey, { data: null, ok: false, ts: Date.now() });
+    return null;
+  }
+}
+
+async function resolveWeatherCoordinates(eventLike = {}) {
+  const courseInfo = (eventLike && eventLike.courseInfo && typeof eventLike.courseInfo === 'object')
+    ? eventLike.courseInfo
+    : {};
+  const storedLat = toLatitude(courseInfo.latitude ?? courseInfo.lat);
+  const storedLon = toLongitude(courseInfo.longitude ?? courseInfo.lon ?? courseInfo.lng);
+  if (storedLat !== null && storedLon !== null) {
+    return { lat: storedLat, lon: storedLon, source: 'course-info' };
+  }
+
+  const course = toNullableString(eventLike.course);
+  const city = toNullableString(courseInfo.city);
+  const state = toNullableString(courseInfo.state);
+  const address = toNullableString(courseInfo.address || courseInfo.fullAddress);
+
+  const queries = uniqueLocationQueries([
+    [course, address, city, state].filter(Boolean).join(', '),
+    [course, city, state].filter(Boolean).join(', '),
+    [address, city, state].filter(Boolean).join(', '),
+    [course, city].filter(Boolean).join(', '),
+    [course, state].filter(Boolean).join(', '),
+    [city, state].filter(Boolean).join(', '),
+    course || '',
+  ]);
+
+  for (const query of queries) {
+    const geocoded = await geocodeLocationQuery(query);
+    if (geocoded) return geocoded;
+  }
+
+  const fallbackLat = toLatitude(DEFAULT_LAT);
+  const fallbackLon = toLongitude(DEFAULT_LON);
+  return {
+    lat: fallbackLat !== null ? fallbackLat : 37.5407,
+    lon: fallbackLon !== null ? fallbackLon : -77.4360,
+    source: 'default',
+  };
+}
+
+async function fetchWeatherForEvent(eventLike = {}) {
+  const date = eventLike && eventLike.date;
+  const coords = await resolveWeatherCoordinates(eventLike);
+  return fetchWeatherForecast(date, coords.lat, coords.lon);
 }
 
 async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) {
@@ -1658,9 +1813,12 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
     }
     const eventDate = /^\d{4}-\d{2}-\d{2}$/.test(String(date||'')) ? new Date(String(date)+'T12:00:00Z') : asUTCDate(date);
     const dedupeKey = buildDedupeKey(eventDate, tt, !!isTeamEvent);
-    
-    // Fetch weather forecast
-    const weatherData = await fetchWeatherForecast(eventDate);
+    const normalizedCourseInfo = normalizeCourseInfo(courseInfo || {});
+    const weatherData = await fetchWeatherForEvent({
+      course,
+      courseInfo: normalizedCourseInfo,
+      date: eventDate,
+    });
     
     if (dedupeKey) {
       const existing = await Event.findOne({ dedupeKey });
@@ -1673,7 +1831,7 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
     try {
       created = await Event.create({
         course,
-        courseInfo: courseInfo || {},
+        courseInfo: normalizedCourseInfo,
         date: eventDate,
         notes,
         isTeamEvent: !!isTeamEvent,
@@ -1716,12 +1874,39 @@ app.put('/api/events/:id', async (req, res) => {
   try {
     const ev = await Event.findById(req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
-    const { course, date, notes, isTeamEvent, teamSizeMax } = req.body || {};
-    if (course !== undefined) ev.course = String(course);
-    if (date !== undefined) ev.date = /^\d{4}-\d{2}-\d{2}$/.test(String(date)) ? new Date(String(date)+'T12:00:00Z') : asUTCDate(date);
+    const body = req.body || {};
+    const { course, courseInfo, date, notes, isTeamEvent, teamSizeMax } = body;
+    const hasCourseInfo = Object.prototype.hasOwnProperty.call(body, 'courseInfo');
+    let weatherNeedsRefresh = false;
+
+    if (course !== undefined) {
+      const prevCourse = String(ev.course || '').trim().toLowerCase();
+      const nextCourse = String(course || '').trim();
+      const courseChanged = nextCourse.toLowerCase() !== prevCourse;
+      ev.course = nextCourse;
+      if (courseChanged) {
+        weatherNeedsRefresh = true;
+        // If the course changed and no courseInfo was provided, clear stale location metadata.
+        if (!hasCourseInfo) ev.courseInfo = normalizeCourseInfo({});
+      }
+    }
+
+    if (hasCourseInfo) {
+      ev.courseInfo = normalizeCourseInfo(courseInfo || {});
+      weatherNeedsRefresh = true;
+    }
+
+    if (date !== undefined) {
+      ev.date = /^\d{4}-\d{2}-\d{2}$/.test(String(date)) ? new Date(String(date)+'T12:00:00Z') : asUTCDate(date);
+      weatherNeedsRefresh = true;
+    }
     if (notes !== undefined) ev.notes = String(notes);
     if (isTeamEvent !== undefined) ev.isTeamEvent = !!isTeamEvent;
     if (teamSizeMax !== undefined) ev.teamSizeMax = Math.max(2, Math.min(4, Number(teamSizeMax || 4)));
+    if (weatherNeedsRefresh) {
+      const weatherData = await fetchWeatherForEvent(ev);
+      assignWeatherToEvent(ev, weatherData);
+    }
     // Recompute dedupeKey for tee-time events after changes
     ev.dedupeKey = buildDedupeKey(ev.date, ev.teeTimes, ev.isTeamEvent) || undefined;
     await ev.save();
@@ -2703,15 +2888,20 @@ app.get('/api/golf-courses/list', async (req, res) => {
       })
       .slice(0, limit) // Limit after sorting
       .map(c => {
+        const latitude = toLatitude(c.location?.latitude ?? c.location?.lat);
+        const longitude = toLongitude(c.location?.longitude ?? c.location?.lon ?? c.location?.lng);
         const course = {
           id: c.id,
           name: c.club_name || c.course_name || 'Unknown',
           city: c.location?.city || null,
           state: c.location?.state || null,
+          address: c.location?.address || c.location?.address_1 || c.location?.street || null,
           phone: null, // API doesn't provide phone
           website: null, // API doesn't provide website
           holes: 18, // Default, API doesn't provide this in search
-          par: null // API doesn't provide this in search
+          par: null, // API doesn't provide this in search
+          latitude,
+          longitude
         };
         
         // Validate course data and log issues
@@ -2799,10 +2989,13 @@ app.get('/api/golf-courses/search', async (req, res) => {
         name: c.club_name || c.course_name || 'Unknown',
         city: c.location?.city || null,
         state: c.location?.state || null,
+        address: c.location?.address || c.location?.address_1 || c.location?.street || null,
         phone: null,
         website: null,
         holes: 18,
-        par: null
+        par: null,
+        latitude: toLatitude(c.location?.latitude ?? c.location?.lat),
+        longitude: toLongitude(c.location?.longitude ?? c.location?.lon ?? c.location?.lng)
       }));
     
     console.log(`  Filtered to ${apiCourses.length} VA courses`);
@@ -2829,7 +3022,7 @@ app.post('/api/events/:id/weather', async (req, res) => {
     const ev = await Event.findById(req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     
-    const weatherData = await fetchWeatherForecast(ev.date);
+    const weatherData = await fetchWeatherForEvent(ev);
     assignWeatherToEvent(ev, weatherData);
     
     await ev.save();
@@ -2846,7 +3039,6 @@ app.post('/api/events/weather/refresh-all', async (_req, res) => {
     let updated = 0;
     let failed = 0;
     let errors = [];
-    const weatherByDate = new Map();
     for (const ev of events) {
       try {
         if (!ev.date || !(ev.date instanceof Date) || isNaN(ev.date.getTime())) {
@@ -2855,11 +3047,7 @@ app.post('/api/events/weather/refresh-all', async (_req, res) => {
           console.error('Weather refresh skipped for event', ev._id, 'due to missing/invalid date:', ev.date);
           continue;
         }
-        const dateKey = ev.date.toISOString().slice(0, 10);
-        if (!weatherByDate.has(dateKey)) {
-          weatherByDate.set(dateKey, fetchWeatherForecast(ev.date));
-        }
-        const weatherData = await weatherByDate.get(dateKey);
+        const weatherData = await fetchWeatherForEvent(ev);
         assignWeatherToEvent(ev, weatherData);
         await ev.save();
         if (weatherData.success) updated++;
@@ -3592,14 +3780,9 @@ async function refreshWeatherForUpcomingEvents() {
     });
     
     let updated = 0;
-    const weatherByDate = new Map();
     for (const ev of events) {
       try {
-        const dateKey = ev.date.toISOString().slice(0, 10);
-        if (!weatherByDate.has(dateKey)) {
-          weatherByDate.set(dateKey, fetchWeatherForecast(ev.date));
-        }
-        const weatherData = await weatherByDate.get(dateKey);
+        const weatherData = await fetchWeatherForEvent(ev);
         assignWeatherToEvent(ev, weatherData);
         await ev.save();
         updated++;

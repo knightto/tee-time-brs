@@ -548,6 +548,7 @@
     <section id="quickActionsSection" class="admin-section section-quick">
       <h2>⚡ Quick Actions</h2>
       <div class="test-buttons">
+        <button class="btn-test btn-blue" onclick="refreshAllWeather()">🌤️ Refresh All Weather</button>
         <button class="btn-test btn-green" onclick="verifyCourseData()">🏌️ Verify Golf Course Data</button>
         <button class="btn-test btn-purple" onclick="showCustomMessageDialog()">💬 Message All Subscribers</button>
       </div>
@@ -1213,6 +1214,27 @@
         }
       } catch (error) {
         showQuickResult(`❌ Error: ${error.message}`, false);
+      }
+    }
+
+    async function refreshAllWeather() {
+      try {
+        showQuickResult('⏳ Refreshing weather for all events...');
+        const response = await fetch('/api/events/weather/refresh-all', {
+          method: 'POST'
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || `HTTP ${response.status}`);
+
+        const updated = Number(result.updated || 0);
+        const failed = Number(result.failed || 0);
+        const total = Number(result.total || 0);
+        const message = failed > 0
+          ? `⚠️ Weather refreshed: ${updated}/${total} updated, ${failed} failed`
+          : `✅ Weather refreshed for ${updated}/${total} events`;
+        showQuickResult(message, failed === 0);
+      } catch (error) {
+        showQuickResult(`❌ Weather refresh failed: ${error.message}`, false);
       }
     }
 

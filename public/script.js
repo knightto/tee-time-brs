@@ -302,6 +302,29 @@ if ('serviceWorker' in navigator) {
     const safeText = escapeHtml(text);
     return `<span class="weather-summary${details.length ? '' : ' weather-summary-muted'}" title="${safeText}">${icon}<span class="weather-text">${safeText}</span></span>`;
   }
+  function wazeLinkForEvent(ev) {
+    const course = String((ev && ev.course) || '').trim();
+    const info = (ev && ev.courseInfo) || {};
+    const address = String(info.address || info.fullAddress || '').trim();
+    const city = String(info.city || '').trim();
+    const state = String(info.state || '').trim();
+    let query = '';
+    if (address) {
+      query = address;
+    } else {
+      query = [course, city, state].filter(Boolean).join(', ');
+    }
+    if (!query || /^course$/i.test(query)) return '';
+    return `https://www.waze.com/ul?q=${encodeURIComponent(query)}&navigate=yes`;
+  }
+  function courseTitleMarkup(ev) {
+    const course = String((ev && ev.course) || '').trim();
+    const label = escapeHtml(course || 'Course');
+    if (!course) return label;
+    const waze = wazeLinkForEvent(ev);
+    if (!waze) return label;
+    return `<a class="card-title-link" href="${waze}" target="_blank" rel="noopener" title="Open in Waze">${label}</a>`;
+  }
   const CALENDAR_EVENT_DURATION_MINUTES = 270;
 
   function toDateISO(val) {
@@ -711,6 +734,7 @@ if ('serviceWorker' in navigator) {
     const eventDates = new Set();
     const teamEventDates = new Set();
     const urgentTeeEventDates = new Set();
+    const nonBlueRidgeTeeEventDates = new Set();
     const now = new Date();
     const todayUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
     const DAY_MS = 24 * 60 * 60 * 1000;
@@ -721,6 +745,11 @@ if ('serviceWorker' in navigator) {
       if (ev && ev.isTeamEvent) {
         teamEventDates.add(dateStr);
         return;
+      }
+      const courseName = String((ev && ev.course) || '').trim().toLowerCase();
+      const isBlueRidgeShadows = /blue\s*ridge\s*shadows/.test(courseName);
+      if (courseName && !isBlueRidgeShadows) {
+        nonBlueRidgeTeeEventDates.add(dateStr);
       }
       const [y, m, d] = dateStr.split('-').map(Number);
       if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)) return;
@@ -754,6 +783,7 @@ if ('serviceWorker' in navigator) {
         dayEl.classList.add('has-events');
         if (teamEventDates.has(dateStr)) dayEl.classList.add('has-team-events');
         if (urgentTeeEventDates.has(dateStr)) dayEl.classList.add('has-urgent-tee-events');
+        if (nonBlueRidgeTeeEventDates.has(dateStr)) dayEl.classList.add('has-non-brs-tee-events');
       }
       
       if (selectedDate && dateStr === selectedDate) {
@@ -1071,9 +1101,9 @@ if ('serviceWorker' in navigator) {
           <div class="maybe-section">
             <div class="maybe-header">
               <h4>🤔 Maybe List</h4>
-              <div class="row" style="gap:6px;flex-wrap:wrap">
-                <button class="small" data-add-maybe="${ev._id}" style="font-size:11px;padding:3px 8px">+ Interested</button>
-                <button class="small" data-fill-maybe="${ev._id}" style="font-size:11px;padding:3px 8px" title="Move someone from maybe list into an open spot">Fill Spot</button>
+              <div class="maybe-controls">
+                <button class="small maybe-btn" data-add-maybe="${ev._id}">+ Interested</button>
+                <button class="small maybe-btn" data-fill-maybe="${ev._id}" title="Move someone from maybe list into an open spot">Fill Spot</button>
               </div>
             </div>
             <div class="maybe-list">
@@ -1083,13 +1113,21 @@ if ('serviceWorker' in navigator) {
         `;
         const weatherSummary = weatherSummaryMarkup(ev);
         // Course details
-        const courseDetails = ev.courseInfo && (ev.courseInfo.city || ev.courseInfo.phone || ev.courseInfo.website) 
-          ? `<div style="font-size:13px;color:var(--slate-700);margin-top:4px">
-              ${ev.courseInfo.city && ev.courseInfo.state ? `<span>📍 ${ev.courseInfo.city}, ${ev.courseInfo.state}</span>` : ''}
-              ${ev.courseInfo.phone ? `<span style="margin-left:12px">📞 ${ev.courseInfo.phone}</span>` : ''}
-              ${ev.courseInfo.website ? `<span style="margin-left:12px"><a href="${ev.courseInfo.website}" target="_blank" style="color:var(--blue-600);text-decoration:none">🔗 Website</a></span>` : ''}
-              ${ev.courseInfo.holes && ev.courseInfo.par ? `<span style="margin-left:12px">⛳ ${ev.courseInfo.holes} holes, Par ${ev.courseInfo.par}</span>` : ''}
-            </div>`
+        const courseDetailsBits = [];
+        if (ev.courseInfo && ev.courseInfo.city && ev.courseInfo.state) {
+          courseDetailsBits.push(`<span>📍 ${escapeHtml(ev.courseInfo.city)}, ${escapeHtml(ev.courseInfo.state)}</span>`);
+        }
+        if (ev.courseInfo && ev.courseInfo.phone) {
+          courseDetailsBits.push(`<span>📞 ${escapeHtml(ev.courseInfo.phone)}</span>`);
+        }
+        if (ev.courseInfo && ev.courseInfo.website) {
+          courseDetailsBits.push(`<span><a href="${escapeHtml(ev.courseInfo.website)}" target="_blank" rel="noopener">🔗 Website</a></span>`);
+        }
+        if (ev.courseInfo && ev.courseInfo.holes && ev.courseInfo.par) {
+          courseDetailsBits.push(`<span>⛳ ${escapeHtml(ev.courseInfo.holes)} holes, Par ${escapeHtml(ev.courseInfo.par)}</span>`);
+        }
+        const courseDetails = courseDetailsBits.length
+          ? `<div class="course-details">${courseDetailsBits.join('')}</div>`
           : '';
         const eventActionLegend = `
           <div class="event-action-legend" aria-label="Golfer action legend">
@@ -1103,11 +1141,16 @@ if ('serviceWorker' in navigator) {
         card.innerHTML = `
           <div class="card-header">
             <div class="card-header-left">
-              <h3 class="card-title">${ev.course || 'Course'}</h3>
+              <div class="card-title-row">
+                <h3 class="card-title">${courseTitleMarkup(ev)}</h3>
+                <div class="event-top-actions">
+                  <button class="event-top-btn event-top-edit" data-edit="${ev._id}" title="Edit Event" aria-label="Edit Event">✏</button>
+                  <button class="event-top-btn event-top-delete" data-del="${ev._id}" title="Delete Event" aria-label="Delete Event">✕</button>
+                </div>
+              </div>
               <div class="card-date">
                 <span>${fmtDate(ev.date)}</span>
                 ${weatherSummary}
-                <button class="small" data-audit="${ev._id}" style="font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7" title="View Audit Log">📋</button>
               </div>
               ${courseDetails}
             </div>
@@ -1117,8 +1160,6 @@ if ('serviceWorker' in navigator) {
             ${isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<div class="time-action-pair"><button class="small" data-add-tee="${ev._id}">Add Existing Time</button><button class="small" data-request-extra-tee="${ev._id}" title="Email Brian Jones to request an additional tee time">Request Club Time</button></div>`}
             ${isTeams ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Pairings</button>`}
             <button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button>
-            <button class="small" data-edit="${ev._id}">Edit</button>
-            <button class="small" data-del="${ev._id}">Delete</button>
           </div>
         </div>
           </div>
@@ -1128,6 +1169,9 @@ if ('serviceWorker' in navigator) {
             <div class="tees">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>
             ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
             ${eventActionLegend}
+            <div class="event-bottom-actions">
+              <button class="small event-audit-btn event-bottom-audit-btn" data-audit="${ev._id}" title="View Audit Log" aria-label="View Audit Log">View Audit</button>
+            </div>
           </div>`;
         frag.appendChild(card);
       }
@@ -1985,20 +2029,38 @@ if ('serviceWorker' in navigator) {
         const safe = String(name).replace(/"/g, '&quot;');
         return `<span class=\"maybe-chip\" title=\"${safe}\">\n        <span class=\"maybe-name\">${name}</span>\n        <button class=\"icon small danger\" title=\"Remove\" data-remove-maybe=\"${ev._id}:${idx}\">×</button>\n      </span>`;
       }).join('');
-      const maybeSection = `\n      <div class=\"maybe-section\">\n        <div class=\"maybe-header\">\n          <h4>🤔 Maybe List</h4>\n          <div class=\"row\" style=\"gap:6px;flex-wrap:wrap\">\n            <button class=\"small\" data-add-maybe=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px\">+ Interested</button>\n            <button class=\"small\" data-fill-maybe=\"${ev._id}\" style=\"font-size:11px;padding:3px 8px\" title=\"Move someone from maybe list into an open spot\">Fill Spot</button>\n          </div>\n        </div>\n        <div class=\"maybe-list\">\n          ${maybeList || '<em style=\"color:var(--slate-700);font-size:11px;opacity:0.7\">No one yet</em>'}\n        </div>\n      </div>\n    `;
+      const maybeSection = `\n      <div class=\"maybe-section\">\n        <div class=\"maybe-header\">\n          <h4>🤔 Maybe List</h4>\n          <div class=\"maybe-controls\">\n            <button class=\"small maybe-btn\" data-add-maybe=\"${ev._id}\">+ Interested</button>\n            <button class=\"small maybe-btn\" data-fill-maybe=\"${ev._id}\" title=\"Move someone from maybe list into an open spot\">Fill Spot</button>\n          </div>\n        </div>\n        <div class=\"maybe-list\">\n          ${maybeList || '<em style=\"color:var(--slate-700);font-size:11px;opacity:0.7\">No one yet</em>'}\n        </div>\n      </div>\n    `;
       const weatherSummary = weatherSummaryMarkup(ev);
-      const courseDetails = ev.courseInfo && (ev.courseInfo.city || ev.courseInfo.phone || ev.courseInfo.website) 
-        ? `<div style=\"font-size:13px;color:var(--slate-700);margin-top:4px\">\n          ${ev.courseInfo.city && ev.courseInfo.state ? `<span>📍 ${ev.courseInfo.city}, ${ev.courseInfo.state}</span>` : ''}\n          ${ev.courseInfo.phone ? `<span style=\"margin-left:12px\">📞 ${ev.courseInfo.phone}</span>` : ''}\n          ${ev.courseInfo.website ? `<span style=\"margin-left:12px\"><a href=\"${ev.courseInfo.website}\" target=\"_blank\" style=\"color:var(--blue-600);text-decoration:none\">🔗 Website</a></span>` : ''}\n          ${ev.courseInfo.holes && ev.courseInfo.par ? `<span style=\"margin-left:12px\">⛳ ${ev.courseInfo.holes} holes, Par ${ev.courseInfo.par}</span>` : ''}\n        </div>`
+      const courseDetailsBits = [];
+      if (ev.courseInfo && ev.courseInfo.city && ev.courseInfo.state) {
+        courseDetailsBits.push(`<span>📍 ${escapeHtml(ev.courseInfo.city)}, ${escapeHtml(ev.courseInfo.state)}</span>`);
+      }
+      if (ev.courseInfo && ev.courseInfo.phone) {
+        courseDetailsBits.push(`<span>📞 ${escapeHtml(ev.courseInfo.phone)}</span>`);
+      }
+      if (ev.courseInfo && ev.courseInfo.website) {
+        courseDetailsBits.push(`<span><a href="${escapeHtml(ev.courseInfo.website)}" target="_blank" rel="noopener">🔗 Website</a></span>`);
+      }
+      if (ev.courseInfo && ev.courseInfo.holes && ev.courseInfo.par) {
+        courseDetailsBits.push(`<span>⛳ ${escapeHtml(ev.courseInfo.holes)} holes, Par ${escapeHtml(ev.courseInfo.par)}</span>`);
+      }
+      const courseDetails = courseDetailsBits.length
+        ? `<div class="course-details">${courseDetailsBits.join('')}</div>`
         : '';
       const eventActionLegend = `\n          <div class=\"event-action-legend\" aria-label=\"Golfer action legend\">\n            <span class=\"event-action-title\">Actions</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol\">○</span>Individual check-in</span>\n            <span class=\"event-action-item\"><span class=\"event-action-pill\">All</span>Group check-in</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol\">↔</span>Move golfer</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol danger\">×</span>Delete golfer</span>\n          </div>\n      `;
       card.innerHTML = `
       <div class="card-header">
         <div class="card-header-left">
-          <h3 class="card-title">${ev.course || 'Course'}</h3>
+          <div class="card-title-row">
+            <h3 class="card-title">${courseTitleMarkup(ev)}</h3>
+            <div class="event-top-actions">
+              <button class="event-top-btn event-top-edit" data-edit="${ev._id}" title="Edit Event" aria-label="Edit Event">✏</button>
+              <button class="event-top-btn event-top-delete" data-del="${ev._id}" title="Delete Event" aria-label="Delete Event">✕</button>
+            </div>
+          </div>
           <div class="card-date">
             <span>${fmtDate(ev.date)}</span>
             ${weatherSummary}
-            <button class="small" data-audit="${ev._id}" style="font-size:11px;padding:3px 8px;margin-left:8px;opacity:0.7" title="View Audit Log">📋</button>
           </div>
           ${courseDetails}
         </div>
@@ -2008,8 +2070,6 @@ if ('serviceWorker' in navigator) {
             ${isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<div class="time-action-pair"><button class="small" data-add-tee="${ev._id}">Add Existing Time</button><button class="small" data-request-extra-tee="${ev._id}" title="Email Brian Jones to request an additional tee time">Request Club Time</button></div>`}
             ${isTeams ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Pairings</button>`}
             <button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button>
-            <button class="small" data-edit="${ev._id}">Edit</button>
-            <button class="small" data-del="${ev._id}">Delete</button>
           </div>
         </div>
       </div>
@@ -2019,6 +2079,9 @@ if ('serviceWorker' in navigator) {
         <div class="tees">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>
         ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
         ${eventActionLegend}
+        <div class="event-bottom-actions">
+          <button class="small event-audit-btn event-bottom-audit-btn" data-audit="${ev._id}" title="View Audit Log" aria-label="View Audit Log">View Audit</button>
+        </div>
       </div>`;
     } catch (e) {
       console.error('Failed to update event card:', e);

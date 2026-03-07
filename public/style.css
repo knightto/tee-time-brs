@@ -420,6 +420,18 @@ main{padding:20px}
   filter:drop-shadow(0 1px 2px rgba(0,0,0,.45));
 }
 
+.calendar-day.has-non-brs-tee-events::after{
+  color:#00a6ff;
+  font-size:8.8px;
+  filter:drop-shadow(0 1px 3px rgba(0,166,255,.7));
+}
+
+.calendar-day.selected.has-non-brs-tee-events::after{
+  color:#38bdf8;
+  font-size:8.8px;
+  filter:drop-shadow(0 1px 2px rgba(0,0,0,.4));
+}
+
 .calendar-actions{
   display:flex;
   flex-direction:column;
@@ -591,6 +603,20 @@ main{padding:20px}
   word-break:normal;
 }
 .card-title::before{content:'🏌️ '}
+.card-title-link{
+  color:inherit;
+  text-decoration:none;
+  border-bottom:1px dashed rgba(21,128,61,.4);
+}
+.card-title-link:hover{
+  text-decoration:none;
+  border-bottom-color:rgba(21,128,61,.85);
+}
+.card-title-link:focus-visible{
+  outline:2px solid rgba(14,165,233,.7);
+  outline-offset:2px;
+  border-radius:4px;
+}
 
 .card-date{
   display:flex;
@@ -1228,6 +1254,260 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   }
 }
 
+/* Center and organize event header content under the course title */
+.card-header{
+  align-items:center;
+}
+
+.card-header-left{
+  width:100%;
+  display:grid;
+  gap:8px;
+  justify-items:center;
+  text-align:center;
+}
+
+.card-title{
+  text-align:center;
+}
+
+.card-date{
+  justify-content:center;
+  gap:10px;
+}
+
+.event-audit-btn{
+  font-size:11px;
+  padding:3px 8px;
+  opacity:0.78;
+  min-width:0;
+}
+
+.course-details{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
+  align-items:center;
+  gap:6px 12px;
+  font-size:13px;
+  color:var(--slate-700);
+  margin-top:2px;
+}
+
+.course-details span{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  white-space:nowrap;
+}
+
+.course-details a{
+  color:var(--blue-600);
+  text-decoration:none;
+}
+
+.course-details a:hover{
+  text-decoration:underline;
+}
+
+.card-actions{
+  width:100%;
+  align-items:center;
+  gap:10px;
+}
+
+.card-header .button-row{
+  justify-content:center;
+}
+
+.time-action-pair{
+  justify-content:center;
+}
+
+@media (max-width:768px){
+  .card-actions{
+    align-items:stretch;
+  }
+
+  .card-header .button-row{
+    justify-content:stretch;
+  }
+}
+
+@media (max-width:480px){
+  .course-details{
+    gap:6px 8px;
+  }
+
+  .course-details span{
+    white-space:normal;
+    justify-content:center;
+    text-align:center;
+  }
+}
+
+/* Event top-right edit/delete controls beside course name */
+.card-title-row{
+  position:relative;
+  width:100%;
+  display:flex;
+  justify-content:center;
+  align-items:flex-start;
+  min-height:44px;
+}
+
+.card-title-row .card-title{
+  margin:0;
+  padding-right:98px;
+}
+
+.event-top-actions{
+  position:absolute;
+  top:0;
+  right:0;
+  display:flex;
+  gap:8px;
+}
+
+.event-top-btn{
+  width:40px;
+  min-width:40px;
+  height:40px;
+  padding:0;
+  border-radius:12px;
+  border:2px solid #ef4444;
+  background:linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
+  color:#b91c1c;
+  font-size:22px;
+  font-weight:800;
+  line-height:1;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 2px 8px rgba(185,28,28,.2);
+}
+
+.event-top-btn:hover{
+  border-color:#dc2626;
+  background:linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color:#fff;
+  box-shadow:0 4px 12px rgba(185,28,28,.35);
+}
+
+.event-top-delete{
+  font-size:24px;
+}
+
+.event-top-edit{
+  font-size:21px;
+}
+
+.event-bottom-actions{
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  margin-top:4px;
+}
+
+.event-bottom-audit-btn{
+  min-height:24px;
+  padding:3px 9px;
+  font-size:11px;
+  line-height:1.05;
+  opacity:0.85;
+}
+
+/* Cleaner, tighter event action row under the title/date */
+.card-actions{
+  gap:8px;
+}
+
+.card-header .button-row{
+  gap:6px;
+  max-width:640px;
+  margin-inline:auto;
+}
+
+.card-header .button-row > button{
+  min-width:80px;
+  min-height:30px;
+  padding:.18rem .5rem;
+  font-size:.78rem;
+  line-height:1.05;
+  border-radius:8px;
+}
+
+.time-action-pair{
+  gap:6px;
+  justify-content:center;
+}
+
+.time-action-pair button{
+  min-width:110px;
+  min-height:30px;
+  padding:.18rem .5rem;
+  font-size:.78rem;
+  line-height:1.05;
+  border-radius:8px;
+}
+
+.card-header .button-row > button[data-calendar-google]{
+  min-width:88px;
+}
+
+@media (max-width:768px){
+  .card-title-row{
+    min-height:40px;
+  }
+
+  .card-title-row .card-title{
+    padding-right:86px;
+  }
+
+  .event-top-btn{
+    width:34px;
+    min-width:34px;
+    height:34px;
+    border-radius:10px;
+    font-size:19px;
+  }
+
+  .event-top-delete{
+    font-size:20px;
+  }
+
+  .event-top-edit{
+    font-size:18px;
+  }
+
+  .event-top-actions{
+    gap:6px;
+  }
+
+  .card-header .button-row > button,
+  .time-action-pair button{
+    min-width:0;
+    min-height:30px;
+    font-size:.76rem;
+  }
+}
+
+@media (max-width:480px){
+  .card-title-row{
+    min-height:38px;
+  }
+
+  .card-title-row .card-title{
+    padding-right:80px;
+  }
+
+  .event-bottom-audit-btn{
+    min-height:22px;
+    padding:2px 8px;
+    font-size:10.5px;
+  }
+}
+
 .chip .danger{ border-color:#ef4444; }
 .chip .danger:hover{ background:#fee2e2; }
 
@@ -1303,30 +1583,48 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   background:linear-gradient(135deg, rgba(251,191,36,0.08), rgba(251,191,36,0.04));
   border:1px solid rgba(251,191,36,0.3);
   border-radius:8px;
-  padding:6px 10px;
-  margin-bottom:10px;
+  padding:5px 8px;
+  margin-bottom:8px;
 }
 
 .maybe-header{
-  display:flex;
-  justify-content:space-between;
-  align-items:center;
-  margin-bottom:4px;
-  gap:8px;
+  position:relative;
+  display:block;
+  margin-bottom:1px;
+  padding-right:128px;
 }
 
 .maybe-header h4{
-  font-size:13px;
+  font-size:12px;
   margin:0;
   font-weight:600;
   color:var(--slate-700);
 }
 
+.maybe-controls{
+  position:absolute;
+  top:0;
+  right:0;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-end;
+  gap:6px;
+}
+
+.maybe-controls .maybe-btn{
+  white-space:nowrap;
+  font-family:inherit;
+  font-size:12px;
+  font-weight:500;
+  line-height:1.1;
+}
+
 .maybe-list{
   display:flex;
   flex-wrap:wrap;
-  gap:4px;
-  min-height:20px;
+  gap:3px;
+  min-height:14px;
+  margin-top:0;
 }
 
 .maybe-chip{
