@@ -90,6 +90,14 @@ app.use(rateLimit({ windowMs: 60 * 1000, max: 200 }));
 app.use(compression());
 app.use(requestContext);
 
+// Prevent intermediary/browser caches from serving stale API data on mobile resumes.
+app.use('/api', (_req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+  next();
+});
+
 // Define routes before static middleware to ensure they take precedence
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
 // --- Myrtle Beach Trip Tracker API ---
@@ -644,6 +652,16 @@ app.use('/api', buildSystemRouter({
 
 /* ---------------- Admin Configuration ---------------- */
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'tommy.knight@gmail.com,jvhyers@gmail.com').split(',').map(e => e.trim()).filter(Boolean);
+const CLUB_EMAIL = process.env.CLUB_CANCEL_EMAIL || 'Brian.Jones@blueridgeshadows.com';
+const SCHEDULER_ENV_DISABLED = process.env.ENABLE_SCHEDULER === '0';
+const SCHEDULED_EMAIL_RULE_DEFAULTS = Object.freeze({
+  brianTomorrowEmptyClubAlert: true,
+  reminder48Hour: true,
+  reminder24Hour: true,
+  nearlyFullTeeTimes: true,
+  adminEmptyTeeAlerts: true,
+});
+const SCHEDULED_EMAIL_RULE_KEYS = Object.keys(SCHEDULED_EMAIL_RULE_DEFAULTS);
 
 /* ---------------- Tee time change logging ---------------- */
 async function logTeeTimeChange(entry = {}) {
@@ -902,6 +920,59 @@ async function areNotificationsEnabled() {
     console.error('Error checking notification settings:', e);
     return true; // Fail open - allow notifications
   }
+}
+
+const SCHEDULER_SETTINGS_CACHE_TTL_MS = 30 * 1000;
+let schedulerEnabledCache = { value: !SCHEDULER_ENV_DISABLED, ts: 0 };
+let scheduledEmailRulesCache = { value: { ...SCHEDULED_EMAIL_RULE_DEFAULTS }, ts: 0 };
+
+async function areSchedulerJobsEnabled() {
+  if (SCHEDULER_ENV_DISABLED) return false;
+  const now = Date.now();
+  if (now - schedulerEnabledCache.ts < SCHEDULER_SETTINGS_CACHE_TTL_MS) {
+    return schedulerEnabledCache.value;
+  }
+  let enabled = true;
+  if (Settings) {
+    try {
+      const setting = await Settings.findOne({ key: 'schedulerEnabled' });
+      enabled = setting ? setting.value !== false : true;
+    } catch (e) {
+      console.error('Error checking scheduler settings:', e);
+      enabled = true;
+    }
+  }
+  schedulerEnabledCache = { value: enabled, ts: now };
+  return enabled;
+}
+
+function normalizeScheduledEmailRules(rawValue) {
+  const normalized = { ...SCHEDULED_EMAIL_RULE_DEFAULTS };
+  if (!rawValue || typeof rawValue !== 'object') return normalized;
+  for (const key of SCHEDULED_EMAIL_RULE_KEYS) {
+    if (typeof rawValue[key] === 'boolean') {
+      normalized[key] = rawValue[key];
+    }
+  }
+  return normalized;
+}
+
+async function getScheduledEmailRules() {
+  const now = Date.now();
+  if (now - scheduledEmailRulesCache.ts < SCHEDULER_SETTINGS_CACHE_TTL_MS) {
+    return scheduledEmailRulesCache.value;
+  }
+  let rules = { ...SCHEDULED_EMAIL_RULE_DEFAULTS };
+  if (Settings) {
+    try {
+      const setting = await Settings.findOne({ key: 'scheduledEmailRules' });
+      rules = normalizeScheduledEmailRules(setting && setting.value);
+    } catch (e) {
+      console.error('Error checking scheduled email rule settings:', e);
+    }
+  }
+  scheduledEmailRulesCache = { value: rules, ts: now };
+  return rules;
 }
 
 async function sendEmailToAll(subject, html) {
@@ -1183,6 +1254,42 @@ function reminderEmail(blocks, opts = {}){
     </div>`;
   }).join('');
   return frame(`Reminder: Empty Tee Times ${when}`, `${expl}${rows}${btn('Go to Sign-up Page')}`);
+}
+
+function brianJonesEmptyTeeAlertEmail(blocks){
+  if (!blocks.length) return '';
+  const rows = blocks.map((b) => {
+    const list = b.empties.map((t) => `<li>${esc(t)}</li>`).join('');
+    return `<div style="margin:12px 0;padding:12px;border:1px solid #e5e7eb;border-radius:8px">
+      <p style="margin:0 0 6px 0"><strong>${esc(b.course)}</strong> — ${esc(b.dateLong)} (${esc(b.dateISO)})</p>
+      <p style="margin:0 0 6px 0">Empty tee times:</p>
+      <ul style="margin:0 0 0 18px">${list}</ul>
+    </div>`;
+  }).join('');
+  return frame('Alert: Empty Tee Times Tomorrow', `<p>The following tee times are still empty for tomorrow.</p>${rows}${btn('Go to Sign-up Page')}`);
+}
+
+async function runBrianJonesTomorrowEmptyTeeAlert(label = 'manual'){
+  const blocks = await findEmptyTeeTimesForDay(1);
+  if (!blocks.length) {
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'brian-empty-alert-skip', reason:'no empty tees', label }));
+    return { ok: true, sent: 0, to: CLUB_EMAIL, message: 'No empty tee times for tomorrow' };
+  }
+  const subject = 'Alert: Empty Tee Times for Tomorrow';
+  const html = brianJonesEmptyTeeAlertEmail(blocks);
+  const httpRes = await sendEmailViaResendApi(CLUB_EMAIL, subject, html);
+  if (httpRes && httpRes.ok) {
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'brian-empty-alert-sent', method:'http', label, to:CLUB_EMAIL, events: blocks.length }));
+    return { ok: true, sent: 1, method: 'http', to: CLUB_EMAIL, events: blocks.length };
+  }
+  const smtpRes = await sendEmail(CLUB_EMAIL, subject, html);
+  if (smtpRes && smtpRes.ok) {
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'brian-empty-alert-sent', method:'smtp', label, to:CLUB_EMAIL, events: blocks.length }));
+    return { ok: true, sent: 1, method: 'smtp', to: CLUB_EMAIL, events: blocks.length };
+  }
+  const error = (httpRes && httpRes.error && httpRes.error.message) || (smtpRes && smtpRes.error && smtpRes.error.message) || 'Unknown email error';
+  console.error(JSON.stringify({ t:new Date().toISOString(), level:'error', msg:'brian-empty-alert-failed', label, to:CLUB_EMAIL, error }));
+  return { ok: false, sent: 0, to: CLUB_EMAIL, error };
 }
 
 async function checkEmptyTeeTimesForAdminAlert() {
@@ -1658,7 +1765,7 @@ app.post('/api/events/:id/request-extra-tee-time', async (req, res) => {
       .filter(Boolean)
       .join(', ');
 
-    const clubEmail = process.env.CLUB_CANCEL_EMAIL || 'Brian.Jones@blueridgeshadows.com';
+    const clubEmail = CLUB_EMAIL;
     const defaultCcList = ['tommy.knight@gmail.com', 'jvhyers@gmail.com'];
     const envCcList = String(process.env.CLUB_CANCEL_CC || '')
       .split(',')
@@ -1718,7 +1825,7 @@ app.post('/api/request-club-time', async (req, res) => {
     const requestDate = asUTCDate(requestDateRaw);
     if (Number.isNaN(requestDate.getTime())) return res.status(400).json({ error: 'invalid date' });
 
-    const clubEmail = process.env.CLUB_CANCEL_EMAIL || 'Brian.Jones@blueridgeshadows.com';
+    const clubEmail = CLUB_EMAIL;
     const defaultCcList = ['tommy.knight@gmail.com', 'jvhyers@gmail.com'];
     const envCcList = String(process.env.CLUB_CANCEL_CC || '')
       .split(',')
@@ -2007,7 +2114,7 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
     let mailMethod = null;
     let mailError = null;
     if (notifyClub) {
-      const clubEmail = process.env.CLUB_CANCEL_EMAIL || 'Brian.Jones@blueridgeshadows.com';
+      const clubEmail = CLUB_EMAIL;
       const subj = `Cancel tee time: ${ev.course || 'Course'} ${fmt.dateISO(ev.date)} ${teeLabel} - KNIGHT GROUP TEE TIMES`;
       const html = `<p>Please cancel the tee time below:</p>
         <ul>
@@ -2966,6 +3073,97 @@ app.put('/api/admin/settings/notifications', async (req, res) => {
   }
 });
 
+/* Admin - Get/Set Scheduler Enable Setting */
+app.get('/api/admin/settings/scheduler', async (req, res) => {
+  const code = req.query.code || '';
+  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const schedulerEnabled = await areSchedulerJobsEnabled();
+    res.json({ schedulerEnabled, lockedByEnv: SCHEDULER_ENV_DISABLED });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/admin/settings/scheduler', async (req, res) => {
+  const code = req.query.code || '';
+  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  if (SCHEDULER_ENV_DISABLED) {
+    return res.status(409).json({
+      error: 'Scheduler is locked off by environment setting ENABLE_SCHEDULER=0',
+      lockedByEnv: true,
+      schedulerEnabled: false,
+    });
+  }
+
+  try {
+    if (!Settings) return res.status(500).json({ error: 'Settings model not available' });
+    const rawEnabled = req.body && req.body.schedulerEnabled;
+    if (typeof rawEnabled !== 'boolean') {
+      return res.status(400).json({ error: 'schedulerEnabled must be a boolean' });
+    }
+    const enabled = rawEnabled;
+    await Settings.findOneAndUpdate(
+      { key: 'schedulerEnabled' },
+      { key: 'schedulerEnabled', value: enabled },
+      { upsert: true, new: true }
+    );
+    schedulerEnabledCache = { value: enabled, ts: Date.now() };
+    res.json({ ok: true, schedulerEnabled: enabled, lockedByEnv: false });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/* Admin - Get/Set Scheduled Email Rule Settings */
+app.get('/api/admin/settings/scheduled-email-rules', async (req, res) => {
+  const code = req.query.code || '';
+  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const rules = await getScheduledEmailRules();
+    res.json({ rules, availableRules: SCHEDULED_EMAIL_RULE_KEYS });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/admin/settings/scheduled-email-rules', async (req, res) => {
+  const code = req.query.code || '';
+  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    if (!Settings) return res.status(500).json({ error: 'Settings model not available' });
+    const ruleKey = String((req.body && req.body.ruleKey) || '').trim();
+    if (!SCHEDULED_EMAIL_RULE_KEYS.includes(ruleKey)) {
+      return res.status(400).json({ error: 'Invalid ruleKey', availableRules: SCHEDULED_EMAIL_RULE_KEYS });
+    }
+    const rawEnabled = req.body && req.body.enabled;
+    if (typeof rawEnabled !== 'boolean') {
+      return res.status(400).json({ error: 'enabled must be a boolean' });
+    }
+
+    const current = await getScheduledEmailRules();
+    const updated = { ...current, [ruleKey]: rawEnabled };
+    await Settings.findOneAndUpdate(
+      { key: 'scheduledEmailRules' },
+      { key: 'scheduledEmailRules', value: updated },
+      { upsert: true, new: true }
+    );
+    scheduledEmailRulesCache = { value: updated, ts: Date.now() };
+    res.json({ ok: true, rules: updated });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 /* Admin - List Subscribers */
 app.get('/api/admin/subscribers', async (req, res) => {
   const code = req.query.code || '';
@@ -3180,6 +3378,18 @@ app.get('/admin/run_reminders', async (req, res) => {
   catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
+/* manual trigger: GET /admin/run_brian_empty_alert?code=... */
+app.get('/admin/run_brian_empty_alert', async (req, res) => {
+  const code = req.query.code || '';
+  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) return res.status(403).json({ error: 'Forbidden' });
+  try {
+    const result = await runBrianJonesTomorrowEmptyTeeAlert('manual');
+    return res.json(result);
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
 
 
 /* Admin: GET /admin/empty-tee-report?code=... */
@@ -3354,40 +3564,62 @@ async function refreshWeatherForUpcomingEvents() {
 /* Scheduler for reminders, admin alerts, and weather refresh
    Only enable when running as the entry point (not when imported by tests)
    and when ENABLE_SCHEDULER is not explicitly disabled. */
-if (require.main === module && process.env.ENABLE_SCHEDULER !== '0') {
+if (require.main === module && !SCHEDULER_ENV_DISABLED) {
   let lastRunForYMD_24 = null;
   let lastRunForYMD_48 = null;
+  let lastBrianAlertForYMD = null;
   let lastAdminCheckHour = null;
   let lastWeatherRefreshHour = null;
+  let lastSchedulerDisabledLogHour = null;
 
   setInterval(async () => {
     try {
       const now = new Date();
       const parts = new Intl.DateTimeFormat('en-US', { timeZone: LOCAL_TZ, hour:'2-digit', minute:'2-digit', hour12:false }).format(now).split(':');
       const hour = Number(parts[0]), minute = Number(parts[1]);
+      const schedulerEnabled = await areSchedulerJobsEnabled();
+      if (!schedulerEnabled) {
+        if (lastSchedulerDisabledLogHour !== hour) {
+          lastSchedulerDisabledLogHour = hour;
+          console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'scheduler-paused', reason:'admin-disabled' }));
+        }
+        return;
+      }
+      lastSchedulerDisabledLogHour = null;
+      const emailRules = await getScheduledEmailRules();
       const todayLocalYMD = ymdInTZ(now, LOCAL_TZ);
+      const ymdTomorrow = ymdLocalPlusDays(1);
       const ymd48 = ymdLocalPlusDays(2);
 
+
+      // Daily 4:00 PM Brian Jones alert for empty tee times tomorrow
+      if (emailRules.brianTomorrowEmptyClubAlert && hour === 16 && minute === 0 && lastBrianAlertForYMD !== ymdTomorrow) {
+        lastBrianAlertForYMD = ymdTomorrow;
+        const result = await runBrianJonesTomorrowEmptyTeeAlert('auto-16:00');
+        console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'brian-empty-alert-complete', targetYMD: ymdTomorrow, result }));
+      }
 
       // Daily 5:00 PM reminders
       if (hour === 17 && minute === 0) {
         // Empty tee times 2 days ahead (48hr)
-        if (lastRunForYMD_48 !== ymd48) {
+        if (emailRules.reminder48Hour && lastRunForYMD_48 !== ymd48) {
           lastRunForYMD_48 = ymd48;
           await runReminderIfNeeded('auto-17:00-48hr', 2);
         }
         // Empty tee times tomorrow (24hr)
-        if (lastRunForYMD_24 !== todayLocalYMD) {
+        if (emailRules.reminder24Hour && lastRunForYMD_24 !== todayLocalYMD) {
           lastRunForYMD_24 = todayLocalYMD;
           await runReminderIfNeeded('auto-17:00-24hr', 1);
         }
         // Nearly full tee times (4 days out or less)
-        await alertNearlyFullTeeTimes();
+        if (emailRules.nearlyFullTeeTimes) {
+          await alertNearlyFullTeeTimes();
+        }
       }
 
       // Admin alerts for empty tee times (48hr and 24hr checks)
       // Run every 6 hours at: 6 AM, 12 PM, 6 PM, 12 AM
-      if ([0, 6, 12, 18].includes(hour) && minute === 0 && lastAdminCheckHour !== hour) {
+      if (emailRules.adminEmptyTeeAlerts && [0, 6, 12, 18].includes(hour) && minute === 0 && lastAdminCheckHour !== hour) {
         lastAdminCheckHour = hour;
         const result = await checkEmptyTeeTimesForAdminAlert();
         console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'admin-check-complete', result }));
@@ -3410,7 +3642,7 @@ if (require.main === module && process.env.ENABLE_SCHEDULER !== '0') {
     }
   }, 60 * 1000); // check once per minute
 
-  console.log('Scheduler enabled: Daily reminders at 5 PM (24hr & 48hr), Admin alerts every 6 hours, Weather refresh every 2 hours');
+  console.log('Scheduler enabled: Brian empty-tee alert at 4 PM, daily reminders at 5 PM (24hr & 48hr), admin alerts every 6 hours, weather refresh every 2 hours');
 }
 
 if (require.main === module) {

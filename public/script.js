@@ -1,9 +1,30 @@
 // Register service worker for PWA support
 if ('serviceWorker' in navigator) {
+  let swControllerReloaded = false;
+  const requestSwActivation = (reg) => {
+    if (reg && reg.waiting) {
+      reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+    }
+  };
   window.addEventListener('load', function() {
     navigator.serviceWorker.register('/service-worker.js')
       .then(reg => {
         console.log('Service Worker registered:', reg.scope);
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+          if (swControllerReloaded) return;
+          swControllerReloaded = true;
+          window.location.reload();
+        });
+        reg.addEventListener('updatefound', () => {
+          const installing = reg.installing;
+          if (!installing) return;
+          installing.addEventListener('statechange', () => {
+            if (installing.state === 'installed' && navigator.serviceWorker.controller) {
+              requestSwActivation(reg);
+            }
+          });
+        });
+        requestSwActivation(reg);
         reg.update().catch(() => {});
       })
       .catch(err => console.error('Service Worker registration failed:', err));
@@ -440,6 +461,7 @@ if ('serviceWorker' in navigator) {
       try {
         const u = new URL(path, window.location.origin);
         if (!u.searchParams.has('fresh')) u.searchParams.set('fresh', '1');
+        u.searchParams.set('_rt', String(Date.now()));
         requestPath = u.origin === window.location.origin
           ? `${u.pathname}${u.search}${u.hash}`
           : u.toString();
@@ -688,11 +710,24 @@ if ('serviceWorker' in navigator) {
     // Build event date maps (YYYY-MM-DD format)
     const eventDates = new Set();
     const teamEventDates = new Set();
+    const urgentTeeEventDates = new Set();
+    const now = new Date();
+    const todayUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    const DAY_MS = 24 * 60 * 60 * 1000;
     allEvents.forEach(ev => {
-      if (ev.date) {
-        const dateStr = String(ev.date).slice(0, 10);
-        eventDates.add(dateStr);
-        if (ev.isTeamEvent) teamEventDates.add(dateStr);
+      const dateStr = toDateISO(ev && ev.date);
+      if (!dateStr) return;
+      eventDates.add(dateStr);
+      if (ev && ev.isTeamEvent) {
+        teamEventDates.add(dateStr);
+        return;
+      }
+      const [y, m, d] = dateStr.split('-').map(Number);
+      if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)) return;
+      const eventDayUtc = Date.UTC(y, m - 1, d);
+      const daysUntil = Math.round((eventDayUtc - todayUtc) / DAY_MS);
+      if (daysUntil >= 0 && daysUntil <= 3) {
+        urgentTeeEventDates.add(dateStr);
       }
     });
     
@@ -718,6 +753,7 @@ if ('serviceWorker' in navigator) {
       if (eventDates.has(dateStr)) {
         dayEl.classList.add('has-events');
         if (teamEventDates.has(dateStr)) dayEl.classList.add('has-team-events');
+        if (urgentTeeEventDates.has(dateStr)) dayEl.classList.add('has-urgent-tee-events');
       }
       
       if (selectedDate && dateStr === selectedDate) {
@@ -1118,16 +1154,31 @@ if ('serviceWorker' in navigator) {
     const checkedInCount = (tt.players || []).filter((p) => !!p.checkedIn).length;
     const openSpots = Math.max(0, slotMax - count);
     const full = count >= slotMax;
+    const dateISO = toDateISO(ev && ev.date);
+    let daysUntil = null;
+    if (dateISO) {
+      const [y, m, d] = dateISO.split('-').map(Number);
+      if (Number.isInteger(y) && Number.isInteger(m) && Number.isInteger(d)) {
+        const eventDay = Date.UTC(y, m - 1, d);
+        const now = new Date();
+        const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+        daysUntil = Math.round((eventDay - today) / (1000 * 60 * 60 * 24));
+      }
+    }
+    const urgentEmpty = !isTeams && count === 0 && Number.isInteger(daysUntil) && daysUntil >= 0 && daysUntil <= 3;
     const allCheckedIn = count > 0 && checkedInCount === count;
     const left = isTeams ? (tt.name ? tt.name : `Team ${idx+1}`) : (tt.time ? fmtTime(tt.time) : '—');
     const delTitle = isTeams ? 'Remove team' : 'Remove tee time';
+    const teeClasses = ['tee'];
+    if (full) teeClasses.push('tee-full');
+    if (urgentEmpty) teeClasses.push('tee-empty-urgent');
     // Only show edit button for teams, not tee times
     let editBtn = '';
     if (isTeams) {
       const editTitle = 'Edit team name';
       editBtn = `<button class="icon small" title="${editTitle}" data-edit-tee="${ev._id}:${tt._id}">✎</button>`;
     }
-    return `<div class="tee ${full ? 'tee-full' : ''}">
+    return `<div class="${teeClasses.join(' ')}">
       <div class="tee-meta">
         <div class="tee-time">${left} <span style="font-size:11px;opacity:0.8">(${count}/${slotMax})</span></div>
         <div class="tee-summary" style="font-size:11px;color:var(--slate-700)">${openSpots} open</div>

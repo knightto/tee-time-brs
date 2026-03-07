@@ -19,6 +19,13 @@ self.addEventListener('activate', event => {
   self.clients.claim();
 });
 
+self.addEventListener('message', event => {
+  if (!event || !event.data) return;
+  if (event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
 self.addEventListener('fetch', event => {
   if (event.request.method !== 'GET') return;
   const url = new URL(event.request.url);

@@ -540,6 +540,7 @@
     <nav class="section-nav">
       <a href="#quickActionsSection">Quick Actions</a>
       <a href="#notificationsSection">Notifications</a>
+      <a href="#scheduledEmailRulesSection">Email Rules</a>
       <a href="#teeLogSection">Change Log</a>
       <a href="#subscribersSection">Subscribers</a>
     </nav>
@@ -570,6 +571,91 @@
         </label>
       </div>
       <div id="notifResult" class="test-result"></div>
+
+      <div class="toggle-card" style="margin-top:10px;">
+        <div>
+          <p class="toggle-title">Automated Scheduler</p>
+          <p class="toggle-text">Runs timed jobs (4 PM empty-tee club alert, 5 PM reminders, admin checks, and weather refresh).</p>
+        </div>
+        <label class="toggle-control">
+          <span id="schedulerStatusText" class="toggle-status">Loading...</span>
+          <input type="checkbox" id="schedulerToggle" onchange="toggleScheduler(this.checked)" 
+                 class="toggle-input">
+        </label>
+      </div>
+      <div id="schedulerResult" class="test-result"></div>
+    </section>
+
+    <section id="scheduledEmailRulesSection" class="admin-section section-notifications">
+      <h2>📬 Scheduled Email Rules</h2>
+      <p class="section-intro">Toggle each scheduled email rule independently. These only apply to automated scheduler runs.</p>
+
+      <div class="toggle-card" style="margin-top:10px;">
+        <div>
+          <p class="toggle-title">4 PM Club Alert (Tomorrow Empty Tees)</p>
+          <p class="toggle-text">Sends Brian Jones an alert at 4:00 PM if tomorrow has empty tee times.</p>
+        </div>
+        <label class="toggle-control">
+          <span id="ruleStatusBrianTomorrowEmptyClubAlert" class="toggle-status">Loading...</span>
+          <input type="checkbox" id="ruleToggleBrianTomorrowEmptyClubAlert"
+                 onchange="toggleScheduledEmailRule('brianTomorrowEmptyClubAlert', this.checked)"
+                 class="toggle-input">
+        </label>
+      </div>
+
+      <div class="toggle-card" style="margin-top:10px;">
+        <div>
+          <p class="toggle-title">5 PM Reminder (48 Hours)</p>
+          <p class="toggle-text">Sends subscriber reminder emails for empty tee times 2 days out.</p>
+        </div>
+        <label class="toggle-control">
+          <span id="ruleStatusReminder48Hour" class="toggle-status">Loading...</span>
+          <input type="checkbox" id="ruleToggleReminder48Hour"
+                 onchange="toggleScheduledEmailRule('reminder48Hour', this.checked)"
+                 class="toggle-input">
+        </label>
+      </div>
+
+      <div class="toggle-card" style="margin-top:10px;">
+        <div>
+          <p class="toggle-title">5 PM Reminder (24 Hours)</p>
+          <p class="toggle-text">Sends subscriber reminder emails for empty tee times tomorrow.</p>
+        </div>
+        <label class="toggle-control">
+          <span id="ruleStatusReminder24Hour" class="toggle-status">Loading...</span>
+          <input type="checkbox" id="ruleToggleReminder24Hour"
+                 onchange="toggleScheduledEmailRule('reminder24Hour', this.checked)"
+                 class="toggle-input">
+        </label>
+      </div>
+
+      <div class="toggle-card" style="margin-top:10px;">
+        <div>
+          <p class="toggle-title">5 PM Nearly-Full Alert</p>
+          <p class="toggle-text">Sends subscriber alerts when tee times are over 50% full within 4 days.</p>
+        </div>
+        <label class="toggle-control">
+          <span id="ruleStatusNearlyFullTeeTimes" class="toggle-status">Loading...</span>
+          <input type="checkbox" id="ruleToggleNearlyFullTeeTimes"
+                 onchange="toggleScheduledEmailRule('nearlyFullTeeTimes', this.checked)"
+                 class="toggle-input">
+        </label>
+      </div>
+
+      <div class="toggle-card" style="margin-top:10px;">
+        <div>
+          <p class="toggle-title">Admin Empty-Tee Alerts (6 Hour Cycle)</p>
+          <p class="toggle-text">Sends admin alerts every 6 hours for 24hr/48hr empty tee times.</p>
+        </div>
+        <label class="toggle-control">
+          <span id="ruleStatusAdminEmptyTeeAlerts" class="toggle-status">Loading...</span>
+          <input type="checkbox" id="ruleToggleAdminEmptyTeeAlerts"
+                 onchange="toggleScheduledEmailRule('adminEmptyTeeAlerts', this.checked)"
+                 class="toggle-input">
+        </label>
+      </div>
+
+      <div id="scheduledRulesResult" class="test-result"></div>
     </section>
 
     <section id="teeLogSection" class="admin-section section-log">
@@ -660,6 +746,8 @@
     } else {
       loadSubscribers();
       loadNotificationSettings();
+      loadSchedulerSettings();
+      loadScheduledEmailRuleSettings();
       checkGolfApiHealth(); // Check API health on load
       const teeLogBtn = document.getElementById('teeLogBtn');
       if (teeLogBtn) teeLogBtn.addEventListener('click', loadTeeTimeLog);
@@ -997,6 +1085,138 @@
       resultDiv.style.background = isSuccess ? '#d1fae5' : '#fee2e2';
       resultDiv.style.color = isSuccess ? '#065f46' : '#991b1b';
       setTimeout(() => { resultDiv.style.display = 'none'; }, 3000);
+    }
+
+    async function loadSchedulerSettings() {
+      try {
+        const response = await fetch(`/api/admin/settings/scheduler?code=${encodeURIComponent(ADMIN_CODE)}`);
+        if (!response.ok) throw new Error('Failed to load scheduler setting');
+        const data = await response.json();
+        const checkbox = document.getElementById('schedulerToggle');
+        const statusText = document.getElementById('schedulerStatusText');
+
+        checkbox.checked = !!data.schedulerEnabled;
+        if (data.lockedByEnv) {
+          checkbox.disabled = true;
+          statusText.textContent = 'Locked Off';
+          statusText.style.color = '#b45309';
+          setScheduledRuleToggleDisabled(true);
+          showSchedulerResult('ℹ Scheduler is locked by ENABLE_SCHEDULER=0 in environment.', true, true);
+          return;
+        }
+
+        checkbox.disabled = false;
+        setScheduledRuleToggleDisabled(false);
+        statusText.textContent = data.schedulerEnabled ? 'Enabled' : 'Disabled';
+        statusText.style.color = data.schedulerEnabled ? '#059669' : '#dc2626';
+      } catch (error) {
+        console.error('Error loading scheduler settings:', error);
+      }
+    }
+
+    async function toggleScheduler(enabled) {
+      try {
+        showSchedulerResult('⏳ Updating scheduler setting...');
+        const response = await fetch(`/api/admin/settings/scheduler?code=${encodeURIComponent(ADMIN_CODE)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ schedulerEnabled: enabled })
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Failed to update scheduler setting');
+
+        const statusText = document.getElementById('schedulerStatusText');
+        statusText.textContent = enabled ? 'Enabled' : 'Disabled';
+        statusText.style.color = enabled ? '#059669' : '#dc2626';
+        showSchedulerResult(`✅ Scheduler ${enabled ? 'enabled' : 'disabled'}`);
+      } catch (error) {
+        showSchedulerResult(`❌ Error: ${error.message}`, false);
+        loadSchedulerSettings();
+      }
+    }
+
+    function showSchedulerResult(message, isSuccess = true, persist = false) {
+      const resultDiv = document.getElementById('schedulerResult');
+      resultDiv.textContent = message;
+      resultDiv.style.display = 'block';
+      resultDiv.style.background = isSuccess ? '#d1fae5' : '#fee2e2';
+      resultDiv.style.color = isSuccess ? '#065f46' : '#991b1b';
+      if (!persist) setTimeout(() => { resultDiv.style.display = 'none'; }, 3000);
+    }
+
+    const scheduledEmailRuleUi = {
+      brianTomorrowEmptyClubAlert: { toggleId: 'ruleToggleBrianTomorrowEmptyClubAlert', statusId: 'ruleStatusBrianTomorrowEmptyClubAlert', label: '4 PM Club Alert' },
+      reminder48Hour: { toggleId: 'ruleToggleReminder48Hour', statusId: 'ruleStatusReminder48Hour', label: '5 PM Reminder (48 Hours)' },
+      reminder24Hour: { toggleId: 'ruleToggleReminder24Hour', statusId: 'ruleStatusReminder24Hour', label: '5 PM Reminder (24 Hours)' },
+      nearlyFullTeeTimes: { toggleId: 'ruleToggleNearlyFullTeeTimes', statusId: 'ruleStatusNearlyFullTeeTimes', label: '5 PM Nearly-Full Alert' },
+      adminEmptyTeeAlerts: { toggleId: 'ruleToggleAdminEmptyTeeAlerts', statusId: 'ruleStatusAdminEmptyTeeAlerts', label: 'Admin Empty-Tee Alerts' }
+    };
+
+    function setScheduledRuleToggleDisabled(disabled) {
+      Object.values(scheduledEmailRuleUi).forEach(meta => {
+        const checkbox = document.getElementById(meta.toggleId);
+        if (checkbox) checkbox.disabled = !!disabled;
+      });
+    }
+
+    function applyScheduledRuleState(ruleKey, enabled) {
+      const meta = scheduledEmailRuleUi[ruleKey];
+      if (!meta) return;
+      const checkbox = document.getElementById(meta.toggleId);
+      const status = document.getElementById(meta.statusId);
+      if (checkbox) checkbox.checked = !!enabled;
+      if (status) {
+        status.textContent = enabled ? 'Enabled' : 'Disabled';
+        status.style.color = enabled ? '#059669' : '#dc2626';
+      }
+    }
+
+    async function loadScheduledEmailRuleSettings() {
+      try {
+        const response = await fetch(`/api/admin/settings/scheduled-email-rules?code=${encodeURIComponent(ADMIN_CODE)}`);
+        if (!response.ok) throw new Error('Failed to load scheduled email rules');
+        const data = await response.json();
+        const rules = data.rules || {};
+        Object.keys(scheduledEmailRuleUi).forEach(ruleKey => {
+          applyScheduledRuleState(ruleKey, rules[ruleKey] !== false);
+        });
+      } catch (error) {
+        console.error('Error loading scheduled email rules:', error);
+        showScheduledRulesResult(`❌ Error: ${error.message}`, false);
+      }
+    }
+
+    async function toggleScheduledEmailRule(ruleKey, enabled) {
+      const meta = scheduledEmailRuleUi[ruleKey];
+      if (!meta) return;
+      try {
+        showScheduledRulesResult(`⏳ Updating ${meta.label}...`);
+        const response = await fetch(`/api/admin/settings/scheduled-email-rules?code=${encodeURIComponent(ADMIN_CODE)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ruleKey, enabled })
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Failed to update scheduled email rule');
+        const rules = payload.rules || {};
+        Object.keys(scheduledEmailRuleUi).forEach(key => {
+          applyScheduledRuleState(key, rules[key] !== false);
+        });
+        showScheduledRulesResult(`✅ ${meta.label} ${enabled ? 'enabled' : 'disabled'}`);
+      } catch (error) {
+        showScheduledRulesResult(`❌ Error: ${error.message}`, false);
+        loadScheduledEmailRuleSettings();
+      }
+    }
+
+    function showScheduledRulesResult(message, isSuccess = true) {
+      const resultDiv = document.getElementById('scheduledRulesResult');
+      resultDiv.textContent = message;
+      resultDiv.style.display = 'block';
+      resultDiv.style.background = isSuccess ? '#d1fae5' : '#fee2e2';
+      resultDiv.style.color = isSuccess ? '#065f46' : '#991b1b';
+      setTimeout(() => { resultDiv.style.display = 'none'; }, 3500);
     }
 
     async function refreshAllWeather() {
