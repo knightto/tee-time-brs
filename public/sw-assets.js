@@ -20,6 +20,7 @@ self.__SW_ASSETS = [
   "/rules.html",
   "/script.js",
   "/style.css",
+  "/tin-cup-trip-2026.html",
   "/user-guide.html",
   "/valley-sip-and-smoke.html"
 ];

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Myrtle Beach 2026 Golf Trip Tracker</title>
+  <title>Tin Cup 2026 Golf Trip Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     :root {
@@ -545,11 +545,11 @@
   <a href="/" style="position:fixed;top:12px;left:12px;padding:8px 12px;background:#0c1a2c;color:#f9fafb;text-decoration:none;border-radius:10px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);z-index:999;">← Main Page</a>
   <div class="container">
     <header class="hero">
-      <h1>Myrtle Beach 2026 Golf Trip <span>Group 3/18-3/22/26</span></h1>
+      <h1>Tin Cup 2026 Golf Trip <span>Group 5/12-5/17/26</span></h1>
       <div class="chips">
-        <div class="chip">Myrtle Beach, SC</div>
-        <div class="chip">4 Nights / 5 Rounds</div>
-        <div class="chip">Reservation #12972589</div>
+        <div class="chip">Southern Pines, NC</div>
+        <div class="chip">Guests: Tommy Knight + 11</div>
+        <div class="chip">5 Courses / 6 Tee Times</div>
       </div>
     </header>
 
@@ -560,16 +560,16 @@
     <div class="panel" id="tripMapBox" style="margin-bottom:12px;">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
         <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Trip Map</h2>
-        <a class="cta" href="https://www.google.com/maps/d/u/0/viewer?mid=1OLZdG1AzvAQJlBuhYWt5v_8Ta4W6bmY&ehbc=2E312F" target="_blank" rel="noopener">Open Full Map</a>
+        <a class="cta" href="https://www.google.com/maps/search/?api=1&query=Talamore+Golf+Resort+610+Palmer+Drive+Southern+Pines+NC+28387" target="_blank" rel="noopener">Open Full Map</a>
       </div>
       <div class="map-frame-wrap" style="margin-top:12px;">
-        <iframe src="https://www.google.com/maps/d/u/0/embed?mid=1OLZdG1AzvAQJlBuhYWt5v_8Ta4W6bmY&ehbc=2E312F" width="640" height="480" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Myrtle Beach 2026 Golf Trip Map"></iframe>
+        <iframe src="https://www.google.com/maps?q=610+Palmer+Drive,+Southern+Pines,+North+Carolina+28387&output=embed" width="640" height="480" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Tin Cup 2026 Golf Trip Map"></iframe>
       </div>
     </div>
     <div class="layout">
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-          <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Accommodations</h2>
+          <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Guests & Lodging</h2>
           <button id="addParticipantBtn" style="padding:10px 14px;font-weight:700;">Add Golfer</button>
         </div>
         <div id="condoGroups" class="cards-grid" style="margin-top:12px;"></div>
@@ -578,30 +578,30 @@
       <div id="unassignedSidebar"></div>
     </div>
   </div>
-  <a href="https://founders.teetimecentralonline.com/golfcentral/guests/login.aspx?user=tommy.knight@gmail.com&pwd=3/18/2026" target="_blank" aria-label="Admin login" style="position:fixed;left:12px;bottom:12px;padding:8px 12px;border-radius:10px;background:#0c1a2c;color:#f9fafb;text-decoration:none;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);">ADMIN</a>
+  <a href="/admin.html" target="_blank" aria-label="Admin login" style="position:fixed;left:12px;bottom:12px;padding:8px 12px;border-radius:10px;background:#0c1a2c;color:#f9fafb;text-decoration:none;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);">ADMIN</a>
   <script>
     const STATUS_ORDER = ['in', 'out', 'maybe', 'waitlist', 'invited'];
     const STATUS_LABELS = { invited: 'Invited', in: 'In', maybe: 'Maybe', out: 'Out', waitlist: 'Waitlist' };
     const BASE_GROUP_SIZES = [4, 8, 12, 16, 20, 24];
-    const MYRTLE_ARRIVAL_DATE = '2026-03-18';
-    const MYRTLE_DEPARTURE_DATE = '2026-03-22';
+    const TIN_CUP_ARRIVAL_DATE = '2026-05-12';
+    const TIN_CUP_DEPARTURE_DATE = '2026-05-17';
     const DEFAULT_TRIP = {
-      name: 'tommy knight Group - Barefoot',
-      location: 'Myrtle Beach, SC',
-      arrivalDate: MYRTLE_ARRIVAL_DATE,
-      departureDate: MYRTLE_DEPARTURE_DATE,
-      package: '4 Nights / 5 Rounds',
-      groupSize: 24,
-      preparedBy: 'Myrtle Beach Golf Trips',
-      phone: '(877) 283-2122',
-      reservationNumber: '12972589',
+      name: 'Tin Cup 2026 Trip',
+      location: 'Talamore Golf Resort, Southern Pines, NC',
+      arrivalDate: TIN_CUP_ARRIVAL_DATE,
+      departureDate: TIN_CUP_DEPARTURE_DATE,
+      package: '5 Courses / 6 Tee Times',
+      groupSize: 12,
+      preparedBy: 'Tin Cup Trip Planner',
+      phone: '',
+      reservationNumber: 'Tin Cup 2026',
       accommodations: {
-        resort: 'Barefoot Golf Villas',
-        unitType: '2 Bedroom Golf Course',
-        units: 6,
-        confirmations: '90612 90613 90615 90614 90611',
-        arrivalDate: MYRTLE_ARRIVAL_DATE,
-        departureDate: MYRTLE_DEPARTURE_DATE
+        resort: 'Talamore Golf Resort',
+        unitType: 'Trip Lodging',
+        units: 3,
+        confirmations: '',
+        arrivalDate: TIN_CUP_ARRIVAL_DATE,
+        departureDate: TIN_CUP_DEPARTURE_DATE
       }
     };
     const parseTimeMinutes = (value) => {
@@ -632,112 +632,78 @@
     };
     const DEFAULT_ROUNDS = [
       {
-        course: 'World Tour',
-        address: '2000 World Tour Blvd, Myrtle Beach, SC 29579',
-        date: '2026-03-18',
-        time: '13:17',
-        teeTimes: buildTripSlots('13:17', [
-          ['Joe Gillette', 'Thomas Lasik', 'Marcus Ordonez', 'Duane Harris'],
-          ['John Hyers', 'Caleb Hart', 'Chris Neff', 'Matt Shannon'],
-          ['John Quimby', 'Reny Butler', 'Lance Darr', 'Manuel Ordonez'],
-          ['Tommy Knight', 'Chris Manuel', 'Chad Jones', 'Delmar Christian'],
-          ['Josh Browne', 'Dennis Freeman', 'Jeremy Bridges', 'Tommy Knight Sr']
-        ])
+        course: 'Mid Pines Golf Course',
+        venue: 'Mid Pines Inn & Golf Club',
+        address: 'Southern Pines, North Carolina, United States',
+        date: '2026-05-12',
+        time: '14:05',
+        reviewCount: 3,
+        description: 'Designed in 1921 by Donald Ross and still in its original shape. A visually stunning routing through rolling terrain and towering pines that now hosts high-level competitions.',
+        readMoreLabel: 'Read more about Mid Pines Golf Course',
+        teeTimes: [
+          { label: 'TT#1', time: '14:05', players: [] },
+          { label: 'TT#2', time: '15:00', players: [] }
+        ]
       },
       {
-        course: 'Wild Wing Avocet',
-        address: '1000 Wild Wing Blvd, Conway, SC 29526',
-        date: '2026-03-19',
-        time: '09:09',
-        teeTimes: buildTripSlots('09:09', [
-          ['John Quimby', 'Chris Neff', 'Jeremy Bridges', 'Duane Harris'],
-          ['Tommy Knight', 'Reny Butler', 'Marcus Ordonez', 'Matt Shannon'],
-          ['Joe Gillette', 'Josh Browne', 'Chris Manuel', 'Manuel Ordonez'],
-          ['Caleb Hart', 'Lance Darr', 'Delmar Christian', 'Tommy Knight Sr'],
-          ['Thomas Lasik', 'John Hyers', 'Dennis Freeman', 'Chad Jones']
-        ])
+        course: 'Pine Needles Golf Course',
+        venue: 'Pine Needles Lodge & Golf Club',
+        address: 'Southern Pines, North Carolina, United States',
+        date: '2026-05-13',
+        time: '08:20',
+        reviewCount: 5,
+        description: 'Donald Ross design (1927) later advanced by Kyle Franz. Strategic bunkering, rolling hills, and huge pines on a course that has hosted four U.S. Women’s Opens.',
+        readMoreLabel: 'Read more about Pine Needles Golf Course',
+        teeTimes: buildTripSlots('08:20', [[]])
       },
       {
-        course: "King's North",
-        address: '4900 National Dr, Myrtle Beach, SC 29579',
-        date: '2026-03-20',
-        time: '08:26',
-        teeTimes: buildTripSlots('08:26', [
-          ['Josh Browne', 'John Hyers', 'Delmar Christian', 'Duane Harris'],
-          ['Chris Neff', 'Lance Darr', 'Marcus Ordonez', 'Chad Jones'],
-          ['Tommy Knight', 'Thomas Lasik', 'Jeremy Bridges', 'Manuel Ordonez'],
-          ['Joe Gillette', 'Reny Butler', 'Caleb Hart', 'Dennis Freeman'],
-          ['John Quimby', 'Chris Manuel', 'Matt Shannon', 'Tommy Knight Sr']
-        ])
+        course: 'Talamore Golf Club',
+        venue: 'Talamore Golf Resort',
+        address: '610 Palmer Drive, Southern Pines, North Carolina 28387, United States',
+        date: '2026-05-14',
+        time: '09:30',
+        reviewCount: 8,
+        description: 'Designed by Rees Jones in 1991 with major 2016 improvements including restored greens, Champion bermudagrass, wider fairways, and signature sod-wall bunkers.',
+        readMoreLabel: 'Read more about Talamore Golf Club',
+        teeTimes: buildTripSlots('09:30', [[]])
       },
       {
-        course: 'River Hills',
-        address: '3670 Cedar Creek Run, Little River, SC 29566',
-        date: '2026-03-21',
-        time: '09:15',
-        teeTimes: buildTripSlots('09:15', [
-          ['Chris Manuel', 'Lance Darr', 'Dennis Freeman', 'Duane Harris'],
-          ['John Hyers', 'Marcus Ordonez', 'Manuel Ordonez', 'Tommy Knight Sr'],
-          ['Reny Butler', 'Thomas Lasik', 'Chris Neff', 'Delmar Christian'],
-          ['John Quimby', 'Josh Browne', 'Tommy Knight', 'Caleb Hart'],
-          ['Joe Gillette', 'Jeremy Bridges', 'Chad Jones', 'Matt Shannon']
-        ])
+        course: 'Tobacco Road Golf Course',
+        venue: 'Tobacco Road Golf Club',
+        address: 'Sanford, North Carolina, United States',
+        date: '2026-05-15',
+        time: '10:36',
+        reviewCount: 9,
+        description: 'Mike Strantz’s imaginative layout with generous landing areas, dramatic shaping, and creative green complexes that reward bold shot-making.',
+        readMoreLabel: 'Read more about Tobacco Road Golf Course',
+        teeTimes: buildTripSlots('10:36', [[]])
       },
       {
-        course: 'Long Bay',
-        address: '350 Fox Tail Dr, Longs, SC 29568',
-        date: '2026-03-22',
-        time: '08:00',
-        teeTimes: buildTripSlots('08:00', [
-          ['Joe Gillette', 'Tommy Knight', 'Chris Neff', 'Tommy Knight Sr'],
-          ['Caleb Hart', 'Chad Jones', 'Manuel Ordonez', 'Duane Harris'],
-          ['John Quimby', 'Marcus Ordonez', 'Dennis Freeman', 'Delmar Christian'],
-          ['Reny Butler', 'John Hyers', 'Chris Manuel', 'Jeremy Bridges'],
-          ['Josh Browne', 'Thomas Lasik', 'Lance Darr', 'Matt Shannon']
-        ])
+        course: 'Mid South Course',
+        venue: 'Talamore Golf Resort',
+        address: '610 Palmer Drive, Southern Pines, North Carolina 28387, United States',
+        date: '2026-05-16',
+        time: '08:45',
+        reviewCount: 7,
+        description: 'Arnold Palmer design (1993) upgraded in 2017 with Champion bermuda greens. Big fairways, big bunkers, wetlands, lakes, and elevation throughout.',
+        readMoreLabel: 'Read more about Mid South Course',
+        teeTimes: buildTripSlots('08:45', [[]])
       }
     ];
     const CONDO_ADDRESSES = [
       {
-        label: '5802 Oyster Catcher Dr',
-        address: '5802 Oyster Catcher Dr, North Myrtle Beach, SC 29582',
-        unit: 'Ironwood 1121',
-        guestbook: 'https://guide.ruebarue.com/guestbook/7427693178089342',
-        occupants: ['Chris Neff', 'Caleb Hart', 'Jeremy Bridges', 'Jay Quimby']
-      },
-      {
-        label: '5810 Oyster Catcher Dr',
-        address: '5810 Oyster Catcher Dr, North Myrtle Beach, SC 29582',
-        unit: 'Ironwood 721',
-        guestbook: 'https://guide.ruebarue.com/guestbook/7840614159287489',
-        occupants: ['Tommy Knight', 'Tommy Knight Sr', 'Joe Gillette', 'Josh Browne']
-      },
-      {
-        label: '5801 Oyster Catcher Dr',
-        address: '5801 Oyster Catcher Dr, North Myrtle Beach, SC 29582',
-        unit: 'Ironwood 1021',
-        guestbook: 'https://guide.ruebarue.com/guestbook/8331472348472874',
-        occupants: ['Matt Shannon', 'Duane Harris', 'John Hyers', 'Dennis Freeman']
-      },
-      {
-        label: '5804 Oyster Catcher Dr',
-        address: '5804 Oyster Catcher Dr, North Myrtle Beach, SC 29582',
-        unit: 'Ironwood 1233',
-        guestbook: 'https://guide.ruebarue.com/guestbook/6212242310575679',
-        occupants: ['Manuel Ordonez', 'Marcus Ordonez', 'Delmar Christian', 'Chad Jones']
-      },
-      {
-        label: '5805 Oyster Catcher Dr',
-        address: '5805 Oyster Catcher Dr, North Myrtle Beach, SC 29582',
-        unit: 'Ironwood 1311',
-        guestbook: 'https://guide.ruebarue.com/guestbook/4183582435648033',
-        occupants: ['Reny Butler', 'Thomas Lasik', 'Chris Manuel', 'Lance Darr']
+        label: 'Talamore Golf Resort',
+        address: '610 Palmer Drive, Southern Pines, North Carolina 28387, United States',
+        unit: 'Trip Base',
+        guestbook: 'https://www.google.com/maps/search/?api=1&query=Talamore+Golf+Resort+610+Palmer+Drive+Southern+Pines+NC+28387',
+        occupants: ['Tommy Knight + 11 guests']
       }
     ];
 
     let tripId = null;
     let trip = null;
     let participants = [];
+    let useSecondaryTripDb = true;
 
     const $ = (sel) => document.querySelector(sel);
     const formatDate = (d) => {
@@ -752,7 +718,10 @@
       const parsed = new Date(d);
       return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleDateString();
     };
-    const tripApi = (path) => (path.includes('?') ? `${path}&myrtleBeach2026=true` : `${path}?myrtleBeach2026=true`);
+    const tripApi = (path) => {
+      if (!useSecondaryTripDb) return path;
+      return path.includes('?') ? `${path}&myrtleBeach2026=true` : `${path}?myrtleBeach2026=true`;
+    };
     const safeNumber = (val) => (val === '' || isNaN(val) ? 0 : parseFloat(val));
     const getCondoCount = () => {
       const size = Number(trip?.baseGroupSize) || Number(trip?.groupSize) || DEFAULT_TRIP.groupSize;
@@ -829,10 +798,15 @@
       }
       return {
         course: String(raw.course || '').trim(),
+        venue: String(raw.venue || '').trim(),
         address: String(raw.address || '').trim(),
         date: toIsoDate(raw.date),
         time: roundTime,
         confirmation: String(raw.confirmation || '').trim(),
+        reviewCount: Number.isFinite(Number(raw.reviewCount)) ? Number(raw.reviewCount) : null,
+        description: String(raw.description || '').trim(),
+        readMoreLabel: String(raw.readMoreLabel || '').trim(),
+        readMoreUrl: String(raw.readMoreUrl || '').trim(),
         teeTimes: normalizedSlots
       };
     };
@@ -848,7 +822,7 @@
       });
     };
     const tripScheduleState = {
-      currentDate: new Date(Number(MYRTLE_ARRIVAL_DATE.slice(0, 4)), Number(MYRTLE_ARRIVAL_DATE.slice(5, 7)) - 1, 1),
+      currentDate: new Date(Number(TIN_CUP_ARRIVAL_DATE.slice(0, 4)), Number(TIN_CUP_ARRIVAL_DATE.slice(5, 7)) - 1, 1),
       selectedDate: ''
     };
     const getTripRounds = () => {
@@ -869,6 +843,10 @@
     }
 
     async function updateParticipant(id, body, opts = {}) {
+      if (!tripId) {
+        alert('Tin Cup trip is in preview mode until a database trip record is created.');
+        return;
+      }
       const needsAdmin = opts.requireAdmin === true;
       const headers = { 'Content-Type': 'application/json' };
       if (needsAdmin) {
@@ -885,14 +863,24 @@
     }
 
     async function loadTrip() {
-      const res = await fetch(tripApi('/api/trips'));
-      const trips = await res.json();
-      trip = trips.find((t) => t.name && t.name.includes('Myrtle Beach'));
-      if (!trip) return alert('Trip not found');
-      tripId = trip._id;
-      window.tripId = trip._id;
-      const pRes = await fetch(tripApi(`/api/trips/${trip._id}/participants`));
-      participants = await pRes.json();
+      useSecondaryTripDb = true;
+      let res = await fetch(tripApi('/api/trips'));
+      let trips = await res.json();
+      trip = trips.find((t) => t.name && /tin\s*cup/i.test(String(t.name || ''))) || null;
+      if (!trip) {
+        useSecondaryTripDb = false;
+        res = await fetch('/api/trips');
+        trips = await res.json();
+        trip = trips.find((t) => t.name && /tin\s*cup/i.test(String(t.name || ''))) || null;
+      }
+      tripId = trip ? trip._id : null;
+      window.tripId = tripId;
+      if (tripId) {
+        const pRes = await fetch(tripApi(`/api/trips/${tripId}/participants`));
+        participants = await pRes.json();
+      } else {
+        participants = [];
+      }
       renderAll();
     }
 
@@ -906,16 +894,22 @@
     function renderTripSummary() {
       const t = trip || DEFAULT_TRIP;
       const accom = t.accommodations || DEFAULT_TRIP.accommodations;
-      const arrivalDateDisplay = formatDate(MYRTLE_ARRIVAL_DATE) || '3/18/2026';
-      const departureDateDisplay = formatDate(MYRTLE_DEPARTURE_DATE) || '3/22/2026';
+      const arrivalDateDisplay = formatDate(TIN_CUP_ARRIVAL_DATE) || '5/12/2026';
+      const departureDateDisplay = formatDate(TIN_CUP_DEPARTURE_DATE) || '5/17/2026';
       const summary = `
         <div style="display:grid;gap:6px;">
-          <div><strong>Trip Name:</strong> ${t.name || 'Myrtle Beach - Barefoot Group 3/18-3/22/26'}</div>
-          <div><strong>Location:</strong> ${t.location || 'Myrtle Beach, SC'}</div>
-          <div><strong>Package:</strong> ${t.package || '4 Nights / 5 Rounds'}</div>
-          <div><strong>Reservation #:</strong> ${t.reservationNumber || '12972589'} &nbsp;|&nbsp; ${t.preparedBy || 'Myrtle Beach Golf Trips'} (${t.phone || '(877) 283-2122'})</div>
+          <div><strong>Trip Name:</strong> ${t.name || 'Tin Cup 2026 Trip'}</div>
+          <div><strong>Location:</strong> ${t.location || 'Southern Pines, NC'}</div>
+          <div><strong>Package:</strong> ${t.package || '5 Courses / 6 Tee Times'}</div>
+          <div><strong>Guests:</strong> Tommy Knight and 11 more</div>
+          <div><strong>Arrival:</strong> ${arrivalDateDisplay} &nbsp;|&nbsp; <strong>Departure:</strong> ${departureDateDisplay}</div>
+          <div><strong>View Day:</strong> Day 1, Day 2, Day 3, Day 4, Day 5, Day 6</div>
+          <div><strong>Featured Courses:</strong> Mid Pines, Pine Needles, Talamore, Tobacco Road, Mid South</div>
+          <div><strong>Lodging / Resort Base:</strong> 610 Palmer Drive, Southern Pines, North Carolina 28387, United States</div>
+          <div><strong>Trip Ref:</strong> ${t.reservationNumber || 'Tin Cup 2026'} &nbsp;|&nbsp; ${t.preparedBy || 'Tin Cup Trip Planner'}${t.phone ? ` (${t.phone})` : ''}</div>
           <div style="display:grid;gap:8px;margin-top:8px;">
-            <a class="cta" href="https://founders.teetimecentralonline.com/golfcentral/guests/Register.aspx?g=8ad2d184-cdb8-4b90-8dc6-55c68c26efe9&ResNum=12972589&arr=3/18/2026" target="_blank">Join Package / Register / Sign In (Already Registered)</a>
+            <a class="cta" href="https://www.google.com/maps/search/?api=1&query=Talamore+Golf+Resort+610+Palmer+Drive+Southern+Pines+NC+28387" target="_blank" rel="noopener">Open Talamore Golf Resort in Maps</a>
+            ${tripId ? '' : '<small style="color:var(--ink-soft);">Preview mode: trip not linked to database yet.</small>'}
           </div>
         </div>
       `;
@@ -960,8 +954,10 @@
       const details = [
         `Trip Tee Time`,
         `Course: ${round.course || 'Course TBD'}`,
+        round.venue ? `Venue: ${round.venue}` : '',
         `Date: ${formatDateLong(dateISO)}`,
         firstLabel ? `First Tee: ${firstLabel}` : '',
+        round.description ? `Notes: ${round.description}` : '',
       ].filter(Boolean).join('\n');
       const params = new URLSearchParams();
       params.set('action', 'TEMPLATE');
@@ -988,7 +984,7 @@
       const lines = [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
-        'PRODID:-//Tee Time Manager//Myrtle Beach Trip//EN',
+        'PRODID:-//Tee Time Manager//Tin Cup Trip//EN',
         'CALSCALE:GREGORIAN',
         'METHOD:PUBLISH',
       ];
@@ -1006,15 +1002,17 @@
           const [endH, endM] = endTime.split(':').map(Number);
           const startDate = new Date(yearN, monthN - 1, dayN, startH, startM, 0);
           const endDate = new Date(yearN, monthN - 1, dayN, endH, endM, 0);
-          const uid = `${dateISO}-${slotIndex + 1}-${roundIndex + 1}-myrtle-trip@teetime.local`;
+          const uid = `${dateISO}-${slotIndex + 1}-${roundIndex + 1}-tin-cup-trip@teetime.local`;
           const label = slot.label || `TT#${slotIndex + 1}`;
           const playersLine = (slot.players || []).length ? `Players: ${(slot.players || []).join(', ')}` : 'Players: Open spots';
           const description = [
             `Trip tee time`,
             `Course: ${round.course || 'Course TBD'}`,
+            round.venue ? `Venue: ${round.venue}` : '',
             `Date: ${formatDateLong(dateISO)}`,
             `${label}: ${formatTime12(startTime)}`,
             playersLine,
+            round.description ? `Notes: ${round.description}` : '',
           ].join('\n');
           lines.push('BEGIN:VEVENT');
           lines.push(`UID:${escapeIcs(uid)}`);
@@ -1046,7 +1044,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `myrtle-trip-${monthLabel}.ics`;
+      a.download = `tin-cup-trip-${monthLabel}.ics`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -1174,7 +1172,11 @@
                   <h3 class="trip-event-course">${courseMarkup}</h3>
                   <span class="trip-event-time">${escapeHtml(firstTime ? `First tee ${formatTime12(firstTime)}` : 'Time TBD')}</span>
                 </div>
+                ${round.venue ? `<small>at ${escapeHtml(round.venue)}</small>` : ''}
                 ${round.address ? `<small>${escapeHtml(round.address)}</small>` : ''}
+                ${Number.isFinite(Number(round.reviewCount)) ? `<small>${escapeHtml(`${Math.round(Number(round.reviewCount))} reviews`)}</small>` : ''}
+                ${round.description ? `<small style="line-height:1.45;">${escapeHtml(round.description)}</small>` : ''}
+                ${round.readMoreLabel ? `<small style="font-weight:700;color:var(--accent-2);">${escapeHtml(round.readMoreLabel)}</small>` : ''}
                 ${slotMarkup ? `<div class="trip-slot-grid">${slotMarkup}</div>` : '<div class="trip-empty-state">No tee sheet entered.</div>'}
                 <div class="trip-event-actions">
                   ${googleUrl ? `<a class="trip-event-link" href="${googleUrl}" target="_blank" rel="noopener">Google Calendar</a>` : ''}
@@ -1270,7 +1272,7 @@
       if (condoWazeLinks) {
         condoWazeLinks.innerHTML = `
           <div style="display:grid;gap:8px;">
-            <strong>Condo Waze Links</strong>
+            <strong>Trip Location Links</strong>
             <ul class="itinerary-list">
               ${CONDO_ADDRESSES.map((c) => {
                 const link = buildWazeLink(c.label, c.address);
@@ -1378,6 +1380,17 @@
       const container = document.getElementById('condoGroups');
       if (!container) return;
       container.innerHTML = '';
+      const addBtnEl = document.getElementById('addParticipantBtn');
+      if (addBtnEl) {
+        addBtnEl.disabled = !tripId;
+        addBtnEl.title = tripId ? 'Add golfer' : 'Preview mode until Tin Cup trip is linked in the database';
+      }
+      if (!tripId) {
+        container.innerHTML = '<div class="trip-empty-state">Preview mode: participant management will unlock after the Tin Cup trip record is added in the database.</div>';
+        const sidebar = document.getElementById('unassignedSidebar');
+        if (sidebar) sidebar.innerHTML = '';
+        return;
+      }
 
       const condoCount = getCondoCount();
       const condoCounts = Array(condoCount).fill(0);
@@ -1578,6 +1591,10 @@
     const addBtn = document.getElementById('addParticipantBtn');
     if (addBtn) {
       addBtn.onclick = async function () {
+        if (!tripId) {
+          alert('Tin Cup trip is in preview mode until a database trip record is created.');
+          return;
+        }
         const name = prompt('Golfer name:');
         if (!name) return;
         await fetch(tripApi(`/api/trips/${tripId}/participants`), {
