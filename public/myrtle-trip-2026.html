@@ -483,13 +483,6 @@
     #unassignedSidebar button {
       width: 100%;
     }
-    #summaryBox {
-      background: var(--panel-soft);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
-      line-height: 1.6;
-    }
     .status-labels {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
@@ -900,7 +893,6 @@
       renderTripSummary();
       renderItinerary();
       renderParticipants();
-      renderSummary();
     }
 
     function renderTripSummary() {
@@ -1236,7 +1228,6 @@
           </section>
         </div>
         <div id="condoWazeLinks" style="margin-top:12px;"></div>
-        <div id="summaryBox" style="margin-top:12px;"></div>
         <div id="allParticipantsList" style="margin-top:12px;"></div>
       `;
 
@@ -1504,35 +1495,6 @@
         }
       };
       unassignedSidebar.addEventListener('click', unassignedSidebar._removeHandler);
-    }
-
-    function renderSummary() {
-      const total = participants.length;
-      const counts = { in: 0, maybe: 0, out: 0, waitlist: 0, invited: 0 };
-      let depositTotal = 0;
-      let extraNightCount = 0;
-      participants.forEach((p) => {
-        const status = counts.hasOwnProperty(p.status) ? p.status : 'invited';
-        counts[status] = (counts[status] || 0) + 1;
-        depositTotal += Number(p.totalPaidAmount || p.depositPaidAmount || 0);
-        if (p.wantsExtraNight) extraNightCount++;
-      });
-      const extraNightCost = 33;
-      const extraNightTotal = extraNightCount * extraNightCost;
-      const summaryEl = $('#summaryBox');
-      if (!summaryEl) return;
-      summaryEl.innerHTML = `
-        <div style="display:grid;gap:4px;color:var(--ink);">
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <strong>Live Summary</strong>
-            <span style="color:var(--muted);font-size:0.9rem;">Updated</span>
-          </div>
-          <div>Total participants: ${total}</div>
-          <div>In: ${counts.in} | Maybe: ${counts.maybe} | Out: ${counts.out} | Waitlist: ${counts.waitlist} | Invited: ${counts.invited}</div>
-          <div>Total deposits received: $${depositTotal.toFixed(2)}</div>
-          <div>Wants extra night: ${extraNightCount} x $${extraNightCost} = <strong>$${extraNightTotal}</strong></div>
-        </div>
-      `;
     }
 
     const condoGroups = document.getElementById('condoGroups');
