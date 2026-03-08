@@ -355,6 +355,186 @@
       font-size: 0.9rem;
       background: rgba(255,255,255,0.03);
     }
+    .trip-matchup-panel {
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: 10px;
+      background: rgba(255,255,255,0.04);
+      display: grid;
+      gap: 10px;
+    }
+    .trip-matchup-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .trip-matchup-head h4 {
+      margin: 0;
+      color: #fff;
+      font-size: 0.98rem;
+      letter-spacing: 0.2px;
+    }
+    .trip-matchup-subtitle {
+      color: var(--ink-soft);
+      font-size: 0.8rem;
+    }
+    .trip-match-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .trip-match-chip {
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 0.75rem;
+      color: #dce7f7;
+      background: rgba(255,255,255,0.08);
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .trip-foursome-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+    }
+    .trip-foursome-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px;
+      background: rgba(11,23,40,0.55);
+      display: grid;
+      gap: 6px;
+    }
+    .trip-foursome-title {
+      margin: 0;
+      color: #fff;
+      font-size: 0.78rem;
+      letter-spacing: 0.3px;
+      text-transform: uppercase;
+    }
+    .trip-foursome-players {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .trip-foursome-player {
+      border: 1px solid rgba(255,255,255,0.14);
+      border-radius: 999px;
+      padding: 2px 7px;
+      font-size: 0.72rem;
+      color: #dce7f7;
+      background: rgba(255,255,255,0.05);
+      line-height: 1.2;
+    }
+    .trip-matchup-table-wrap {
+      overflow-x: auto;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      background: rgba(0,0,0,0.12);
+    }
+    .trip-matchup-table {
+      width: 100%;
+      min-width: 620px;
+      border-collapse: collapse;
+      font-size: 0.75rem;
+      color: #dce7f7;
+    }
+    .trip-matchup-table th,
+    .trip-matchup-table td {
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 5px 6px;
+      text-align: left;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+    .trip-matchup-table th {
+      color: var(--accent-2);
+      font-weight: 700;
+      background: rgba(0,0,0,0.2);
+    }
+    .trip-matchup-table td:first-child,
+    .trip-matchup-table th:first-child {
+      position: sticky;
+      left: 0;
+      background: rgba(7,14,24,0.96);
+      z-index: 1;
+    }
+    .trip-matchup-table td:nth-child(2),
+    .trip-matchup-table th:nth-child(2) {
+      text-align: center;
+      min-width: 44px;
+      color: #fff;
+      font-weight: 700;
+    }
+    .trip-matchup-opponent {
+      color: #fff;
+      font-weight: 600;
+    }
+    .trip-matchup-opponent small {
+      color: var(--ink-soft);
+      font-weight: 600;
+      font-size: 0.68rem;
+      margin-left: 4px;
+    }
+    .trip-scorecard {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px;
+      background: rgba(255,255,255,0.03);
+      display: grid;
+      gap: 8px;
+    }
+    .trip-scorecard-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: var(--ink-soft);
+      font-size: 0.76rem;
+    }
+    .trip-scorecard-head strong {
+      color: #fff;
+      font-size: 0.82rem;
+      letter-spacing: 0.2px;
+    }
+    .trip-scorecard-wrap {
+      overflow-x: auto;
+    }
+    .trip-scorecard-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 560px;
+      font-size: 0.73rem;
+      color: #dce7f7;
+    }
+    .trip-scorecard-table th,
+    .trip-scorecard-table td {
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 3px 4px;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .trip-scorecard-table th:first-child,
+    .trip-scorecard-table td:first-child {
+      text-align: left;
+      min-width: 58px;
+      color: var(--ink-soft);
+      font-weight: 700;
+    }
+    .trip-scorecard-table thead th {
+      color: var(--accent-2);
+      font-weight: 700;
+      background: rgba(0,0,0,0.16);
+    }
+    .trip-scorecard-table .trip-scorecard-total {
+      color: #fff;
+      font-weight: 700;
+      background: rgba(0,0,0,0.18);
+    }
     .status-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -482,13 +662,6 @@
     #unassignedSidebar select,
     #unassignedSidebar button {
       width: 100%;
-    }
-    #summaryBox {
-      background: var(--panel-soft);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
-      line-height: 1.6;
     }
     .status-labels {
       display: grid;
@@ -634,11 +807,12 @@
       {
         course: 'Mid Pines Golf Course',
         venue: 'Mid Pines Inn & Golf Club',
-        address: 'Southern Pines, North Carolina, United States',
+        address: '1010 Midland Road, Southern Pines, NC 28387',
         date: '2026-05-12',
         time: '14:05',
         reviewCount: 3,
-        description: 'Designed in 1921 by Donald Ross and still in its original shape. A visually stunning routing through rolling terrain and towering pines that now hosts high-level competitions.',
+        feefoCode: 'G3953',
+        description: 'Designed in 1921 by the famous architect Donald Ross, the Mid Pines layout remains in its original shape to this day. Visually stunning, each hole is carefully crafted into the natural rolling landscape and winds its way through the huge pine trees that dominate the land. Initially, the course was designed for friendly competition amongst members and guests of the club, however, in recent times it has hosted national competitions challenging some of the best in the game.',
         readMoreLabel: 'Read more about Mid Pines Golf Course',
         teeTimes: [
           { label: 'TT#1', time: '14:05', players: [] },
@@ -648,33 +822,36 @@
       {
         course: 'Pine Needles Golf Course',
         venue: 'Pine Needles Lodge & Golf Club',
-        address: 'Southern Pines, North Carolina, United States',
+        address: '1005 Midland Road, Southern Pines, NC 28387',
         date: '2026-05-13',
         time: '08:20',
         reviewCount: 5,
-        description: 'Donald Ross design (1927) later advanced by Kyle Franz. Strategic bunkering, rolling hills, and huge pines on a course that has hosted four U.S. Women’s Opens.',
+        feefoCode: 'G3952',
+        description: 'The Pine Needles course, a Donald Ross-design is the first course in the country to be granted four U.S. Women’s Opens. Ross created the course in 1927, with Kyle Franz making some advancements in 2007. Franz added some length whilst keeping the overall feel in line with the original Ross design. Rolling hills, strategic fairway bunkering, and huge pines define the course. Voted by Golfweek as the #4 course in the state it is truly a must-play.',
         readMoreLabel: 'Read more about Pine Needles Golf Course',
         teeTimes: buildTripSlots('08:20', [[]])
       },
       {
         course: 'Talamore Golf Club',
         venue: 'Talamore Golf Resort',
-        address: '610 Palmer Drive, Southern Pines, North Carolina 28387, United States',
+        address: '48 Talamore Drive, Southern Pines, North Carolina 28387',
         date: '2026-05-14',
         time: '09:30',
         reviewCount: 8,
-        description: 'Designed by Rees Jones in 1991 with major 2016 improvements including restored greens, Champion bermudagrass, wider fairways, and signature sod-wall bunkers.',
+        feefoCode: 'G5409',
+        description: 'Designed by Rees Jones in 1991, Talamore Golf Club is a fine example of golf in the Sandhills area; towering pines, wetlands, lakes, and wastelands, plus elevation changes of over 150 feet. Following a rejuvenation process in 2016, greens were restored to their original size, and Champion bermudagrass was introduced, bringing Talamore’s putting surfaces in line with some of the best in the area. Fairways were widened and 12 sod wall bunkers reminiscent of those in Scotland were added.',
         readMoreLabel: 'Read more about Talamore Golf Club',
         teeTimes: buildTripSlots('09:30', [[]])
       },
       {
         course: 'Tobacco Road Golf Course',
         venue: 'Tobacco Road Golf Club',
-        address: 'Sanford, North Carolina, United States',
+        address: '442 Tobacco Road, Sanford, NC 27332',
         date: '2026-05-15',
         time: '10:36',
         reviewCount: 9,
-        description: 'Mike Strantz’s imaginative layout with generous landing areas, dramatic shaping, and creative green complexes that reward bold shot-making.',
+        feefoCode: 'G5362',
+        description: 'Legendary golf course designer Mike Strantz has produced one of the state’s most imaginative golf courses. The fairways are typically generous, while the greens really are a joy to play. The creative angling of each surface allows approaches to take advantage of the slopes allowing for shot-making. The greens can be tough to read but simply add to what is ultimately a thrilling golfing experience at Tobacco Road.',
         readMoreLabel: 'Read more about Tobacco Road Golf Course',
         teeTimes: buildTripSlots('10:36', [[]])
       },
@@ -685,9 +862,167 @@
         date: '2026-05-16',
         time: '08:45',
         reviewCount: 7,
-        description: 'Arnold Palmer design (1993) upgraded in 2017 with Champion bermuda greens. Big fairways, big bunkers, wetlands, lakes, and elevation throughout.',
+        feefoCode: 'G5410',
+        description: 'Palmer designed the course at Mid-South Club in 1993 and it is one of his finest. Recent work in 2017 saw all the greens converted to Champion bermuda grass, making them as good as any in the area. The course works its way through the towering pines. Wetlands, numerous lakes, and significant elevation changes are encountered throughout the 18-holes. They do things big at Mid-South - big greens, big fairways, big bunkers, and even big rocks like those sat in front of the 9th and 18th greens.',
         readMoreLabel: 'Read more about Mid South Course',
         teeTimes: buildTripSlots('08:45', [[]])
+      }
+    ];
+    const TEMPLATE_DAY_ORDER = [
+      { key: 'Day 1', matchNumbers: [1, 2, 3] },
+      { key: 'Day 2A', matchNumbers: [4, 5, 6] },
+      { key: 'Day 2B', matchNumbers: [7, 8, 9] },
+      { key: 'Day 3', matchNumbers: [10, 11, 12] },
+      { key: 'Scramble', matchNumbers: [], cardLabels: ['Scramble', 'Day 4 Front 9', 'Day 4 Back 9'] }
+    ];
+    const TEMPLATE_FOURSOMES = [
+      {
+        group: 'Group 1',
+        playersByDay: {
+          'Day 1': [{ name: 'Mil', hcp: 6 }, { name: 'John', hcp: 7 }, { name: 'Brian P', hcp: 6 }, { name: 'Pat', hcp: 6 }],
+          'Day 2A': [{ name: 'Rick', hcp: 7 }, { name: 'Mil', hcp: 6 }, { name: 'Tommy', hcp: 5 }, { name: 'Bob', hcp: 10 }],
+          'Day 2B': [{ name: 'John', hcp: 7 }, { name: 'Rick', hcp: 7 }, { name: 'Hunter', hcp: 7 }, { name: 'Chris', hcp: 15 }],
+          'Day 3': [{ name: 'Dave', hcp: 5 }, { name: 'Rick', hcp: 7 }, { name: 'Brian S', hcp: 13 }, { name: 'Pat', hcp: 6 }],
+          Scramble: [{ name: 'Gerald C', hcp: 12 }, { name: 'Rick', hcp: 7 }, { name: 'Patrick', hcp: 8 }, { name: 'Brian P', hcp: 6 }]
+        }
+      },
+      {
+        group: 'Group 2',
+        playersByDay: {
+          'Day 1': [{ name: 'Rick', hcp: 7 }, { name: 'Keith', hcp: 16 }, { name: 'Tony W', hcp: 10 }, { name: 'Manny', hcp: 14 }],
+          'Day 2A': [{ name: 'Dave', hcp: 5 }, { name: 'Keith', hcp: 16 }, { name: 'John', hcp: 7 }, { name: 'Patrick', hcp: 8 }],
+          'Day 2B': [{ name: 'Bob', hcp: 10 }, { name: 'Dave', hcp: 5 }, { name: 'Brian P', hcp: 6 }, { name: 'Manny', hcp: 14 }],
+          'Day 3': [{ name: 'Mil', hcp: 6 }, { name: 'Hunter', hcp: 7 }, { name: 'Patrick', hcp: 8 }, { name: 'Manny', hcp: 14 }],
+          Scramble: [{ name: 'Pat', hcp: 6 }, { name: 'Hunter', hcp: 7 }, { name: 'Bob', hcp: 10 }, { name: 'Keith', hcp: 16 }]
+        }
+      },
+      {
+        group: 'Group 3',
+        playersByDay: {
+          'Day 1': [{ name: 'Tommy', hcp: 5 }, { name: 'Dave', hcp: 5 }, { name: 'Hunter', hcp: 7 }, { name: 'Gerald C', hcp: 12 }],
+          'Day 2A': [{ name: 'Brian P', hcp: 6 }, { name: 'Hunter', hcp: 7 }, { name: 'Brian S', hcp: 13 }, { name: 'Tony W', hcp: 10 }],
+          'Day 2B': [{ name: 'Pat', hcp: 6 }, { name: 'Tony W', hcp: 10 }, { name: 'Tommy', hcp: 5 }, { name: 'Patrick', hcp: 8 }],
+          'Day 3': [{ name: 'Keith', hcp: 16 }, { name: 'Chris', hcp: 15 }, { name: 'Brian P', hcp: 6 }, { name: 'Tommy', hcp: 5 }],
+          Scramble: [{ name: 'John', hcp: 7 }, { name: 'Manny', hcp: 14 }, { name: 'Brian S', hcp: 13 }, { name: 'Tommy', hcp: 5 }]
+        }
+      },
+      {
+        group: 'Group 4',
+        playersByDay: {
+          'Day 1': [{ name: 'Bob', hcp: 10 }, { name: 'Patrick', hcp: 8 }, { name: 'Brian S', hcp: 13 }, { name: 'Chris', hcp: 15 }],
+          'Day 2A': [{ name: 'Pat', hcp: 6 }, { name: 'Chris', hcp: 15 }, { name: 'Gerald C', hcp: 12 }, { name: 'Manny', hcp: 14 }],
+          'Day 2B': [{ name: 'Mil', hcp: 6 }, { name: 'Brian S', hcp: 13 }, { name: 'Keith', hcp: 16 }, { name: 'Gerald C', hcp: 12 }],
+          'Day 3': [{ name: 'Gerald C', hcp: 12 }, { name: 'John', hcp: 7 }, { name: 'Tony W', hcp: 10 }, { name: 'Bob', hcp: 10 }],
+          Scramble: [{ name: 'Mil', hcp: 6 }, { name: 'Dave', hcp: 5 }, { name: 'Tony W', hcp: 10 }, { name: 'Chris', hcp: 15 }]
+        }
+      }
+    ];
+    // Scorecard stats sourced from course pages on 18Birdies (retrieved 2026-03-08).
+    const COURSE_SCORECARD_STATS = [
+      {
+        courseKey: 'mid pines golf course',
+        tee: 'Blue',
+        par: 72,
+        yardage: 6730,
+        rating: 72.9,
+        slope: 138,
+        source: 'https://18birdies.com/golf-courses/mid-pines-golf-club',
+        front9: {
+          holes: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+          par: [4, 3, 4, 4, 5, 5, 4, 3, 4],
+          hcp: [5, 15, 7, 13, 9, 1, 3, 17, 11],
+          yardage: [405, 190, 435, 325, 480, 525, 380, 180, 335]
+        },
+        back9: {
+          holes: [10, 11, 12, 13, 14, 15, 16, 17, 18],
+          par: [5, 3, 4, 3, 4, 5, 4, 4, 4],
+          hcp: [2, 18, 8, 10, 16, 12, 6, 14, 4],
+          yardage: [515, 180, 395, 235, 360, 550, 445, 390, 405]
+        }
+      },
+      {
+        courseKey: 'pine needles golf course',
+        tee: 'Medal',
+        par: 71,
+        yardage: 7015,
+        rating: 73.5,
+        slope: 134,
+        source: 'https://18birdies.com/golf-courses/pine-needles-lodge-golf-club',
+        front9: {
+          holes: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+          par: [5, 4, 3, 4, 3, 4, 4, 4, 4],
+          hcp: [11, 5, 17, 9, 7, 1, 3, 15, 13],
+          yardage: [504, 481, 145, 403, 218, 459, 455, 360, 385]
+        },
+        back9: {
+          holes: [10, 11, 12, 13, 14, 15, 16, 17, 18],
+          par: [5, 4, 4, 3, 4, 5, 3, 4, 4],
+          hcp: [4, 12, 14, 16, 2, 6, 18, 8, 10],
+          yardage: [525, 414, 412, 208, 454, 530, 180, 461, 421]
+        }
+      },
+      {
+        courseKey: 'talamore golf club',
+        tee: 'Gold',
+        par: 71,
+        yardage: 6840,
+        rating: 71.4,
+        slope: 140,
+        source: 'https://18birdies.com/golf-courses/talamore-golf-resort',
+        front9: {
+          holes: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+          par: [5, 3, 4, 5, 3, 4, 4, 4, 4],
+          hcp: [4, 16, 6, 14, 18, 12, 2, 8, 10],
+          yardage: [623, 201, 412, 509, 184, 354, 442, 415, 368]
+        },
+        back9: {
+          holes: [10, 11, 12, 13, 14, 15, 16, 17, 18],
+          par: [4, 5, 4, 3, 4, 3, 4, 4, 4],
+          hcp: [7, 15, 5, 17, 9, 13, 1, 11, 3],
+          yardage: [370, 527, 422, 182, 383, 238, 444, 340, 426]
+        }
+      },
+      {
+        courseKey: 'tobacco road golf course',
+        tee: 'The Ripper',
+        par: 71,
+        yardage: 6557,
+        rating: 72.5,
+        slope: 145,
+        source: 'https://18birdies.com/golf-courses/tobacco-road-golf-club',
+        front9: {
+          holes: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+          par: [5, 4, 3, 5, 4, 3, 4, 3, 4],
+          hcp: [3, 11, 17, 9, 15, 13, 7, 5, 1],
+          yardage: [558, 392, 152, 535, 333, 148, 411, 178, 427]
+        },
+        back9: {
+          holes: [10, 11, 12, 13, 14, 15, 16, 17, 18],
+          par: [4, 5, 4, 5, 3, 4, 4, 3, 4],
+          hcp: [6, 10, 14, 2, 8, 12, 16, 18, 4],
+          yardage: [441, 531, 419, 573, 194, 365, 326, 142, 432]
+        }
+      },
+      {
+        courseKey: 'mid south course',
+        tee: 'Gold',
+        par: 71,
+        yardage: 7003,
+        rating: 73.8,
+        slope: 146,
+        source: 'https://18birdies.com/golf-courses/mid-south-club',
+        front9: {
+          holes: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+          par: [4, 4, 3, 5, 4, 3, 4, 4, 5],
+          hcp: [11, 3, 17, 9, 1, 15, 13, 7, 5],
+          yardage: [398, 401, 180, 533, 390, 178, 416, 430, 542]
+        },
+        back9: {
+          holes: [10, 11, 12, 13, 14, 15, 16, 17, 18],
+          par: [4, 3, 4, 4, 4, 5, 4, 3, 4],
+          hcp: [12, 18, 2, 10, 4, 14, 8, 16, 6],
+          yardage: [410, 175, 470, 442, 452, 548, 398, 205, 435]
+        }
       }
     ];
     const CONDO_ADDRESSES = [
@@ -804,6 +1139,7 @@
         time: roundTime,
         confirmation: String(raw.confirmation || '').trim(),
         reviewCount: Number.isFinite(Number(raw.reviewCount)) ? Number(raw.reviewCount) : null,
+        feefoCode: String(raw.feefoCode || '').trim(),
         description: String(raw.description || '').trim(),
         readMoreLabel: String(raw.readMoreLabel || '').trim(),
         readMoreUrl: String(raw.readMoreUrl || '').trim(),
@@ -828,6 +1164,254 @@
     const getTripRounds = () => {
       const source = Array.isArray(trip?.rounds) && trip.rounds.length ? trip.rounds : DEFAULT_ROUNDS;
       return sortRounds(source.map(normalizeRound));
+    };
+    const getRoundDateOrder = (rounds = []) => {
+      const uniqueDates = [];
+      rounds.forEach((round) => {
+        const iso = toIsoDate(round && round.date);
+        if (iso && !uniqueDates.includes(iso)) uniqueDates.push(iso);
+      });
+      return uniqueDates;
+    };
+    const getTemplateDayForDate = (rounds = [], selectedDate = '') => {
+      if (!selectedDate) return null;
+      const roundDates = getRoundDateOrder(rounds);
+      const dayIndex = roundDates.indexOf(selectedDate);
+      if (dayIndex < 0) return null;
+      return TEMPLATE_DAY_ORDER[dayIndex] || null;
+    };
+    const getDayCourseLabel = (dayRounds = []) => {
+      const courseNames = [];
+      dayRounds.forEach((round) => {
+        const name = String((round && round.course) || '').trim();
+        if (name && !courseNames.includes(name)) courseNames.push(name);
+      });
+      return courseNames.length ? courseNames.join(' / ') : 'Course TBD';
+    };
+    const normalizeCourseKey = (value = '') => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const getCourseScorecardStats = (courseName = '') => {
+      const normalized = normalizeCourseKey(courseName);
+      if (!normalized) return null;
+      let found = COURSE_SCORECARD_STATS.find((entry) => normalized === normalizeCourseKey(entry.courseKey));
+      if (found) return found;
+      found = COURSE_SCORECARD_STATS.find((entry) => normalized.includes(normalizeCourseKey(entry.courseKey)) || normalizeCourseKey(entry.courseKey).includes(normalized));
+      if (found) return found;
+      if (normalized.includes('mid south')) return COURSE_SCORECARD_STATS.find((entry) => normalizeCourseKey(entry.courseKey).includes('mid south')) || null;
+      if (normalized.includes('tobacco road')) return COURSE_SCORECARD_STATS.find((entry) => normalizeCourseKey(entry.courseKey).includes('tobacco road')) || null;
+      if (normalized.includes('mid pines')) return COURSE_SCORECARD_STATS.find((entry) => normalizeCourseKey(entry.courseKey).includes('mid pines')) || null;
+      if (normalized.includes('pine needles')) return COURSE_SCORECARD_STATS.find((entry) => normalizeCourseKey(entry.courseKey).includes('pine needles')) || null;
+      if (normalized.includes('talamore')) return COURSE_SCORECARD_STATS.find((entry) => normalizeCourseKey(entry.courseKey).includes('talamore')) || null;
+      return null;
+    };
+    const sumValues = (values = []) => values.reduce((total, value) => total + (Number(value) || 0), 0);
+    const formatInt = (value) => Number.isFinite(Number(value)) ? Number(value).toLocaleString() : '--';
+    const renderScorecardRow = (label = '', values = []) => {
+      const total = sumValues(values);
+      return `
+        <tr>
+          <td>${escapeHtml(label)}</td>
+          ${values.map((value) => `<td>${escapeHtml(String(value))}</td>`).join('')}
+          <td class="trip-scorecard-total">${escapeHtml(String(total))}</td>
+        </tr>
+      `;
+    };
+    const renderCourseScorecard = (round = {}) => {
+      const stats = getCourseScorecardStats(round && round.course);
+      if (!stats || !stats.front9 || !stats.back9) return '';
+      const frontHoles = Array.isArray(stats.front9.holes) ? stats.front9.holes : [1, 2, 3, 4, 5, 6, 7, 8, 9];
+      const backHoles = Array.isArray(stats.back9.holes) ? stats.back9.holes : [10, 11, 12, 13, 14, 15, 16, 17, 18];
+      const teeLabel = stats.tee ? `Tee ${stats.tee}` : 'Tee';
+      const statBits = [
+        teeLabel,
+        `Yardage ${formatInt(stats.yardage)}`,
+        `Par ${formatInt(stats.par)}`,
+        (Number.isFinite(Number(stats.rating)) && Number.isFinite(Number(stats.slope))) ? `Rating/Slope ${stats.rating}/${stats.slope}` : ''
+      ].filter(Boolean).join(' • ');
+      const sourceMarkup = stats.source
+        ? `<a class="trip-event-link" href="${escapeHtml(stats.source)}" target="_blank" rel="noopener">Source</a>`
+        : '';
+      return `
+        <div class="trip-scorecard">
+          <div class="trip-scorecard-head">
+            <strong>Course Stats (Tab 2 Layout)</strong>
+            <span>${escapeHtml(statBits)}</span>
+            ${sourceMarkup}
+          </div>
+          <div class="trip-scorecard-wrap">
+            <table class="trip-scorecard-table">
+              <thead>
+                <tr>
+                  <th>Front</th>
+                  ${frontHoles.map((hole) => `<th>${escapeHtml(String(hole))}</th>`).join('')}
+                  <th>OUT</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${renderScorecardRow('Par', Array.isArray(stats.front9.par) ? stats.front9.par : [])}
+                ${renderScorecardRow('HCP', Array.isArray(stats.front9.hcp) ? stats.front9.hcp : [])}
+                ${renderScorecardRow('Yards', Array.isArray(stats.front9.yardage) ? stats.front9.yardage : [])}
+              </tbody>
+              <thead>
+                <tr>
+                  <th>Back</th>
+                  ${backHoles.map((hole) => `<th>${escapeHtml(String(hole))}</th>`).join('')}
+                  <th>IN</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${renderScorecardRow('Par', Array.isArray(stats.back9.par) ? stats.back9.par : [])}
+                ${renderScorecardRow('HCP', Array.isArray(stats.back9.hcp) ? stats.back9.hcp : [])}
+                ${renderScorecardRow('Yards', Array.isArray(stats.back9.yardage) ? stats.back9.yardage : [])}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    };
+    const getTemplateFoursomesForDay = (dayKey = '') => {
+      return TEMPLATE_FOURSOMES.map((group) => {
+        const players = Array.isArray(group?.playersByDay?.[dayKey]) ? group.playersByDay[dayKey] : [];
+        return {
+          group: group.group || 'Group',
+          players: players.map((p) => ({
+            name: String((p && p.name) || '').trim(),
+            hcp: Number.isFinite(Number(p && p.hcp)) ? Number(p.hcp) : null
+          })).filter((p) => p.name)
+        };
+      }).filter((entry) => entry.players.length);
+    };
+    const buildTemplateSlotsForDay = (dayKey = '', firstTime = '') => {
+      const foursomes = getTemplateFoursomesForDay(dayKey);
+      const groups = foursomes.map((foursome) => foursome.players.map((p) => p.name));
+      return buildTripSlots(firstTime, groups);
+    };
+    const computeDailyMatchMatrix = (dayKey = '') => {
+      const foursomes = getTemplateFoursomesForDay(dayKey);
+      if (!foursomes.length) return [];
+      const segmentRules = [
+        { label: 'Front 9', pairs: [[0, 1], [2, 3]] },
+        { label: 'Back 9 #1', pairs: [[0, 2], [1, 3]] },
+        { label: 'Back 9 #2', pairs: [[0, 3], [1, 2]] }
+      ];
+      const rows = [];
+      foursomes.forEach((foursome) => {
+        const players = foursome.players;
+        if (players.length < 4) return;
+        const byPlayer = new Map();
+        players.forEach((player) => {
+          byPlayer.set(player.name, {
+            group: foursome.group,
+            player: player.name,
+            hcp: player.hcp,
+            segments: []
+          });
+        });
+        segmentRules.forEach((segmentRule) => {
+          segmentRule.pairs.forEach(([a, b]) => {
+            const pa = players[a];
+            const pb = players[b];
+            if (!pa || !pb) return;
+            const rowA = byPlayer.get(pa.name);
+            const rowB = byPlayer.get(pb.name);
+            if (rowA) {
+              rowA.segments.push({
+                label: segmentRule.label,
+                opponent: pb.name,
+                opponentHcp: pb.hcp
+              });
+            }
+            if (rowB) {
+              rowB.segments.push({
+                label: segmentRule.label,
+                opponent: pa.name,
+                opponentHcp: pa.hcp
+              });
+            }
+          });
+        });
+        players.forEach((player) => {
+          const row = byPlayer.get(player.name);
+          if (row) rows.push(row);
+        });
+      });
+      return rows;
+    };
+    const renderMatchCell = (entry = null) => {
+      if (!entry || !entry.opponent) return '--';
+      const oppHcp = Number.isFinite(Number(entry.opponentHcp)) ? `HC ${Math.round(Number(entry.opponentHcp))}` : 'HC --';
+      return `<span class="trip-matchup-opponent">${escapeHtml(entry.opponent)}<small>${escapeHtml(oppHcp)}</small></span>`;
+    };
+    const renderDailyMatchMatrix = (dayKey = '') => {
+      const matrix = computeDailyMatchMatrix(dayKey);
+      if (!matrix.length) return '';
+      return `
+        <div class="trip-matchup-table-wrap">
+          <table class="trip-matchup-table">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th>HC</th>
+                <th>Front 9</th>
+                <th>Back 9 #1</th>
+                <th>Back 9 #2</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${matrix.map((row) => `
+                <tr>
+                  <td>${escapeHtml(row.player)}</td>
+                  <td>${Number.isFinite(Number(row.hcp)) ? escapeHtml(String(Math.round(Number(row.hcp)))) : '--'}</td>
+                  <td>${renderMatchCell(row.segments[0] || null)}</td>
+                  <td>${renderMatchCell(row.segments[1] || null)}</td>
+                  <td>${renderMatchCell(row.segments[2] || null)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    };
+    const renderTemplateMatchups = (rounds = [], selectedDate = '', dayRounds = []) => {
+      const templateDay = getTemplateDayForDate(rounds, selectedDate);
+      if (!templateDay) return '';
+      const matchChips = (templateDay.matchNumbers || []).map((matchNo) => `<span class="trip-match-chip">Match ${matchNo}</span>`);
+      const cardChips = (templateDay.cardLabels || []).map((label) => `<span class="trip-match-chip">${escapeHtml(label)}</span>`);
+      const courseLabel = getDayCourseLabel(dayRounds);
+      const dayFoursomes = getTemplateFoursomesForDay(templateDay.key);
+      const foursomeMarkup = dayFoursomes.map((group) => {
+        const players = group.players || [];
+        const playersMarkup = players.length
+          ? players.map((player) => {
+              const hcp = Number.isFinite(Number(player && player.hcp)) ? ` (${Math.round(Number(player.hcp))})` : '';
+              const label = `${String((player && player.name) || '').trim()}${hcp}`;
+              return `<span class="trip-foursome-player">${escapeHtml(label)}</span>`;
+            }).join('')
+          : '<span class="trip-foursome-player">TBD</span>';
+        return `
+          <article class="trip-foursome-card">
+            <h5 class="trip-foursome-title">${escapeHtml(group.group || 'Group')}</h5>
+            <div class="trip-foursome-players">${playersMarkup}</div>
+          </article>
+        `;
+      }).join('');
+      const matrixMarkup = renderDailyMatchMatrix(templateDay.key);
+      const playerCount = dayFoursomes.reduce((count, group) => count + (Array.isArray(group.players) ? group.players.length : 0), 0);
+      return `
+        <section class="trip-matchup-panel">
+          <div class="trip-matchup-head">
+            <h4>Matches &amp; Foursomes</h4>
+            <span class="trip-matchup-subtitle">${escapeHtml(`${templateDay.key} format · ${courseLabel} · ${playerCount} players / ${dayFoursomes.length} tee times`)}</span>
+          </div>
+          <div class="trip-match-chip-row">
+            ${matchChips.join('')}
+            ${cardChips.join('')}
+          </div>
+          ${matrixMarkup}
+          <div class="trip-foursome-grid">
+            ${foursomeMarkup}
+          </div>
+        </section>
+      `;
     };
 
     let adminCode = null;
@@ -888,7 +1472,6 @@
       renderTripSummary();
       renderItinerary();
       renderParticipants();
-      renderSummary();
     }
 
     function renderTripSummary() {
@@ -1134,16 +1717,22 @@
         eventsEl.innerHTML = '<div class="trip-empty-state">No date selected.</div>';
         return;
       }
-      const matches = rounds.filter((round) => toIsoDate(round.date) === selectedDate);
+      const dayRounds = rounds.filter((round) => toIsoDate(round.date) === selectedDate);
+      const templateDay = getTemplateDayForDate(rounds, selectedDate);
       titleEl.textContent = formatDateLong(selectedDate) || 'Selected date';
-      metaEl.textContent = `${matches.length} round${matches.length === 1 ? '' : 's'}`;
-      if (!matches.length) {
+      const dayPieces = [`${dayRounds.length} round${dayRounds.length === 1 ? '' : 's'}`];
+      if (templateDay && Array.isArray(templateDay.matchNumbers) && templateDay.matchNumbers.length) {
+        dayPieces.push(`${templateDay.matchNumbers.length} matches`);
+      }
+      metaEl.textContent = dayPieces.join(' • ');
+      if (!dayRounds.length) {
         eventsEl.innerHTML = '<div class="trip-empty-state">No rounds scheduled for this date.</div>';
         return;
       }
+      const templateMatchupMarkup = renderTemplateMatchups(rounds, selectedDate, dayRounds);
       eventsEl.innerHTML = `
         <div class="trip-event-list">
-          ${matches.map((round) => {
+          ${dayRounds.map((round) => {
             const waze = buildWazeLink(round.course, round.address);
             const googleUrl = buildRoundGoogleCalendarUrl(round);
             const courseLabel = round.course || 'Course TBD';
@@ -1151,7 +1740,23 @@
               ? `<a class="waze-link" href="${waze}" target="_blank" rel="noopener">${escapeHtml(courseLabel)}</a>`
               : escapeHtml(courseLabel);
             const firstTime = getRoundPrimaryTime(round);
-            const slotMarkup = (round.teeTimes || []).map((slot, index) => {
+            const scorecardMarkup = renderCourseScorecard(round);
+            const templateSlots = templateDay ? buildTemplateSlotsForDay(templateDay.key, firstTime || round.time || '') : [];
+            const existingSlots = Array.isArray(round.teeTimes) ? round.teeTimes : [];
+            const hasExistingPlayers = existingSlots.some((slot) => Array.isArray(slot && slot.players) && slot.players.length);
+            const useTemplateSlots = templateSlots.length > 0 && (!hasExistingPlayers || existingSlots.length < templateSlots.length);
+            const slots = useTemplateSlots
+              ? templateSlots.map((slot, index) => {
+                  const existing = existingSlots[index] || {};
+                  const existingPlayers = Array.isArray(existing.players) ? existing.players.map((name) => String(name || '').trim()).filter(Boolean) : [];
+                  return {
+                    label: String(existing.label || slot.label || `TT#${index + 1}`).trim(),
+                    time: toHHMM(existing.time || slot.time || ''),
+                    players: existingPlayers.length ? existingPlayers : slot.players
+                  };
+                })
+              : existingSlots;
+            const slotMarkup = slots.map((slot, index) => {
               const label = slot.label || `TT#${index + 1}`;
               const playersMarkup = (slot.players || []).length
                 ? slot.players.map((name) => `<span class="trip-player-chip">${escapeHtml(name)}</span>`).join('')
@@ -1175,8 +1780,10 @@
                 ${round.venue ? `<small>at ${escapeHtml(round.venue)}</small>` : ''}
                 ${round.address ? `<small>${escapeHtml(round.address)}</small>` : ''}
                 ${Number.isFinite(Number(round.reviewCount)) ? `<small>${escapeHtml(`${Math.round(Number(round.reviewCount))} reviews`)}</small>` : ''}
+                ${round.feefoCode ? `<small>${escapeHtml(`Feefo Logo ${round.feefoCode}`)}</small>` : ''}
                 ${round.description ? `<small style="line-height:1.45;">${escapeHtml(round.description)}</small>` : ''}
                 ${round.readMoreLabel ? `<small style="font-weight:700;color:var(--accent-2);">${escapeHtml(round.readMoreLabel)}</small>` : ''}
+                ${scorecardMarkup}
                 ${slotMarkup ? `<div class="trip-slot-grid">${slotMarkup}</div>` : '<div class="trip-empty-state">No tee sheet entered.</div>'}
                 <div class="trip-event-actions">
                   ${googleUrl ? `<a class="trip-event-link" href="${googleUrl}" target="_blank" rel="noopener">Google Calendar</a>` : ''}
@@ -1186,6 +1793,7 @@
             `;
           }).join('')}
         </div>
+        ${templateMatchupMarkup}
       `;
     }
 
@@ -1238,7 +1846,6 @@
           </section>
         </div>
         <div id="condoWazeLinks" style="margin-top:12px;"></div>
-        <div id="summaryBox" style="margin-top:12px;"></div>
         <div id="allParticipantsList" style="margin-top:12px;"></div>
       `;
 
@@ -1517,35 +2124,6 @@
         }
       };
       unassignedSidebar.addEventListener('click', unassignedSidebar._removeHandler);
-    }
-
-    function renderSummary() {
-      const total = participants.length;
-      const counts = { in: 0, maybe: 0, out: 0, waitlist: 0, invited: 0 };
-      let depositTotal = 0;
-      let extraNightCount = 0;
-      participants.forEach((p) => {
-        const status = counts.hasOwnProperty(p.status) ? p.status : 'invited';
-        counts[status] = (counts[status] || 0) + 1;
-        depositTotal += Number(p.totalPaidAmount || p.depositPaidAmount || 0);
-        if (p.wantsExtraNight) extraNightCount++;
-      });
-      const extraNightCost = 33;
-      const extraNightTotal = extraNightCount * extraNightCost;
-      const summaryEl = $('#summaryBox');
-      if (!summaryEl) return;
-      summaryEl.innerHTML = `
-        <div style="display:grid;gap:4px;color:var(--ink);">
-          <div style="display:flex;align-items:center;justify-content:space-between;">
-            <strong>Live Summary</strong>
-            <span style="color:var(--muted);font-size:0.9rem;">Updated</span>
-          </div>
-          <div>Total participants: ${total}</div>
-          <div>In: ${counts.in} | Maybe: ${counts.maybe} | Out: ${counts.out} | Waitlist: ${counts.waitlist} | Invited: ${counts.invited}</div>
-          <div>Total deposits received: $${depositTotal.toFixed(2)}</div>
-          <div>Wants extra night: ${extraNightCount} x $${extraNightCost} = <strong>$${extraNightTotal}</strong></div>
-        </div>
-      `;
     }
 
     const condoGroups = document.getElementById('condoGroups');
