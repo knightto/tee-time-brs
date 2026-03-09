@@ -3,6 +3,7 @@ const TripParticipantSchema = new mongoose.Schema({
   trip: { type: mongoose.Schema.Types.ObjectId, ref: 'Trip', required: true },
   name: { type: String, required: true },
   status: { type: String, enum: ['invited', 'in', 'maybe', 'out', 'waitlist'], default: 'in' },
+  handicapIndex: { type: Number, default: null },
   depositPaidAmount: { type: Number, default: 0 },
   totalPaidAmount: { type: Number, default: 0 },
   depositPaidDate: { type: Date },

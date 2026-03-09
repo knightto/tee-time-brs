@@ -419,6 +419,251 @@
       font-size: 0.9rem;
       background: rgba(255,255,255,0.03);
     }
+    .competition-grid {
+      display: grid;
+      gap: 12px;
+    }
+    .competition-overview-grid,
+    .competition-bucket-grid,
+    .competition-admin-grid,
+    .competition-sidegame-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+    .competition-stat,
+    .competition-bucket,
+    .competition-admin-card,
+    .competition-sidegame-card,
+    .competition-match-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+    .competition-stat strong,
+    .competition-bucket strong,
+    .competition-admin-card strong,
+    .competition-sidegame-card strong,
+    .competition-match-card strong {
+      color: #fff;
+    }
+    .competition-stat-value {
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: var(--accent);
+      line-height: 1;
+    }
+    .competition-section {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+      overflow: hidden;
+    }
+    .competition-section summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      align-items: center;
+      font-weight: 700;
+      color: #fff;
+    }
+    .competition-section summary::-webkit-details-marker {
+      display: none;
+    }
+    .competition-section summary::after {
+      content: '▾';
+      color: var(--accent-2);
+      font-size: 0.95rem;
+    }
+    .competition-section[open] summary {
+      border-bottom: 1px solid var(--border);
+    }
+    .competition-section[open] summary::after {
+      content: '▴';
+    }
+    .competition-section-body {
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+    .competition-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+    .competition-table {
+      width: 100%;
+      min-width: 860px;
+      border-collapse: collapse;
+      color: var(--ink);
+      font-size: 0.86rem;
+    }
+    .competition-table th,
+    .competition-table td {
+      padding: 9px 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      text-align: left;
+      vertical-align: top;
+    }
+    .competition-table thead th {
+      background: rgba(11,23,40,0.88);
+      color: #fff;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    .competition-table tbody tr:nth-child(even) td {
+      background: rgba(255,255,255,0.02);
+    }
+    .competition-cell-counted {
+      background: rgba(224,180,87,0.18) !important;
+      color: #fff4d1;
+      font-weight: 700;
+    }
+    .competition-cell-partial {
+      color: #f5d489;
+    }
+    .competition-total-cell {
+      font-weight: 800;
+      color: #fff;
+    }
+    .competition-note {
+      color: var(--ink-soft);
+      font-size: 0.82rem;
+    }
+    .competition-pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .competition-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(109,211,255,0.25);
+      background: rgba(109,211,255,0.10);
+      color: #d7f0ff;
+      font-size: 0.76rem;
+      font-weight: 600;
+    }
+    .competition-round-grid {
+      display: grid;
+      gap: 10px;
+    }
+    .competition-match-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+    .competition-team-row {
+      display: grid;
+      gap: 4px;
+    }
+    .competition-team-label {
+      font-size: 0.78rem;
+      color: var(--accent-2);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .competition-match-editor {
+      display: grid;
+      gap: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .competition-player-team-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    }
+    .competition-player-team-grid label,
+    .competition-admin-card label,
+    .competition-sidegame-card label,
+    .competition-score-toolbar label {
+      display: grid;
+      gap: 4px;
+      font-size: 0.8rem;
+      color: var(--ink-soft);
+    }
+    .competition-player-team-grid select,
+    .competition-admin-card input,
+    .competition-admin-card select,
+    .competition-sidegame-card textarea,
+    .competition-sidegame-card input,
+    .competition-score-toolbar select,
+    .competition-score-input {
+      width: 100%;
+      padding: 8px 9px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #0b1728;
+      color: var(--ink);
+    }
+    .competition-sidegame-card textarea {
+      min-height: 92px;
+      resize: vertical;
+    }
+    .competition-score-toolbar {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      align-items: end;
+    }
+    .competition-score-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .competition-score-summary span {
+      padding: 5px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.04);
+      color: var(--ink-soft);
+      font-size: 0.78rem;
+    }
+    .competition-score-table input {
+      min-width: 56px;
+      text-align: center;
+    }
+    .competition-score-table td,
+    .competition-score-table th {
+      text-align: center;
+    }
+    .competition-score-table th:first-child,
+    .competition-score-table td:first-child {
+      text-align: left;
+      position: sticky;
+      left: 0;
+      background: #0b1728;
+      z-index: 1;
+    }
+    .competition-sidegame-list {
+      display: grid;
+      gap: 6px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+    .competition-sidegame-list li {
+      color: var(--ink);
+      font-size: 0.84rem;
+      line-height: 1.4;
+    }
+    .competition-empty {
+      color: var(--ink-soft);
+      font-size: 0.82rem;
+      font-style: italic;
+    }
     .status-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -623,6 +868,7 @@
         <iframe src="https://www.google.com/maps/d/u/0/embed?mid=1OLZdG1AzvAQJlBuhYWt5v_8Ta4W6bmY&ehbc=2E312F" width="640" height="480" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Myrtle Beach 2026 Golf Trip Map"></iframe>
       </div>
     </div>
+    <div class="panel" id="competitionBox" style="margin-bottom:12px;"></div>
     <div class="layout">
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -795,6 +1041,12 @@
     let tripId = null;
     let trip = null;
     let participants = [];
+    let competitionData = null;
+    let competitionLoadError = '';
+    const competitionUiState = {
+      scoreRoundIndex: 0,
+      scorePlayerName: ''
+    };
 
     const $ = (sel) => document.querySelector(sel);
     const formatDate = (d) => {
@@ -811,6 +1063,18 @@
     };
     const tripApi = (path) => (path.includes('?') ? `${path}&myrtleBeach2026=true` : `${path}?myrtleBeach2026=true`);
     const safeNumber = (val) => (val === '' || isNaN(val) ? 0 : parseFloat(val));
+    async function tripFetchJson(url, options = {}) {
+      const res = await fetch(url, options);
+      const contentType = res.headers.get('content-type') || '';
+      const payload = contentType.includes('application/json') ? await res.json() : await res.text();
+      if (!res.ok) {
+        const message = payload && typeof payload === 'object'
+          ? payload.error || payload.message
+          : String(payload || 'Request failed');
+        throw new Error(message || 'Request failed');
+      }
+      return payload;
+    }
     const getCondoCount = () => {
       const size = Number(trip?.baseGroupSize) || Number(trip?.groupSize) || DEFAULT_TRIP.groupSize;
       return Math.max(1, Math.ceil(size / 4));
@@ -868,6 +1132,102 @@
       return minutesToHHMM(start + deltaMinutes);
     };
     const escapeHtml = (value) => String(value || '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+    const parseHandicapValue = (value) => {
+      if (value === null || value === undefined || value === '') return null;
+      const num = Number(value);
+      return Number.isFinite(num) ? num : null;
+    };
+    const formatHandicap = (value) => {
+      const num = parseHandicapValue(value);
+      return num === null ? '—' : num.toFixed(1);
+    };
+    const formatCompetitionPoints = (value) => {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return '—';
+      return Number.isInteger(num) ? String(num) : num.toFixed(1);
+    };
+    const formatCompetitionStatus = (value) => {
+      const key = String(value || '').trim().toLowerCase();
+      if (key === 'complete') return 'Complete';
+      if (key === 'pending') return 'Pending';
+      if (key === 'unassigned') return 'Needs Teams';
+      if (key === 'unavailable') return 'Unavailable';
+      return key ? key.charAt(0).toUpperCase() + key.slice(1) : 'Pending';
+    };
+    const formatCompetitionDate = (value) => formatDateLong(value) || formatDate(value) || 'TBD';
+    const quoteAttr = (value) => escapeHtml(String(value || '')).replace(/"/g, '&quot;');
+    const toWholeNumber = (value) => {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return null;
+      return Math.round(num);
+    };
+    const formatCtpText = (entries = []) => {
+      if (!Array.isArray(entries) || !entries.length) return '';
+      return entries.map((entry) => {
+        const winners = Array.isArray(entry.winners) ? entry.winners.join(', ') : '';
+        const suffix = entry.note ? ` | ${entry.note}` : '';
+        return `Hole ${entry.hole}: ${winners}${suffix}`;
+      }).join('\n');
+    };
+    const formatSkinsText = (entries = []) => {
+      if (!Array.isArray(entries) || !entries.length) return '';
+      return entries.map((entry) => {
+        const holes = Array.isArray(entry.holes) && entry.holes.length ? entry.holes.join(', ') : '';
+        const amount = Number.isFinite(Number(entry.amount)) ? ` | $${Number(entry.amount)}` : '';
+        const note = entry.note ? ` | ${entry.note}` : '';
+        return `${entry.playerName}${holes ? ` | holes ${holes}` : ''}${amount}${note}`;
+      }).join('\n');
+    };
+    const parseCtpText = (value = '') => {
+      return String(value || '')
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const match = /^hole\s*(\d+)\s*[:\-]\s*(.+)$/i.exec(line);
+          if (!match) return null;
+          const winnersPart = String(match[2] || '');
+          const parts = winnersPart.split('|').map((part) => part.trim());
+          const winners = parts[0]
+            .split(',')
+            .map((name) => name.trim())
+            .filter(Boolean);
+          return winners.length ? { hole: Number(match[1]), winners, note: parts.slice(1).join(' | ') } : null;
+        })
+        .filter(Boolean);
+    };
+    const parseSkinsText = (value = '') => {
+      return String(value || '')
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => {
+          const parts = line.split('|').map((part) => part.trim()).filter(Boolean);
+          if (!parts.length) return null;
+          const playerName = parts[0];
+          let holes = [];
+          let amount = null;
+          const notes = [];
+          for (let i = 1; i < parts.length; i += 1) {
+            const part = parts[i];
+            if (/^\$?\d+(\.\d+)?$/.test(part)) {
+              amount = Number(part.replace('$', ''));
+              continue;
+            }
+            const holeMatch = /^holes?\s+(.+)$/i.exec(part);
+            if (holeMatch) {
+              holes = holeMatch[1]
+                .split(',')
+                .map((item) => toWholeNumber(item.trim()))
+                .filter((num) => Number.isFinite(num));
+              continue;
+            }
+            notes.push(part);
+          }
+          return playerName ? { playerName, holes, amount, note: notes.join(' | ') } : null;
+        })
+        .filter(Boolean);
+    };
     const normalizeRoundSlot = (slot = {}, index = 0) => ({
       label: String(slot.label || `TT#${index + 1}`).trim() || `TT#${index + 1}`,
       time: toHHMM(slot.time),
@@ -1088,19 +1448,27 @@
     }
 
     async function loadTrip() {
-      const res = await fetch(tripApi('/api/trips'));
-      const trips = await res.json();
+      competitionLoadError = '';
+      const trips = await tripFetchJson(tripApi('/api/trips'));
       trip = trips.find((t) => t.name && t.name.includes('Myrtle Beach'));
       if (!trip) return alert('Trip not found');
       tripId = trip._id;
       window.tripId = trip._id;
-      const pRes = await fetch(tripApi(`/api/trips/${trip._id}/participants`));
-      participants = await pRes.json();
+      const [nextParticipants, nextCompetition] = await Promise.all([
+        tripFetchJson(tripApi(`/api/trips/${trip._id}/participants`)),
+        tripFetchJson(tripApi(`/api/trips/${trip._id}/competition`)).catch((error) => {
+          competitionLoadError = error && error.message ? error.message : 'Competition data failed to load.';
+          return null;
+        })
+      ]);
+      participants = nextParticipants;
+      competitionData = nextCompetition;
       renderAll();
     }
 
     function renderAll() {
       renderTripSummary();
+      renderCompetition();
       renderItinerary();
       renderParticipants();
     }
@@ -1122,6 +1490,443 @@
         </div>
       `;
       $('#tripSummary').innerHTML = summary;
+    }
+
+    function getSelectedCompetitionRound() {
+      const rounds = Array.isArray(competitionData?.rounds) ? competitionData.rounds : [];
+      if (!rounds.length) return null;
+      let roundIndex = Number(competitionUiState.scoreRoundIndex);
+      if (!Number.isInteger(roundIndex) || roundIndex < 0 || roundIndex >= rounds.length) {
+        roundIndex = 0;
+      }
+      competitionUiState.scoreRoundIndex = roundIndex;
+      const round = rounds[roundIndex];
+      const players = Array.isArray(round?.playerScores) ? round.playerScores : [];
+      const playerNames = players.map((entry) => entry.playerName).filter(Boolean);
+      if (!playerNames.length) {
+        competitionUiState.scorePlayerName = '';
+        return round;
+      }
+      if (!playerNames.includes(competitionUiState.scorePlayerName)) {
+        competitionUiState.scorePlayerName = playerNames[0];
+      }
+      return round;
+    }
+
+    function renderCompetitionOverview(overview = {}, buckets = []) {
+      return `
+        <div class="competition-overview-grid">
+          <div class="competition-stat">
+            <span class="competition-note">Main competition</span>
+            <strong>Individual Net Stableford</strong>
+            <span class="competition-note">Hole-by-hole net scoring across the full trip.</span>
+          </div>
+          <div class="competition-stat">
+            <span class="competition-note">Scoring mode</span>
+            <div class="competition-stat-value">${escapeHtml(overview.scoringModeLabel || 'Best 4 of 5 rounds')}</div>
+            <span class="competition-note">Counted total drives the main leaderboard.</span>
+          </div>
+          <div class="competition-stat">
+            <span class="competition-note">Players</span>
+            <div class="competition-stat-value">${escapeHtml(String(overview.playerCount || 0))}</div>
+            <span class="competition-note">Competition field on the Myrtle page.</span>
+          </div>
+          <div class="competition-stat">
+            <span class="competition-note">Rounds</span>
+            <div class="competition-stat-value">${escapeHtml(String(overview.roundCount || 0))}</div>
+            <span class="competition-note">Daily 2-man net best ball inside each foursome.</span>
+          </div>
+        </div>
+        <div class="competition-admin-card">
+          <strong>Format Summary</strong>
+          <div class="competition-note">${escapeHtml(overview.formatSummary || 'Individual net Stableford across the trip.')}</div>
+          <div class="competition-note">${escapeHtml(overview.sideGamesSummary || 'Closest to Pin and skins are tracked separately.')}</div>
+        </div>
+        <div>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+            <strong>Handicap Buckets</strong>
+            <span class="competition-note">Planning view only</span>
+          </div>
+          <div class="competition-bucket-grid" style="margin-top:10px;">
+            ${buckets.map((bucket) => `
+              <div class="competition-bucket">
+                <strong>${escapeHtml(bucket.label || 'Bucket')}</strong>
+                ${bucket.players && bucket.players.length
+                  ? `<div class="competition-pill-row">${bucket.players.map((player) => `<span class="competition-pill">${escapeHtml(player.name)} ${escapeHtml(formatHandicap(player.handicapIndex))}</span>`).join('')}</div>`
+                  : '<div class="competition-empty">No golfers in this bucket yet.</div>'}
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    function renderCompetitionLeaderboard(leaderboard = []) {
+      return `
+        <details class="competition-section" open>
+          <summary>
+            <span>Main Leaderboard</span>
+            <span class="competition-note">Highlighted rounds count. Asterisks show partial scorecards.</span>
+          </summary>
+          <div class="competition-section-body">
+            <div class="competition-note">Stableford: double bogey or worse = 0, bogey = 1, par = 2, birdie = 3, eagle or better = 4.</div>
+            <div class="competition-table-wrap">
+              <table class="competition-table">
+                <thead>
+                  <tr>
+                    <th>Pos</th>
+                    <th>Player</th>
+                    <th>Handicap</th>
+                    <th>Round 1</th>
+                    <th>Round 2</th>
+                    <th>Round 3</th>
+                    <th>Round 4</th>
+                    <th>Round 5</th>
+                    <th>Counted Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${leaderboard.map((entry) => `
+                    <tr>
+                      <td>${escapeHtml(String(entry.position || '—'))}</td>
+                      <td><strong>${escapeHtml(entry.name || 'Unknown')}</strong></td>
+                      <td>${escapeHtml(formatHandicap(entry.handicapIndex))}</td>
+                      ${(entry.roundStablefordTotals || []).map((value, index) => {
+                        const counted = Array.isArray(entry.countedFlags) && entry.countedFlags[index];
+                        const complete = Array.isArray(entry.roundIsComplete) && entry.roundIsComplete[index];
+                        const cellClass = [
+                          counted ? 'competition-cell-counted' : '',
+                          !complete && Number.isFinite(value) ? 'competition-cell-partial' : ''
+                        ].filter(Boolean).join(' ');
+                        const display = Number.isFinite(value) ? `${value}${complete ? '' : '*'}` : '—';
+                        return `<td class="${cellClass}">${escapeHtml(display)}</td>`;
+                      }).join('')}
+                      <td class="competition-total-cell">${Number.isFinite(entry.countedTotal) ? escapeHtml(String(entry.countedTotal)) : '—'}</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </details>
+      `;
+    }
+
+    function renderCompetitionDailyMatches(dailyMatches = [], dailyPointsLeaderboard = []) {
+      return `
+        <details class="competition-section">
+          <summary>
+            <span>Daily Matches</span>
+            <span class="competition-note">2-man net best ball match points</span>
+          </summary>
+          <div class="competition-section-body">
+            <div class="competition-table-wrap">
+              <table class="competition-table" style="min-width:420px;">
+                <thead>
+                  <tr>
+                    <th>Pos</th>
+                    <th>Player</th>
+                    <th>Match Points</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${dailyPointsLeaderboard.map((entry) => `
+                    <tr>
+                      <td>${escapeHtml(String(entry.position || '—'))}</td>
+                      <td><strong>${escapeHtml(entry.name || 'Unknown')}</strong></td>
+                      <td class="competition-total-cell">${escapeHtml(formatCompetitionPoints(entry.points))}</td>
+                    </tr>
+                  `).join('') || '<tr><td colspan="3" class="competition-empty">No match points yet.</td></tr>'}
+                </tbody>
+              </table>
+            </div>
+            <div class="competition-round-grid">
+              ${dailyMatches.map((round) => `
+                <div class="competition-admin-card">
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <strong>${escapeHtml(round.course || `Round ${Number(round.roundIndex) + 1}`)}</strong>
+                    <span class="competition-note">${escapeHtml(formatCompetitionDate(round.date))}</span>
+                  </div>
+                  <div class="competition-match-grid">
+                    ${(round.matches || []).map((match) => {
+                      const displayTeamA = match.teamA && match.teamA.length ? match.teamA : (match.suggestedTeamA || []);
+                      const displayTeamB = match.teamB && match.teamB.length ? match.teamB : (match.suggestedTeamB || []);
+                      return `
+                        <div class="competition-match-card">
+                          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+                            <strong>${escapeHtml(match.label || `TT#${Number(match.slotIndex) + 1}`)}</strong>
+                            <span class="competition-note">${escapeHtml(formatTime12(match.time) || '--')}</span>
+                          </div>
+                          <div class="competition-team-row">
+                            <span class="competition-team-label">Team A</span>
+                            <div class="competition-pill-row">
+                              ${displayTeamA.length ? displayTeamA.map((name) => `<span class="competition-pill">${escapeHtml(name)}</span>`).join('') : '<span class="competition-empty">Not assigned</span>'}
+                            </div>
+                          </div>
+                          <div class="competition-team-row">
+                            <span class="competition-team-label">Team B</span>
+                            <div class="competition-pill-row">
+                              ${displayTeamB.length ? displayTeamB.map((name) => `<span class="competition-pill">${escapeHtml(name)}</span>`).join('') : '<span class="competition-empty">Not assigned</span>'}
+                            </div>
+                          </div>
+                          <div class="competition-note">${escapeHtml(match.result?.summary || 'No result yet.')}</div>
+                          <div class="competition-pill-row">
+                            <span class="competition-pill">${escapeHtml(formatCompetitionStatus(match.result?.status))}</span>
+                            <span class="competition-pill">${escapeHtml(String(match.result?.completedHoles || 0))}/18 holes</span>
+                            <span class="competition-pill">A ${escapeHtml(String(match.result?.teamAHolesWon || 0))}</span>
+                            <span class="competition-pill">B ${escapeHtml(String(match.result?.teamBHolesWon || 0))}</span>
+                            <span class="competition-pill">Halved ${escapeHtml(String(match.result?.halvedHoles || 0))}</span>
+                          </div>
+                          <div class="competition-pill-row">
+                            <span class="competition-pill">Team A ${escapeHtml(formatCompetitionPoints(match.result?.pointsA))}</span>
+                            <span class="competition-pill">Team B ${escapeHtml(formatCompetitionPoints(match.result?.pointsB))}</span>
+                            ${!(match.teamA && match.teamA.length) && displayTeamA.length && displayTeamB.length ? '<span class="competition-pill">Suggested split</span>' : ''}
+                          </div>
+                          ${Array.isArray(match.players) && match.players.length === 4 ? `
+                            <div class="competition-match-editor" data-match-editor="${escapeHtml(`${round.roundIndex}:${match.slotIndex}`)}">
+                              <strong>Admin Team Assignment</strong>
+                              <div class="competition-player-team-grid">
+                                ${match.players.map((playerName) => {
+                                  const selectedTeam = displayTeamA.includes(playerName) ? 'A' : 'B';
+                                  return `
+                                    <label>
+                                      <span>${escapeHtml(playerName)}</span>
+                                      <select data-match-team-player="${quoteAttr(playerName)}">
+                                        <option value="A"${selectedTeam === 'A' ? ' selected' : ''}>Team A</option>
+                                        <option value="B"${selectedTeam === 'B' ? ' selected' : ''}>Team B</option>
+                                      </select>
+                                    </label>
+                                  `;
+                                }).join('')}
+                              </div>
+                              <button class="small" type="button" data-save-match-teams="${escapeHtml(String(round.roundIndex))}:${escapeHtml(String(match.slotIndex))}">Save Teams</button>
+                            </div>
+                          ` : '<div class="competition-note">This tee time needs four players before teams can be assigned.</div>'}
+                        </div>
+                      `;
+                    }).join('')}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </details>
+      `;
+    }
+
+    function renderCompetitionSideGames(sideGames = []) {
+      return `
+        <details class="competition-section">
+          <summary>
+            <span>Side Games</span>
+            <span class="competition-note">CTP and skins stay separate from the main leaderboard</span>
+          </summary>
+          <div class="competition-section-body">
+            <div class="competition-round-grid">
+              ${sideGames.map((round) => `
+                <div class="competition-admin-card">
+                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+                    <strong>${escapeHtml(round.course || `Round ${Number(round.roundIndex) + 1}`)}</strong>
+                    <span class="competition-note">${escapeHtml(formatCompetitionDate(round.date))}</span>
+                  </div>
+                  <div class="competition-sidegame-grid">
+                    <div class="competition-sidegame-card">
+                      <strong>Closest to Pin</strong>
+                      ${Array.isArray(round.ctpWinners) && round.ctpWinners.length ? `
+                        <ul class="competition-sidegame-list">
+                          ${round.ctpWinners.map((entry) => `<li>Hole ${escapeHtml(String(entry.hole))}: ${escapeHtml((entry.winners || []).join(', '))}${entry.note ? ` (${escapeHtml(entry.note)})` : ''}</li>`).join('')}
+                        </ul>
+                      ` : '<div class="competition-empty">No CTP winners entered yet.</div>'}
+                      <label>
+                        <span>Admin edit (one line per result)</span>
+                        <textarea data-sidegame-ctp="${escapeHtml(String(round.roundIndex))}" placeholder="Hole 3: Tommy Knight&#10;Hole 7: Chris Neff, Caleb Hart">${escapeHtml(formatCtpText(round.ctpWinners || []))}</textarea>
+                      </label>
+                    </div>
+                    <div class="competition-sidegame-card">
+                      <strong>Skins</strong>
+                      ${Array.isArray(round.skinsResults) && round.skinsResults.length ? `
+                        <ul class="competition-sidegame-list">
+                          ${round.skinsResults.map((entry) => `<li>${escapeHtml(entry.playerName)}${entry.holes && entry.holes.length ? ` · holes ${escapeHtml(entry.holes.join(', '))}` : ''}${Number.isFinite(Number(entry.amount)) ? ` · $${escapeHtml(String(entry.amount))}` : ''}${entry.note ? ` · ${escapeHtml(entry.note)}` : ''}</li>`).join('')}
+                        </ul>
+                      ` : '<div class="competition-empty">No skins results entered yet.</div>'}
+                      <label>
+                        <span>Admin edit (player | holes 3, 7 | $20 | note)</span>
+                        <textarea data-sidegame-skins="${escapeHtml(String(round.roundIndex))}" placeholder="Tommy Knight | holes 3, 11 | $20&#10;Chris Neff | holes 7">${escapeHtml(formatSkinsText(round.skinsResults || []))}</textarea>
+                      </label>
+                    </div>
+                  </div>
+                  <button class="small" type="button" data-save-side-games="${escapeHtml(String(round.roundIndex))}">Save Side Games</button>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </details>
+      `;
+    }
+
+    function renderCompetitionAdmin(overview = {}, rounds = [], admin = {}) {
+      const selectedRound = getSelectedCompetitionRound();
+      const scorePlayers = Array.isArray(selectedRound?.playerScores) ? selectedRound.playerScores : [];
+      const selectedPlayer = scorePlayers.find((entry) => entry.playerName === competitionUiState.scorePlayerName) || scorePlayers[0] || null;
+      const scorecard = Array.isArray(selectedRound?.scorecard) ? selectedRound.scorecard : [];
+      const grossHoles = Array.isArray(selectedPlayer?.holes) ? selectedPlayer.holes : [];
+      const strokeAdjustments = Array.isArray(selectedPlayer?.strokeAdjustments) ? selectedPlayer.strokeAdjustments : [];
+      const netHoles = Array.isArray(selectedPlayer?.netHoles) ? selectedPlayer.netHoles : [];
+      const stablefordPointsByHole = Array.isArray(selectedPlayer?.stablefordPointsByHole) ? selectedPlayer.stablefordPointsByHole : [];
+      const handicapDisplay = formatHandicap(selectedPlayer?.handicapIndex);
+      const playingHandicap = Number.isFinite(selectedPlayer?.playingHandicap) ? selectedPlayer.playingHandicap : '—';
+      const grossTotal = Number.isFinite(selectedPlayer?.grossTotal) ? selectedPlayer.grossTotal : '—';
+      const netTotal = Number.isFinite(selectedPlayer?.netTotal) ? selectedPlayer.netTotal : '—';
+      const stablefordTotal = Number.isFinite(selectedPlayer?.stablefordTotal) ? selectedPlayer.stablefordTotal : '—';
+      const completedHoles = Number.isFinite(selectedPlayer?.completedHoles) ? selectedPlayer.completedHoles : 0;
+      const parTotal = scorecard.reduce((sum, hole) => sum + (Number(hole.par) || 0), 0);
+
+      return `
+        <details class="competition-section">
+          <summary>
+            <span>Admin Controls</span>
+            <span class="competition-note">Admin code required for saves</span>
+          </summary>
+          <div class="competition-section-body">
+            <div class="competition-admin-grid">
+              <div class="competition-admin-card">
+                <strong>Scoring Mode</strong>
+                <label>
+                  <span>Trip leaderboard mode</span>
+                  <select id="competitionScoringModeSelect">
+                    <option value="best4"${overview.scoringMode === 'best4' ? ' selected' : ''}>Best 4 of 5 rounds</option>
+                    <option value="all5"${overview.scoringMode === 'all5' ? ' selected' : ''}>All 5 rounds count</option>
+                  </select>
+                </label>
+                <button class="small" type="button" data-save-competition-mode>Save Scoring Mode</button>
+              </div>
+              <div class="competition-admin-card" style="grid-column:1/-1;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <strong>Player Handicaps</strong>
+                  <button class="small" type="button" data-save-handicaps>Save Handicaps</button>
+                </div>
+                <div class="competition-admin-grid">
+                  ${(admin.handicapPlayers || []).map((player) => `
+                    <label class="competition-admin-card">
+                      <span>${escapeHtml(player.name)}</span>
+                      <input type="number" step="0.1" data-handicap-player="${escapeHtml(player.participantId)}" value="${parseHandicapValue(player.handicapIndex) === null ? '' : escapeHtml(parseHandicapValue(player.handicapIndex).toFixed(1))}" placeholder="Handicap">
+                    </label>
+                  `).join('')}
+                </div>
+              </div>
+              <div class="competition-admin-card" style="grid-column:1/-1;">
+                <strong>Score Entry</strong>
+                ${selectedRound ? `
+                  <div id="competitionScoreEditor">
+                    <div class="competition-score-toolbar">
+                      <label>
+                        <span>Round</span>
+                        <select id="competitionScoreRoundSelect">
+                          ${rounds.map((round) => `<option value="${escapeHtml(String(round.roundIndex))}"${round.roundIndex === competitionUiState.scoreRoundIndex ? ' selected' : ''}>${escapeHtml(round.course)} · ${escapeHtml(formatCompetitionDate(round.date))}</option>`).join('')}
+                        </select>
+                      </label>
+                      <label>
+                        <span>Player</span>
+                        <select id="competitionScorePlayerSelect">
+                          ${scorePlayers.map((player) => `<option value="${quoteAttr(player.playerName)}"${player.playerName === competitionUiState.scorePlayerName ? ' selected' : ''}>${escapeHtml(player.playerName)}</option>`).join('')}
+                        </select>
+                      </label>
+                    </div>
+                    <div class="competition-score-summary" style="margin-top:10px;">
+                      <span>Handicap: ${escapeHtml(String(handicapDisplay))}</span>
+                      <span>Playing Handicap: ${escapeHtml(String(playingHandicap))}</span>
+                      <span>Gross Total: ${escapeHtml(String(grossTotal))}</span>
+                      <span>Net Total: ${escapeHtml(String(netTotal))}</span>
+                      <span>Stableford: ${escapeHtml(String(stablefordTotal))}</span>
+                      <span>Completed Holes: ${escapeHtml(String(completedHoles))}/18</span>
+                    </div>
+                    <div class="competition-note" style="margin-top:10px;">Enter gross scores only. Net scores and Stableford points are calculated automatically from the player handicap and hole stroke index.</div>
+                    <div class="competition-table-wrap" style="margin-top:10px;">
+                      <table class="competition-table competition-score-table" style="min-width:1200px;">
+                        <thead>
+                          <tr>
+                            <th>Row</th>
+                            ${scorecard.map((hole) => `<th>${escapeHtml(String(hole.hole))}</th>`).join('')}
+                            <th>Total</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <th>Par</th>
+                            ${scorecard.map((hole) => `<td>${escapeHtml(String(hole.par))}</td>`).join('')}
+                            <td>${escapeHtml(String(parTotal))}</td>
+                          </tr>
+                          <tr>
+                            <th>HCP</th>
+                            ${scorecard.map((hole) => `<td>${escapeHtml(String(hole.handicap))}</td>`).join('')}
+                            <td>—</td>
+                          </tr>
+                          <tr>
+                            <th>Strokes</th>
+                            ${scorecard.map((hole, index) => `<td>${escapeHtml(String(strokeAdjustments[index] || 0))}</td>`).join('')}
+                            <td>${escapeHtml(String(playingHandicap))}</td>
+                          </tr>
+                          <tr>
+                            <th>Gross</th>
+                            ${scorecard.map((hole, index) => {
+                              const value = grossHoles[index];
+                              return `<td><input class="competition-score-input" type="number" min="1" max="15" step="1" inputmode="numeric" value="${value || ''}" data-score-hole="${escapeHtml(String(index))}"></td>`;
+                            }).join('')}
+                            <td>${escapeHtml(String(grossTotal))}</td>
+                          </tr>
+                          <tr>
+                            <th>Net</th>
+                            ${scorecard.map((hole, index) => `<td>${Number.isFinite(netHoles[index]) ? escapeHtml(String(netHoles[index])) : '—'}</td>`).join('')}
+                            <td>${escapeHtml(String(netTotal))}</td>
+                          </tr>
+                          <tr>
+                            <th>Pts</th>
+                            ${scorecard.map((hole, index) => `<td>${Number.isFinite(stablefordPointsByHole[index]) ? escapeHtml(String(stablefordPointsByHole[index])) : '—'}</td>`).join('')}
+                            <td>${escapeHtml(String(stablefordTotal))}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                    <button class="small" type="button" style="margin-top:10px;" data-save-round-scores="${escapeHtml(String(selectedRound.roundIndex))}">Save Scores</button>
+                  </div>
+                ` : '<div class="competition-empty">Competition rounds are not available yet.</div>'}
+              </div>
+            </div>
+          </div>
+        </details>
+      `;
+    }
+
+    function renderCompetition() {
+      const box = document.getElementById('competitionBox');
+      if (!box) return;
+      if (competitionLoadError) {
+        box.innerHTML = `<div class="competition-empty">Competition data failed to load: ${escapeHtml(competitionLoadError)}</div>`;
+        return;
+      }
+      if (!competitionData) {
+        box.innerHTML = '<div class="competition-empty">Competition data is loading.</div>';
+        return;
+      }
+
+      box.innerHTML = `
+        <div class="competition-grid">
+          <div class="competition-admin-card">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+              <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Trip Competition</h2>
+              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                <span class="competition-note">Stableford, daily best ball, CTP, and skins</span>
+                <a class="cta" href="/myrtle-trip-competition-entry.html" target="_blank" rel="noopener">Competition Entry Page</a>
+              </div>
+            </div>
+            ${renderCompetitionOverview(competitionData.overview || {}, competitionData.buckets || [])}
+          </div>
+          ${renderCompetitionLeaderboard(competitionData.leaderboard || [])}
+          ${renderCompetitionDailyMatches(competitionData.dailyMatches || [], competitionData.dailyPointsLeaderboard || [])}
+          ${renderCompetitionSideGames(competitionData.sideGames || [])}
+          ${renderCompetitionAdmin(competitionData.overview || {}, competitionData.rounds || [], competitionData.admin || {})}
+        </div>
+      `;
     }
 
     const TRIP_ICS_DURATION_MINUTES = 270;
@@ -1799,6 +2604,103 @@
       };
     }
 
+    async function tripAdminPut(path, body) {
+      const code = getAdminCode();
+      if (!code) return null;
+      return tripFetchJson(tripApi(path), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-code': code
+        },
+        body: JSON.stringify(body || {})
+      });
+    }
+
+    async function saveCompetitionMode() {
+      const select = document.getElementById('competitionScoringModeSelect');
+      if (!select) return;
+      await tripAdminPut(`/api/trips/${tripId}/competition/settings`, { scoringMode: select.value });
+      await loadTrip();
+    }
+
+    async function saveCompetitionHandicaps() {
+      const inputs = Array.from(document.querySelectorAll('[data-handicap-player]'));
+      const current = new Map((competitionData?.admin?.handicapPlayers || []).map((player) => [String(player.participantId), parseHandicapValue(player.handicapIndex)]));
+      const changes = inputs.reduce((list, input) => {
+        const participantId = String(input.dataset.handicapPlayer || '').trim();
+        const rawValue = String(input.value || '').trim();
+        const nextValue = parseHandicapValue(rawValue);
+        const currentValue = current.has(participantId) ? current.get(participantId) : null;
+        const normalizedCurrent = parseHandicapValue(currentValue);
+        const normalizedNext = parseHandicapValue(nextValue);
+        const changed = normalizedCurrent !== normalizedNext || (normalizedCurrent === null && rawValue !== '');
+        if (participantId && changed) list.push({ participantId, handicapIndex: normalizedNext });
+        return list;
+      }, []);
+      if (!changes.length) {
+        alert('No handicap changes to save.');
+        return;
+      }
+      const code = getAdminCode();
+      if (!code) return;
+      await Promise.all(changes.map((change) => tripFetchJson(tripApi(`/api/trips/${tripId}/participants/${change.participantId}`), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-code': code
+        },
+        body: JSON.stringify({ handicapIndex: change.handicapIndex })
+      })));
+      await loadTrip();
+    }
+
+    async function saveCompetitionScores(roundIndex) {
+      const playerSelect = document.getElementById('competitionScorePlayerSelect');
+      if (!playerSelect) return;
+      const playerName = String(playerSelect.value || '').trim();
+      if (!playerName) {
+        alert('Choose a player before saving scores.');
+        return;
+      }
+      const scoreInputs = Array.from(document.querySelectorAll('#competitionScoreEditor [data-score-hole]'));
+      const holes = scoreInputs.map((input) => {
+        const rawValue = String(input.value || '').trim();
+        if (rawValue === '') return null;
+        const value = Number(rawValue);
+        if (!Number.isInteger(value) || value < 1 || value > 15) {
+          throw new Error(`Enter whole-number gross scores between 1 and 15. Invalid value: ${rawValue}`);
+        }
+        return value;
+      });
+      await tripAdminPut(`/api/trips/${tripId}/competition/rounds/${roundIndex}/scores`, { playerName, holes });
+      await loadTrip();
+    }
+
+    async function saveCompetitionMatchTeams(roundIndex, slotIndex, button) {
+      const editor = button && button.closest('[data-match-editor]');
+      if (!editor) return;
+      const teamA = [];
+      const teamB = [];
+      editor.querySelectorAll('[data-match-team-player]').forEach((select) => {
+        const playerName = String(select.dataset.matchTeamPlayer || '').trim();
+        if (!playerName) return;
+        if (select.value === 'A') teamA.push(playerName);
+        else teamB.push(playerName);
+      });
+      await tripAdminPut(`/api/trips/${tripId}/competition/rounds/${roundIndex}/matches/${slotIndex}`, { teamA, teamB });
+      await loadTrip();
+    }
+
+    async function saveCompetitionSideGames(roundIndex) {
+      const ctpField = document.querySelector(`[data-sidegame-ctp="${roundIndex}"]`);
+      const skinsField = document.querySelector(`[data-sidegame-skins="${roundIndex}"]`);
+      const ctpWinners = parseCtpText(ctpField ? ctpField.value : '');
+      const skinsResults = parseSkinsText(skinsField ? skinsField.value : '');
+      await tripAdminPut(`/api/trips/${tripId}/competition/rounds/${roundIndex}/side-games`, { ctpWinners, skinsResults });
+      await loadTrip();
+    }
+
     const itineraryBox = document.getElementById('itineraryBox');
     if (itineraryBox) {
       itineraryBox.addEventListener('click', async function (event) {
@@ -1884,6 +2786,56 @@
         clearTripPointerState();
       }
     });
+
+    const competitionBox = document.getElementById('competitionBox');
+    if (competitionBox) {
+      competitionBox.addEventListener('change', function (event) {
+        if (event.target.id === 'competitionScoreRoundSelect') {
+          competitionUiState.scoreRoundIndex = Number(event.target.value) || 0;
+          competitionUiState.scorePlayerName = '';
+          renderCompetition();
+          return;
+        }
+        if (event.target.id === 'competitionScorePlayerSelect') {
+          competitionUiState.scorePlayerName = event.target.value;
+          renderCompetition();
+        }
+      });
+
+      competitionBox.addEventListener('click', async function (event) {
+        const modeButton = event.target.closest('[data-save-competition-mode]');
+        const handicapButton = event.target.closest('[data-save-handicaps]');
+        const scoreButton = event.target.closest('[data-save-round-scores]');
+        const matchButton = event.target.closest('[data-save-match-teams]');
+        const sideGamesButton = event.target.closest('[data-save-side-games]');
+
+        try {
+          if (modeButton) {
+            await saveCompetitionMode();
+            return;
+          }
+          if (handicapButton) {
+            await saveCompetitionHandicaps();
+            return;
+          }
+          if (scoreButton) {
+            await saveCompetitionScores(Number(scoreButton.dataset.saveRoundScores));
+            return;
+          }
+          if (matchButton) {
+            const [roundIndex, slotIndex] = String(matchButton.dataset.saveMatchTeams || '').split(':').map((value) => Number(value));
+            await saveCompetitionMatchTeams(roundIndex, slotIndex, matchButton);
+            return;
+          }
+          if (sideGamesButton) {
+            await saveCompetitionSideGames(Number(sideGamesButton.dataset.saveSideGames));
+          }
+        } catch (error) {
+          console.error(error);
+          alert(`Competition save failed: ${error.message || 'Unknown error'}`);
+        }
+      });
+    }
 
     window.addEventListener('DOMContentLoaded', loadTrip);
   </script>
