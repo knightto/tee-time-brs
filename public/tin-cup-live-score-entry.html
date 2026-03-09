@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tin Cup Live Score Entry</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    :root { --bg:#0c1523; --panel:#10243d; --line:rgba(255,255,255,.16); --ink:#e8eef8; --muted:#a9bdd9; --accent:#76d2ff; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family:'Segoe UI', Arial, sans-serif; color:var(--ink); background: radial-gradient(circle at 20% 10%, rgba(118,210,255,.12), transparent 32%), var(--bg); }
+    .wrap { max-width: 1240px; margin: 18px auto 40px; padding: 0 14px; }
+    .card { background: linear-gradient(140deg, var(--panel), #0c1b2f); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
+    .row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
+    label { color: var(--muted); font-size: .85rem; display:flex; flex-direction:column; gap:4px; }
+    input, select, button { border:1px solid var(--line); background:#0b1727; color:var(--ink); border-radius:8px; padding:7px 9px; }
+    button { background: rgba(118,210,255,.18); border-color: rgba(118,210,255,.5); font-weight: 700; cursor: pointer; }
+    button:hover { background: rgba(118,210,255,.28); }
+    .muted { color:var(--muted); font-size:.84rem; }
+    .ok { color: #7df6b2; font-weight:700; }
+    .bad { color: #ff9ea0; font-weight:700; }
+    .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:10px; }
+    table { border-collapse: collapse; width:max-content; min-width:100%; }
+    th, td { border-bottom:1px solid var(--line); border-right:1px solid rgba(255,255,255,.06); padding:6px; text-align:center; white-space: nowrap; }
+    th:first-child, td:first-child { position: sticky; left:0; background:#10243d; text-align:left; z-index:1; }
+    td input { width:52px; text-align:center; }
+    .head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    a { color: var(--accent); text-decoration:none; font-weight:700; }
+    a:hover { text-decoration:underline; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card head">
+      <div>
+        <h1 style="margin:0;font-size:1.35rem;">Tin Cup Live Score Entry</h1>
+        <div id="entryIntro" class="muted">Enter hole-by-hole scores for your foursome with your foursome code.</div>
+      </div>
+      <a href="/tin-cup-trip-2026.html">Back to Tin Cup Page</a>
+    </div>
+
+    <div class="card" id="entryControlsCard">
+      <div class="row">
+        <label>Day
+          <select id="daySelect"></select>
+        </label>
+        <label>Foursome
+          <select id="slotSelect"></select>
+        </label>
+        <label>Foursome Code
+          <input id="codeInput" type="text" placeholder="Enter code" autocomplete="off">
+        </label>
+        <button id="unlockBtn" type="button">Unlock Scorecard</button>
+        <span id="status" class="muted"></span>
+      </div>
+    </div>
+
+    <div class="card" id="scorecardCard" style="display:none;">
+      <div class="head">
+        <strong id="scorecardTitle">Scorecard</strong>
+        <span id="updatedAt" class="muted"></span>
+      </div>
+      <div class="table-wrap" id="scoreTableWrap"></div>
+    </div>
+
+    <div class="card" id="markersCard" style="display:none;">
+      <strong>Closest to Pin / Long Drive</strong>
+      <div class="muted" style="margin:6px 0 10px;">Set winner per hole when applicable. Leave blank to clear.</div>
+      <div class="table-wrap" id="markerTableWrap"></div>
+    </div>
+
+    <div class="card" id="adminUtilityCard">
+      <strong>Admin Code Utility</strong>
+      <div class="muted" style="margin-top:4px;">Generate missing foursome codes for Tin Cup (admin only).</div>
+      <div class="row" style="margin-top:8px;">
+        <label>Admin Code
+          <input id="adminCodeInput" type="password" placeholder="Admin code">
+        </label>
+        <button id="genCodesBtn" type="button">Generate Missing Codes</button>
+        <span id="adminStatus" class="muted"></span>
+      </div>
+      <div id="generatedCodes" class="muted" style="margin-top:8px;"></div>
+    </div>
+  </div>
+
+  <script>
+    const daySelect = document.getElementById('daySelect');
+    const slotSelect = document.getElementById('slotSelect');
+    const codeInput = document.getElementById('codeInput');
+    const unlockBtn = document.getElementById('unlockBtn');
+    const statusEl = document.getElementById('status');
+    const scorecardCard = document.getElementById('scorecardCard');
+    const scorecardTitle = document.getElementById('scorecardTitle');
+    const updatedAt = document.getElementById('updatedAt');
+    const scoreTableWrap = document.getElementById('scoreTableWrap');
+    const markersCard = document.getElementById('markersCard');
+    const markerTableWrap = document.getElementById('markerTableWrap');
+    const adminCodeInput = document.getElementById('adminCodeInput');
+    const genCodesBtn = document.getElementById('genCodesBtn');
+    const adminStatus = document.getElementById('adminStatus');
+    const generatedCodes = document.getElementById('generatedCodes');
+    const entryIntro = document.getElementById('entryIntro');
+    const entryControlsCard = document.getElementById('entryControlsCard');
+    const adminUtilityCard = document.getElementById('adminUtilityCard');
+
+    const TIN_CUP_CONTEXT_STORAGE_KEY = 'tinCupTripContextV1';
+    const TIN_CUP_LIVE_LOCAL_STATE_KEY = 'tinCupLiveLocalStateV1';
+    const TIN_CUP_SCORING_STORAGE_KEY = 'tinCupScoringStateV2';
+
+    const DAY_KEYS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4', 'Practice'];
+    const DAY_OPTIONS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 2 Total', 'Day 3', 'Day 4'];
+    const RANK_POINTS = [12, 10, 8.5, 7, 5.75, 4.5, 3, 1.25, 0, 0, 0, 0, 0, 0, 0, 0];
+    const FOURSOMES = [
+      { playersByDay: { 'Day 1': [{ name: 'Matt', hcp: 6 }, { name: 'Rick', hcp: 8 }, { name: 'OB', hcp: 6 }, { name: 'Kyle', hcp: 4 }], 'Day 2A': [{ name: 'Bob', hcp: 13 }, { name: 'Kyle', hcp: 4 }, { name: 'Pat', hcp: 10 }, { name: 'Spiro', hcp: 14 }], 'Day 2B': [{ name: 'Kyle', hcp: 4 }, { name: 'Tommy', hcp: 5 }, { name: 'CSamm', hcp: 13 }, { name: 'David', hcp: 8 }], 'Day 3': [{ name: 'Kyle', hcp: 4 }, { name: 'Steve', hcp: 8 }, { name: 'Mil', hcp: 8 }, { name: 'Tony', hcp: 8 }], 'Day 4': [{ name: 'Matt', hcp: 6 }, { name: 'Rick', hcp: 8 }, { name: 'OB', hcp: 6 }, { name: 'Kyle', hcp: 4 }], Practice: [{ name: 'Matt', hcp: 6 }, { name: 'Rick', hcp: 8 }, { name: 'OB', hcp: 6 }, { name: 'Kyle', hcp: 4 }] } },
+      { playersByDay: { 'Day 1': [{ name: 'Manny', hcp: 13 }, { name: 'Steve', hcp: 8 }, { name: 'Tommy', hcp: 5 }, { name: 'Pat', hcp: 10 }], 'Day 2A': [{ name: 'CSamm', hcp: 13 }, { name: 'Steve', hcp: 8 }, { name: 'Rick', hcp: 8 }, { name: 'John', hcp: 7 }], 'Day 2B': [{ name: 'Matt', hcp: 6 }, { name: 'Steve', hcp: 8 }, { name: 'Brian', hcp: 12 }, { name: 'Spiro', hcp: 14 }], 'Day 3': [{ name: 'Matt', hcp: 6 }, { name: 'Bob', hcp: 13 }, { name: 'Tommy', hcp: 5 }, { name: 'John', hcp: 7 }], 'Day 4': [{ name: 'Manny', hcp: 13 }, { name: 'Steve', hcp: 8 }, { name: 'Tommy', hcp: 5 }, { name: 'Pat', hcp: 10 }], Practice: [{ name: 'Manny', hcp: 13 }, { name: 'Steve', hcp: 8 }, { name: 'Tommy', hcp: 5 }, { name: 'Pat', hcp: 10 }] } },
+      { playersByDay: { 'Day 1': [{ name: 'Mil', hcp: 8 }, { name: 'CSamm', hcp: 13 }, { name: 'Brian', hcp: 12 }, { name: 'Bob', hcp: 13 }], 'Day 2A': [{ name: 'OB', hcp: 6 }, { name: 'Brian', hcp: 12 }, { name: 'Tony', hcp: 8 }, { name: 'Tommy', hcp: 5 }], 'Day 2B': [{ name: 'OB', hcp: 6 }, { name: 'John', hcp: 7 }, { name: 'Mil', hcp: 8 }, { name: 'Pat', hcp: 10 }], 'Day 3': [{ name: 'Manny', hcp: 13 }, { name: 'CSamm', hcp: 13 }, { name: 'Spiro', hcp: 14 }, { name: 'OB', hcp: 6 }], 'Day 4': [{ name: 'Mil', hcp: 8 }, { name: 'CSamm', hcp: 13 }, { name: 'Brian', hcp: 12 }, { name: 'Bob', hcp: 13 }], Practice: [{ name: 'Mil', hcp: 8 }, { name: 'CSamm', hcp: 13 }, { name: 'Brian', hcp: 12 }, { name: 'Bob', hcp: 13 }] } },
+      { playersByDay: { 'Day 1': [{ name: 'David', hcp: 8 }, { name: 'John', hcp: 7 }, { name: 'Tony', hcp: 8 }, { name: 'Spiro', hcp: 14 }], 'Day 2A': [{ name: 'Mil', hcp: 8 }, { name: 'David', hcp: 8 }, { name: 'Matt', hcp: 6 }, { name: 'Manny', hcp: 13 }], 'Day 2B': [{ name: 'Manny', hcp: 13 }, { name: 'Rick', hcp: 8 }, { name: 'Bob', hcp: 13 }, { name: 'Tony', hcp: 8 }], 'Day 3': [{ name: 'Pat', hcp: 10 }, { name: 'Brian', hcp: 12 }, { name: 'David', hcp: 8 }, { name: 'Rick', hcp: 8 }], 'Day 4': [{ name: 'David', hcp: 8 }, { name: 'John', hcp: 7 }, { name: 'Tony', hcp: 8 }, { name: 'Spiro', hcp: 14 }], Practice: [{ name: 'David', hcp: 8 }, { name: 'John', hcp: 7 }, { name: 'Tony', hcp: 8 }, { name: 'Spiro', hcp: 14 }] } }
+    ];
+
+    let tripId = null;
+    let meta = null;
+    let useSecondaryTripDb = true;
+    let localMode = false;
+    let settings = {
+      enableLiveFoursomeScoring: true,
+      enableFoursomeCodes: true,
+      enableLiveMarkers: true,
+      enableLiveLeaderboard: true
+    };
+    let active = { dayKey: '', slotIndex: -1, code: '', view: null };
+
+    const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
+    const norm = (v = '') => String(v || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    const holeArray = () => Array.from({ length: 18 }, () => null);
+    const toInt = (v) => {
+      if (v === '' || v === null || v === undefined) return null;
+      const n = Number(v);
+      if (!Number.isFinite(n)) return null;
+      const out = Math.round(n);
+      return out > 0 ? out : null;
+    };
+    const toNum = (v) => {
+      if (v === '' || v === null || v === undefined) return null;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : null;
+    };
+    const tripApi = (path) => useSecondaryTripDb ? (path.includes('?') ? `${path}&myrtleBeach2026=true` : `${path}?myrtleBeach2026=true`) : path;
+
+    (function seedTripContext() {
+      const qs = new URLSearchParams(window.location.search);
+      const qsSecondary = String(qs.get('secondary') || '').trim();
+      if (qsSecondary === '0' || qsSecondary.toLowerCase() === 'false') useSecondaryTripDb = false;
+      if (qsSecondary === '1' || qsSecondary.toLowerCase() === 'true') useSecondaryTripDb = true;
+      const forcedId = String(qs.get('tripId') || '').trim();
+      if (forcedId) { tripId = forcedId; return; }
+      try {
+        const raw = localStorage.getItem(TIN_CUP_CONTEXT_STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.tripId) tripId = String(parsed.tripId);
+        if (parsed && parsed.secondary === '0') useSecondaryTripDb = false;
+        if (parsed && parsed.secondary === '1') useSecondaryTripDb = true;
+      } catch (_err) {}
+    })();
+
+    function getDaySlots(dayKey = '') {
+      return FOURSOMES.map((group, index) => ({
+        slotIndex: index,
+        label: `Group ${index + 1}`,
+        players: (group.playersByDay[dayKey] || []).map((p) => ({ name: p.name, hcp: Number(p.hcp) || 0 }))
+      })).filter((slot) => slot.players.length === 4);
+    }
+
+    function localKey(dayKey, slotIndex) {
+      return `${dayKey}|${Number(slotIndex)}`;
+    }
+
+    function loadLocalLiveState() {
+      try {
+        const raw = localStorage.getItem(TIN_CUP_LIVE_LOCAL_STATE_KEY);
+        const parsed = raw ? JSON.parse(raw) : {};
+        return {
+          scorecards: (parsed && parsed.scorecards && typeof parsed.scorecards === 'object') ? parsed.scorecards : {}
+        };
+      } catch (_err) {
+        return { scorecards: {} };
+      }
+    }
+
+    function saveLocalLiveState(state) {
+      localStorage.setItem(TIN_CUP_LIVE_LOCAL_STATE_KEY, JSON.stringify(state));
+    }
+
+    function getStrokeAllowance(hcp, hole) {
+      const playing = Math.max(0, Math.round(Number(hcp) || 0));
+      if (!playing) return 0;
+      const base = Math.floor(playing / 18);
+      const extra = playing % 18;
+      return base + (hole <= extra ? 1 : 0);
+    }
+
+    function summarizeHoles(holes, hcp) {
+      let grossTotal = 0; let netTotal = 0;
+      let frontNet = 0; let backNet = 0;
+      let complete18 = true; let completeFront = true; let completeBack = true;
+      for (let i = 0; i < 18; i += 1) {
+        const gross = toInt(holes[i]);
+        const hole = i + 1;
+        if (gross === null) {
+          complete18 = false;
+          if (hole <= 9) completeFront = false;
+          else completeBack = false;
+          continue;
+        }
+        const net = gross - getStrokeAllowance(hcp, hole);
+        grossTotal += gross;
+        netTotal += net;
+        if (hole <= 9) frontNet += net;
+        else backNet += net;
+      }
+      return {
+        grossTotal: complete18 ? grossTotal : null,
+        netTotal: complete18 ? netTotal : null,
+        frontNet: completeFront ? frontNet : null,
+        backNet: completeBack ? backNet : null,
+        complete18
+      };
+    }
+
+    function ensureLocalCard(dayKey, slotIndex) {
+      const state = loadLocalLiveState();
+      const slot = getDaySlots(dayKey).find((s) => s.slotIndex === Number(slotIndex));
+      if (!slot) throw new Error('Foursome not found for this day');
+      const key = localKey(dayKey, slotIndex);
+      if (!state.scorecards[key]) {
+        state.scorecards[key] = { dayKey, slotIndex: Number(slotIndex), players: {}, markers: { ctp: {}, longDrive: {} }, updatedAt: new Date().toISOString() };
+      }
+      const card = state.scorecards[key];
+      if (!card.players || typeof card.players !== 'object') card.players = {};
+      if (!card.markers || typeof card.markers !== 'object') card.markers = { ctp: {}, longDrive: {} };
+      if (!card.markers.ctp || typeof card.markers.ctp !== 'object') card.markers.ctp = {};
+      if (!card.markers.longDrive || typeof card.markers.longDrive !== 'object') card.markers.longDrive = {};
+      slot.players.forEach((player) => {
+        const keyName = norm(player.name);
+        if (!card.players[keyName]) card.players[keyName] = { name: player.name, hcp: player.hcp, holes: holeArray() };
+        const holes = Array.isArray(card.players[keyName].holes) ? card.players[keyName].holes.slice(0, 18) : [];
+        while (holes.length < 18) holes.push(null);
+        card.players[keyName] = { name: player.name, hcp: player.hcp, holes: holes.map((v) => toInt(v)) };
+      });
+      card.updatedAt = new Date().toISOString();
+      state.scorecards[key] = card;
+      saveLocalLiveState(state);
+      return { state, slot, card };
+    }
+
+    function buildLocalScorecardView(dayKey, slotIndex) {
+      const { slot, card } = ensureLocalCard(dayKey, slotIndex);
+      return {
+        dayKey,
+        slotIndex,
+        label: slot.label,
+        players: slot.players.map((player) => {
+          const entry = card.players[norm(player.name)] || { name: player.name, hcp: player.hcp, holes: holeArray() };
+          const summary = summarizeHoles(entry.holes, player.hcp);
+          return {
+            name: player.name,
+            handicap: player.hcp,
+            holes: entry.holes,
+            grossTotal: summary.grossTotal,
+            netTotal: summary.netTotal
+          };
+        }),
+        markers: card.markers,
+        updatedAt: card.updatedAt
+      };
+    }
+
+    function computeAndStoreLocalTinCupState() {
+      const local = loadLocalLiveState();
+      const out = {
+        matchResults: { 'Day 1': {}, 'Day 2A': {}, 'Day 2B': {}, 'Day 3': {}, 'Day 4': {}, Practice: {} },
+        strokeNet: { 'Day 1': {}, 'Day 3': {}, 'Day 4': {} },
+        scrambleBonus: {}
+      };
+      try {
+        const prev = JSON.parse(localStorage.getItem(TIN_CUP_SCORING_STORAGE_KEY) || '{}');
+        out.scrambleBonus = { ...(prev.scrambleBonus || {}) };
+      } catch (_err) {}
+
+      DAY_KEYS.forEach((dayKey) => {
+        const slots = getDaySlots(dayKey);
+        slots.forEach((slot) => {
+          const key = localKey(dayKey, slot.slotIndex);
+          const card = local.scorecards[key] || { players: {} };
+          const summaryByName = new Map();
+          slot.players.forEach((player) => {
+            const entry = card.players[norm(player.name)] || { holes: holeArray() };
+            const sum = summarizeHoles(entry.holes || holeArray(), player.hcp);
+            summaryByName.set(norm(player.name), sum);
+            if (['Day 1', 'Day 3', 'Day 4'].includes(dayKey) && sum.complete18 && Number.isFinite(sum.netTotal)) {
+              out.strokeNet[dayKey][norm(player.name)] = sum.netTotal;
+            }
+          });
+
+          const p = slot.players;
+          const pairRules = [
+            [[0, 1], [2, 3]],
+            [[0, 2], [1, 3]],
+            [[0, 3], [1, 2]]
+          ];
+          pairRules.forEach((pairs, segmentIndex) => {
+            pairs.forEach(([a, b]) => {
+              const pa = p[a].name;
+              const pb = p[b].name;
+              const sa = summaryByName.get(norm(pa));
+              const sb = summaryByName.get(norm(pb));
+              const aScore = segmentIndex === 0 ? sa.frontNet : sa.backNet;
+              const bScore = segmentIndex === 0 ? sb.frontNet : sb.backNet;
+              let ar = ''; let br = '';
+              if (Number.isFinite(aScore) && Number.isFinite(bScore)) {
+                if (aScore < bScore) { ar = 'W'; br = 'L'; }
+                else if (aScore > bScore) { ar = 'L'; br = 'W'; }
+                else { ar = 'T'; br = 'T'; }
+              }
+              const ak = norm(pa); const bk = norm(pb);
+              if (!out.matchResults[dayKey][ak]) out.matchResults[dayKey][ak] = {};
+              if (!out.matchResults[dayKey][bk]) out.matchResults[dayKey][bk] = {};
+              out.matchResults[dayKey][ak][segmentIndex] = ar;
+              out.matchResults[dayKey][bk][segmentIndex] = br;
+            });
+          });
+        });
+      });
+
+      localStorage.setItem(TIN_CUP_SCORING_STORAGE_KEY, JSON.stringify(out));
+    }
+
+    function buildLocalMeta() {
+      return {
+        matchDayOptions: DAY_KEYS.slice(),
+        daySlots: DAY_KEYS.map((dayKey) => ({
+          dayKey,
+          slots: getDaySlots(dayKey).map((slot) => ({ slotIndex: slot.slotIndex, label: slot.label, players: slot.players.map((p) => p.name), hasCode: false }))
+        })),
+        settings: {
+          enableLiveFoursomeScoring: true,
+          enableFoursomeCodes: false,
+          enableLiveMarkers: true,
+          enableLiveLeaderboard: true
+        }
+      };
+    }
+
+    function findTinCupTrip(trips) {
+      const list = Array.isArray(trips) ? trips : [];
+      const byName = list.find((trip) => /tin\s*cup/i.test(String(trip && trip.name || '')));
+      if (byName && byName._id) return byName;
+      const byGroup = list.find((trip) => /tin\s*cup/i.test(String(trip && trip.groupName || '')));
+      if (byGroup && byGroup._id) return byGroup;
+      const byRef = list.find((trip) => /tin\s*cup/i.test(String(trip && trip.reservationNumber || '')));
+      if (byRef && byRef._id) return byRef;
+      return null;
+    }
+
+    async function resolveTripId() {
+      if (tripId) return tripId;
+      let res = await fetch(tripApi('/api/trips'));
+      let trips = await res.json();
+      let match = findTinCupTrip(trips);
+      if (!match) {
+        useSecondaryTripDb = false;
+        res = await fetch('/api/trips');
+        trips = await res.json();
+        match = findTinCupTrip(trips);
+      }
+      if (!match || !match._id) throw new Error('Tin Cup trip not found');
+      tripId = String(match._id);
+      return tripId;
+    }
+
+    function activateLocalMode(reason = '') {
+      localMode = true;
+      const metaLocal = buildLocalMeta();
+      if (reason) {
+        statusEl.className = 'muted';
+        statusEl.textContent = `Local mode enabled: ${reason}`;
+      }
+      return metaLocal;
+    }
+
+    async function fetchMeta() {
+      try {
+        const id = await resolveTripId();
+        const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/meta`));
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload.error || 'Failed to load live scoring setup');
+        localMode = false;
+        return payload;
+      } catch (error) {
+        const msg = String(error && error.message || 'metadata load failed');
+        return activateLocalMode(msg);
+      }
+    }
+
+    function currentDaySlots() {
+      const day = String(daySelect.value || '');
+      const row = (meta && Array.isArray(meta.daySlots) ? meta.daySlots : []).find((d) => d.dayKey === day);
+      return row ? row.slots : [];
+    }
+
+    function renderSelectors() {
+      const dayOptions = (meta && Array.isArray(meta.matchDayOptions) ? meta.matchDayOptions : []);
+      settings = (meta && meta.settings) ? meta.settings : settings;
+      codeInput.disabled = settings.enableFoursomeCodes !== true;
+      if (localMode) {
+        entryIntro.textContent = 'Local mode active: no Tin Cup trip found in database. Entries will sync to local leaderboard state.';
+      } else if (settings.enableFoursomeCodes) {
+        entryIntro.textContent = 'Enter hole-by-hole scores for your foursome with your foursome code.';
+      } else {
+        entryIntro.textContent = 'Enter hole-by-hole scores for your foursome. Foursome code is disabled for this trip.';
+      }
+      codeInput.placeholder = settings.enableFoursomeCodes ? 'Enter code' : 'Code not required';
+      if (!settings.enableFoursomeCodes) codeInput.value = '';
+      adminUtilityCard.style.display = (!localMode && settings.enableFoursomeCodes) ? '' : 'none';
+
+      if (!settings.enableLiveFoursomeScoring) {
+        entryControlsCard.style.opacity = '0.7';
+        unlockBtn.disabled = true;
+        statusEl.className = 'bad';
+        statusEl.textContent = 'Live foursome scoring is disabled for this trip.';
+      } else {
+        entryControlsCard.style.opacity = '';
+        unlockBtn.disabled = false;
+        statusEl.className = 'muted';
+        statusEl.textContent = localMode ? 'Local mode ready.' : '';
+      }
+
+      daySelect.innerHTML = dayOptions.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+      if (!dayOptions.includes(daySelect.value)) daySelect.value = dayOptions[0] || '';
+      renderSlots();
+    }
+
+    function renderSlots() {
+      const slots = currentDaySlots();
+      slotSelect.innerHTML = slots.map((slot) => `<option value="${esc(String(slot.slotIndex))}">${esc(slot.label)} (${esc((slot.players || []).join(', '))})${slot.hasCode ? '' : ' [no code needed]'}</option>`).join('');
+      if (!slots.some((slot) => String(slot.slotIndex) === slotSelect.value)) slotSelect.value = slots.length ? String(slots[0].slotIndex) : '';
+    }
+
+    async function loadScorecard() {
+      const dayKey = String(daySelect.value || '');
+      const slotIndex = Number(slotSelect.value);
+      const code = String(codeInput.value || '').trim();
+      if (!settings.enableLiveFoursomeScoring) throw new Error('Live foursome scoring is disabled for this trip.');
+      if (!dayKey || !Number.isInteger(slotIndex) || slotIndex < 0) throw new Error('Select day and foursome.');
+
+      if (localMode) {
+        const payload = buildLocalScorecardView(dayKey, slotIndex);
+        active = { dayKey, slotIndex, code: '', view: payload };
+        return payload;
+      }
+
+      if (settings.enableFoursomeCodes && !code) throw new Error('Select day/foursome and enter code.');
+      const id = await resolveTripId();
+      const q = new URLSearchParams({ dayKey, slotIndex: String(slotIndex), code }).toString();
+      const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/scorecard?${q}`));
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || 'Invalid code or scorecard not available');
+      active = { dayKey, slotIndex, code, view: payload };
+      return payload;
+    }
+
+    function renderScorecard(view) {
+      const holes = Array.from({ length: 18 }, (_, i) => i + 1);
+      const players = Array.isArray(view.players) ? view.players : [];
+      scorecardTitle.textContent = `${view.dayKey} - ${view.label}`;
+      updatedAt.textContent = view.updatedAt ? `Updated: ${new Date(view.updatedAt).toLocaleTimeString()}` : '';
+      const head = `<tr><th>Player</th>${holes.map((h) => `<th>H${h}</th>`).join('')}<th>Gross</th><th>Net</th></tr>`;
+      const body = players.map((player) => `<tr><td><strong>${esc(player.name)}</strong> <span class="muted">(HCP ${esc(player.handicap)})</span></td>${holes.map((hole) => `<td><input type="number" min="1" max="20" data-hole-input="${esc(player.name)}|${hole}" value="${esc(player.holes && player.holes[hole - 1] !== null ? player.holes[hole - 1] : '')}"></td>`).join('')}<td>${player.grossTotal === null ? '-' : esc(player.grossTotal)}</td><td>${player.netTotal === null ? '-' : esc(player.netTotal)}</td></tr>`).join('');
+      scoreTableWrap.innerHTML = `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
+      scorecardCard.style.display = 'block';
+    }
+
+    function renderMarkers(view) {
+      const holes = Array.from({ length: 18 }, (_, i) => i + 1);
+      const players = [''].concat((view.players || []).map((p) => p.name));
+      const ctp = (view.markers && view.markers.ctp) || {};
+      const longDrive = (view.markers && view.markers.longDrive) || {};
+      const row = (type, map) => `<tr><th>${type}</th>${holes.map((hole) => `<td><select data-marker-input="${esc(type)}|${hole}">${players.map((name) => `<option value="${esc(name)}"${String(map[hole] || '') === String(name) ? ' selected' : ''}>${name ? esc(name) : '-'}</option>`).join('')}</select></td>`).join('')}</tr>`;
+      markerTableWrap.innerHTML = `<table><thead><tr><th>Type</th>${holes.map((h) => `<th>H${h}</th>`).join('')}</tr></thead><tbody>${row('ctp', ctp)}${row('longDrive', longDrive)}</tbody></table>`;
+      markersCard.style.display = settings.enableLiveMarkers ? 'block' : 'none';
+    }
+
+    async function saveHole(playerName, hole, gross) {
+      if (localMode) {
+        const { state, card } = ensureLocalCard(active.dayKey, active.slotIndex);
+        const key = norm(playerName);
+        if (!card.players[key]) throw new Error('Player not in this foursome');
+        card.players[key].holes[hole - 1] = toInt(gross);
+        card.updatedAt = new Date().toISOString();
+        state.scorecards[localKey(active.dayKey, active.slotIndex)] = card;
+        saveLocalLiveState(state);
+        computeAndStoreLocalTinCupState();
+        const payload = buildLocalScorecardView(active.dayKey, active.slotIndex);
+        active.view = payload;
+        renderScorecard(payload);
+        renderMarkers(payload);
+        statusEl.className = 'ok';
+        statusEl.textContent = `Saved ${playerName} H${hole} (local)`;
+        return;
+      }
+
+      const id = await resolveTripId();
+      const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/scorecard/hole`), {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dayKey: active.dayKey, slotIndex: active.slotIndex, code: active.code, playerName, hole, gross }),
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || 'Failed to save score');
+      active.view = payload;
+      renderScorecard(payload);
+      renderMarkers(payload);
+      statusEl.className = 'ok';
+      statusEl.textContent = `Saved ${playerName} H${hole}`;
+    }
+
+    async function saveMarker(type, hole, winner) {
+      if (localMode) {
+        const { state, card } = ensureLocalCard(active.dayKey, active.slotIndex);
+        if (winner) card.markers[type][String(hole)] = winner;
+        else delete card.markers[type][String(hole)];
+        card.updatedAt = new Date().toISOString();
+        state.scorecards[localKey(active.dayKey, active.slotIndex)] = card;
+        saveLocalLiveState(state);
+        const payload = buildLocalScorecardView(active.dayKey, active.slotIndex);
+        active.view = payload;
+        renderScorecard(payload);
+        renderMarkers(payload);
+        statusEl.className = 'ok';
+        statusEl.textContent = `Saved ${type.toUpperCase()} H${hole} (local)`;
+        return;
+      }
+
+      const id = await resolveTripId();
+      const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/scorecard/marker`), {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dayKey: active.dayKey, slotIndex: active.slotIndex, code: active.code, type, hole, winner }),
+      });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || 'Failed to save marker');
+      active.view = payload;
+      renderScorecard(payload);
+      renderMarkers(payload);
+      statusEl.className = 'ok';
+      statusEl.textContent = `Saved ${type.toUpperCase()} H${hole}`;
+    }
+
+    unlockBtn.addEventListener('click', async () => {
+      statusEl.className = 'muted';
+      statusEl.textContent = 'Unlocking...';
+      try {
+        const view = await loadScorecard();
+        renderScorecard(view);
+        renderMarkers(view);
+        statusEl.className = 'ok';
+        statusEl.textContent = localMode ? 'Local scorecard unlocked.' : (settings.enableFoursomeCodes ? 'Code accepted. Live scoring unlocked.' : 'Live scoring unlocked.');
+      } catch (error) {
+        statusEl.className = 'bad';
+        statusEl.textContent = error.message;
+      }
+    });
+
+    daySelect.addEventListener('change', () => {
+      renderSlots();
+      scorecardCard.style.display = 'none';
+      markersCard.style.display = 'none';
+      statusEl.className = 'muted';
+      statusEl.textContent = localMode ? 'Local mode ready.' : '';
+    });
+
+    scoreTableWrap.addEventListener('change', async (event) => {
+      const input = event.target.closest('[data-hole-input]');
+      if (!input || !active.view) return;
+      const [playerName, holeRaw] = String(input.dataset.holeInput || '').split('|');
+      const hole = Number(holeRaw);
+      const value = String(input.value || '').trim();
+      const gross = value ? Number(value) : null;
+      try { await saveHole(playerName, hole, gross); }
+      catch (error) { statusEl.className = 'bad'; statusEl.textContent = error.message; }
+    });
+
+    markerTableWrap.addEventListener('change', async (event) => {
+      const select = event.target.closest('[data-marker-input]');
+      if (!select || !active.view || !settings.enableLiveMarkers) return;
+      const [type, holeRaw] = String(select.dataset.markerInput || '').split('|');
+      const hole = Number(holeRaw);
+      try { await saveMarker(type, hole, String(select.value || '')); }
+      catch (error) { statusEl.className = 'bad'; statusEl.textContent = error.message; }
+    });
+
+    genCodesBtn.addEventListener('click', async () => {
+      if (localMode || !settings.enableFoursomeCodes) return;
+      const code = String(adminCodeInput.value || '').trim();
+      if (!code) { adminStatus.className = 'bad'; adminStatus.textContent = 'Admin code required'; return; }
+      adminStatus.className = 'muted';
+      adminStatus.textContent = 'Generating...';
+      generatedCodes.textContent = '';
+      try {
+        const id = await resolveTripId();
+        const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/admin/codes`), {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-code': code }, body: JSON.stringify({ force: false })
+        });
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload.error || 'Failed to generate codes');
+        adminStatus.className = 'ok';
+        adminStatus.textContent = `Generated ${payload.generatedCount} new codes`;
+        const rows = Array.isArray(payload.generated) ? payload.generated : [];
+        generatedCodes.innerHTML = rows.length ? rows.map((row) => `${esc(row.dayKey)} ${esc(row.label)} (${esc((row.players || []).join(', '))}) : <strong>${esc(row.code)}</strong>`).join('<br>') : 'No new codes were needed.';
+        meta = await fetchMeta();
+        renderSelectors();
+      } catch (error) {
+        adminStatus.className = 'bad';
+        adminStatus.textContent = error.message;
+      }
+    });
+
+    (async () => {
+      try {
+        meta = await fetchMeta();
+        renderSelectors();
+      } catch (error) {
+        statusEl.className = 'bad';
+        statusEl.textContent = error.message;
+      }
+    })();
+  </script>
+</body>
+</html>

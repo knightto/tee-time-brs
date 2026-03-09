@@ -13,6 +13,19 @@ const {
   setTripHandicapBuckets,
   setTripScoringMode,
 } = require('../services/tripCompetitionService');
+const {
+  ensureTinCupLiveState,
+  getLiveMeta,
+  updateSettings,
+  setSlotCode,
+  verifySlotCode,
+  getScorecardView,
+  updateHoleScore,
+  updateMarker,
+  buildLeaderboard,
+  buildDayRows,
+  setScrambleBonus,
+} = require('../services/tinCupLiveService');
 const router = express.Router();
 
 function getSecondaryModels() {
@@ -53,6 +66,11 @@ function sendTripRouteError(res, error) {
   if (/required|select exactly|four-player/i.test(message)) return res.status(400).json({ error: message });
   return res.status(500).json({ error: message });
 }
+
+function isLiveScoringEnabled(state) {
+  return Boolean(state && state.settings && state.settings.enableLiveFoursomeScoring);
+}
+
 
 // List all trips
 router.get('/', async (req, res) => {
@@ -199,6 +217,208 @@ router.put('/:tripId/competition/rounds/:roundIndex/side-games', async (req, res
     });
     await trip.save();
     return res.json(buildTripCompetitionView(trip, participants));
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.get('/:tripId/tin-cup/live/meta', async (req, res) => {
+  try {
+    const { trip } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const state = ensureTinCupLiveState(trip);
+    return res.json(getLiveMeta(state));
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.get('/:tripId/tin-cup/live/leaderboard', async (req, res) => {
+  try {
+    const { trip } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const state = ensureTinCupLiveState(trip);
+    const selectedDay = String(req.query.day || '').trim();
+    const selectedMatchDay = String(req.query.matchDay || '').trim();
+    const leaderboard = buildLeaderboard(state);
+    const dayKey = leaderboard.dayOptions.includes(selectedDay) ? selectedDay : leaderboard.dayOptions[0];
+    const matchKey = leaderboard.matchDayOptions.includes(selectedMatchDay) ? selectedMatchDay : leaderboard.matchDayOptions[0];
+    return res.json({
+      ...leaderboard,
+      settings: state.settings,
+      selectedDay: dayKey,
+      selectedMatchDay: matchKey,
+      dayRows: buildDayRows(leaderboard, dayKey),
+      matchRows: leaderboard.matchBoards[matchKey] || [],
+    });
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.get('/:tripId/tin-cup/live/scorecard', async (req, res) => {
+  try {
+    const { trip, TripModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const dayKey = String(req.query.dayKey || '').trim();
+    const slotIndex = Number(req.query.slotIndex);
+    const code = String(req.query.code || '').trim();
+    if (!dayKey) return res.status(400).json({ error: 'dayKey required' });
+    if (!Number.isInteger(slotIndex) || slotIndex < 0) return res.status(400).json({ error: 'slotIndex required' });
+    const state = ensureTinCupLiveState(trip);
+    if (!isLiveScoringEnabled(state)) return res.status(403).json({ error: 'Live foursome scoring is disabled for this trip.' });
+    if (state.settings.enableFoursomeCodes && !code) return res.status(403).json({ error: 'Foursome code required' });
+    if (!verifySlotCode(state, dayKey, slotIndex, code)) return res.status(403).json({ error: 'Invalid foursome code' });
+    const view = getScorecardView(state, dayKey, slotIndex);
+    trip.markModified('tinCupLive');
+    await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
+    return res.json(view);
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.put('/:tripId/tin-cup/live/scorecard/hole', async (req, res) => {
+  try {
+    const { trip, TripModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const payload = req.body || {};
+    const dayKey = String(payload.dayKey || '').trim();
+    const slotIndex = Number(payload.slotIndex);
+    const code = String(payload.code || '').trim();
+    const state = ensureTinCupLiveState(trip);
+    if (!isLiveScoringEnabled(state)) return res.status(403).json({ error: 'Live foursome scoring is disabled for this trip.' });
+    if (state.settings.enableFoursomeCodes && !code) return res.status(403).json({ error: 'Foursome code required' });
+    if (!verifySlotCode(state, dayKey, slotIndex, code)) return res.status(403).json({ error: 'Invalid foursome code' });
+    const view = updateHoleScore(state, payload);
+    trip.markModified('tinCupLive');
+    await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
+    return res.json(view);
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.put('/:tripId/tin-cup/live/scorecard/marker', async (req, res) => {
+  try {
+    const { trip, TripModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const payload = req.body || {};
+    const dayKey = String(payload.dayKey || '').trim();
+    const slotIndex = Number(payload.slotIndex);
+    const code = String(payload.code || '').trim();
+    const state = ensureTinCupLiveState(trip);
+    if (!isLiveScoringEnabled(state)) return res.status(403).json({ error: 'Live foursome scoring is disabled for this trip.' });
+    if (!state.settings.enableLiveMarkers) return res.status(403).json({ error: 'Live marker entry is disabled for this trip.' });
+    if (state.settings.enableFoursomeCodes && !code) return res.status(403).json({ error: 'Foursome code required' });
+    if (!verifySlotCode(state, dayKey, slotIndex, code)) return res.status(403).json({ error: 'Invalid foursome code' });
+    const view = updateMarker(state, payload);
+    trip.markModified('tinCupLive');
+    await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
+    return res.json(view);
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.get('/:tripId/tin-cup/live/admin/codes', async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+  try {
+    const { trip } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const state = ensureTinCupLiveState(trip);
+    const meta = getLiveMeta(state);
+    return res.json({
+      message: 'Existing code status by foursome.',
+      daySlots: meta.daySlots,
+    });
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.post('/:tripId/tin-cup/live/admin/codes', async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+  try {
+    const { trip, TripModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const state = ensureTinCupLiveState(trip);
+    if (!state.settings.enableFoursomeCodes) return res.status(400).json({ error: 'Foursome code feature is disabled for this trip.' });
+    const body = req.body || {};
+    const dayKey = String(body.dayKey || '').trim();
+    const slotIndex = Number(body.slotIndex);
+    const force = body.force === true;
+    const generated = [];
+    const daySlots = getLiveMeta(state).daySlots;
+    const targets = [];
+    daySlots.forEach((day) => {
+      if (dayKey && day.dayKey !== dayKey) return;
+      day.slots.forEach((slot) => {
+        if (Number.isInteger(slotIndex) && slot.slotIndex !== slotIndex) return;
+        targets.push({ dayKey: day.dayKey, slotIndex: slot.slotIndex });
+      });
+    });
+    targets.forEach((target) => {
+      const hasCode = Boolean(state.codes[`${target.dayKey}|${target.slotIndex}`]);
+      if (hasCode && !force) return;
+      const created = setSlotCode(state, target.dayKey, target.slotIndex, body.code || '');
+      generated.push({
+        dayKey: target.dayKey,
+        slotIndex: target.slotIndex,
+        label: created.slot.label,
+        players: created.slot.players.map((player) => player.name),
+        code: created.code,
+      });
+    });
+    trip.markModified('tinCupLive');
+    await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
+    return res.json({
+      generatedCount: generated.length,
+      generated,
+      note: generated.length ? 'Store these codes securely. Codes are not returned again unless regenerated.' : 'No codes generated (already existed).',
+    });
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.put('/:tripId/tin-cup/live/admin/scramble-bonus', async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+  try {
+    const { trip, TripModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const payload = req.body || {};
+    const state = ensureTinCupLiveState(trip);
+    setScrambleBonus(state, payload.playerName, payload.value);
+    trip.markModified('tinCupLive');
+    await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
+    return res.json({ scrambleBonus: state.scrambleBonus });
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.get('/:tripId/tin-cup/live/settings', async (req, res) => {
+  try {
+    const { trip } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const state = ensureTinCupLiveState(trip);
+    return res.json({ settings: state.settings });
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.put('/:tripId/tin-cup/live/settings', async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+  try {
+    const { trip, TripModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const state = ensureTinCupLiveState(trip);
+    const next = updateSettings(state, req.body && req.body.settings ? req.body.settings : {});
+    trip.markModified('tinCupLive');
+    await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
+    return res.json({ settings: next });
   } catch (error) {
     return sendTripRouteError(res, error);
   }

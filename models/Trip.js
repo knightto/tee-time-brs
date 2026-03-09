@@ -74,6 +74,7 @@ const TripSchema = new mongoose.Schema({
   baseGroupSize: { type: Number, default: 16 },
   extraNightPricePerCondo: { type: Number, default: 130 },
   competition: { type: TripCompetitionSchema, default: () => ({}) },
+  tinCupLive: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
   rounds: { type: [TripRoundSchema], default: [] },
   notes: { type: String }
 }, { timestamps: true });

@@ -78,8 +78,20 @@ function buildDefaultTripTemplate(input = {}) {
       scoringMode: 'best4',
       handicapBuckets: DEFAULT_TEMPLATE_BUCKET_LABELS.map((label) => ({ label, players: [] })),
     },
+    tinCupLive: {
+      version: 1,
+      settings: {
+        enableLiveFoursomeScoring: false,
+        enableFoursomeCodes: true,
+        enableLiveMarkers: true,
+        enableLiveLeaderboard: false,
+      },
+      codes: {},
+      scorecards: {},
+      scrambleBonus: {},
+    },
     rounds: Array.from({ length: roundCount }, (_, roundIndex) => buildTemplateRound(roundIndex, roundStartDate)),
-    notes: String(input.notes || 'Reusable template trip. Duplicate and customize dates, courses, participants, and settings for each new trip.'),
+    notes: String(input.notes || 'Reusable template trip. Duplicate and customize dates, courses, participants, settings, and add a dedicated live leaderboard page link from the main trip page.'),
   };
 }
 
