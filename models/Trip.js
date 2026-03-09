@@ -12,7 +12,8 @@ const TripRoundSchema = new mongoose.Schema({
   date: { type: Date, default: null },
   time: { type: String, default: '' }, // HH:MM
   confirmation: { type: String, default: '' },
-  teeTimes: { type: [TripRoundSlotSchema], default: [] }
+  teeTimes: { type: [TripRoundSlotSchema], default: [] },
+  unassignedPlayers: { type: [String], default: [] }
 }, { _id: false });
 
 const TripSchema = new mongoose.Schema({

@@ -298,13 +298,22 @@
       display: grid;
       gap: 6px;
     }
-    .trip-slot {
+    .trip-drop-target {
       border: 1px solid var(--border);
       border-radius: 9px;
       padding: 7px 8px;
       background: rgba(11,23,40,0.55);
       display: grid;
       gap: 5px;
+      transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    }
+    .trip-slot {
+      min-width: 0;
+    }
+    .trip-drop-target.is-drop-target {
+      border-color: rgba(109,211,255,0.9);
+      background: rgba(109,211,255,0.14);
+      box-shadow: inset 0 0 0 1px rgba(109,211,255,0.3);
     }
     .trip-slot-head {
       display: flex;
@@ -319,6 +328,28 @@
       display: flex;
       flex-wrap: wrap;
       gap: 5px;
+      min-height: 32px;
+    }
+    .trip-unassigned-box {
+      margin-top: 8px;
+      padding: 8px 9px;
+      background: rgba(224,180,87,0.08);
+      border-style: dashed;
+    }
+    .trip-unassigned-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      font-size: 0.78rem;
+      color: #f3d99e;
+      font-weight: 700;
+    }
+    .trip-unassigned-empty {
+      color: var(--ink-soft);
+      font-size: 0.75rem;
+      line-height: 1.3;
+      padding: 2px 0;
     }
     .trip-player-chip {
       display: inline-flex;
@@ -330,6 +361,39 @@
       color: #dce7f7;
       background: rgba(255,255,255,0.08);
       line-height: 1.2;
+      transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+    }
+    button.trip-player-chip {
+      appearance: none;
+      box-shadow: none;
+      font-family: inherit;
+      font-weight: 600;
+      cursor: grab;
+    }
+    button.trip-player-chip:hover {
+      transform: none;
+      background: rgba(255,255,255,0.14);
+      color: #f8fbff;
+      border-color: rgba(109,211,255,0.36);
+      box-shadow: none;
+    }
+    .trip-player-chip.is-dragging {
+      opacity: 0.42;
+      cursor: grabbing;
+    }
+    .trip-player-chip.is-selected {
+      border-color: rgba(224,180,87,0.95);
+      background: rgba(224,180,87,0.18);
+      color: #fff3d6;
+    }
+    .trip-player-chip.trip-player-chip-open {
+      cursor: default;
+      opacity: 0.82;
+    }
+    .trip-drag-help {
+      margin-bottom: 8px;
+      color: var(--ink-soft);
+      font-size: 0.8rem;
     }
     .trip-event-actions {
       display: flex;
@@ -630,11 +694,11 @@
         date: '2026-03-18',
         time: '13:17',
         teeTimes: buildTripSlots('13:17', [
-          ['Joe Gillette', 'Thomas Lasik', 'Marcus Ordonez', 'Duane Harris'],
-          ['John Hyers', 'Caleb Hart', 'Chris Neff', 'Matt Shannon'],
-          ['John Quimby', 'Reny Butler', 'Lance Darr', 'Manuel Ordonez'],
-          ['Tommy Knight', 'Chris Manuel', 'Chad Jones', 'Delmar Christian'],
-          ['Josh Browne', 'Dennis Freeman', 'Jeremy Bridges', 'Tommy Knight Sr']
+          ['Caleb Hart', 'Chris Neff', 'Jeremy Bridges', 'Duane Harris'],
+          ['Tommy Knight', 'Matt Shannon', 'Dennis Freeman', 'John Hyers'],
+          ['Lance Darr', 'Chris Manuel', 'Reny Butler', 'Thomas Lasik'],
+          ['Marcus Ordonez', 'Delmar Christian', 'Chad Jones', 'Josh Browne'],
+          ['Joe Gillette', 'Manuel Ordonez', 'John Quimby', 'Tommy Knight Sr']
         ])
       },
       {
@@ -643,11 +707,11 @@
         date: '2026-03-19',
         time: '09:09',
         teeTimes: buildTripSlots('09:09', [
-          ['John Quimby', 'Chris Neff', 'Jeremy Bridges', 'Duane Harris'],
-          ['Tommy Knight', 'Reny Butler', 'Marcus Ordonez', 'Matt Shannon'],
-          ['Joe Gillette', 'Josh Browne', 'Chris Manuel', 'Manuel Ordonez'],
-          ['Caleb Hart', 'Lance Darr', 'Delmar Christian', 'Tommy Knight Sr'],
-          ['Thomas Lasik', 'John Hyers', 'Dennis Freeman', 'Chad Jones']
+          ['Tommy Knight', 'Marcus Ordonez', 'Manuel Ordonez', 'Reny Butler'],
+          ['Dennis Freeman', 'Duane Harris', 'John Quimby', 'Lance Darr'],
+          ['Caleb Hart', 'Delmar Christian', 'Tommy Knight Sr', 'Thomas Lasik'],
+          ['Joe Gillette', 'Matt Shannon', 'Chris Neff', 'Chad Jones'],
+          ['Josh Browne', 'Chris Manuel', 'John Hyers', 'Jeremy Bridges']
         ])
       },
       {
@@ -656,11 +720,11 @@
         date: '2026-03-20',
         time: '08:26',
         teeTimes: buildTripSlots('08:26', [
-          ['Josh Browne', 'John Hyers', 'Delmar Christian', 'Duane Harris'],
-          ['Chris Neff', 'Lance Darr', 'Marcus Ordonez', 'Chad Jones'],
-          ['Tommy Knight', 'Thomas Lasik', 'Jeremy Bridges', 'Manuel Ordonez'],
-          ['Joe Gillette', 'Reny Butler', 'Caleb Hart', 'Dennis Freeman'],
-          ['John Quimby', 'Chris Manuel', 'Matt Shannon', 'Tommy Knight Sr']
+          ['Dennis Freeman', 'Reny Butler', 'Caleb Hart', 'Joe Gillette'],
+          ['Tommy Knight', 'Chad Jones', 'Lance Darr', 'Jeremy Bridges'],
+          ['Marcus Ordonez', 'John Quimby', 'Chris Neff', 'Thomas Lasik'],
+          ['Delmar Christian', 'Manuel Ordonez', 'John Hyers', 'Duane Harris'],
+          ['Matt Shannon', 'Tommy Knight Sr', 'Josh Browne', 'Chris Manuel']
         ])
       },
       {
@@ -669,11 +733,11 @@
         date: '2026-03-21',
         time: '09:15',
         teeTimes: buildTripSlots('09:15', [
-          ['Chris Manuel', 'Lance Darr', 'Dennis Freeman', 'Duane Harris'],
-          ['John Hyers', 'Marcus Ordonez', 'Manuel Ordonez', 'Tommy Knight Sr'],
-          ['Reny Butler', 'Thomas Lasik', 'Chris Neff', 'Delmar Christian'],
-          ['John Quimby', 'Josh Browne', 'Tommy Knight', 'Caleb Hart'],
-          ['Joe Gillette', 'Jeremy Bridges', 'Chad Jones', 'Matt Shannon']
+          ['Tommy Knight', 'Chris Neff', 'Chris Manuel', 'John Quimby'],
+          ['Joe Gillette', 'Marcus Ordonez', 'Thomas Lasik', 'Duane Harris'],
+          ['Caleb Hart', 'Manuel Ordonez', 'Josh Browne', 'John Hyers'],
+          ['Delmar Christian', 'Matt Shannon', 'Reny Butler', 'Jeremy Bridges'],
+          ['Dennis Freeman', 'Tommy Knight Sr', 'Chad Jones', 'Lance Darr']
         ])
       },
       {
@@ -682,11 +746,11 @@
         date: '2026-03-22',
         time: '08:00',
         teeTimes: buildTripSlots('08:00', [
-          ['Joe Gillette', 'Tommy Knight', 'Chris Neff', 'Tommy Knight Sr'],
-          ['Caleb Hart', 'Chad Jones', 'Manuel Ordonez', 'Duane Harris'],
-          ['John Quimby', 'Marcus Ordonez', 'Dennis Freeman', 'Delmar Christian'],
-          ['Reny Butler', 'John Hyers', 'Chris Manuel', 'Jeremy Bridges'],
-          ['Josh Browne', 'Thomas Lasik', 'Lance Darr', 'Matt Shannon']
+          ['Tommy Knight', 'Tommy Knight Sr', 'Josh Browne', 'Chris Neff'],
+          ['Caleb Hart', 'Reny Butler', 'John Quimby', 'Matt Shannon'],
+          ['Dennis Freeman', 'Marcus Ordonez', 'Thomas Lasik', 'Jeremy Bridges'],
+          ['Joe Gillette', 'Delmar Christian', 'Lance Darr', 'John Hyers'],
+          ['Manuel Ordonez', 'Chris Manuel', 'Chad Jones', 'Duane Harris']
         ])
       }
     ];
@@ -813,6 +877,9 @@
       const normalizedSlots = Array.isArray(raw.teeTimes)
         ? raw.teeTimes.map((slot, index) => normalizeRoundSlot(slot, index)).filter((slot) => slot.time || slot.players.length || slot.label)
         : [];
+      const unassignedPlayers = Array.isArray(raw.unassignedPlayers)
+        ? raw.unassignedPlayers.map((name) => String(name || '').trim()).filter(Boolean)
+        : [];
       const roundTime = toHHMM(raw.time || normalizedSlots[0]?.time || '');
       if (!normalizedSlots.length && roundTime) {
         normalizedSlots.push(normalizeRoundSlot({ label: 'TT#1', time: roundTime, players: [] }, 0));
@@ -826,7 +893,8 @@
         date: toIsoDate(raw.date),
         time: roundTime,
         confirmation: String(raw.confirmation || '').trim(),
-        teeTimes: normalizedSlots
+        teeTimes: normalizedSlots,
+        unassignedPlayers
       };
     };
     const sortRounds = (rounds = []) => {
@@ -844,10 +912,152 @@
       currentDate: new Date(Number(MYRTLE_ARRIVAL_DATE.slice(0, 4)), Number(MYRTLE_ARRIVAL_DATE.slice(5, 7)) - 1, 1),
       selectedDate: ''
     };
+    const TRIP_TEE_SLOT_CAPACITY = 4;
+    const tripTeeSheetState = {
+      draggedPlayer: null,
+      selectedPlayer: null,
+      activeDropTarget: null,
+      isSaving: false
+    };
     const getTripRounds = () => {
       const source = Array.isArray(trip?.rounds) && trip.rounds.length ? trip.rounds : DEFAULT_ROUNDS;
       return sortRounds(source.map(normalizeRound));
     };
+
+    const isValidTripIndex = (value) => Number.isInteger(value) && value >= 0;
+    const makeTripTargetKey = ({ roundIndex, containerType = 'slot', slotIndex = null }) =>
+      `${roundIndex}:${containerType}:${containerType === 'slot' ? slotIndex : 'na'}`;
+    const makeTripPlayerKey = ({ roundIndex, containerType = 'slot', slotIndex = null, playerIndex }) =>
+      `${makeTripTargetKey({ roundIndex, containerType, slotIndex })}:${playerIndex}`;
+    const readTripTargetPosition = (element) => {
+      if (!element) return null;
+      const roundIndex = Number.parseInt(element.dataset.roundIndex, 10);
+      const containerType = element.dataset.containerType === 'unassigned' ? 'unassigned' : 'slot';
+      if (!isValidTripIndex(roundIndex)) return null;
+      if (containerType === 'unassigned') return { roundIndex, containerType, slotIndex: null };
+      const slotIndex = Number.parseInt(element.dataset.slotIndex, 10);
+      if (!isValidTripIndex(slotIndex)) return null;
+      return { roundIndex, containerType, slotIndex };
+    };
+    const readTripPlayerPosition = (element) => {
+      const target = readTripTargetPosition(element);
+      if (!target) return null;
+      const playerIndex = Number.parseInt(element.dataset.playerIndex, 10);
+      if (!isValidTripIndex(playerIndex)) return null;
+      return { ...target, playerIndex };
+    };
+    const sameTripTarget = (left, right) => Boolean(
+      left && right &&
+      left.roundIndex === right.roundIndex &&
+      left.containerType === right.containerType &&
+      left.slotIndex === right.slotIndex
+    );
+    const sameTripPlayer = (left, right) => Boolean(
+      left && right &&
+      sameTripTarget(left, right) &&
+      left.playerIndex === right.playerIndex
+    );
+    const cloneTripRounds = (rounds = []) => rounds.map((round) => ({
+      ...round,
+      unassignedPlayers: Array.isArray(round.unassignedPlayers) ? round.unassignedPlayers.slice() : [],
+      teeTimes: Array.isArray(round.teeTimes)
+        ? round.teeTimes.map((slot) => ({
+            ...slot,
+            players: Array.isArray(slot.players) ? slot.players.slice() : []
+          }))
+        : []
+    }));
+    function applyTripTeeSheetState() {
+      document.querySelectorAll('.trip-drop-target.is-drop-target').forEach((node) => node.classList.remove('is-drop-target'));
+      document.querySelectorAll('.trip-player-chip.is-selected').forEach((node) => node.classList.remove('is-selected'));
+      document.querySelectorAll('.trip-player-chip.is-dragging').forEach((node) => node.classList.remove('is-dragging'));
+
+      if (tripTeeSheetState.activeDropTarget) {
+        const targetKey = makeTripTargetKey(tripTeeSheetState.activeDropTarget);
+        const dropTarget = document.querySelector(`.trip-drop-target[data-target-key="${targetKey}"]`);
+        if (dropTarget) dropTarget.classList.add('is-drop-target');
+      }
+      if (tripTeeSheetState.selectedPlayer) {
+        const playerKey = makeTripPlayerKey(tripTeeSheetState.selectedPlayer);
+        const selectedChip = document.querySelector(`.trip-player-chip[data-player-key="${playerKey}"]`);
+        if (selectedChip) selectedChip.classList.add('is-selected');
+      }
+      if (tripTeeSheetState.draggedPlayer) {
+        const playerKey = makeTripPlayerKey(tripTeeSheetState.draggedPlayer);
+        const draggedChip = document.querySelector(`.trip-player-chip[data-player-key="${playerKey}"]`);
+        if (draggedChip) draggedChip.classList.add('is-dragging');
+      }
+    }
+    function clearTripPointerState() {
+      tripTeeSheetState.draggedPlayer = null;
+      tripTeeSheetState.selectedPlayer = null;
+      tripTeeSheetState.activeDropTarget = null;
+      applyTripTeeSheetState();
+    }
+    async function updateTrip(body) {
+      const res = await fetch(tripApi(`/api/trips/${tripId}`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const contentType = res.headers.get('content-type') || '';
+      const payload = contentType.includes('application/json') ? await res.json() : await res.text();
+      if (!res.ok) {
+        const message = payload && typeof payload === 'object'
+          ? payload.error || payload.message
+          : String(payload || 'Failed to update trip.');
+        throw new Error(message || 'Failed to update trip.');
+      }
+      trip = payload;
+      return trip;
+    }
+    function moveTripPlayer(rounds, source, target) {
+      if (sameTripTarget(source, target)) return { moved: false, rounds };
+      const nextRounds = cloneTripRounds(rounds);
+      const fromRound = nextRounds[source.roundIndex];
+      const toRound = nextRounds[target.roundIndex];
+      if (!fromRound || !toRound) throw new Error('Round not found.');
+      const fromSlot = source.containerType === 'slot' && Array.isArray(fromRound.teeTimes) ? fromRound.teeTimes[source.slotIndex] : null;
+      const toSlot = target.containerType === 'slot' && Array.isArray(toRound.teeTimes) ? toRound.teeTimes[target.slotIndex] : null;
+      if (source.containerType === 'slot' && !fromSlot) throw new Error('Tee time not found.');
+      if (target.containerType === 'slot' && !toSlot) throw new Error('Tee time not found.');
+      const fromPlayers = source.containerType === 'slot'
+        ? (Array.isArray(fromSlot.players) ? fromSlot.players : [])
+        : (Array.isArray(fromRound.unassignedPlayers) ? fromRound.unassignedPlayers : []);
+      const toPlayers = target.containerType === 'slot'
+        ? (Array.isArray(toSlot.players) ? toSlot.players : [])
+        : (Array.isArray(toRound.unassignedPlayers) ? toRound.unassignedPlayers : []);
+      if (!fromPlayers[source.playerIndex]) throw new Error('Player not found.');
+      if (target.containerType === 'slot' && toPlayers.length >= TRIP_TEE_SLOT_CAPACITY) {
+        throw new Error(`${toSlot.label || 'That tee time'} is already full.`);
+      }
+      const [playerName] = fromPlayers.splice(source.playerIndex, 1);
+      toPlayers.push(playerName);
+      if (source.containerType === 'slot') fromSlot.players = fromPlayers;
+      else fromRound.unassignedPlayers = fromPlayers;
+      if (target.containerType === 'slot') toSlot.players = toPlayers;
+      else toRound.unassignedPlayers = toPlayers;
+      return { moved: true, rounds: nextRounds, playerName };
+    }
+    async function persistTripTeeMove(source, target) {
+      if (!tripId || tripTeeSheetState.isSaving) return;
+      try {
+        const currentRounds = getTripRounds();
+        const result = moveTripPlayer(currentRounds, source, target);
+        if (!result.moved) {
+          clearTripPointerState();
+          return;
+        }
+        tripTeeSheetState.isSaving = true;
+        await updateTrip({ rounds: result.rounds });
+        renderItinerary();
+      } catch (error) {
+        alert(error && error.message ? error.message : 'Failed to move golfer.');
+      } finally {
+        tripTeeSheetState.isSaving = false;
+        clearTripPointerState();
+      }
+    }
 
     let adminCode = null;
     function getAdminCode() {
@@ -1135,9 +1345,14 @@
         eventsEl.innerHTML = '<div class="trip-empty-state">No rounds scheduled for this date.</div>';
         return;
       }
+      const dayRounds = rounds.reduce((list, round, roundIndex) => {
+        if (toIsoDate(round.date) === selectedDate) list.push({ round, roundIndex });
+        return list;
+      }, []);
       eventsEl.innerHTML = `
+        <div class="trip-drag-help">Drag a name to another tee time or the unassigned area, or tap a name then tap a destination.</div>
         <div class="trip-event-list">
-          ${matches.map((round) => {
+          ${dayRounds.map(({ round, roundIndex }) => {
             const waze = buildWazeLink(round.course, round.address);
             const googleUrl = buildRoundGoogleCalendarUrl(round);
             const courseLabel = round.course || 'Course TBD';
@@ -1145,13 +1360,27 @@
               ? `<a class="waze-link" href="${waze}" target="_blank" rel="noopener">${escapeHtml(courseLabel)}</a>`
               : escapeHtml(courseLabel);
             const firstTime = getRoundPrimaryTime(round);
-            const slotMarkup = (round.teeTimes || []).map((slot, index) => {
-              const label = slot.label || `TT#${index + 1}`;
+            const slotMarkup = (round.teeTimes || []).map((slot, slotIndex) => {
+              const label = slot.label || `TT#${slotIndex + 1}`;
+              const slotTarget = { roundIndex, containerType: 'slot', slotIndex };
+              const slotKey = makeTripTargetKey(slotTarget);
               const playersMarkup = (slot.players || []).length
-                ? slot.players.map((name) => `<span class="trip-player-chip">${escapeHtml(name)}</span>`).join('')
-                : '<span class="trip-player-chip">Open</span>';
+                ? slot.players.map((name, playerIndex) => `
+                    <button
+                      type="button"
+                      class="trip-player-chip"
+                      draggable="true"
+                      data-trip-player="1"
+                      data-player-key="${makeTripPlayerKey({ ...slotTarget, playerIndex })}"
+                      data-container-type="slot"
+                      data-round-index="${roundIndex}"
+                      data-slot-index="${slotIndex}"
+                      data-player-index="${playerIndex}"
+                    >${escapeHtml(name)}</button>
+                  `).join('')
+                : '<span class="trip-player-chip trip-player-chip-open">Open</span>';
               return `
-                <div class="trip-slot">
+                <div class="trip-slot trip-drop-target" data-trip-target="1" data-target-key="${slotKey}" data-container-type="slot" data-round-index="${roundIndex}" data-slot-index="${slotIndex}">
                   <div class="trip-slot-head">
                     <span>${escapeHtml(label)}</span>
                     <span>${escapeHtml(formatTime12(slot.time) || '--')}</span>
@@ -1160,6 +1389,21 @@
                 </div>
               `;
             }).join('');
+            const unassignedTarget = { roundIndex, containerType: 'unassigned', slotIndex: null };
+            const unassignedMarkup = (round.unassignedPlayers || []).length
+              ? round.unassignedPlayers.map((name, playerIndex) => `
+                  <button
+                    type="button"
+                    class="trip-player-chip"
+                    draggable="true"
+                    data-trip-player="1"
+                    data-player-key="${makeTripPlayerKey({ ...unassignedTarget, playerIndex })}"
+                    data-container-type="unassigned"
+                    data-round-index="${roundIndex}"
+                    data-player-index="${playerIndex}"
+                  >${escapeHtml(name)}</button>
+                `).join('')
+              : '<div class="trip-unassigned-empty">Drop a golfer here to take them out of the tee sheet.</div>';
             return `
               <article class="trip-event-card">
                 <div class="trip-event-top">
@@ -1168,6 +1412,13 @@
                 </div>
                 ${round.address ? `<small>${escapeHtml(round.address)}</small>` : ''}
                 ${slotMarkup ? `<div class="trip-slot-grid">${slotMarkup}</div>` : '<div class="trip-empty-state">No tee sheet entered.</div>'}
+                <div class="trip-unassigned-box trip-drop-target" data-trip-target="1" data-target-key="${makeTripTargetKey(unassignedTarget)}" data-container-type="unassigned" data-round-index="${roundIndex}">
+                  <div class="trip-unassigned-head">
+                    <span>Unassigned</span>
+                    <span>${(round.unassignedPlayers || []).length}</span>
+                  </div>
+                  <div class="trip-slot-players">${unassignedMarkup}</div>
+                </div>
                 <div class="trip-event-actions">
                   ${googleUrl ? `<a class="trip-event-link" href="${googleUrl}" target="_blank" rel="noopener">Google Calendar</a>` : ''}
                   ${waze ? `<a class="trip-event-link" href="${waze}" target="_blank" rel="noopener">Waze</a>` : ''}
@@ -1177,6 +1428,7 @@
           }).join('')}
         </div>
       `;
+      applyTripTeeSheetState();
     }
 
     function renderTripSchedule(rounds = []) {
@@ -1470,11 +1722,7 @@
           await updateParticipant(id, { roomAssignment: `Condo ${condoNum} - Room A` }, { requireAdmin: true });
         }
         if (e.target.id === 'baseGroupSizeSelect') {
-          await fetch(tripApi(`/api/trips/${tripId}`), {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ baseGroupSize: Number(e.target.value) || undefined })
-          });
+          await updateTrip({ baseGroupSize: Number(e.target.value) || undefined });
           await loadTrip();
         }
       };
@@ -1550,6 +1798,92 @@
         await loadTrip();
       };
     }
+
+    const itineraryBox = document.getElementById('itineraryBox');
+    if (itineraryBox) {
+      itineraryBox.addEventListener('click', async function (event) {
+        const chip = event.target.closest('.trip-player-chip[data-trip-player]');
+        if (chip) {
+          event.preventDefault();
+          if (tripTeeSheetState.isSaving) return;
+          const source = readTripPlayerPosition(chip);
+          if (!source) return;
+          tripTeeSheetState.selectedPlayer = sameTripPlayer(tripTeeSheetState.selectedPlayer, source) ? null : source;
+          tripTeeSheetState.activeDropTarget = null;
+          applyTripTeeSheetState();
+          return;
+        }
+
+        const targetEl = event.target.closest('.trip-drop-target[data-trip-target]');
+        if (!targetEl || !tripTeeSheetState.selectedPlayer || tripTeeSheetState.isSaving) return;
+        const target = readTripTargetPosition(targetEl);
+        if (!target) return;
+        await persistTripTeeMove(tripTeeSheetState.selectedPlayer, target);
+      });
+
+      itineraryBox.addEventListener('dragstart', function (event) {
+        const chip = event.target.closest('.trip-player-chip[data-trip-player]');
+        if (!chip || tripTeeSheetState.isSaving) return;
+        const source = readTripPlayerPosition(chip);
+        if (!source) return;
+        tripTeeSheetState.draggedPlayer = source;
+        tripTeeSheetState.selectedPlayer = null;
+        tripTeeSheetState.activeDropTarget = null;
+        applyTripTeeSheetState();
+        if (event.dataTransfer) {
+          event.dataTransfer.effectAllowed = 'move';
+          event.dataTransfer.setData('text/plain', makeTripPlayerKey(source));
+        }
+      });
+
+      itineraryBox.addEventListener('dragover', function (event) {
+        if (!tripTeeSheetState.draggedPlayer || tripTeeSheetState.isSaving) return;
+        const targetEl = event.target.closest('.trip-drop-target[data-trip-target]');
+        if (!targetEl) return;
+        const target = readTripTargetPosition(targetEl);
+        if (!target || sameTripTarget(tripTeeSheetState.draggedPlayer, target)) return;
+        event.preventDefault();
+        if (!tripTeeSheetState.activeDropTarget || !sameTripTarget(tripTeeSheetState.activeDropTarget, target)) {
+          tripTeeSheetState.activeDropTarget = target;
+          applyTripTeeSheetState();
+        }
+      });
+
+      itineraryBox.addEventListener('dragleave', function (event) {
+        const targetEl = event.target.closest('.trip-drop-target[data-trip-target]');
+        if (!targetEl || !tripTeeSheetState.activeDropTarget) return;
+        const related = event.relatedTarget && event.relatedTarget.closest ? event.relatedTarget.closest('.trip-drop-target[data-trip-target]') : null;
+        if (related === targetEl) return;
+        const target = readTripTargetPosition(targetEl);
+        if (sameTripTarget(target, tripTeeSheetState.activeDropTarget)) {
+          tripTeeSheetState.activeDropTarget = null;
+          applyTripTeeSheetState();
+        }
+      });
+
+      itineraryBox.addEventListener('drop', async function (event) {
+        if (!tripTeeSheetState.draggedPlayer || tripTeeSheetState.isSaving) return;
+        const targetEl = event.target.closest('.trip-drop-target[data-trip-target]');
+        if (!targetEl) return;
+        event.preventDefault();
+        const target = readTripTargetPosition(targetEl);
+        if (!target) {
+          clearTripPointerState();
+          return;
+        }
+        await persistTripTeeMove(tripTeeSheetState.draggedPlayer, target);
+      });
+
+      itineraryBox.addEventListener('dragend', function () {
+        clearTripPointerState();
+      });
+    }
+
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && (tripTeeSheetState.selectedPlayer || tripTeeSheetState.draggedPlayer || tripTeeSheetState.activeDropTarget)) {
+        clearTripPointerState();
+      }
+    });
 
     window.addEventListener('DOMContentLoaded', loadTrip);
   </script>
