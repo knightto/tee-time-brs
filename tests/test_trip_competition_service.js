@@ -1,6 +1,7 @@
 const assert = require('assert');
 const {
   buildTripCompetitionView,
+  computeCountedRounds,
   getDefaultScorecard,
 } = require('../services/tripCompetitionService');
 
@@ -114,6 +115,46 @@ function run() {
   const worldTourScorecard = getDefaultScorecard('World Tour');
   assert.strictEqual(worldTourScorecard.length, 18, 'World Tour default scorecard should contain 18 holes');
   assert.deepStrictEqual(worldTourScorecard[0], { hole: 1, par: 4, handicap: 15 }, 'World Tour hole 1 defaults should match the stored scorecard');
+
+  const scoringRounds = [
+    { stablefordTotal: 10, isComplete: true },
+    { stablefordTotal: 20, isComplete: true },
+    { stablefordTotal: 30, isComplete: true },
+    { stablefordTotal: 40, isComplete: true },
+    { stablefordTotal: 50, isComplete: true },
+  ];
+  const first4 = computeCountedRounds(scoringRounds, 'first4of5');
+  assert.deepStrictEqual(first4.countedFlags, [true, true, true, true, false], 'First-4 mode should count rounds 1 through 4');
+  assert.strictEqual(first4.countedTotal, 100, 'First-4 mode total should equal the first four complete rounds');
+  const last4 = computeCountedRounds(scoringRounds, 'last4of5');
+  assert.deepStrictEqual(last4.countedFlags, [false, true, true, true, true], 'Last-4 mode should count rounds 2 through 5');
+  assert.strictEqual(last4.countedTotal, 140, 'Last-4 mode total should equal the last four complete rounds');
+
+  const bucketTrip = {
+    competition: {
+      scoringMode: 'best4',
+      handicapBuckets: [
+        { label: 'Bucket A', players: ['Alice', 'Bob', 'Charlie', 'Dan', 'Evan', 'Frank'] },
+        { label: 'Bucket B', players: ['Gary'] },
+        { label: 'Bucket C', players: [] },
+        { label: 'Bucket D', players: [] },
+      ],
+    },
+    rounds: [],
+  };
+  const bucketParticipants = [
+    { _id: 'p1', name: 'Alice', status: 'in', handicapIndex: 4.2 },
+    { _id: 'p2', name: 'Bob', status: 'in', handicapIndex: 8.1 },
+    { _id: 'p3', name: 'Charlie', status: 'in', handicapIndex: 12.4 },
+    { _id: 'p4', name: 'Dan', status: 'in', handicapIndex: 14.7 },
+    { _id: 'p5', name: 'Evan', status: 'in', handicapIndex: 16.8 },
+    { _id: 'p6', name: 'Frank', status: 'in', handicapIndex: 18.2 },
+    { _id: 'p7', name: 'Gary', status: 'in', handicapIndex: 21.5 },
+  ];
+  const bucketView = buildTripCompetitionView(bucketTrip, bucketParticipants);
+  assert.strictEqual(bucketView.buckets[0].players.length, 6, 'Bucket assignments should not enforce a max size');
+  assert.deepStrictEqual(bucketView.buckets[0].players.map((player) => player.name), ['Alice', 'Bob', 'Charlie', 'Dan', 'Evan', 'Frank'], 'Saved bucket player order should be preserved');
+  assert.deepStrictEqual(bucketView.buckets[1].players.map((player) => player.name), ['Gary'], 'Saved bucket placements should be respected');
 
   console.log('test_trip_competition_service.js passed');
 }

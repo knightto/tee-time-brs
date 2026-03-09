@@ -526,13 +526,15 @@
           <div class="section-head" style="margin-top:16px;">
             <div>
               <strong>Trip Leaderboard Mode</strong>
-              <div class="fine">Choose whether the trip leaderboard counts Best 4 of 5 rounds or all 5 rounds.</div>
+              <div class="fine">Choose how leaderboard rounds are counted: best 4, first 4, last 4, or all 5 rounds.</div>
             </div>
             <div class="toolbar">
               <label>
                 <span class="fine">Scoring mode</span>
                 <select id="competitionScoringModeSelect">
                   <option value="best4"${overview.scoringMode === 'best4' ? ' selected' : ''}>Best 4 of 5 rounds</option>
+                  <option value="first4of5"${overview.scoringMode === 'first4of5' ? ' selected' : ''}>First 4 of 5 rounds</option>
+                  <option value="last4of5"${overview.scoringMode === 'last4of5' ? ' selected' : ''}>Last 4 of 5 rounds</option>
                   <option value="all5"${overview.scoringMode === 'all5' ? ' selected' : ''}>All 5 rounds count</option>
                 </select>
               </label>

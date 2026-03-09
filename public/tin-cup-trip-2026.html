@@ -535,6 +535,73 @@
       font-weight: 700;
       background: rgba(0,0,0,0.18);
     }
+    .tin-cup-score-wrap {
+      display: grid;
+      gap: 12px;
+    }
+    .tin-cup-score-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+    .tin-cup-score-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+    .tin-cup-score-card strong {
+      color: #fff;
+    }
+    .tin-cup-score-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .tin-cup-score-table {
+      width: 100%;
+      min-width: 820px;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      color: var(--ink);
+    }
+    .tin-cup-score-table th,
+    .tin-cup-score-table td {
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 7px 8px;
+      text-align: left;
+      vertical-align: middle;
+    }
+    .tin-cup-score-table th {
+      color: #fff;
+      background: rgba(11,23,40,0.88);
+      font-size: 0.72rem;
+      letter-spacing: 0.02em;
+    }
+    .tin-cup-score-select,
+    .tin-cup-score-input {
+      width: 100%;
+      min-width: 74px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #0b1728;
+      color: var(--ink);
+      font-size: 0.78rem;
+      padding: 5px 7px;
+    }
+    .tin-cup-score-pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 3px 8px;
+      border: 1px solid rgba(109,211,255,0.3);
+      background: rgba(109,211,255,0.12);
+      color: #d7f0ff;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
     .status-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
@@ -730,6 +797,7 @@
       <div id="tripSummary"></div>
     </div>
     <div class="panel" id="itineraryBox" style="margin-bottom:12px;"></div>
+    <div class="panel" id="tinCupScoringBox" style="margin-bottom:12px;"></div>
     <div class="panel" id="tripMapBox" style="margin-bottom:12px;">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
         <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Trip Map</h2>
@@ -1034,11 +1102,32 @@
         occupants: ['Tommy Knight + 11 guests']
       }
     ];
+    const TIN_CUP_SCORING_PLAYERS = [
+      { name: 'Mil', handicap: 11.9 },
+      { name: 'John', handicap: 13.9 },
+      { name: 'Brian P', handicap: 11.9 },
+      { name: 'Pat', handicap: 12.9 },
+      { name: 'Rick', handicap: 14.9 },
+      { name: 'Keith', handicap: 32 },
+      { name: 'Tony W', handicap: 19.5 },
+      { name: 'Manny', handicap: 27.8 },
+      { name: 'Tommy', handicap: 10.4 },
+      { name: 'Dave', handicap: 9.7 },
+      { name: 'Hunter', handicap: 14.8 },
+      { name: 'Gerald C', handicap: 24.3 },
+      { name: 'Bob', handicap: 20.0 },
+      { name: 'Patrick', handicap: 15.4 },
+      { name: 'Brian S', handicap: 26.1 },
+      { name: 'Chris', handicap: 29.9 }
+    ];
+    const TIN_CUP_SCORING_STORAGE_KEY = 'tinCupScoringStateV1';
+    const TIN_CUP_RANK_POINTS = [12, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0];
 
     let tripId = null;
     let trip = null;
     let participants = [];
     let useSecondaryTripDb = true;
+    let tinCupScoringState = null;
 
     const $ = (sel) => document.querySelector(sel);
     const formatDate = (d) => {
@@ -1115,6 +1204,7 @@
       return minutesToHHMM(start + deltaMinutes);
     };
     const escapeHtml = (value) => String(value || '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+    const quoteAttr = (value) => escapeHtml(String(value || '')).replace(/"/g, '&quot;');
     const normalizeRoundSlot = (slot = {}, index = 0) => ({
       label: String(slot.label || `TT#${index + 1}`).trim() || `TT#${index + 1}`,
       time: toHHMM(slot.time),
@@ -1413,6 +1503,376 @@
         </section>
       `;
     };
+    const normalizeTinCupName = (value = '') => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    const TIN_CUP_MATCH_DAYS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 3'];
+    const TIN_CUP_STROKE_DAYS = ['Day 1', 'Day 3', 'Day 4'];
+    const getTinCupPlayers = () => TIN_CUP_SCORING_PLAYERS.slice();
+    const getTinCupHandicapByName = () => new Map(getTinCupPlayers().map((player) => [normalizeTinCupName(player.name), Number(player.handicap)]));
+    const createDefaultTinCupScoringState = () => ({
+      matchResults: {
+        'Day 1': {},
+        'Day 2A': {},
+        'Day 2B': {},
+        'Day 3': {}
+      },
+      strokeNet: {
+        'Day 1': {},
+        'Day 3': {},
+        'Day 4': {}
+      },
+      scrambleBonus: {}
+    });
+    const mergeTinCupScoringState = (incoming = {}) => {
+      const base = createDefaultTinCupScoringState();
+      const out = {
+        matchResults: { ...base.matchResults },
+        strokeNet: { ...base.strokeNet },
+        scrambleBonus: { ...base.scrambleBonus }
+      };
+      TIN_CUP_MATCH_DAYS.forEach((dayKey) => {
+        out.matchResults[dayKey] = { ...(base.matchResults[dayKey] || {}), ...((incoming.matchResults && incoming.matchResults[dayKey]) || {}) };
+      });
+      TIN_CUP_STROKE_DAYS.forEach((dayKey) => {
+        out.strokeNet[dayKey] = { ...(base.strokeNet[dayKey] || {}), ...((incoming.strokeNet && incoming.strokeNet[dayKey]) || {}) };
+      });
+      out.scrambleBonus = { ...((incoming.scrambleBonus) || {}) };
+      return out;
+    };
+    const loadTinCupScoringState = () => {
+      try {
+        const raw = localStorage.getItem(TIN_CUP_SCORING_STORAGE_KEY);
+        if (!raw) return createDefaultTinCupScoringState();
+        return mergeTinCupScoringState(JSON.parse(raw));
+      } catch (error) {
+        console.error('Failed to load Tin Cup scoring state', error);
+        return createDefaultTinCupScoringState();
+      }
+    };
+    const saveTinCupScoringState = () => {
+      try {
+        localStorage.setItem(TIN_CUP_SCORING_STORAGE_KEY, JSON.stringify(tinCupScoringState || createDefaultTinCupScoringState()));
+      } catch (error) {
+        console.error('Failed to save Tin Cup scoring state', error);
+      }
+    };
+    const parseTinCupNumber = (value) => {
+      const raw = String(value === undefined || value === null ? '' : value).trim();
+      if (!raw) return null;
+      const parsed = Number(raw);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+    const getTinCupDayMatrixByPlayer = (dayKey = '') => {
+      const matrix = computeDailyMatchMatrix(dayKey);
+      return new Map(matrix.map((row) => [normalizeTinCupName(row.player), row]));
+    };
+    const getTinCupMatchResultValue = (dayKey = '', playerName = '', segmentIndex = 0) => {
+      const key = normalizeTinCupName(playerName);
+      const row = tinCupScoringState?.matchResults?.[dayKey]?.[key] || {};
+      const value = String(row[segmentIndex] || '').trim().toUpperCase();
+      return ['W', 'T', 'L'].includes(value) ? value : '';
+    };
+    const setTinCupMatchResultValue = (dayKey = '', playerName = '', segmentIndex = 0, value = '') => {
+      if (!tinCupScoringState) tinCupScoringState = createDefaultTinCupScoringState();
+      const key = normalizeTinCupName(playerName);
+      if (!tinCupScoringState.matchResults[dayKey]) tinCupScoringState.matchResults[dayKey] = {};
+      if (!tinCupScoringState.matchResults[dayKey][key]) tinCupScoringState.matchResults[dayKey][key] = {};
+      const next = String(value || '').trim().toUpperCase();
+      tinCupScoringState.matchResults[dayKey][key][segmentIndex] = ['W', 'T', 'L'].includes(next) ? next : '';
+    };
+    const getTinCupStrokeNetValue = (dayKey = '', playerName = '') => {
+      const key = normalizeTinCupName(playerName);
+      return parseTinCupNumber(tinCupScoringState?.strokeNet?.[dayKey]?.[key]);
+    };
+    const setTinCupStrokeNetValue = (dayKey = '', playerName = '', value = '') => {
+      if (!tinCupScoringState) tinCupScoringState = createDefaultTinCupScoringState();
+      const key = normalizeTinCupName(playerName);
+      if (!tinCupScoringState.strokeNet[dayKey]) tinCupScoringState.strokeNet[dayKey] = {};
+      tinCupScoringState.strokeNet[dayKey][key] = parseTinCupNumber(value);
+    };
+    const getTinCupScrambleBonusValue = (playerName = '') => {
+      const key = normalizeTinCupName(playerName);
+      return parseTinCupNumber(tinCupScoringState?.scrambleBonus?.[key]);
+    };
+    const setTinCupScrambleBonusValue = (playerName = '', value = '') => {
+      if (!tinCupScoringState) tinCupScoringState = createDefaultTinCupScoringState();
+      const key = normalizeTinCupName(playerName);
+      tinCupScoringState.scrambleBonus[key] = parseTinCupNumber(value);
+    };
+    const computeTinCupMatchPointsByDay = (dayKey = '') => {
+      const matrixByPlayer = getTinCupDayMatrixByPlayer(dayKey);
+      const pointsByName = new Map();
+      getTinCupPlayers().forEach((player) => pointsByName.set(normalizeTinCupName(player.name), 0));
+      matrixByPlayer.forEach((row, playerKey) => {
+        let points = 0;
+        (row.segments || []).forEach((_segment, segmentIndex) => {
+          const result = getTinCupMatchResultValue(dayKey, row.player, segmentIndex);
+          if (result === 'W' || result === 'T') points += 1;
+        });
+        pointsByName.set(playerKey, points);
+      });
+      return pointsByName;
+    };
+    const computeTinCupStrokeBonusByDay = (dayKey = '') => {
+      const values = getTinCupPlayers().map((player) => {
+        const key = normalizeTinCupName(player.name);
+        return { key, value: getTinCupStrokeNetValue(dayKey, player.name) };
+      });
+      const valid = values.filter((entry) => entry.value !== null);
+      const pointsByName = new Map(values.map((entry) => [entry.key, 0]));
+      if (!valid.length) return pointsByName;
+      valid.forEach((entry) => {
+        const rank = 1 + valid.filter((candidate) => candidate.value < entry.value).length;
+        if (rank < 9) pointsByName.set(entry.key, 2);
+      });
+      return pointsByName;
+    };
+    const getTinCupRankPointsForPosition = (position = 0) => {
+      if (!Number.isInteger(position) || position < 1) return 0;
+      return position <= TIN_CUP_RANK_POINTS.length ? TIN_CUP_RANK_POINTS[position - 1] : 0;
+    };
+    const computeTinCupDay4RankPoints = () => {
+      const entries = getTinCupPlayers().map((player) => ({
+        key: normalizeTinCupName(player.name),
+        net: getTinCupStrokeNetValue('Day 4', player.name)
+      })).filter((entry) => entry.net !== null)
+        .sort((left, right) => left.net - right.net);
+
+      const pointsByName = new Map(getTinCupPlayers().map((player) => [normalizeTinCupName(player.name), 0]));
+      const rankByName = new Map(getTinCupPlayers().map((player) => [normalizeTinCupName(player.name), null]));
+      if (!entries.length) return { pointsByName, rankByName };
+
+      let index = 0;
+      while (index < entries.length) {
+        const start = index;
+        const score = entries[index].net;
+        while (index < entries.length && entries[index].net === score) index += 1;
+        const tieGroup = entries.slice(start, index);
+        const startPosition = start + 1;
+        const endPosition = index;
+        let pointsTotal = 0;
+        for (let pos = startPosition; pos <= endPosition; pos += 1) {
+          pointsTotal += getTinCupRankPointsForPosition(pos);
+        }
+        const avgPoints = tieGroup.length ? Number((pointsTotal / tieGroup.length).toFixed(2)) : 0;
+        tieGroup.forEach((entry) => {
+          pointsByName.set(entry.key, avgPoints);
+          rankByName.set(entry.key, startPosition);
+        });
+      }
+      return { pointsByName, rankByName };
+    };
+    const computeTinCupTotals = () => {
+      const players = getTinCupPlayers();
+      const matchDay1 = computeTinCupMatchPointsByDay('Day 1');
+      const matchDay2A = computeTinCupMatchPointsByDay('Day 2A');
+      const matchDay2B = computeTinCupMatchPointsByDay('Day 2B');
+      const matchDay3 = computeTinCupMatchPointsByDay('Day 3');
+      const strokeDay1 = computeTinCupStrokeBonusByDay('Day 1');
+      const strokeDay3 = computeTinCupStrokeBonusByDay('Day 3');
+      const day4 = computeTinCupDay4RankPoints();
+      const rows = players.map((player) => {
+        const key = normalizeTinCupName(player.name);
+        const match1 = matchDay1.get(key) || 0;
+        const match2 = (matchDay2A.get(key) || 0) + (matchDay2B.get(key) || 0);
+        const match3 = matchDay3.get(key) || 0;
+        const stroke1 = strokeDay1.get(key) || 0;
+        const stroke3 = strokeDay3.get(key) || 0;
+        const scramble = getTinCupScrambleBonusValue(player.name) || 0;
+        const day4Points = day4.pointsByName.get(key) || 0;
+        const day1Total = match1 + stroke1;
+        const day2Total = match2;
+        const day3Total = match3 + stroke3 + scramble;
+        const total = Number((day1Total + day2Total + day3Total + day4Points).toFixed(2));
+        return {
+          name: player.name,
+          handicap: Number(player.handicap),
+          match1,
+          match2,
+          match3,
+          stroke1,
+          stroke3,
+          scramble,
+          day4Points,
+          day4Rank: day4.rankByName.get(key),
+          day1Total,
+          day2Total,
+          day3Total,
+          total
+        };
+      }).sort((left, right) => {
+        if (right.total !== left.total) return right.total - left.total;
+        if ((right.day4Points || 0) !== (left.day4Points || 0)) return (right.day4Points || 0) - (left.day4Points || 0);
+        return left.name.localeCompare(right.name);
+      });
+
+      let currentPosition = 0;
+      let lastTotal = null;
+      rows.forEach((row, idx) => {
+        if (lastTotal === null || row.total !== lastTotal) currentPosition = idx + 1;
+        row.position = currentPosition;
+        lastTotal = row.total;
+      });
+
+      return rows;
+    };
+    const renderTinCupMatchEntryTable = (dayKey = '') => {
+      const matrix = computeDailyMatchMatrix(dayKey);
+      if (!matrix.length) return '<div class="tin-cup-score-card"><div class="trip-empty-state">No matchup matrix available.</div></div>';
+      const rowsHtml = matrix.map((row) => {
+        const points = (row.segments || []).reduce((sum, _segment, segmentIndex) => {
+          const val = getTinCupMatchResultValue(dayKey, row.player, segmentIndex);
+          return sum + ((val === 'W' || val === 'T') ? 1 : 0);
+        }, 0);
+        return `
+          <tr>
+            <td><strong>${escapeHtml(row.player)}</strong></td>
+            ${(row.segments || []).map((segment, segmentIndex) => {
+              const current = getTinCupMatchResultValue(dayKey, row.player, segmentIndex);
+              return `
+                <td>
+                  <div style="display:grid;gap:5px;">
+                    <span style="font-size:0.7rem;color:var(--ink-soft);">${escapeHtml(segment.label)} vs ${escapeHtml(segment.opponent)}</span>
+                    <select class="tin-cup-score-select" data-tincup-match-result="${quoteAttr(dayKey)}|${quoteAttr(row.player)}|${segmentIndex}">
+                      <option value=""${current === '' ? ' selected' : ''}>-</option>
+                      <option value="W"${current === 'W' ? ' selected' : ''}>Win</option>
+                      <option value="T"${current === 'T' ? ' selected' : ''}>Tie</option>
+                      <option value="L"${current === 'L' ? ' selected' : ''}>Loss</option>
+                    </select>
+                  </div>
+                </td>
+              `;
+            }).join('')}
+            <td><span class="tin-cup-score-pill">${escapeHtml(String(points))} pts</span></td>
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        <div class="tin-cup-score-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+            <strong>${escapeHtml(dayKey)} Match Play</strong>
+            <span style="font-size:0.72rem;color:var(--ink-soft);">Win or Tie = 1 point</span>
+          </div>
+          <div class="tin-cup-score-table-wrap">
+            <table class="tin-cup-score-table">
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th>Front 9</th>
+                  <th>Back 9 #1</th>
+                  <th>Back 9 #2</th>
+                  <th>Match Pts</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    };
+    const renderTinCupStrokeEntryTable = () => {
+      const rows = getTinCupPlayers().map((player) => {
+        const day1 = getTinCupStrokeNetValue('Day 1', player.name);
+        const day3 = getTinCupStrokeNetValue('Day 3', player.name);
+        const day4 = getTinCupStrokeNetValue('Day 4', player.name);
+        const scramble = getTinCupScrambleBonusValue(player.name);
+        return `
+          <tr>
+            <td><strong>${escapeHtml(player.name)}</strong></td>
+            <td>${escapeHtml(Number(player.handicap).toFixed(1))}</td>
+            <td><input class="tin-cup-score-input" type="number" step="0.1" data-tincup-stroke-net="${quoteAttr('Day 1')}|${quoteAttr(player.name)}" value="${day1 === null ? '' : escapeHtml(String(day1))}" placeholder="Net"></td>
+            <td><input class="tin-cup-score-input" type="number" step="0.1" data-tincup-stroke-net="${quoteAttr('Day 3')}|${quoteAttr(player.name)}" value="${day3 === null ? '' : escapeHtml(String(day3))}" placeholder="Net"></td>
+            <td><input class="tin-cup-score-input" type="number" step="0.1" data-tincup-stroke-net="${quoteAttr('Day 4')}|${quoteAttr(player.name)}" value="${day4 === null ? '' : escapeHtml(String(day4))}" placeholder="Net"></td>
+            <td><input class="tin-cup-score-input" type="number" step="0.1" data-tincup-scramble="${quoteAttr(player.name)}" value="${scramble === null ? '' : escapeHtml(String(scramble))}" placeholder="0"></td>
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        <div class="tin-cup-score-card">
+          <strong>Stroke / Final-Day Inputs</strong>
+          <div style="font-size:0.74rem;color:var(--ink-soft);">Day 1 and Day 3: top-half net ranks get 2 points. Day 4: net ranks get 12/10/9/8/7/6/5/4/3/2/1/0 with tie averaging.</div>
+          <div class="tin-cup-score-table-wrap">
+            <table class="tin-cup-score-table">
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th>HC</th>
+                  <th>Day 1 Net</th>
+                  <th>Day 3 Net</th>
+                  <th>Day 4 Net</th>
+                  <th>Scramble Bonus</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    };
+    const renderTinCupLeaderboard = () => {
+      const totals = computeTinCupTotals();
+      return `
+        <div class="tin-cup-score-card">
+          <strong>Tin Cup Leaderboard</strong>
+          <div class="tin-cup-score-table-wrap">
+            <table class="tin-cup-score-table">
+              <thead>
+                <tr>
+                  <th>Pos</th>
+                  <th>Player</th>
+                  <th>D1 Match</th>
+                  <th>D1 Stroke</th>
+                  <th>D2 Match</th>
+                  <th>D3 Match</th>
+                  <th>D3 Stroke</th>
+                  <th>Scramble</th>
+                  <th>D4 Rank Pts</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${totals.map((row) => `
+                  <tr>
+                    <td>${escapeHtml(String(row.position || '-'))}</td>
+                    <td><strong>${escapeHtml(row.name)}</strong></td>
+                    <td>${escapeHtml(String(row.match1))}</td>
+                    <td>${escapeHtml(String(row.stroke1))}</td>
+                    <td>${escapeHtml(String(row.match2))}</td>
+                    <td>${escapeHtml(String(row.match3))}</td>
+                    <td>${escapeHtml(String(row.stroke3))}</td>
+                    <td>${escapeHtml(String(row.scramble || 0))}</td>
+                    <td>${escapeHtml(String(row.day4Points || 0))}${Number.isInteger(row.day4Rank) ? ` <span style="color:var(--ink-soft);font-size:0.72rem;">(r${row.day4Rank})</span>` : ''}</td>
+                    <td><strong>${escapeHtml(String(row.total))}</strong></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    };
+    function renderTinCupScoring() {
+      const box = document.getElementById('tinCupScoringBox');
+      if (!box) return;
+      if (!tinCupScoringState) tinCupScoringState = loadTinCupScoringState();
+      box.innerHTML = `
+        <div class="tin-cup-score-wrap">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+            <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Tin Cup Scoring (Spreadsheet Rules)</h2>
+            <span style="font-size:0.78rem;color:var(--ink-soft);">Workbook-based model: match win/tie points + stroke/rank points</span>
+          </div>
+          <div class="tin-cup-score-grid">
+            ${renderTinCupMatchEntryTable('Day 1')}
+            ${renderTinCupMatchEntryTable('Day 2A')}
+            ${renderTinCupMatchEntryTable('Day 2B')}
+            ${renderTinCupMatchEntryTable('Day 3')}
+          </div>
+          ${renderTinCupStrokeEntryTable()}
+          ${renderTinCupLeaderboard()}
+        </div>
+      `;
+    }
 
     let adminCode = null;
     function getAdminCode() {
@@ -1447,6 +1907,7 @@
     }
 
     async function loadTrip() {
+      if (!tinCupScoringState) tinCupScoringState = loadTinCupScoringState();
       useSecondaryTripDb = true;
       let res = await fetch(tripApi('/api/trips'));
       let trips = await res.json();
@@ -1471,6 +1932,7 @@
     function renderAll() {
       renderTripSummary();
       renderItinerary();
+      renderTinCupScoring();
       renderParticipants();
     }
 
@@ -2182,6 +2644,36 @@
         });
         await loadTrip();
       };
+    }
+
+    const tinCupScoringBox = document.getElementById('tinCupScoringBox');
+    if (tinCupScoringBox) {
+      tinCupScoringBox.addEventListener('change', function (event) {
+        const matchTarget = event.target.closest('[data-tincup-match-result]');
+        const strokeTarget = event.target.closest('[data-tincup-stroke-net]');
+        const scrambleTarget = event.target.closest('[data-tincup-scramble]');
+
+        if (matchTarget) {
+          const [dayKey, playerName, segmentRaw] = String(matchTarget.dataset.tincupMatchResult || '').split('|');
+          const segmentIndex = Number(segmentRaw);
+          if (dayKey && playerName && Number.isInteger(segmentIndex)) {
+            setTinCupMatchResultValue(dayKey, playerName, segmentIndex, matchTarget.value);
+          }
+        } else if (strokeTarget) {
+          const [dayKey, playerName] = String(strokeTarget.dataset.tincupStrokeNet || '').split('|');
+          if (dayKey && playerName) {
+            setTinCupStrokeNetValue(dayKey, playerName, strokeTarget.value);
+          }
+        } else if (scrambleTarget) {
+          const playerName = String(scrambleTarget.dataset.tincupScramble || '').trim();
+          if (playerName) setTinCupScrambleBonusValue(playerName, scrambleTarget.value);
+        } else {
+          return;
+        }
+
+        saveTinCupScoringState();
+        renderTinCupScoring();
+      });
     }
 
     window.addEventListener('DOMContentLoaded', loadTrip);

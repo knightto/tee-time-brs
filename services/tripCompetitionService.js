@@ -1,6 +1,9 @@
 const SCORING_MODE_BEST4 = 'best4';
 const SCORING_MODE_ALL5 = 'all5';
+const SCORING_MODE_FIRST4 = 'first4of5';
+const SCORING_MODE_LAST4 = 'last4of5';
 const DEFAULT_SCORING_MODE = SCORING_MODE_BEST4;
+const DEFAULT_HANDICAP_BUCKET_LABELS = ['Bucket A', 'Bucket B', 'Bucket C', 'Bucket D'];
 
 // Myrtle course scorecards captured from public scorecard pages on 2026-03-09.
 const MYRTLE_SCORECARDS = [
@@ -213,7 +216,18 @@ function compactHoleScores(holes = []) {
 }
 
 function normalizeScoringMode(value) {
-  return value === SCORING_MODE_ALL5 ? SCORING_MODE_ALL5 : SCORING_MODE_BEST4;
+  if (value === SCORING_MODE_ALL5) return SCORING_MODE_ALL5;
+  if (value === SCORING_MODE_FIRST4) return SCORING_MODE_FIRST4;
+  if (value === SCORING_MODE_LAST4) return SCORING_MODE_LAST4;
+  return SCORING_MODE_BEST4;
+}
+
+function getScoringModeLabel(scoringMode) {
+  const mode = normalizeScoringMode(scoringMode);
+  if (mode === SCORING_MODE_ALL5) return 'All 5 rounds count';
+  if (mode === SCORING_MODE_FIRST4) return 'First 4 of 5 rounds';
+  if (mode === SCORING_MODE_LAST4) return 'Last 4 of 5 rounds';
+  return 'Best 4 of 5 rounds';
 }
 
 function getPlayingHandicap(handicapIndex) {
@@ -346,7 +360,7 @@ function getCompetitionPlayerPool(trip = {}, participants = []) {
   return output;
 }
 
-function buildHandicapBuckets(players = []) {
+function buildHandicapBuckets(players = [], storedBuckets = []) {
   const sorted = players
     .slice()
     .sort((left, right) => {
@@ -357,14 +371,49 @@ function buildHandicapBuckets(players = []) {
       if (leftHcp === null && rightHcp !== null) return 1;
       return cleanString(left && left.name).localeCompare(cleanString(right && right.name));
     });
-  const labels = ['Bucket A', 'Bucket B', 'Bucket C', 'Bucket D'];
-  return labels.map((label, index) => ({
-    label,
-    players: sorted.slice(index * 5, (index + 1) * 5).map((player) => ({
-      name: player.name,
-      handicapIndex: asFiniteNumber(player.handicapIndex),
-    })),
-  }));
+  const toViewPlayer = (player) => ({
+    name: player.name,
+    handicapIndex: asFiniteNumber(player.handicapIndex),
+  });
+  if (!Array.isArray(storedBuckets) || !storedBuckets.length) {
+    const bucketSize = Math.max(1, Math.ceil(sorted.length / DEFAULT_HANDICAP_BUCKET_LABELS.length));
+    return DEFAULT_HANDICAP_BUCKET_LABELS.map((label, index) => ({
+      label,
+      players: sorted.slice(index * bucketSize, (index + 1) * bucketSize).map(toViewPlayer),
+    }));
+  }
+
+  const labels = DEFAULT_HANDICAP_BUCKET_LABELS.map((fallbackLabel, index) => {
+    const raw = storedBuckets[index];
+    const parsed = cleanString(raw && raw.label);
+    return parsed || fallbackLabel;
+  });
+  const buckets = labels.map((label) => ({ label, players: [] }));
+  const byName = new Map(sorted.map((player) => [normalizeNameKey(player.name), player]));
+  const assigned = new Set();
+
+  storedBuckets.slice(0, buckets.length).forEach((bucket, bucketIndex) => {
+    const names = Array.isArray(bucket && bucket.players) ? bucket.players : [];
+    uniqueNames(names).forEach((rawName) => {
+      const key = normalizeNameKey(rawName);
+      if (!key || assigned.has(key) || !byName.has(key)) return;
+      assigned.add(key);
+      buckets[bucketIndex].players.push(toViewPlayer(byName.get(key)));
+    });
+  });
+
+  sorted.forEach((player) => {
+    const key = normalizeNameKey(player.name);
+    if (assigned.has(key)) return;
+    assigned.add(key);
+    let targetBucket = buckets[0];
+    for (const bucket of buckets) {
+      if (bucket.players.length < targetBucket.players.length) targetBucket = bucket;
+    }
+    targetBucket.players.push(toViewPlayer(player));
+  });
+
+  return buckets;
 }
 
 function calculatePlayerRound(round = {}, playerName = '', handicapIndex = null) {
@@ -398,6 +447,7 @@ function calculatePlayerRound(round = {}, playerName = '', handicapIndex = null)
 
 function computeCountedRounds(roundResults = [], scoringMode = DEFAULT_SCORING_MODE) {
   const counted = Array.from({ length: roundResults.length }, () => false);
+  const mode = normalizeScoringMode(scoringMode);
   const completeRounds = roundResults
     .map((round, index) => ({ ...round, index }))
     .filter((round) => round && round.isComplete && Number.isFinite(round.stablefordTotal));
@@ -406,7 +456,7 @@ function computeCountedRounds(roundResults = [], scoringMode = DEFAULT_SCORING_M
     return { countedFlags: counted, countedTotal: null };
   }
 
-  if (normalizeScoringMode(scoringMode) === SCORING_MODE_ALL5) {
+  if (mode === SCORING_MODE_ALL5) {
     let total = 0;
     completeRounds.forEach((round) => {
       counted[round.index] = true;
@@ -415,13 +465,20 @@ function computeCountedRounds(roundResults = [], scoringMode = DEFAULT_SCORING_M
     return { countedFlags: counted, countedTotal: total };
   }
 
-  const chosen = completeRounds
-    .slice()
-    .sort((left, right) => {
-      if (right.stablefordTotal !== left.stablefordTotal) return right.stablefordTotal - left.stablefordTotal;
-      return left.index - right.index;
-    })
-    .slice(0, Math.min(4, completeRounds.length));
+  let chosen = [];
+  if (mode === SCORING_MODE_FIRST4) {
+    chosen = completeRounds.slice(0, Math.min(4, completeRounds.length));
+  } else if (mode === SCORING_MODE_LAST4) {
+    chosen = completeRounds.slice(Math.max(0, completeRounds.length - 4));
+  } else {
+    chosen = completeRounds
+      .slice()
+      .sort((left, right) => {
+        if (right.stablefordTotal !== left.stablefordTotal) return right.stablefordTotal - left.stablefordTotal;
+        return left.index - right.index;
+      })
+      .slice(0, Math.min(4, completeRounds.length));
+  }
 
   const total = chosen.reduce((sum, round) => {
     counted[round.index] = true;
@@ -733,13 +790,13 @@ function buildTripCompetitionView(trip = {}, participants = []) {
   return {
     overview: {
       scoringMode,
-      scoringModeLabel: scoringMode === SCORING_MODE_ALL5 ? 'All 5 rounds count' : 'Best 4 of 5 rounds',
+      scoringModeLabel: getScoringModeLabel(scoringMode),
       playerCount: playerPool.length,
       roundCount: roundViews.length,
       formatSummary: 'Individual net Stableford across the trip, with daily 2-man net best ball matches inside each foursome.',
       sideGamesSummary: 'Optional Closest to Pin and skins results are tracked separately from the main competition.',
     },
-    buckets: buildHandicapBuckets(playerPool),
+    buckets: buildHandicapBuckets(playerPool, trip && trip.competition && trip.competition.handicapBuckets),
     leaderboard,
     dailyMatches: roundViews.map((round) => ({
       roundIndex: round.roundIndex,
@@ -796,6 +853,44 @@ function setTripScoringMode(trip = {}, scoringMode) {
   if (!trip.competition) trip.competition = {};
   trip.competition.scoringMode = nextMode;
   return nextMode;
+}
+
+function setTripHandicapBuckets(trip = {}, participants = [], buckets = []) {
+  const playerPool = getCompetitionPlayerPool(trip, participants);
+  const allowedByName = new Map(playerPool.map((player) => [normalizeNameKey(player.name), player.name]));
+  const sourceBuckets = Array.isArray(buckets) ? buckets : [];
+  const normalizedBuckets = DEFAULT_HANDICAP_BUCKET_LABELS.map((fallbackLabel, index) => {
+    const rawBucket = sourceBuckets[index];
+    const label = cleanString(rawBucket && rawBucket.label) || fallbackLabel;
+    const rawPlayers = Array.isArray(rawBucket && rawBucket.players) ? rawBucket.players : [];
+    return { label, players: uniqueNames(rawPlayers) };
+  });
+
+  const assigned = new Set();
+  normalizedBuckets.forEach((bucket) => {
+    bucket.players = bucket.players.reduce((list, rawName) => {
+      const key = normalizeNameKey(rawName);
+      if (!key || assigned.has(key) || !allowedByName.has(key)) return list;
+      assigned.add(key);
+      list.push(allowedByName.get(key));
+      return list;
+    }, []);
+  });
+
+  for (const player of playerPool) {
+    const key = normalizeNameKey(player.name);
+    if (assigned.has(key)) continue;
+    assigned.add(key);
+    let targetBucket = normalizedBuckets[0];
+    for (const bucket of normalizedBuckets) {
+      if (bucket.players.length < targetBucket.players.length) targetBucket = bucket;
+    }
+    targetBucket.players.push(player.name);
+  }
+
+  if (!trip.competition) trip.competition = {};
+  trip.competition.handicapBuckets = normalizedBuckets;
+  return normalizedBuckets;
 }
 
 function setRoundPlayerScores(trip = {}, roundIndex, playerName = '', holes = []) {
@@ -858,6 +953,8 @@ function setRoundSideGames(trip = {}, roundIndex, payload = {}) {
 module.exports = {
   SCORING_MODE_BEST4,
   SCORING_MODE_ALL5,
+  SCORING_MODE_FIRST4,
+  SCORING_MODE_LAST4,
   DEFAULT_SCORING_MODE,
   buildTripCompetitionView,
   calculatePlayerRound,
@@ -868,6 +965,7 @@ module.exports = {
   setRoundMatchTeams,
   setRoundPlayerScores,
   setRoundSideGames,
+  setTripHandicapBuckets,
   setTripScoringMode,
   stablefordPointsForNetDiff,
 };

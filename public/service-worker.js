@@ -1,6 +1,6 @@
 importScripts('/sw-assets.js');
 
-const CACHE_NAME = 'tee-time-brs-v7';
+const CACHE_NAME = 'tee-time-brs-v9';
 const ASSETS_TO_CACHE = Array.isArray(self.__SW_ASSETS) ? self.__SW_ASSETS : ['/', '/index.html', '/style.css', '/script.js'];
 
 self.addEventListener('install', event => {
@@ -57,3 +57,5 @@ self.addEventListener('fetch', event => {
   // Fallback behavior for cross-origin requests.
   event.respondWith(caches.match(event.request).then(cached => cached || fetch(event.request)));
 });
+
+

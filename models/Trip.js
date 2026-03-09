@@ -51,8 +51,14 @@ const TripRoundSchema = new mongoose.Schema({
   skinsResults: { type: [TripRoundSkinSchema], default: [] }
 }, { _id: false });
 
+const TripCompetitionBucketSchema = new mongoose.Schema({
+  label: { type: String, default: '' },
+  players: { type: [String], default: [] }
+}, { _id: false });
+
 const TripCompetitionSchema = new mongoose.Schema({
-  scoringMode: { type: String, enum: ['best4', 'all5'], default: 'best4' }
+  scoringMode: { type: String, enum: ['best4', 'all5', 'first4of5', 'last4of5'], default: 'best4' },
+  handicapBuckets: { type: [TripCompetitionBucketSchema], default: [] }
 }, { _id: false });
 
 const TripSchema = new mongoose.Schema({

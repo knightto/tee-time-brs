@@ -723,14 +723,14 @@ main{padding:20px}
   white-space:nowrap;
 }
 
-.card-header .button-row{
+ .card-actions .button-row{
   display:grid;
   grid-template-columns:repeat(auto-fit, minmax(128px, 1fr));
   gap:8px;
   width:100%;
 }
 
-.card-header .button-row button{
+ .card-actions .button-row button{
   width:100%;
   font-weight:500;
 }
@@ -1008,18 +1008,18 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
     align-self:flex-end;
   }
 
-  .card-header .button-row{
+   .card-actions .button-row{
     display:none;
     width:100%;
     grid-template-columns:repeat(2, minmax(0, 1fr));
     gap:8px;
   }
 
-  .card-header.actions-open .button-row{
+   .card.actions-open .card-actions .button-row{
     display:grid;
   }
 
-  .card-header .button-row button{
+   .card-actions .button-row button{
     width:100%;
   }
   .card-title{ font-size:20px; }
@@ -1159,22 +1159,22 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   gap:10px;
 }
 
-.card-header .button-row{
+ .card-actions .button-row{
   display:grid;
   grid-template-columns:repeat(2, minmax(0, 1fr));
   gap:10px;
   width:100%;
 }
 
-.card-header .button-row > button{
+ .card-actions .button-row > button{
   width:100%;
   min-height:40px;
 }
 
 /* Compact specific action buttons to reduce header crowding */
-.card-header .button-row button[data-calendar-google],
-.card-header .button-row button[data-edit],
-.card-header .button-row button[data-del]{
+ .card-actions .button-row button[data-calendar-google],
+ .card-actions .button-row button[data-edit],
+ .card-actions .button-row button[data-del]{
   min-height:32px;
   padding:.2rem .5rem;
   font-size:.8rem;
@@ -1198,7 +1198,7 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
     width:100%;
   }
 
-  .card-header .button-row{
+   .card-actions .button-row{
     grid-template-columns:repeat(2, minmax(0, 1fr));
     gap:8px;
   }
@@ -1209,14 +1209,14 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
     gap:7px;
   }
 
-  .card-header .button-row > button,
+   .card-actions .button-row > button,
   .time-action-pair button{
     min-height:36px;
   }
 }
 
 /* Compact action-row layout: shrink buttons horizontally + vertically */
-.card-header .button-row{
+ .card-actions .button-row{
   display:flex;
   flex-wrap:wrap;
   align-items:center;
@@ -1224,7 +1224,7 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   width:100%;
 }
 
-.card-header .button-row > button{
+ .card-actions .button-row > button{
   width:auto;
   min-width:88px;
   min-height:34px;
@@ -1250,25 +1250,25 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   font-size:.82rem;
 }
 
-.card-header .button-row > button[data-calendar-google]{
+ .card-actions .button-row > button[data-calendar-google]{
   min-width:96px;
 }
 
-.card-header .button-row > button[data-del]{
+ .card-actions .button-row > button[data-del]{
   color:#991b1b;
   border-color:#ef4444;
   background:linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
 }
 
 @media (max-width:768px){
-  .card-header .button-row{
+   .card-actions .button-row{
     display:none;
     width:100%;
     grid-template-columns:repeat(2, minmax(0, 1fr));
     gap:8px;
   }
 
-  .card-header.actions-open .button-row{
+   .card.actions-open .card-actions .button-row{
     display:grid;
   }
 
@@ -1280,7 +1280,7 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
     margin-right:0;
   }
 
-  .card-header .button-row > button,
+   .card-actions .button-row > button,
   .time-action-pair button{
     min-width:0;
     width:100% !important;
@@ -1349,7 +1349,7 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   gap:10px;
 }
 
-.card-header .button-row{
+ .card-actions .button-row{
   justify-content:center;
 }
 
@@ -1362,7 +1362,7 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
     align-items:stretch;
   }
 
-  .card-header .button-row{
+   .card-actions .button-row{
     justify-content:stretch;
   }
 }
@@ -1450,18 +1450,29 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   opacity:0.85;
 }
 
+.empty-tee-note{
+  font-size:11px;
+  color:var(--slate-700);
+  margin-top:-4px;
+}
+
+.empty-tee-note span{
+  color:#dc2626;
+  font-weight:700;
+}
+
 /* Cleaner, tighter event action row under the title/date */
 .card-actions{
   gap:8px;
 }
 
-.card-header .button-row{
+ .card-actions .button-row{
   gap:6px;
   max-width:640px;
   margin-inline:auto;
 }
 
-.card-header .button-row > button{
+ .card-actions .button-row > button{
   min-width:80px;
   min-height:30px;
   padding:.18rem .5rem;
@@ -1484,7 +1495,7 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   border-radius:8px;
 }
 
-.card-header .button-row > button[data-calendar-google]{
+ .card-actions .button-row > button[data-calendar-google]{
   min-width:88px;
 }
 
@@ -1530,7 +1541,7 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
     gap:6px;
   }
 
-  .card-header .button-row > button,
+   .card-actions .button-row > button,
   .time-action-pair button{
     min-width:0;
     min-height:30px;
@@ -2050,3 +2061,4 @@ nav a:hover{
     grid-template-columns:1fr;
   }
 }
+

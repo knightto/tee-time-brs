@@ -4,11 +4,13 @@ initSecondaryConn();
 const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
 const TripPrimary = require('../models/Trip');
 const TripParticipantPrimary = require('../models/TripParticipant');
+const { buildDefaultTripTemplate, DEFAULT_TEMPLATE_NAME } = require('../services/tripTemplateService');
 const {
   buildTripCompetitionView,
   setRoundMatchTeams,
   setRoundPlayerScores,
   setRoundSideGames,
+  setTripHandicapBuckets,
   setTripScoringMode,
 } = require('../services/tripCompetitionService');
 const router = express.Router();
@@ -66,6 +68,25 @@ router.get('/', async (req, res) => {
   res.json(trips);
 });
 
+// Create a reusable default template trip
+router.post('/templates/default', async (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ error: 'Admin code required' });
+  }
+  try {
+    const { TripModel } = getTripModelsForRequest(req);
+    const payload = buildDefaultTripTemplate(req.body || {});
+    const trip = await TripModel.create(payload);
+    return res.status(201).json({
+      trip,
+      templateName: DEFAULT_TEMPLATE_NAME,
+      message: 'Default golf trip template created.',
+    });
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
 // Get trip details + participants
 router.get('/:tripId', async (req, res) => {
   // If query param myrtleBeach2026=true, use secondary DB
@@ -113,6 +134,21 @@ router.put('/:tripId/competition/settings', async (req, res) => {
     const { trip, participants } = await loadTripBundle(req);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
     setTripScoringMode(trip, req.body && req.body.scoringMode);
+    await trip.save();
+    return res.json(buildTripCompetitionView(trip, participants));
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.put('/:tripId/competition/buckets', async (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ error: 'Admin code required' });
+  }
+  try {
+    const { trip, participants } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    setTripHandicapBuckets(trip, participants, req.body && req.body.buckets);
     await trip.save();
     return res.json(buildTripCompetitionView(trip, participants));
   } catch (error) {

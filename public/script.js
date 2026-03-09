@@ -1133,7 +1133,7 @@ if ('serviceWorker' in navigator) {
           : '';
         const eventActionLegend = `
           <div class="event-action-legend" aria-label="Golfer action legend">
-            <span class="event-action-title">Actions</span>
+            <span class="event-action-title">Golfer Controls</span>
             <span class="event-action-item"><span class="event-action-symbol">○</span>Individual check-in</span>
             <span class="event-action-item"><span class="event-action-pill">All</span>Group check-in</span>
             <span class="event-action-item"><span class="event-action-symbol">↔</span>Move golfer</span>
@@ -1156,21 +1156,22 @@ if ('serviceWorker' in navigator) {
               </div>
               ${courseDetails}
             </div>
-        <div class="card-actions">
-          <button class="small event-actions-toggle" data-toggle-actions title="Show/hide event actions">Actions</button>
-          <div class="button-row">
-            ${isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<div class="time-action-pair"><button class="small" data-add-tee="${ev._id}">Add Existing Time</button><button class="small" data-request-extra-tee="${ev._id}" title="Email Brian Jones to request an additional tee time">Request Club Time</button></div>`}
-            ${isTeams ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Pairings</button>`}
-            <button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button>
-          </div>
-        </div>
           </div>
           <div class="card-content">
             ${maybeSection}
+            <div class="empty-tee-note"><span>RED</span> = empty tee time</div>
+            <div class="card-actions">
+              <button class="small event-actions-toggle" data-toggle-actions title="Show/hide event actions">Actions</button>
+              <div class="button-row">
+                ${isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<div class="time-action-pair"><button class="small" data-add-tee="${ev._id}">Add Existing Time</button><button class="small" data-request-extra-tee="${ev._id}" title="Email Brian Jones to request an additional tee time">Request Club Time</button></div>`}
+                ${isTeams ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Pairings</button>`}
+                <button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button>
+              </div>
+            </div>
             ${summaryRow}
+            ${eventActionLegend}
             <div class="tees">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>
             ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
-            ${eventActionLegend}
             <div class="event-bottom-actions">
               <button class="small event-audit-btn event-bottom-audit-btn" data-audit="${ev._id}" title="View Audit Log" aria-label="View Audit Log">View Audit</button>
             </div>
@@ -1246,9 +1247,9 @@ if ('serviceWorker' in navigator) {
     const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-ics]')||e.target);
     try{
       if(t.dataset.toggleActions !== undefined){
-        const header = t.closest('.card-header');
-        if (!header) return;
-        const open = header.classList.toggle('actions-open');
+        const card = t.closest('.card');
+        if (!card) return;
+        const open = card.classList.toggle('actions-open');
         t.textContent = open ? 'Hide Actions' : 'Actions';
         return;
       }
@@ -2049,7 +2050,7 @@ if ('serviceWorker' in navigator) {
       const courseDetails = courseDetailsBits.length
         ? `<div class="course-details">${courseDetailsBits.join('')}</div>`
         : '';
-      const eventActionLegend = `\n          <div class=\"event-action-legend\" aria-label=\"Golfer action legend\">\n            <span class=\"event-action-title\">Actions</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol\">○</span>Individual check-in</span>\n            <span class=\"event-action-item\"><span class=\"event-action-pill\">All</span>Group check-in</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol\">↔</span>Move golfer</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol danger\">×</span>Delete golfer</span>\n          </div>\n      `;
+      const eventActionLegend = `\n          <div class=\"event-action-legend\" aria-label=\"Golfer action legend\">\n            <span class=\"event-action-title\">Golfer Controls</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol\">○</span>Individual check-in</span>\n            <span class=\"event-action-item\"><span class=\"event-action-pill\">All</span>Group check-in</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol\">↔</span>Move golfer</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol danger\">×</span>Delete golfer</span>\n          </div>\n      `;
       card.innerHTML = `
       <div class="card-header">
         <div class="card-header-left">
@@ -2066,6 +2067,10 @@ if ('serviceWorker' in navigator) {
           </div>
           ${courseDetails}
         </div>
+      </div>
+      <div class="card-content">
+        ${maybeSection}
+        <div class="empty-tee-note"><span>RED</span> = empty tee time</div>
         <div class="card-actions">
           <button class="small event-actions-toggle" data-toggle-actions title="Show/hide event actions">Actions</button>
           <div class="button-row">
@@ -2074,13 +2079,10 @@ if ('serviceWorker' in navigator) {
             <button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button>
           </div>
         </div>
-      </div>
-      <div class="card-content">
-        ${maybeSection}
         ${summaryRow}
+        ${eventActionLegend}
         <div class="tees">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>
         ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
-        ${eventActionLegend}
         <div class="event-bottom-actions">
           <button class="small event-audit-btn event-bottom-audit-btn" data-audit="${ev._id}" title="View Audit Log" aria-label="View Audit Log">View Audit</button>
         </div>
