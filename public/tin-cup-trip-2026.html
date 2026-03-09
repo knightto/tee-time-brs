@@ -804,7 +804,7 @@
         <div class="chip">Southern Pines, NC</div>
         <div class="chip">16 golfers</div>
         <div class="chip">Practice + Day 1-4 + Scramble</div>
-        <a id="tinCupLiveEntryChip" class="chip cta" href="/tin-cup-live-score-entry.html">Foursome Live Entry</a>
+        <a id="tinCupLiveEntryChip" class="chip cta" href="/tin-cup-live-score-entry.html">Scoring and Data Page</a>
         <a id="tinCupLiveLeaderboardChip" class="chip cta" href="/tin-cup-leaderboard-2026.html">Live Leaderboards</a>
       </div>
     </header>
@@ -812,6 +812,7 @@
     <div class="panel summary-card" id="summaryTop" style="display:grid;gap:12px;">
       <div id="tripSummary"></div>
     </div>
+    <div class="panel" id="topLocationLinks" style="margin-bottom:12px;"></div>
     <div class="panel" id="itineraryBox" style="margin-bottom:12px;"></div>
     <div class="panel" id="tinCupScoringBox" style="margin-bottom:12px;"></div>
     <div class="panel trip-map-collapsed" id="tripMapBox" style="margin-bottom:12px;">
@@ -1648,7 +1649,24 @@
       if (!tinCupScoringState.matchResults[dayKey]) tinCupScoringState.matchResults[dayKey] = {};
       if (!tinCupScoringState.matchResults[dayKey][key]) tinCupScoringState.matchResults[dayKey][key] = {};
       const next = String(value || '').trim().toUpperCase();
-      tinCupScoringState.matchResults[dayKey][key][segmentIndex] = ['W', 'T', 'L'].includes(next) ? next : '';
+      const normalized = ['W', 'T', 'L'].includes(next) ? next : '';
+      tinCupScoringState.matchResults[dayKey][key][segmentIndex] = normalized;
+
+      // Keep reciprocal matchup result in sync (A vs B mirrors B vs A).
+      const matrixByPlayer = getTinCupDayMatrixByPlayer(dayKey);
+      const playerRow = matrixByPlayer.get(key);
+      const segment = playerRow && Array.isArray(playerRow.segments) ? playerRow.segments[segmentIndex] : null;
+      if (!segment || !segment.opponent) return;
+
+      const opponentKey = normalizeTinCupName(segment.opponent);
+      const opponentRow = matrixByPlayer.get(opponentKey);
+      if (!opponentRow || !Array.isArray(opponentRow.segments)) return;
+      const opponentSegmentIndex = opponentRow.segments.findIndex((entry) => normalizeTinCupName(entry && entry.opponent) === key);
+      if (!Number.isInteger(opponentSegmentIndex) || opponentSegmentIndex < 0) return;
+
+      if (!tinCupScoringState.matchResults[dayKey][opponentKey]) tinCupScoringState.matchResults[dayKey][opponentKey] = {};
+      const reciprocal = normalized === 'W' ? 'L' : normalized === 'L' ? 'W' : normalized;
+      tinCupScoringState.matchResults[dayKey][opponentKey][opponentSegmentIndex] = reciprocal;
     };
     const getTinCupStrokeNetValue = (dayKey = '', playerName = '') => {
       const key = normalizeTinCupName(playerName);
@@ -1929,24 +1947,20 @@
       const rows = getTinCupPlayers().map((player) => {
         const day1 = getTinCupStrokeNetValue('Day 1', player.name);
         const day3 = getTinCupStrokeNetValue('Day 3', player.name);
-        const day4 = getTinCupStrokeNetValue('Day 4', player.name);
-        const scramble = getTinCupScrambleBonusValue(player.name);
         return `
           <tr>
             <td><strong>${escapeHtml(player.name)}</strong></td>
             <td>${escapeHtml(Number(player.handicap).toFixed(1))}</td>
             <td><input class="tin-cup-score-input" type="number" step="0.1" data-tincup-stroke-net="${quoteAttr('Day 1')}|${quoteAttr(player.name)}" value="${day1 === null ? '' : escapeHtml(String(day1))}" placeholder="Net"></td>
             <td><input class="tin-cup-score-input" type="number" step="0.1" data-tincup-stroke-net="${quoteAttr('Day 3')}|${quoteAttr(player.name)}" value="${day3 === null ? '' : escapeHtml(String(day3))}" placeholder="Net"></td>
-            <td><input class="tin-cup-score-input" type="number" step="0.1" data-tincup-stroke-net="${quoteAttr('Day 4')}|${quoteAttr(player.name)}" value="${day4 === null ? '' : escapeHtml(String(day4))}" placeholder="Net"></td>
-            <td><input class="tin-cup-score-input" type="number" step="0.1" data-tincup-scramble="${quoteAttr(player.name)}" value="${scramble === null ? '' : escapeHtml(String(scramble))}" placeholder="0"></td>
           </tr>
         `;
       }).join('');
 
       return `
         <div class="tin-cup-score-card">
-          <strong>Stroke / Final-Day Inputs</strong>
-          <div style="font-size:0.74rem;color:var(--ink-soft);">Day 1 and Day 3: top-half net ranks get 2 points. Day 4: net ranks get 12/10/8.5/7/5.75/4.5/3/1.25 (remaining places 0), with tie averaging.</div>
+          <strong>Stroke Inputs</strong>
+          <div style="font-size:0.74rem;color:var(--ink-soft);">Day 1 and Day 3: top-half net ranks get 2 points. Final-day inputs moved to Tin Cup Live Score Entry page.</div>
           <div class="tin-cup-score-table-wrap">
             <table class="tin-cup-score-table">
               <thead>
@@ -1955,8 +1969,6 @@
                   <th>HC</th>
                   <th>Day 1 Net</th>
                   <th>Day 3 Net</th>
-                  <th>Day 4 Net</th>
-                  <th>Scramble Bonus</th>
                 </tr>
               </thead>
               <tbody>${rows}</tbody>
@@ -2012,7 +2024,6 @@
       if (!box) return;
       if (!tinCupScoringState) tinCupScoringState = loadTinCupScoringState();
       tinCupLiveSettings = getTinCupLiveSettingsFromTrip();
-      const selectedMatchDay = TIN_CUP_MATCH_DAYS.includes(tinCupLeaderboardDay) ? tinCupLeaderboardDay : 'Day 1';
       box.innerHTML = `
         <div class="tin-cup-score-wrap">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -2020,20 +2031,9 @@
             <span style="font-size:0.78rem;color:var(--ink-soft);">Workbook-based model: match win/tie points + stroke/rank points</span>
           </div>
           <div class="tin-cup-score-card">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-              <strong>Match Entry</strong>
-              <label style="display:flex;align-items:center;gap:6px;font-size:0.78rem;color:var(--ink-soft);">
-                Day
-                <select class="tin-cup-score-select" data-tincup-match-day="1" style="min-width:130px;">
-                  ${TIN_CUP_MATCH_DAYS.map((dayKey) => `<option value="${quoteAttr(dayKey)}"${dayKey === selectedMatchDay ? ' selected' : ''}>${escapeHtml(dayKey)}</option>`).join('')}
-                </select>
-              </label>
-            </div>
-            <div style="margin-top:10px;">
-              ${renderTinCupMatchEntryTable(selectedMatchDay)}
-            </div>
+            <strong>Scoring and Data Entry</strong>
+            <div style="font-size:0.8rem;color:var(--ink-soft);margin-top:6px;">Match inputs and stroke inputs moved to the Tin Cup Live Score Entry page.</div>
           </div>
-          ${renderTinCupStrokeEntryTable()}
           <div class="tin-cup-score-card">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
               <strong>Live Scoring Feature Toggles</strong>
@@ -2195,6 +2195,7 @@
     function renderAll() {
       renderTinCupLiveNavChips();
       renderTripSummary();
+      renderTripLocationLinks();
       renderItinerary();
       renderTinCupScoring();
       renderParticipants();
@@ -2212,10 +2213,8 @@
           <div><strong>Package:</strong> ${t.package || '5 Courses / 6 Tee Times'}</div>
           <div><strong>Golfers:</strong> 16 total</div>
           <div><strong>Arrival:</strong> ${arrivalDateDisplay} &nbsp;|&nbsp; <strong>Departure:</strong> ${departureDateDisplay}</div>
-          <div><strong>View Day:</strong> Practice, Day 1, Day 2, Day 3, Day 4</div>
           <div><strong>Featured Courses:</strong> Mid Pines, Pine Needles, Talamore, Tobacco Road, Mid South</div>
           <div><strong>Lodging / Resort Base:</strong> 610 Palmer Drive, Southern Pines, North Carolina 28387, United States</div>
-          <div><strong>Trip Ref:</strong> ${t.reservationNumber || 'Tin Cup 2026'} &nbsp;|&nbsp; ${t.preparedBy || 'Tin Cup Trip Planner'}${t.phone ? ` (${t.phone})` : ''}</div>
           <div style="display:grid;gap:8px;margin-top:8px;">
             <a class="cta" href="https://www.google.com/maps/search/?api=1&query=Talamore+Golf+Resort+610+Palmer+Drive+Southern+Pines+NC+28387" target="_blank" rel="noopener">Open Talamore Golf Resort in Maps</a>
             ${tripId ? '' : '<small style="color:var(--ink-soft);">Preview mode: trip not linked to database yet.</small>'}
@@ -2223,6 +2222,29 @@
         </div>
       `;
       $('#tripSummary').innerHTML = summary;
+    }
+
+    function renderTripLocationLinks() {
+      const container = $('#topLocationLinks');
+      if (!container) return;
+      container.innerHTML = `
+        <div style="display:grid;gap:8px;">
+          <strong>Trip Location Links</strong>
+          <ul class="itinerary-list">
+            ${CONDO_ADDRESSES.map((c) => {
+              const link = buildWazeLink(c.label, c.address);
+              return `
+                <li class="itinerary-item">
+                  <strong><a class="waze-link" href="${link}" target="_blank" rel="noopener">${c.label}</a></strong>
+                  <small>${c.unit} | ${c.address}</small>
+                  <small><strong>Staying:</strong> ${c.occupants.join(', ')}</small>
+                  <small><a class="waze-link" href="${c.guestbook}" target="_blank" rel="noopener">LINK TO CONDO INFORMATION</a></small>
+                </li>
+              `;
+            }).join('')}
+          </ul>
+        </div>
+      `;
     }
 
     const TRIP_ICS_DURATION_MINUTES = 270;
@@ -2599,28 +2621,6 @@
           const ok = downloadTripMonthIcs(getTripRounds(), tripScheduleState.currentDate);
           if (!ok) alert('No tee times for this month yet.');
         });
-      }
-
-      const condoWazeLinks = $('#condoWazeLinks');
-      if (condoWazeLinks) {
-        condoWazeLinks.innerHTML = `
-          <div style="display:grid;gap:8px;">
-            <strong>Trip Location Links</strong>
-            <ul class="itinerary-list">
-              ${CONDO_ADDRESSES.map((c) => {
-                const link = buildWazeLink(c.label, c.address);
-                return `
-                  <li class="itinerary-item">
-                    <strong><a class="waze-link" href="${link}" target="_blank" rel="noopener">${c.label}</a></strong>
-                    <small>${c.unit} | ${c.address}</small>
-                    <small><strong>Staying:</strong> ${c.occupants.join(', ')}</small>
-                    <small><a class="waze-link" href="${c.guestbook}" target="_blank" rel="noopener">LINK TO CONDO INFORMATION</a></small>
-                  </li>
-                `;
-              }).join('')}
-            </ul>
-          </div>
-        `;
       }
 
       renderStatusList();
