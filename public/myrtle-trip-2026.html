@@ -802,22 +802,6 @@
       color: var(--ink-soft);
       font-size: 0.9rem;
     }
-    .map-frame-wrap {
-      position: relative;
-      width: 100%;
-      padding-top: 75%;
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      background: #0b1728;
-    }
-    .map-frame-wrap iframe {
-      position: absolute;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      border: 0;
-    }
     /* Mobile-first adjustments */
     @media (max-width: 900px) {
       .layout {
@@ -864,8 +848,8 @@
         <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Trip Map</h2>
         <a class="cta" href="https://www.google.com/maps/d/u/0/viewer?mid=1OLZdG1AzvAQJlBuhYWt5v_8Ta4W6bmY&ehbc=2E312F" target="_blank" rel="noopener">Open Full Map</a>
       </div>
-      <div class="map-frame-wrap" style="margin-top:12px;">
-        <iframe src="https://www.google.com/maps/d/u/0/embed?mid=1OLZdG1AzvAQJlBuhYWt5v_8Ta4W6bmY&ehbc=2E312F" width="640" height="480" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Myrtle Beach 2026 Golf Trip Map"></iframe>
+      <div style="margin-top:10px;color:var(--ink-soft);line-height:1.45;">
+        Open the shared Google map in a new tab for courses, condos, and trip stops.
       </div>
     </div>
     <div class="panel" id="competitionBox" style="margin-bottom:12px;"></div>
