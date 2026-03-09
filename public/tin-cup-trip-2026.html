@@ -894,42 +894,42 @@
     };
     const DEFAULT_ROUNDS = [
       {
-        course: 'Practice - Conestoga',
-        venue: 'Conestoga Golf Club',
-        address: '1499 Falcon Ridge Parkway, Mesquite, NV 89027',
+        course: 'Practice - Mid Pines',
+        venue: 'Mid Pines Inn & Golf Club',
+        address: '1010 Midland Road, Southern Pines, NC 28387',
         date: '2026-05-12',
         time: '14:05',
         reviewCount: 3,
-        feefoCode: 'Practice',
-        description: 'Workbook alignment: Practice round at Conestoga (front and back nine tabs).',
-        readMoreLabel: 'Practice Round Details',
+        feefoCode: 'G3953',
+        description: 'Designed in 1921 by the famous architect Donald Ross, the Mid Pines layout remains in its original shape to this day. Visually stunning, each hole is carefully crafted into the natural rolling landscape and winds its way through the huge pine trees that dominate the land. Initially, the course was designed for friendly competition amongst members and guests of the club, however, in recent times it has hosted national competitions challenging some of the best in the game.',
+        readMoreLabel: 'Read more about Mid Pines Golf Course',
         teeTimes: [
           { label: 'TT#1', time: '14:05', players: [] },
           { label: 'TT#2', time: '15:00', players: [] }
         ]
       },
       {
-        course: 'Day 1 - Talamore',
-        venue: 'Talamore Golf Resort',
-        address: '48 Talamore Drive, Southern Pines, North Carolina 28387',
+        course: 'Day 1 - Pine Needles',
+        venue: 'Pine Needles Lodge & Golf Club',
+        address: '1005 Midland Road, Southern Pines, NC 28387',
         date: '2026-05-13',
         time: '08:20',
         reviewCount: 5,
-        feefoCode: 'G5409',
-        description: 'Designed by Rees Jones in 1991, Talamore Golf Club is a fine example of golf in the Sandhills area; towering pines, wetlands, lakes, and wastelands, plus elevation changes of over 150 feet. Following a rejuvenation process in 2016, greens were restored to their original size, and Champion bermudagrass was introduced, bringing Talamore’s putting surfaces in line with some of the best in the area. Fairways were widened and 12 sod wall bunkers reminiscent of those in Scotland were added.',
-        readMoreLabel: 'Read more about Talamore Golf Club',
+        feefoCode: 'G3952',
+        description: 'The Pine Needles course, a Donald Ross-design is the first course in the country to be granted four U.S. Women’s Opens. Ross created the course in 1927, with Kyle Franz making some advancements in 2007. Franz added some length whilst keeping the overall feel in line with the original Ross design. Rolling hills, strategic fairway bunkering, and huge pines define the course. Voted by Golfweek as the #4 course in the state it is truly a ‘must-play’.',
+        readMoreLabel: 'Read more about Pine Needles Golf Course',
         teeTimes: buildTripSlots('08:20', [[]])
       },
       {
-        course: 'Day 2 - Mid Pines',
-        venue: 'Mid Pines Inn & Golf Club',
-        address: '1010 Midland Road, Southern Pines, NC 28387',
+        course: 'Day 2 - Talamore',
+        venue: 'Talamore Golf Resort',
+        address: '48 Talamore Drive, Southern Pines, North Carolina 28387',
         date: '2026-05-14',
         time: '09:30',
         reviewCount: 8,
-        feefoCode: 'G3953',
-        description: 'Designed in 1921 by the famous architect Donald Ross, the Mid Pines layout remains in its original shape to this day. Visually stunning, each hole is carefully crafted into the natural rolling landscape and winds its way through the huge pine trees that dominate the land. Initially, the course was designed for friendly competition amongst members and guests of the club, however, in recent times it has hosted national competitions challenging some of the best in the game.',
-        readMoreLabel: 'Read more about Mid Pines Golf Course',
+        feefoCode: 'G5409',
+        description: 'Designed by Rees Jones in 1991, Talamore Golf Club is a fine example of golf in the Sandhills area; towering pines, wetlands, lakes, and wastelands, plus elevation changes of over 150 feet. Following a rejuvenation process in 2016, greens were restored to their original size, and Champion bermudagrass was introduced, bringing Talamore’s putting surfaces in line with some of the best in the area. Fairways were widened and 12 sod wall bunkers reminiscent of those in Scotland were added.',
+        readMoreLabel: 'Read more about Talamore Golf Club',
         teeTimes: buildTripSlots('09:30', [[]])
       },
       {
@@ -1347,15 +1347,19 @@
       if (normalized.includes('talamore')) return COURSE_SCORECARD_STATS.find((entry) => normalizeCourseKey(entry.courseKey).includes('talamore')) || null;
       return null;
     };
-    const sumValues = (values = []) => values.reduce((total, value) => total + (Number(value) || 0), 0);
+    const sumValues = (values = []) => values.reduce((total, value) => {
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? total + numeric : total;
+    }, 0);
     const formatInt = (value) => Number.isFinite(Number(value)) ? Number(value).toLocaleString() : '--';
     const renderScorecardRow = (label = '', values = []) => {
-      const total = sumValues(values);
+      const hasNumeric = values.some((value) => Number.isFinite(Number(value)));
+      const total = hasNumeric ? sumValues(values) : null;
       return `
         <tr>
           <td>${escapeHtml(label)}</td>
-          ${values.map((value) => `<td>${escapeHtml(String(value))}</td>`).join('')}
-          <td class="trip-scorecard-total">${escapeHtml(String(total))}</td>
+          ${values.map((value) => `<td>${escapeHtml(value === null || value === undefined || value === '' ? '--' : String(value))}</td>`).join('')}
+          <td class="trip-scorecard-total">${escapeHtml(total === null ? '--' : String(total))}</td>
         </tr>
       `;
     };
