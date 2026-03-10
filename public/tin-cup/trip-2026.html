@@ -1250,7 +1250,13 @@
       return path.includes('?') ? `${path}&myrtleBeach2026=true` : `${path}?myrtleBeach2026=true`;
     };
     const buildTinCupContextHref = (path) => {
-      if (!tripId) return path;
+      if (!tripId) {
+        if (/\/tin-cup\/live-score-entry\.html$/i.test(path)) {
+          const sep = path.includes('?') ? '&' : '?';
+          return `${path}${sep}local=1`;
+        }
+        return path;
+      }
       const sep = path.includes('?') ? '&' : '?';
       return `${path}${sep}tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}`;
     };
@@ -2210,6 +2216,7 @@
     function renderAll() {
       renderTinCupLiveNavChips();
       renderTripSummary();
+      bindTinCupLiveSettingControls();
       renderTripLocationLinks();
       renderItinerary();
       renderParticipants();
@@ -2219,6 +2226,8 @@
       const t = trip || DEFAULT_TRIP;
       const arrivalDateDisplay = formatDate(TIN_CUP_ARRIVAL_DATE) || '5/12/2026';
       const departureDateDisplay = formatDate(TIN_CUP_DEPARTURE_DATE) || '5/17/2026';
+      const codeToggleDisabled = !tripId || !tinCupLiveSettings.enableLiveFoursomeScoring;
+      const liveSettingsDisabled = !tripId;
       const summary = `
         <div style="display:grid;gap:6px;">
           <div><strong>Trip Name:</strong> ${t.name || 'Tin Cup 2026 Trip'}</div>
@@ -2228,6 +2237,28 @@
           <div><strong>Arrival:</strong> ${arrivalDateDisplay} &nbsp;|&nbsp; <strong>Departure:</strong> ${departureDateDisplay}</div>
           <div><strong>Featured Courses:</strong> Mid Pines, Pine Needles, Talamore, Tobacco Road, Mid South</div>
           <div><strong>Lodging / Resort Base:</strong> 610 Palmer Drive, Southern Pines, North Carolina 28387, United States</div>
+          <div style="margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,0.03);display:grid;gap:6px;">
+            <label style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:0.9rem;">
+              <input id="tinCupLiveScoringToggle" type="checkbox" ${tinCupLiveSettings.enableLiveFoursomeScoring ? 'checked' : ''} ${liveSettingsDisabled ? 'disabled' : ''}>
+              <span><strong>Live Foursome Scoring</strong></span>
+            </label>
+            <small style="color:var(--ink-soft);">${liveSettingsDisabled ? 'Link trip to database first.' : 'Controls access to the live scoring and data page.'}</small>
+            <label style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:0.9rem;">
+              <input id="tinCupLiveMarkersToggle" type="checkbox" ${tinCupLiveSettings.enableLiveMarkers ? 'checked' : ''} ${liveSettingsDisabled ? 'disabled' : ''}>
+              <span><strong>Closest To Pin / Long Drive Entry</strong></span>
+            </label>
+            <small style="color:var(--ink-soft);">${liveSettingsDisabled ? 'Link trip to database first.' : 'Shows or hides live marker entry on the scoring page.'}</small>
+            <label style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:0.9rem;">
+              <input id="tinCupLiveLeaderboardToggle" type="checkbox" ${tinCupLiveSettings.enableLiveLeaderboard ? 'checked' : ''} ${liveSettingsDisabled ? 'disabled' : ''}>
+              <span><strong>Live Leaderboard Page</strong></span>
+            </label>
+            <small style="color:var(--ink-soft);">${liveSettingsDisabled ? 'Link trip to database first.' : 'Controls the dedicated live leaderboard page and nav chip.'}</small>
+            <label style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:0.9rem;">
+              <input id="tinCupCodeProtectToggle" type="checkbox" ${tinCupLiveSettings.enableFoursomeCodes ? 'checked' : ''} ${codeToggleDisabled ? 'disabled' : ''}>
+              <span><strong>Code-Protected Group Scorecard Links</strong></span>
+            </label>
+            <small style="color:var(--ink-soft);">${codeToggleDisabled ? (tripId ? 'Enable live foursome scoring first.' : 'Link trip to database first.') : 'When enabled, each foursome must enter its code to open a live scorecard.'}</small>
+          </div>
           <div style="display:grid;gap:8px;margin-top:8px;">
             <a class="cta" href="https://www.google.com/maps/search/?api=1&query=Talamore+Golf+Resort+610+Palmer+Drive+Southern+Pines+NC+28387" target="_blank" rel="noopener">Open Talamore Golf Resort in Maps</a>
             ${tripId ? '' : '<small style="color:var(--ink-soft);">Preview mode: trip not linked to database yet.</small>'}
@@ -2235,6 +2266,41 @@
         </div>
       `;
       $('#tripSummary').innerHTML = summary;
+    }
+
+    function bindTinCupLiveSettingControls() {
+      const scoringToggle = document.getElementById('tinCupLiveScoringToggle');
+      const markersToggle = document.getElementById('tinCupLiveMarkersToggle');
+      const leaderboardToggle = document.getElementById('tinCupLiveLeaderboardToggle');
+      const codeToggle = document.getElementById('tinCupCodeProtectToggle');
+      const bindToggle = (element, buildSettings) => {
+        if (!element) return;
+        element.addEventListener('change', async () => {
+          const next = element.checked === true;
+          element.disabled = true;
+          const ok = await saveTinCupLiveSettings(buildSettings(next));
+          if (!ok) element.checked = !next;
+          renderTripSummary();
+          bindTinCupLiveSettingControls();
+        });
+      };
+      bindToggle(scoringToggle, (next) => ({
+        ...tinCupLiveSettings,
+        enableLiveFoursomeScoring: next,
+        enableFoursomeCodes: next ? tinCupLiveSettings.enableFoursomeCodes : false
+      }));
+      bindToggle(markersToggle, (next) => ({
+        ...tinCupLiveSettings,
+        enableLiveMarkers: next
+      }));
+      bindToggle(leaderboardToggle, (next) => ({
+        ...tinCupLiveSettings,
+        enableLiveLeaderboard: next
+      }));
+      bindToggle(codeToggle, (next) => ({
+        ...tinCupLiveSettings,
+        enableFoursomeCodes: next
+      }));
     }
 
     function setTripInfoModalOpen(isOpen) {
