@@ -25,6 +25,7 @@
     .tab-btn { background:#0b1a2e; color:var(--ink); border:1px solid var(--line); border-radius:999px; padding:6px 10px; cursor:pointer; font-weight:700; font-size:.8rem; }
     .tab-btn.active { border-color:rgba(109,211,255,.65); background:rgba(109,211,255,.18); color:#d9f3ff; }
     .match-result { display:inline-block; margin-left:6px; color:var(--ink-soft); font-size:.78rem; font-weight:700; }
+    .section-summary { cursor:pointer; font-weight:700; }
   </style>
 </head>
 <body>
@@ -33,37 +34,57 @@
       <div class="hero-row">
         <div>
           <h1>Tin Cup 2026 Live Leaderboards</h1>
-          <div class="muted">Updates automatically from the same scoring inputs used on the main Tin Cup page.</div>
+          <div class="muted">Updates automatically from the same scoring inputs used on the Scoring and Data page.</div>
         </div>
         <a class="cta" href="/tin-cup/trip-2026.html">Back to Tin Cup Trip</a>
       </div>
     </div>
 
     <div class="card">
-      <div class="toolbar">
-        <strong>Live Day Leaderboard</strong>
-        <label class="muted">Day:
-          <select id="daySelect"></select>
-        </label>
-      </div>
-      <div id="dayBoard"></div>
+      <details open>
+        <summary class="section-summary">Live Day Leaderboard</summary>
+        <div class="toolbar">
+          <strong>Live Day Leaderboard</strong>
+          <label class="muted">Day:
+            <select id="daySelect"></select>
+          </label>
+        </div>
+        <div id="dayBoard"></div>
+      </details>
     </div>
 
     <div class="card">
-      <div class="toolbar">
-        <strong>Live Trip Leaderboard</strong>
-        <span class="refresh-note" id="refreshNote"></span>
-      </div>
-      <div id="tripBoard"></div>
+      <details open>
+        <summary class="section-summary">Live Trip Leaderboard</summary>
+        <div class="toolbar">
+          <strong>Live Trip Leaderboard</strong>
+          <span class="refresh-note" id="refreshNote"></span>
+        </div>
+        <div id="tripBoard"></div>
+      </details>
     </div>
 
     <div class="card">
-      <div class="toolbar">
-        <strong>Tin Cup Match Scoring By Day</strong>
-        <span class="muted">Toggle day to view matchups and current W/T/L status</span>
-      </div>
-      <div id="matchDayTabs" class="tab-row"></div>
-      <div id="matchBoard"></div>
+      <details open>
+        <summary class="section-summary">Tin Cup Match Scoring By Day</summary>
+        <div class="toolbar">
+          <strong>Tin Cup Match Scoring By Day</strong>
+          <span class="muted">Toggle day to view matchups and current W/T/L status</span>
+        </div>
+        <div id="matchDayTabs" class="tab-row"></div>
+        <div id="matchBoard"></div>
+      </details>
+    </div>
+
+    <div class="card">
+      <details open>
+        <summary class="section-summary">Stroke Results (Read-Only)</summary>
+        <div class="toolbar">
+          <strong>Stroke Results (Read-Only)</strong>
+          <span class="muted">Auto-derived from live scorecards for scoring confirmation.</span>
+        </div>
+        <div id="strokeBoard"></div>
+      </details>
     </div>
   </div>
 
@@ -87,6 +108,7 @@
     const refreshEl = document.getElementById('refreshNote');
     const matchTabsEl = document.getElementById('matchDayTabs');
     const matchBoardEl = document.getElementById('matchBoard');
+    const strokeBoardEl = document.getElementById('strokeBoard');
 
     let selectedDay = 'Day 1';
     let selectedMatchDay = 'Day 1';
@@ -247,7 +269,10 @@
         const day2Total = match2;
         const day3Total = match3 + stroke3 + scramble;
         const total = Number((day1Total + day2Total + day3Total + day4Points).toFixed(2));
-        return { name, match1, match2A, match2B, match2, match3, stroke1, stroke3, scramble, day4Points, day4Rank: d4.ranks.get(key), day1Total, day2Total, day3Total, total };
+        const day1Net = num((((state.strokeNet || {})['Day 1'] || {})[key]));
+        const day3Net = num((((state.strokeNet || {})['Day 3'] || {})[key]));
+        const day4Net = num((((state.strokeNet || {})['Day 4'] || {})[key]));
+        return { name, day1Net, day3Net, day4Net, match1, match2A, match2B, match2, match3, stroke1, stroke3, scramble, day4Points, day4Rank: d4.ranks.get(key), day1Total, day2Total, day3Total, total };
       }).sort((a, b) => (b.total - a.total) || a.name.localeCompare(b.name));
       let pos = 0; let last = null;
       rows.forEach((r, idx) => { if (last === null || r.total !== last) pos = idx + 1; r.position = pos; last = r.total; });
@@ -323,6 +348,14 @@
       tripBoardEl.innerHTML = `<table><thead><tr><th>Pos</th><th>Player</th><th>D1 Match</th><th>D1 Stroke</th><th>D2 Match</th><th>D3 Match</th><th>D3 Stroke</th><th>Scramble</th><th>Penalty</th><th>D4 Rank Pts</th><th>Total</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${esc(r.position)}</td><td><strong>${esc(r.name)}</strong></td><td>${esc(r.match1)}</td><td>${esc(r.stroke1)}</td><td>${esc(r.match2)}</td><td>${esc(r.match3)}</td><td>${esc(r.stroke3)}</td><td>${esc(r.scramble)}</td><td>${esc(Number(r.penaltyTotal || 0).toFixed(2))}</td><td>${esc(r.day4Points)}${Number.isInteger(r.day4Rank) ? ` <span class="muted">(r${esc(r.day4Rank)})</span>` : ''}</td><td><strong>${esc(r.total)}</strong></td></tr>`).join('')}</tbody></table>`;
     }
 
+    function renderStrokeRows(rows = []) {
+      if (!rows.length) {
+        strokeBoardEl.innerHTML = '<div class="muted">No stroke results yet.</div>';
+        return;
+      }
+      strokeBoardEl.innerHTML = `<table><thead><tr><th>Player</th><th>Day 1 Net</th><th>Day 3 Net</th><th>Day 4 Net</th><th>Scramble</th><th>Day 1 Stroke Pts</th><th>Day 3 Stroke Pts</th><th>Day 4 Rank Pts</th></tr></thead><tbody>${rows.map((r) => `<tr><td><strong>${esc(r.name)}</strong></td><td>${r.day1Net === null || r.day1Net === undefined ? '-' : esc(r.day1Net)}</td><td>${r.day3Net === null || r.day3Net === undefined ? '-' : esc(r.day3Net)}</td><td>${r.day4Net === null || r.day4Net === undefined ? '-' : esc(r.day4Net)}</td><td>${r.scramble === null || r.scramble === undefined ? '-' : esc(r.scramble)}</td><td>${esc(r.stroke1 || 0)}</td><td>${esc(r.stroke3 || 0)}</td><td>${esc(r.day4Points || 0)}${Number.isInteger(r.day4Rank) ? ` <span class="muted">(r${esc(r.day4Rank)})</span>` : ''}</td></tr>`).join('')}</tbody></table>`;
+    }
+
     function renderFromPayload(payload) {
       const dayOptions = Array.isArray(payload.dayOptions) ? payload.dayOptions : DAY_OPTIONS.slice();
       const matchOptions = Array.isArray(payload.matchDayOptions) ? payload.matchDayOptions : MATCH_DAY_OPTIONS.slice();
@@ -336,6 +369,7 @@
       renderMatchRows(payload.matchRows || []);
       renderDayRows(selectedDay, payload.dayRows || []);
       renderTripRows(payload.totals || []);
+      renderStrokeRows(payload.totals || []);
       refreshEl.textContent = `Last refresh: ${new Date().toLocaleTimeString()}${contextSource === 'local-fallback' ? ' (local fallback)' : ''}`;
     }
 
@@ -366,6 +400,7 @@
         dayBoardEl.innerHTML = `<div class="muted">${esc(message)}</div>`;
         tripBoardEl.innerHTML = '';
         matchBoardEl.innerHTML = '';
+        strokeBoardEl.innerHTML = '';
       }
     }
 

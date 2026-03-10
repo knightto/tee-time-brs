@@ -42,6 +42,11 @@
     .hole-chip { min-width:36px; padding:6px 8px; border-radius:999px; border:1px solid var(--line); background:#0b1727; color:var(--ink); cursor:pointer; font-weight:700; }
     .hole-chip.active { border-color: rgba(118,210,255,.8); background: rgba(118,210,255,.25); }
     .hole-inline-controls { display:flex; align-items:center; gap:6px; }
+    .setup-summary { cursor:pointer; font-weight:700; }
+    .setup-actions { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0; }
+    .setup-table-wrap { overflow:auto; border:1px solid var(--line); border-radius:10px; }
+    .setup-table input, .setup-table select { width:100%; min-width:120px; }
+    .setup-table .name-input { min-width:180px; }
     a { color: var(--accent); text-decoration:none; font-weight:700; }
     a:hover { text-decoration:underline; }
     @media (max-width: 900px) {
@@ -60,80 +65,108 @@
     </div>
 
     <div class="card" id="scorecardLinksCard">
-      <div class="head">
-        <strong>Live Scorecard Links</strong>
-        <label>Day
-          <select id="linkDaySelect"></select>
-        </label>
-      </div>
-      <div class="muted" style="margin:6px 0 10px;">Open your foursome link to score hole-by-hole live. Changes sync to match scoring and the live leaderboard.</div>
-      <div id="scorecardLinksList"></div>
-      <div style="margin-top:10px;"><span id="status" class="muted"></span></div>
+      <details open>
+        <summary class="setup-summary">Live Scorecard Links</summary>
+        <div class="head">
+          <strong>Live Scorecard Links</strong>
+          <label>Day
+            <select id="linkDaySelect"></select>
+          </label>
+        </div>
+        <div class="muted" style="margin:6px 0 10px;">Open your foursome link to score hole-by-hole live. Changes sync to match scoring and the live leaderboard.</div>
+        <div id="scorecardLinksList"></div>
+        <div style="margin-top:10px;"><span id="status" class="muted"></span></div>
+      </details>
     </div>
 
     <div class="card" id="liveScoringFlowCard">
-      <strong>Live Scoring Flow</strong>
-      <ol class="muted" style="margin:8px 0 0;padding-left:18px;display:grid;gap:6px;">
-        <li>One golfer in each foursome opens the live scorecard link and enters hole-by-hole scores.</li>
-        <li>Every score save updates the shared Tin Cup live data, and the leaderboard reflects changes immediately.</li>
-        <li>Match Scoring is auto-derived from real scorecards: completed segments show W/T/L, in-progress segments show current leader (W*/L*/T*).</li>
-      </ol>
+      <details open>
+        <summary class="setup-summary">Live Scoring Flow</summary>
+        <ol class="muted" style="margin:8px 0 0;padding-left:18px;display:grid;gap:6px;">
+          <li>One golfer in each foursome opens the live scorecard link and enters hole-by-hole scores.</li>
+          <li>Every score save updates the shared Tin Cup live data, and the leaderboard reflects changes immediately.</li>
+          <li>Match Scoring is auto-derived from real scorecards: completed segments show W/T/L, in-progress segments show current leader (W*/L*/T*).</li>
+        </ol>
+      </details>
+    </div>
+
+    <div class="card" id="golferSetupCard">
+      <details open>
+        <summary class="setup-summary">Trip Golfer Setup</summary>
+        <div class="muted" style="margin:8px 0 10px;">Create or edit golfers, set handicap, and mark each as Previous Champ (`x1/x2/x3`) or Rookie.</div>
+        <div class="setup-actions">
+          <button id="addGolferRowBtn" type="button">Add Golfer Row</button>
+          <button id="syncGolfersFromTripBtn" type="button">Sync From Trip Participants</button>
+          <button id="saveGolferSetupBtn" type="button">Save Golfer Setup</button>
+          <span id="golferSetupStatus" class="muted"></span>
+        </div>
+        <div class="setup-table-wrap">
+          <table class="setup-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Name</th>
+                <th>Handicap</th>
+                <th>Classification</th>
+                <th>Penalty</th>
+              </tr>
+            </thead>
+            <tbody id="golferSetupTableBody"></tbody>
+          </table>
+        </div>
+      </details>
     </div>
 
     <div class="entry-input-grid">
       <div class="card" id="penaltyCard">
-        <strong>Handicaps & Penalties</strong>
-        <div class="muted" style="margin:6px 0 10px;">Past champion and rookie penalties are applied in live stroke/rank calculations and shown on scorecards.</div>
-        <div class="table-wrap" id="penaltyTableWrap"></div>
+        <details open>
+          <summary class="setup-summary">Handicaps & Penalties</summary>
+          <div class="muted" style="margin:6px 0 10px;">Past champion and rookie penalties are applied in live stroke/rank calculations and shown on scorecards.</div>
+          <div class="table-wrap" id="penaltyTableWrap"></div>
+        </details>
       </div>
 
-      <div class="card" id="matchInputsCard">
-        <div class="head">
-          <strong>Match Scoring (Auto)</strong>
-          <label class="muted">Day
-            <select id="matchInputDay"></select>
-          </label>
-        </div>
-        <div class="muted" style="margin:6px 0 10px;">Calculated from entered hole scores across all foursomes for the selected day.</div>
-        <div class="table-wrap" id="matchInputsTableWrap"></div>
-      </div>
-
-      <div class="card" id="strokeInputsCard">
-        <strong>Stroke Results (Read-Only)</strong>
-        <div class="muted" style="margin:6px 0 10px;">Auto-derived from live scorecards for scoring confirmation. Manual entry is disabled on this page.</div>
-        <div class="table-wrap" id="strokeInputsTableWrap"></div>
-      </div>
     </div>
 
     <div class="card" id="scorecardCard" style="display:none;">
-      <div class="head">
-        <strong id="scorecardTitle">Scorecard</strong>
-        <span id="updatedAt" class="muted"></span>
-      </div>
-      <div class="table-wrap" id="scoreTableWrap"></div>
+      <details open>
+        <summary class="setup-summary">Live Scorecard</summary>
+        <div class="head">
+          <strong id="scorecardTitle">Scorecard</strong>
+          <span id="updatedAt" class="muted"></span>
+        </div>
+        <div class="table-wrap" id="scoreTableWrap"></div>
+      </details>
     </div>
 
     <div class="card" id="holeEntryCard" style="display:none;">
-      <div class="hole-nav" id="holeEntryWrap"></div>
+      <details open>
+        <summary class="setup-summary">Hole-By-Hole Entry</summary>
+        <div class="hole-nav" id="holeEntryWrap"></div>
+      </details>
     </div>
 
     <div class="card" id="markersCard" style="display:none;">
-      <strong>Closest to Pin / Long Drive</strong>
-      <div class="muted" style="margin:6px 0 10px;">Set winner per hole when applicable. Leave blank to clear.</div>
-      <div class="table-wrap" id="markerTableWrap"></div>
+      <details open>
+        <summary class="setup-summary">Closest To Pin / Long Drive</summary>
+        <div class="muted" style="margin:6px 0 10px;">Set winner per hole when applicable. Leave blank to clear.</div>
+        <div class="table-wrap" id="markerTableWrap"></div>
+      </details>
     </div>
 
     <div class="card" id="adminUtilityCard">
-      <strong>Admin Code Utility</strong>
-      <div class="muted" style="margin-top:4px;">Generate missing foursome codes for Tin Cup (admin only).</div>
-      <div class="row" style="margin-top:8px;">
-        <label>Admin Code
-          <input id="adminCodeInput" type="password" placeholder="Admin code">
-        </label>
-        <button id="genCodesBtn" type="button">Generate Missing Codes</button>
-        <span id="adminStatus" class="muted"></span>
-      </div>
-      <div id="generatedCodes" class="muted" style="margin-top:8px;"></div>
+      <details open>
+        <summary class="setup-summary">Admin Code Utility</summary>
+        <div class="muted" style="margin-top:4px;">Generate missing foursome codes for Tin Cup (admin only).</div>
+        <div class="row" style="margin-top:8px;">
+          <label>Admin Code
+            <input id="adminCodeInput" type="password" placeholder="Admin code">
+          </label>
+          <button id="genCodesBtn" type="button">Generate Missing Codes</button>
+          <span id="adminStatus" class="muted"></span>
+        </div>
+        <div id="generatedCodes" class="muted" style="margin-top:8px;"></div>
+      </details>
     </div>
   </div>
 
@@ -160,6 +193,11 @@
     const entryIntro = document.getElementById('entryIntro');
     const scorecardLinksCard = document.getElementById('scorecardLinksCard');
     const adminUtilityCard = document.getElementById('adminUtilityCard');
+    const golferSetupTableBody = document.getElementById('golferSetupTableBody');
+    const addGolferRowBtn = document.getElementById('addGolferRowBtn');
+    const syncGolfersFromTripBtn = document.getElementById('syncGolfersFromTripBtn');
+    const saveGolferSetupBtn = document.getElementById('saveGolferSetupBtn');
+    const golferSetupStatus = document.getElementById('golferSetupStatus');
 
     const TIN_CUP_CONTEXT_STORAGE_KEY = 'tinCupTripContextV1';
     const TIN_CUP_LIVE_LOCAL_STATE_KEY = 'tinCupLiveLocalStateV1';
@@ -168,7 +206,16 @@
     const DAY_KEYS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4', 'Practice'];
     const DAY_OPTIONS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 2 Total', 'Day 3', 'Day 4'];
     const RANK_POINTS = [12, 10, 8.5, 7, 5.75, 4.5, 3, 1.25, 0, 0, 0, 0, 0, 0, 0, 0];
-    const FINAL_INPUT_PLAYERS = ['Matt', 'Rick', 'OB', 'Kyle', 'Manny', 'Steve', 'Tommy', 'Pat', 'Mil', 'CSamm', 'Brian', 'Bob', 'David', 'John', 'Tony', 'Spiro'];
+    let FINAL_INPUT_PLAYERS = ['Matt', 'Rick', 'OB', 'Kyle', 'Manny', 'Steve', 'Tommy', 'Pat', 'Mil', 'CSamm', 'Brian', 'Bob', 'David', 'John', 'Tony', 'Spiro'];
+    const GOLFER_CLASS_STORAGE_KEY = 'tinCupGolferClassV1';
+    const GOLFER_CLASSES = [
+      { value: '', label: 'None' },
+      { value: 'champ1', label: 'Previous Champ x1' },
+      { value: 'champ2', label: 'Previous Champ x2' },
+      { value: 'champ3', label: 'Previous Champ x3' },
+      { value: 'champ4', label: 'Previous Champ x4' },
+      { value: 'rookie', label: 'Rookie' }
+    ];
     const MATCH_ENTRY_DAYS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4', 'Practice'];
     const PLAYER_HANDICAPS = {
       matt: 10.8, rick: 15.3, ob: 11.2, kyle: 8.2,
@@ -199,6 +246,7 @@
     let penaltiesByPlayer = {};
     let active = { dayKey: '', slotIndex: -1, code: '', view: null };
     let currentHole = 1;
+    let golferSetupRows = [];
 
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
     const norm = (v = '') => String(v || '').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -459,6 +507,234 @@
       localStorage.setItem(TIN_CUP_SCORING_STORAGE_KEY, JSON.stringify(state));
     }
 
+    function loadGolferClassState() {
+      try {
+        const raw = localStorage.getItem(GOLFER_CLASS_STORAGE_KEY);
+        const parsed = raw ? JSON.parse(raw) : {};
+        return (parsed && typeof parsed === 'object') ? parsed : {};
+      } catch (_err) {
+        return {};
+      }
+    }
+
+    function saveGolferClassState(state) {
+      try { localStorage.setItem(GOLFER_CLASS_STORAGE_KEY, JSON.stringify(state || {})); } catch (_err) {}
+    }
+
+    function classifyFromPenalty(playerName = '') {
+      const penalty = getPenaltyEntry(playerName);
+      if (penalty.rookie > 0) return 'rookie';
+      const champ = Math.round(Number(penalty.champion || 0));
+      if (champ >= 4) return 'champ4';
+      if (champ >= 3) return 'champ3';
+      if (champ === 2) return 'champ2';
+      if (champ === 1) return 'champ1';
+      return '';
+    }
+
+    function penaltyFromClass(classification = '') {
+      if (classification === 'rookie') return { champion: 0, rookie: 1 };
+      if (classification === 'champ4') return { champion: 4, rookie: 0 };
+      if (classification === 'champ3') return { champion: 3, rookie: 0 };
+      if (classification === 'champ2') return { champion: 2, rookie: 0 };
+      if (classification === 'champ1') return { champion: 1, rookie: 0 };
+      return { champion: 0, rookie: 0 };
+    }
+
+    function getClassFactor(classification = '') {
+      if (classification === 'rookie') return 0.85;
+      if (classification === 'champ1') return 0.80;
+      if (classification === 'champ2') return 0.70;
+      if (classification === 'champ3') return 0.60;
+      if (classification === 'champ4') return 0.50;
+      return 1;
+    }
+
+    function getAdjustedHandicap(baseHandicap = 0, classification = '') {
+      const base = Number.isFinite(Number(baseHandicap)) ? Number(baseHandicap) : 0;
+      const factor = getClassFactor(classification);
+      return Number((base * factor).toFixed(1));
+    }
+
+    function getClassPenaltyLabel(baseHandicap = 0, classification = '') {
+      const factor = getClassFactor(classification);
+      const adjusted = getAdjustedHandicap(baseHandicap, classification);
+      if (factor === 1) return '-';
+      const pct = Math.round(factor * 100);
+      return `${pct}% HCP (${adjusted.toFixed(1)})`;
+    }
+
+    function normalizeGolferRows(rows = []) {
+      const out = [];
+      const seen = new Set();
+      rows.forEach((row) => {
+        const name = String(row && row.name || '').trim();
+        const key = norm(name);
+        if (!name || !key || seen.has(key)) return;
+        seen.add(key);
+        const handicap = toNum(row && row.handicap);
+        const classification = GOLFER_CLASSES.some((opt) => opt.value === row.classification) ? row.classification : '';
+        out.push({
+          name,
+          handicap: handicap === null ? 0 : Number(handicap.toFixed(1)),
+          classification
+        });
+      });
+      return out;
+    }
+
+    function initGolferSetupRows() {
+      const storedClass = loadGolferClassState();
+      const base = FINAL_INPUT_PLAYERS.map((name) => {
+        const key = norm(name);
+        const fromPenalty = classifyFromPenalty(name);
+        const classification = GOLFER_CLASSES.some((opt) => opt.value === storedClass[key]) ? storedClass[key] : fromPenalty;
+        return {
+          name,
+          handicap: Number(PLAYER_HANDICAPS[key] || 0),
+          classification
+        };
+      });
+      golferSetupRows = normalizeGolferRows(base);
+      if (!golferSetupRows.length) golferSetupRows = [{ name: '', handicap: 0, classification: '' }];
+    }
+
+    function getGolferRowsFromDom() {
+      const rows = Array.from(golferSetupTableBody.querySelectorAll('[data-golfer-row]'));
+      return rows.map((row) => {
+        const name = String((row.querySelector('[data-golfer-name]') || {}).value || '').trim();
+        const handicap = toNum((row.querySelector('[data-golfer-hcp]') || {}).value);
+        const classification = String((row.querySelector('[data-golfer-class]') || {}).value || '');
+        return { name, handicap: handicap === null ? 0 : handicap, classification };
+      });
+    }
+
+    function renderGolferSetup() {
+      if (!golferSetupRows.length) golferSetupRows = [{ name: '', handicap: 0, classification: '' }];
+      golferSetupTableBody.innerHTML = golferSetupRows.map((row, idx) => {
+        const classification = GOLFER_CLASSES.some((opt) => opt.value === row.classification) ? row.classification : '';
+        const baseHandicap = Number(row.handicap || 0);
+        const adjusted = getAdjustedHandicap(baseHandicap, classification);
+        return `<tr data-golfer-row="${idx}">
+          <td>${idx + 1}</td>
+          <td><input class="name-input" type="text" data-golfer-name value="${esc(row.name || '')}" placeholder="Golfer name"></td>
+          <td>
+            <input type="number" step="0.1" data-golfer-hcp value="${esc(baseHandicap.toFixed(1))}" placeholder="0.0">
+            <div class="muted" style="margin-top:4px;">Adjusted: ${esc(adjusted.toFixed(1))}</div>
+          </td>
+          <td><select data-golfer-class>${GOLFER_CLASSES.map((opt) => `<option value="${esc(opt.value)}"${opt.value === classification ? ' selected' : ''}>${esc(opt.label)}</option>`).join('')}</select></td>
+          <td>${esc(getClassPenaltyLabel(baseHandicap, classification))}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    async function syncGolfersFromTripParticipants() {
+      if (localMode) {
+        golferSetupStatus.className = 'muted';
+        golferSetupStatus.textContent = 'Local mode: using current roster only.';
+        return;
+      }
+      const id = await resolveTripId();
+      const res = await fetch(tripApi(`/api/trips/${id}/participants`));
+      const payload = await res.json().catch(() => []);
+      if (!res.ok) throw new Error((payload && payload.error) || 'Failed to load trip participants');
+      const participants = Array.isArray(payload) ? payload : [];
+      const byPenalty = new Map(golferSetupRows.map((row) => [norm(row.name), row.classification || '']));
+      golferSetupRows = normalizeGolferRows(participants.map((p) => {
+        const key = norm(p && p.name);
+        return {
+          name: String(p && p.name || ''),
+          handicap: toNum(p && p.handicapIndex) || Number(PLAYER_HANDICAPS[key] || 0),
+          classification: byPenalty.get(key) || classifyFromPenalty(String(p && p.name || ''))
+        };
+      }));
+      if (!golferSetupRows.length) golferSetupRows = [{ name: '', handicap: 0, classification: '' }];
+      renderGolferSetup();
+      golferSetupStatus.className = 'ok';
+      golferSetupStatus.textContent = `Loaded ${golferSetupRows.length} golfers from trip participants`;
+    }
+
+    async function applyGolferSetup(saveRemote = true) {
+      const rows = normalizeGolferRows(getGolferRowsFromDom());
+      if (!rows.length) throw new Error('Add at least one golfer before saving setup.');
+      golferSetupRows = rows;
+      FINAL_INPUT_PLAYERS = rows.map((row) => row.name);
+
+      const classState = {};
+      rows.forEach((row) => {
+        const key = norm(row.name);
+        const adjusted = getAdjustedHandicap(row.handicap, row.classification || '');
+        PLAYER_HANDICAPS[key] = adjusted;
+        classState[key] = row.classification || '';
+        const penalty = penaltyFromClass(row.classification || '');
+        penaltiesByPlayer[key] = { champion: penalty.champion, rookie: penalty.rookie, total: Number((penalty.champion + penalty.rookie).toFixed(2)) };
+      });
+      saveGolferClassState(classState);
+
+      const scoring = loadTinCupScoringState();
+      scoring.penalties = { ...(scoring.penalties || {}) };
+      rows.forEach((row) => {
+        const key = norm(row.name);
+        scoring.penalties[key] = penaltiesByPlayer[key];
+      });
+      saveTinCupScoringState(scoring);
+
+      if (!localMode && saveRemote) {
+        const id = await resolveTripId();
+        const pRes = await fetch(tripApi(`/api/trips/${id}/participants`));
+        const participants = await pRes.json().catch(() => []);
+        const list = Array.isArray(participants) ? participants : [];
+        const byName = new Map(list.map((p) => [norm(p && p.name), p]));
+        for (const row of rows) {
+          const existing = byName.get(norm(row.name));
+          const adjusted = getAdjustedHandicap(row.handicap, row.classification || '');
+          const body = { name: row.name, handicapIndex: adjusted, status: 'in' };
+          if (existing && existing._id) {
+            await fetch(tripApi(`/api/trips/${id}/participants/${existing._id}`), {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body)
+            });
+          } else {
+            await fetch(tripApi(`/api/trips/${id}/participants`), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body)
+            });
+          }
+        }
+
+        const adminCode = String(adminCodeInput.value || '').trim() || getAdminCode();
+        if (!adminCode) throw new Error('Admin code required to save champion/rookie flags.');
+        const skippedPenaltyNames = [];
+        for (const row of rows) {
+          const p = penaltyFromClass(row.classification || '');
+          const penaltyRes = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/admin/penalty`), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'x-admin-code': adminCode },
+            body: JSON.stringify({ playerName: row.name, champion: p.champion, rookie: p.rookie }),
+          });
+          if (!penaltyRes.ok) {
+            const payload = await penaltyRes.json().catch(() => ({}));
+            const msg = String(payload && payload.error || '');
+            if (/Unknown Tin Cup player/i.test(msg)) {
+              skippedPenaltyNames.push(row.name);
+              continue;
+            }
+            throw new Error(msg || 'Failed to save champion/rookie flags');
+          }
+        }
+        meta = await fetchMeta();
+        if (skippedPenaltyNames.length) {
+          golferSetupStatus.className = 'muted';
+          golferSetupStatus.textContent = `Saved roster. Penalty flags skipped for unsupported names: ${skippedPenaltyNames.join(', ')}`;
+        }
+      }
+
+      renderGolferSetup();
+      renderSelectors();
+    }
+
     function computeDailyMatchMatrix(dayKey = '') {
       const rules = [{ label: 'Front 9', pairs: [[0, 1], [2, 3]] }, { label: 'Back 9 #1', pairs: [[0, 2], [1, 3]] }, { label: 'Back 9 #2', pairs: [[0, 3], [1, 2]] }];
       const rows = [];
@@ -554,6 +830,8 @@
     }
 
     function renderPenaltyInputs() {
+      const champOptions = [0, 1, 2, 3, 4];
+      const rookieOptions = [0, 1];
       const rows = FINAL_INPUT_PLAYERS.map((name) => {
         const key = norm(name);
         const handicap = Number(PLAYER_HANDICAPS[key] || 0);
@@ -561,8 +839,8 @@
         return `<tr>
           <td><strong>${esc(name)}</strong></td>
           <td>${esc(handicap.toFixed(1))}</td>
-          <td><input type="number" step="0.1" data-penalty-input="champion|${esc(name)}" value="${esc(penalties.champion)}" placeholder="0"></td>
-          <td><input type="number" step="0.1" data-penalty-input="rookie|${esc(name)}" value="${esc(penalties.rookie)}" placeholder="0"></td>
+          <td><select data-penalty-input="champion|${esc(name)}">${champOptions.map((n) => `<option value="${n}"${Number(penalties.champion) === n ? ' selected' : ''}>${n}</option>`).join('')}</select></td>
+          <td><select data-penalty-input="rookie|${esc(name)}">${rookieOptions.map((n) => `<option value="${n}"${Number(penalties.rookie) === n ? ' selected' : ''}>${n}</option>`).join('')}</select></td>
           <td><strong>${esc(penalties.total)}</strong></td>
         </tr>`;
       }).join('');
@@ -850,9 +1128,8 @@
       if (!dayOptions.includes(selectedLinkDay)) selectedLinkDay = dayOptions[0] || '';
       linkDaySelect.value = selectedLinkDay;
       renderScorecardLinks();
-      renderMatchInputs().catch(() => {});
       renderPenaltyInputs();
-      renderStrokeInputs().catch(() => {});
+      renderGolferSetup();
     }
 
     async function loadScorecard(dayKey, slotIndex, linkCode = '') {
@@ -969,8 +1246,6 @@
         state.scorecards[localKey(active.dayKey, active.slotIndex)] = card;
         saveLocalLiveState(state);
         computeAndStoreLocalTinCupState();
-        renderMatchInputs().catch(() => {});
-        renderStrokeInputs().catch(() => {});
         const payload = buildLocalScorecardView(active.dayKey, active.slotIndex);
         active.view = payload;
         renderScorecard(payload);
@@ -990,8 +1265,6 @@
       active.view = payload;
       renderScorecard(payload);
       renderMarkers(payload);
-      renderMatchInputs().catch(() => {});
-      renderStrokeInputs().catch(() => {});
       statusEl.className = 'ok';
       statusEl.textContent = `Saved ${playerName} H${hole}`;
     }
@@ -1147,11 +1420,6 @@
       catch (error) { statusEl.className = 'bad'; statusEl.textContent = error.message; }
     });
 
-    matchInputDayEl.addEventListener('change', () => {
-      matchInputDay = String(matchInputDayEl.value || 'Day 1');
-      renderMatchInputs().catch(() => {});
-    });
-
     penaltyTableWrap.addEventListener('change', async (event) => {
       const target = event.target.closest('[data-penalty-input]');
       if (!target) return;
@@ -1159,7 +1427,10 @@
       if (!['champion', 'rookie'].includes(type) || !playerName) return;
       const key = norm(playerName);
       const existing = getPenaltyEntry(playerName);
-      const value = toNum(target.value) || 0;
+      const raw = Math.round(toNum(target.value) || 0);
+      const value = type === 'champion'
+        ? Math.max(0, Math.min(4, raw))
+        : Math.max(0, Math.min(1, raw));
       const next = {
         champion: type === 'champion' ? value : existing.champion,
         rookie: type === 'rookie' ? value : existing.rookie
@@ -1169,8 +1440,11 @@
       localScoring.penalties = { ...(localScoring.penalties || {}), [key]: penaltiesByPlayer[key] };
       saveTinCupScoringState(localScoring);
       renderPenaltyInputs();
-      renderMatchInputs().catch(() => {});
-      renderStrokeInputs().catch(() => {});
+      golferSetupRows = golferSetupRows.map((row) => {
+        if (norm(row.name) !== key) return row;
+        return { ...row, classification: classifyFromPenalty(playerName) };
+      });
+      renderGolferSetup();
       if (active && active.view) renderScorecard(active.view);
 
       if (!localMode) {
@@ -1207,6 +1481,48 @@
       statusEl.textContent = `Saved penalties for ${playerName}`;
     });
 
+    addGolferRowBtn.addEventListener('click', () => {
+      golferSetupRows = normalizeGolferRows(getGolferRowsFromDom());
+      golferSetupRows.push({ name: '', handicap: 0, classification: '' });
+      renderGolferSetup();
+      golferSetupStatus.className = 'muted';
+      golferSetupStatus.textContent = 'Added row. Fill name/handicap/classification and save.';
+    });
+
+    golferSetupTableBody.addEventListener('change', (event) => {
+      const target = event.target;
+      if (!target) return;
+      if (!target.closest('[data-golfer-row]')) return;
+      if (!target.matches('[data-golfer-hcp], [data-golfer-class], [data-golfer-name]')) return;
+      golferSetupRows = normalizeGolferRows(getGolferRowsFromDom());
+      if (!golferSetupRows.length) golferSetupRows = [{ name: '', handicap: 0, classification: '' }];
+      renderGolferSetup();
+    });
+
+    syncGolfersFromTripBtn.addEventListener('click', async () => {
+      golferSetupStatus.className = 'muted';
+      golferSetupStatus.textContent = 'Syncing participants...';
+      try {
+        await syncGolfersFromTripParticipants();
+      } catch (error) {
+        golferSetupStatus.className = 'bad';
+        golferSetupStatus.textContent = error.message;
+      }
+    });
+
+    saveGolferSetupBtn.addEventListener('click', async () => {
+      golferSetupStatus.className = 'muted';
+      golferSetupStatus.textContent = 'Saving golfer setup...';
+      try {
+        await applyGolferSetup(true);
+        golferSetupStatus.className = 'ok';
+        golferSetupStatus.textContent = `Saved ${FINAL_INPUT_PLAYERS.length} golfers`;
+      } catch (error) {
+        golferSetupStatus.className = 'bad';
+        golferSetupStatus.textContent = error.message;
+      }
+    });
+
     genCodesBtn.addEventListener('click', async () => {
       if (localMode || !settings.enableFoursomeCodes) return;
       const code = String(adminCodeInput.value || '').trim();
@@ -1236,6 +1552,7 @@
 
     (async () => {
       try {
+        initGolferSetupRows();
         meta = await fetchMeta();
         const queryDay = getQueryValue('dayKey');
         if (queryDay) selectedLinkDay = queryDay;
@@ -1250,7 +1567,6 @@
         statusEl.className = 'bad';
         statusEl.textContent = error.message;
         renderPenaltyInputs();
-        renderStrokeInputs().catch(() => {});
       }
     })();
   </script>
