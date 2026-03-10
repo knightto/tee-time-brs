@@ -96,7 +96,8 @@
         <div class="muted" style="margin:8px 0 10px;">Create or edit golfers, set handicap, and mark each as Previous Champ (`x1/x2/x3`) or Rookie.</div>
         <div class="setup-actions">
           <button id="addGolferRowBtn" type="button">Add Golfer Row</button>
-          <button id="syncGolfersFromTripBtn" type="button">Sync From Trip Participants</button>
+          <button id="importGolfersCsvBtn" type="button">Import Golfers CSV</button>
+          <input id="importGolfersCsvInput" type="file" accept=".csv,text/csv" style="display:none;">
           <button id="saveGolferSetupBtn" type="button">Save Golfer Setup</button>
           <span id="golferSetupStatus" class="muted"></span>
         </div>
@@ -109,6 +110,7 @@
                 <th>Handicap</th>
                 <th>Classification</th>
                 <th>Penalty</th>
+                <th>Action</th>
               </tr>
             </thead>
             <tbody id="golferSetupTableBody"></tbody>
@@ -147,6 +149,13 @@
       <details>
         <summary class="setup-summary">Admin Code Utility</summary>
         <div class="muted" style="margin-top:4px;">Generate missing foursome codes for Tin Cup (admin only).</div>
+        <div style="margin-top:8px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.03);display:grid;gap:6px;">
+          <label style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:0.9rem;">
+            <input id="codeProtectToggle" type="checkbox">
+            <span><strong>Require Foursome Code For Scorecard Entry</strong></span>
+          </label>
+          <small id="codeProtectHelp" class="muted">When enabled, each foursome must enter its code before opening a live scorecard.</small>
+        </div>
         <div class="row" style="margin-top:8px;">
           <label>Admin Code
             <input id="adminCodeInput" type="password" placeholder="Admin code">
@@ -176,6 +185,8 @@
     const matchInputsTableWrap = document.getElementById('matchInputsTableWrap');
     const strokeInputsTableWrap = document.getElementById('strokeInputsTableWrap');
     const adminCodeInput = document.getElementById('adminCodeInput');
+    const codeProtectToggle = document.getElementById('codeProtectToggle');
+    const codeProtectHelp = document.getElementById('codeProtectHelp');
     const genCodesBtn = document.getElementById('genCodesBtn');
     const seedScoresBtn = document.getElementById('seedScoresBtn');
     const adminStatus = document.getElementById('adminStatus');
@@ -185,7 +196,8 @@
     const adminUtilityCard = document.getElementById('adminUtilityCard');
     const golferSetupTableBody = document.getElementById('golferSetupTableBody');
     const addGolferRowBtn = document.getElementById('addGolferRowBtn');
-    const syncGolfersFromTripBtn = document.getElementById('syncGolfersFromTripBtn');
+    const importGolfersCsvBtn = document.getElementById('importGolfersCsvBtn');
+    const importGolfersCsvInput = document.getElementById('importGolfersCsvInput');
     const saveGolferSetupBtn = document.getElementById('saveGolferSetupBtn');
     const golferSetupStatus = document.getElementById('golferSetupStatus');
 
@@ -239,6 +251,7 @@
     let currentHole = 1;
     let golferSetupRows = [];
     let allowLocalFallback = false;
+    let lastDraftGolferCount = 0;
 
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
     const norm = (v = '') => String(v || '').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -539,13 +552,46 @@
       saveGolferClassState(out);
     }
 
+    function getValidGolferRows(rows = []) {
+      return normalizeGolferRows(rows).filter((row) => String(row.name || '').trim());
+    }
+
+    function getRosterCountMessage(count = 0) {
+      if (!count) return 'No golfers staged yet.';
+      const groupCount = Number((count / 4).toFixed(2));
+      if (count % 4 === 0) return `Staged ${count} golfers (${groupCount} foursomes). Save to apply trip updates.`;
+      return `Staged ${count} golfers. Roster must be a multiple of 4 before saving.`;
+    }
+
+    function alertIfRosterCountInvalid(count = 0, action = 'updated') {
+      if (!count || count % 4 === 0) return;
+      window.alert(`Tin Cup golfer roster must stay in increments of 4. The staged roster has ${count} golfers after this ${action}.`);
+    }
+
+    function updateGolferSetupDraft(rows = [], options = {}) {
+      const normalized = normalizeGolferRows(rows);
+      const validRows = normalized.filter((row) => String(row.name || '').trim());
+      const nextRows = normalized.slice();
+      if (options.appendBlankRow) nextRows.push({ name: '', handicap: 0, classification: '' });
+      golferSetupRows = nextRows.length ? nextRows : [{ name: '', handicap: 0, classification: '' }];
+      const shouldPersistDraft = options.persistDraft !== false;
+      const shouldPersistClass = options.persistClass === true;
+      if (shouldPersistDraft) saveGolferSetupDraft(validRows);
+      if (shouldPersistClass) persistGolferClassFromRows(validRows);
+      if (options.alertOnCountChange && validRows.length !== lastDraftGolferCount) {
+        alertIfRosterCountInvalid(validRows.length, options.alertAction || 'update');
+      }
+      lastDraftGolferCount = validRows.length;
+      return validRows;
+    }
+
     function applyGolferRowsLocally(rows = [], options = {}) {
       const normalized = normalizeGolferRows(rows);
       const persistDraft = options.persistDraft !== false;
       const persistClass = options.persistClass !== false;
       const persistScoring = options.persistScoring !== false;
-      golferSetupRows = normalized.length ? normalized : [{ name: '', handicap: 0, classification: '' }];
-      const validRows = golferSetupRows.filter((row) => String(row.name || '').trim());
+      const syncSetupRows = options.syncSetupRows !== false;
+      const validRows = normalized.filter((row) => String(row.name || '').trim());
       FINAL_INPUT_PLAYERS = validRows.map((row) => row.name);
 
       const nextPenalties = {};
@@ -568,6 +614,10 @@
         const scoring = loadTinCupScoringState();
         scoring.penalties = { ...(scoring.penalties || {}), ...nextPenalties };
         saveTinCupScoringState(scoring);
+      }
+      if (syncSetupRows) {
+        golferSetupRows = normalized.length ? normalized : [{ name: '', handicap: 0, classification: '' }];
+        lastDraftGolferCount = validRows.length;
       }
       return validRows;
     }
@@ -641,6 +691,20 @@
       return out;
     }
 
+    function buildAppliedGolferRows() {
+      const storedClass = loadGolferClassState();
+      return normalizeGolferRows(FINAL_INPUT_PLAYERS.map((name) => {
+        const key = norm(name);
+        const fromPenalty = classifyFromPenalty(name);
+        const classification = GOLFER_CLASSES.some((opt) => opt.value === storedClass[key]) ? storedClass[key] : fromPenalty;
+        return {
+          name,
+          handicap: getBaseHandicapFromAdjusted(Number(PLAYER_HANDICAPS[key] || 0), classification),
+          classification
+        };
+      }));
+    }
+
     function initGolferSetupRows() {
       const storedClass = loadGolferClassState();
       const draft = normalizeGolferRows(loadGolferSetupDraft());
@@ -651,38 +715,19 @@
           const classification = GOLFER_CLASSES.some((opt) => opt.value === storedClass[key]) ? storedClass[key] : (row.classification || inferred || '');
           return { ...row, classification };
         });
-        if (!golferSetupRows.length) golferSetupRows = [{ name: '', handicap: 0, classification: '' }];
-        return;
+      } else {
+        golferSetupRows = buildAppliedGolferRows();
       }
-      const base = FINAL_INPUT_PLAYERS.map((name) => {
-        const key = norm(name);
-        const fromPenalty = classifyFromPenalty(name);
-        const classification = GOLFER_CLASSES.some((opt) => opt.value === storedClass[key]) ? storedClass[key] : fromPenalty;
-        return {
-          name,
-          handicap: getBaseHandicapFromAdjusted(Number(PLAYER_HANDICAPS[key] || 0), classification),
-          classification
-        };
-      });
-      golferSetupRows = normalizeGolferRows(base);
       if (!golferSetupRows.length) golferSetupRows = [{ name: '', handicap: 0, classification: '' }];
+      lastDraftGolferCount = getValidGolferRows(golferSetupRows).length;
     }
 
     function syncGolferSetupRowsFromPersistedState() {
-      const storedClass = loadGolferClassState();
-      const source = golferSetupRows.length
-        ? golferSetupRows
-        : FINAL_INPUT_PLAYERS.map((name) => ({ name, handicap: Number(PLAYER_HANDICAPS[norm(name)] || 0), classification: '' }));
-      const merged = source.map((row) => {
-        const key = norm(row.name);
-        const byStored = GOLFER_CLASSES.some((opt) => opt.value === storedClass[key]) ? storedClass[key] : '';
-        const byPenalty = classifyFromPenalty(row.name);
-        const classification = byStored || byPenalty || row.classification || '';
-        const adjustedHandicap = Number(PLAYER_HANDICAPS[key] || row.handicap || 0);
-        const handicap = getBaseHandicapFromAdjusted(adjustedHandicap, classification);
-        return { name: row.name, handicap, classification };
-      });
-      applyGolferRowsLocally(merged, { persistDraft: true, persistClass: true, persistScoring: true });
+      const appliedRows = buildAppliedGolferRows();
+      applyGolferRowsLocally(appliedRows, { persistDraft: false, persistClass: true, persistScoring: true, syncSetupRows: false });
+      const draft = normalizeGolferRows(loadGolferSetupDraft());
+      golferSetupRows = draft.length ? draft : (appliedRows.length ? appliedRows : [{ name: '', handicap: 0, classification: '' }]);
+      lastDraftGolferCount = getValidGolferRows(golferSetupRows).length;
     }
 
     function getGolferRowsFromDom() {
@@ -710,10 +755,81 @@
           </td>
           <td><select data-golfer-class>${GOLFER_CLASSES.map((opt) => `<option value="${esc(opt.value)}"${opt.value === classification ? ' selected' : ''}>${esc(opt.label)}</option>`).join('')}</select></td>
           <td>${esc(getClassPenaltyLabel(baseHandicap, classification))}</td>
+          <td><button type="button" data-remove-golfer="${idx}">Remove</button></td>
         </tr>`;
       }).join('');
     }
 
+
+    function parseCsvCells(line = '') {
+      const cells = [];
+      let current = '';
+      let inQuotes = false;
+      for (let i = 0; i < line.length; i += 1) {
+        const ch = line[i];
+        if (ch === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            current += '"';
+            i += 1;
+          } else {
+            inQuotes = !inQuotes;
+          }
+        } else if (ch === ',' && !inQuotes) {
+          cells.push(current.trim());
+          current = '';
+        } else {
+          current += ch;
+        }
+      }
+      cells.push(current.trim());
+      return cells;
+    }
+
+    function inferClassificationFromCsv(value = '') {
+      const raw = String(value || '').trim().toLowerCase();
+      if (!raw) return '';
+      if (['rookie', 'r'].includes(raw)) return 'rookie';
+      if (['champ1', 'champ 1', 'x1', '1'].includes(raw)) return 'champ1';
+      if (['champ2', 'champ 2', 'x2', '2'].includes(raw)) return 'champ2';
+      if (['champ3', 'champ 3', 'x3', '3'].includes(raw)) return 'champ3';
+      if (['champ4', 'champ 4', 'x4', '4'].includes(raw)) return 'champ4';
+      return '';
+    }
+
+    function parseGolferCsv(text = '') {
+      const lines = String(text || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+      if (!lines.length) throw new Error('CSV file is empty.');
+      const firstCells = parseCsvCells(lines[0]).map((cell) => String(cell || '').trim().toLowerCase());
+      const hasHeader = firstCells.some((cell) => ['name', 'golfer', 'player', 'handicap', 'classification', 'class'].includes(cell));
+      const startIndex = hasHeader ? 1 : 0;
+      const rows = [];
+      for (let i = startIndex; i < lines.length; i += 1) {
+        const cells = parseCsvCells(lines[i]);
+        if (!cells.length) continue;
+        const name = String(cells[0] || '').trim();
+        if (!name) continue;
+        const handicap = toNum(cells[1]);
+        const classification = inferClassificationFromCsv(cells[2]);
+        rows.push({
+          name,
+          handicap: handicap === null ? 0 : handicap,
+          classification
+        });
+      }
+      const normalized = normalizeGolferRows(rows);
+      if (!normalized.length) throw new Error('No valid golfer rows found in CSV.');
+      return normalized;
+    }
+
+    async function importGolfersFromCsvFile(file) {
+      if (!file) throw new Error('Choose a CSV file first.');
+      const text = await file.text();
+      const importedRows = parseGolferCsv(text);
+      updateGolferSetupDraft(importedRows, { persistDraft: true, persistClass: true, alertOnCountChange: true, alertAction: 'import' });
+      renderGolferSetup();
+      golferSetupStatus.className = importedRows.length % 4 === 0 ? 'ok' : 'bad';
+      golferSetupStatus.textContent = getRosterCountMessage(importedRows.length);
+    }
     async function syncGolfersFromTripParticipants() {
       if (localMode) {
         golferSetupStatus.className = 'muted';
@@ -747,41 +863,53 @@
     async function applyGolferSetup(saveRemote = true) {
       const rows = normalizeGolferRows(getGolferRowsFromDom());
       if (!rows.length) throw new Error('Add at least one golfer before saving setup.');
-      const appliedRows = applyGolferRowsLocally(rows, { persistDraft: true, persistClass: true, persistScoring: true });
+      if (rows.length % 4 !== 0) throw new Error('Golfer roster must be a multiple of 4 before saving setup.');
+      const appliedRows = applyGolferRowsLocally(rows, { persistDraft: true, persistClass: true, persistScoring: true, syncSetupRows: true });
 
       if (!localMode && saveRemote) {
         const id = await resolveTripId();
+        const adminCode = String(adminCodeInput.value || '').trim() || getAdminCode();
+        if (!adminCode) throw new Error('Admin code required to sync trip participants and champion/rookie flags.');
+        const adminHeaders = { 'Content-Type': 'application/json', 'x-admin-code': adminCode };
         const pRes = await fetch(tripApi(`/api/trips/${id}/participants`));
         const participants = await pRes.json().catch(() => []);
+        if (!pRes.ok) throw new Error('Failed to load trip participants');
         const list = Array.isArray(participants) ? participants : [];
         const byName = new Map(list.map((p) => [norm(p && p.name), p]));
+        const appliedKeys = new Set(appliedRows.map((row) => norm(row.name)));
         for (const row of appliedRows) {
           const existing = byName.get(norm(row.name));
           const adjusted = getAdjustedHandicap(row.handicap, row.classification || '');
           const body = { name: row.name, handicapIndex: adjusted, status: 'in' };
-          if (existing && existing._id) {
-            await fetch(tripApi(`/api/trips/${id}/participants/${existing._id}`), {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(body)
-            });
-          } else {
-            await fetch(tripApi(`/api/trips/${id}/participants`), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(body)
-            });
-          }
+          const target = existing && existing._id
+            ? tripApi(`/api/trips/${id}/participants/${existing._id}`)
+            : tripApi(`/api/trips/${id}/participants`);
+          const method = existing && existing._id ? 'PUT' : 'POST';
+          const res = await fetch(target, {
+            method,
+            headers: adminHeaders,
+            body: JSON.stringify(body)
+          });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(payload.error || `Failed to ${method === 'PUT' ? 'update' : 'add'} participant ${row.name}`);
+        }
+        for (const participant of list) {
+          const key = norm(participant && participant.name);
+          if (!key || appliedKeys.has(key) || !(participant && participant._id)) continue;
+          const res = await fetch(tripApi(`/api/trips/${id}/participants/${participant._id}`), {
+            method: 'DELETE',
+            headers: { 'x-admin-code': adminCode }
+          });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(payload.error || `Failed to remove participant ${participant && participant.name ? participant.name : ''}`);
         }
 
-        const adminCode = String(adminCodeInput.value || '').trim() || getAdminCode();
-        if (!adminCode) throw new Error('Admin code required to save champion/rookie flags.');
         const skippedPenaltyNames = [];
         for (const row of appliedRows) {
           const p = penaltyFromClass(row.classification || '');
           const penaltyRes = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/admin/penalty`), {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'x-admin-code': adminCode },
+            headers: adminHeaders,
             body: JSON.stringify({ playerName: row.name, champion: p.champion, rookie: p.rookie }),
           });
           if (!penaltyRes.ok) {
@@ -1099,6 +1227,22 @@
       }
     }
 
+    async function saveLiveSettings(nextSettings) {
+      if (localMode) throw new Error('Live settings require a linked Tin Cup trip.');
+      const id = await resolveTripId();
+      const adminCode = String(adminCodeInput.value || '').trim();
+      if (!adminCode) throw new Error('Admin code required');
+      const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/settings`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-code': adminCode },
+        body: JSON.stringify({ settings: nextSettings })
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Failed to save live settings');
+      settings = (payload && payload.settings) ? payload.settings : nextSettings;
+      return settings;
+    }
+
     function getSlotsForDay(dayKey = '') {
       const row = (meta && Array.isArray(meta.daySlots) ? meta.daySlots : []).find((d) => d.dayKey === dayKey);
       return row ? row.slots : [];
@@ -1159,12 +1303,15 @@
       const dayOptions = (meta && Array.isArray(meta.matchDayOptions) ? meta.matchDayOptions : []);
       settings = (meta && meta.settings) ? meta.settings : settings;
       penaltiesByPlayer = (meta && typeof meta.penalties === 'object' && meta.penalties) ? meta.penalties : {};
-      if (localMode) {
-        const localScoring = loadTinCupScoringState();
-        if (localScoring && localScoring.penalties && typeof localScoring.penalties === 'object') {
-          penaltiesByPlayer = { ...penaltiesByPlayer, ...localScoring.penalties };
-        }
-      }
+      adminUtilityCard.style.display = !localMode ? '' : 'none';
+      codeProtectToggle.checked = settings.enableFoursomeCodes === true;
+      codeProtectToggle.disabled = localMode || !settings.enableLiveFoursomeScoring;
+      codeProtectHelp.textContent = localMode
+        ? 'Link the Tin Cup trip to the database to manage code protection here.'
+        : (!settings.enableLiveFoursomeScoring
+          ? 'Enable live foursome scoring first.'
+          : 'When enabled, each foursome must enter its code before opening a live scorecard.');
+      genCodesBtn.style.display = settings.enableFoursomeCodes ? '' : 'none';
       if (Array.isArray(meta && meta.playerHandicaps)) {
         meta.playerHandicaps.forEach((row) => {
           const key = norm(row && row.name);
@@ -1179,7 +1326,6 @@
           ? 'Use your foursome live scorecard link. If prompted, enter your foursome code.'
           : 'Use your foursome live scorecard link to enter hole-by-hole scores.';
       }
-      adminUtilityCard.style.display = (!localMode && settings.enableFoursomeCodes) ? '' : 'none';
 
       if (!settings.enableLiveFoursomeScoring) {
         scorecardLinksCard.style.opacity = '0.7';
@@ -1495,11 +1641,27 @@
 
 
     addGolferRowBtn.addEventListener('click', () => {
-      golferSetupRows = normalizeGolferRows(getGolferRowsFromDom());
-      golferSetupRows.push({ name: '', handicap: 0, classification: '' });
+      const rows = getGolferRowsFromDom();
+      rows.push({ name: '', handicap: 0, classification: '' });
+      const stagedRows = updateGolferSetupDraft(rows, { persistDraft: true, persistClass: true, appendBlankRow: true });
       renderGolferSetup();
-      golferSetupStatus.className = 'muted';
-      golferSetupStatus.textContent = 'Added row. Fill name/handicap/classification and save.';
+      golferSetupStatus.className = stagedRows.length && stagedRows.length % 4 !== 0 ? 'bad' : 'muted';
+      golferSetupStatus.textContent = stagedRows.length
+        ? getRosterCountMessage(stagedRows.length)
+        : 'Added row. Fill name, handicap, classification, then save to apply trip updates.';
+    });
+
+    golferSetupTableBody.addEventListener('click', (event) => {
+      const btn = event.target.closest('[data-remove-golfer]');
+      if (!btn) return;
+      const index = Number(btn.getAttribute('data-remove-golfer'));
+      if (!Number.isInteger(index) || index < 0) return;
+      const rows = getGolferRowsFromDom();
+      rows.splice(index, 1);
+      const stagedRows = updateGolferSetupDraft(rows, { persistDraft: true, persistClass: true, alertOnCountChange: true, alertAction: 'removal' });
+      renderGolferSetup();
+      golferSetupStatus.className = stagedRows.length && stagedRows.length % 4 !== 0 ? 'bad' : 'muted';
+      golferSetupStatus.textContent = getRosterCountMessage(stagedRows.length);
     });
 
     golferSetupTableBody.addEventListener('change', (event) => {
@@ -1507,19 +1669,27 @@
       if (!target) return;
       if (!target.closest('[data-golfer-row]')) return;
       if (!target.matches('[data-golfer-hcp], [data-golfer-class], [data-golfer-name]')) return;
-      applyGolferRowsLocally(getGolferRowsFromDom(), { persistDraft: true, persistClass: true, persistScoring: true });
+      const stagedRows = updateGolferSetupDraft(getGolferRowsFromDom(), { persistDraft: true, persistClass: true, alertOnCountChange: true, alertAction: 'update' });
       renderGolferSetup();
-      renderScorecardLinks();
+      golferSetupStatus.className = stagedRows.length && stagedRows.length % 4 !== 0 ? 'bad' : 'muted';
+      golferSetupStatus.textContent = getRosterCountMessage(stagedRows.length);
     });
 
-    syncGolfersFromTripBtn.addEventListener('click', async () => {
+    importGolfersCsvBtn.addEventListener('click', () => {
+      importGolfersCsvInput.click();
+    });
+
+    importGolfersCsvInput.addEventListener('change', async () => {
       golferSetupStatus.className = 'muted';
-      golferSetupStatus.textContent = 'Syncing participants...';
+      golferSetupStatus.textContent = 'Importing golfers from CSV...';
       try {
-        await syncGolfersFromTripParticipants();
+        const file = importGolfersCsvInput.files && importGolfersCsvInput.files[0];
+        await importGolfersFromCsvFile(file);
       } catch (error) {
         golferSetupStatus.className = 'bad';
         golferSetupStatus.textContent = error.message;
+      } finally {
+        importGolfersCsvInput.value = '';
       }
     });
 
@@ -1600,6 +1770,29 @@
       }
     });
 
+
+    codeProtectToggle.addEventListener('change', async () => {
+      const next = codeProtectToggle.checked === true;
+      codeProtectToggle.disabled = true;
+      adminStatus.className = 'muted';
+      adminStatus.textContent = 'Saving code protection setting...';
+      try {
+        await saveLiveSettings({
+          ...settings,
+          enableFoursomeCodes: next
+        });
+        meta = await fetchMeta();
+        renderSelectors();
+        adminStatus.className = 'ok';
+        adminStatus.textContent = next
+          ? 'Foursome code requirement enabled.'
+          : 'Foursome code requirement disabled.';
+      } catch (error) {
+        codeProtectToggle.checked = !next;
+        adminStatus.className = 'bad';
+        adminStatus.textContent = error.message;
+      }
+    });
     (async () => {
       try {
         initGolferSetupRows();
@@ -1621,4 +1814,6 @@
   </script>
 </body>
 </html>
+
+
 
