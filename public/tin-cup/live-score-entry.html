@@ -151,7 +151,8 @@
           <label>Admin Code
             <input id="adminCodeInput" type="password" placeholder="Admin code">
           </label>
-          <button id="genCodesBtn" type="button">Generate Missing Codes</button>
+          <button id='genCodesBtn' type='button'>Generate Missing Codes</button>
+          <button id='seedScoresBtn' type='button'>Seed All Rounds Demo Scores</button>
           <span id="adminStatus" class="muted"></span>
         </div>
         <div id="generatedCodes" class="muted" style="margin-top:8px;"></div>
@@ -176,6 +177,7 @@
     const strokeInputsTableWrap = document.getElementById('strokeInputsTableWrap');
     const adminCodeInput = document.getElementById('adminCodeInput');
     const genCodesBtn = document.getElementById('genCodesBtn');
+    const seedScoresBtn = document.getElementById('seedScoresBtn');
     const adminStatus = document.getElementById('adminStatus');
     const generatedCodes = document.getElementById('generatedCodes');
     const entryIntro = document.getElementById('entryIntro');
@@ -441,7 +443,8 @@
             const sum = summarizeHoles(entry.holes || holeArray(), player.hcp);
             summaryByName.set(norm(player.name), sum);
             if (['Day 1', 'Day 3', 'Day 4'].includes(dayKey) && sum.complete18 && Number.isFinite(sum.netTotal)) {
-              out.strokeNet[dayKey][norm(player.name)] = sum.netTotal;
+              const penalty = getPenaltyEntry(player.name);
+              out.strokeNet[dayKey][norm(player.name)] = Number((sum.netTotal + penalty.total).toFixed(2));
             }
           });
 
@@ -1004,7 +1007,7 @@
     function buildLocalMeta() {
       const penalties = {};
       FINAL_INPUT_PLAYERS.forEach((name) => {
-        penalties[norm(name)] = { champion: 0, rookie: 0, total: 0 };
+        penalties[norm(name)] = getPenaltyEntry(name);
       });
       return {
         matchDayOptions: DAY_KEYS.slice(),
@@ -1559,6 +1562,43 @@
       }
     });
 
+    seedScoresBtn.addEventListener('click', async () => {
+      if (localMode) {
+        adminStatus.className = 'bad';
+        adminStatus.textContent = 'Score seeding requires a linked Tin Cup trip.';
+        return;
+      }
+      const code = String(adminCodeInput.value || '').trim();
+      if (!code) { adminStatus.className = 'bad'; adminStatus.textContent = 'Admin code required'; return; }
+      adminStatus.className = 'muted';
+      adminStatus.textContent = 'Seeding demo scores...';
+      generatedCodes.textContent = '';
+      try {
+        const id = await resolveTripId();
+        const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/admin/seed-scores`), {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-code': code }, body: JSON.stringify({ reset: true })
+        });
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload.error || 'Failed to seed scores');
+        meta = await fetchMeta();
+        renderSelectors();
+        if (active && active.dayKey && Number.isInteger(active.slotIndex) && active.slotIndex >= 0) {
+          const refreshed = await loadScorecard(active.dayKey, active.slotIndex, active.code || '');
+          renderScorecard(refreshed);
+          renderHoleEntry(refreshed);
+          renderMarkers(refreshed);
+        }
+        adminStatus.className = 'ok';
+        adminStatus.textContent = `Seeded ${payload.scorecardCount || 0} scorecards (${payload.holeCount || 0} hole scores)`;
+        const topFive = Array.isArray(payload.topFive) ? payload.topFive : [];
+        generatedCodes.innerHTML = topFive.length
+          ? topFive.map((row, index) => `${index + 1}. <strong>${esc(row.name)}</strong> - ${esc(row.total)}`).join('<br>')
+          : 'Seed complete.';
+      } catch (error) {
+        adminStatus.className = 'bad';
+        adminStatus.textContent = error.message;
+      }
+    });
 
     (async () => {
       try {

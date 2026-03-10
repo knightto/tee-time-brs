@@ -170,7 +170,7 @@
     }
 
     function defaultLocalState() {
-      return { matchResults: { 'Day 1': {}, 'Day 2A': {}, 'Day 2B': {}, 'Day 3': {}, 'Day 4': {}, Practice: {} }, strokeNet: { 'Day 1': {}, 'Day 3': {}, 'Day 4': {} }, scrambleBonus: {} };
+      return { matchResults: { 'Day 1': {}, 'Day 2A': {}, 'Day 2B': {}, 'Day 3': {}, 'Day 4': {}, Practice: {} }, strokeNet: { 'Day 1': {}, 'Day 3': {}, 'Day 4': {} }, scrambleBonus: {}, penalties: {} };
     }
     function loadLocalState() {
       try {
@@ -180,7 +180,8 @@
         return {
           matchResults: { ...defaultLocalState().matchResults, ...(incoming.matchResults || {}) },
           strokeNet: { ...defaultLocalState().strokeNet, ...(incoming.strokeNet || {}) },
-          scrambleBonus: { ...(incoming.scrambleBonus || {}) }
+          scrambleBonus: { ...(incoming.scrambleBonus || {}) },
+          penalties: { ...(incoming.penalties || {}) }
         };
       } catch (_err) {
         return defaultLocalState();
@@ -264,6 +265,7 @@
         const stroke1 = s1.get(key) || 0;
         const stroke3 = s3.get(key) || 0;
         const scramble = num((state.scrambleBonus || {})[key]) || 0;
+        const penaltyTotal = num((((state.penalties || {})[key] || {}).total)) || 0;
         const day4Points = d4.pts.get(key) || 0;
         const day1Total = match1 + stroke1;
         const day2Total = match2;
@@ -272,7 +274,7 @@
         const day1Net = num((((state.strokeNet || {})['Day 1'] || {})[key]));
         const day3Net = num((((state.strokeNet || {})['Day 3'] || {})[key]));
         const day4Net = num((((state.strokeNet || {})['Day 4'] || {})[key]));
-        return { name, day1Net, day3Net, day4Net, match1, match2A, match2B, match2, match3, stroke1, stroke3, scramble, day4Points, day4Rank: d4.ranks.get(key), day1Total, day2Total, day3Total, total };
+        return { name, day1Net, day3Net, day4Net, match1, match2A, match2B, match2, match3, stroke1, stroke3, scramble, penaltyTotal, day4Points, day4Rank: d4.ranks.get(key), day1Total, day2Total, day3Total, total };
       }).sort((a, b) => (b.total - a.total) || a.name.localeCompare(b.name));
       let pos = 0; let last = null;
       rows.forEach((r, idx) => { if (last === null || r.total !== last) pos = idx + 1; r.position = pos; last = r.total; });
@@ -288,6 +290,7 @@
         else if (dayKey === 'Day 2 Total') { points = row.day2Total; detail = `${row.day2Total} match`; }
         else if (dayKey === 'Day 3') { points = row.day3Total; detail = `${row.match3} match + ${row.stroke3} stroke + ${row.scramble} scramble`; }
         else { points = row.day4Points || 0; detail = `${points} rank pts`; }
+        if (Number(row.penaltyTotal || 0) !== 0) detail = `${detail} + pen +${row.penaltyTotal}`;
         return { name: row.name, points, detail, total: row.total };
       }).sort((a, b) => (b.points - a.points) || (b.total - a.total) || a.name.localeCompare(b.name));
       let pos = 0; let last = null;
@@ -422,3 +425,4 @@
   </script>
 </body>
 </html>
+

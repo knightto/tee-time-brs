@@ -27,6 +27,7 @@ const {
   buildDayRows,
   setScrambleBonus,
   setPlayerPenalty,
+  seedAllScores,
 } = require('../services/tinCupLiveService');
 const router = express.Router();
 
@@ -557,6 +558,37 @@ router.put('/:tripId/tin-cup/live/admin/penalty', async (req, res) => {
   }
 });
 
+router.post('/:tripId/tin-cup/live/admin/seed-scores', async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+  try {
+    const { trip, TripModel, TripAuditLogModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const state = ensureTinCupLiveState(trip);
+    const reset = !(req.body && req.body.reset === false);
+    const leaderboard = seedAllScores(state, { reset });
+    trip.markModified('tinCupLive');
+    await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
+    await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_seed_scores', 'Tin Cup demo scores seeded for all rounds', {
+      reset,
+      scorecardCount: Object.keys(state.scorecards || {}).length,
+    });
+    const scorecardCount = Object.keys(state.scorecards || {}).length;
+    const holeCount = Object.values(state.scorecards || {}).reduce((sum, card) => {
+      const players = (card && card.players && typeof card.players === 'object') ? Object.values(card.players) : [];
+      return sum + players.reduce((playerSum, player) => playerSum + (Array.isArray(player && player.holes) ? player.holes.filter((gross) => Number.isFinite(Number(gross))).length : 0), 0);
+    }, 0);
+    return res.json({
+      message: 'Seeded Tin Cup scores for every round.',
+      reset,
+      scorecardCount,
+      holeCount,
+      topFive: (leaderboard.totals || []).slice(0, 5),
+    });
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
 router.get('/:tripId/tin-cup/live/settings', async (req, res) => {
   try {
     const { trip } = await loadTripBundle(req);
@@ -693,3 +725,4 @@ router.delete('/:tripId/participants/:participantId', async (req, res) => {
 });
 
 module.exports = router;
+

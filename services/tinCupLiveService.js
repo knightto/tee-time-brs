@@ -19,6 +19,25 @@ const FOURSOMES = [
   { playersByDay: { 'Day 1': [{ name: 'David', hcp: 8 }, { name: 'John', hcp: 7 }, { name: 'Tony', hcp: 8 }, { name: 'Spiro', hcp: 14 }], 'Day 2A': [{ name: 'Mil', hcp: 8 }, { name: 'David', hcp: 8 }, { name: 'Matt', hcp: 6 }, { name: 'Manny', hcp: 13 }], 'Day 2B': [{ name: 'Manny', hcp: 13 }, { name: 'Rick', hcp: 8 }, { name: 'Bob', hcp: 13 }, { name: 'Tony', hcp: 8 }], 'Day 3': [{ name: 'Pat', hcp: 10 }, { name: 'Brian', hcp: 12 }, { name: 'David', hcp: 8 }, { name: 'Rick', hcp: 8 }], 'Day 4': [{ name: 'David', hcp: 8 }, { name: 'John', hcp: 7 }, { name: 'Tony', hcp: 8 }, { name: 'Spiro', hcp: 14 }], Practice: [{ name: 'David', hcp: 8 }, { name: 'John', hcp: 7 }, { name: 'Tony', hcp: 8 }, { name: 'Spiro', hcp: 14 }] } },
 ];
 
+const SEED_PLAYER_PENALTIES = {
+  matt: { champion: 2, rookie: 0 },
+  kyle: { champion: 1, rookie: 0 },
+  tommy: { champion: 1, rookie: 0 },
+  csamm: { champion: 3, rookie: 0 },
+  spiro: { champion: 0, rookie: 1 },
+  bob: { champion: 0, rookie: 1 },
+};
+const SEED_SCRAMBLE_BONUS = {
+  matt: 1,
+  tommy: 1,
+  spiro: 0.5,
+  brian: 0.5,
+};
+const SEED_MARKER_HOLES = {
+  ctp: [3, 7, 12, 17],
+  longDrive: [5, 14],
+};
+
 const clean = (v = '') => String(v || '').trim();
 const normalize = (v = '') => clean(v).replace(/\s+/g, ' ').toLowerCase();
 const toIntOrNull = (v) => {
@@ -661,6 +680,72 @@ function setPlayerPenalty(state, playerName, payload = {}) {
   return buildPenaltyTable(state);
 }
 
+function getSeedGrossScore(dayKey, slotIndex, player, holeNumber) {
+  const playerKey = normalize(player && player.name);
+  const playerIndex = Math.max(0, PLAYERS.findIndex((entry) => normalize(entry.name) === playerKey));
+  const dayIndex = Math.max(0, MATCH_DAY_OPTIONS.indexOf(dayKey));
+  const skillOffset = Math.max(0, Math.min(3, Math.round((Number(player && player.hcp) - 4) / 4)));
+  let gross = 4 + skillOffset;
+  if (((holeNumber + playerIndex + dayIndex + Number(slotIndex)) % 6) === 0) gross -= 1;
+  if (((holeNumber * (Number(slotIndex) + 2) + playerIndex + dayIndex) % 9) === 0) gross += 1;
+  if (((holeNumber + dayIndex + playerIndex) % 13) === 0) gross += 1;
+  if (((holeNumber + Number(slotIndex) + playerIndex) % 11) === 0) gross -= 1;
+  return Math.max(3, Math.min(8, gross));
+}
+
+function getSeedMarkerWinner(players = [], dayKey, slotIndex, holeNumber, offset = 0) {
+  const dayIndex = Math.max(0, MATCH_DAY_OPTIONS.indexOf(dayKey));
+  let best = null;
+  players.forEach((player, playerIndex) => {
+    const gross = getSeedGrossScore(dayKey, slotIndex, player, holeNumber);
+    const tieBreaker = ((playerIndex + 1) * (holeNumber + dayIndex + offset + Number(slotIndex) + 1)) % 17;
+    if (!best || gross < best.gross || (gross === best.gross && tieBreaker < best.tieBreaker)) {
+      best = { name: player.name, gross, tieBreaker };
+    }
+  });
+  return best ? best.name : '';
+}
+
+function seedAllScores(state, options = {}) {
+  const reset = options.reset !== false;
+  if (!state.scorecards || typeof state.scorecards !== 'object' || reset) state.scorecards = {};
+  if (!state.scrambleBonus || typeof state.scrambleBonus !== 'object' || reset) state.scrambleBonus = {};
+  if (!state.penalties || typeof state.penalties !== 'object' || reset) state.penalties = {};
+
+  state.penalties = {
+    ...(reset ? {} : state.penalties),
+    ...normalizePenalties(SEED_PLAYER_PENALTIES),
+  };
+  state.scrambleBonus = {
+    ...(reset ? {} : state.scrambleBonus),
+    ...SEED_SCRAMBLE_BONUS,
+  };
+
+  MATCH_DAY_OPTIONS.forEach((dayKey) => {
+    getDaySlots(dayKey).forEach((slot) => {
+      const { scorecard } = ensureSlotScorecard(state, dayKey, slot.slotIndex);
+      scorecard.players = {};
+      slot.players.forEach((player) => {
+        scorecard.players[normalize(player.name)] = {
+          name: player.name,
+          holes: Array.from({ length: 18 }, (_, index) => getSeedGrossScore(dayKey, slot.slotIndex, player, index + 1)),
+        };
+      });
+      scorecard.markers = { ctp: {}, longDrive: {} };
+      SEED_MARKER_HOLES.ctp.forEach((holeNumber) => {
+        scorecard.markers.ctp[String(holeNumber)] = getSeedMarkerWinner(slot.players, dayKey, slot.slotIndex, holeNumber, 1);
+      });
+      SEED_MARKER_HOLES.longDrive.forEach((holeNumber) => {
+        scorecard.markers.longDrive[String(holeNumber)] = getSeedMarkerWinner(slot.players, dayKey, slot.slotIndex, holeNumber, 7);
+      });
+      scorecard.updatedAt = new Date().toISOString();
+      state.scorecards[keyFor(dayKey, slot.slotIndex)] = scorecard;
+    });
+  });
+
+  return buildLeaderboard(state);
+}
+
 module.exports = {
   DAY_OPTIONS,
   MATCH_DAY_OPTIONS,
@@ -678,4 +763,6 @@ module.exports = {
   buildDayRows,
   setScrambleBonus,
   setPlayerPenalty,
+  seedAllScores,
 };
+

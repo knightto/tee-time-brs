@@ -1642,14 +1642,16 @@
         'Day 3': {},
         'Day 4': {}
       },
-      scrambleBonus: {}
+      scrambleBonus: {},
+      penalties: {}
     });
     const mergeTinCupScoringState = (incoming = {}) => {
       const base = createDefaultTinCupScoringState();
       const out = {
         matchResults: { ...base.matchResults },
         strokeNet: { ...base.strokeNet },
-        scrambleBonus: { ...base.scrambleBonus }
+        scrambleBonus: { ...base.scrambleBonus },
+        penalties: { ...base.penalties }
       };
       TIN_CUP_MATCH_DAYS.forEach((dayKey) => {
         out.matchResults[dayKey] = { ...(base.matchResults[dayKey] || {}), ...((incoming.matchResults && incoming.matchResults[dayKey]) || {}) };
@@ -1658,6 +1660,7 @@
         out.strokeNet[dayKey] = { ...(base.strokeNet[dayKey] || {}), ...((incoming.strokeNet && incoming.strokeNet[dayKey]) || {}) };
       });
       out.scrambleBonus = { ...((incoming.scrambleBonus) || {}) };
+      out.penalties = { ...((incoming.penalties) || {}) };
       return out;
     };
     const loadTinCupScoringState = () => {
@@ -1727,6 +1730,10 @@
       const key = normalizeTinCupName(playerName);
       if (!tinCupScoringState.strokeNet[dayKey]) tinCupScoringState.strokeNet[dayKey] = {};
       tinCupScoringState.strokeNet[dayKey][key] = parseTinCupNumber(value);
+    };
+    const getTinCupPenaltyTotal = (playerName = '') => {
+      const key = normalizeTinCupName(playerName);
+      return parseTinCupNumber(tinCupScoringState?.penalties?.[key]?.total) || 0;
     };
     const getTinCupScrambleBonusValue = (playerName = '') => {
       const key = normalizeTinCupName(playerName);
@@ -1818,6 +1825,7 @@
         const stroke1 = strokeDay1.get(key) || 0;
         const stroke3 = strokeDay3.get(key) || 0;
         const scramble = getTinCupScrambleBonusValue(player.name) || 0;
+        const penaltyTotal = getTinCupPenaltyTotal(player.name);
         const day4Points = day4.pointsByName.get(key) || 0;
         const day1Total = match1 + stroke1;
         const day2Total = match2;
@@ -1832,6 +1840,7 @@
           stroke1,
           stroke3,
           scramble,
+          penaltyTotal,
           day4Points,
           day4Rank: day4.rankByName.get(key),
           day1Total,
@@ -1841,7 +1850,6 @@
         };
       }).sort((left, right) => {
         if (right.total !== left.total) return right.total - left.total;
-        if ((right.day4Points || 0) !== (left.day4Points || 0)) return (right.day4Points || 0) - (left.day4Points || 0);
         return left.name.localeCompare(right.name);
       });
 
@@ -1882,6 +1890,7 @@
           points = row.day4Points || 0;
           detail = `${points} rank pts`;
         }
+        if (Number(row.penaltyTotal || 0) !== 0) detail = `${detail} + pen +${row.penaltyTotal}`;
         return { name: row.name, points: Number(points || 0), detail, total: row.total };
       }).sort((left, right) => {
         if (right.points !== left.points) return right.points - left.points;
@@ -2044,6 +2053,7 @@
                   <th>D3 Match</th>
                   <th>D3 Stroke</th>
                   <th>Scramble</th>
+                  <th>Penalty</th>
                   <th>D4 Rank Pts</th>
                   <th>Total</th>
                 </tr>
@@ -2059,6 +2069,7 @@
                     <td>${escapeHtml(String(row.match3))}</td>
                     <td>${escapeHtml(String(row.stroke3))}</td>
                     <td>${escapeHtml(String(row.scramble || 0))}</td>
+                    <td>${escapeHtml(String(Number(row.penaltyTotal || 0).toFixed(2)))}</td>
                     <td>${escapeHtml(String(row.day4Points || 0))}${Number.isInteger(row.day4Rank) ? ` <span style="color:var(--ink-soft);font-size:0.72rem;">(r${row.day4Rank})</span>` : ''}</td>
                     <td><strong>${escapeHtml(String(row.total))}</strong></td>
                   </tr>
