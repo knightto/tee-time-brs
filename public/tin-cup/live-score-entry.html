@@ -154,7 +154,7 @@
             <input id="codeProtectToggle" type="checkbox">
             <span><strong>Require Foursome Code For Scorecard Entry</strong></span>
           </label>
-          <small id="codeProtectHelp" class="muted">When enabled, each foursome must enter its code before opening a live scorecard.</small>
+          <small id="codeProtectHelp" class="muted">Live scorecards now open by player name and no foursome code is required.</small>
         </div>
         <div class="row" style="margin-top:8px;">
           <label>Admin Code
@@ -247,7 +247,7 @@
       enableLiveLeaderboard: true
     };
     let penaltiesByPlayer = {};
-    let active = { dayKey: '', slotIndex: -1, code: '', view: null };
+    let active = { dayKey: '', slotIndex: -1, code: '', view: null, scorerName: '' };
     let currentHole = 1;
     let golferSetupRows = [];
     let allowLocalFallback = false;
@@ -1265,9 +1265,7 @@
         return;
       }
       scorecardLinksList.innerHTML = `<div class="scorecard-links-grid">${slots.map((slot) => {
-        const players = Array.isArray(slot.players) ? slot.players : [];
-        const codeInputId = `scorecard-code-${dayKey.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-${slot.slotIndex}`;
-        const playersWithMeta = players.map((name) => {
+        const players = Array.isArray(slot.players) ? slot.players : [];        const playersWithMeta = players.map((name) => {
           const penalty = getPenaltyEntry(name);
           const hcp = Number(PLAYER_HANDICAPS[norm(name)] || 0);
           const penTxt = penalty.total ? `, Pen +${penalty.total}` : '';
@@ -1279,14 +1277,10 @@
             <button type="button" data-open-scorecard="${esc(dayKey)}|${esc(String(slot.slotIndex))}">Open Scorecard</button>
           </div>
           <div class="scorecard-link-players">${esc(playersWithMeta)}</div>
-          ${settings.enableFoursomeCodes
-            ? `<label class="muted" for="${esc(codeInputId)}">Foursome Code
-                <input id="${esc(codeInputId)}" type="text" data-scorecard-code="${esc(dayKey)}|${esc(String(slot.slotIndex))}" placeholder="Enter code" style="margin-top:4px;">
-              </label>`
-            : ''}
+          <div class="muted" style="margin-top:10px;">Open the scorecard and enter your name to start keeping score.</div>
           <div class="scorecard-link-row">
             <a href="${esc(buildSelfLink(dayKey, slot.slotIndex))}" target="_blank" rel="noopener">Open in New Tab</a>
-            <span class="muted">${slot.hasCode ? 'Code-protected link' : 'No code required'}</span>
+            <span class="muted">Open access by player name</span>
           </div>
         </div>`;
       }).join('')}</div>`;
@@ -1307,11 +1301,11 @@
       codeProtectToggle.checked = settings.enableFoursomeCodes === true;
       codeProtectToggle.disabled = localMode || !settings.enableLiveFoursomeScoring;
       codeProtectHelp.textContent = localMode
-        ? 'Link the Tin Cup trip to the database to manage code protection here.'
+        ? 'Link the Tin Cup trip to the database to manage scorecard access settings here.'
         : (!settings.enableLiveFoursomeScoring
           ? 'Enable live foursome scoring first.'
           : 'When enabled, each foursome must enter its code before opening a live scorecard.');
-      genCodesBtn.style.display = settings.enableFoursomeCodes ? '' : 'none';
+      genCodesBtn.style.display = 'none';
       if (Array.isArray(meta && meta.playerHandicaps)) {
         meta.playerHandicaps.forEach((row) => {
           const key = norm(row && row.name);
@@ -1322,9 +1316,7 @@
       if (localMode) {
         entryIntro.textContent = 'Local mode active: no Tin Cup trip found in database. Entries will sync to local leaderboard state.';
       } else {
-        entryIntro.textContent = settings.enableFoursomeCodes
-          ? 'Use your foursome live scorecard link. If prompted, enter your foursome code.'
-          : 'Use your foursome live scorecard link to enter hole-by-hole scores.';
+        entryIntro.textContent = 'Use your foursome live scorecard link and enter your name to keep hole-by-hole scores.';
       }
 
       if (!settings.enableLiveFoursomeScoring) {
@@ -1344,24 +1336,22 @@
       renderGolferSetup();
     }
 
-    async function loadScorecard(dayKey, slotIndex, linkCode = '') {
-      const code = String(linkCode || '').trim();
+    async function loadScorecard(dayKey, slotIndex) {
       if (!settings.enableLiveFoursomeScoring) throw new Error('Live foursome scoring is disabled for this trip.');
       if (!dayKey || !Number.isInteger(slotIndex) || slotIndex < 0) throw new Error('Select day and foursome.');
 
       if (localMode) {
         const payload = buildLocalScorecardView(dayKey, slotIndex);
-        active = { dayKey, slotIndex, code: '', view: payload };
+        active = { dayKey, slotIndex, code: '', view: payload, scorerName: active.scorerName || '' };
         return payload;
       }
 
-      if (settings.enableFoursomeCodes && !code) throw new Error('Foursome code required for this scorecard link.');
       const id = await resolveTripId();
-      const q = new URLSearchParams({ dayKey, slotIndex: String(slotIndex), code }).toString();
+      const q = new URLSearchParams({ dayKey, slotIndex: String(slotIndex) }).toString();
       const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/scorecard?${q}`));
       const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error || 'Invalid code or scorecard not available');
-      active = { dayKey, slotIndex, code, view: payload };
+      if (!res.ok) throw new Error(payload.error || 'Scorecard not available');
+      active = { dayKey, slotIndex, code: '', view: payload, scorerName: active.scorerName || '' };
       return payload;
     }
 
@@ -1512,15 +1502,18 @@
       statusEl.textContent = `Saved ${type.toUpperCase()} H${hole}`;
     }
 
-    async function openScorecardFromLink(dayKey, slotIndex, providedCode = '') {
+    async function openScorecardFromLink(dayKey, slotIndex) {
       statusEl.className = 'muted';
       statusEl.textContent = 'Opening scorecard...';
       try {
-        let code = String(providedCode || '').trim();
-        if (!localMode && settings.enableFoursomeCodes && !code) {
-          code = String(window.prompt(`Enter foursome code for ${dayKey} ${slotIndex + 1}`) || '').trim();
+        let scorerName = String(sessionStorage.getItem('TIN_CUP_SCORE_ENTRY_NAME') || '').trim();
+        if (!scorerName) {
+          scorerName = String(window.prompt(`Enter your name to open ${dayKey} ${slotIndex + 1}`) || '').trim();
         }
-        const view = await loadScorecard(dayKey, slotIndex, code);
+        if (!scorerName) throw new Error('Your name is required to open a live scorecard.');
+        sessionStorage.setItem('TIN_CUP_SCORE_ENTRY_NAME', scorerName);
+        active = { ...active, scorerName };
+        const view = await loadScorecard(dayKey, slotIndex);
         currentHole = deriveCurrentHole(view);
         renderScorecard(view);
         renderHoleEntry(view);
@@ -1530,7 +1523,7 @@
         expandCard('markersCard');
         holeEntryCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
         statusEl.className = 'ok';
-        statusEl.textContent = localMode ? 'Local scorecard opened.' : 'Live scorecard opened.';
+        statusEl.textContent = localMode ? `Local scorecard opened for ${scorerName}.` : `Live scorecard opened for ${scorerName}.`;
       } catch (error) {
         statusEl.className = 'bad';
         statusEl.textContent = error.message;
@@ -1543,10 +1536,7 @@
       const [dayKey, slotRaw] = String(btn.dataset.openScorecard || '').split('|');
       const slotIndex = Number(slotRaw);
       if (!dayKey || !Number.isInteger(slotIndex) || slotIndex < 0) return;
-      const codeInput = Array.from(scorecardLinksList.querySelectorAll('[data-scorecard-code]'))
-        .find((el) => String(el.getAttribute('data-scorecard-code') || '') === `${dayKey}|${String(slotIndex)}`);
-      const inlineCode = String(codeInput && codeInput.value || '').trim();
-      openScorecardFromLink(dayKey, slotIndex, inlineCode).catch(() => {});
+      openScorecardFromLink(dayKey, slotIndex).catch(() => {});
     });
 
     linkDaySelect.addEventListener('change', () => {
@@ -1753,7 +1743,7 @@
         meta = await fetchMeta();
         renderSelectors();
         if (active && active.dayKey && Number.isInteger(active.slotIndex) && active.slotIndex >= 0) {
-          const refreshed = await loadScorecard(active.dayKey, active.slotIndex, active.code || '');
+          const refreshed = await loadScorecard(active.dayKey, active.slotIndex);
           renderScorecard(refreshed);
           renderHoleEntry(refreshed);
           renderMarkers(refreshed);
@@ -1801,10 +1791,9 @@
         if (queryDay) selectedLinkDay = queryDay;
         renderSelectors();
         const slotRaw = getQueryValue('slotIndex');
-        const linkCode = getQueryValue('code');
         const slotIndex = Number(slotRaw);
         if (queryDay && Number.isInteger(slotIndex) && slotIndex >= 0) {
-          openScorecardFromLink(queryDay, slotIndex, linkCode).catch(() => {});
+          openScorecardFromLink(queryDay, slotIndex).catch(() => {});
         }
       } catch (error) {
         statusEl.className = 'bad';

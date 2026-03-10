@@ -374,13 +374,10 @@ router.get('/:tripId/tin-cup/live/scorecard', async (req, res) => {
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
     const dayKey = String(req.query.dayKey || '').trim();
     const slotIndex = Number(req.query.slotIndex);
-    const code = String(req.query.code || '').trim();
     if (!dayKey) return res.status(400).json({ error: 'dayKey required' });
     if (!Number.isInteger(slotIndex) || slotIndex < 0) return res.status(400).json({ error: 'slotIndex required' });
     const state = ensureTinCupLiveState(trip);
     if (!isLiveScoringEnabled(state)) return res.status(403).json({ error: 'Live foursome scoring is disabled for this trip.' });
-    if (state.settings.enableFoursomeCodes && !code) return res.status(403).json({ error: 'Foursome code required' });
-    if (!verifySlotCode(state, dayKey, slotIndex, code)) return res.status(403).json({ error: 'Invalid foursome code' });
     const view = getScorecardView(state, dayKey, slotIndex);
     trip.markModified('tinCupLive');
     await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
@@ -397,11 +394,8 @@ router.put('/:tripId/tin-cup/live/scorecard/hole', async (req, res) => {
     const payload = req.body || {};
     const dayKey = String(payload.dayKey || '').trim();
     const slotIndex = Number(payload.slotIndex);
-    const code = String(payload.code || '').trim();
     const state = ensureTinCupLiveState(trip);
     if (!isLiveScoringEnabled(state)) return res.status(403).json({ error: 'Live foursome scoring is disabled for this trip.' });
-    if (state.settings.enableFoursomeCodes && !code) return res.status(403).json({ error: 'Foursome code required' });
-    if (!verifySlotCode(state, dayKey, slotIndex, code)) return res.status(403).json({ error: 'Invalid foursome code' });
     const view = updateHoleScore(state, payload);
     trip.markModified('tinCupLive');
     await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
@@ -425,14 +419,10 @@ router.put('/:tripId/tin-cup/live/scorecard/marker', async (req, res) => {
     const payload = req.body || {};
     const dayKey = String(payload.dayKey || '').trim();
     const slotIndex = Number(payload.slotIndex);
-    const code = String(payload.code || '').trim();
     const state = ensureTinCupLiveState(trip);
     if (!isLiveScoringEnabled(state)) return res.status(403).json({ error: 'Live foursome scoring is disabled for this trip.' });
     if (!state.settings.enableLiveMarkers) return res.status(403).json({ error: 'Live marker entry is disabled for this trip.' });
-    if (state.settings.enableFoursomeCodes && !code) return res.status(403).json({ error: 'Foursome code required' });
-    if (!verifySlotCode(state, dayKey, slotIndex, code)) return res.status(403).json({ error: 'Invalid foursome code' });
     const view = updateMarker(state, payload);
-    trip.markModified('tinCupLive');
     await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
     await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_marker', 'Tin Cup live marker updated', {
       dayKey,
