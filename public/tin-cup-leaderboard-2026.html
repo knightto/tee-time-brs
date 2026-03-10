@@ -25,7 +25,6 @@
     .tab-btn { background:#0b1a2e; color:var(--ink); border:1px solid var(--line); border-radius:999px; padding:6px 10px; cursor:pointer; font-weight:700; font-size:.8rem; }
     .tab-btn.active { border-color:rgba(109,211,255,.65); background:rgba(109,211,255,.18); color:#d9f3ff; }
     .match-result { display:inline-block; margin-left:6px; color:var(--ink-soft); font-size:.78rem; font-weight:700; }
-    #debugLine { margin-top:8px; font-size:.78rem; color:#b8d6f3; }
   </style>
 </head>
 <body>
@@ -38,16 +37,6 @@
         </div>
         <a class="cta" href="/tin-cup-trip-2026.html">Back to Tin Cup Trip</a>
       </div>
-      <div id="debugLine">Debug: initializing...</div>
-    </div>
-
-    <div class="card">
-      <div class="toolbar">
-        <strong>Tin Cup Match Scoring By Day</strong>
-        <span class="muted">Toggle day to view matchups and current W/T/L status</span>
-      </div>
-      <div id="matchDayTabs" class="tab-row"></div>
-      <div id="matchBoard"></div>
     </div>
 
     <div class="card">
@@ -66,6 +55,15 @@
         <span class="refresh-note" id="refreshNote"></span>
       </div>
       <div id="tripBoard"></div>
+    </div>
+
+    <div class="card">
+      <div class="toolbar">
+        <strong>Tin Cup Match Scoring By Day</strong>
+        <span class="muted">Toggle day to view matchups and current W/T/L status</span>
+      </div>
+      <div id="matchDayTabs" class="tab-row"></div>
+      <div id="matchBoard"></div>
     </div>
   </div>
 
@@ -89,25 +87,17 @@
     const refreshEl = document.getElementById('refreshNote');
     const matchTabsEl = document.getElementById('matchDayTabs');
     const matchBoardEl = document.getElementById('matchBoard');
-    const debugEl = document.getElementById('debugLine');
 
     let selectedDay = 'Day 1';
     let selectedMatchDay = 'Day 1';
     let tripId = null;
     let useSecondaryTripDb = true;
     let contextSource = 'unknown';
-    let lastRequest = '';
-    let lastError = '';
 
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
     const norm = (v = '') => String(v || '').trim().replace(/\s+/g, ' ').toLowerCase();
     const num = (v) => { const n = Number(v); return Number.isFinite(n) ? n : null; };
     const tripApi = (path) => useSecondaryTripDb ? (path.includes('?') ? `${path}&myrtleBeach2026=true` : `${path}?myrtleBeach2026=true`) : path;
-
-    function renderDebug(extra = '') {
-      const mode = useSecondaryTripDb ? 'secondary' : 'primary';
-      debugEl.textContent = `Debug: tripId=${tripId || 'none'} | db=${mode} | source=${contextSource} | req=${lastRequest || 'none'}${lastError ? ` | err=${lastError}` : ''}${extra ? ` | ${extra}` : ''}`;
-    }
 
     function loadContext() {
       const qs = new URLSearchParams(window.location.search);
@@ -136,9 +126,7 @@
     }
 
     async function discoverTripId() {
-      lastError = '';
       let res = await fetch(tripApi('/api/trips'));
-      lastRequest = tripApi('/api/trips');
       if (res.ok) {
         const trips = await res.json();
         const found = findTinCupTrip(trips);
@@ -146,7 +134,6 @@
       }
       useSecondaryTripDb = !useSecondaryTripDb;
       res = await fetch(tripApi('/api/trips'));
-      lastRequest = tripApi('/api/trips');
       if (!res.ok) throw new Error(`Trip list request failed (${res.status})`);
       const trips = await res.json();
       const found = findTinCupTrip(trips);
@@ -302,7 +289,6 @@
       const id = await resolveTripId();
       const q = new URLSearchParams({ day: selectedDay, matchDay: selectedMatchDay }).toString();
       const url = tripApi(`/api/trips/${id}/tin-cup/live/leaderboard?${q}`);
-      lastRequest = url;
       const res = await fetch(url);
       if (!res.ok) {
         const payload = await res.json().catch(() => ({}));
@@ -365,25 +351,21 @@
         totals,
       };
       renderFromPayload(payload);
-      renderDebug('local scoring state');
     }
 
     async function render() {
       try {
         const payload = await fetchApiLeaderboard();
-        lastError = '';
         renderFromPayload(payload);
-        renderDebug();
       } catch (error) {
-        lastError = (error && error.message) ? error.message : 'Failed to load leaderboard';
-        if (/Tin Cup trip not found/i.test(lastError)) {
+        const message = (error && error.message) ? error.message : 'Failed to load leaderboard';
+        if (/Tin Cup trip not found/i.test(message)) {
           renderLocalFallback();
           return;
         }
-        dayBoardEl.innerHTML = `<div class="muted">${esc(lastError)}</div>`;
+        dayBoardEl.innerHTML = `<div class="muted">${esc(message)}</div>`;
         tripBoardEl.innerHTML = '';
         matchBoardEl.innerHTML = '';
-        renderDebug();
       }
     }
 
@@ -400,7 +382,6 @@
     });
 
     loadContext();
-    renderDebug('context loaded');
     setInterval(render, 5000);
     render();
   </script>

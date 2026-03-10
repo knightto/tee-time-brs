@@ -72,6 +72,10 @@
       color: var(--ink-soft);
       font-size: 0.85rem;
     }
+    .chip-button {
+      font: inherit;
+      cursor: pointer;
+    }
     .panel {
       background: linear-gradient(145deg, var(--panel) 0%, #0c1a2c 100%);
       border: 1px solid var(--border);
@@ -87,6 +91,65 @@
       line-height: 1.6;
     }
     .summary-card strong { color: #fff; }
+    body.trip-modal-open {
+      overflow: hidden;
+    }
+    .trip-modal[hidden] {
+      display: none;
+    }
+    .trip-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1200;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+    .trip-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(3, 10, 18, 0.72);
+      backdrop-filter: blur(8px);
+    }
+    .trip-modal-dialog {
+      position: relative;
+      z-index: 1;
+      width: min(720px, 100%);
+      max-height: min(88vh, 860px);
+      overflow: auto;
+      background: linear-gradient(145deg, var(--panel) 0%, #0c1a2c 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px 16px;
+    }
+    .trip-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .trip-modal-title {
+      margin: 0;
+      font-size: 1.15rem;
+      letter-spacing: 0.3px;
+      color: #fff;
+    }
+    .trip-modal-close {
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      color: var(--ink);
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .trip-modal-close:hover {
+      background: rgba(255,255,255,0.12);
+    }
     a.cta {
       color: var(--accent-2);
       text-decoration: none;
@@ -117,11 +180,14 @@
     .itinerary-item small { color: var(--muted); }
     .trip-schedule-layout {
       display: grid;
-      grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+      grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+      align-items: start;
       gap: 12px;
       margin-top: 10px;
     }
     .trip-calendar-sidebar {
+      width: 100%;
+      max-width: none;
       background: var(--panel-soft);
       border: 1px solid var(--border);
       border-radius: 12px;
@@ -129,6 +195,62 @@
       display: grid;
       gap: 10px;
       align-content: start;
+    }
+    .trip-calendar-sidebar .tin-cup-score-card.compact {
+      padding: 10px 12px;
+      gap: 6px;
+    }
+    .trip-calendar-sidebar .tin-cup-score-card.compact strong {
+      font-size: 0.96rem;
+    }
+    .trip-calendar-sidebar .tin-cup-score-card.compact .cta {
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+    .trip-map-panel {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.04);
+      padding: 10px 12px;
+      display: grid;
+      gap: 8px;
+    }
+    .trip-map-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .trip-map-head h2 {
+      margin: 0;
+      font-size: 0.98rem;
+      letter-spacing: 0.2px;
+      color: #fff;
+    }
+    .trip-map-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .trip-map-actions button {
+      padding: 6px 10px;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .trip-map-actions .cta {
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .trip-map-panel .map-frame-wrap {
+      margin-top: 0;
+      padding-top: 100%;
+    }
+    .trip-map-panel .trip-map-summary {
+      margin-top: 0;
+      font-size: 0.82rem;
+      line-height: 1.35;
     }
     .trip-calendar-header {
       display: flex;
@@ -291,11 +413,13 @@
     }
     .trip-event-time {
       color: var(--ink-soft);
-      font-size: 0.84rem;
-      font-weight: 600;
+      font-size: 2.52rem;
+      font-weight: 800;
+      line-height: 1;
     }
     .trip-slot-grid {
       display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 6px;
     }
     .trip-slot {
@@ -394,40 +518,6 @@
       background: rgba(255,255,255,0.08);
       line-height: 1.2;
       white-space: nowrap;
-    }
-    .trip-foursome-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 8px;
-    }
-    .trip-foursome-card {
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 8px;
-      background: rgba(11,23,40,0.55);
-      display: grid;
-      gap: 6px;
-    }
-    .trip-foursome-title {
-      margin: 0;
-      color: #fff;
-      font-size: 0.78rem;
-      letter-spacing: 0.3px;
-      text-transform: uppercase;
-    }
-    .trip-foursome-players {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 5px;
-    }
-    .trip-foursome-player {
-      border: 1px solid rgba(255,255,255,0.14);
-      border-radius: 999px;
-      padding: 2px 7px;
-      font-size: 0.72rem;
-      color: #dce7f7;
-      background: rgba(255,255,255,0.05);
-      line-height: 1.2;
     }
     .trip-matchup-table-wrap {
       overflow-x: auto;
@@ -780,6 +870,9 @@
       .trip-schedule-layout {
         grid-template-columns: 1fr;
       }
+      .trip-slot-grid {
+        grid-template-columns: 1fr;
+      }
     }
     @media (max-width: 640px) {
       .container { padding: 0 12px; }
@@ -802,32 +895,24 @@
       <h1>Tin Cup 2026 Golf Trip <span>Group 5/12-5/17/26</span></h1>
       <div class="chips">
         <div class="chip">Southern Pines, NC</div>
-        <div class="chip">16 golfers</div>
-        <div class="chip">Practice + Day 1-4 + Scramble</div>
+        <button id="tripInfoTrigger" class="chip chip-button" type="button">Trip Info</button>
         <a id="tinCupLiveEntryChip" class="chip cta" href="/tin-cup-live-score-entry.html">Scoring and Data Page</a>
         <a id="tinCupLiveLeaderboardChip" class="chip cta" href="/tin-cup-leaderboard-2026.html">Live Leaderboards</a>
       </div>
     </header>
 
-    <div class="panel summary-card" id="summaryTop" style="display:grid;gap:12px;">
-      <div id="tripSummary"></div>
+    <div class="trip-modal" id="tripInfoModal" hidden>
+      <div class="trip-modal-backdrop" data-close-trip-info></div>
+      <div class="trip-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="tripInfoTitle">
+        <div class="trip-modal-header">
+          <h2 class="trip-modal-title" id="tripInfoTitle">Tin Cup Trip Info</h2>
+          <button type="button" class="trip-modal-close" data-close-trip-info>Close</button>
+        </div>
+        <div class="summary-card" id="tripSummary"></div>
+      </div>
     </div>
     <div class="panel" id="topLocationLinks" style="margin-bottom:12px;"></div>
     <div class="panel" id="itineraryBox" style="margin-bottom:12px;"></div>
-    <div class="panel" id="tinCupScoringBox" style="margin-bottom:12px;"></div>
-    <div class="panel trip-map-collapsed" id="tripMapBox" style="margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-        <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Trip Map</h2>
-        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-          <button id="tripMapToggle" type="button" style="padding:8px 12px;font-weight:700;">Expand Map</button>
-          <a class="cta" href="https://www.google.com/maps/search/?api=1&query=Talamore+Golf+Resort+610+Palmer+Drive+Southern+Pines+NC+28387" target="_blank" rel="noopener">Open Full Map</a>
-        </div>
-      </div>
-      <div class="trip-map-summary">Map is minimized by default. Use <strong>Expand Map</strong> to view.</div>
-      <div class="map-frame-wrap" style="margin-top:12px;">
-        <iframe src="https://www.google.com/maps?q=610+Palmer+Drive,+Southern+Pines,+North+Carolina+28387&output=embed" width="640" height="480" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Tin Cup 2026 Golf Trip Map"></iframe>
-      </div>
-    </div>
     <div class="layout">
       <div class="panel">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
@@ -1527,28 +1612,12 @@
       const cardChips = (templateDay.cardLabels || []).map((label) => `<span class="trip-match-chip">${escapeHtml(label)}</span>`);
       const courseLabel = getDayCourseLabel(dayRounds);
       const dayFoursomes = getTemplateFoursomesForDay(templateDay.key);
-      const foursomeMarkup = dayFoursomes.map((group) => {
-        const players = group.players || [];
-        const playersMarkup = players.length
-          ? players.map((player) => {
-              const hcp = Number.isFinite(Number(player && player.hcp)) ? ` (${Math.round(Number(player.hcp))})` : '';
-              const label = `${String((player && player.name) || '').trim()}${hcp}`;
-              return `<span class="trip-foursome-player">${escapeHtml(label)}</span>`;
-            }).join('')
-          : '<span class="trip-foursome-player">TBD</span>';
-        return `
-          <article class="trip-foursome-card">
-            <h5 class="trip-foursome-title">${escapeHtml(group.group || 'Group')}</h5>
-            <div class="trip-foursome-players">${playersMarkup}</div>
-          </article>
-        `;
-      }).join('');
       const matrixMarkup = renderDailyMatchMatrix(templateDay.key);
       const playerCount = dayFoursomes.reduce((count, group) => count + (Array.isArray(group.players) ? group.players.length : 0), 0);
       return `
         <section class="trip-matchup-panel">
           <div class="trip-matchup-head">
-            <h4>Matches &amp; Foursomes</h4>
+            <h4>Matches</h4>
             <span class="trip-matchup-subtitle">${escapeHtml(`${dayLabel} format · ${courseLabel} · ${playerCount} players / ${dayFoursomes.length} tee times`)}</span>
           </div>
           <div class="trip-match-chip-row">
@@ -1556,9 +1625,6 @@
             ${cardChips.join('')}
           </div>
           ${matrixMarkup}
-          <div class="trip-foursome-grid">
-            ${foursomeMarkup}
-          </div>
         </section>
       `;
     };
@@ -2023,56 +2089,15 @@
         </div>
       `;
     };
-    function renderTinCupScoring() {
-      const box = document.getElementById('tinCupScoringBox');
-      if (!box) return;
-      if (!tinCupScoringState) tinCupScoringState = loadTinCupScoringState();
-      tinCupLiveSettings = getTinCupLiveSettingsFromTrip();
-      box.innerHTML = `
-        <div class="tin-cup-score-wrap">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-            <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Tin Cup Scoring (Spreadsheet Rules)</h2>
-            <span style="font-size:0.78rem;color:var(--ink-soft);">Workbook-based model: match win/tie points + stroke/rank points</span>
-          </div>
-          <div class="tin-cup-score-card">
-            <strong>Scoring and Data Entry</strong>
-            <div style="font-size:0.8rem;color:var(--ink-soft);margin-top:6px;">Match inputs and stroke inputs moved to the Tin Cup Live Score Entry page.</div>
-          </div>
-          <div class="tin-cup-score-card">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-              <strong>Live Scoring Feature Toggles</strong>
-              <span style="font-size:0.75rem;color:var(--ink-soft);">Admin-only settings for this Tin Cup trip</span>
-            </div>
-            <div style="display:grid;gap:8px;margin-top:10px;">
-              <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;">
-                <span>Enable live foursome scoring page</span>
-                <input type="checkbox" data-live-setting="enableLiveFoursomeScoring"${tinCupLiveSettings.enableLiveFoursomeScoring ? ' checked' : ''}>
-              </label>
-              <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;">
-                <span>Require foursome access codes</span>
-                <input type="checkbox" data-live-setting="enableFoursomeCodes"${tinCupLiveSettings.enableFoursomeCodes ? ' checked' : ''}>
-              </label>
-              <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;">
-                <span>Enable CTP / long drive marker entry</span>
-                <input type="checkbox" data-live-setting="enableLiveMarkers"${tinCupLiveSettings.enableLiveMarkers ? ' checked' : ''}>
-              </label>
-              <label style="display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;">
-                <span>Enable live leaderboard page</span>
-                <input type="checkbox" data-live-setting="enableLiveLeaderboard"${tinCupLiveSettings.enableLiveLeaderboard ? ' checked' : ''}>
-              </label>
-            </div>
-          </div>
-          <div class="tin-cup-score-card" style="text-align:center;">
-            <strong>Live Leaderboards</strong>
-            <div style="font-size:0.8rem;color:var(--ink-soft);margin-top:6px;">${tinCupLiveSettings.enableLiveLeaderboard ? 'Day and trip standings are now on a dedicated page.' : 'Live leaderboard is currently disabled for this trip.'}</div>
-            ${tinCupLiveSettings.enableLiveLeaderboard
-              ? `<a class="cta" href="${buildTinCupContextHref('/tin-cup-leaderboard-2026.html')}" style="display:inline-block;margin-top:10px;">Open Leaderboard Page</a>`
-              : '<span style="display:inline-block;margin-top:10px;color:var(--ink-soft);">Enable the toggle above to use leaderboard page</span>'}
-          </div>
-        </div>
-      `;
-    }
-
+    const renderTinCupLeaderboardPromo = (compact = false) => `
+      <div class="tin-cup-score-card${compact ? ' compact' : ''}"${compact ? '' : ' style="text-align:center;"'}>
+        <strong>Live Leaderboards</strong>
+        <div style="font-size:${compact ? '0.76rem' : '0.8rem'};color:var(--ink-soft);margin-top:6px;">${tinCupLiveSettings.enableLiveLeaderboard ? 'Day and trip standings are now on a dedicated page.' : 'Live leaderboard is currently disabled for this trip.'}</div>
+        ${tinCupLiveSettings.enableLiveLeaderboard
+          ? `<a class="cta" href="${buildTinCupContextHref('/tin-cup-leaderboard-2026.html')}" style="display:inline-block;margin-top:${compact ? '6px' : '10px'};">Open Leaderboard Page</a>`
+          : `<span style="display:inline-block;margin-top:${compact ? '6px' : '10px'};color:var(--ink-soft);">Enable the toggle above to use leaderboard page</span>`}
+      </div>
+    `;
     let adminCode = null;
     function getAdminCode() {
       if (adminCode) return adminCode;
@@ -2192,7 +2217,6 @@
       if (!trip.tinCupLive) trip.tinCupLive = {};
       trip.tinCupLive.settings = { ...tinCupLiveSettings };
       renderTinCupLiveNavChips();
-      renderTinCupScoring();
       return true;
     }
 
@@ -2201,13 +2225,11 @@
       renderTripSummary();
       renderTripLocationLinks();
       renderItinerary();
-      renderTinCupScoring();
       renderParticipants();
     }
 
     function renderTripSummary() {
       const t = trip || DEFAULT_TRIP;
-      const accom = t.accommodations || DEFAULT_TRIP.accommodations;
       const arrivalDateDisplay = formatDate(TIN_CUP_ARRIVAL_DATE) || '5/12/2026';
       const departureDateDisplay = formatDate(TIN_CUP_DEPARTURE_DATE) || '5/17/2026';
       const summary = `
@@ -2226,6 +2248,42 @@
         </div>
       `;
       $('#tripSummary').innerHTML = summary;
+    }
+
+    function setTripInfoModalOpen(isOpen) {
+      const modal = document.getElementById('tripInfoModal');
+      if (!modal) return;
+      modal.hidden = !isOpen;
+      document.body.classList.toggle('trip-modal-open', Boolean(isOpen));
+      if (isOpen) {
+        const closeButton = modal.querySelector('.trip-modal-close');
+        if (closeButton) closeButton.focus();
+      } else {
+        const trigger = document.getElementById('tripInfoTrigger');
+        if (trigger) trigger.focus();
+      }
+    }
+
+    function initTripInfoModal() {
+      const trigger = document.getElementById('tripInfoTrigger');
+      const modal = document.getElementById('tripInfoModal');
+      if (!trigger || !modal) return;
+
+      trigger.addEventListener('click', () => {
+        setTripInfoModalOpen(true);
+      });
+
+      modal.addEventListener('click', (event) => {
+        if (event.target.closest('[data-close-trip-info]')) {
+          setTripInfoModalOpen(false);
+        }
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !modal.hidden) {
+          setTripInfoModalOpen(false);
+        }
+      });
     }
 
     function renderTripLocationLinks() {
@@ -2531,10 +2589,6 @@
                 </div>
                 ${round.venue ? `<small>at ${escapeHtml(round.venue)}</small>` : ''}
                 ${round.address ? `<small>${escapeHtml(round.address)}</small>` : ''}
-                ${Number.isFinite(Number(round.reviewCount)) ? `<small>${escapeHtml(`${Math.round(Number(round.reviewCount))} reviews`)}</small>` : ''}
-                ${round.feefoCode ? `<small>${escapeHtml(`Feefo Logo ${round.feefoCode}`)}</small>` : ''}
-                ${round.description ? `<small style="line-height:1.45;">${escapeHtml(round.description)}</small>` : ''}
-                ${round.readMoreLabel ? `<small style="font-weight:700;color:var(--accent-2);">${escapeHtml(round.readMoreLabel)}</small>` : ''}
                 ${scorecardMarkup}
                 ${slotMarkup ? `<div class="trip-slot-grid">${slotMarkup}</div>` : '<div class="trip-empty-state">No tee sheet entered.</div>'}
                 <div class="trip-event-actions">
@@ -2588,6 +2642,20 @@
               <button type="button" id="tripNextMonth" class="trip-calendar-nav" title="Next month">›</button>
             </div>
             <div id="tripCalendarGrid" class="trip-calendar-grid"></div>
+            ${renderTinCupLeaderboardPromo(true)}
+            <div class="trip-map-panel trip-map-collapsed" id="tripMapBox">
+              <div class="trip-map-head">
+                <h2>Trip Map</h2>
+                <div class="trip-map-actions">
+                  <button id="tripMapToggle" type="button">Expand Map</button>
+                  <a class="cta" href="https://www.google.com/maps/search/?api=1&query=Talamore+Golf+Resort+610+Palmer+Drive+Southern+Pines+NC+28387" target="_blank" rel="noopener">Open Full Map</a>
+                </div>
+              </div>
+              <div class="trip-map-summary">Map is minimized by default. Use <strong>Expand Map</strong> to view.</div>
+              <div class="map-frame-wrap">
+                <iframe src="https://www.google.com/maps?q=610+Palmer+Drive,+Southern+Pines,+North+Carolina+28387&output=embed" width="640" height="480" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Tin Cup 2026 Golf Trip Map"></iframe>
+              </div>
+            </div>
           </aside>
           <section class="trip-events-container">
             <div class="trip-events-header">
@@ -2597,9 +2665,9 @@
             <div id="tripEvents"></div>
           </section>
         </div>
-        <div id="condoWazeLinks" style="margin-top:12px;"></div>
-        <div id="allParticipantsList" style="margin-top:12px;"></div>
       `;
+
+      initTripMapToggle();
 
       const rounds = getTripRounds();
       renderTripSchedule(rounds);
@@ -2648,8 +2716,10 @@
     }
 
     function renderStatusList() {
+      const listEl = $('#allParticipantsList');
+      if (!listEl) return;
       if (!Array.isArray(participants) || !participants.length) {
-        $('#allParticipantsList').innerHTML = '';
+        listEl.innerHTML = '';
         return;
       }
       const counts = { in: 0, out: 0, maybe: 0, waitlist: 0, invited: 0 };
@@ -2686,7 +2756,7 @@
         ).join('')}</ol>`;
       }
       tableHtml += `</div>`;
-      $('#allParticipantsList').innerHTML = tableHtml;
+      listEl.innerHTML = tableHtml;
 
       document.querySelectorAll('.golfer-status-dropdown').forEach((sel) => {
         sel.addEventListener('change', async function () {
@@ -2914,59 +2984,8 @@
       };
     }
 
-    const tinCupScoringBox = document.getElementById('tinCupScoringBox');
-    if (tinCupScoringBox) {
-      tinCupScoringBox.addEventListener('change', function (event) {
-        const matchTarget = event.target.closest('[data-tincup-match-result]');
-        const strokeTarget = event.target.closest('[data-tincup-stroke-net]');
-        const scrambleTarget = event.target.closest('[data-tincup-scramble]');
-        const matchDayTarget = event.target.closest('[data-tincup-match-day]');
-        const liveSettingTarget = event.target.closest('[data-live-setting]');
-
-        if (liveSettingTarget) {
-          const key = String(liveSettingTarget.dataset.liveSetting || '').trim();
-          if (!key) return;
-          const next = {
-            ...tinCupLiveSettings,
-            [key]: liveSettingTarget.checked === true
-          };
-          saveTinCupLiveSettings(next).catch((error) => {
-            console.error(error);
-            alert('Failed to save live settings.');
-            renderTinCupScoring();
-          });
-          return;
-        }
-
-        if (matchDayTarget) {
-          const nextDay = String(matchDayTarget.value || '').trim();
-          tinCupLeaderboardDay = TIN_CUP_MATCH_DAYS.includes(nextDay) ? nextDay : 'Day 1';
-          renderTinCupScoring();
-          return;
-        } else if (matchTarget) {
-          const [dayKey, playerName, segmentRaw] = String(matchTarget.dataset.tincupMatchResult || '').split('|');
-          const segmentIndex = Number(segmentRaw);
-          if (dayKey && playerName && Number.isInteger(segmentIndex)) {
-            setTinCupMatchResultValue(dayKey, playerName, segmentIndex, matchTarget.value);
-          }
-        } else if (strokeTarget) {
-          const [dayKey, playerName] = String(strokeTarget.dataset.tincupStrokeNet || '').split('|');
-          if (dayKey && playerName) {
-            setTinCupStrokeNetValue(dayKey, playerName, strokeTarget.value);
-          }
-        } else if (scrambleTarget) {
-          const playerName = String(scrambleTarget.dataset.tincupScramble || '').trim();
-          if (playerName) setTinCupScrambleBonusValue(playerName, scrambleTarget.value);
-        } else {
-          return;
-        }
-
-        saveTinCupScoringState();
-        renderTinCupScoring();
-      });
-    }
-
     window.addEventListener('DOMContentLoaded', () => {
+      initTripInfoModal();
       initTripMapToggle();
       loadTrip();
     });

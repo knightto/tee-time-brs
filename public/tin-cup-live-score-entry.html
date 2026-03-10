@@ -10,6 +10,8 @@
     body { margin:0; font-family:'Segoe UI', Arial, sans-serif; color:var(--ink); background: radial-gradient(circle at 20% 10%, rgba(118,210,255,.12), transparent 32%), var(--bg); }
     .wrap { max-width: 1240px; margin: 18px auto 40px; padding: 0 14px; }
     .card { background: linear-gradient(140deg, var(--panel), #0c1b2f); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
+    .entry-input-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:12px; margin-bottom:12px; align-items:start; }
+    .entry-input-grid .card { margin-bottom:0; min-width:0; }
     .row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
     label { color: var(--muted); font-size: .85rem; display:flex; flex-direction:column; gap:4px; }
     input, select, button { border:1px solid var(--line); background:#0b1727; color:var(--ink); border-radius:8px; padding:7px 9px; }
@@ -26,6 +28,9 @@
     .head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
     a { color: var(--accent); text-decoration:none; font-weight:700; }
     a:hover { text-decoration:underline; }
+    @media (max-width: 900px) {
+      .entry-input-grid { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -54,20 +59,22 @@
       </div>
     </div>
 
-    <div class="card" id="matchInputsCard">
-      <div class="head">
-        <strong>Match Inputs</strong>
-        <label class="muted">Day
-          <select id="matchInputDay"></select>
-        </label>
+    <div class="entry-input-grid">
+      <div class="card" id="matchInputsCard">
+        <div class="head">
+          <strong>Match Inputs</strong>
+          <label class="muted">Day
+            <select id="matchInputDay"></select>
+          </label>
+        </div>
+        <div class="table-wrap" id="matchInputsTableWrap"></div>
       </div>
-      <div class="table-wrap" id="matchInputsTableWrap"></div>
-    </div>
 
-    <div class="card" id="strokeInputsCard">
-      <strong>Stroke Inputs</strong>
-      <div class="muted" style="margin:6px 0 10px;">Day 1 and Day 3 net inputs used in trip scoring.</div>
-      <div class="table-wrap" id="strokeInputsTableWrap"></div>
+      <div class="card" id="strokeInputsCard">
+        <strong>Stroke Inputs</strong>
+        <div class="muted" style="margin:6px 0 10px;">Day 1 and Day 3 net inputs used in trip scoring.</div>
+        <div class="table-wrap" id="strokeInputsTableWrap"></div>
+      </div>
     </div>
 
     <div class="card" id="scorecardCard" style="display:none;">
