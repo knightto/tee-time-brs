@@ -881,6 +881,7 @@
     </div>
   </div>
   <a href="https://founders.teetimecentralonline.com/golfcentral/guests/login.aspx?user=tommy.knight@gmail.com&pwd=3/18/2026" target="_blank" aria-label="Admin login" style="position:fixed;left:12px;bottom:12px;padding:8px 12px;border-radius:10px;background:#0c1a2c;color:#f9fafb;text-decoration:none;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);">ADMIN</a>
+  <a id="tripAuditLink" href="/trip-audit.html?myrtleBeach2026=true" aria-label="Trip audit log" style="position:fixed;right:12px;bottom:12px;padding:8px 12px;border-radius:10px;background:#0c1a2c;color:#f9fafb;text-decoration:none;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);display:none;">Trip Audit</a>
   <script>
     const STATUS_ORDER = ['in', 'out', 'maybe', 'waitlist', 'invited'];
     const STATUS_LABELS = { invited: 'Invited', in: 'In', maybe: 'Maybe', out: 'Out', waitlist: 'Waitlist' };
@@ -1455,6 +1456,11 @@
       if (!trip) return alert('Trip not found');
       tripId = trip._id;
       window.tripId = trip._id;
+      const auditLink = document.getElementById('tripAuditLink');
+      if (auditLink) {
+        auditLink.href = `/trip-audit.html?tripId=${encodeURIComponent(String(tripId))}&myrtleBeach2026=true&back=${encodeURIComponent('/myrtle-trip-2026.html')}`;
+        auditLink.style.display = '';
+      }
       const [nextParticipants, nextCompetition] = await Promise.all([
         tripFetchJson(tripApi(`/api/trips/${trip._id}/participants`)),
         tripFetchJson(tripApi(`/api/trips/${trip._id}/competition`)).catch((error) => {

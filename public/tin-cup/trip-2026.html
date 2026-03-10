@@ -1,0 +1,3017 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Tin Cup 2026 Golf Trip Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    :root {
+      --bg: #0d1726;
+      --panel: #0f2138;
+      --panel-soft: #132a45;
+      --accent: #e0b457;
+      --accent-2: #6dd3ff;
+      --ink: #e6edf7;
+      --ink-soft: #9fb6d4;
+      --muted: #6b82a3;
+      --border: rgba(255,255,255,0.08);
+      --shadow: 0 20px 50px rgba(0,0,0,0.35);
+      --radius: 16px;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+      background: radial-gradient(circle at 20% 20%, rgba(109,211,255,0.08), transparent 35%),
+                  radial-gradient(circle at 80% 0%, rgba(224,180,87,0.10), transparent 30%),
+                  #0b1422;
+      margin: 0;
+      color: var(--ink);
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 1100px;
+      margin: 18px auto 32px;
+      padding: 0 16px;
+    }
+    header.hero {
+      background: linear-gradient(135deg, #0f2138 0%, #0b1626 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 16px;
+      box-shadow: var(--shadow);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      backdrop-filter: blur(8px);
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(1.4rem, 4vw, 2rem);
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+      letter-spacing: 0.4px;
+    }
+    h1 span {
+      color: var(--accent);
+      font-size: 0.9rem;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+    .chip {
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--ink-soft);
+      font-size: 0.85rem;
+    }
+    .chip-button {
+      font: inherit;
+      cursor: pointer;
+    }
+    .panel {
+      background: linear-gradient(145deg, var(--panel) 0%, #0c1a2c 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      margin-top: 16px;
+    }
+    .summary-card {
+      display: grid;
+      gap: 12px;
+      color: var(--ink);
+      line-height: 1.6;
+    }
+    .summary-card strong { color: #fff; }
+    body.trip-modal-open {
+      overflow: hidden;
+    }
+    .trip-modal[hidden] {
+      display: none;
+    }
+    .trip-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 1200;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+    }
+    .trip-modal-backdrop {
+      position: absolute;
+      inset: 0;
+      background: rgba(3, 10, 18, 0.72);
+      backdrop-filter: blur(8px);
+    }
+    .trip-modal-dialog {
+      position: relative;
+      z-index: 1;
+      width: min(720px, 100%);
+      max-height: min(88vh, 860px);
+      overflow: auto;
+      background: linear-gradient(145deg, var(--panel) 0%, #0c1a2c 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px 16px;
+    }
+    .trip-modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    .trip-modal-title {
+      margin: 0;
+      font-size: 1.15rem;
+      letter-spacing: 0.3px;
+      color: #fff;
+    }
+    .trip-modal-close {
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      color: var(--ink);
+      font: inherit;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .trip-modal-close:hover {
+      background: rgba(255,255,255,0.12);
+    }
+    a.cta {
+      color: var(--accent-2);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    a.cta:hover { text-decoration: underline; }
+    .waze-link {
+      color: var(--accent-2);
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .waze-link:hover { text-decoration: underline; }
+    .itinerary-list {
+      display: grid;
+      gap: 8px;
+      margin: 8px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+    .itinerary-item {
+      background: var(--panel-soft);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      display: grid;
+      gap: 4px;
+    }
+    .itinerary-item small { color: var(--muted); }
+    .trip-schedule-layout {
+      display: grid;
+      grid-template-columns: minmax(280px, 340px) minmax(0, 1fr);
+      align-items: start;
+      gap: 12px;
+      margin-top: 10px;
+    }
+    .trip-calendar-sidebar {
+      width: 100%;
+      max-width: none;
+      background: var(--panel-soft);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+    .trip-calendar-sidebar .tin-cup-score-card.compact {
+      padding: 10px 12px;
+      gap: 6px;
+    }
+    .trip-calendar-sidebar .tin-cup-score-card.compact strong {
+      font-size: 0.96rem;
+    }
+    .trip-calendar-sidebar .tin-cup-score-card.compact .cta {
+      font-size: 0.9rem;
+      font-weight: 700;
+    }
+    .trip-map-panel {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.04);
+      padding: 10px 12px;
+      display: grid;
+      gap: 8px;
+    }
+    .trip-map-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .trip-map-head h2 {
+      margin: 0;
+      font-size: 0.98rem;
+      letter-spacing: 0.2px;
+      color: #fff;
+    }
+    .trip-map-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .trip-map-actions button {
+      padding: 6px 10px;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .trip-map-actions .cta {
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .trip-map-panel .map-frame-wrap {
+      margin-top: 0;
+      padding-top: 100%;
+    }
+    .trip-sidebar-tee-sheet {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: rgba(255,255,255,0.04);
+      padding: 10px 12px;
+      display: grid;
+      gap: 8px;
+    }
+    .trip-sidebar-tee-sheet h3 {
+      margin: 0;
+      font-size: 0.98rem;
+      letter-spacing: 0.2px;
+      color: #fff;
+    }
+    .trip-sidebar-tee-sheet-round {
+      display: grid;
+      gap: 6px;
+    }
+    .trip-sidebar-tee-sheet-meta {
+      color: var(--ink-soft);
+      font-size: 0.78rem;
+    }
+    .trip-calendar-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .trip-calendar-month-controls {
+      flex: 1;
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+      text-align: center;
+    }
+    .trip-calendar-month {
+      margin: 0;
+      font-size: 1rem;
+      letter-spacing: 0.2px;
+      color: #fff;
+    }
+    .trip-calendar-nav {
+      padding: 6px 10px;
+      border-radius: 9px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.06);
+      color: var(--ink);
+      box-shadow: none;
+      font-size: 1.15rem;
+      line-height: 1;
+      min-width: 36px;
+    }
+    .trip-calendar-nav:hover {
+      transform: none;
+      background: rgba(255,255,255,0.14);
+    }
+    .trip-calendar-month-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      max-width: 100%;
+      border: 1px solid rgba(109,211,255,0.45);
+      background: rgba(109,211,255,0.12);
+      color: #bce8ff;
+      text-decoration: none;
+      font-size: 0.75rem;
+      font-weight: 700;
+      line-height: 1.25;
+      padding: 3px 8px;
+      border-radius: 999px;
+      text-align: center;
+    }
+    .trip-calendar-month-link:hover {
+      background: rgba(109,211,255,0.2);
+    }
+    .trip-calendar-grid {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+    }
+    .trip-calendar-day-header {
+      text-align: center;
+      font-size: 0.72rem;
+      color: var(--ink-soft);
+      font-weight: 700;
+      padding: 5px 2px;
+    }
+    .trip-calendar-day {
+      aspect-ratio: 1;
+      border-radius: 9px;
+      border: 1px solid transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      box-shadow: none;
+      font-size: 0.86rem;
+      font-weight: 700;
+      color: #d7e4f5;
+      background: rgba(255,255,255,0.05);
+      cursor: pointer;
+      position: relative;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .trip-calendar-day:hover {
+      transform: none;
+      border-color: rgba(109,211,255,0.55);
+      background: rgba(109,211,255,0.12);
+    }
+    .trip-calendar-day.other-month {
+      opacity: 0.45;
+    }
+    .trip-calendar-day.today {
+      border-color: rgba(224,180,87,0.85);
+      color: #ffe7b8;
+    }
+    .trip-calendar-day.selected {
+      border-color: rgba(109,211,255,0.95);
+      background: rgba(109,211,255,0.22);
+      color: #ffffff;
+    }
+    .trip-calendar-day.has-events::after {
+      content: '⛳';
+      position: absolute;
+      bottom: 1px;
+      font-size: 0.54rem;
+      line-height: 1;
+      color: #00b6ff;
+      filter: brightness(1.45);
+    }
+    .trip-events-container {
+      background: var(--panel-soft);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+    .trip-events-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .trip-events-title {
+      margin: 0;
+      color: #fff;
+      font-size: 1.05rem;
+      letter-spacing: 0.2px;
+    }
+    .trip-events-meta {
+      color: var(--ink-soft);
+      font-size: 0.82rem;
+    }
+    .trip-event-list {
+      display: grid;
+      gap: 10px;
+    }
+    .trip-event-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .trip-event-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .trip-event-course {
+      margin: 0;
+      font-size: 1rem;
+      font-weight: 800;
+      letter-spacing: 0.2px;
+    }
+    .trip-event-time {
+      color: var(--ink-soft);
+      font-size: 2.52rem;
+      font-weight: 800;
+      line-height: 1;
+    }
+    .trip-slot-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .trip-slot {
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 7px 8px;
+      background: rgba(11,23,40,0.55);
+      display: grid;
+      gap: 5px;
+    }
+    .trip-slot-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      align-items: center;
+      font-size: 0.81rem;
+      color: var(--ink-soft);
+      font-weight: 700;
+    }
+    .trip-slot-players {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+    }
+    .trip-player-chip {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 999px;
+      padding: 3px 8px;
+      font-size: 0.76rem;
+      color: #dce7f7;
+      background: rgba(255,255,255,0.08);
+      line-height: 1.2;
+    }
+    .trip-event-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .trip-event-link {
+      color: var(--accent-2);
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .trip-event-link:hover {
+      text-decoration: underline;
+    }
+    .trip-empty-state {
+      border: 1px dashed var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      text-align: center;
+      color: var(--ink-soft);
+      font-size: 0.9rem;
+      background: rgba(255,255,255,0.03);
+    }
+    .trip-matchup-panel {
+      border: 1px solid var(--border);
+      border-radius: 11px;
+      padding: 10px;
+      background: rgba(255,255,255,0.04);
+      display: grid;
+      gap: 10px;
+    }
+    .trip-matchup-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .trip-matchup-head h4 {
+      margin: 0;
+      color: #fff;
+      font-size: 0.98rem;
+      letter-spacing: 0.2px;
+    }
+    .trip-matchup-subtitle {
+      color: var(--ink-soft);
+      font-size: 0.8rem;
+    }
+    .trip-match-chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .trip-match-chip {
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 999px;
+      padding: 3px 9px;
+      font-size: 0.75rem;
+      color: #dce7f7;
+      background: rgba(255,255,255,0.08);
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .trip-matchup-table-wrap {
+      overflow-x: auto;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px;
+      background: rgba(0,0,0,0.12);
+    }
+    .trip-matchup-table {
+      width: 100%;
+      min-width: 620px;
+      border-collapse: collapse;
+      font-size: 0.75rem;
+      color: #dce7f7;
+    }
+    .trip-matchup-table th,
+    .trip-matchup-table td {
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 5px 6px;
+      text-align: left;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+    .trip-matchup-table th {
+      color: var(--accent-2);
+      font-weight: 700;
+      background: rgba(0,0,0,0.2);
+    }
+    .trip-matchup-table td:first-child,
+    .trip-matchup-table th:first-child {
+      position: sticky;
+      left: 0;
+      background: rgba(7,14,24,0.96);
+      z-index: 1;
+    }
+    .trip-matchup-table td:nth-child(2),
+    .trip-matchup-table th:nth-child(2) {
+      text-align: center;
+      min-width: 44px;
+      color: #fff;
+      font-weight: 700;
+    }
+    .trip-matchup-opponent {
+      color: #fff;
+      font-weight: 600;
+    }
+    .trip-matchup-opponent small {
+      color: var(--ink-soft);
+      font-weight: 600;
+      font-size: 0.68rem;
+      margin-left: 4px;
+    }
+    .trip-scorecard {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 8px;
+      background: rgba(255,255,255,0.03);
+      display: grid;
+      gap: 8px;
+    }
+    .trip-scorecard-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      color: var(--ink-soft);
+      font-size: 0.76rem;
+    }
+    .trip-scorecard-head strong {
+      color: #fff;
+      font-size: 0.82rem;
+      letter-spacing: 0.2px;
+    }
+    .trip-scorecard-wrap {
+      overflow-x: auto;
+    }
+    .trip-scorecard-table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 560px;
+      font-size: 0.73rem;
+      color: #dce7f7;
+    }
+    .trip-scorecard-table th,
+    .trip-scorecard-table td {
+      border: 1px solid rgba(255,255,255,0.08);
+      padding: 3px 4px;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .trip-scorecard-table th:first-child,
+    .trip-scorecard-table td:first-child {
+      text-align: left;
+      min-width: 58px;
+      color: var(--ink-soft);
+      font-weight: 700;
+    }
+    .trip-scorecard-table thead th {
+      color: var(--accent-2);
+      font-weight: 700;
+      background: rgba(0,0,0,0.16);
+    }
+    .trip-scorecard-table .trip-scorecard-total {
+      color: #fff;
+      font-weight: 700;
+      background: rgba(0,0,0,0.18);
+    }
+    .tin-cup-score-wrap {
+      display: grid;
+      gap: 12px;
+    }
+    .tin-cup-score-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    }
+    .tin-cup-score-card {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px;
+      display: grid;
+      gap: 8px;
+    }
+    .tin-cup-score-card strong {
+      color: #fff;
+    }
+    .tin-cup-score-table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+    .tin-cup-score-table {
+      width: 100%;
+      min-width: 820px;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+      color: var(--ink);
+    }
+    .tin-cup-score-table th,
+    .tin-cup-score-table td {
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 7px 8px;
+      text-align: left;
+      vertical-align: middle;
+    }
+    .tin-cup-score-table th {
+      color: #fff;
+      background: rgba(11,23,40,0.88);
+      font-size: 0.72rem;
+      letter-spacing: 0.02em;
+    }
+    .tin-cup-score-select,
+    .tin-cup-score-input {
+      width: 100%;
+      min-width: 74px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: #0b1728;
+      color: var(--ink);
+      font-size: 0.78rem;
+      padding: 5px 7px;
+    }
+    .tin-cup-score-pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 3px 8px;
+      border: 1px solid rgba(109,211,255,0.3);
+      background: rgba(109,211,255,0.12);
+      color: #d7f0ff;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .status-pill {
+      display: flex;
+      justify-content: space-between;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      color: var(--ink);
+      font-size: 0.9rem;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 14px;
+      margin-top: 12px;
+    }
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 12px;
+  }
+  #condoGroups.cards-grid {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px;
+  }
+  .condo-group {
+    background: var(--panel-soft);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px;
+    display: grid;
+    gap: 10px;
+  }
+  .participant-card {
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 10px;
+    display: grid;
+    gap: 8px;
+    font-size: 0.95rem;
+  }
+  .participant-card input,
+  .participant-card select {
+    width: 100%;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #0b1728;
+    color: var(--ink);
+    font-size: 0.95rem;
+  }
+  .actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 8px;
+  }
+  #condoGroups .actions {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+  }
+  #condoGroups .actions button,
+  #condoGroups .actions select {
+    padding: 8px 10px;
+    font-size: 0.9rem;
+  }
+  .fields-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 8px;
+    align-items: center;
+  }
+  .stacked {
+    display: grid;
+    gap: 4px;
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+  }
+  button {
+    background: var(--accent);
+    color: #0b1626;
+      border: none;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      box-shadow: 0 10px 30px rgba(224,180,87,0.2);
+    }
+    button:hover { transform: translateY(-1px); }
+    button.secondary {
+      background: transparent;
+      color: var(--ink);
+      border: 1px solid var(--border);
+      box-shadow: none;
+    }
+    #unassignedSidebar {
+      background: linear-gradient(180deg, var(--panel) 0%, #0c192c 100%);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      display: grid;
+      gap: 12px;
+    }
+    #unassignedSidebar ul {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 10px;
+    }
+    #unassignedSidebar li {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px;
+    }
+    #unassignedSidebar select,
+    #unassignedSidebar button {
+      width: 100%;
+    }
+    .status-labels {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 8px;
+      margin: 8px 0;
+    }
+    .status-labels span {
+      color: var(--ink-soft);
+      font-size: 0.9rem;
+    }
+    .map-frame-wrap {
+      position: relative;
+      width: 100%;
+      padding-top: 75%;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: #0b1728;
+    }
+    .map-frame-wrap iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+    .trip-map-collapsed .map-frame-wrap {
+      display: none;
+    }
+    /* Mobile-first adjustments */
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      header.hero { position: static; }
+      .actions { grid-template-columns: 1fr 1fr; }
+      .trip-schedule-layout {
+        grid-template-columns: 1fr;
+      }
+      .trip-slot-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+    @media (max-width: 640px) {
+      .container { padding: 0 12px; }
+      .cards-grid { grid-template-columns: 1fr; }
+      .actions { grid-template-columns: 1fr; }
+      #allParticipantsList ol { padding-left: 20px; }
+      .trip-calendar-day {
+        font-size: 0.8rem;
+      }
+      .trip-player-chip {
+        font-size: 0.72rem;
+      }
+    }
+  </style>
+</head>
+<body>
+  <a href="/" style="position:fixed;top:12px;left:12px;padding:8px 12px;background:#0c1a2c;color:#f9fafb;text-decoration:none;border-radius:10px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);z-index:999;">← Main Page</a>
+  <div class="container">
+    <header class="hero">
+      <h1>Tin Cup 2026 Golf Trip <span>5/12-5/17/26</span></h1>
+      <div class="chips">
+        <div class="chip">Southern Pines, NC</div>
+        <button id="tripInfoTrigger" class="chip chip-button" type="button">Trip Info</button>
+        <a id="tinCupGuestsChip" class="chip cta" href="/tin-cup/guests-lodging.html">Guests & Lodging</a>
+        <a class="chip cta" href="https://my.golfbreaks.com/guest/4045f310-b25c-4bbd-bb26-0b1b3576a9f8/" target="_blank" rel="noopener">Vendor Trip Portal</a>
+        <a id="tinCupLiveEntryChip" class="chip cta" href="/tin-cup/live-score-entry.html">Scoring and Data Page</a>
+        <a id="tinCupLiveLeaderboardChip" class="chip cta" href="/tin-cup/leaderboard-2026.html">Live Leaderboards</a>
+      </div>
+    </header>
+
+    <div class="trip-modal" id="tripInfoModal" hidden>
+      <div class="trip-modal-backdrop" data-close-trip-info></div>
+      <div class="trip-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="tripInfoTitle">
+        <div class="trip-modal-header">
+          <h2 class="trip-modal-title" id="tripInfoTitle">Tin Cup Trip Info</h2>
+          <button type="button" class="trip-modal-close" data-close-trip-info>Close</button>
+        </div>
+        <div class="summary-card" id="tripSummary"></div>
+      </div>
+    </div>
+    <div class="panel" id="topLocationLinks" style="margin-bottom:12px;"></div>
+    <div class="panel" id="itineraryBox" style="margin-bottom:12px;"></div>
+  </div>
+  <a href="/admin.html" target="_blank" aria-label="Admin login" style="position:fixed;left:12px;bottom:12px;padding:8px 12px;border-radius:10px;background:#0c1a2c;color:#f9fafb;text-decoration:none;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);">ADMIN</a>
+  <a id="tripAuditLink" href="/trip-audit.html" aria-label="Trip audit log" style="position:fixed;right:12px;bottom:12px;padding:8px 12px;border-radius:10px;background:#0c1a2c;color:#f9fafb;text-decoration:none;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);display:none;">Trip Audit</a>
+  <script>
+    const STATUS_ORDER = ['in', 'out', 'maybe', 'waitlist', 'invited'];
+    const STATUS_LABELS = { invited: 'Invited', in: 'In', maybe: 'Maybe', out: 'Out', waitlist: 'Waitlist' };
+    const BASE_GROUP_SIZES = [4, 8, 12, 16, 20, 24];
+    const TIN_CUP_ARRIVAL_DATE = '2026-05-12';
+    const TIN_CUP_DEPARTURE_DATE = '2026-05-17';
+    const DEFAULT_TRIP = {
+      name: 'Tin Cup 2026 Trip',
+      location: 'Talamore Golf Resort, Southern Pines, NC',
+      arrivalDate: TIN_CUP_ARRIVAL_DATE,
+      departureDate: TIN_CUP_DEPARTURE_DATE,
+      package: 'Practice + Day 1-4 + Scramble',
+      groupSize: 12,
+      preparedBy: 'Tin Cup Trip Planner',
+      phone: '',
+      reservationNumber: 'Tin Cup 2026',
+      accommodations: {
+        resort: 'Talamore Golf Resort',
+        unitType: 'Trip Lodging',
+        units: 3,
+        confirmations: '',
+        arrivalDate: TIN_CUP_ARRIVAL_DATE,
+        departureDate: TIN_CUP_DEPARTURE_DATE
+      }
+    };
+    const parseTimeMinutes = (value) => {
+      const match = /^(\d{1,2}):(\d{2})$/.exec(String(value || '').trim());
+      if (!match) return null;
+      const hh = Number(match[1]);
+      const mm = Number(match[2]);
+      if (!Number.isInteger(hh) || !Number.isInteger(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+      return (hh * 60) + mm;
+    };
+    const minutesToHHMM = (totalMinutes) => {
+      if (!Number.isFinite(totalMinutes)) return '';
+      const inDay = ((Math.round(totalMinutes) % 1440) + 1440) % 1440;
+      const hh = String(Math.floor(inDay / 60)).padStart(2, '0');
+      const mm = String(inDay % 60).padStart(2, '0');
+      return `${hh}:${mm}`;
+    };
+    const buildTripSlots = (firstTime, groups = []) => {
+      const startMinutes = parseTimeMinutes(firstTime);
+      return groups.map((players, index) => {
+        const slotMinutes = startMinutes === null ? null : startMinutes + (index * 9);
+        return {
+          label: `TT#${index + 1}`,
+          time: slotMinutes === null ? '' : minutesToHHMM(slotMinutes),
+          players: Array.isArray(players) ? players.map((name) => String(name || '').trim()).filter(Boolean) : []
+        };
+      });
+    };
+    const DEFAULT_ROUNDS = [
+      {
+        course: 'Practice - Mid Pines',
+        venue: 'Mid Pines Inn & Golf Club',
+        address: '1010 Midland Road, Southern Pines, NC 28387',
+        date: '2026-05-12',
+        time: '14:05',
+        reviewCount: 3,
+        feefoCode: 'G3953',
+        description: 'Designed in 1921 by the famous architect Donald Ross, the Mid Pines layout remains in its original shape to this day. Visually stunning, each hole is carefully crafted into the natural rolling landscape and winds its way through the huge pine trees that dominate the land. Initially, the course was designed for friendly competition amongst members and guests of the club, however, in recent times it has hosted national competitions challenging some of the best in the game.',
+        readMoreLabel: 'Read more about Mid Pines Golf Course',
+        teeTimes: [
+          { label: 'TT#1', time: '14:05', players: [] },
+          { label: 'TT#2', time: '15:00', players: [] }
+        ]
+      },
+      {
+        course: 'Day 1 - Pine Needles',
+        venue: 'Pine Needles Lodge & Golf Club',
+        address: '1005 Midland Road, Southern Pines, NC 28387',
+        date: '2026-05-13',
+        time: '08:20',
+        reviewCount: 5,
+        feefoCode: 'G3952',
+        description: 'The Pine Needles course, a Donald Ross-design is the first course in the country to be granted four U.S. Women’s Opens. Ross created the course in 1927, with Kyle Franz making some advancements in 2007. Franz added some length whilst keeping the overall feel in line with the original Ross design. Rolling hills, strategic fairway bunkering, and huge pines define the course. Voted by Golfweek as the #4 course in the state it is truly a ‘must-play’.',
+        readMoreLabel: 'Read more about Pine Needles Golf Course',
+        teeTimes: buildTripSlots('08:20', [[]])
+      },
+      {
+        course: 'Day 2 - Talamore',
+        venue: 'Talamore Golf Resort',
+        address: '48 Talamore Drive, Southern Pines, North Carolina 28387',
+        date: '2026-05-14',
+        time: '09:30',
+        reviewCount: 8,
+        feefoCode: 'G5409',
+        description: 'Designed by Rees Jones in 1991, Talamore Golf Club is a fine example of golf in the Sandhills area; towering pines, wetlands, lakes, and wastelands, plus elevation changes of over 150 feet. Following a rejuvenation process in 2016, greens were restored to their original size, and Champion bermudagrass was introduced, bringing Talamore’s putting surfaces in line with some of the best in the area. Fairways were widened and 12 sod wall bunkers reminiscent of those in Scotland were added.',
+        readMoreLabel: 'Read more about Talamore Golf Club',
+        teeTimes: buildTripSlots('09:30', [[]])
+      },
+      {
+        course: 'Day 3 - Tobacco Road',
+        venue: 'Tobacco Road Golf Club',
+        address: '442 Tobacco Road, Sanford, NC 27332',
+        date: '2026-05-15',
+        time: '10:36',
+        reviewCount: 9,
+        feefoCode: 'G5362',
+        description: 'Legendary golf course designer Mike Strantz has produced one of the state’s most imaginative golf courses. The fairways are typically generous, while the greens really are a joy to play. The creative angling of each surface allows approaches to take advantage of the slopes allowing for shot-making. The greens can be tough to read but simply add to what is ultimately a thrilling golfing experience at Tobacco Road.',
+        readMoreLabel: 'Read more about Tobacco Road Golf Course',
+        teeTimes: buildTripSlots('10:36', [[]])
+      },
+      {
+        course: 'Day 4 - Mid South',
+        venue: 'Talamore Golf Resort',
+        address: '610 Palmer Drive, Southern Pines, North Carolina 28387, United States',
+        date: '2026-05-16',
+        time: '08:45',
+        reviewCount: 7,
+        feefoCode: 'G5410',
+        description: 'Palmer designed the course at Mid-South Club in 1993 and it is one of his finest. Recent work in 2017 saw all the greens converted to Champion bermuda grass, making them as good as any in the area. The course works its way through the towering pines. Wetlands, numerous lakes, and significant elevation changes are encountered throughout the 18-holes. They do things big at Mid-South - big greens, big fairways, big bunkers, and even big rocks like those sat in front of the 9th and 18th greens.',
+        readMoreLabel: 'Read more about Mid South Course',
+        teeTimes: buildTripSlots('08:45', [[]])
+      }
+    ];
+    const TEMPLATE_DAY_ORDER = [
+      { key: 'Practice', label: 'Practice', matchNumbers: [], cardLabels: ['Practice Front 9', 'Practice Back 9'] },
+      { key: 'Day 1', label: 'Day 1', matchNumbers: [1, 2, 3] },
+      { key: 'Day 2A', label: 'Day 2', matchNumbers: [4, 5, 6, 7, 8, 9], cardLabels: ['Day 2A Matches 4-6', 'Day 2B Matches 7-9'] },
+      { key: 'Day 3', label: 'Day 3', matchNumbers: [10, 11, 12] },
+      { key: 'Day 4', label: 'Day 4', matchNumbers: [], cardLabels: ['Day 4 Front 9', 'Day 4 Back 9', 'Scramble'] }
+    ];
+    const TEMPLATE_FOURSOMES = [
+      {
+        group: 'Group 1',
+        playersByDay: {
+          'Day 1': [{ name: 'Matt', hcp: 6 }, { name: 'Rick', hcp: 8 }, { name: 'OB', hcp: 6 }, { name: 'Kyle', hcp: 4 }],
+          'Day 2A': [{ name: 'Bob', hcp: 13 }, { name: 'Kyle', hcp: 4 }, { name: 'Pat', hcp: 10 }, { name: 'Spiro', hcp: 14 }],
+          'Day 2B': [{ name: 'Kyle', hcp: 4 }, { name: 'Tommy', hcp: 5 }, { name: 'CSamm', hcp: 13 }, { name: 'David', hcp: 8 }],
+          'Day 3': [{ name: 'Kyle', hcp: 4 }, { name: 'Steve', hcp: 8 }, { name: 'Mil', hcp: 8 }, { name: 'Tony', hcp: 8 }],
+          'Day 4': [{ name: 'Matt', hcp: 6 }, { name: 'Rick', hcp: 8 }, { name: 'OB', hcp: 6 }, { name: 'Kyle', hcp: 4 }],
+          Practice: [{ name: 'Matt', hcp: 6 }, { name: 'Rick', hcp: 8 }, { name: 'OB', hcp: 6 }, { name: 'Kyle', hcp: 4 }],
+          Scramble: [{ name: 'Bob', hcp: 13 }, { name: 'Steve', hcp: 8 }, { name: 'OB', hcp: 6 }, { name: 'David', hcp: 8 }]
+        }
+      },
+      {
+        group: 'Group 2',
+        playersByDay: {
+          'Day 1': [{ name: 'Manny', hcp: 13 }, { name: 'Steve', hcp: 8 }, { name: 'Tommy', hcp: 5 }, { name: 'Pat', hcp: 10 }],
+          'Day 2A': [{ name: 'CSamm', hcp: 13 }, { name: 'Steve', hcp: 8 }, { name: 'Rick', hcp: 8 }, { name: 'John', hcp: 7 }],
+          'Day 2B': [{ name: 'Matt', hcp: 6 }, { name: 'Steve', hcp: 8 }, { name: 'Brian', hcp: 12 }, { name: 'Spiro', hcp: 14 }],
+          'Day 3': [{ name: 'Matt', hcp: 6 }, { name: 'Bob', hcp: 13 }, { name: 'Tommy', hcp: 5 }, { name: 'John', hcp: 7 }],
+          'Day 4': [{ name: 'Manny', hcp: 13 }, { name: 'Steve', hcp: 8 }, { name: 'Tommy', hcp: 5 }, { name: 'Pat', hcp: 10 }],
+          Practice: [{ name: 'Manny', hcp: 13 }, { name: 'Steve', hcp: 8 }, { name: 'Tommy', hcp: 5 }, { name: 'Pat', hcp: 10 }],
+          Scramble: [{ name: 'Rick', hcp: 8 }, { name: 'Tommy', hcp: 5 }, { name: 'Mil', hcp: 8 }, { name: 'Spiro', hcp: 14 }]
+        }
+      },
+      {
+        group: 'Group 3',
+        playersByDay: {
+          'Day 1': [{ name: 'Mil', hcp: 8 }, { name: 'CSamm', hcp: 13 }, { name: 'Brian', hcp: 12 }, { name: 'Bob', hcp: 13 }],
+          'Day 2A': [{ name: 'OB', hcp: 6 }, { name: 'Brian', hcp: 12 }, { name: 'Tony', hcp: 8 }, { name: 'Tommy', hcp: 5 }],
+          'Day 2B': [{ name: 'OB', hcp: 6 }, { name: 'John', hcp: 7 }, { name: 'Mil', hcp: 8 }, { name: 'Pat', hcp: 10 }],
+          'Day 3': [{ name: 'Manny', hcp: 13 }, { name: 'CSamm', hcp: 13 }, { name: 'Spiro', hcp: 14 }, { name: 'OB', hcp: 6 }],
+          'Day 4': [{ name: 'Mil', hcp: 8 }, { name: 'CSamm', hcp: 13 }, { name: 'Brian', hcp: 12 }, { name: 'Bob', hcp: 13 }],
+          Practice: [{ name: 'Mil', hcp: 8 }, { name: 'CSamm', hcp: 13 }, { name: 'Brian', hcp: 12 }, { name: 'Bob', hcp: 13 }],
+          Scramble: [{ name: 'Kyle', hcp: 4 }, { name: 'Manny', hcp: 13 }, { name: 'John', hcp: 7 }, { name: 'Brian', hcp: 12 }]
+        }
+      },
+      {
+        group: 'Group 4',
+        playersByDay: {
+          'Day 1': [{ name: 'David', hcp: 8 }, { name: 'John', hcp: 7 }, { name: 'Tony', hcp: 8 }, { name: 'Spiro', hcp: 14 }],
+          'Day 2A': [{ name: 'Mil', hcp: 8 }, { name: 'David', hcp: 8 }, { name: 'Matt', hcp: 6 }, { name: 'Manny', hcp: 13 }],
+          'Day 2B': [{ name: 'Manny', hcp: 13 }, { name: 'Rick', hcp: 8 }, { name: 'Bob', hcp: 13 }, { name: 'Tony', hcp: 8 }],
+          'Day 3': [{ name: 'Pat', hcp: 10 }, { name: 'Brian', hcp: 12 }, { name: 'David', hcp: 8 }, { name: 'Rick', hcp: 8 }],
+          'Day 4': [{ name: 'David', hcp: 8 }, { name: 'John', hcp: 7 }, { name: 'Tony', hcp: 8 }, { name: 'Spiro', hcp: 14 }],
+          Practice: [{ name: 'David', hcp: 8 }, { name: 'John', hcp: 7 }, { name: 'Tony', hcp: 8 }, { name: 'Spiro', hcp: 14 }],
+          Scramble: [{ name: 'Pat', hcp: 10 }, { name: 'Matt', hcp: 6 }, { name: 'CSamm', hcp: 13 }, { name: 'Tony', hcp: 8 }]
+        }
+      }
+    ];
+    // Scorecard stats sourced from course pages on 18Birdies (retrieved 2026-03-08).
+    const COURSE_SCORECARD_STATS = [
+      {
+        courseKey: 'mid pines golf course',
+        tee: 'Blue',
+        par: 72,
+        yardage: 6730,
+        rating: 72.9,
+        slope: 138,
+        source: 'https://18birdies.com/golf-courses/mid-pines-golf-club',
+        front9: {
+          holes: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+          par: [4, 3, 4, 4, 5, 5, 4, 3, 4],
+          hcp: [5, 15, 7, 13, 9, 1, 3, 17, 11],
+          yardage: [405, 190, 435, 325, 480, 525, 380, 180, 335]
+        },
+        back9: {
+          holes: [10, 11, 12, 13, 14, 15, 16, 17, 18],
+          par: [5, 3, 4, 3, 4, 5, 4, 4, 4],
+          hcp: [2, 18, 8, 10, 16, 12, 6, 14, 4],
+          yardage: [515, 180, 395, 235, 360, 550, 445, 390, 405]
+        }
+      },
+      {
+        courseKey: 'pine needles golf course',
+        tee: 'Medal',
+        par: 71,
+        yardage: 7015,
+        rating: 73.5,
+        slope: 134,
+        source: 'https://18birdies.com/golf-courses/pine-needles-lodge-golf-club',
+        front9: {
+          holes: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+          par: [5, 4, 3, 4, 3, 4, 4, 4, 4],
+          hcp: [11, 5, 17, 9, 7, 1, 3, 15, 13],
+          yardage: [504, 481, 145, 403, 218, 459, 455, 360, 385]
+        },
+        back9: {
+          holes: [10, 11, 12, 13, 14, 15, 16, 17, 18],
+          par: [5, 4, 4, 3, 4, 5, 3, 4, 4],
+          hcp: [4, 12, 14, 16, 2, 6, 18, 8, 10],
+          yardage: [525, 414, 412, 208, 454, 530, 180, 461, 421]
+        }
+      },
+      {
+        courseKey: 'talamore golf club',
+        tee: 'Gold',
+        par: 71,
+        yardage: 6840,
+        rating: 71.4,
+        slope: 140,
+        source: 'https://18birdies.com/golf-courses/talamore-golf-resort',
+        front9: {
+          holes: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+          par: [5, 3, 4, 5, 3, 4, 4, 4, 4],
+          hcp: [4, 16, 6, 14, 18, 12, 2, 8, 10],
+          yardage: [623, 201, 412, 509, 184, 354, 442, 415, 368]
+        },
+        back9: {
+          holes: [10, 11, 12, 13, 14, 15, 16, 17, 18],
+          par: [4, 5, 4, 3, 4, 3, 4, 4, 4],
+          hcp: [7, 15, 5, 17, 9, 13, 1, 11, 3],
+          yardage: [370, 527, 422, 182, 383, 238, 444, 340, 426]
+        }
+      },
+      {
+        courseKey: 'tobacco road golf course',
+        tee: 'The Ripper',
+        par: 71,
+        yardage: 6557,
+        rating: 72.5,
+        slope: 145,
+        source: 'https://18birdies.com/golf-courses/tobacco-road-golf-club',
+        front9: {
+          holes: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+          par: [5, 4, 3, 5, 4, 3, 4, 3, 4],
+          hcp: [3, 11, 17, 9, 15, 13, 7, 5, 1],
+          yardage: [558, 392, 152, 535, 333, 148, 411, 178, 427]
+        },
+        back9: {
+          holes: [10, 11, 12, 13, 14, 15, 16, 17, 18],
+          par: [4, 5, 4, 5, 3, 4, 4, 3, 4],
+          hcp: [6, 10, 14, 2, 8, 12, 16, 18, 4],
+          yardage: [441, 531, 419, 573, 194, 365, 326, 142, 432]
+        }
+      },
+      {
+        courseKey: 'mid south course',
+        tee: 'Gold',
+        par: 71,
+        yardage: 7003,
+        rating: 73.8,
+        slope: 146,
+        source: 'https://18birdies.com/golf-courses/mid-south-club',
+        front9: {
+          holes: [1, 2, 3, 4, 5, 6, 7, 8, 9],
+          par: [4, 4, 3, 5, 4, 3, 4, 4, 5],
+          hcp: [11, 3, 17, 9, 1, 15, 13, 7, 5],
+          yardage: [398, 401, 180, 533, 390, 178, 416, 430, 542]
+        },
+        back9: {
+          holes: [10, 11, 12, 13, 14, 15, 16, 17, 18],
+          par: [4, 3, 4, 4, 4, 5, 4, 3, 4],
+          hcp: [12, 18, 2, 10, 4, 14, 8, 16, 6],
+          yardage: [410, 175, 470, 442, 452, 548, 398, 205, 435]
+        }
+      }
+    ];
+    const CONDO_ADDRESSES = [
+      {
+        label: 'Talamore Golf Resort',
+        address: '610 Palmer Drive, Southern Pines, North Carolina 28387, United States',
+        unit: 'Trip Base',
+        guestbook: 'https://www.google.com/maps/search/?api=1&query=Talamore+Golf+Resort+610+Palmer+Drive+Southern+Pines+NC+28387',
+        occupants: ['Tommy Knight + 11 guests']
+      }
+    ];
+    const TIN_CUP_SCORING_PLAYERS = [
+      { name: 'Matt', handicap: 10.8 },
+      { name: 'Rick', handicap: 15.3 },
+      { name: 'OB', handicap: 11.2 },
+      { name: 'Kyle', handicap: 8.2 },
+      { name: 'Manny', handicap: 22.0 },
+      { name: 'Steve', handicap: 13.1 },
+      { name: 'Tommy', handicap: 9.1 },
+      { name: 'Pat', handicap: 17.6 },
+      { name: 'Mil', handicap: 12.9 },
+      { name: 'CSamm', handicap: 22.3 },
+      { name: 'Brian', handicap: 20.9 },
+      { name: 'Bob', handicap: 22.0 },
+      { name: 'David', handicap: 12.9 },
+      { name: 'John', handicap: 11.2 },
+      { name: 'Tony', handicap: 12.8 },
+      { name: 'Spiro', handicap: 24.5 }
+    ];
+    const TIN_CUP_SCORING_STORAGE_KEY = 'tinCupScoringStateV2';
+    const TIN_CUP_CONTEXT_STORAGE_KEY = 'tinCupTripContextV1';
+    const TIN_CUP_MAP_COLLAPSED_KEY = 'tinCupMapCollapsedV1';
+    const TIN_CUP_RANK_POINTS = [12, 10, 8.5, 7, 5.75, 4.5, 3, 1.25, 0, 0, 0, 0, 0, 0, 0, 0];
+    const TIN_CUP_DAY_LEADERBOARD_OPTIONS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 2 Total', 'Day 3', 'Day 4'];
+
+    let tripId = null;
+    let trip = null;
+    let participants = [];
+    let useSecondaryTripDb = true;
+    let tinCupScoringState = null;
+    let tinCupLeaderboardDay = 'Day 1';
+    const DEFAULT_TIN_CUP_LIVE_SETTINGS = {
+      enableLiveFoursomeScoring: true,
+      enableFoursomeCodes: true,
+      enableLiveMarkers: true,
+      enableLiveLeaderboard: true
+    };
+    let tinCupLiveSettings = { ...DEFAULT_TIN_CUP_LIVE_SETTINGS };
+
+    const $ = (sel) => document.querySelector(sel);
+    const formatDate = (d) => {
+      if (!d) return '';
+      if (typeof d === 'string') {
+        const match = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (match) {
+          const [, year, month, day] = match;
+          return `${Number(month)}/${Number(day)}/${year}`;
+        }
+      }
+      const parsed = new Date(d);
+      return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleDateString();
+    };
+    const tripApi = (path) => {
+      if (!useSecondaryTripDb) return path;
+      return path.includes('?') ? `${path}&myrtleBeach2026=true` : `${path}?myrtleBeach2026=true`;
+    };
+    const buildTinCupContextHref = (path) => {
+      if (!tripId) return path;
+      const sep = path.includes('?') ? '&' : '?';
+      return `${path}${sep}tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}`;
+    };
+    const saveTinCupTripContext = () => {
+      if (!tripId) return;
+      try {
+        localStorage.setItem(TIN_CUP_CONTEXT_STORAGE_KEY, JSON.stringify({
+          tripId: String(tripId),
+          secondary: useSecondaryTripDb ? '1' : '0'
+        }));
+      } catch (_err) {}
+    };
+    const safeNumber = (val) => (val === '' || isNaN(val) ? 0 : parseFloat(val));
+    const getCondoCount = () => {
+      const size = Number(trip?.baseGroupSize) || Number(trip?.groupSize) || DEFAULT_TRIP.groupSize;
+      return Math.max(1, Math.ceil(size / 4));
+    };
+    const getCondoNumber = (assignment) => {
+      const match = assignment && assignment.match(/^Condo (\d+) - Room ([AB])$/);
+      const condoNum = match ? parseInt(match[1], 10) : null;
+      return Number.isFinite(condoNum) ? condoNum : null;
+    };
+    const buildWazeLink = (course, address) => {
+      const query = address || course;
+      if (!query) return '';
+      // Use Waze deep link that works on mobile (opens app) and desktop (opens web map)
+      return `https://ul.waze.com/ul?q=${encodeURIComponent(query)}&navigate=yes`;
+    };
+    const toIsoDate = (val) => {
+      const str = String(val || '').trim();
+      const m = /^(\d{4}-\d{2}-\d{2})/.exec(str);
+      if (m) return m[1];
+      const d = new Date(str);
+      if (Number.isNaN(d.getTime())) return '';
+      const y = d.getUTCFullYear();
+      const month = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(d.getUTCDate()).padStart(2, '0');
+      return `${y}-${month}-${day}`;
+    };
+    const toHHMM = (val) => {
+      const str = String(val || '').trim();
+      const m = /^(\d{1,2}):(\d{2})/.exec(str);
+      if (!m) return '';
+      const hh = String(Math.max(0, Math.min(23, Number(m[1]) || 0))).padStart(2, '0');
+      const mm = String(Math.max(0, Math.min(59, Number(m[2]) || 0))).padStart(2, '0');
+      return `${hh}:${mm}`;
+    };
+    const formatDateLong = (value) => {
+      const iso = toIsoDate(value);
+      if (!iso) return '';
+      const [year, month, day] = iso.split('-').map(Number);
+      if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return '';
+      const local = new Date(year, month - 1, day, 12, 0, 0);
+      return local.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    };
+    const formatTime12 = (value) => {
+      const hhmm = toHHMM(value);
+      if (!hhmm) return '';
+      const [hhRaw, mm] = hhmm.split(':');
+      const hh = Number(hhRaw);
+      const period = hh >= 12 ? 'PM' : 'AM';
+      const hour12 = ((hh + 11) % 12) + 1;
+      return `${hour12}:${mm} ${period}`;
+    };
+    const plusMinutes = (value, deltaMinutes) => {
+      const start = parseTimeMinutes(value);
+      if (start === null) return '';
+      return minutesToHHMM(start + deltaMinutes);
+    };
+    const escapeHtml = (value) => String(value || '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+    const quoteAttr = (value) => escapeHtml(String(value || '')).replace(/"/g, '&quot;');
+    const normalizeRoundSlot = (slot = {}, index = 0) => ({
+      label: String(slot.label || `TT#${index + 1}`).trim() || `TT#${index + 1}`,
+      time: toHHMM(slot.time),
+      players: Array.isArray(slot.players) ? slot.players.map((name) => String(name || '').trim()).filter(Boolean) : []
+    });
+    const normalizeRound = (raw = {}) => {
+      const normalizedSlots = Array.isArray(raw.teeTimes)
+        ? raw.teeTimes.map((slot, index) => normalizeRoundSlot(slot, index)).filter((slot) => slot.time || slot.players.length || slot.label)
+        : [];
+      const roundTime = toHHMM(raw.time || normalizedSlots[0]?.time || '');
+      if (!normalizedSlots.length && roundTime) {
+        normalizedSlots.push(normalizeRoundSlot({ label: 'TT#1', time: roundTime, players: [] }, 0));
+      }
+      if (normalizedSlots.length && !normalizedSlots[0].time && roundTime) {
+        normalizedSlots[0].time = roundTime;
+      }
+      return {
+        course: String(raw.course || '').trim(),
+        venue: String(raw.venue || '').trim(),
+        address: String(raw.address || '').trim(),
+        date: toIsoDate(raw.date),
+        time: roundTime,
+        confirmation: String(raw.confirmation || '').trim(),
+        reviewCount: Number.isFinite(Number(raw.reviewCount)) ? Number(raw.reviewCount) : null,
+        feefoCode: String(raw.feefoCode || '').trim(),
+        description: String(raw.description || '').trim(),
+        readMoreLabel: String(raw.readMoreLabel || '').trim(),
+        readMoreUrl: String(raw.readMoreUrl || '').trim(),
+        teeTimes: normalizedSlots
+      };
+    };
+    const sortRounds = (rounds = []) => {
+      return rounds.slice().sort((a, b) => {
+        const dateA = toIsoDate(a && a.date);
+        const dateB = toIsoDate(b && b.date);
+        if (dateA && dateB && dateA !== dateB) return dateA.localeCompare(dateB);
+        const timeA = toHHMM((a && a.time) || '');
+        const timeB = toHHMM((b && b.time) || '');
+        if (timeA && timeB && timeA !== timeB) return timeA.localeCompare(timeB);
+        return String((a && a.course) || '').localeCompare(String((b && b.course) || ''));
+      });
+    };
+    const tripScheduleState = {
+      currentDate: new Date(Number(TIN_CUP_ARRIVAL_DATE.slice(0, 4)), Number(TIN_CUP_ARRIVAL_DATE.slice(5, 7)) - 1, 1),
+      selectedDate: ''
+    };
+    const getTripRounds = () => {
+      const source = Array.isArray(trip?.rounds) && trip.rounds.length ? trip.rounds : DEFAULT_ROUNDS;
+      return sortRounds(source.map(normalizeRound));
+    };
+    const getRoundDateOrder = (rounds = []) => {
+      const uniqueDates = [];
+      rounds.forEach((round) => {
+        const iso = toIsoDate(round && round.date);
+        if (iso && !uniqueDates.includes(iso)) uniqueDates.push(iso);
+      });
+      return uniqueDates;
+    };
+    const getTemplateDayForDate = (rounds = [], selectedDate = '') => {
+      if (!selectedDate) return null;
+      const roundDates = getRoundDateOrder(rounds);
+      const dayIndex = roundDates.indexOf(selectedDate);
+      if (dayIndex < 0) return null;
+      return TEMPLATE_DAY_ORDER[dayIndex] || null;
+    };
+    const getDayCourseLabel = (dayRounds = []) => {
+      const courseNames = [];
+      dayRounds.forEach((round) => {
+        const name = String((round && round.course) || '').trim();
+        if (name && !courseNames.includes(name)) courseNames.push(name);
+      });
+      return courseNames.length ? courseNames.join(' / ') : 'Course TBD';
+    };
+    const normalizeCourseKey = (value = '') => String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+    const getCourseScorecardStats = (courseName = '') => {
+      const normalized = normalizeCourseKey(courseName);
+      if (!normalized) return null;
+      let found = COURSE_SCORECARD_STATS.find((entry) => normalized === normalizeCourseKey(entry.courseKey));
+      if (found) return found;
+      found = COURSE_SCORECARD_STATS.find((entry) => normalized.includes(normalizeCourseKey(entry.courseKey)) || normalizeCourseKey(entry.courseKey).includes(normalized));
+      if (found) return found;
+      if (normalized.includes('mid south')) return COURSE_SCORECARD_STATS.find((entry) => normalizeCourseKey(entry.courseKey).includes('mid south')) || null;
+      if (normalized.includes('tobacco road')) return COURSE_SCORECARD_STATS.find((entry) => normalizeCourseKey(entry.courseKey).includes('tobacco road')) || null;
+      if (normalized.includes('mid pines')) return COURSE_SCORECARD_STATS.find((entry) => normalizeCourseKey(entry.courseKey).includes('mid pines')) || null;
+      if (normalized.includes('pine needles')) return COURSE_SCORECARD_STATS.find((entry) => normalizeCourseKey(entry.courseKey).includes('pine needles')) || null;
+      if (normalized.includes('talamore')) return COURSE_SCORECARD_STATS.find((entry) => normalizeCourseKey(entry.courseKey).includes('talamore')) || null;
+      return null;
+    };
+    const sumValues = (values = []) => values.reduce((total, value) => {
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? total + numeric : total;
+    }, 0);
+    const formatInt = (value) => Number.isFinite(Number(value)) ? Number(value).toLocaleString() : '--';
+    const renderScorecardRow = (label = '', values = []) => {
+      const hasNumeric = values.some((value) => Number.isFinite(Number(value)));
+      const total = hasNumeric ? sumValues(values) : null;
+      return `
+        <tr>
+          <td>${escapeHtml(label)}</td>
+          ${values.map((value) => `<td>${escapeHtml(value === null || value === undefined || value === '' ? '--' : String(value))}</td>`).join('')}
+          <td class="trip-scorecard-total">${escapeHtml(total === null ? '--' : String(total))}</td>
+        </tr>
+      `;
+    };
+    const renderCourseScorecard = (round = {}) => {
+      const stats = getCourseScorecardStats(round && round.course);
+      if (!stats || !stats.front9 || !stats.back9) return '';
+      const frontHoles = Array.isArray(stats.front9.holes) ? stats.front9.holes : [1, 2, 3, 4, 5, 6, 7, 8, 9];
+      const backHoles = Array.isArray(stats.back9.holes) ? stats.back9.holes : [10, 11, 12, 13, 14, 15, 16, 17, 18];
+      const teeLabel = stats.tee ? `Tee ${stats.tee}` : 'Tee';
+      const statBits = [
+        teeLabel,
+        `Yardage ${formatInt(stats.yardage)}`,
+        `Par ${formatInt(stats.par)}`,
+        (Number.isFinite(Number(stats.rating)) && Number.isFinite(Number(stats.slope))) ? `Rating/Slope ${stats.rating}/${stats.slope}` : ''
+      ].filter(Boolean).join(' • ');
+      const sourceMarkup = stats.source
+        ? `<a class="trip-event-link" href="${escapeHtml(stats.source)}" target="_blank" rel="noopener">Source</a>`
+        : '';
+      return `
+        <div class="trip-scorecard">
+          <div class="trip-scorecard-head">
+            <strong>Course Stats (Tab 2 Layout)</strong>
+            <span>${escapeHtml(statBits)}</span>
+            ${sourceMarkup}
+          </div>
+          <div class="trip-scorecard-wrap">
+            <table class="trip-scorecard-table">
+              <thead>
+                <tr>
+                  <th>Front</th>
+                  ${frontHoles.map((hole) => `<th>${escapeHtml(String(hole))}</th>`).join('')}
+                  <th>OUT</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${renderScorecardRow('Par', Array.isArray(stats.front9.par) ? stats.front9.par : [])}
+                ${renderScorecardRow('HCP', Array.isArray(stats.front9.hcp) ? stats.front9.hcp : [])}
+                ${renderScorecardRow('Yards', Array.isArray(stats.front9.yardage) ? stats.front9.yardage : [])}
+              </tbody>
+              <thead>
+                <tr>
+                  <th>Back</th>
+                  ${backHoles.map((hole) => `<th>${escapeHtml(String(hole))}</th>`).join('')}
+                  <th>IN</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${renderScorecardRow('Par', Array.isArray(stats.back9.par) ? stats.back9.par : [])}
+                ${renderScorecardRow('HCP', Array.isArray(stats.back9.hcp) ? stats.back9.hcp : [])}
+                ${renderScorecardRow('Yards', Array.isArray(stats.back9.yardage) ? stats.back9.yardage : [])}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    };
+    const getTemplateFoursomesForDay = (dayKey = '') => {
+      return TEMPLATE_FOURSOMES.map((group) => {
+        const players = Array.isArray(group?.playersByDay?.[dayKey]) ? group.playersByDay[dayKey] : [];
+        return {
+          group: group.group || 'Group',
+          players: players.map((p) => ({
+            name: String((p && p.name) || '').trim(),
+            hcp: Number.isFinite(Number(p && p.hcp)) ? Number(p.hcp) : null
+          })).filter((p) => p.name)
+        };
+      }).filter((entry) => entry.players.length);
+    };
+    const buildTemplateSlotsForDay = (dayKey = '', firstTime = '') => {
+      const foursomes = getTemplateFoursomesForDay(dayKey);
+      const groups = foursomes.map((foursome) => foursome.players.map((p) => p.name));
+      return buildTripSlots(firstTime, groups);
+    };
+    const computeDailyMatchMatrix = (dayKey = '') => {
+      const foursomes = getTemplateFoursomesForDay(dayKey);
+      if (!foursomes.length) return [];
+      const segmentRules = [
+        { label: 'Front 9', pairs: [[0, 1], [2, 3]] },
+        { label: 'Back 9 #1', pairs: [[0, 2], [1, 3]] },
+        { label: 'Back 9 #2', pairs: [[0, 3], [1, 2]] }
+      ];
+      const rows = [];
+      foursomes.forEach((foursome) => {
+        const players = foursome.players;
+        if (players.length < 4) return;
+        const byPlayer = new Map();
+        players.forEach((player) => {
+          byPlayer.set(player.name, {
+            group: foursome.group,
+            player: player.name,
+            hcp: player.hcp,
+            segments: []
+          });
+        });
+        segmentRules.forEach((segmentRule) => {
+          segmentRule.pairs.forEach(([a, b]) => {
+            const pa = players[a];
+            const pb = players[b];
+            if (!pa || !pb) return;
+            const rowA = byPlayer.get(pa.name);
+            const rowB = byPlayer.get(pb.name);
+            if (rowA) {
+              rowA.segments.push({
+                label: segmentRule.label,
+                opponent: pb.name,
+                opponentHcp: pb.hcp
+              });
+            }
+            if (rowB) {
+              rowB.segments.push({
+                label: segmentRule.label,
+                opponent: pa.name,
+                opponentHcp: pa.hcp
+              });
+            }
+          });
+        });
+        players.forEach((player) => {
+          const row = byPlayer.get(player.name);
+          if (row) rows.push(row);
+        });
+      });
+      return rows;
+    };
+    const renderMatchCell = (entry = null) => {
+      if (!entry || !entry.opponent) return '--';
+      const oppHcp = Number.isFinite(Number(entry.opponentHcp)) ? `HC ${Math.round(Number(entry.opponentHcp))}` : 'HC --';
+      return `<span class="trip-matchup-opponent">${escapeHtml(entry.opponent)}<small>${escapeHtml(oppHcp)}</small></span>`;
+    };
+    const renderDailyMatchMatrix = (dayKey = '') => {
+      const matrix = computeDailyMatchMatrix(dayKey);
+      if (!matrix.length) return '';
+      return `
+        <div class="trip-matchup-table-wrap">
+          <table class="trip-matchup-table">
+            <thead>
+              <tr>
+                <th>Player</th>
+                <th>HC</th>
+                <th>Front 9</th>
+                <th>Back 9 #1</th>
+                <th>Back 9 #2</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${matrix.map((row) => `
+                <tr>
+                  <td>${escapeHtml(row.player)}</td>
+                  <td>${Number.isFinite(Number(row.hcp)) ? escapeHtml(String(Math.round(Number(row.hcp)))) : '--'}</td>
+                  <td>${renderMatchCell(row.segments[0] || null)}</td>
+                  <td>${renderMatchCell(row.segments[1] || null)}</td>
+                  <td>${renderMatchCell(row.segments[2] || null)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    };
+    const renderTemplateMatchups = (rounds = [], selectedDate = '', dayRounds = []) => {
+      const templateDay = getTemplateDayForDate(rounds, selectedDate);
+      if (!templateDay) return '';
+      const dayLabel = String(templateDay.label || templateDay.key || '').trim() || 'Day';
+      const matchChips = (templateDay.matchNumbers || []).map((matchNo) => `<span class="trip-match-chip">Match ${matchNo}</span>`);
+      const cardChips = (templateDay.cardLabels || []).map((label) => `<span class="trip-match-chip">${escapeHtml(label)}</span>`);
+      const courseLabel = getDayCourseLabel(dayRounds);
+      const dayFoursomes = getTemplateFoursomesForDay(templateDay.key);
+      const matrixMarkup = renderDailyMatchMatrix(templateDay.key);
+      const playerCount = dayFoursomes.reduce((count, group) => count + (Array.isArray(group.players) ? group.players.length : 0), 0);
+      return `
+        <section class="trip-matchup-panel">
+          <div class="trip-matchup-head">
+            <h4>Matches</h4>
+            <span class="trip-matchup-subtitle">${escapeHtml(`${dayLabel} format · ${courseLabel} · ${playerCount} players / ${dayFoursomes.length} tee times`)}</span>
+          </div>
+          <div class="trip-match-chip-row">
+            ${matchChips.join('')}
+            ${cardChips.join('')}
+          </div>
+          ${matrixMarkup}
+        </section>
+      `;
+    };
+    const normalizeTinCupName = (value = '') => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+    const TIN_CUP_MATCH_DAYS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4', 'Practice'];
+    const TIN_CUP_STROKE_DAYS = ['Day 1', 'Day 3', 'Day 4'];
+    const getTinCupPlayers = () => TIN_CUP_SCORING_PLAYERS.slice();
+    const normalizeTinCupLiveSettings = (raw = {}, fallback = DEFAULT_TIN_CUP_LIVE_SETTINGS) => ({
+      enableLiveFoursomeScoring: raw && Object.prototype.hasOwnProperty.call(raw, 'enableLiveFoursomeScoring')
+        ? raw.enableLiveFoursomeScoring === true
+        : Boolean(fallback.enableLiveFoursomeScoring),
+      enableFoursomeCodes: raw && Object.prototype.hasOwnProperty.call(raw, 'enableFoursomeCodes')
+        ? raw.enableFoursomeCodes === true
+        : Boolean(fallback.enableFoursomeCodes),
+      enableLiveMarkers: raw && Object.prototype.hasOwnProperty.call(raw, 'enableLiveMarkers')
+        ? raw.enableLiveMarkers === true
+        : Boolean(fallback.enableLiveMarkers),
+      enableLiveLeaderboard: raw && Object.prototype.hasOwnProperty.call(raw, 'enableLiveLeaderboard')
+        ? raw.enableLiveLeaderboard === true
+        : Boolean(fallback.enableLiveLeaderboard)
+    });
+    const getTinCupLiveSettingsFromTrip = () => normalizeTinCupLiveSettings(trip?.tinCupLive?.settings || {}, DEFAULT_TIN_CUP_LIVE_SETTINGS);
+    const getTinCupHandicapByName = () => new Map(getTinCupPlayers().map((player) => [normalizeTinCupName(player.name), Number(player.handicap)]));
+    const createDefaultTinCupScoringState = () => ({
+      matchResults: {
+        'Day 1': {},
+        'Day 2A': {},
+        'Day 2B': {},
+        'Day 3': {},
+        'Day 4': {},
+        Practice: {}
+      },
+      strokeNet: {
+        'Day 1': {},
+        'Day 3': {},
+        'Day 4': {}
+      },
+      scrambleBonus: {}
+    });
+    const mergeTinCupScoringState = (incoming = {}) => {
+      const base = createDefaultTinCupScoringState();
+      const out = {
+        matchResults: { ...base.matchResults },
+        strokeNet: { ...base.strokeNet },
+        scrambleBonus: { ...base.scrambleBonus }
+      };
+      TIN_CUP_MATCH_DAYS.forEach((dayKey) => {
+        out.matchResults[dayKey] = { ...(base.matchResults[dayKey] || {}), ...((incoming.matchResults && incoming.matchResults[dayKey]) || {}) };
+      });
+      TIN_CUP_STROKE_DAYS.forEach((dayKey) => {
+        out.strokeNet[dayKey] = { ...(base.strokeNet[dayKey] || {}), ...((incoming.strokeNet && incoming.strokeNet[dayKey]) || {}) };
+      });
+      out.scrambleBonus = { ...((incoming.scrambleBonus) || {}) };
+      return out;
+    };
+    const loadTinCupScoringState = () => {
+      try {
+        const raw = localStorage.getItem(TIN_CUP_SCORING_STORAGE_KEY);
+        if (!raw) return createDefaultTinCupScoringState();
+        return mergeTinCupScoringState(JSON.parse(raw));
+      } catch (error) {
+        console.error('Failed to load Tin Cup scoring state', error);
+        return createDefaultTinCupScoringState();
+      }
+    };
+    const saveTinCupScoringState = () => {
+      try {
+        localStorage.setItem(TIN_CUP_SCORING_STORAGE_KEY, JSON.stringify(tinCupScoringState || createDefaultTinCupScoringState()));
+      } catch (error) {
+        console.error('Failed to save Tin Cup scoring state', error);
+      }
+    };
+    const parseTinCupNumber = (value) => {
+      const raw = String(value === undefined || value === null ? '' : value).trim();
+      if (!raw) return null;
+      const parsed = Number(raw);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+    const getTinCupDayMatrixByPlayer = (dayKey = '') => {
+      const matrix = computeDailyMatchMatrix(dayKey);
+      return new Map(matrix.map((row) => [normalizeTinCupName(row.player), row]));
+    };
+    const getTinCupMatchResultValue = (dayKey = '', playerName = '', segmentIndex = 0) => {
+      const key = normalizeTinCupName(playerName);
+      const row = tinCupScoringState?.matchResults?.[dayKey]?.[key] || {};
+      const value = String(row[segmentIndex] || '').trim().toUpperCase();
+      return ['W', 'T', 'L'].includes(value) ? value : '';
+    };
+    const setTinCupMatchResultValue = (dayKey = '', playerName = '', segmentIndex = 0, value = '') => {
+      if (!tinCupScoringState) tinCupScoringState = createDefaultTinCupScoringState();
+      const key = normalizeTinCupName(playerName);
+      if (!tinCupScoringState.matchResults[dayKey]) tinCupScoringState.matchResults[dayKey] = {};
+      if (!tinCupScoringState.matchResults[dayKey][key]) tinCupScoringState.matchResults[dayKey][key] = {};
+      const next = String(value || '').trim().toUpperCase();
+      const normalized = ['W', 'T', 'L'].includes(next) ? next : '';
+      tinCupScoringState.matchResults[dayKey][key][segmentIndex] = normalized;
+
+      // Keep reciprocal matchup result in sync (A vs B mirrors B vs A).
+      const matrixByPlayer = getTinCupDayMatrixByPlayer(dayKey);
+      const playerRow = matrixByPlayer.get(key);
+      const segment = playerRow && Array.isArray(playerRow.segments) ? playerRow.segments[segmentIndex] : null;
+      if (!segment || !segment.opponent) return;
+
+      const opponentKey = normalizeTinCupName(segment.opponent);
+      const opponentRow = matrixByPlayer.get(opponentKey);
+      if (!opponentRow || !Array.isArray(opponentRow.segments)) return;
+      const opponentSegmentIndex = opponentRow.segments.findIndex((entry) => normalizeTinCupName(entry && entry.opponent) === key);
+      if (!Number.isInteger(opponentSegmentIndex) || opponentSegmentIndex < 0) return;
+
+      if (!tinCupScoringState.matchResults[dayKey][opponentKey]) tinCupScoringState.matchResults[dayKey][opponentKey] = {};
+      const reciprocal = normalized === 'W' ? 'L' : normalized === 'L' ? 'W' : normalized;
+      tinCupScoringState.matchResults[dayKey][opponentKey][opponentSegmentIndex] = reciprocal;
+    };
+    const getTinCupStrokeNetValue = (dayKey = '', playerName = '') => {
+      const key = normalizeTinCupName(playerName);
+      return parseTinCupNumber(tinCupScoringState?.strokeNet?.[dayKey]?.[key]);
+    };
+    const setTinCupStrokeNetValue = (dayKey = '', playerName = '', value = '') => {
+      if (!tinCupScoringState) tinCupScoringState = createDefaultTinCupScoringState();
+      const key = normalizeTinCupName(playerName);
+      if (!tinCupScoringState.strokeNet[dayKey]) tinCupScoringState.strokeNet[dayKey] = {};
+      tinCupScoringState.strokeNet[dayKey][key] = parseTinCupNumber(value);
+    };
+    const getTinCupScrambleBonusValue = (playerName = '') => {
+      const key = normalizeTinCupName(playerName);
+      return parseTinCupNumber(tinCupScoringState?.scrambleBonus?.[key]);
+    };
+    const setTinCupScrambleBonusValue = (playerName = '', value = '') => {
+      if (!tinCupScoringState) tinCupScoringState = createDefaultTinCupScoringState();
+      const key = normalizeTinCupName(playerName);
+      tinCupScoringState.scrambleBonus[key] = parseTinCupNumber(value);
+    };
+    const computeTinCupMatchPointsByDay = (dayKey = '') => {
+      const matrixByPlayer = getTinCupDayMatrixByPlayer(dayKey);
+      const pointsByName = new Map();
+      getTinCupPlayers().forEach((player) => pointsByName.set(normalizeTinCupName(player.name), 0));
+      matrixByPlayer.forEach((row, playerKey) => {
+        let points = 0;
+        (row.segments || []).forEach((_segment, segmentIndex) => {
+          const result = getTinCupMatchResultValue(dayKey, row.player, segmentIndex);
+          if (result === 'W') points += 2;
+          else if (result === 'T') points += 1;
+        });
+        pointsByName.set(playerKey, points);
+      });
+      return pointsByName;
+    };
+    const computeTinCupStrokeBonusByDay = (dayKey = '') => {
+      const values = getTinCupPlayers().map((player) => {
+        const key = normalizeTinCupName(player.name);
+        return { key, value: getTinCupStrokeNetValue(dayKey, player.name) };
+      });
+      const valid = values.filter((entry) => entry.value !== null);
+      const pointsByName = new Map(values.map((entry) => [entry.key, 0]));
+      if (!valid.length) return pointsByName;
+      valid.forEach((entry) => {
+        const rank = 1 + valid.filter((candidate) => candidate.value < entry.value).length;
+        if (rank < 9) pointsByName.set(entry.key, 2);
+      });
+      return pointsByName;
+    };
+    const getTinCupRankPointsForPosition = (position = 0) => {
+      if (!Number.isInteger(position) || position < 1) return 0;
+      return position <= TIN_CUP_RANK_POINTS.length ? TIN_CUP_RANK_POINTS[position - 1] : 0;
+    };
+    const computeTinCupDay4RankPoints = () => {
+      const entries = getTinCupPlayers().map((player) => ({
+        key: normalizeTinCupName(player.name),
+        net: getTinCupStrokeNetValue('Day 4', player.name)
+      })).filter((entry) => entry.net !== null)
+        .sort((left, right) => left.net - right.net);
+
+      const pointsByName = new Map(getTinCupPlayers().map((player) => [normalizeTinCupName(player.name), 0]));
+      const rankByName = new Map(getTinCupPlayers().map((player) => [normalizeTinCupName(player.name), null]));
+      if (!entries.length) return { pointsByName, rankByName };
+
+      let index = 0;
+      while (index < entries.length) {
+        const start = index;
+        const score = entries[index].net;
+        while (index < entries.length && entries[index].net === score) index += 1;
+        const tieGroup = entries.slice(start, index);
+        const startPosition = start + 1;
+        const endPosition = index;
+        let pointsTotal = 0;
+        for (let pos = startPosition; pos <= endPosition; pos += 1) {
+          pointsTotal += getTinCupRankPointsForPosition(pos);
+        }
+        const avgPoints = tieGroup.length ? Number((pointsTotal / tieGroup.length).toFixed(2)) : 0;
+        tieGroup.forEach((entry) => {
+          pointsByName.set(entry.key, avgPoints);
+          rankByName.set(entry.key, startPosition);
+        });
+      }
+      return { pointsByName, rankByName };
+    };
+    const computeTinCupTotals = () => {
+      const players = getTinCupPlayers();
+      const matchDay1 = computeTinCupMatchPointsByDay('Day 1');
+      const matchDay2A = computeTinCupMatchPointsByDay('Day 2A');
+      const matchDay2B = computeTinCupMatchPointsByDay('Day 2B');
+      const matchDay3 = computeTinCupMatchPointsByDay('Day 3');
+      const strokeDay1 = computeTinCupStrokeBonusByDay('Day 1');
+      const strokeDay3 = computeTinCupStrokeBonusByDay('Day 3');
+      const day4 = computeTinCupDay4RankPoints();
+      const rows = players.map((player) => {
+        const key = normalizeTinCupName(player.name);
+        const match1 = matchDay1.get(key) || 0;
+        const match2 = (matchDay2A.get(key) || 0) + (matchDay2B.get(key) || 0);
+        const match3 = matchDay3.get(key) || 0;
+        const stroke1 = strokeDay1.get(key) || 0;
+        const stroke3 = strokeDay3.get(key) || 0;
+        const scramble = getTinCupScrambleBonusValue(player.name) || 0;
+        const day4Points = day4.pointsByName.get(key) || 0;
+        const day1Total = match1 + stroke1;
+        const day2Total = match2;
+        const day3Total = match3 + stroke3 + scramble;
+        const total = Number((day1Total + day2Total + day3Total + day4Points).toFixed(2));
+        return {
+          name: player.name,
+          handicap: Number(player.handicap),
+          match1,
+          match2,
+          match3,
+          stroke1,
+          stroke3,
+          scramble,
+          day4Points,
+          day4Rank: day4.rankByName.get(key),
+          day1Total,
+          day2Total,
+          day3Total,
+          total
+        };
+      }).sort((left, right) => {
+        if (right.total !== left.total) return right.total - left.total;
+        if ((right.day4Points || 0) !== (left.day4Points || 0)) return (right.day4Points || 0) - (left.day4Points || 0);
+        return left.name.localeCompare(right.name);
+      });
+
+      let currentPosition = 0;
+      let lastTotal = null;
+      rows.forEach((row, idx) => {
+        if (lastTotal === null || row.total !== lastTotal) currentPosition = idx + 1;
+        row.position = currentPosition;
+        lastTotal = row.total;
+      });
+
+      return rows;
+    };
+    const getTinCupDayLeaderboardRows = (dayKey = 'Day 1') => {
+      const totals = computeTinCupTotals();
+      const mapDay2A = computeTinCupMatchPointsByDay('Day 2A');
+      const mapDay2B = computeTinCupMatchPointsByDay('Day 2B');
+      const rows = totals.map((row) => {
+        const key = normalizeTinCupName(row.name);
+        let points = 0;
+        let detail = '';
+        if (dayKey === 'Day 1') {
+          points = row.day1Total;
+          detail = `${row.match1} match + ${row.stroke1} stroke`;
+        } else if (dayKey === 'Day 2A') {
+          points = mapDay2A.get(key) || 0;
+          detail = `${points} match`;
+        } else if (dayKey === 'Day 2B') {
+          points = mapDay2B.get(key) || 0;
+          detail = `${points} match`;
+        } else if (dayKey === 'Day 2 Total') {
+          points = row.day2Total;
+          detail = `${row.day2Total} match`;
+        } else if (dayKey === 'Day 3') {
+          points = row.day3Total;
+          detail = `${row.match3} match + ${row.stroke3} stroke + ${row.scramble || 0} scramble`;
+        } else if (dayKey === 'Day 4') {
+          points = row.day4Points || 0;
+          detail = `${points} rank pts`;
+        }
+        return { name: row.name, points: Number(points || 0), detail, total: row.total };
+      }).sort((left, right) => {
+        if (right.points !== left.points) return right.points - left.points;
+        if (right.total !== left.total) return right.total - left.total;
+        return left.name.localeCompare(right.name);
+      });
+
+      let currentPosition = 0;
+      let lastPoints = null;
+      rows.forEach((row, idx) => {
+        if (lastPoints === null || row.points !== lastPoints) currentPosition = idx + 1;
+        row.position = currentPosition;
+        lastPoints = row.points;
+      });
+      return rows;
+    };
+    const renderTinCupDayLeaderboard = () => {
+      const dayKey = TIN_CUP_DAY_LEADERBOARD_OPTIONS.includes(tinCupLeaderboardDay) ? tinCupLeaderboardDay : 'Day 1';
+      const rows = getTinCupDayLeaderboardRows(dayKey);
+      return `
+        <div class="tin-cup-score-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+            <strong>Live Day Leaderboard</strong>
+            <select class="tin-cup-score-select" data-tincup-day-leaderboard="1" style="min-width:140px;">
+              ${TIN_CUP_DAY_LEADERBOARD_OPTIONS.map((option) => `<option value="${quoteAttr(option)}"${option === dayKey ? ' selected' : ''}>${escapeHtml(option)}</option>`).join('')}
+            </select>
+          </div>
+          <div class="tin-cup-score-table-wrap">
+            <table class="tin-cup-score-table">
+              <thead>
+                <tr>
+                  <th>Pos</th>
+                  <th>Player</th>
+                  <th>${escapeHtml(dayKey)} Pts</th>
+                  <th>Breakdown</th>
+                  <th>Trip Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows.map((row) => `
+                  <tr>
+                    <td>${escapeHtml(String(row.position || '-'))}</td>
+                    <td><strong>${escapeHtml(row.name)}</strong></td>
+                    <td><strong>${escapeHtml(String(row.points))}</strong></td>
+                    <td>${escapeHtml(row.detail)}</td>
+                    <td>${escapeHtml(String(row.total))}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    };
+    const renderTinCupMatchEntryTable = (dayKey = '') => {
+      const matrix = computeDailyMatchMatrix(dayKey);
+      if (!matrix.length) return '<div class="tin-cup-score-card"><div class="trip-empty-state">No matchup matrix available.</div></div>';
+      const rowsHtml = matrix.map((row) => {
+        const points = (row.segments || []).reduce((sum, _segment, segmentIndex) => {
+          const val = getTinCupMatchResultValue(dayKey, row.player, segmentIndex);
+          if (val === 'W') return sum + 2;
+          if (val === 'T') return sum + 1;
+          return sum;
+        }, 0);
+        return `
+          <tr>
+            <td><strong>${escapeHtml(row.player)}</strong></td>
+            ${(row.segments || []).map((segment, segmentIndex) => {
+              const current = getTinCupMatchResultValue(dayKey, row.player, segmentIndex);
+              return `
+                <td>
+                  <div style="display:grid;gap:5px;">
+                    <span style="font-size:0.7rem;color:var(--ink-soft);">${escapeHtml(segment.label)} vs ${escapeHtml(segment.opponent)}</span>
+                    <select class="tin-cup-score-select" data-tincup-match-result="${quoteAttr(dayKey)}|${quoteAttr(row.player)}|${segmentIndex}">
+                      <option value=""${current === '' ? ' selected' : ''}>-</option>
+                      <option value="W"${current === 'W' ? ' selected' : ''}>Win</option>
+                      <option value="T"${current === 'T' ? ' selected' : ''}>Tie</option>
+                      <option value="L"${current === 'L' ? ' selected' : ''}>Loss</option>
+                    </select>
+                  </div>
+                </td>
+              `;
+            }).join('')}
+            <td><span class="tin-cup-score-pill">${escapeHtml(String(points))} pts</span></td>
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        <div class="tin-cup-score-card">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+            <strong>${escapeHtml(dayKey)} Match Play</strong>
+            <span style="font-size:0.72rem;color:var(--ink-soft);">Win = 2 points, Tie = 1 point</span>
+          </div>
+          <div class="tin-cup-score-table-wrap">
+            <table class="tin-cup-score-table">
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th>Front 9</th>
+                  <th>Back 9 #1</th>
+                  <th>Back 9 #2</th>
+                  <th>Match Pts</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    };
+    const renderTinCupStrokeEntryTable = () => {
+      const rows = getTinCupPlayers().map((player) => {
+        const day1 = getTinCupStrokeNetValue('Day 1', player.name);
+        const day3 = getTinCupStrokeNetValue('Day 3', player.name);
+        return `
+          <tr>
+            <td><strong>${escapeHtml(player.name)}</strong></td>
+            <td>${escapeHtml(Number(player.handicap).toFixed(1))}</td>
+            <td><input class="tin-cup-score-input" type="number" step="0.1" data-tincup-stroke-net="${quoteAttr('Day 1')}|${quoteAttr(player.name)}" value="${day1 === null ? '' : escapeHtml(String(day1))}" placeholder="Net"></td>
+            <td><input class="tin-cup-score-input" type="number" step="0.1" data-tincup-stroke-net="${quoteAttr('Day 3')}|${quoteAttr(player.name)}" value="${day3 === null ? '' : escapeHtml(String(day3))}" placeholder="Net"></td>
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        <div class="tin-cup-score-card">
+          <strong>Stroke Inputs</strong>
+          <div style="font-size:0.74rem;color:var(--ink-soft);">Day 1 and Day 3: top-half net ranks get 2 points. Final-day inputs moved to Tin Cup Live Score Entry page.</div>
+          <div class="tin-cup-score-table-wrap">
+            <table class="tin-cup-score-table">
+              <thead>
+                <tr>
+                  <th>Player</th>
+                  <th>HC</th>
+                  <th>Day 1 Net</th>
+                  <th>Day 3 Net</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    };
+    const renderTinCupLeaderboard = () => {
+      const totals = computeTinCupTotals();
+      return `
+        <div class="tin-cup-score-card">
+          <strong>Live Trip Leaderboard</strong>
+          <div class="tin-cup-score-table-wrap">
+            <table class="tin-cup-score-table">
+              <thead>
+                <tr>
+                  <th>Pos</th>
+                  <th>Player</th>
+                  <th>D1 Match</th>
+                  <th>D1 Stroke</th>
+                  <th>D2 Match</th>
+                  <th>D3 Match</th>
+                  <th>D3 Stroke</th>
+                  <th>Scramble</th>
+                  <th>D4 Rank Pts</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${totals.map((row) => `
+                  <tr>
+                    <td>${escapeHtml(String(row.position || '-'))}</td>
+                    <td><strong>${escapeHtml(row.name)}</strong></td>
+                    <td>${escapeHtml(String(row.match1))}</td>
+                    <td>${escapeHtml(String(row.stroke1))}</td>
+                    <td>${escapeHtml(String(row.match2))}</td>
+                    <td>${escapeHtml(String(row.match3))}</td>
+                    <td>${escapeHtml(String(row.stroke3))}</td>
+                    <td>${escapeHtml(String(row.scramble || 0))}</td>
+                    <td>${escapeHtml(String(row.day4Points || 0))}${Number.isInteger(row.day4Rank) ? ` <span style="color:var(--ink-soft);font-size:0.72rem;">(r${row.day4Rank})</span>` : ''}</td>
+                    <td><strong>${escapeHtml(String(row.total))}</strong></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    };
+    const renderTinCupLeaderboardPromo = (compact = false) => `
+      <div class="tin-cup-score-card${compact ? ' compact' : ''}"${compact ? '' : ' style="text-align:center;"'}>
+        <strong>Live Leaderboards</strong>
+        <div style="font-size:${compact ? '0.76rem' : '0.8rem'};color:var(--ink-soft);margin-top:6px;">${tinCupLiveSettings.enableLiveLeaderboard ? 'Day and trip standings are now on a dedicated page.' : 'Live leaderboard is currently disabled for this trip.'}</div>
+        ${tinCupLiveSettings.enableLiveLeaderboard
+          ? `<a class="cta" href="${buildTinCupContextHref('/tin-cup/leaderboard-2026.html')}" style="display:inline-block;margin-top:${compact ? '6px' : '10px'};">Open Leaderboard Page</a>`
+          : `<span style="display:inline-block;margin-top:${compact ? '6px' : '10px'};color:var(--ink-soft);">Enable the toggle above to use leaderboard page</span>`}
+      </div>
+    `;
+    let adminCode = null;
+    function getAdminCode() {
+      if (adminCode) return adminCode;
+      const code = prompt('Enter admin code:');
+      if (!code) {
+        alert('Admin code is required for this action.');
+        return null;
+      }
+      adminCode = code;
+      return adminCode;
+    }
+
+    async function updateParticipant(id, body, opts = {}) {
+      if (!tripId) {
+        alert('Tin Cup trip is in preview mode until a database trip record is created.');
+        return;
+      }
+      const needsAdmin = opts.requireAdmin === true;
+      const headers = { 'Content-Type': 'application/json' };
+      if (needsAdmin) {
+        const code = getAdminCode();
+        if (!code) return;
+        headers['x-admin-code'] = code;
+      }
+      await fetch(tripApi(`/api/trips/${tripId}/participants/${id}`), {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify(body)
+      });
+      await loadTrip();
+    }
+
+    async function loadTrip() {
+      if (!tinCupScoringState) tinCupScoringState = loadTinCupScoringState();
+      useSecondaryTripDb = true;
+      let res = await fetch(tripApi('/api/trips'));
+      let trips = await res.json();
+      trip = trips.find((t) => t.name && /tin\s*cup/i.test(String(t.name || ''))) || null;
+      if (!trip) {
+        useSecondaryTripDb = false;
+        res = await fetch('/api/trips');
+        trips = await res.json();
+        trip = trips.find((t) => t.name && /tin\s*cup/i.test(String(t.name || ''))) || null;
+      }
+      tripId = trip ? trip._id : null;
+      window.tripId = tripId;
+      const auditLink = document.getElementById('tripAuditLink');
+      if (auditLink) {
+        if (tripId) {
+          auditLink.href = `${buildTinCupContextHref('/trip-audit.html')}&back=${encodeURIComponent('/tin-cup/trip-2026.html')}`;
+          auditLink.style.display = '';
+        } else {
+          auditLink.style.display = 'none';
+        }
+      }
+      saveTinCupTripContext();
+      if (tripId) {
+        const pRes = await fetch(tripApi(`/api/trips/${tripId}/participants`));
+        participants = await pRes.json();
+      } else {
+        participants = [];
+      }
+      tinCupLiveSettings = getTinCupLiveSettingsFromTrip();
+      renderAll();
+    }
+
+    function initTripMapToggle() {
+      const mapBox = document.getElementById('tripMapBox');
+      const toggleBtn = document.getElementById('tripMapToggle');
+      if (!mapBox || !toggleBtn) return;
+      let collapsed = true;
+      try {
+        const raw = localStorage.getItem(TIN_CUP_MAP_COLLAPSED_KEY);
+        if (raw === '0') collapsed = false;
+        if (raw === '1') collapsed = true;
+      } catch (_err) {}
+      const sync = () => {
+        mapBox.classList.toggle('trip-map-collapsed', collapsed);
+        toggleBtn.textContent = collapsed ? 'Expand Map' : 'Minimize Map';
+      };
+      sync();
+      toggleBtn.addEventListener('click', () => {
+        collapsed = !collapsed;
+        try {
+          localStorage.setItem(TIN_CUP_MAP_COLLAPSED_KEY, collapsed ? '1' : '0');
+        } catch (_err) {}
+        sync();
+      });
+    }
+
+    function renderTinCupLiveNavChips() {
+      const guestsChip = document.getElementById('tinCupGuestsChip');
+      const entryChip = document.getElementById('tinCupLiveEntryChip');
+      const boardChip = document.getElementById('tinCupLiveLeaderboardChip');
+      if (guestsChip) {
+        guestsChip.href = buildTinCupContextHref('/tin-cup/guests-lodging.html');
+      }
+      if (entryChip) {
+        entryChip.style.display = tinCupLiveSettings.enableLiveFoursomeScoring ? '' : 'none';
+        entryChip.href = buildTinCupContextHref('/tin-cup/live-score-entry.html');
+      }
+      if (boardChip) {
+        boardChip.style.display = tinCupLiveSettings.enableLiveLeaderboard ? '' : 'none';
+        boardChip.href = buildTinCupContextHref('/tin-cup/leaderboard-2026.html');
+      }
+    }
+
+    async function saveTinCupLiveSettings(nextSettings) {
+      if (!tripId) {
+        alert('Tin Cup trip is in preview mode until a database trip record is created.');
+        return false;
+      }
+      const code = getAdminCode();
+      if (!code) return false;
+      const res = await fetch(tripApi(`/api/trips/${tripId}/tin-cup/live/settings`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-code': code },
+        body: JSON.stringify({ settings: nextSettings })
+      });
+      let payload = {};
+      try {
+        payload = await res.json();
+      } catch (_err) {}
+      if (!res.ok) {
+        alert(payload.error || 'Failed to save live settings.');
+        return false;
+      }
+      tinCupLiveSettings = normalizeTinCupLiveSettings(payload.settings || {}, tinCupLiveSettings);
+      if (!trip) trip = {};
+      if (!trip.tinCupLive) trip.tinCupLive = {};
+      trip.tinCupLive.settings = { ...tinCupLiveSettings };
+      renderTinCupLiveNavChips();
+      return true;
+    }
+
+    function renderAll() {
+      renderTinCupLiveNavChips();
+      renderTripSummary();
+      renderTripLocationLinks();
+      renderItinerary();
+      renderParticipants();
+    }
+
+    function renderTripSummary() {
+      const t = trip || DEFAULT_TRIP;
+      const arrivalDateDisplay = formatDate(TIN_CUP_ARRIVAL_DATE) || '5/12/2026';
+      const departureDateDisplay = formatDate(TIN_CUP_DEPARTURE_DATE) || '5/17/2026';
+      const summary = `
+        <div style="display:grid;gap:6px;">
+          <div><strong>Trip Name:</strong> ${t.name || 'Tin Cup 2026 Trip'}</div>
+          <div><strong>Location:</strong> ${t.location || 'Southern Pines, NC'}</div>
+          <div><strong>Package:</strong> ${t.package || '5 Courses / 6 Tee Times'}</div>
+          <div><strong>Golfers:</strong> 16 total</div>
+          <div><strong>Arrival:</strong> ${arrivalDateDisplay} &nbsp;|&nbsp; <strong>Departure:</strong> ${departureDateDisplay}</div>
+          <div><strong>Featured Courses:</strong> Mid Pines, Pine Needles, Talamore, Tobacco Road, Mid South</div>
+          <div><strong>Lodging / Resort Base:</strong> 610 Palmer Drive, Southern Pines, North Carolina 28387, United States</div>
+          <div style="display:grid;gap:8px;margin-top:8px;">
+            <a class="cta" href="https://www.google.com/maps/search/?api=1&query=Talamore+Golf+Resort+610+Palmer+Drive+Southern+Pines+NC+28387" target="_blank" rel="noopener">Open Talamore Golf Resort in Maps</a>
+            ${tripId ? '' : '<small style="color:var(--ink-soft);">Preview mode: trip not linked to database yet.</small>'}
+          </div>
+        </div>
+      `;
+      $('#tripSummary').innerHTML = summary;
+    }
+
+    function setTripInfoModalOpen(isOpen) {
+      const modal = document.getElementById('tripInfoModal');
+      if (!modal) return;
+      modal.hidden = !isOpen;
+      document.body.classList.toggle('trip-modal-open', Boolean(isOpen));
+      if (isOpen) {
+        const closeButton = modal.querySelector('.trip-modal-close');
+        if (closeButton) closeButton.focus();
+      } else {
+        const trigger = document.getElementById('tripInfoTrigger');
+        if (trigger) trigger.focus();
+      }
+    }
+
+    function initTripInfoModal() {
+      const trigger = document.getElementById('tripInfoTrigger');
+      const modal = document.getElementById('tripInfoModal');
+      if (!trigger || !modal) return;
+
+      trigger.addEventListener('click', () => {
+        setTripInfoModalOpen(true);
+      });
+
+      modal.addEventListener('click', (event) => {
+        if (event.target.closest('[data-close-trip-info]')) {
+          setTripInfoModalOpen(false);
+        }
+      });
+
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && !modal.hidden) {
+          setTripInfoModalOpen(false);
+        }
+      });
+    }
+
+    function renderTripLocationLinks() {
+      const container = $('#topLocationLinks');
+      if (!container) return;
+      container.style.display = 'none';
+      container.innerHTML = '';
+    }
+
+    const TRIP_ICS_DURATION_MINUTES = 270;
+    const TRIP_ICS_REMINDER_MINUTES = [4320, 1440];
+
+    function formatCalendarStamp(dateObj) {
+      const yyyy = String(dateObj.getFullYear()).padStart(4, '0');
+      const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const dd = String(dateObj.getDate()).padStart(2, '0');
+      const hh = String(dateObj.getHours()).padStart(2, '0');
+      const min = String(dateObj.getMinutes()).padStart(2, '0');
+      const sec = String(dateObj.getSeconds()).padStart(2, '0');
+      return `${yyyy}${mm}${dd}T${hh}${min}${sec}`;
+    }
+
+    function escapeIcs(value = '') {
+      return String(value || '')
+        .replace(/\\/g, '\\\\')
+        .replace(/\r?\n/g, '\\n')
+        .replace(/,/g, '\\,')
+        .replace(/;/g, '\\;');
+    }
+
+    function getRoundPrimaryTime(round = {}) {
+      const slotWithTime = (round.teeTimes || []).find((slot) => slot && slot.time);
+      return toHHMM((slotWithTime && slotWithTime.time) || round.time || '');
+    }
+
+    function buildRoundGoogleCalendarUrl(round = {}) {
+      const dateISO = toIsoDate(round.date);
+      const startTime = getRoundPrimaryTime(round);
+      if (!dateISO || !startTime) return '';
+      const [year, month, day] = dateISO.split('-').map(Number);
+      const [hh, mm] = startTime.split(':').map(Number);
+      const start = new Date(year, month - 1, day, hh, mm, 0);
+      const end = new Date(start.getTime() + (TRIP_ICS_DURATION_MINUTES * 60 * 1000));
+      const firstLabel = round.teeTimes?.[0]?.label ? `${round.teeTimes[0].label} ${formatTime12(round.teeTimes[0].time)}` : formatTime12(startTime);
+      const details = [
+        `Trip Tee Time`,
+        `Course: ${round.course || 'Course TBD'}`,
+        round.venue ? `Venue: ${round.venue}` : '',
+        `Date: ${formatDateLong(dateISO)}`,
+        firstLabel ? `First Tee: ${firstLabel}` : '',
+        round.description ? `Notes: ${round.description}` : '',
+      ].filter(Boolean).join('\n');
+      const params = new URLSearchParams();
+      params.set('action', 'TEMPLATE');
+      params.set('text', `${round.course || 'Golf Round'} Tee Time`);
+      params.set('details', details);
+      params.set('location', round.address || round.course || 'Golf Course');
+      params.set('dates', `${formatCalendarStamp(start)}/${formatCalendarStamp(end)}`);
+      params.set('ctz', 'America/New_York');
+      return `https://calendar.google.com/calendar/render?${params.toString()}`;
+    }
+
+    function buildTripMonthIcs(rounds = [], monthDate = new Date()) {
+      const year = monthDate.getFullYear();
+      const month = monthDate.getMonth();
+      const monthRounds = rounds.filter((round) => {
+        const dateISO = toIsoDate(round.date);
+        if (!dateISO) return false;
+        const [y, m] = dateISO.split('-').map(Number);
+        return y === year && (m - 1) === month;
+      });
+      if (!monthRounds.length) return '';
+      const nowUtc = new Date();
+      const dtstamp = `${String(nowUtc.getUTCFullYear()).padStart(4, '0')}${String(nowUtc.getUTCMonth() + 1).padStart(2, '0')}${String(nowUtc.getUTCDate()).padStart(2, '0')}T${String(nowUtc.getUTCHours()).padStart(2, '0')}${String(nowUtc.getUTCMinutes()).padStart(2, '0')}${String(nowUtc.getUTCSeconds()).padStart(2, '0')}Z`;
+      const lines = [
+        'BEGIN:VCALENDAR',
+        'VERSION:2.0',
+        'PRODID:-//Tee Time Manager//Tin Cup Trip//EN',
+        'CALSCALE:GREGORIAN',
+        'METHOD:PUBLISH',
+      ];
+      monthRounds.forEach((round, roundIndex) => {
+        const dateISO = toIsoDate(round.date);
+        const slots = (round.teeTimes || []).length
+          ? round.teeTimes
+          : [{ label: 'TT#1', time: toHHMM(round.time), players: [] }];
+        slots.forEach((slot, slotIndex) => {
+          const startTime = toHHMM(slot.time || round.time);
+          if (!dateISO || !startTime) return;
+          const endTime = plusMinutes(startTime, TRIP_ICS_DURATION_MINUTES);
+          const [yearN, monthN, dayN] = dateISO.split('-').map(Number);
+          const [startH, startM] = startTime.split(':').map(Number);
+          const [endH, endM] = endTime.split(':').map(Number);
+          const startDate = new Date(yearN, monthN - 1, dayN, startH, startM, 0);
+          const endDate = new Date(yearN, monthN - 1, dayN, endH, endM, 0);
+          const uid = `${dateISO}-${slotIndex + 1}-${roundIndex + 1}-tin-cup-trip@teetime.local`;
+          const label = slot.label || `TT#${slotIndex + 1}`;
+          const playersLine = (slot.players || []).length ? `Players: ${(slot.players || []).join(', ')}` : 'Players: Open spots';
+          const description = [
+            `Trip tee time`,
+            `Course: ${round.course || 'Course TBD'}`,
+            round.venue ? `Venue: ${round.venue}` : '',
+            `Date: ${formatDateLong(dateISO)}`,
+            `${label}: ${formatTime12(startTime)}`,
+            playersLine,
+            round.description ? `Notes: ${round.description}` : '',
+          ].join('\n');
+          lines.push('BEGIN:VEVENT');
+          lines.push(`UID:${escapeIcs(uid)}`);
+          lines.push(`DTSTAMP:${dtstamp}`);
+          lines.push(`SUMMARY:${escapeIcs(`${round.course || 'Golf Round'} - ${label}`)}`);
+          lines.push(`DESCRIPTION:${escapeIcs(description)}`);
+          lines.push(`LOCATION:${escapeIcs(round.address || round.course || 'Golf Course')}`);
+          lines.push(`DTSTART;TZID=America/New_York:${formatCalendarStamp(startDate)}`);
+          lines.push(`DTEND;TZID=America/New_York:${formatCalendarStamp(endDate)}`);
+          TRIP_ICS_REMINDER_MINUTES.forEach((minutes) => {
+            lines.push('BEGIN:VALARM');
+            lines.push(`TRIGGER:-PT${minutes}M`);
+            lines.push('ACTION:DISPLAY');
+            lines.push(`DESCRIPTION:${escapeIcs(`Reminder: ${round.course || 'Golf Round'} ${label}`)}`);
+            lines.push('END:VALARM');
+          });
+          lines.push('END:VEVENT');
+        });
+      });
+      lines.push('END:VCALENDAR');
+      return `${lines.join('\r\n')}\r\n`;
+    }
+
+    function downloadTripMonthIcs(rounds = [], monthDate = new Date()) {
+      const ics = buildTripMonthIcs(rounds, monthDate);
+      if (!ics) return false;
+      const monthLabel = monthDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' }).replace(/\s+/g, '-').toLowerCase();
+      const blob = new Blob([ics], { type: 'text/calendar;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `tin-cup-trip-${monthLabel}.ics`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1200);
+      return true;
+    }
+
+    function createTripCalendarDay(day, year, month, isOtherMonth, eventDates) {
+      const dayEl = document.createElement('button');
+      dayEl.type = 'button';
+      dayEl.className = 'trip-calendar-day';
+      dayEl.textContent = String(day);
+      if (isOtherMonth) dayEl.classList.add('other-month');
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      if (eventDates.has(dateStr)) dayEl.classList.add('has-events');
+      if (tripScheduleState.selectedDate && dateStr === tripScheduleState.selectedDate) dayEl.classList.add('selected');
+      const todayIso = toIsoDate(new Date());
+      if (dateStr === todayIso) dayEl.classList.add('today');
+      dayEl.addEventListener('click', () => {
+        if (isOtherMonth) {
+          tripScheduleState.currentDate = new Date(year, month, 1);
+        }
+        tripScheduleState.selectedDate = dateStr;
+        renderTripSchedule(getTripRounds());
+      });
+      return dayEl;
+    }
+
+    function renderTripCalendar(rounds = []) {
+      const monthEl = document.getElementById('tripCurrentMonth');
+      const gridEl = document.getElementById('tripCalendarGrid');
+      const monthLinkEl = document.getElementById('tripMonthCalendarLink');
+      if (!monthEl || !gridEl || !monthLinkEl) return;
+      const year = tripScheduleState.currentDate.getFullYear();
+      const month = tripScheduleState.currentDate.getMonth();
+      const firstOfMonth = new Date(year, month, 1);
+      const fullMonth = firstOfMonth.toLocaleDateString(undefined, { month: 'long' });
+      monthEl.textContent = firstOfMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+      monthLinkEl.textContent = `Add tee times to your calendar for ${fullMonth}`;
+      monthLinkEl.setAttribute('title', `Download all ${fullMonth} tee times`);
+      gridEl.innerHTML = '';
+      ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach((name) => {
+        const head = document.createElement('div');
+        head.className = 'trip-calendar-day-header';
+        head.textContent = name;
+        gridEl.appendChild(head);
+      });
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const daysInPrevMonth = new Date(year, month, 0).getDate();
+      const eventDates = new Set(rounds.map((round) => toIsoDate(round.date)).filter(Boolean));
+      for (let i = firstDay - 1; i >= 0; i--) {
+        const prevDay = daysInPrevMonth - i;
+        let prevYear = year;
+        let prevMonth = month - 1;
+        if (prevMonth < 0) {
+          prevMonth = 11;
+          prevYear -= 1;
+        }
+        gridEl.appendChild(createTripCalendarDay(prevDay, prevYear, prevMonth, true, eventDates));
+      }
+      for (let day = 1; day <= daysInMonth; day++) {
+        gridEl.appendChild(createTripCalendarDay(day, year, month, false, eventDates));
+      }
+      const usedCells = firstDay + daysInMonth;
+      const trailingCells = usedCells % 7 === 0 ? 0 : 7 - (usedCells % 7);
+      for (let day = 1; day <= trailingCells; day++) {
+        let nextYear = year;
+        let nextMonth = month + 1;
+        if (nextMonth > 11) {
+          nextMonth = 0;
+          nextYear += 1;
+        }
+        gridEl.appendChild(createTripCalendarDay(day, nextYear, nextMonth, true, eventDates));
+      }
+    }
+
+    function renderTripEvents(rounds = []) {
+      const titleEl = document.getElementById('tripSelectedDateTitle');
+      const metaEl = document.getElementById('tripRoundCount');
+      const eventsEl = document.getElementById('tripEvents');
+      if (!titleEl || !metaEl || !eventsEl) return;
+      const selectedDate = toIsoDate(tripScheduleState.selectedDate);
+      if (!selectedDate) {
+        titleEl.textContent = 'Select a date';
+        metaEl.textContent = '';
+        eventsEl.innerHTML = '<div class="trip-empty-state">No date selected.</div>';
+        renderSidebarTeeSheet([]);
+        return;
+      }
+      const dayRounds = rounds.filter((round) => toIsoDate(round.date) === selectedDate);
+      const templateDay = getTemplateDayForDate(rounds, selectedDate);
+      titleEl.textContent = formatDateLong(selectedDate) || 'Selected date';
+      const dayPieces = [`${dayRounds.length} round${dayRounds.length === 1 ? '' : 's'}`];
+      if (templateDay && Array.isArray(templateDay.matchNumbers) && templateDay.matchNumbers.length) {
+        dayPieces.push(`${templateDay.matchNumbers.length} matches`);
+      }
+      metaEl.textContent = dayPieces.join(' • ');
+      if (!dayRounds.length) {
+        eventsEl.innerHTML = '<div class="trip-empty-state">No rounds scheduled for this date.</div>';
+        renderSidebarTeeSheet([]);
+        return;
+      }
+      renderSidebarTeeSheet(dayRounds, templateDay);
+      const templateMatchupMarkup = renderTemplateMatchups(rounds, selectedDate, dayRounds);
+      eventsEl.innerHTML = `
+        <div class="trip-event-list">
+          ${dayRounds.map((round) => {
+            const waze = buildWazeLink(round.course, round.address);
+            const googleUrl = buildRoundGoogleCalendarUrl(round);
+            const courseLabel = round.course || 'Course TBD';
+            const courseMarkup = waze
+              ? `<a class="waze-link" href="${waze}" target="_blank" rel="noopener">${escapeHtml(courseLabel)}</a>`
+              : escapeHtml(courseLabel);
+            const firstTime = getRoundPrimaryTime(round);
+            const scorecardMarkup = renderCourseScorecard(round);
+            return `
+              <article class="trip-event-card">
+                <div class="trip-event-top">
+                  <h3 class="trip-event-course">${courseMarkup}</h3>
+                  <span class="trip-event-time">${escapeHtml(firstTime ? `First tee ${formatTime12(firstTime)}` : 'Time TBD')}</span>
+                </div>
+                ${round.venue ? `<small>at ${escapeHtml(round.venue)}</small>` : ''}
+                ${round.address ? `<small>${escapeHtml(round.address)}</small>` : ''}
+                ${scorecardMarkup}
+              </article>
+            `;
+          }).join('')}
+        </div>
+        ${templateMatchupMarkup}
+      `;
+    }
+
+    function getRoundSlotsForDisplay(round = {}, templateDay = null) {
+      const firstTime = getRoundPrimaryTime(round);
+      const templateSlots = templateDay ? buildTemplateSlotsForDay(templateDay.key, firstTime || round.time || '') : [];
+      const existingSlots = Array.isArray(round.teeTimes) ? round.teeTimes : [];
+      const hasExistingPlayers = existingSlots.some((slot) => Array.isArray(slot && slot.players) && slot.players.length);
+      const useTemplateSlots = templateSlots.length > 0 && (!hasExistingPlayers || existingSlots.length < templateSlots.length);
+      return useTemplateSlots
+        ? templateSlots.map((slot, index) => {
+            const existing = existingSlots[index] || {};
+            const existingPlayers = Array.isArray(existing.players) ? existing.players.map((name) => String(name || '').trim()).filter(Boolean) : [];
+            return {
+              label: String(existing.label || slot.label || `TT#${index + 1}`).trim(),
+              time: toHHMM(existing.time || slot.time || ''),
+              players: existingPlayers.length ? existingPlayers : slot.players
+            };
+          })
+        : existingSlots;
+    }
+
+    function renderSidebarTeeSheet(dayRounds = [], templateDay = null) {
+      const sidebarEl = document.getElementById('tripSidebarTeeSheet');
+      if (!sidebarEl) return;
+      if (!Array.isArray(dayRounds) || !dayRounds.length) {
+        sidebarEl.innerHTML = `
+          <h3>Tee Sheet</h3>
+          <div class="trip-empty-state">Select a date to view tee times.</div>
+        `;
+        return;
+      }
+      sidebarEl.innerHTML = `
+        <h3>Tee Sheet</h3>
+        ${dayRounds.map((round) => {
+          const firstTime = getRoundPrimaryTime(round);
+          const slots = getRoundSlotsForDisplay(round, templateDay);
+          const slotMarkup = slots.map((slot, index) => {
+            const label = slot.label || `TT#${index + 1}`;
+            const playersMarkup = (slot.players || []).length
+              ? slot.players.map((name) => `<span class="trip-player-chip">${escapeHtml(name)}</span>`).join('')
+              : '<span class="trip-player-chip">Open</span>';
+              return `
+              <div class="trip-slot">
+                <div class="trip-slot-head">
+                  <span>${escapeHtml(label)}</span>
+                  <span>${escapeHtml(formatTime12(slot.time) || '--')}</span>
+                </div>
+                <div class="trip-slot-players">${playersMarkup}</div>
+              </div>
+              `;
+          }).join('');
+          return `
+            <div class="trip-sidebar-tee-sheet-round">
+              <div class="trip-sidebar-tee-sheet-meta">${escapeHtml(round.course || 'Course TBD')} ${firstTime ? `· First tee ${formatTime12(firstTime)}` : ''}</div>
+              ${slotMarkup ? `<div class="trip-slot-grid">${slotMarkup}</div>` : '<div class="trip-empty-state">No tee sheet entered.</div>'}
+            </div>
+          `;
+        }).join('')}
+      `;
+    }
+
+    function renderTripSchedule(rounds = []) {
+      const usableRounds = sortRounds(rounds.map(normalizeRound));
+      const availableDates = usableRounds.map((round) => toIsoDate(round.date)).filter(Boolean);
+      if (!availableDates.length) {
+        tripScheduleState.selectedDate = '';
+        renderTripCalendar([]);
+        renderTripEvents([]);
+        return;
+      }
+      if (!tripScheduleState.selectedDate || !availableDates.includes(toIsoDate(tripScheduleState.selectedDate))) {
+        tripScheduleState.selectedDate = availableDates[0];
+      }
+      const selected = toIsoDate(tripScheduleState.selectedDate);
+      if (selected) {
+        const [year, month] = selected.split('-').map(Number);
+        if (Number.isInteger(year) && Number.isInteger(month)) {
+          tripScheduleState.currentDate = new Date(year, month - 1, 1);
+        }
+      }
+      renderTripCalendar(usableRounds);
+      renderTripEvents(usableRounds);
+    }
+
+    function renderItinerary() {
+      $('#itineraryBox').innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
+          <h2 style="margin:0;font-size:1.05rem;">Golf Schedule</h2>
+        </div>
+        <div class="trip-schedule-layout">
+          <aside class="trip-calendar-sidebar">
+            <div class="trip-calendar-header">
+              <button type="button" id="tripPrevMonth" class="trip-calendar-nav" title="Previous month">‹</button>
+              <div class="trip-calendar-month-controls">
+                <h3 id="tripCurrentMonth" class="trip-calendar-month">Month Year</h3>
+                <a id="tripMonthCalendarLink" class="trip-calendar-month-link" href="#">Add tee times to your calendar for this month</a>
+              </div>
+              <button type="button" id="tripNextMonth" class="trip-calendar-nav" title="Next month">›</button>
+            </div>
+            <div id="tripCalendarGrid" class="trip-calendar-grid"></div>
+            <div class="trip-map-panel trip-map-collapsed" id="tripMapBox">
+              <div class="trip-map-head">
+                <h2>Trip Map</h2>
+                <div class="trip-map-actions">
+                  <button id="tripMapToggle" type="button">Expand Map</button>
+                </div>
+              </div>
+              <div class="map-frame-wrap">
+                <iframe src="https://www.google.com/maps?q=610+Palmer+Drive,+Southern+Pines,+North+Carolina+28387&output=embed" width="640" height="480" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Tin Cup 2026 Golf Trip Map"></iframe>
+              </div>
+            </div>
+            <div class="trip-sidebar-tee-sheet" id="tripSidebarTeeSheet">
+              <h3>Tee Sheet</h3>
+              <div class="trip-empty-state">Select a date to view tee times.</div>
+            </div>
+          </aside>
+          <section class="trip-events-container">
+            <div class="trip-events-header">
+              <h3 id="tripSelectedDateTitle" class="trip-events-title">Select a date</h3>
+              <span id="tripRoundCount" class="trip-events-meta"></span>
+            </div>
+            <div id="tripEvents"></div>
+          </section>
+        </div>
+      `;
+
+      initTripMapToggle();
+
+      const rounds = getTripRounds();
+      renderTripSchedule(rounds);
+
+      const prevBtn = document.getElementById('tripPrevMonth');
+      const nextBtn = document.getElementById('tripNextMonth');
+      const monthLink = document.getElementById('tripMonthCalendarLink');
+      if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+          tripScheduleState.currentDate = new Date(tripScheduleState.currentDate.getFullYear(), tripScheduleState.currentDate.getMonth() - 1, 1);
+          renderTripCalendar(getTripRounds());
+        });
+      }
+      if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+          tripScheduleState.currentDate = new Date(tripScheduleState.currentDate.getFullYear(), tripScheduleState.currentDate.getMonth() + 1, 1);
+          renderTripCalendar(getTripRounds());
+        });
+      }
+      if (monthLink) {
+        monthLink.addEventListener('click', (event) => {
+          event.preventDefault();
+          const ok = downloadTripMonthIcs(getTripRounds(), tripScheduleState.currentDate);
+          if (!ok) alert('No tee times for this month yet.');
+        });
+      }
+
+      renderStatusList();
+
+      const inCount = participants.filter((p) => p.status === 'in').length;
+      const nextIncrement = Math.ceil(Math.max(inCount, 1) / 4) * 4;
+      const needed = Math.max(nextIncrement - inCount, 0);
+      const statusRow = $('#statusSummaryRow');
+      if (statusRow) {
+        statusRow.innerHTML = `
+          <div class="status-box" style="display:grid;gap:6px;background:var(--panel-soft);border:1px solid var(--border);border-radius:12px;padding:12px;">
+            <strong>Confirmed Golfers: <span style="color:var(--accent);">${inCount}</span></strong>
+            <span style="color:var(--muted);font-size:0.95rem;">
+              ${needed > 0
+                ? `Need ${needed} more to reach the next full group of 4.`
+                : `We have a full group of ${inCount}. Next target: ${nextIncrement + 4}.`}
+            </span>
+          </div>
+        `;
+      }
+    }
+
+    function renderStatusList() {
+      const listEl = $('#allParticipantsList');
+      if (!listEl) return;
+      if (!Array.isArray(participants) || !participants.length) {
+        listEl.innerHTML = '';
+        return;
+      }
+      const counts = { in: 0, out: 0, maybe: 0, waitlist: 0, invited: 0 };
+      participants.forEach((p) => { if (counts.hasOwnProperty(p.status)) counts[p.status]++; });
+
+      const sorted = [...participants].sort((a, b) => {
+        const sa = STATUS_ORDER.indexOf(a.status);
+        const sb = STATUS_ORDER.indexOf(b.status);
+        if (sa !== sb) return sa - sb;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+      const perCol = Math.ceil(sorted.length / 2);
+      const cols = [sorted.slice(0, perCol), sorted.slice(perCol)];
+
+      let tableHtml = `
+        <div class="status-grid">
+          ${STATUS_ORDER.map((s) => `<div class="status-pill"><span>${STATUS_LABELS[s]}</span><strong>${counts[s]}</strong></div>`).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
+      `;
+      for (let colIdx = 0; colIdx < cols.length; colIdx++) {
+        const col = cols[colIdx];
+        const start = colIdx * perCol + 1;
+        tableHtml += `<ol start='${start}' style='margin:0;padding-left:18px;display:grid;gap:6px;'>${col.map((p) =>
+          `<li style="margin:0;display:grid;gap:6px;">
+            <div style="font-weight:600;color:#fff;">${p.name}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+              <select class='golfer-status-dropdown' data-id='${p._id}' style='font-size:13px;padding:8px;border-radius:8px;border:1px solid var(--border);background:#0b1728;color:var(--ink);'>
+                ${STATUS_ORDER.map((opt) => `<option value='${opt}'${p.status === opt ? ' selected' : ''}>${STATUS_LABELS[opt]}</option>`).join('')}
+              </select>
+              <input type='number' class='golfer-paid-input' data-id='${p._id}' value='${(p.totalPaidAmount || 0).toFixed(2)}' min='0' step='0.01' style='padding:8px;border-radius:8px;border:1px solid var(--border);background:#0b1728;color:var(--ink);' placeholder='Paid'>
+            </div>
+          </li>`
+        ).join('')}</ol>`;
+      }
+      tableHtml += `</div>`;
+      listEl.innerHTML = tableHtml;
+
+      document.querySelectorAll('.golfer-status-dropdown').forEach((sel) => {
+        sel.addEventListener('change', async function () {
+          await updateParticipant(this.dataset.id, { status: this.value }, { requireAdmin: true });
+        });
+      });
+      document.querySelectorAll('.golfer-paid-input').forEach((input) => {
+        input.addEventListener('change', async function () {
+          await updateParticipant(this.dataset.id, { totalPaidAmount: safeNumber(this.value) }, { requireAdmin: true });
+        });
+      });
+    }
+
+    function renderBaseGroupSizeSelect() {
+      const select = $('#baseGroupSizeSelect');
+      if (!select) return;
+      select.innerHTML = '';
+      BASE_GROUP_SIZES.forEach((n) => {
+        const opt = document.createElement('option');
+        opt.value = n;
+        opt.textContent = `${n} players`;
+        if (trip?.baseGroupSize == n) opt.selected = true;
+        select.appendChild(opt);
+      });
+    }
+
+    function renderParticipants() {
+      const container = document.getElementById('condoGroups');
+      if (!container) return;
+      container.innerHTML = '';
+      const addBtnEl = document.getElementById('addParticipantBtn');
+      if (addBtnEl) {
+        addBtnEl.disabled = !tripId;
+        addBtnEl.title = tripId ? 'Add golfer' : 'Preview mode until Tin Cup trip is linked in the database';
+      }
+      if (!tripId) {
+        container.innerHTML = '<div class="trip-empty-state">Preview mode: participant management will unlock after the Tin Cup trip record is added in the database.</div>';
+        const sidebar = document.getElementById('unassignedSidebar');
+        if (sidebar) sidebar.innerHTML = '';
+        return;
+      }
+
+      const condoCount = getCondoCount();
+      const condoCounts = Array(condoCount).fill(0);
+      participants.forEach((g) => {
+        const condoNum = getCondoNumber(g.roomAssignment);
+        if (!condoNum) return;
+        const idx = condoNum - 1;
+        if (idx >= 0 && idx < condoCount) condoCounts[idx]++;
+      });
+
+      for (let i = 0; i < condoCount; i++) {
+        const div = document.createElement('div');
+        div.className = 'condo-group';
+        div.innerHTML = `<strong>Condo ${i + 1}</strong><div class="cards-grid"></div>`;
+        const grid = div.querySelector('.cards-grid');
+        const group = participants.filter((p) => {
+          return getCondoNumber(p.roomAssignment) === i + 1;
+        });
+        for (const p of group) {
+          const match = p.roomAssignment && p.roomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
+          const room = match ? match[2] : '';
+          const currentCondo = getCondoNumber(p.roomAssignment);
+          let moveOptions = `<option value="unassigned">Unassigned</option>`;
+          for (let c = 1; c <= condoCount; c++) {
+            if (c !== currentCondo && condoCounts[c - 1] < 4) moveOptions += `<option value="${c}">Condo ${c}</option>`;
+          }
+          const card = document.createElement('div');
+          card.className = 'participant-card';
+          card.innerHTML = `
+            <div class="fields-row">
+              <label class="stacked"><span>Name</span><input type="text" value="${p.name || ''}" data-id="${p._id}" class="name-input"></label>
+              <label class="stacked"><span>Room</span><select class="room-select" data-id="${p._id}">
+                <option value="A"${room === 'A' ? ' selected' : ''}>A</option>
+                <option value="B"${room === 'B' ? ' selected' : ''}>B</option>
+              </select></label>
+              <label class="stacked"><span>Extra Night</span><input type="checkbox" ${p.wantsExtraNight ? 'checked' : ''} class="extra-night-input" data-id="${p._id}"></label>
+            </div>
+            <div class="actions">
+              <button class="remove-condo-btn" data-id="${p._id}">Unassign</button>
+              ${moveOptions ? `<select class="move-condo-select" data-id="${p._id}" style="padding:10px;border-radius:10px;border:1px solid var(--border);background:#0b1728;color:var(--ink);"><option value="">Move to...</option>${moveOptions}</select>` : ''}
+            </div>
+          `;
+          grid.appendChild(card);
+        }
+        container.appendChild(div);
+      }
+
+      const unassigned = participants.filter((p) => {
+        const condoNum = getCondoNumber(p.roomAssignment);
+        return !condoNum || condoNum < 1 || condoNum > condoCount;
+      });
+      const unassignedSidebar = document.getElementById('unassignedSidebar');
+      if (unassignedSidebar) {
+        unassignedSidebar.innerHTML = `
+          <div style="display:grid;gap:8px;">
+            <div>
+              <label style="color:var(--ink-soft);font-size:0.9rem;">Base Group Size</label>
+              <select name="baseGroupSize" id="baseGroupSizeSelect" style="width:100%;padding:10px;border-radius:10px;border:1px solid var(--border);background:#0b1728;color:var(--ink);"></select>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+              <strong>Unassigned</strong>
+              <span style="color:var(--muted);font-size:0.9rem;">${unassigned.length}</span>
+            </div>
+            <div style="max-height:420px;overflow-y:auto;">
+              <ul id="unassignedList"></ul>
+            </div>
+          </div>
+        `;
+        renderBaseGroupSizeSelect();
+      }
+
+      const ul = document.getElementById('unassignedList');
+      if (!ul || !unassignedSidebar) return;
+      ul.innerHTML = '';
+      if (!unassigned.length) {
+        ul.innerHTML = `<li style="color:var(--muted);">Everyone is assigned.</li>`;
+      } else {
+        const condoOptions = Array.from({ length: condoCount }, (_, idx) => `<option value="${idx + 1}">Condo ${idx + 1}</option>`).join('');
+        unassigned.forEach((p) => {
+          const li = document.createElement('li');
+          li.innerHTML = `
+            <div style="margin-bottom:6px;font-weight:600;">${p.name}</div>
+            <select class="assign-condo-select" data-id="${p._id}">
+              <option value="">Assign to condo...</option>
+              ${condoOptions}
+            </select>
+            <button class="remove-golfer-btn" data-id="${p._id}" style="margin-top:8px;background:#c93636;color:#fff;">Delete</button>
+          `;
+          ul.appendChild(li);
+        });
+      }
+
+      if (unassignedSidebar._changeHandler) unassignedSidebar.removeEventListener('change', unassignedSidebar._changeHandler);
+      unassignedSidebar._changeHandler = async function (e) {
+        if (e.target.classList.contains('assign-condo-select')) {
+          const condoNum = Number(e.target.value);
+          const id = e.target.dataset.id;
+          if (!condoNum || condoNum < 1 || condoNum > condoCount) return;
+          await updateParticipant(id, { roomAssignment: `Condo ${condoNum} - Room A` }, { requireAdmin: true });
+        }
+        if (e.target.id === 'baseGroupSizeSelect') {
+          await fetch(tripApi(`/api/trips/${tripId}`), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ baseGroupSize: Number(e.target.value) || undefined })
+          });
+          await loadTrip();
+        }
+      };
+      unassignedSidebar.addEventListener('change', unassignedSidebar._changeHandler);
+
+      if (unassignedSidebar._removeHandler) unassignedSidebar.removeEventListener('click', unassignedSidebar._removeHandler);
+      unassignedSidebar._removeHandler = async function (e) {
+        if (e.target.classList.contains('remove-golfer-btn')) {
+          const code = getAdminCode();
+          if (!code) return;
+          const id = e.target.dataset.id;
+          if (!confirm('Remove this golfer from the event?')) return;
+          await fetch(tripApi(`/api/trips/${tripId}/participants/${id}`), {
+            method: 'DELETE',
+            headers: { 'x-admin-code': code }
+          });
+          await loadTrip();
+        }
+      };
+      unassignedSidebar.addEventListener('click', unassignedSidebar._removeHandler);
+    }
+
+    const condoGroups = document.getElementById('condoGroups');
+    if (condoGroups) {
+      condoGroups.addEventListener('click', async function (e) {
+        if (e.target.classList.contains('move-condo-select')) {
+          const id = e.target.dataset.id;
+          const val = e.target.value;
+          if (!val) return;
+          const condoCount = getCondoCount();
+          if (val === 'unassigned') {
+            await updateParticipant(id, { roomAssignment: null }, { requireAdmin: true });
+          } else if (Number(val) >= 1 && Number(val) <= condoCount) {
+            await updateParticipant(id, { roomAssignment: `Condo ${val} - Room A` }, { requireAdmin: true });
+          }
+        }
+        if (e.target.classList.contains('remove-condo-btn')) {
+          const id = e.target.dataset.id;
+          await updateParticipant(id, { roomAssignment: null }, { requireAdmin: true });
+        }
+      });
+      condoGroups.addEventListener('change', async function (e) {
+        if (e.target.classList.contains('room-select')) {
+          const id = e.target.dataset.id;
+          const room = e.target.value;
+          const match = participants.find((p) => p._id === id)?.roomAssignment?.match(/^Condo (\d+) - Room ([AB])$/);
+          const condoNum = match ? match[1] : null;
+          if (condoNum) {
+            await updateParticipant(id, { roomAssignment: `Condo ${condoNum} - Room ${room}` }, { requireAdmin: true });
+          }
+        }
+        if (e.target.classList.contains('name-input')) {
+          const id = e.target.dataset.id;
+          await updateParticipant(id, { name: e.target.value });
+        }
+        if (e.target.classList.contains('extra-night-input')) {
+          const id = e.target.dataset.id;
+          await updateParticipant(id, { wantsExtraNight: e.target.checked });
+        }
+      });
+    }
+
+    const addBtn = document.getElementById('addParticipantBtn');
+    if (addBtn) {
+      addBtn.onclick = async function () {
+        if (!tripId) {
+          alert('Tin Cup trip is in preview mode until a database trip record is created.');
+          return;
+        }
+        const name = prompt('Golfer name:');
+        if (!name) return;
+        await fetch(tripApi(`/api/trips/${tripId}/participants`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, status: 'invited' })
+        });
+        await loadTrip();
+      };
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      initTripInfoModal();
+      initTripMapToggle();
+      loadTrip();
+    });
+  </script>
+</body>
+</html>

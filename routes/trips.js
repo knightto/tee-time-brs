@@ -4,6 +4,7 @@ initSecondaryConn();
 const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
 const TripPrimary = require('../models/Trip');
 const TripParticipantPrimary = require('../models/TripParticipant');
+const TripAuditLogPrimary = require('../models/TripAuditLog');
 const { buildDefaultTripTemplate, DEFAULT_TEMPLATE_NAME } = require('../services/tripTemplateService');
 const {
   buildTripCompetitionView,
@@ -34,6 +35,7 @@ function getSecondaryModels() {
   return {
     TripSecondary: conn.model('Trip', require('../models/Trip').schema),
     TripParticipantSecondary: conn.model('TripParticipant', require('../models/TripParticipant').schema),
+    TripAuditLogSecondary: conn.model('TripAuditLog', require('../models/TripAuditLog').schema),
   };
 }
 
@@ -44,20 +46,28 @@ function isAdmin(req) {
 
 function getTripModelsForRequest(req) {
   if (req.query.myrtleBeach2026 === 'true') {
-    const { TripSecondary, TripParticipantSecondary } = getSecondaryModels();
-    if (TripSecondary && TripParticipantSecondary) {
-      return { TripModel: TripSecondary, TripParticipantModel: TripParticipantSecondary };
+    const { TripSecondary, TripParticipantSecondary, TripAuditLogSecondary } = getSecondaryModels();
+    if (TripSecondary && TripParticipantSecondary && TripAuditLogSecondary) {
+      return {
+        TripModel: TripSecondary,
+        TripParticipantModel: TripParticipantSecondary,
+        TripAuditLogModel: TripAuditLogSecondary,
+      };
     }
   }
-  return { TripModel: TripPrimary, TripParticipantModel: TripParticipantPrimary };
+  return {
+    TripModel: TripPrimary,
+    TripParticipantModel: TripParticipantPrimary,
+    TripAuditLogModel: TripAuditLogPrimary,
+  };
 }
 
 async function loadTripBundle(req) {
-  const { TripModel, TripParticipantModel } = getTripModelsForRequest(req);
+  const { TripModel, TripParticipantModel, TripAuditLogModel } = getTripModelsForRequest(req);
   const trip = await TripModel.findById(req.params.tripId);
-  if (!trip) return { TripModel, TripParticipantModel, trip: null, participants: [] };
+  if (!trip) return { TripModel, TripParticipantModel, TripAuditLogModel, trip: null, participants: [] };
   const participants = await TripParticipantModel.find({ trip: trip._id });
-  return { TripModel, TripParticipantModel, trip, participants };
+  return { TripModel, TripParticipantModel, TripAuditLogModel, trip, participants };
 }
 
 function sendTripRouteError(res, error) {
@@ -69,6 +79,80 @@ function sendTripRouteError(res, error) {
 
 function isLiveScoringEnabled(state) {
   return Boolean(state && state.settings && state.settings.enableLiveFoursomeScoring);
+}
+
+function parseRoundStartDate(round) {
+  if (!round || !round.date) return null;
+  const day = new Date(round.date);
+  if (Number.isNaN(day.getTime())) return null;
+  const hhmm = String(round.time || '').trim();
+  const match = /^(\d{1,2}):(\d{2})$/.exec(hhmm);
+  if (!match) {
+    day.setHours(0, 0, 0, 0);
+    return day;
+  }
+  day.setHours(Number(match[1]), Number(match[2]), 0, 0);
+  return day;
+}
+
+function getTripStartDate(trip) {
+  if (!trip) return null;
+  let earliest = null;
+  const rounds = Array.isArray(trip.rounds) ? trip.rounds : [];
+  rounds.forEach((round) => {
+    const dt = parseRoundStartDate(round);
+    if (!dt) return;
+    if (!earliest || dt.getTime() < earliest.getTime()) earliest = dt;
+  });
+  if (earliest) return earliest;
+  if (trip.arrivalDate) {
+    const arrival = new Date(trip.arrivalDate);
+    if (!Number.isNaN(arrival.getTime())) {
+      arrival.setHours(0, 0, 0, 0);
+      return arrival;
+    }
+  }
+  return null;
+}
+
+function hasTripStarted(trip) {
+  const start = getTripStartDate(trip);
+  if (!start) return false;
+  return Date.now() >= start.getTime();
+}
+
+function truncateValue(value, maxLen = 240) {
+  if (value === null || value === undefined) return value;
+  if (typeof value === 'string') return value.length > maxLen ? `${value.slice(0, maxLen)}...` : value;
+  if (typeof value === 'number' || typeof value === 'boolean') return value;
+  if (Array.isArray(value)) return value.slice(0, 20).map((item) => truncateValue(item, maxLen));
+  if (typeof value === 'object') {
+    const out = {};
+    Object.keys(value).slice(0, 40).forEach((key) => {
+      out[key] = truncateValue(value[key], maxLen);
+    });
+    return out;
+  }
+  return String(value);
+}
+
+async function writeTripAudit(req, trip, TripAuditLogModel, action, summary, details = {}) {
+  if (!trip || !TripAuditLogModel) return;
+  if (!hasTripStarted(trip)) return;
+  try {
+    await TripAuditLogModel.create({
+      tripId: trip._id,
+      action: String(action || '').trim() || 'trip_update',
+      actor: isAdmin(req) ? 'admin' : 'public',
+      method: String(req.method || ''),
+      route: String(req.originalUrl || req.path || ''),
+      summary: String(summary || '').trim(),
+      details: truncateValue(details),
+      timestamp: new Date(),
+    });
+  } catch (_error) {
+    // Audit logging should never break trip updates.
+  }
 }
 
 
@@ -123,15 +207,17 @@ router.get('/:tripId', async (req, res) => {
 
 // Update trip details
 router.put('/:tripId', async (req, res) => {
-  if (req.query.myrtleBeach2026 === 'true') {
-    const { TripSecondary } = getSecondaryModels();
-    if (TripSecondary) {
-      const trip = await TripSecondary.findByIdAndUpdate(req.params.tripId, req.body, { new: true });
-      return res.json(trip);
-    }
+  try {
+    const { TripModel, TripAuditLogModel } = getTripModelsForRequest(req);
+    const trip = await TripModel.findByIdAndUpdate(req.params.tripId, req.body, { new: true });
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    await writeTripAudit(req, trip, TripAuditLogModel, 'update_trip', 'Trip details updated', {
+      updates: req.body || {},
+    });
+    return res.json(trip);
+  } catch (error) {
+    return sendTripRouteError(res, error);
   }
-  const trip = await TripPrimary.findByIdAndUpdate(req.params.tripId, req.body, { new: true });
-  res.json(trip);
 });
 
 router.get('/:tripId/competition', async (req, res) => {
@@ -149,10 +235,13 @@ router.put('/:tripId/competition/settings', async (req, res) => {
     return res.status(403).json({ error: 'Admin code required' });
   }
   try {
-    const { trip, participants } = await loadTripBundle(req);
+    const { trip, participants, TripAuditLogModel } = await loadTripBundle(req);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
     setTripScoringMode(trip, req.body && req.body.scoringMode);
     await trip.save();
+    await writeTripAudit(req, trip, TripAuditLogModel, 'competition_settings', 'Competition scoring mode changed', {
+      scoringMode: req.body && req.body.scoringMode,
+    });
     return res.json(buildTripCompetitionView(trip, participants));
   } catch (error) {
     return sendTripRouteError(res, error);
@@ -164,10 +253,13 @@ router.put('/:tripId/competition/buckets', async (req, res) => {
     return res.status(403).json({ error: 'Admin code required' });
   }
   try {
-    const { trip, participants } = await loadTripBundle(req);
+    const { trip, participants, TripAuditLogModel } = await loadTripBundle(req);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
     setTripHandicapBuckets(trip, participants, req.body && req.body.buckets);
     await trip.save();
+    await writeTripAudit(req, trip, TripAuditLogModel, 'competition_buckets', 'Competition handicap buckets updated', {
+      bucketCount: Array.isArray(req.body && req.body.buckets) ? req.body.buckets.length : 0,
+    });
     return res.json(buildTripCompetitionView(trip, participants));
   } catch (error) {
     return sendTripRouteError(res, error);
@@ -179,10 +271,15 @@ router.put('/:tripId/competition/rounds/:roundIndex/scores', async (req, res) =>
     return res.status(403).json({ error: 'Admin code required' });
   }
   try {
-    const { trip, participants } = await loadTripBundle(req);
+    const { trip, participants, TripAuditLogModel } = await loadTripBundle(req);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
     setRoundPlayerScores(trip, req.params.roundIndex, req.body && req.body.playerName, req.body && req.body.holes);
     await trip.save();
+    await writeTripAudit(req, trip, TripAuditLogModel, 'round_scores', 'Round player scores updated', {
+      roundIndex: Number(req.params.roundIndex),
+      playerName: req.body && req.body.playerName,
+      holeCount: Array.isArray(req.body && req.body.holes) ? req.body.holes.length : 0,
+    });
     return res.json(buildTripCompetitionView(trip, participants));
   } catch (error) {
     return sendTripRouteError(res, error);
@@ -194,10 +291,16 @@ router.put('/:tripId/competition/rounds/:roundIndex/matches/:slotIndex', async (
     return res.status(403).json({ error: 'Admin code required' });
   }
   try {
-    const { trip, participants } = await loadTripBundle(req);
+    const { trip, participants, TripAuditLogModel } = await loadTripBundle(req);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
     setRoundMatchTeams(trip, req.params.roundIndex, req.params.slotIndex, req.body && req.body.teamA, req.body && req.body.teamB);
     await trip.save();
+    await writeTripAudit(req, trip, TripAuditLogModel, 'round_matches', 'Round match teams updated', {
+      roundIndex: Number(req.params.roundIndex),
+      slotIndex: Number(req.params.slotIndex),
+      teamA: req.body && req.body.teamA,
+      teamB: req.body && req.body.teamB,
+    });
     return res.json(buildTripCompetitionView(trip, participants));
   } catch (error) {
     return sendTripRouteError(res, error);
@@ -209,13 +312,18 @@ router.put('/:tripId/competition/rounds/:roundIndex/side-games', async (req, res
     return res.status(403).json({ error: 'Admin code required' });
   }
   try {
-    const { trip, participants } = await loadTripBundle(req);
+    const { trip, participants, TripAuditLogModel } = await loadTripBundle(req);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
     setRoundSideGames(trip, req.params.roundIndex, {
       ctpWinners: req.body && req.body.ctpWinners,
       skinsResults: req.body && req.body.skinsResults,
     });
     await trip.save();
+    await writeTripAudit(req, trip, TripAuditLogModel, 'round_side_games', 'Round side games updated', {
+      roundIndex: Number(req.params.roundIndex),
+      ctpCount: Array.isArray(req.body && req.body.ctpWinners) ? req.body.ctpWinners.length : 0,
+      skinsCount: Array.isArray(req.body && req.body.skinsResults) ? req.body.skinsResults.length : 0,
+    });
     return res.json(buildTripCompetitionView(trip, participants));
   } catch (error) {
     return sendTripRouteError(res, error);
@@ -280,7 +388,7 @@ router.get('/:tripId/tin-cup/live/scorecard', async (req, res) => {
 
 router.put('/:tripId/tin-cup/live/scorecard/hole', async (req, res) => {
   try {
-    const { trip, TripModel } = await loadTripBundle(req);
+    const { trip, TripModel, TripAuditLogModel } = await loadTripBundle(req);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
     const payload = req.body || {};
     const dayKey = String(payload.dayKey || '').trim();
@@ -293,6 +401,13 @@ router.put('/:tripId/tin-cup/live/scorecard/hole', async (req, res) => {
     const view = updateHoleScore(state, payload);
     trip.markModified('tinCupLive');
     await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
+    await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_hole_score', 'Tin Cup live hole score updated', {
+      dayKey,
+      slotIndex,
+      hole: payload.hole,
+      playerName: payload.playerName,
+      score: payload.score,
+    });
     return res.json(view);
   } catch (error) {
     return sendTripRouteError(res, error);
@@ -301,7 +416,7 @@ router.put('/:tripId/tin-cup/live/scorecard/hole', async (req, res) => {
 
 router.put('/:tripId/tin-cup/live/scorecard/marker', async (req, res) => {
   try {
-    const { trip, TripModel } = await loadTripBundle(req);
+    const { trip, TripModel, TripAuditLogModel } = await loadTripBundle(req);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
     const payload = req.body || {};
     const dayKey = String(payload.dayKey || '').trim();
@@ -315,6 +430,13 @@ router.put('/:tripId/tin-cup/live/scorecard/marker', async (req, res) => {
     const view = updateMarker(state, payload);
     trip.markModified('tinCupLive');
     await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
+    await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_marker', 'Tin Cup live marker updated', {
+      dayKey,
+      slotIndex,
+      markerType: payload.markerType,
+      hole: payload.hole,
+      playerName: payload.playerName,
+    });
     return res.json(view);
   } catch (error) {
     return sendTripRouteError(res, error);
@@ -340,7 +462,7 @@ router.get('/:tripId/tin-cup/live/admin/codes', async (req, res) => {
 router.post('/:tripId/tin-cup/live/admin/codes', async (req, res) => {
   if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
   try {
-    const { trip, TripModel } = await loadTripBundle(req);
+    const { trip, TripModel, TripAuditLogModel } = await loadTripBundle(req);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
     const state = ensureTinCupLiveState(trip);
     if (!state.settings.enableFoursomeCodes) return res.status(400).json({ error: 'Foursome code feature is disabled for this trip.' });
@@ -372,6 +494,12 @@ router.post('/:tripId/tin-cup/live/admin/codes', async (req, res) => {
     });
     trip.markModified('tinCupLive');
     await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
+    await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_codes', 'Tin Cup foursome codes generated', {
+      generatedCount: generated.length,
+      dayKey: dayKey || null,
+      slotIndex: Number.isInteger(slotIndex) ? slotIndex : null,
+      force,
+    });
     return res.json({
       generatedCount: generated.length,
       generated,
@@ -385,13 +513,17 @@ router.post('/:tripId/tin-cup/live/admin/codes', async (req, res) => {
 router.put('/:tripId/tin-cup/live/admin/scramble-bonus', async (req, res) => {
   if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
   try {
-    const { trip, TripModel } = await loadTripBundle(req);
+    const { trip, TripModel, TripAuditLogModel } = await loadTripBundle(req);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
     const payload = req.body || {};
     const state = ensureTinCupLiveState(trip);
     setScrambleBonus(state, payload.playerName, payload.value);
     trip.markModified('tinCupLive');
     await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
+    await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_scramble_bonus', 'Tin Cup scramble bonus updated', {
+      playerName: payload.playerName,
+      value: payload.value,
+    });
     return res.json({ scrambleBonus: state.scrambleBonus });
   } catch (error) {
     return sendTripRouteError(res, error);
@@ -412,13 +544,34 @@ router.get('/:tripId/tin-cup/live/settings', async (req, res) => {
 router.put('/:tripId/tin-cup/live/settings', async (req, res) => {
   if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
   try {
-    const { trip, TripModel } = await loadTripBundle(req);
+    const { trip, TripModel, TripAuditLogModel } = await loadTripBundle(req);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
     const state = ensureTinCupLiveState(trip);
     const next = updateSettings(state, req.body && req.body.settings ? req.body.settings : {});
     trip.markModified('tinCupLive');
     await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
+    await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_settings', 'Tin Cup live settings changed', {
+      settings: req.body && req.body.settings ? req.body.settings : {},
+    });
     return res.json({ settings: next });
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.get('/:tripId/audit-log', async (req, res) => {
+  try {
+    const { trip, TripAuditLogModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const rawLimit = Number(req.query.limit);
+    const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(1000, Math.floor(rawLimit))) : 250;
+    const rows = await TripAuditLogModel.find({ tripId: trip._id }).sort({ timestamp: -1 }).limit(limit).lean();
+    return res.json({
+      tripId: String(trip._id),
+      startedAt: getTripStartDate(trip),
+      count: rows.length,
+      rows,
+    });
   } catch (error) {
     return sendTripRouteError(res, error);
   }
@@ -439,15 +592,20 @@ router.get('/:tripId/participants', async (req, res) => {
 
 // Add participant
 router.post('/:tripId/participants', async (req, res) => {
-  if (req.query.myrtleBeach2026 === 'true') {
-    const { TripParticipantSecondary } = getSecondaryModels();
-    if (TripParticipantSecondary) {
-      const participant = await TripParticipantSecondary.create({ ...req.body, trip: req.params.tripId });
-      return res.json(participant);
-    }
+  try {
+    const { TripModel, TripParticipantModel, TripAuditLogModel } = getTripModelsForRequest(req);
+    const trip = await TripModel.findById(req.params.tripId);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const participant = await TripParticipantModel.create({ ...req.body, trip: req.params.tripId });
+    await writeTripAudit(req, trip, TripAuditLogModel, 'participant_add', 'Trip participant added', {
+      participantId: participant._id,
+      name: participant.name,
+      status: participant.status,
+    });
+    return res.json(participant);
+  } catch (error) {
+    return sendTripRouteError(res, error);
   }
-  const participant = await TripParticipantPrimary.create({ ...req.body, trip: req.params.tripId });
-  res.json(participant);
 });
 
 // Update participant
@@ -456,15 +614,34 @@ router.put('/:tripId/participants/:participantId', async (req, res) => {
   if (needsAdmin && !isAdmin(req)) {
     return res.status(403).json({ error: 'Admin code required' });
   }
-  if (req.query.myrtleBeach2026 === 'true') {
-    const { TripParticipantSecondary } = getSecondaryModels();
-    if (TripParticipantSecondary) {
-      const participant = await TripParticipantSecondary.findByIdAndUpdate(req.params.participantId, req.body, { new: true });
-      return res.json(participant);
-    }
+  try {
+    const { TripModel, TripParticipantModel, TripAuditLogModel } = getTripModelsForRequest(req);
+    const trip = await TripModel.findById(req.params.tripId);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const participantBefore = await TripParticipantModel.findById(req.params.participantId);
+    const participant = await TripParticipantModel.findByIdAndUpdate(req.params.participantId, req.body, { new: true });
+    if (!participant) return res.status(404).json({ error: 'Participant not found' });
+    await writeTripAudit(req, trip, TripAuditLogModel, 'participant_update', 'Trip participant updated', {
+      participantId: participant._id,
+      name: participant.name,
+      fields: Object.keys(req.body || {}),
+      before: participantBefore ? {
+        name: participantBefore.name,
+        status: participantBefore.status,
+        handicapIndex: participantBefore.handicapIndex,
+        roomAssignment: participantBefore.roomAssignment,
+      } : null,
+      after: {
+        name: participant.name,
+        status: participant.status,
+        handicapIndex: participant.handicapIndex,
+        roomAssignment: participant.roomAssignment,
+      },
+    });
+    return res.json(participant);
+  } catch (error) {
+    return sendTripRouteError(res, error);
   }
-  const participant = await TripParticipantPrimary.findByIdAndUpdate(req.params.participantId, req.body, { new: true });
-  res.json(participant);
 });
 
 // Delete participant
@@ -472,15 +649,20 @@ router.delete('/:tripId/participants/:participantId', async (req, res) => {
   if (!isAdmin(req)) {
     return res.status(403).json({ error: 'Admin code required' });
   }
-  if (req.query.myrtleBeach2026 === 'true') {
-    const { TripParticipantSecondary } = getSecondaryModels();
-    if (TripParticipantSecondary) {
-      await TripParticipantSecondary.findByIdAndDelete(req.params.participantId);
-      return res.json({ ok: true });
-    }
+  try {
+    const { TripModel, TripParticipantModel, TripAuditLogModel } = getTripModelsForRequest(req);
+    const trip = await TripModel.findById(req.params.tripId);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const participant = await TripParticipantModel.findById(req.params.participantId);
+    await TripParticipantModel.findByIdAndDelete(req.params.participantId);
+    await writeTripAudit(req, trip, TripAuditLogModel, 'participant_delete', 'Trip participant removed', {
+      participantId: req.params.participantId,
+      name: participant && participant.name ? participant.name : '',
+    });
+    return res.json({ ok: true });
+  } catch (error) {
+    return sendTripRouteError(res, error);
   }
-  await TripParticipantPrimary.findByIdAndDelete(req.params.participantId);
-  res.json({ ok: true });
 });
 
 module.exports = router;

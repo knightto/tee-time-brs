@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trip Audit Log</title>
+  <style>
+    :root {
+      --bg: #0b1422;
+      --panel: #10243c;
+      --line: rgba(255,255,255,0.12);
+      --ink: #e8eef8;
+      --muted: #9db4d2;
+      --accent: #6dd3ff;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 5%, rgba(109,211,255,0.07), transparent 25%),
+        radial-gradient(circle at 90% 0%, rgba(224,180,87,0.09), transparent 22%),
+        var(--bg);
+    }
+    .wrap { max-width: 1100px; margin: 18px auto 36px; padding: 0 14px; }
+    .card {
+      background: linear-gradient(145deg, var(--panel) 0%, #0d1d30 100%);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px;
+      margin-bottom: 12px;
+    }
+    h1 { margin: 0 0 6px; font-size: 1.5rem; }
+    .muted { color: var(--muted); }
+    a { color: var(--accent); text-decoration: none; font-weight: 700; }
+    a:hover { text-decoration: underline; }
+    .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    select, button {
+      font: inherit;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #0a1727;
+      color: var(--ink);
+      padding: 8px 10px;
+    }
+    button { cursor: pointer; }
+    .item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      margin-top: 10px;
+      background: rgba(255,255,255,0.03);
+    }
+    .item-head {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .badge {
+      border: 1px solid rgba(109,211,255,0.45);
+      color: #bde8ff;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      padding: 2px 8px;
+    }
+    pre {
+      margin: 8px 0 0;
+      padding: 8px;
+      border-radius: 8px;
+      border: 1px solid var(--line);
+      background: #091525;
+      color: #d9e6f8;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-size: 0.82rem;
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <div class="row" style="justify-content:space-between;">
+        <h1>Trip Audit Log</h1>
+        <a id="backLink" href="/index.html">Back</a>
+      </div>
+      <div class="muted">Tracks trip changes after the trip has started.</div>
+      <div class="row" style="margin-top:10px;">
+        <label>
+          Trip
+          <select id="tripSelect"></select>
+        </label>
+        <button id="reloadBtn" type="button">Reload</button>
+      </div>
+      <div id="meta" class="muted" style="margin-top:8px;"></div>
+    </section>
+
+    <section class="card">
+      <div id="logList" class="muted">Loading...</div>
+    </section>
+  </main>
+
+  <script>
+    const qs = new URLSearchParams(window.location.search);
+    const useSecondary = qs.get('myrtleBeach2026') === 'true' || qs.get('secondary') === '1';
+    const initialTripId = qs.get('tripId') || '';
+    const backUrl = qs.get('back') || '';
+
+    const backLink = document.getElementById('backLink');
+    const tripSelect = document.getElementById('tripSelect');
+    const meta = document.getElementById('meta');
+    const logList = document.getElementById('logList');
+    const reloadBtn = document.getElementById('reloadBtn');
+
+    if (backUrl) backLink.href = backUrl;
+
+    const tripApi = (path) => useSecondary ? (path.includes('?') ? `${path}&myrtleBeach2026=true` : `${path}?myrtleBeach2026=true`) : path;
+    const esc = (value) => String(value || '').replace(/[&<>"]/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+
+    async function getJson(path) {
+      const res = await fetch(tripApi(path));
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || `Request failed (${res.status})`);
+      return body;
+    }
+
+    async function loadTrips() {
+      const trips = await getJson('/api/trips');
+      tripSelect.innerHTML = '';
+      trips.forEach((trip) => {
+        const opt = document.createElement('option');
+        opt.value = String(trip._id || '');
+        opt.textContent = String(trip.name || 'Trip');
+        tripSelect.appendChild(opt);
+      });
+      if (initialTripId) {
+        const exists = Array.from(tripSelect.options).some((opt) => opt.value === initialTripId);
+        if (exists) tripSelect.value = initialTripId;
+      }
+    }
+
+    function renderRows(rows) {
+      if (!rows.length) {
+        logList.innerHTML = '<div class="muted">No post-start changes logged yet.</div>';
+        return;
+      }
+      logList.innerHTML = rows.map((row) => {
+        const ts = row.timestamp ? new Date(row.timestamp).toLocaleString() : '--';
+        const action = esc(row.action || 'trip_update');
+        const summary = esc(row.summary || '');
+        const actor = esc(row.actor || 'public');
+        const method = esc(row.method || '');
+        const route = esc(row.route || '');
+        const details = esc(JSON.stringify(row.details || {}, null, 2));
+        return `
+          <article class="item">
+            <div class="item-head">
+              <strong>${summary || action}</strong>
+              <span class="badge">${actor}</span>
+            </div>
+            <div class="muted" style="margin-top:4px;">${action} · ${method} ${route} · ${ts}</div>
+            <pre>${details}</pre>
+          </article>
+        `;
+      }).join('');
+    }
+
+    async function loadLog() {
+      const tripId = tripSelect.value;
+      if (!tripId) {
+        logList.textContent = 'No trip selected.';
+        return;
+      }
+      logList.textContent = 'Loading...';
+      const data = await getJson(`/api/trips/${tripId}/audit-log?limit=500`);
+      const startedAt = data.startedAt ? new Date(data.startedAt).toLocaleString() : 'not set';
+      meta.textContent = `Trip ID: ${data.tripId} | Started: ${startedAt} | Rows: ${data.count}`;
+      renderRows(Array.isArray(data.rows) ? data.rows : []);
+    }
+
+    reloadBtn.addEventListener('click', () => { loadLog().catch((err) => { logList.textContent = err.message; }); });
+    tripSelect.addEventListener('change', () => { loadLog().catch((err) => { logList.textContent = err.message; }); });
+
+    (async () => {
+      try {
+        await loadTrips();
+        await loadLog();
+      } catch (error) {
+        logList.textContent = error.message || 'Failed to load audit log.';
+      }
+    })();
+  </script>
+</body>
+</html>
