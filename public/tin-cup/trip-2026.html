@@ -982,10 +982,6 @@
         address: '1010 Midland Road, Southern Pines, NC 28387',
         date: '2026-05-12',
         time: '14:05',
-        reviewCount: 3,
-        feefoCode: 'G3953',
-        description: 'Designed in 1921 by the famous architect Donald Ross, the Mid Pines layout remains in its original shape to this day. Visually stunning, each hole is carefully crafted into the natural rolling landscape and winds its way through the huge pine trees that dominate the land. Initially, the course was designed for friendly competition amongst members and guests of the club, however, in recent times it has hosted national competitions challenging some of the best in the game.',
-        readMoreLabel: 'Read more about Mid Pines Golf Course',
         teeTimes: [
           { label: 'TT#1', time: '14:05', players: [] },
           { label: 'TT#2', time: '15:00', players: [] }
@@ -997,10 +993,6 @@
         address: '1005 Midland Road, Southern Pines, NC 28387',
         date: '2026-05-13',
         time: '08:20',
-        reviewCount: 5,
-        feefoCode: 'G3952',
-        description: 'The Pine Needles course, a Donald Ross-design is the first course in the country to be granted four U.S. Women’s Opens. Ross created the course in 1927, with Kyle Franz making some advancements in 2007. Franz added some length whilst keeping the overall feel in line with the original Ross design. Rolling hills, strategic fairway bunkering, and huge pines define the course. Voted by Golfweek as the #4 course in the state it is truly a ‘must-play’.',
-        readMoreLabel: 'Read more about Pine Needles Golf Course',
         teeTimes: buildTripSlots('08:20', [[]])
       },
       {
@@ -1009,10 +1001,6 @@
         address: '48 Talamore Drive, Southern Pines, North Carolina 28387',
         date: '2026-05-14',
         time: '09:30',
-        reviewCount: 8,
-        feefoCode: 'G5409',
-        description: 'Designed by Rees Jones in 1991, Talamore Golf Club is a fine example of golf in the Sandhills area; towering pines, wetlands, lakes, and wastelands, plus elevation changes of over 150 feet. Following a rejuvenation process in 2016, greens were restored to their original size, and Champion bermudagrass was introduced, bringing Talamore’s putting surfaces in line with some of the best in the area. Fairways were widened and 12 sod wall bunkers reminiscent of those in Scotland were added.',
-        readMoreLabel: 'Read more about Talamore Golf Club',
         teeTimes: buildTripSlots('09:30', [[]])
       },
       {
@@ -1021,10 +1009,6 @@
         address: '442 Tobacco Road, Sanford, NC 27332',
         date: '2026-05-15',
         time: '10:36',
-        reviewCount: 9,
-        feefoCode: 'G5362',
-        description: 'Legendary golf course designer Mike Strantz has produced one of the state’s most imaginative golf courses. The fairways are typically generous, while the greens really are a joy to play. The creative angling of each surface allows approaches to take advantage of the slopes allowing for shot-making. The greens can be tough to read but simply add to what is ultimately a thrilling golfing experience at Tobacco Road.',
-        readMoreLabel: 'Read more about Tobacco Road Golf Course',
         teeTimes: buildTripSlots('10:36', [[]])
       },
       {
@@ -1033,10 +1017,6 @@
         address: '610 Palmer Drive, Southern Pines, North Carolina 28387, United States',
         date: '2026-05-16',
         time: '08:45',
-        reviewCount: 7,
-        feefoCode: 'G5410',
-        description: 'Palmer designed the course at Mid-South Club in 1993 and it is one of his finest. Recent work in 2017 saw all the greens converted to Champion bermuda grass, making them as good as any in the area. The course works its way through the towering pines. Wetlands, numerous lakes, and significant elevation changes are encountered throughout the 18-holes. They do things big at Mid-South - big greens, big fairways, big bunkers, and even big rocks like those sat in front of the 9th and 18th greens.',
-        readMoreLabel: 'Read more about Mid South Course',
         teeTimes: buildTripSlots('08:45', [[]])
       }
     ];
@@ -1365,10 +1345,6 @@
         date: toIsoDate(raw.date),
         time: roundTime,
         confirmation: String(raw.confirmation || '').trim(),
-        reviewCount: Number.isFinite(Number(raw.reviewCount)) ? Number(raw.reviewCount) : null,
-        feefoCode: String(raw.feefoCode || '').trim(),
-        description: String(raw.description || '').trim(),
-        readMoreLabel: String(raw.readMoreLabel || '').trim(),
         readMoreUrl: String(raw.readMoreUrl || '').trim(),
         teeTimes: normalizedSlots
       };
@@ -2345,7 +2321,6 @@
         round.venue ? `Venue: ${round.venue}` : '',
         `Date: ${formatDateLong(dateISO)}`,
         firstLabel ? `First Tee: ${firstLabel}` : '',
-        round.description ? `Notes: ${round.description}` : '',
       ].filter(Boolean).join('\n');
       const params = new URLSearchParams();
       params.set('action', 'TEMPLATE');
@@ -2400,7 +2375,6 @@
             `Date: ${formatDateLong(dateISO)}`,
             `${label}: ${formatTime12(startTime)}`,
             playersLine,
-            round.description ? `Notes: ${round.description}` : '',
           ].join('\n');
           lines.push('BEGIN:VEVENT');
           lines.push(`UID:${escapeIcs(uid)}`);
@@ -3015,3 +2989,4 @@
   </script>
 </body>
 </html>
+

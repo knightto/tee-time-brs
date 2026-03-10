@@ -26,6 +26,7 @@ const {
   buildLeaderboard,
   buildDayRows,
   setScrambleBonus,
+  setPlayerPenalty,
 } = require('../services/tinCupLiveService');
 const router = express.Router();
 
@@ -196,11 +197,13 @@ router.get('/:tripId', async (req, res) => {
     const { TripSecondary, TripParticipantSecondary } = getSecondaryModels();
     if (TripSecondary && TripParticipantSecondary) {
       const trip = await TripSecondary.findById(req.params.tripId);
+      if (!trip) return res.status(404).json({ error: 'Trip not found' });
       const participants = await TripParticipantSecondary.find({ trip: trip._id });
       return res.json({ trip, participants });
     }
   }
   const trip = await TripPrimary.findById(req.params.tripId);
+  if (!trip) return res.status(404).json({ error: 'Trip not found' });
   const participants = await TripParticipantPrimary.find({ trip: trip._id });
   res.json({ trip, participants });
 });
@@ -525,6 +528,30 @@ router.put('/:tripId/tin-cup/live/admin/scramble-bonus', async (req, res) => {
       value: payload.value,
     });
     return res.json({ scrambleBonus: state.scrambleBonus });
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.put('/:tripId/tin-cup/live/admin/penalty', async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+  try {
+    const { trip, TripModel, TripAuditLogModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const payload = req.body || {};
+    const state = ensureTinCupLiveState(trip);
+    const penalties = setPlayerPenalty(state, payload.playerName, {
+      champion: payload.champion,
+      rookie: payload.rookie,
+    });
+    trip.markModified('tinCupLive');
+    await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
+    await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_penalty', 'Tin Cup player penalty updated', {
+      playerName: payload.playerName,
+      champion: payload.champion,
+      rookie: payload.rookie,
+    });
+    return res.json({ penalties });
   } catch (error) {
     return sendTripRouteError(res, error);
   }

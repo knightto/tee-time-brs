@@ -10,6 +10,7 @@ const PLAYERS = [
   { name: 'Mil', handicap: 12.9 }, { name: 'CSamm', handicap: 22.3 }, { name: 'Brian', handicap: 20.9 }, { name: 'Bob', handicap: 22.0 },
   { name: 'David', handicap: 12.9 }, { name: 'John', handicap: 11.2 }, { name: 'Tony', handicap: 12.8 }, { name: 'Spiro', handicap: 24.5 },
 ];
+const PLAYER_KEYS = new Set(PLAYERS.map((player) => String(player.name || '').trim().replace(/\s+/g, ' ').toLowerCase()));
 
 const FOURSOMES = [
   { playersByDay: { 'Day 1': [{ name: 'Matt', hcp: 6 }, { name: 'Rick', hcp: 8 }, { name: 'OB', hcp: 6 }, { name: 'Kyle', hcp: 4 }], 'Day 2A': [{ name: 'Bob', hcp: 13 }, { name: 'Kyle', hcp: 4 }, { name: 'Pat', hcp: 10 }, { name: 'Spiro', hcp: 14 }], 'Day 2B': [{ name: 'Kyle', hcp: 4 }, { name: 'Tommy', hcp: 5 }, { name: 'CSamm', hcp: 13 }, { name: 'David', hcp: 8 }], 'Day 3': [{ name: 'Kyle', hcp: 4 }, { name: 'Steve', hcp: 8 }, { name: 'Mil', hcp: 8 }, { name: 'Tony', hcp: 8 }], 'Day 4': [{ name: 'Matt', hcp: 6 }, { name: 'Rick', hcp: 8 }, { name: 'OB', hcp: 6 }, { name: 'Kyle', hcp: 4 }], Practice: [{ name: 'Matt', hcp: 6 }, { name: 'Rick', hcp: 8 }, { name: 'OB', hcp: 6 }, { name: 'Kyle', hcp: 4 }] } },
@@ -33,6 +34,41 @@ const toNumOrNull = (v) => {
   return Number.isFinite(n) ? n : null;
 };
 const holeArray = () => Array.from({ length: 18 }, () => null);
+const toPenalty = (v) => {
+  const n = toNumOrNull(v);
+  return n === null ? 0 : Number(n.toFixed(2));
+};
+
+function normalizePenalties(input = {}) {
+  const src = (input && typeof input === 'object') ? input : {};
+  const out = {};
+  PLAYERS.forEach((player) => {
+    const key = normalize(player.name);
+    const raw = src[key] || src[player.name] || {};
+    const champion = toPenalty(raw && raw.champion);
+    const rookie = toPenalty(raw && raw.rookie);
+    if (champion || rookie) {
+      out[key] = { champion, rookie };
+    }
+  });
+  return out;
+}
+
+function getPenaltyEntry(state, playerName = '') {
+  const key = normalize(playerName);
+  const penalties = (state && state.penalties && typeof state.penalties === 'object') ? state.penalties : {};
+  const raw = penalties[key] || {};
+  const champion = toPenalty(raw.champion);
+  const rookie = toPenalty(raw.rookie);
+  return { champion, rookie, total: Number((champion + rookie).toFixed(2)) };
+}
+
+function buildPenaltyTable(state) {
+  return PLAYERS.reduce((acc, player) => {
+    acc[normalize(player.name)] = getPenaltyEntry(state, player.name);
+    return acc;
+  }, {});
+}
 
 function defaultTinCupLiveState() {
   return {
@@ -46,6 +82,7 @@ function defaultTinCupLiveState() {
     codes: {},
     scorecards: {},
     scrambleBonus: {},
+    penalties: {},
   };
 }
 
@@ -78,6 +115,7 @@ function ensureTinCupLiveState(trip = {}) {
     codes: (src && typeof src.codes === 'object' && src.codes) ? src.codes : {},
     scorecards: (src && typeof src.scorecards === 'object' && src.scorecards) ? src.scorecards : {},
     scrambleBonus: (src && typeof src.scrambleBonus === 'object' && src.scrambleBonus) ? src.scrambleBonus : {},
+    penalties: normalizePenalties((src && typeof src.penalties === 'object' && src.penalties) ? src.penalties : {}),
   };
   trip.tinCupLive = out;
   return out;
@@ -202,6 +240,8 @@ function summarizePlayerCard(playerCard, hcp) {
   let backGross = 0;
   let frontNet = 0;
   let backNet = 0;
+  let frontPlayed = 0;
+  let backPlayed = 0;
   let complete18 = true;
   let completeFront = true;
   let completeBack = true;
@@ -221,9 +261,11 @@ function summarizePlayerCard(playerCard, hcp) {
     if (holeNo <= 9) {
       frontGross += gross;
       frontNet += net;
+      frontPlayed += 1;
     } else {
       backGross += gross;
       backNet += net;
+      backPlayed += 1;
     }
   }
   return {
@@ -232,6 +274,8 @@ function summarizePlayerCard(playerCard, hcp) {
     netTotal: complete18 ? netTotal : null,
     frontNet: completeFront ? frontNet : null,
     backNet: completeBack ? backNet : null,
+    frontPlayed,
+    backPlayed,
     completeFront,
     completeBack,
     complete18,
@@ -248,10 +292,16 @@ function getDayPlayerSummaries(state, dayKey) {
     slot.players.forEach((player) => {
       const nameKey = normalize(player.name);
       const src = cardPlayers[nameKey] || { name: player.name, holes: holeArray() };
+      const penalties = getPenaltyEntry(state, player.name);
+      const summary = summarizePlayerCard(src, handicapMap.get(nameKey) || 0);
       out.set(nameKey, {
         name: player.name,
         hcp: handicapMap.get(nameKey) || 0,
-        ...summarizePlayerCard(src, handicapMap.get(nameKey) || 0),
+        ...summary,
+        penaltyChampion: penalties.champion,
+        penaltyRookie: penalties.rookie,
+        penaltyTotal: penalties.total,
+        adjustedNetTotal: summary.netTotal === null ? null : Number((summary.netTotal + penalties.total).toFixed(2)),
       });
     });
   });
@@ -282,12 +332,29 @@ function compareSegment(daySummaries, playerName, opponentName, segmentIndex) {
   const me = daySummaries.get(normalize(playerName));
   const opp = daySummaries.get(normalize(opponentName));
   if (!me || !opp) return '';
-  const mine = segmentIndex === 0 ? me.frontNet : me.backNet;
-  const theirs = segmentIndex === 0 ? opp.frontNet : opp.backNet;
-  if (!Number.isFinite(mine) || !Number.isFinite(theirs)) return '';
-  if (mine < theirs) return 'W';
-  if (mine > theirs) return 'L';
-  return 'T';
+  const start = segmentIndex === 0 ? 0 : 9;
+  const end = segmentIndex === 0 ? 8 : 17;
+  let mineShared = 0;
+  let theirsShared = 0;
+  let sharedHoles = 0;
+  for (let idx = start; idx <= end; idx += 1) {
+    const holeNo = idx + 1;
+    const mineGross = toIntOrNull(me.holes[idx]);
+    const theirsGross = toIntOrNull(opp.holes[idx]);
+    if (mineGross === null || theirsGross === null) continue;
+    mineShared += mineGross - getHoleStrokeAllowance(me.hcp, holeNo);
+    theirsShared += theirsGross - getHoleStrokeAllowance(opp.hcp, holeNo);
+    sharedHoles += 1;
+  }
+  if (!sharedHoles) return '';
+  if (sharedHoles >= 9) {
+    if (mineShared < theirsShared) return 'W';
+    if (mineShared > theirsShared) return 'L';
+    return 'T';
+  }
+  if (mineShared < theirsShared) return 'W*';
+  if (mineShared > theirsShared) return 'L*';
+  return 'T*';
 }
 
 function getMatchPointsFromLive(state, dayKey) {
@@ -311,7 +378,7 @@ function getMatchPointsFromLive(state, dayKey) {
 
 function getStrokeBonusFromLive(state, dayKey) {
   const daySummaries = getDayPlayerSummaries(state, dayKey);
-  const values = PLAYERS.map((p) => ({ key: normalize(p.name), value: toNumOrNull(daySummaries.get(normalize(p.name)) && daySummaries.get(normalize(p.name)).netTotal) }));
+  const values = PLAYERS.map((p) => ({ key: normalize(p.name), value: toNumOrNull(daySummaries.get(normalize(p.name)) && daySummaries.get(normalize(p.name)).adjustedNetTotal) }));
   const valid = values.filter((value) => value.value !== null);
   const out = new Map(values.map((value) => [value.key, 0]));
   valid.forEach((entry) => {
@@ -324,7 +391,7 @@ function getStrokeBonusFromLive(state, dayKey) {
 function getDay4RankPointsFromLive(state) {
   const daySummaries = getDayPlayerSummaries(state, 'Day 4');
   const entries = PLAYERS
-    .map((p) => ({ key: normalize(p.name), net: toNumOrNull(daySummaries.get(normalize(p.name)) && daySummaries.get(normalize(p.name)).netTotal) }))
+    .map((p) => ({ key: normalize(p.name), net: toNumOrNull(daySummaries.get(normalize(p.name)) && daySummaries.get(normalize(p.name)).adjustedNetTotal) }))
     .filter((entry) => entry.net !== null)
     .sort((a, b) => a.net - b.net);
   const pts = new Map(PLAYERS.map((p) => [normalize(p.name), 0]));
@@ -348,6 +415,9 @@ function getDay4RankPointsFromLive(state) {
 }
 
 function buildLeaderboard(state) {
+  const day1Summaries = getDayPlayerSummaries(state, 'Day 1');
+  const day3Summaries = getDayPlayerSummaries(state, 'Day 3');
+  const day4Summaries = getDayPlayerSummaries(state, 'Day 4');
   const day1 = getMatchPointsFromLive(state, 'Day 1');
   const day2A = getMatchPointsFromLive(state, 'Day 2A');
   const day2B = getMatchPointsFromLive(state, 'Day 2B');
@@ -360,6 +430,7 @@ function buildLeaderboard(state) {
 
   const totals = PLAYERS.map((player) => {
     const key = normalize(player.name);
+    const penalty = getPenaltyEntry(state, player.name);
     const match1 = day1.points.get(key) || 0;
     const match2A = day2A.points.get(key) || 0;
     const match2B = day2B.points.get(key) || 0;
@@ -367,6 +438,9 @@ function buildLeaderboard(state) {
     const match3 = day3.points.get(key) || 0;
     const stroke1 = s1.get(key) || 0;
     const stroke3 = s3.get(key) || 0;
+    const day1Net = toNumOrNull(day1Summaries.get(key) && day1Summaries.get(key).adjustedNetTotal);
+    const day3Net = toNumOrNull(day3Summaries.get(key) && day3Summaries.get(key).adjustedNetTotal);
+    const day4Net = toNumOrNull(day4Summaries.get(key) && day4Summaries.get(key).adjustedNetTotal);
     const scramble = toNumOrNull((state.scrambleBonus || {})[key]) || 0;
     const day4Points = d4.pts.get(key) || 0;
     const day1Total = match1 + stroke1;
@@ -380,9 +454,15 @@ function buildLeaderboard(state) {
       match2B,
       match2,
       match3,
+      day1Net,
+      day3Net,
+      day4Net,
       stroke1,
       stroke3,
       scramble,
+      penaltyChampion: penalty.champion,
+      penaltyRookie: penalty.rookie,
+      penaltyTotal: penalty.total,
       day4Points,
       day4Rank: d4.ranks.get(key),
       day1Total,
@@ -440,6 +520,9 @@ function buildDayRows(leaderboard, selectedDay) {
       points = row.day4Points || 0;
       detail = `${row.day4Points} rank pts`;
     }
+    if (Number(row.penaltyTotal) !== 0) {
+      detail = `${detail} + pen ${row.penaltyTotal > 0 ? '+' : ''}${row.penaltyTotal}`;
+    }
     return { name: row.name, points, detail, total: row.total };
   }).sort((a, b) => (b.points - a.points) || (b.total - a.total) || a.name.localeCompare(b.name));
 
@@ -467,6 +550,8 @@ function getLiveMeta(state) {
     dayOptions: DAY_OPTIONS.slice(),
     matchDayOptions: MATCH_DAY_OPTIONS.slice(),
     settings: state.settings || defaultTinCupLiveState().settings,
+    penalties: buildPenaltyTable(state),
+    playerHandicaps: PLAYERS.map((player) => ({ name: player.name, handicap: player.handicap })),
     daySlots,
   };
 }
@@ -480,12 +565,17 @@ function getScorecardView(state, dayKey, slotIndex) {
     players: slot.players.map((player) => {
       const entry = scorecard.players[normalize(player.name)] || { name: player.name, holes: holeArray() };
       const summary = summarizePlayerCard(entry, player.hcp);
+      const penalty = getPenaltyEntry(state, player.name);
       return {
         name: player.name,
         handicap: player.hcp,
         holes: summary.holes,
         grossTotal: summary.grossTotal,
         netTotal: summary.netTotal,
+        penaltyChampion: penalty.champion,
+        penaltyRookie: penalty.rookie,
+        penaltyTotal: penalty.total,
+        adjustedNetTotal: summary.netTotal === null ? null : Number((summary.netTotal + penalty.total).toFixed(2)),
         complete18: summary.complete18,
       };
     }),
@@ -551,6 +641,26 @@ function setScrambleBonus(state, playerName, value) {
   return state.scrambleBonus;
 }
 
+function setPlayerPenalty(state, playerName, payload = {}) {
+  const key = normalize(playerName);
+  if (!key) throw new Error('playerName required');
+  if (!PLAYER_KEYS.has(key)) throw new Error('Unknown Tin Cup player');
+  if (!state.penalties || typeof state.penalties !== 'object') state.penalties = {};
+  const current = getPenaltyEntry(state, playerName);
+  const champion = Object.prototype.hasOwnProperty.call(payload, 'champion')
+    ? toPenalty(payload.champion)
+    : current.champion;
+  const rookie = Object.prototype.hasOwnProperty.call(payload, 'rookie')
+    ? toPenalty(payload.rookie)
+    : current.rookie;
+  if (!champion && !rookie) {
+    delete state.penalties[key];
+  } else {
+    state.penalties[key] = { champion, rookie };
+  }
+  return buildPenaltyTable(state);
+}
+
 module.exports = {
   DAY_OPTIONS,
   MATCH_DAY_OPTIONS,
@@ -567,4 +677,5 @@ module.exports = {
   buildLeaderboard,
   buildDayRows,
   setScrambleBonus,
+  setPlayerPenalty,
 };

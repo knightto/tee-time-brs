@@ -140,6 +140,7 @@
         <a id="backLink" class="cta" href="/tin-cup/trip-2026.html">Back to Tin Cup Page</a>
       </div>
       <div id="tripMeta" style="margin-top:6px;color:var(--ink-soft);">Loading trip...</div>
+      <div id="tripDebug" style="margin-top:4px;color:var(--muted);font-size:0.78rem;"></div>
     </section>
 
     <section class="panel">
@@ -155,7 +156,7 @@
     </section>
 
     <section class="panel">
-      <h2 style="margin:0 0 10px 0;font-size:1.05rem;">Status & Payments</h2>
+      <h2 style="margin:0 0 10px 0;font-size:1.05rem;">Tin Cup Payment</h2>
       <div id="allParticipantsList"></div>
     </section>
   </main>
@@ -165,6 +166,13 @@
     const STATUS_LABELS = { invited: 'Invited', in: 'In', maybe: 'Maybe', out: 'Out', waitlist: 'Waitlist' };
     const BASE_GROUP_SIZES = [4, 8, 12, 16, 20, 24];
     const DEFAULT_GROUP_SIZE = 16;
+    const TIN_CUP_CONTEXT_STORAGE_KEY = 'tinCupTripContextV1';
+    const CURRENT_TIN_CUP_GOLFERS = [
+      'Matt', 'Rick', 'OB', 'Kyle',
+      'Manny', 'Steve', 'Tommy', 'Pat',
+      'Mil', 'CSamm', 'Brian', 'Bob',
+      'David', 'John', 'Tony', 'Spiro'
+    ];
 
     const qs = new URLSearchParams(window.location.search);
     let useSecondaryTripDb = qs.get('secondary') === '1' || qs.get('myrtleBeach2026') === 'true';
@@ -172,6 +180,26 @@
     let trip = null;
     let participants = [];
     let adminCode = null;
+    let loadDebugText = '';
+
+    (function seedTripContext() {
+      const qsSecondary = String(qs.get('secondary') || '').trim();
+      if (qsSecondary === '0' || qsSecondary.toLowerCase() === 'false') useSecondaryTripDb = false;
+      if (qsSecondary === '1' || qsSecondary.toLowerCase() === 'true') useSecondaryTripDb = true;
+      const forcedId = String(qs.get('tripId') || '').trim();
+      if (forcedId) {
+        tripId = forcedId;
+        return;
+      }
+      try {
+        const raw = localStorage.getItem(TIN_CUP_CONTEXT_STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.tripId) tripId = String(parsed.tripId);
+        if (parsed && parsed.secondary === '0') useSecondaryTripDb = false;
+        if (parsed && parsed.secondary === '1') useSecondaryTripDb = true;
+      } catch (_err) {}
+    })();
 
     const $ = (sel) => document.querySelector(sel);
     const safeNumber = (val) => (val === '' || isNaN(val) ? 0 : parseFloat(val));
@@ -188,10 +216,36 @@
       const condoNum = match ? parseInt(match[1], 10) : null;
       return Number.isFinite(condoNum) ? condoNum : null;
     };
+    const normalizeName = (value) => String(value || '').trim().toLowerCase();
+    const getDefaultRoomAssignment = (idx) => {
+      const condo = Math.floor(idx / 4) + 1;
+      const inCondo = idx % 4;
+      const room = inCondo < 2 ? 'A' : 'B';
+      return `Condo ${condo} - Room ${room}`;
+    };
+    const persistTripContext = () => {
+      if (!tripId) return;
+      try {
+        localStorage.setItem(TIN_CUP_CONTEXT_STORAGE_KEY, JSON.stringify({
+          tripId: String(tripId),
+          secondary: useSecondaryTripDb ? '1' : '0'
+        }));
+      } catch (_err) {}
+    };
     const withContextHref = (path) => {
       if (!tripId) return path;
       const sep = path.includes('?') ? '&' : '?';
       return `${path}${sep}tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}`;
+    };
+    const isTinCupTrip = (tripObj) => {
+      if (!tripObj || typeof tripObj !== 'object') return false;
+      const name = String(tripObj.name || '');
+      const groupName = String(tripObj.groupName || '');
+      const reservationNumber = String(tripObj.reservationNumber || '');
+      return /tin\s*cup/i.test(name)
+        || /tin\s*cup/i.test(groupName)
+        || /tin\s*cup/i.test(reservationNumber)
+        || (tripObj.tinCupLive && typeof tripObj.tinCupLive === 'object');
     };
 
     function getAdminCode() {
@@ -213,7 +267,7 @@
     }
 
     async function updateParticipant(id, body, opts = {}) {
-      if (!tripId) return;
+      if (!tripId) throw new Error('Trip is not linked in database.');
       const needsAdmin = opts.requireAdmin === true;
       const headers = { 'Content-Type': 'application/json' };
       if (needsAdmin) {
@@ -221,11 +275,17 @@
         if (!code) return;
         headers['x-admin-code'] = code;
       }
-      await fetch(tripApi(`/api/trips/${tripId}/participants/${id}`), {
+      const updateRes = await fetch(tripApi(`/api/trips/${tripId}/participants/${id}`), {
         method: 'PUT',
         headers,
         body: JSON.stringify(body || {}),
       });
+      if (!updateRes.ok) {
+        const payload = await updateRes.json().catch(() => ({}));
+        throw new Error(payload.error || `Participant update failed (${updateRes.status})`);
+      }
+      const verify = await fetch(tripApi(`/api/trips/${tripId}/participants`));
+      if (!verify.ok) throw new Error('Failed to persist participant update');
       await loadTrip();
     }
 
@@ -249,22 +309,11 @@
         listEl.innerHTML = '<div style="color:var(--muted);">No participants yet.</div>';
         return;
       }
-      const counts = { in: 0, out: 0, maybe: 0, waitlist: 0, invited: 0 };
-      participants.forEach((p) => { if (counts.hasOwnProperty(p.status)) counts[p.status]++; });
-
-      const sorted = [...participants].sort((a, b) => {
-        const sa = STATUS_ORDER.indexOf(a.status);
-        const sb = STATUS_ORDER.indexOf(b.status);
-        if (sa !== sb) return sa - sb;
-        return (a.name || '').localeCompare(b.name || '');
-      });
+      const sorted = [...participants].sort((a, b) => (a.name || '').localeCompare(b.name || ''));
       const perCol = Math.ceil(sorted.length / 2);
       const cols = [sorted.slice(0, perCol), sorted.slice(perCol)];
 
       let html = `
-        <div class="status-grid">
-          ${STATUS_ORDER.map((s) => `<div class="status-pill"><span>${STATUS_LABELS[s]}</span><strong>${counts[s]}</strong></div>`).join('')}
-        </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
       `;
       cols.forEach((col, colIdx) => {
@@ -272,23 +321,13 @@
         html += `<ol start="${start}" style="margin:0;padding-left:18px;display:grid;gap:6px;">${col.map((p) =>
           `<li style="display:grid;gap:6px;">
             <div style="font-weight:600;color:#fff;">${p.name || ''}</div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
-              <select class="golfer-status-dropdown" data-id="${p._id}">
-                ${STATUS_ORDER.map((opt) => `<option value="${opt}"${p.status === opt ? ' selected' : ''}>${STATUS_LABELS[opt]}</option>`).join('')}
-              </select>
-              <input type="number" class="golfer-paid-input" data-id="${p._id}" value="${(p.totalPaidAmount || 0).toFixed(2)}" min="0" step="0.01" placeholder="Paid">
-            </div>
+            <input type="number" class="golfer-paid-input" data-id="${p._id}" value="${(p.totalPaidAmount || 0).toFixed(2)}" min="0" step="0.01" placeholder="Paid">
           </li>`
         ).join('')}</ol>`;
       });
       html += '</div>';
       listEl.innerHTML = html;
 
-      document.querySelectorAll('.golfer-status-dropdown').forEach((sel) => {
-        sel.addEventListener('change', async function () {
-          await updateParticipant(this.dataset.id, { status: this.value }, { requireAdmin: true });
-        });
-      });
       document.querySelectorAll('.golfer-paid-input').forEach((input) => {
         input.addEventListener('change', async function () {
           await updateParticipant(this.dataset.id, { totalPaidAmount: safeNumber(this.value) }, { requireAdmin: true });
@@ -412,7 +451,7 @@
       if (condoGroups) {
         condoGroups.addEventListener('click', async (e) => {
           if (e.target.classList.contains('remove-condo-btn')) {
-            await updateParticipant(e.target.dataset.id, { roomAssignment: null }, { requireAdmin: true });
+            await updateParticipant(e.target.dataset.id, { roomAssignment: null });
           }
         });
         condoGroups.addEventListener('change', async (e) => {
@@ -421,15 +460,15 @@
             const val = e.target.value;
             if (!val) return;
             const condoCount = getCondoCount();
-            if (val === 'unassigned') await updateParticipant(id, { roomAssignment: null }, { requireAdmin: true });
-            else if (Number(val) >= 1 && Number(val) <= condoCount) await updateParticipant(id, { roomAssignment: `Condo ${val} - Room A` }, { requireAdmin: true });
+            if (val === 'unassigned') await updateParticipant(id, { roomAssignment: null });
+            else if (Number(val) >= 1 && Number(val) <= condoCount) await updateParticipant(id, { roomAssignment: `Condo ${val} - Room A` });
           }
           if (e.target.classList.contains('room-select')) {
             const id = e.target.dataset.id;
             const room = e.target.value;
             const match = participants.find((p) => p._id === id)?.roomAssignment?.match(/^Condo (\d+) - Room ([AB])$/);
             const condoNum = match ? match[1] : null;
-            if (condoNum) await updateParticipant(id, { roomAssignment: `Condo ${condoNum} - Room ${room}` }, { requireAdmin: true });
+            if (condoNum) await updateParticipant(id, { roomAssignment: `Condo ${condoNum} - Room ${room}` });
           }
           if (e.target.classList.contains('name-input')) {
             await updateParticipant(e.target.dataset.id, { name: e.target.value });
@@ -447,7 +486,7 @@
             const condoNum = Number(e.target.value);
             const id = e.target.dataset.id;
             if (!condoNum || condoNum < 1 || condoNum > getCondoCount()) return;
-            await updateParticipant(id, { roomAssignment: `Condo ${condoNum} - Room A` }, { requireAdmin: true });
+            await updateParticipant(id, { roomAssignment: `Condo ${condoNum} - Room A` });
           }
           if (e.target.id === 'baseGroupSizeSelect') {
             await fetch(tripApi(`/api/trips/${tripId}`), {
@@ -490,45 +529,152 @@
 
     function renderMeta() {
       const meta = $('#tripMeta');
+      const debug = $('#tripDebug');
       if (!meta) return;
       if (!trip) {
         meta.textContent = 'Tin Cup trip not found.';
+        if (debug) debug.textContent = loadDebugText || '';
         return;
       }
       const total = participants.length;
       meta.textContent = `${trip.name || 'Tin Cup'} | ${total} golfers | ${useSecondaryTripDb ? 'Secondary DB' : 'Primary DB'}`;
+      if (debug) debug.textContent = loadDebugText || '';
       const back = $('#backLink');
       if (back) back.href = withContextHref('/tin-cup/trip-2026.html');
     }
 
     async function loadTrip() {
-      let found = null;
-      if (tripId) {
+      const debugParts = [];
+      const runWithSource = async (secondaryFlag, fn) => {
+        const prev = useSecondaryTripDb;
+        useSecondaryTripDb = secondaryFlag === true;
         try {
-          const bundle = await fetchJson(tripApi(`/api/trips/${tripId}`));
-          if (bundle && bundle.trip && bundle.trip._id) {
-            found = bundle.trip;
-            participants = Array.isArray(bundle.participants) ? bundle.participants : [];
-          }
-        } catch (_err) {}
-      }
-      if (!found) {
-        let trips = [];
-        try {
-          trips = await fetchJson(tripApi('/api/trips'));
-        } catch (_err) {
-          useSecondaryTripDb = false;
-          trips = await fetchJson('/api/trips');
+          return await fn();
+        } finally {
+          useSecondaryTripDb = prev;
         }
-        found = Array.isArray(trips) ? trips.find((t) => t.name && /tin\s*cup/i.test(String(t.name || ''))) : null;
+      };
+      const sourceLabel = (secondaryFlag) => secondaryFlag ? 'secondary' : 'primary';
+      const fetchTripsFromSource = async (secondaryFlag) => {
+        return runWithSource(secondaryFlag, async () => {
+          try {
+            const trips = await fetchJson(tripApi('/api/trips'));
+            const arr = Array.isArray(trips) ? trips : [];
+            debugParts.push(`${sourceLabel(secondaryFlag)} list:${arr.length}`);
+            return { ok: true, trips: arr };
+          } catch (error) {
+            debugParts.push(`${sourceLabel(secondaryFlag)} list:err(${error.message || 'failed'})`);
+            return { ok: false, trips: [] };
+          }
+        });
+      };
+      const fetchTripBundleByIdFromSource = async (secondaryFlag, id) => {
+        return runWithSource(secondaryFlag, async () => {
+          try {
+            const bundle = await fetchJson(tripApi(`/api/trips/${id}`));
+            if (bundle && bundle.trip && bundle.trip._id) {
+              debugParts.push(`${sourceLabel(secondaryFlag)} id:${id} ok`);
+              return { ok: true, trip: bundle.trip, participants: Array.isArray(bundle.participants) ? bundle.participants : [] };
+            }
+            debugParts.push(`${sourceLabel(secondaryFlag)} id:${id} empty`);
+            return { ok: false, trip: null, participants: [] };
+          } catch (error) {
+            debugParts.push(`${sourceLabel(secondaryFlag)} id:${id} err(${error.message || 'failed'})`);
+            return { ok: false, trip: null, participants: [] };
+          }
+        });
+      };
+
+      let found = null;
+      let resolvedParticipants = [];
+      const preferSecondary = useSecondaryTripDb === true;
+
+      if (tripId) {
+        const byPreferred = await fetchTripBundleByIdFromSource(preferSecondary, tripId);
+        if (byPreferred.ok) {
+          found = byPreferred.trip;
+          resolvedParticipants = byPreferred.participants;
+          useSecondaryTripDb = preferSecondary;
+        } else {
+          const byOther = await fetchTripBundleByIdFromSource(!preferSecondary, tripId);
+          if (byOther.ok) {
+            found = byOther.trip;
+            resolvedParticipants = byOther.participants;
+            useSecondaryTripDb = !preferSecondary;
+          }
+        }
+      }
+
+      if (!found) {
+        const primary = await fetchTripsFromSource(false);
+        const secondary = await fetchTripsFromSource(true);
+        const secondaryMatch = secondary.trips.find((t) => isTinCupTrip(t));
+        const primaryMatch = primary.trips.find((t) => isTinCupTrip(t));
+
+        if (secondaryMatch && secondaryMatch._id) {
+          found = secondaryMatch;
+          useSecondaryTripDb = true;
+        } else if (primaryMatch && primaryMatch._id) {
+          found = primaryMatch;
+          useSecondaryTripDb = false;
+        }
+
         if (found && found._id) {
           tripId = String(found._id);
-          participants = await fetchJson(tripApi(`/api/trips/${tripId}/participants`));
-        } else {
-          participants = [];
+          persistTripContext();
+          try {
+            resolvedParticipants = await fetchJson(tripApi(`/api/trips/${tripId}/participants`));
+            debugParts.push(`${sourceLabel(useSecondaryTripDb)} participants:${Array.isArray(resolvedParticipants) ? resolvedParticipants.length : 0}`);
+          } catch (error) {
+            debugParts.push(`${sourceLabel(useSecondaryTripDb)} participants:err(${error.message || 'failed'})`);
+            resolvedParticipants = [];
+          }
+        }
+      } else if (found && found._id) {
+        tripId = String(found._id);
+        persistTripContext();
+      }
+
+      if (!found) {
+        loadDebugText = `Debug: tripId=${tripId || 'none'} | source=${useSecondaryTripDb ? 'secondary' : 'primary'} | ${debugParts.join(' | ')}`;
+        trip = null;
+        tripId = null;
+        participants = [];
+        renderMeta();
+        renderParticipants();
+        renderStatusList();
+        return;
+      }
+
+      participants = Array.isArray(resolvedParticipants) ? resolvedParticipants : [];
+      if (tripId) {
+        const existingNames = new Set((participants || []).map((p) => normalizeName(p && p.name)));
+        const missingGolfers = CURRENT_TIN_CUP_GOLFERS.filter((name) => !existingNames.has(normalizeName(name)));
+        if (missingGolfers.length) {
+          for (const name of missingGolfers) {
+            const defaultIdx = CURRENT_TIN_CUP_GOLFERS.indexOf(name);
+            const addRes = await fetch(tripApi(`/api/trips/${tripId}/participants`), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name,
+                status: 'in',
+                roomAssignment: getDefaultRoomAssignment(defaultIdx)
+              })
+            });
+            if (!addRes.ok) {
+              const payload = await addRes.json().catch(() => ({}));
+              debugParts.push(`seed:${name}:err(${payload.error || addRes.status})`);
+            }
+          }
+          try {
+            participants = await fetchJson(tripApi(`/api/trips/${tripId}/participants`));
+          } catch (_err) {}
         }
       }
+
       trip = found;
+      loadDebugText = `Debug: tripId=${tripId || 'none'} | source=${useSecondaryTripDb ? 'secondary' : 'primary'} | ${debugParts.join(' | ')}`;
       renderMeta();
       renderParticipants();
       renderStatusList();

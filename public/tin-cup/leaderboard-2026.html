@@ -320,7 +320,7 @@
     }
 
     function renderTripRows(rows = []) {
-      tripBoardEl.innerHTML = `<table><thead><tr><th>Pos</th><th>Player</th><th>D1 Match</th><th>D1 Stroke</th><th>D2 Match</th><th>D3 Match</th><th>D3 Stroke</th><th>Scramble</th><th>D4 Rank Pts</th><th>Total</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${esc(r.position)}</td><td><strong>${esc(r.name)}</strong></td><td>${esc(r.match1)}</td><td>${esc(r.stroke1)}</td><td>${esc(r.match2)}</td><td>${esc(r.match3)}</td><td>${esc(r.stroke3)}</td><td>${esc(r.scramble)}</td><td>${esc(r.day4Points)}${Number.isInteger(r.day4Rank) ? ` <span class="muted">(r${esc(r.day4Rank)})</span>` : ''}</td><td><strong>${esc(r.total)}</strong></td></tr>`).join('')}</tbody></table>`;
+      tripBoardEl.innerHTML = `<table><thead><tr><th>Pos</th><th>Player</th><th>D1 Match</th><th>D1 Stroke</th><th>D2 Match</th><th>D3 Match</th><th>D3 Stroke</th><th>Scramble</th><th>Penalty</th><th>D4 Rank Pts</th><th>Total</th></tr></thead><tbody>${rows.map((r) => `<tr><td>${esc(r.position)}</td><td><strong>${esc(r.name)}</strong></td><td>${esc(r.match1)}</td><td>${esc(r.stroke1)}</td><td>${esc(r.match2)}</td><td>${esc(r.match3)}</td><td>${esc(r.stroke3)}</td><td>${esc(r.scramble)}</td><td>${esc(Number(r.penaltyTotal || 0).toFixed(2))}</td><td>${esc(r.day4Points)}${Number.isInteger(r.day4Rank) ? ` <span class="muted">(r${esc(r.day4Rank)})</span>` : ''}</td><td><strong>${esc(r.total)}</strong></td></tr>`).join('')}</tbody></table>`;
     }
 
     function renderFromPayload(payload) {

@@ -26,6 +26,22 @@
     th:first-child, td:first-child { position: sticky; left:0; background:#10243d; text-align:left; z-index:1; }
     td input { width:52px; text-align:center; }
     .head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    .scorecard-links-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:10px; }
+    .scorecard-link-card { border:1px solid var(--line); border-radius:10px; padding:10px; background:rgba(255,255,255,.03); display:grid; gap:7px; }
+    .scorecard-link-title { display:flex; justify-content:space-between; align-items:center; gap:8px; font-weight:700; }
+    .scorecard-link-players { color:var(--muted); font-size:.82rem; }
+    .scorecard-link-row { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+    .hole-nav { display:grid; gap:10px; }
+    .hole-nav-top { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+    .hole-nav-controls { display:flex; align-items:center; gap:6px; }
+    .hole-nav-hole { font-size:1.05rem; font-weight:700; min-width:110px; text-align:center; }
+    .hole-player-grid { display:grid; gap:8px; }
+    .hole-player-row { border:1px solid var(--line); border-radius:10px; padding:8px; background:rgba(255,255,255,.03); display:grid; gap:6px; }
+    .hole-player-head { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+    .hole-chip-row { display:flex; flex-wrap:wrap; gap:6px; }
+    .hole-chip { min-width:36px; padding:6px 8px; border-radius:999px; border:1px solid var(--line); background:#0b1727; color:var(--ink); cursor:pointer; font-weight:700; }
+    .hole-chip.active { border-color: rgba(118,210,255,.8); background: rgba(118,210,255,.25); }
+    .hole-inline-controls { display:flex; align-items:center; gap:6px; }
     a { color: var(--accent); text-decoration:none; font-weight:700; }
     a:hover { text-decoration:underline; }
     @media (max-width: 900px) {
@@ -43,36 +59,48 @@
       <a href="/tin-cup/trip-2026.html">Back to Tin Cup Page</a>
     </div>
 
-    <div class="card" id="entryControlsCard">
-      <div class="row">
+    <div class="card" id="scorecardLinksCard">
+      <div class="head">
+        <strong>Live Scorecard Links</strong>
         <label>Day
-          <select id="daySelect"></select>
+          <select id="linkDaySelect"></select>
         </label>
-        <label>Foursome
-          <select id="slotSelect"></select>
-        </label>
-        <label>Foursome Code
-          <input id="codeInput" type="text" placeholder="Enter code" autocomplete="off">
-        </label>
-        <button id="unlockBtn" type="button">Unlock Scorecard</button>
-        <span id="status" class="muted"></span>
       </div>
+      <div class="muted" style="margin:6px 0 10px;">Open your foursome link to score hole-by-hole live. Changes sync to match scoring and the live leaderboard.</div>
+      <div id="scorecardLinksList"></div>
+      <div style="margin-top:10px;"><span id="status" class="muted"></span></div>
+    </div>
+
+    <div class="card" id="liveScoringFlowCard">
+      <strong>Live Scoring Flow</strong>
+      <ol class="muted" style="margin:8px 0 0;padding-left:18px;display:grid;gap:6px;">
+        <li>One golfer in each foursome opens the live scorecard link and enters hole-by-hole scores.</li>
+        <li>Every score save updates the shared Tin Cup live data, and the leaderboard reflects changes immediately.</li>
+        <li>Match Scoring is auto-derived from real scorecards: completed segments show W/T/L, in-progress segments show current leader (W*/L*/T*).</li>
+      </ol>
     </div>
 
     <div class="entry-input-grid">
+      <div class="card" id="penaltyCard">
+        <strong>Handicaps & Penalties</strong>
+        <div class="muted" style="margin:6px 0 10px;">Past champion and rookie penalties are applied in live stroke/rank calculations and shown on scorecards.</div>
+        <div class="table-wrap" id="penaltyTableWrap"></div>
+      </div>
+
       <div class="card" id="matchInputsCard">
         <div class="head">
-          <strong>Match Inputs</strong>
+          <strong>Match Scoring (Auto)</strong>
           <label class="muted">Day
             <select id="matchInputDay"></select>
           </label>
         </div>
+        <div class="muted" style="margin:6px 0 10px;">Calculated from entered hole scores across all foursomes for the selected day.</div>
         <div class="table-wrap" id="matchInputsTableWrap"></div>
       </div>
 
       <div class="card" id="strokeInputsCard">
-        <strong>Stroke Inputs</strong>
-        <div class="muted" style="margin:6px 0 10px;">Day 1 and Day 3 net inputs used in trip scoring.</div>
+        <strong>Stroke Results (Read-Only)</strong>
+        <div class="muted" style="margin:6px 0 10px;">Auto-derived from live scorecards for scoring confirmation. Manual entry is disabled on this page.</div>
         <div class="table-wrap" id="strokeInputsTableWrap"></div>
       </div>
     </div>
@@ -85,16 +113,14 @@
       <div class="table-wrap" id="scoreTableWrap"></div>
     </div>
 
+    <div class="card" id="holeEntryCard" style="display:none;">
+      <div class="hole-nav" id="holeEntryWrap"></div>
+    </div>
+
     <div class="card" id="markersCard" style="display:none;">
       <strong>Closest to Pin / Long Drive</strong>
       <div class="muted" style="margin:6px 0 10px;">Set winner per hole when applicable. Leave blank to clear.</div>
       <div class="table-wrap" id="markerTableWrap"></div>
-    </div>
-
-    <div class="card" id="finalDayCard">
-      <strong>Final Day Inputs</strong>
-      <div class="muted" style="margin:6px 0 10px;">Moved from the main Tin Cup page. Enter Day 4 net and scramble bonus here.</div>
-      <div class="table-wrap" id="finalDayTableWrap"></div>
     </div>
 
     <div class="card" id="adminUtilityCard">
@@ -112,27 +138,27 @@
   </div>
 
   <script>
-    const daySelect = document.getElementById('daySelect');
-    const slotSelect = document.getElementById('slotSelect');
-    const codeInput = document.getElementById('codeInput');
-    const unlockBtn = document.getElementById('unlockBtn');
+    const linkDaySelect = document.getElementById('linkDaySelect');
+    const scorecardLinksList = document.getElementById('scorecardLinksList');
     const statusEl = document.getElementById('status');
     const scorecardCard = document.getElementById('scorecardCard');
     const scorecardTitle = document.getElementById('scorecardTitle');
     const updatedAt = document.getElementById('updatedAt');
     const scoreTableWrap = document.getElementById('scoreTableWrap');
+    const holeEntryCard = document.getElementById('holeEntryCard');
+    const holeEntryWrap = document.getElementById('holeEntryWrap');
     const markersCard = document.getElementById('markersCard');
     const markerTableWrap = document.getElementById('markerTableWrap');
-    const finalDayTableWrap = document.getElementById('finalDayTableWrap');
     const matchInputDayEl = document.getElementById('matchInputDay');
     const matchInputsTableWrap = document.getElementById('matchInputsTableWrap');
     const strokeInputsTableWrap = document.getElementById('strokeInputsTableWrap');
+    const penaltyTableWrap = document.getElementById('penaltyTableWrap');
     const adminCodeInput = document.getElementById('adminCodeInput');
     const genCodesBtn = document.getElementById('genCodesBtn');
     const adminStatus = document.getElementById('adminStatus');
     const generatedCodes = document.getElementById('generatedCodes');
     const entryIntro = document.getElementById('entryIntro');
-    const entryControlsCard = document.getElementById('entryControlsCard');
+    const scorecardLinksCard = document.getElementById('scorecardLinksCard');
     const adminUtilityCard = document.getElementById('adminUtilityCard');
 
     const TIN_CUP_CONTEXT_STORAGE_KEY = 'tinCupTripContextV1';
@@ -144,6 +170,12 @@
     const RANK_POINTS = [12, 10, 8.5, 7, 5.75, 4.5, 3, 1.25, 0, 0, 0, 0, 0, 0, 0, 0];
     const FINAL_INPUT_PLAYERS = ['Matt', 'Rick', 'OB', 'Kyle', 'Manny', 'Steve', 'Tommy', 'Pat', 'Mil', 'CSamm', 'Brian', 'Bob', 'David', 'John', 'Tony', 'Spiro'];
     const MATCH_ENTRY_DAYS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4', 'Practice'];
+    const PLAYER_HANDICAPS = {
+      matt: 10.8, rick: 15.3, ob: 11.2, kyle: 8.2,
+      manny: 22.0, steve: 13.1, tommy: 9.1, pat: 17.6,
+      mil: 12.9, csamm: 22.3, brian: 20.9, bob: 22.0,
+      david: 12.9, john: 11.2, tony: 12.8, spiro: 24.5
+    };
 
     let matchInputDay = 'Day 1';
     const FOURSOMES = [
@@ -157,13 +189,16 @@
     let meta = null;
     let useSecondaryTripDb = true;
     let localMode = false;
+    let selectedLinkDay = 'Day 1';
     let settings = {
       enableLiveFoursomeScoring: true,
       enableFoursomeCodes: true,
       enableLiveMarkers: true,
       enableLiveLeaderboard: true
     };
+    let penaltiesByPlayer = {};
     let active = { dayKey: '', slotIndex: -1, code: '', view: null };
+    let currentHole = 1;
 
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
     const norm = (v = '') => String(v || '').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -255,12 +290,43 @@
         else backNet += net;
       }
       return {
+        holes: Array.isArray(holes) ? holes.slice(0, 18).map((v) => toInt(v)) : holeArray(),
+        hcp: Number(hcp) || 0,
         grossTotal: complete18 ? grossTotal : null,
         netTotal: complete18 ? netTotal : null,
         frontNet: completeFront ? frontNet : null,
         backNet: completeBack ? backNet : null,
+        completeFront,
+        completeBack,
         complete18
       };
+    }
+
+    function compareSegmentFromSummaries(sa, sb, segmentIndex) {
+      if (!sa || !sb) return '';
+      const start = segmentIndex === 0 ? 0 : 9;
+      const end = segmentIndex === 0 ? 8 : 17;
+      let aNet = 0;
+      let bNet = 0;
+      let shared = 0;
+      for (let idx = start; idx <= end; idx += 1) {
+        const holeNo = idx + 1;
+        const aGross = toInt(sa.holes && sa.holes[idx]);
+        const bGross = toInt(sb.holes && sb.holes[idx]);
+        if (aGross === null || bGross === null) continue;
+        aNet += aGross - getStrokeAllowance(sa.hcp, holeNo);
+        bNet += bGross - getStrokeAllowance(sb.hcp, holeNo);
+        shared += 1;
+      }
+      if (!shared) return '';
+      if (shared >= 9) {
+        if (aNet < bNet) return 'W';
+        if (aNet > bNet) return 'L';
+        return 'T';
+      }
+      if (aNet < bNet) return 'W*';
+      if (aNet > bNet) return 'L*';
+      return 'T*';
     }
 
     function ensureLocalCard(dayKey, slotIndex) {
@@ -316,11 +382,13 @@
       const out = {
         matchResults: { 'Day 1': {}, 'Day 2A': {}, 'Day 2B': {}, 'Day 3': {}, 'Day 4': {}, Practice: {} },
         strokeNet: { 'Day 1': {}, 'Day 3': {}, 'Day 4': {} },
-        scrambleBonus: {}
+        scrambleBonus: {},
+        penalties: {}
       };
       try {
         const prev = JSON.parse(localStorage.getItem(TIN_CUP_SCORING_STORAGE_KEY) || '{}');
         out.scrambleBonus = { ...(prev.scrambleBonus || {}) };
+        out.penalties = { ...(prev.penalties || {}) };
       } catch (_err) {}
 
       DAY_KEYS.forEach((dayKey) => {
@@ -350,14 +418,8 @@
               const pb = p[b].name;
               const sa = summaryByName.get(norm(pa));
               const sb = summaryByName.get(norm(pb));
-              const aScore = segmentIndex === 0 ? sa.frontNet : sa.backNet;
-              const bScore = segmentIndex === 0 ? sb.frontNet : sb.backNet;
-              let ar = ''; let br = '';
-              if (Number.isFinite(aScore) && Number.isFinite(bScore)) {
-                if (aScore < bScore) { ar = 'W'; br = 'L'; }
-                else if (aScore > bScore) { ar = 'L'; br = 'W'; }
-                else { ar = 'T'; br = 'T'; }
-              }
+              const ar = compareSegmentFromSummaries(sa, sb, segmentIndex);
+              const br = ar === 'W' ? 'L' : ar === 'L' ? 'W' : ar === 'W*' ? 'L*' : ar === 'L*' ? 'W*' : ar;
               const ak = norm(pa); const bk = norm(pb);
               if (!out.matchResults[dayKey][ak]) out.matchResults[dayKey][ak] = {};
               if (!out.matchResults[dayKey][bk]) out.matchResults[dayKey][bk] = {};
@@ -375,7 +437,8 @@
       const base = {
         matchResults: { 'Day 1': {}, 'Day 2A': {}, 'Day 2B': {}, 'Day 3': {}, 'Day 4': {}, Practice: {} },
         strokeNet: { 'Day 1': {}, 'Day 3': {}, 'Day 4': {} },
-        scrambleBonus: {}
+        scrambleBonus: {},
+        penalties: {}
       };
       try {
         const raw = localStorage.getItem(TIN_CUP_SCORING_STORAGE_KEY);
@@ -384,7 +447,8 @@
         return {
           matchResults: { ...base.matchResults, ...(parsed.matchResults || {}) },
           strokeNet: { ...base.strokeNet, ...(parsed.strokeNet || {}) },
-          scrambleBonus: { ...(parsed.scrambleBonus || {}) }
+          scrambleBonus: { ...(parsed.scrambleBonus || {}) },
+          penalties: { ...(parsed.penalties || {}) }
         };
       } catch (_err) {
         return base;
@@ -393,21 +457,6 @@
 
     function saveTinCupScoringState(state) {
       localStorage.setItem(TIN_CUP_SCORING_STORAGE_KEY, JSON.stringify(state));
-    }
-
-    function renderFinalDayInputs() {
-      const state = loadTinCupScoringState();
-      const rows = FINAL_INPUT_PLAYERS.map((name) => {
-        const key = norm(name);
-        const day4 = toNum((((state.strokeNet || {})['Day 4'] || {})[key]));
-        const scramble = toNum((state.scrambleBonus || {})[key]);
-        return `<tr>
-          <td><strong>${esc(name)}</strong></td>
-          <td><input type="number" step="0.1" data-final-day4="${esc(name)}" value="${day4 === null ? '' : esc(day4)}" placeholder="Net"></td>
-          <td><input type="number" step="0.1" data-final-scramble="${esc(name)}" value="${scramble === null ? '' : esc(scramble)}" placeholder="0"></td>
-        </tr>`;
-      }).join('');
-      finalDayTableWrap.innerHTML = `<table><thead><tr><th>Player</th><th>Day 4 Net</th><th>Scramble Bonus</th></tr></thead><tbody>${rows}</tbody></table>`;
     }
 
     function computeDailyMatchMatrix(dayKey = '') {
@@ -434,82 +483,210 @@
       const key = norm(playerName);
       const row = (((state.matchResults || {})[dayKey] || {})[key] || {});
       const value = String(row[segmentIndex] || '').trim().toUpperCase();
-      return ['W', 'T', 'L'].includes(value) ? value : '';
+      return ['W', 'T', 'L', 'W*', 'T*', 'L*'].includes(value) ? value : '';
     }
 
-    function setMatchValue(state, dayKey, playerName, segmentIndex, value) {
-      const key = norm(playerName);
-      if (!state.matchResults[dayKey]) state.matchResults[dayKey] = {};
-      if (!state.matchResults[dayKey][key]) state.matchResults[dayKey][key] = {};
-      const normalized = ['W', 'T', 'L'].includes(String(value || '').trim().toUpperCase()) ? String(value || '').trim().toUpperCase() : '';
-      state.matchResults[dayKey][key][segmentIndex] = normalized;
-
-      // Mirror the opposing side for the same matchup.
-      const matrix = computeDailyMatchMatrix(dayKey);
-      const row = matrix.find((entry) => norm(entry.player) === key);
-      const segment = row && row.segments ? row.segments[segmentIndex] : null;
-      if (!segment || !segment.opponent) return;
-      const opponentKey = norm(segment.opponent);
-      const opponentRow = matrix.find((entry) => norm(entry.player) === opponentKey);
-      if (!opponentRow || !Array.isArray(opponentRow.segments)) return;
-      const opponentSegmentIndex = opponentRow.segments.findIndex((entry) => norm(entry && entry.opponent) === key);
-      if (!Number.isInteger(opponentSegmentIndex) || opponentSegmentIndex < 0) return;
-      if (!state.matchResults[dayKey][opponentKey]) state.matchResults[dayKey][opponentKey] = {};
-      const reciprocal = normalized === 'W' ? 'L' : normalized === 'L' ? 'W' : normalized;
-      state.matchResults[dayKey][opponentKey][opponentSegmentIndex] = reciprocal;
+    function calcMatchPoints(segments = []) {
+      return (segments || []).reduce((sum, segment) => {
+        const result = String(segment && segment.result || '').trim().toUpperCase();
+        if (result === 'W') return sum + 2;
+        if (result === 'T') return sum + 1;
+        return sum;
+      }, 0);
     }
 
-    function renderMatchInputs() {
+    async function fetchRemoteMatchRows(dayKey) {
+      const id = await resolveTripId();
+      const q = new URLSearchParams({ day: 'Day 1', matchDay: dayKey }).toString();
+      const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/leaderboard?${q}`));
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error || 'Failed to load dynamic match board');
+      return Array.isArray(payload.matchRows) ? payload.matchRows : [];
+    }
+
+    function getLocalMatchRows(dayKey) {
       const state = loadTinCupScoringState();
-      const dayKey = MATCH_ENTRY_DAYS.includes(matchInputDay) ? matchInputDay : 'Day 1';
-      matchInputDayEl.innerHTML = MATCH_ENTRY_DAYS.map((day) => `<option value="${esc(day)}"${day === dayKey ? ' selected' : ''}>${esc(day)}</option>`).join('');
-      const rows = computeDailyMatchMatrix(dayKey);
+      const matrix = computeDailyMatchMatrix(dayKey);
+      return matrix.map((row) => {
+        const segments = (row.segments || []).map((segment, idx) => ({
+          opponent: segment.opponent,
+          result: getMatchValue(state, dayKey, row.player, idx),
+          segmentIndex: idx
+        }));
+        return { player: row.player, segments, points: calcMatchPoints(segments) };
+      });
+    }
+
+    function renderMatchRows(rows = []) {
       if (!rows.length) {
         matchInputsTableWrap.innerHTML = '<div class="muted">No matchup matrix for this day.</div>';
         return;
       }
-      const body = rows.map((row) => `<tr>
-        <td><strong>${esc(row.player)}</strong></td>
-        ${(row.segments || []).map((segment, idx) => {
-          const current = getMatchValue(state, dayKey, row.player, idx);
-          return `<td>
-            <div style="display:grid;gap:4px;">
-              <span class="muted">${esc(segment.label)} vs ${esc(segment.opponent)}</span>
-              <select data-match-input="${esc(dayKey)}|${esc(row.player)}|${idx}">
-                <option value=""${current === '' ? ' selected' : ''}>-</option>
-                <option value="W"${current === 'W' ? ' selected' : ''}>Win</option>
-                <option value="T"${current === 'T' ? ' selected' : ''}>Tie</option>
-                <option value="L"${current === 'L' ? ' selected' : ''}>Loss</option>
-              </select>
-            </div>
-          </td>`;
-        }).join('')}
-      </tr>`).join('');
-      matchInputsTableWrap.innerHTML = `<table><thead><tr><th>Player</th><th>Front 9</th><th>Back 9 #1</th><th>Back 9 #2</th></tr></thead><tbody>${body}</tbody></table>`;
-    }
-
-    function renderStrokeInputs() {
-      const state = loadTinCupScoringState();
-      const rows = FINAL_INPUT_PLAYERS.map((name) => {
-        const key = norm(name);
-        const d1 = toNum((((state.strokeNet || {})['Day 1'] || {})[key]));
-        const d3 = toNum((((state.strokeNet || {})['Day 3'] || {})[key]));
+      const segCell = (segment) => {
+        const opp = segment && segment.opponent ? segment.opponent : '-';
+        const result = segment && segment.result ? String(segment.result).toUpperCase() : '-';
+        return `${esc(opp)} <span class="muted">(${esc(result)})</span>`;
+      };
+      const body = rows.map((row) => {
+        const segments = Array.isArray(row.segments) ? row.segments : [];
+        const points = Number.isFinite(Number(row.points)) ? Number(row.points) : calcMatchPoints(segments);
         return `<tr>
-          <td><strong>${esc(name)}</strong></td>
-          <td><input type="number" step="0.1" data-stroke-input="Day 1|${esc(name)}" value="${d1 === null ? '' : esc(d1)}" placeholder="Net"></td>
-          <td><input type="number" step="0.1" data-stroke-input="Day 3|${esc(name)}" value="${d3 === null ? '' : esc(d3)}" placeholder="Net"></td>
+          <td><strong>${esc(row.player)}</strong></td>
+          <td>${segCell(segments[0])}</td>
+          <td>${segCell(segments[1])}</td>
+          <td>${segCell(segments[2])}</td>
+          <td><strong>${esc(points)}</strong></td>
         </tr>`;
       }).join('');
-      strokeInputsTableWrap.innerHTML = `<table><thead><tr><th>Player</th><th>Day 1 Net</th><th>Day 3 Net</th></tr></thead><tbody>${rows}</tbody></table>`;
+      matchInputsTableWrap.innerHTML = `<table><thead><tr><th>Player</th><th>Front 9</th><th>Back 9 #1</th><th>Back 9 #2</th><th>Pts</th></tr></thead><tbody>${body}</tbody></table>`;
+    }
+
+    async function renderMatchInputs() {
+      const dayKey = MATCH_ENTRY_DAYS.includes(matchInputDay) ? matchInputDay : 'Day 1';
+      matchInputDayEl.innerHTML = MATCH_ENTRY_DAYS.map((day) => `<option value="${esc(day)}"${day === dayKey ? ' selected' : ''}>${esc(day)}</option>`).join('');
+      matchInputsTableWrap.innerHTML = '<div class="muted">Loading dynamic match scoring...</div>';
+      try {
+        const rows = localMode ? getLocalMatchRows(dayKey) : await fetchRemoteMatchRows(dayKey);
+        renderMatchRows(rows);
+      } catch (error) {
+        matchInputsTableWrap.innerHTML = `<div class="bad">${esc(error && error.message ? error.message : 'Failed to load dynamic match scoring')}</div>`;
+      }
+    }
+
+    function renderPenaltyInputs() {
+      const rows = FINAL_INPUT_PLAYERS.map((name) => {
+        const key = norm(name);
+        const handicap = Number(PLAYER_HANDICAPS[key] || 0);
+        const penalties = getPenaltyEntry(name);
+        return `<tr>
+          <td><strong>${esc(name)}</strong></td>
+          <td>${esc(handicap.toFixed(1))}</td>
+          <td><input type="number" step="0.1" data-penalty-input="champion|${esc(name)}" value="${esc(penalties.champion)}" placeholder="0"></td>
+          <td><input type="number" step="0.1" data-penalty-input="rookie|${esc(name)}" value="${esc(penalties.rookie)}" placeholder="0"></td>
+          <td><strong>${esc(penalties.total)}</strong></td>
+        </tr>`;
+      }).join('');
+      penaltyTableWrap.innerHTML = `<table><thead><tr><th>Player</th><th>Handicap</th><th>Past Champion Penalty</th><th>Rookie Penalty</th><th>Total Penalty</th></tr></thead><tbody>${rows}</tbody></table>`;
+    }
+
+    function buildStrokePointsFromNetMap(netByName = {}) {
+      const rows = FINAL_INPUT_PLAYERS.map((name) => ({ key: norm(name), net: toNum(netByName[norm(name)]) }));
+      const valid = rows.filter((row) => row.net !== null);
+      const out = {};
+      rows.forEach((row) => { out[row.key] = 0; });
+      valid.forEach((entry) => {
+        const rank = 1 + valid.filter((row) => row.net < entry.net).length;
+        if (rank < 9) out[entry.key] = 2;
+      });
+      return out;
+    }
+
+    function buildDay4RankFromNetMap(netByName = {}) {
+      const entries = FINAL_INPUT_PLAYERS.map((name) => ({ key: norm(name), net: toNum(netByName[norm(name)]) }))
+        .filter((entry) => entry.net !== null)
+        .sort((a, b) => a.net - b.net);
+      const points = {};
+      const rank = {};
+      FINAL_INPUT_PLAYERS.forEach((name) => { points[norm(name)] = 0; rank[norm(name)] = null; });
+      let i = 0;
+      while (i < entries.length) {
+        const start = i;
+        const score = entries[i].net;
+        while (i < entries.length && entries[i].net === score) i += 1;
+        const first = start + 1;
+        let total = 0;
+        for (let pos = first; pos <= i; pos += 1) total += (RANK_POINTS[pos - 1] || 0);
+        const avg = entries.slice(start, i).length ? Number((total / (i - start)).toFixed(2)) : 0;
+        entries.slice(start, i).forEach((entry) => {
+          points[entry.key] = avg;
+          rank[entry.key] = first;
+        });
+      }
+      return { points, rank };
+    }
+
+    function getLocalStrokeSummaryRows() {
+      const state = loadTinCupScoringState();
+      const day1Net = (state.strokeNet && state.strokeNet['Day 1']) || {};
+      const day3Net = (state.strokeNet && state.strokeNet['Day 3']) || {};
+      const day4Net = (state.strokeNet && state.strokeNet['Day 4']) || {};
+      const scrambleByName = state.scrambleBonus || {};
+      const stroke1Pts = buildStrokePointsFromNetMap(day1Net);
+      const stroke3Pts = buildStrokePointsFromNetMap(day3Net);
+      const day4Rank = buildDay4RankFromNetMap(day4Net);
+      return FINAL_INPUT_PLAYERS.map((name) => {
+        const key = norm(name);
+        return {
+          name,
+          day1Net: toNum(day1Net[key]),
+          day3Net: toNum(day3Net[key]),
+          day4Net: toNum(day4Net[key]),
+          scramble: toNum(scrambleByName[key]),
+          stroke1: Number(stroke1Pts[key] || 0),
+          stroke3: Number(stroke3Pts[key] || 0),
+          day4Points: Number(day4Rank.points[key] || 0),
+          day4Rank: day4Rank.rank[key]
+        };
+      });
+    }
+
+    async function fetchRemoteStrokeSummaryRows() {
+      const id = await resolveTripId();
+      const q = new URLSearchParams({ day: 'Day 1', matchDay: matchInputDay }).toString();
+      const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/leaderboard?${q}`));
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Failed to load stroke results');
+      const totals = Array.isArray(payload.totals) ? payload.totals : [];
+      const byName = new Map(totals.map((row) => [norm(row && row.name), row || {}]));
+      return FINAL_INPUT_PLAYERS.map((name) => {
+        const row = byName.get(norm(name)) || {};
+        return {
+          name,
+          day1Net: toNum(row.day1Net),
+          day3Net: toNum(row.day3Net),
+          day4Net: toNum(row.day4Net),
+          scramble: toNum(row.scramble),
+          stroke1: Number(row.stroke1 || 0),
+          stroke3: Number(row.stroke3 || 0),
+          day4Points: Number(row.day4Points || 0),
+          day4Rank: Number.isInteger(row.day4Rank) ? row.day4Rank : null
+        };
+      });
+    }
+
+    async function renderStrokeInputs() {
+      strokeInputsTableWrap.innerHTML = '<div class="muted">Loading scorecard-derived stroke results...</div>';
+      try {
+        const rows = localMode ? getLocalStrokeSummaryRows() : await fetchRemoteStrokeSummaryRows();
+        const body = rows.map((row) => `<tr>
+          <td><strong>${esc(row.name)}</strong></td>
+          <td>${row.day1Net === null ? '-' : esc(row.day1Net)}</td>
+          <td>${row.day3Net === null ? '-' : esc(row.day3Net)}</td>
+          <td>${row.day4Net === null ? '-' : esc(row.day4Net)}</td>
+          <td>${row.scramble === null ? '-' : esc(row.scramble)}</td>
+          <td>${esc(row.stroke1)}</td>
+          <td>${esc(row.stroke3)}</td>
+          <td>${esc(row.day4Points)}${row.day4Rank ? ` <span class="muted">(r${esc(row.day4Rank)})</span>` : ''}</td>
+        </tr>`).join('');
+        strokeInputsTableWrap.innerHTML = `<table><thead><tr><th>Player</th><th>Day 1 Net</th><th>Day 3 Net</th><th>Day 4 Net</th><th>Scramble</th><th>Day 1 Stroke Pts</th><th>Day 3 Stroke Pts</th><th>Day 4 Rank Pts</th></tr></thead><tbody>${body}</tbody></table>`;
+      } catch (error) {
+        strokeInputsTableWrap.innerHTML = `<div class="bad">${esc(error && error.message ? error.message : 'Failed to load stroke results')}</div>`;
+      }
     }
 
     function buildLocalMeta() {
+      const penalties = {};
+      FINAL_INPUT_PLAYERS.forEach((name) => {
+        penalties[norm(name)] = { champion: 0, rookie: 0, total: 0 };
+      });
       return {
         matchDayOptions: DAY_KEYS.slice(),
         daySlots: DAY_KEYS.map((dayKey) => ({
           dayKey,
           slots: getDaySlots(dayKey).map((slot) => ({ slotIndex: slot.slotIndex, label: slot.label, players: slot.players.map((p) => p.name), hasCode: false }))
         })),
+        penalties,
+        playerHandicaps: FINAL_INPUT_PLAYERS.map((name) => ({ name, handicap: Number(PLAYER_HANDICAPS[norm(name)] || 0) })),
         settings: {
           enableLiveFoursomeScoring: true,
           enableFoursomeCodes: false,
@@ -517,6 +694,27 @@
           enableLiveLeaderboard: true
         }
       };
+    }
+
+    function getQueryValue(key) {
+      try {
+        return String(new URLSearchParams(window.location.search).get(key) || '').trim();
+      } catch (_err) {
+        return '';
+      }
+    }
+
+    function getAdminCode() {
+      const code = String(window.prompt('Enter admin code') || '').trim();
+      return code;
+    }
+
+    function getPenaltyEntry(playerName = '') {
+      const key = norm(playerName);
+      const row = penaltiesByPlayer && penaltiesByPlayer[key] ? penaltiesByPlayer[key] : {};
+      const champion = toNum(row.champion) || 0;
+      const rookie = toNum(row.rookie) || 0;
+      return { champion, rookie, total: Number((champion + rookie).toFixed(2)) };
     }
 
     function findTinCupTrip(trips) {
@@ -570,57 +768,95 @@
       }
     }
 
-    function currentDaySlots() {
-      const day = String(daySelect.value || '');
-      const row = (meta && Array.isArray(meta.daySlots) ? meta.daySlots : []).find((d) => d.dayKey === day);
+    function getSlotsForDay(dayKey = '') {
+      const row = (meta && Array.isArray(meta.daySlots) ? meta.daySlots : []).find((d) => d.dayKey === dayKey);
       return row ? row.slots : [];
+    }
+
+    function buildSelfLink(dayKey, slotIndex) {
+      const params = new URLSearchParams(window.location.search);
+      params.set('dayKey', dayKey);
+      params.set('slotIndex', String(slotIndex));
+      if (tripId) params.set('tripId', String(tripId));
+      params.set('secondary', useSecondaryTripDb ? '1' : '0');
+      return `${window.location.pathname}?${params.toString()}`;
+    }
+
+    function renderScorecardLinks() {
+      const dayKey = String(selectedLinkDay || '');
+      const slots = getSlotsForDay(dayKey);
+      if (!slots.length) {
+        scorecardLinksList.innerHTML = '<div class="muted">No foursomes for this day.</div>';
+        return;
+      }
+      scorecardLinksList.innerHTML = `<div class="scorecard-links-grid">${slots.map((slot) => {
+        const players = Array.isArray(slot.players) ? slot.players : [];
+        const playersWithMeta = players.map((name) => {
+          const penalty = getPenaltyEntry(name);
+          const hcp = Number(PLAYER_HANDICAPS[norm(name)] || 0);
+          const penTxt = penalty.total ? `, Pen +${penalty.total}` : '';
+          return `${name} (HCP ${hcp}${penTxt})`;
+        }).join(' | ');
+        return `<div class="scorecard-link-card">
+          <div class="scorecard-link-title">
+            <span>${esc(slot.label)} - ${esc(dayKey)}</span>
+            <button type="button" data-open-scorecard="${esc(dayKey)}|${esc(String(slot.slotIndex))}">Open Scorecard</button>
+          </div>
+          <div class="scorecard-link-players">${esc(playersWithMeta)}</div>
+          <div class="scorecard-link-row">
+            <a href="${esc(buildSelfLink(dayKey, slot.slotIndex))}" target="_blank" rel="noopener">Open in New Tab</a>
+            <span class="muted">${slot.hasCode ? 'Code-protected link' : 'No code required'}</span>
+          </div>
+        </div>`;
+      }).join('')}</div>`;
     }
 
     function renderSelectors() {
       const dayOptions = (meta && Array.isArray(meta.matchDayOptions) ? meta.matchDayOptions : []);
       settings = (meta && meta.settings) ? meta.settings : settings;
-      codeInput.disabled = settings.enableFoursomeCodes !== true;
+      penaltiesByPlayer = (meta && typeof meta.penalties === 'object' && meta.penalties) ? meta.penalties : {};
+      if (localMode) {
+        const localScoring = loadTinCupScoringState();
+        if (localScoring && localScoring.penalties && typeof localScoring.penalties === 'object') {
+          penaltiesByPlayer = { ...penaltiesByPlayer, ...localScoring.penalties };
+        }
+      }
+      if (Array.isArray(meta && meta.playerHandicaps)) {
+        meta.playerHandicaps.forEach((row) => {
+          const key = norm(row && row.name);
+          if (key) PLAYER_HANDICAPS[key] = Number(row && row.handicap) || 0;
+        });
+      }
       if (localMode) {
         entryIntro.textContent = 'Local mode active: no Tin Cup trip found in database. Entries will sync to local leaderboard state.';
-      } else if (settings.enableFoursomeCodes) {
-        entryIntro.textContent = 'Enter hole-by-hole scores for your foursome with your foursome code.';
       } else {
-        entryIntro.textContent = 'Enter hole-by-hole scores for your foursome. Foursome code is disabled for this trip.';
+        entryIntro.textContent = settings.enableFoursomeCodes
+          ? 'Use your foursome live scorecard link. If prompted, enter your foursome code.'
+          : 'Use your foursome live scorecard link to enter hole-by-hole scores.';
       }
-      codeInput.placeholder = settings.enableFoursomeCodes ? 'Enter code' : 'Code not required';
-      if (!settings.enableFoursomeCodes) codeInput.value = '';
       adminUtilityCard.style.display = (!localMode && settings.enableFoursomeCodes) ? '' : 'none';
 
       if (!settings.enableLiveFoursomeScoring) {
-        entryControlsCard.style.opacity = '0.7';
-        unlockBtn.disabled = true;
+        scorecardLinksCard.style.opacity = '0.7';
         statusEl.className = 'bad';
         statusEl.textContent = 'Live foursome scoring is disabled for this trip.';
       } else {
-        entryControlsCard.style.opacity = '';
-        unlockBtn.disabled = false;
+        scorecardLinksCard.style.opacity = '';
         statusEl.className = 'muted';
         statusEl.textContent = localMode ? 'Local mode ready.' : '';
       }
 
-      daySelect.innerHTML = dayOptions.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
-      if (!dayOptions.includes(daySelect.value)) daySelect.value = dayOptions[0] || '';
-      renderSlots();
-      renderMatchInputs();
-      renderStrokeInputs();
-      renderFinalDayInputs();
+      linkDaySelect.innerHTML = dayOptions.map((d) => `<option value="${esc(d)}">${esc(d)}</option>`).join('');
+      if (!dayOptions.includes(selectedLinkDay)) selectedLinkDay = dayOptions[0] || '';
+      linkDaySelect.value = selectedLinkDay;
+      renderScorecardLinks();
+      renderMatchInputs().catch(() => {});
+      renderPenaltyInputs();
+      renderStrokeInputs().catch(() => {});
     }
 
-    function renderSlots() {
-      const slots = currentDaySlots();
-      slotSelect.innerHTML = slots.map((slot) => `<option value="${esc(String(slot.slotIndex))}">${esc(slot.label)} (${esc((slot.players || []).join(', '))})${slot.hasCode ? '' : ' [no code needed]'}</option>`).join('');
-      if (!slots.some((slot) => String(slot.slotIndex) === slotSelect.value)) slotSelect.value = slots.length ? String(slots[0].slotIndex) : '';
-    }
-
-    async function loadScorecard() {
-      const dayKey = String(daySelect.value || '');
-      const slotIndex = Number(slotSelect.value);
-      const code = String(codeInput.value || '').trim();
+    async function loadScorecard(dayKey, slotIndex, linkCode = '') {
+      const code = String(linkCode || '').trim();
       if (!settings.enableLiveFoursomeScoring) throw new Error('Live foursome scoring is disabled for this trip.');
       if (!dayKey || !Number.isInteger(slotIndex) || slotIndex < 0) throw new Error('Select day and foursome.');
 
@@ -630,7 +866,7 @@
         return payload;
       }
 
-      if (settings.enableFoursomeCodes && !code) throw new Error('Select day/foursome and enter code.');
+      if (settings.enableFoursomeCodes && !code) throw new Error('Foursome code required for this scorecard link.');
       const id = await resolveTripId();
       const q = new URLSearchParams({ dayKey, slotIndex: String(slotIndex), code }).toString();
       const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/scorecard?${q}`));
@@ -646,9 +882,71 @@
       scorecardTitle.textContent = `${view.dayKey} - ${view.label}`;
       updatedAt.textContent = view.updatedAt ? `Updated: ${new Date(view.updatedAt).toLocaleTimeString()}` : '';
       const head = `<tr><th>Player</th>${holes.map((h) => `<th>H${h}</th>`).join('')}<th>Gross</th><th>Net</th></tr>`;
-      const body = players.map((player) => `<tr><td><strong>${esc(player.name)}</strong> <span class="muted">(HCP ${esc(player.handicap)})</span></td>${holes.map((hole) => `<td><input type="number" min="1" max="20" data-hole-input="${esc(player.name)}|${hole}" value="${esc(player.holes && player.holes[hole - 1] !== null ? player.holes[hole - 1] : '')}"></td>`).join('')}<td>${player.grossTotal === null ? '-' : esc(player.grossTotal)}</td><td>${player.netTotal === null ? '-' : esc(player.netTotal)}</td></tr>`).join('');
+      const body = players.map((player) => {
+        const championPenalty = toNum(player.penaltyChampion) || 0;
+        const rookiePenalty = toNum(player.penaltyRookie) || 0;
+        const totalPenalty = toNum(player.penaltyTotal) || 0;
+        const adjustedNet = player.adjustedNetTotal;
+        return `<tr><td><strong>${esc(player.name)}</strong> <span class="muted">(HCP ${esc(player.handicap)} | CP ${esc(championPenalty)} | RP ${esc(rookiePenalty)} | Pen ${esc(totalPenalty)})</span></td>${holes.map((hole) => `<td><input type="number" min="1" max="20" data-hole-input="${esc(player.name)}|${hole}" value="${esc(player.holes && player.holes[hole - 1] !== null ? player.holes[hole - 1] : '')}"></td>`).join('')}<td>${player.grossTotal === null ? '-' : esc(player.grossTotal)}</td><td>${player.netTotal === null ? '-' : esc(player.netTotal)}${adjustedNet === null || adjustedNet === undefined ? '' : ` <span class="muted">(Adj ${esc(adjustedNet)})</span>`}</td></tr>`;
+      }).join('');
       scoreTableWrap.innerHTML = `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
       scorecardCard.style.display = 'block';
+    }
+
+    function deriveCurrentHole(view) {
+      const players = Array.isArray(view && view.players) ? view.players : [];
+      for (let hole = 1; hole <= 18; hole += 1) {
+        const hasMissing = players.some((player) => toInt(player && player.holes && player.holes[hole - 1]) === null);
+        if (hasMissing) return hole;
+      }
+      return 18;
+    }
+
+    function clampHole(value) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) return 1;
+      return Math.max(1, Math.min(18, Math.round(n)));
+    }
+
+    function renderHoleEntry(view) {
+      if (!view || !Array.isArray(view.players)) {
+        holeEntryCard.style.display = 'none';
+        return;
+      }
+      currentHole = clampHole(currentHole);
+      const players = view.players || [];
+      const chips = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+      const playerRows = players.map((player) => {
+        const name = String(player.name || '');
+        const current = toInt(player && player.holes && player.holes[currentHole - 1]);
+        const currentLabel = current === null ? '-' : String(current);
+        const chipMarkup = chips.map((value) => `<button class="hole-chip${current === value ? ' active' : ''}" type="button" data-hole-set="${esc(name)}|${currentHole}|${value}">${value}</button>`).join('');
+        return `<div class="hole-player-row">
+          <div class="hole-player-head">
+            <strong>${esc(name)}</strong>
+            <span class="muted">HCP ${esc(player.handicap)} | Hole ${currentHole}: <strong>${esc(currentLabel)}</strong></span>
+          </div>
+          <div class="hole-chip-row">${chipMarkup}</div>
+          <div class="hole-inline-controls">
+            <button type="button" data-hole-step="${esc(name)}|${currentHole}|-1">-1</button>
+            <button type="button" data-hole-step="${esc(name)}|${currentHole}|1">+1</button>
+            <button type="button" data-hole-clear="${esc(name)}|${currentHole}">Clear</button>
+          </div>
+        </div>`;
+      }).join('');
+      holeEntryWrap.innerHTML = `
+        <div class="hole-nav-top">
+          <strong>Live Hole Entry - ${esc(view.dayKey)} ${esc(view.label)}</strong>
+          <span class="muted">Updates save immediately to leaderboard and match scoring.</span>
+        </div>
+        <div class="hole-nav-controls">
+          <button type="button" data-hole-nav="-1"${currentHole <= 1 ? ' disabled' : ''}>&larr; Previous</button>
+          <div class="hole-nav-hole">Hole ${currentHole}</div>
+          <button type="button" data-hole-nav="1"${currentHole >= 18 ? ' disabled' : ''}>Next &rarr;</button>
+        </div>
+        <div class="hole-player-grid">${playerRows}</div>
+      `;
+      holeEntryCard.style.display = 'block';
     }
 
     function renderMarkers(view) {
@@ -671,6 +969,8 @@
         state.scorecards[localKey(active.dayKey, active.slotIndex)] = card;
         saveLocalLiveState(state);
         computeAndStoreLocalTinCupState();
+        renderMatchInputs().catch(() => {});
+        renderStrokeInputs().catch(() => {});
         const payload = buildLocalScorecardView(active.dayKey, active.slotIndex);
         active.view = payload;
         renderScorecard(payload);
@@ -690,6 +990,8 @@
       active.view = payload;
       renderScorecard(payload);
       renderMarkers(payload);
+      renderMatchInputs().catch(() => {});
+      renderStrokeInputs().catch(() => {});
       statusEl.className = 'ok';
       statusEl.textContent = `Saved ${playerName} H${hole}`;
     }
@@ -725,27 +1027,100 @@
       statusEl.textContent = `Saved ${type.toUpperCase()} H${hole}`;
     }
 
-    unlockBtn.addEventListener('click', async () => {
+    async function openScorecardFromLink(dayKey, slotIndex, providedCode = '') {
       statusEl.className = 'muted';
-      statusEl.textContent = 'Unlocking...';
+      statusEl.textContent = 'Opening scorecard...';
       try {
-        const view = await loadScorecard();
+        let code = String(providedCode || '').trim();
+        if (!localMode && settings.enableFoursomeCodes && !code) {
+          code = String(window.prompt(`Enter foursome code for ${dayKey} ${slotIndex + 1}`) || '').trim();
+        }
+        const view = await loadScorecard(dayKey, slotIndex, code);
+        currentHole = deriveCurrentHole(view);
         renderScorecard(view);
+        renderHoleEntry(view);
         renderMarkers(view);
         statusEl.className = 'ok';
-        statusEl.textContent = localMode ? 'Local scorecard unlocked.' : (settings.enableFoursomeCodes ? 'Code accepted. Live scoring unlocked.' : 'Live scoring unlocked.');
+        statusEl.textContent = localMode ? 'Local scorecard opened.' : 'Live scorecard opened.';
       } catch (error) {
         statusEl.className = 'bad';
         statusEl.textContent = error.message;
       }
+    }
+
+    scorecardLinksList.addEventListener('click', (event) => {
+      const btn = event.target.closest('[data-open-scorecard]');
+      if (!btn) return;
+      const [dayKey, slotRaw] = String(btn.dataset.openScorecard || '').split('|');
+      const slotIndex = Number(slotRaw);
+      if (!dayKey || !Number.isInteger(slotIndex) || slotIndex < 0) return;
+      openScorecardFromLink(dayKey, slotIndex, '').catch(() => {});
     });
 
-    daySelect.addEventListener('change', () => {
-      renderSlots();
+    linkDaySelect.addEventListener('change', () => {
+      selectedLinkDay = String(linkDaySelect.value || '');
+      renderScorecardLinks();
       scorecardCard.style.display = 'none';
+      holeEntryCard.style.display = 'none';
       markersCard.style.display = 'none';
       statusEl.className = 'muted';
       statusEl.textContent = localMode ? 'Local mode ready.' : '';
+    });
+
+    holeEntryWrap.addEventListener('click', async (event) => {
+      const navBtn = event.target.closest('[data-hole-nav]');
+      if (navBtn && active && active.view) {
+        const delta = Number(navBtn.dataset.holeNav);
+        currentHole = clampHole(currentHole + (Number.isFinite(delta) ? delta : 0));
+        renderHoleEntry(active.view);
+        return;
+      }
+
+      const setBtn = event.target.closest('[data-hole-set]');
+      if (setBtn && active && active.view) {
+        const [playerName, holeRaw, grossRaw] = String(setBtn.dataset.holeSet || '').split('|');
+        const hole = Number(holeRaw);
+        const gross = Number(grossRaw);
+        try {
+          await saveHole(playerName, hole, gross);
+          renderHoleEntry(active.view);
+        } catch (error) {
+          statusEl.className = 'bad';
+          statusEl.textContent = error.message;
+        }
+        return;
+      }
+
+      const stepBtn = event.target.closest('[data-hole-step]');
+      if (stepBtn && active && active.view) {
+        const [playerName, holeRaw, stepRaw] = String(stepBtn.dataset.holeStep || '').split('|');
+        const hole = Number(holeRaw);
+        const step = Number(stepRaw);
+        const player = (active.view.players || []).find((p) => norm(p.name) === norm(playerName));
+        const current = toInt(player && player.holes && player.holes[hole - 1]);
+        const next = Math.max(1, Math.min(20, (current === null ? 4 : current) + (Number.isFinite(step) ? step : 0)));
+        try {
+          await saveHole(playerName, hole, next);
+          renderHoleEntry(active.view);
+        } catch (error) {
+          statusEl.className = 'bad';
+          statusEl.textContent = error.message;
+        }
+        return;
+      }
+
+      const clearBtn = event.target.closest('[data-hole-clear]');
+      if (clearBtn && active && active.view) {
+        const [playerName, holeRaw] = String(clearBtn.dataset.holeClear || '').split('|');
+        const hole = Number(holeRaw);
+        try {
+          await saveHole(playerName, hole, null);
+          renderHoleEntry(active.view);
+        } catch (error) {
+          statusEl.className = 'bad';
+          statusEl.textContent = error.message;
+        }
+      }
     });
 
     scoreTableWrap.addEventListener('change', async (event) => {
@@ -755,7 +1130,11 @@
       const hole = Number(holeRaw);
       const value = String(input.value || '').trim();
       const gross = value ? Number(value) : null;
-      try { await saveHole(playerName, hole, gross); }
+      try {
+        await saveHole(playerName, hole, gross);
+        if (Number.isInteger(hole) && hole >= 1 && hole <= 18) currentHole = hole;
+        renderHoleEntry(active.view);
+      }
       catch (error) { statusEl.className = 'bad'; statusEl.textContent = error.message; }
     });
 
@@ -770,43 +1149,62 @@
 
     matchInputDayEl.addEventListener('change', () => {
       matchInputDay = String(matchInputDayEl.value || 'Day 1');
-      renderMatchInputs();
+      renderMatchInputs().catch(() => {});
     });
 
-    matchInputsTableWrap.addEventListener('change', (event) => {
-      const target = event.target.closest('[data-match-input]');
+    penaltyTableWrap.addEventListener('change', async (event) => {
+      const target = event.target.closest('[data-penalty-input]');
       if (!target) return;
-      const [dayKey, playerName, segmentRaw] = String(target.dataset.matchInput || '').split('|');
-      const segmentIndex = Number(segmentRaw);
-      if (!dayKey || !playerName || !Number.isInteger(segmentIndex)) return;
-      const state = loadTinCupScoringState();
-      setMatchValue(state, dayKey, playerName, segmentIndex, target.value);
-      saveTinCupScoringState(state);
-      if (localMode) {
-        // Preserve locally-entered hole scores but use manual match/stroke values as source of truth.
-        const live = loadLocalLiveState();
-        saveLocalLiveState(live);
-      }
-      statusEl.className = 'ok';
-      statusEl.textContent = `Saved match input for ${playerName}`;
-      renderMatchInputs();
-    });
-
-    strokeInputsTableWrap.addEventListener('change', (event) => {
-      const target = event.target.closest('[data-stroke-input]');
-      if (!target) return;
-      const [dayKey, playerName] = String(target.dataset.strokeInput || '').split('|');
-      if (!dayKey || !playerName) return;
-      const state = loadTinCupScoringState();
+      const [type, playerName] = String(target.dataset.penaltyInput || '').split('|');
+      if (!['champion', 'rookie'].includes(type) || !playerName) return;
       const key = norm(playerName);
-      const value = toNum(target.value);
-      if (!state.strokeNet[dayKey]) state.strokeNet[dayKey] = {};
-      if (value === null) delete state.strokeNet[dayKey][key];
-      else state.strokeNet[dayKey][key] = value;
-      saveTinCupScoringState(state);
+      const existing = getPenaltyEntry(playerName);
+      const value = toNum(target.value) || 0;
+      const next = {
+        champion: type === 'champion' ? value : existing.champion,
+        rookie: type === 'rookie' ? value : existing.rookie
+      };
+      penaltiesByPlayer[key] = { champion: next.champion, rookie: next.rookie, total: Number((next.champion + next.rookie).toFixed(2)) };
+      const localScoring = loadTinCupScoringState();
+      localScoring.penalties = { ...(localScoring.penalties || {}), [key]: penaltiesByPlayer[key] };
+      saveTinCupScoringState(localScoring);
+      renderPenaltyInputs();
+      renderMatchInputs().catch(() => {});
+      renderStrokeInputs().catch(() => {});
+      if (active && active.view) renderScorecard(active.view);
+
+      if (!localMode) {
+        try {
+          const id = await resolveTripId();
+          const adminCode = String(adminCodeInput.value || '').trim() || getAdminCode();
+          if (!adminCode) throw new Error('Admin code required');
+          const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/admin/penalty`), {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'x-admin-code': adminCode },
+            body: JSON.stringify({ playerName, champion: next.champion, rookie: next.rookie }),
+          });
+          const payload = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(payload.error || 'Failed to save penalties');
+          penaltiesByPlayer = (payload && payload.penalties) ? payload.penalties : penaltiesByPlayer;
+          renderPenaltyInputs();
+        } catch (error) {
+          statusEl.className = 'bad';
+          statusEl.textContent = error.message;
+          return;
+        }
+      }
+
+      if (active && active.dayKey && Number.isInteger(active.slotIndex) && active.slotIndex >= 0) {
+        try {
+          const refreshed = await loadScorecard(active.dayKey, active.slotIndex, active.code || '');
+          renderScorecard(refreshed);
+          renderHoleEntry(refreshed);
+          renderMarkers(refreshed);
+        } catch (_err) {}
+      }
+
       statusEl.className = 'ok';
-      statusEl.textContent = `Saved ${dayKey} net for ${playerName}`;
-      renderStrokeInputs();
+      statusEl.textContent = `Saved penalties for ${playerName}`;
     });
 
     genCodesBtn.addEventListener('click', async () => {
@@ -835,45 +1233,27 @@
       }
     });
 
-    finalDayTableWrap.addEventListener('change', (event) => {
-      const day4Input = event.target.closest('[data-final-day4]');
-      const scrambleInput = event.target.closest('[data-final-scramble]');
-      if (!day4Input && !scrambleInput) return;
-      const state = loadTinCupScoringState();
-      if (day4Input) {
-        const name = String(day4Input.dataset.finalDay4 || '').trim();
-        const key = norm(name);
-        const value = toNum(day4Input.value);
-        if (!state.strokeNet['Day 4']) state.strokeNet['Day 4'] = {};
-        if (value === null) delete state.strokeNet['Day 4'][key];
-        else state.strokeNet['Day 4'][key] = value;
-        saveTinCupScoringState(state);
-        statusEl.className = 'ok';
-        statusEl.textContent = `Saved Day 4 net for ${name}`;
-      } else if (scrambleInput) {
-        const name = String(scrambleInput.dataset.finalScramble || '').trim();
-        const key = norm(name);
-        const value = toNum(scrambleInput.value);
-        if (!state.scrambleBonus) state.scrambleBonus = {};
-        if (value === null) delete state.scrambleBonus[key];
-        else state.scrambleBonus[key] = value;
-        saveTinCupScoringState(state);
-        statusEl.className = 'ok';
-        statusEl.textContent = `Saved scramble bonus for ${name}`;
-      }
-      renderFinalDayInputs();
-    });
 
     (async () => {
       try {
         meta = await fetchMeta();
+        const queryDay = getQueryValue('dayKey');
+        if (queryDay) selectedLinkDay = queryDay;
         renderSelectors();
+        const slotRaw = getQueryValue('slotIndex');
+        const linkCode = getQueryValue('code');
+        const slotIndex = Number(slotRaw);
+        if (queryDay && Number.isInteger(slotIndex) && slotIndex >= 0) {
+          openScorecardFromLink(queryDay, slotIndex, linkCode).catch(() => {});
+        }
       } catch (error) {
         statusEl.className = 'bad';
         statusEl.textContent = error.message;
-        renderFinalDayInputs();
+        renderPenaltyInputs();
+        renderStrokeInputs().catch(() => {});
       }
     })();
   </script>
 </body>
 </html>
+
