@@ -32,6 +32,135 @@ body{margin:0;color:var(--ink);font:400 16px/1.5 system-ui,-apple-system,Segoe U
   url('./assets/cool-golf-clear-water-hazards-in-autumn-enlr3jq4slsvb0rd.jpg') center/cover fixed no-repeat;
   background-blend-mode:normal, overlay, normal;
 }
+body.home-page{
+  position:relative;
+  isolation:isolate;
+  background:#08111a;
+}
+body.home-page > *:not(.home-page-collage){
+  position:relative;
+  z-index:1;
+}
+.home-page-collage{
+  position:fixed;
+  inset:0;
+  z-index:0;
+  pointer-events:none;
+  overflow:hidden;
+}
+.home-page-collage::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:
+    radial-gradient(circle at 18% 18%, rgba(255,255,255,.08), transparent 28%),
+    linear-gradient(180deg, rgba(8,17,26,.28) 0%, rgba(8,17,26,.52) 42%, rgba(8,17,26,.82) 100%);
+}
+.home-page-collage__grid{
+  position:absolute;
+  inset:0;
+  display:grid;
+  grid-template-columns:1.25fr .95fr 1.08fr;
+  grid-template-rows:1.02fr .98fr;
+  gap:14px;
+  padding:82px 16px 16px;
+}
+.home-page-collage__tile{
+  position:relative;
+  overflow:hidden;
+  border-radius:22px;
+  border:1px solid rgba(255,255,255,.12);
+  background-position:center;
+  background-repeat:no-repeat;
+  background-size:cover;
+  box-shadow:0 20px 40px rgba(0,0,0,.22);
+}
+.home-page-collage__tile::after{
+  content:'';
+  position:absolute;
+  inset:0;
+  background:
+    linear-gradient(180deg, rgba(4,10,18,.04) 0%, rgba(4,10,18,.36) 50%, rgba(4,10,18,.72) 100%);
+}
+.home-page-collage__label{
+  position:absolute;
+  left:14px;
+  bottom:14px;
+  z-index:1;
+  display:inline-flex;
+  align-items:center;
+  padding:7px 12px;
+  border-radius:999px;
+  border:1px solid rgba(255,255,255,.18);
+  background:rgba(6,16,26,.62);
+  color:#fff;
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  box-shadow:0 10px 24px rgba(0,0,0,.22);
+  backdrop-filter:blur(6px);
+}
+.home-page-collage__tile--myrtle{
+  grid-column:1;
+  grid-row:1 / span 2;
+  background-image:url("https://commons.wikimedia.org/wiki/Special:FilePath/The%20Wizard%20Golf%20Club%20No%2017.jpg");
+}
+.home-page-collage__tile--michigan{
+  grid-column:2;
+  grid-row:1;
+  background-image:url("https://commons.wikimedia.org/wiki/Special:FilePath/ArcadiaBluffs1011.jpg");
+}
+.home-page-collage__tile--scottsdale{
+  grid-column:3;
+  grid-row:1;
+  background-image:url("https://commons.wikimedia.org/wiki/Special:FilePath/The%20Phoenician-Canyon.jpg");
+}
+.home-page-collage__tile--pinehurst{
+  grid-column:2;
+  grid-row:2;
+  background-image:url("https://commons.wikimedia.org/wiki/Special:FilePath/Pinehurst%20No.%20Four%204%20Golf%20Course%20%284599708312%29.jpg");
+}
+.home-page-collage__tile--mesquite{
+  grid-column:3;
+  grid-row:2;
+  background-image:url("https://cdn.cybergolf.com/images/1703/042419183556_wolf_creek_golf_course_hole3_desktop.jpg");
+}
+
+@media (max-width: 900px){
+  .home-page-collage__grid{
+    grid-template-columns:1fr 1fr;
+    grid-template-rows:repeat(3, minmax(140px, 1fr));
+    gap:10px;
+    padding:74px 12px 12px;
+  }
+  .home-page-collage__tile--myrtle{
+    grid-column:1 / span 2;
+    grid-row:1;
+  }
+  .home-page-collage__tile--michigan{
+    grid-column:1;
+    grid-row:2;
+  }
+  .home-page-collage__tile--scottsdale{
+    grid-column:2;
+    grid-row:2;
+  }
+  .home-page-collage__tile--pinehurst{
+    grid-column:1;
+    grid-row:3;
+  }
+  .home-page-collage__tile--mesquite{
+    grid-column:2;
+    grid-row:3;
+  }
+  .home-page-collage__label{
+    left:10px;
+    bottom:10px;
+    padding:6px 10px;
+    font-size:11px;
+  }
+}
 header{position:sticky;top:0;z-index:10;display:flex;gap:12px;align-items:center;justify-content:space-between;
   padding:14px 20px;background:linear-gradient(135deg, var(--golf-green-dark) 0%, var(--golf-green) 100%);
   backdrop-filter:saturate(130%) blur(8px);border-bottom:3px solid var(--golf-green-fairway);
