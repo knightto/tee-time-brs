@@ -28,8 +28,12 @@ const {
   buildLeaderboard,
   buildDayRows,
   setScrambleBonus,
+  updateScrambleHoleScore,
+  updateSideGameWinner,
   setPlayerPenalty,
   seedAllScores,
+  buildPayoutSummary,
+  updateWorkbookConfig,
 } = require('../services/tinCupLiveService');
 const router = express.Router();
 
@@ -358,6 +362,7 @@ router.get('/:tripId/tin-cup/live/leaderboard', async (req, res) => {
     const leaderboard = buildLeaderboard(state);
     const dayKey = leaderboard.dayOptions.includes(selectedDay) ? selectedDay : leaderboard.dayOptions[0];
     const matchKey = leaderboard.matchDayOptions.includes(selectedMatchDay) ? selectedMatchDay : leaderboard.matchDayOptions[0];
+    leaderboard.payouts = buildPayoutSummary(state, leaderboard);
     return res.json({
       ...leaderboard,
       settings: state.settings,
@@ -365,6 +370,7 @@ router.get('/:tripId/tin-cup/live/leaderboard', async (req, res) => {
       selectedMatchDay: matchKey,
       dayRows: buildDayRows(leaderboard, dayKey),
       matchRows: leaderboard.matchBoards[matchKey] || [],
+      matchDetailRows: leaderboard.matchDetails[matchKey] || [],
     });
   } catch (error) {
     return sendTripRouteError(res, error);
@@ -609,6 +615,69 @@ router.put('/:tripId/tin-cup/live/admin/penalty', async (req, res) => {
       rookie: payload.rookie,
     });
     return res.json({ penalties });
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+
+router.put('/:tripId/tin-cup/live/admin/scramble-score', async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+  try {
+    const { trip, TripModel, TripAuditLogModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const payload = req.body || {};
+    const state = ensureTinCupLiveState(trip);
+    const scramble = updateScrambleHoleScore(state, payload);
+    trip.markModified('tinCupLive');
+    await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
+    await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_scramble_score', 'Tin Cup scramble hole updated', {
+      teamIndex: payload.teamIndex,
+      hole: payload.hole,
+      gross: payload.gross,
+    });
+    return res.json({ scramble });
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.put('/:tripId/tin-cup/live/admin/side-game', async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+  try {
+    const { trip, TripModel, TripAuditLogModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const payload = req.body || {};
+    const state = ensureTinCupLiveState(trip);
+    const sideGames = updateSideGameWinner(state, payload);
+    trip.markModified('tinCupLive');
+    await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
+    await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_side_game', 'Tin Cup side game winner updated', {
+      type: payload.type,
+      dayKey: payload.dayKey,
+      winner: payload.winner,
+    });
+    return res.json({ sideGames });
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+
+router.put('/:tripId/tin-cup/live/admin/config', async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+  try {
+    const { trip, TripModel, TripAuditLogModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const payload = req.body || {};
+    const state = ensureTinCupLiveState(trip);
+    const config = updateWorkbookConfig(state, payload.config || {});
+    trip.markModified('tinCupLive');
+    await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
+    await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_config', 'Tin Cup workbook configuration updated', {
+      fields: Object.keys(payload.config || {}),
+    });
+    return res.json({ config });
   } catch (error) {
     return sendTripRouteError(res, error);
   }

@@ -2,14 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tin Cup Scoring and Data Page</title>
+  <title>Tin Cup Scoring and Setup</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/assets/knight-club-icon.png">
   <style>
-    :root { --bg:#112417; --panel:#274235; --line:rgba(232,255,219,.14); --ink:#f9f3e7; --muted:#d2dfc3; --accent:#c89a4b; }
+    :root { --bg:#112417; --panel:#274235; --line:rgba(232,255,219,.14); --ink:#f9f3e7; --muted:#d2dfc3; --accent:#c89a4b; --icon-flag:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23c89a4b' d='M6 3a1 1 0 0 1 1 1v2h9.6l-1.3 3 1.3 3H7v8H5V4a1 1 0 0 1 1-1Z'/%3E%3Ccircle cx='6' cy='20' r='2' fill='%23d2dfc3'/%3E%3C/svg%3E"); --icon-ball:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9' fill='%23f9f3e7' stroke='%23c89a4b' stroke-width='1.5'/%3E%3Ccircle cx='9' cy='9' r='1' fill='%23c89a4b'/%3E%3Ccircle cx='13.5' cy='8' r='1' fill='%23c89a4b'/%3E%3Ccircle cx='15.5' cy='12' r='1' fill='%23c89a4b'/%3E%3Ccircle cx='10.5' cy='14' r='1' fill='%23c89a4b'/%3E%3Ccircle cx='13.5' cy='16' r='1' fill='%23c89a4b'/%3E%3C/svg%3E"); }
     * { box-sizing: border-box; }
     body { margin:0; font-family:'Segoe UI', Arial, sans-serif; color:var(--ink); background: radial-gradient(circle at 20% 10%, rgba(200,154,75,.14), transparent 32%), var(--bg); }
     .wrap { max-width: 1240px; margin: 18px auto 40px; padding: 0 14px; }
     .card { background: linear-gradient(140deg, var(--panel), #1f3427); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
+    .section-label { margin:16px 0 8px; color:var(--muted); font-size:.78rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+    .section-label:first-of-type { margin-top:0; }
     .entry-input-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:12px; margin-bottom:12px; align-items:start; }
     .entry-input-grid .card { margin-bottom:0; min-width:0; }
     .row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
@@ -26,6 +29,49 @@
     th:first-child, td:first-child { position: sticky; left:0; background:#10243d; text-align:left; z-index:1; }
     td input { width:52px; text-align:center; }
     .head { display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+    .golf-title,
+    .scorecard-link-title,
+    .hole-nav-hole {
+      display:flex;
+      align-items:center;
+      gap:8px;
+    }
+    .golf-title::before,
+    .scorecard-link-title::before,
+    .hole-nav-hole::before {
+      content:"";
+      width:15px;
+      height:15px;
+      display:inline-block;
+      flex:0 0 15px;
+      background-repeat:no-repeat;
+      background-position:center;
+      background-size:contain;
+    }
+    .golf-title::before {
+      background-image:var(--icon-flag);
+    }
+    .scorecard-link-title::before,
+    .hole-nav-hole::before {
+      background-image:var(--icon-ball);
+    }
+    .setup-summary {
+      position:relative;
+      padding-left:24px;
+    }
+    .setup-summary::before {
+      content:"";
+      position:absolute;
+      left:0;
+      top:50%;
+      width:15px;
+      height:15px;
+      transform:translateY(-50%);
+      background-image:var(--icon-flag);
+      background-repeat:no-repeat;
+      background-position:center;
+      background-size:contain;
+    }
     .scorecard-links-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:10px; }
     .scorecard-link-card { border:1px solid var(--line); border-radius:10px; padding:10px; background:rgba(255,255,255,.03); display:grid; gap:7px; }
     .scorecard-link-title { display:flex; justify-content:space-between; align-items:center; gap:8px; font-weight:700; }
@@ -68,6 +114,11 @@
     .setup-table-wrap { overflow:auto; border:1px solid var(--line); border-radius:10px; }
     .setup-table input, .setup-table select { width:100%; min-width:120px; }
     .setup-table .name-input { min-width:180px; }
+    .workbook-grid { display:grid; gap:12px; }
+    .workbook-two-col { display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:10px; }
+    .workbook-config-card { border:1px solid var(--line); border-radius:10px; padding:10px; background:rgba(255,255,255,.03); display:grid; gap:8px; }
+    .workbook-config-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:8px; }
+    .workbook-config-grid input { width:100%; }
     #mobileScorecardShell { display:block; }
     .mobile-scorecard-bar { display:none; }
     a { color: var(--accent); text-decoration:none; font-weight:700; }
@@ -121,17 +172,18 @@
   <div class="wrap">
     <div class="card head">
       <div>
-        <h1 style="margin:0;font-size:1.35rem;">Tin Cup Scoring and Data Page</h1>
-        <div id="entryIntro" class="muted">Enter hole-by-hole scores for your foursome with your foursome code.</div>
+        <h1 class="golf-title" style="margin:0;font-size:1.35rem;">Tin Cup Scoring and Setup</h1>
+        <div id="entryIntro" class="muted">Live score entry, special scoring inputs, golfer roster setup, and scoring configuration.</div>
       </div>
       <a href="/tin-cup/trip-2026.html">Back to Tin Cup Page</a>
     </div>
 
+    <div class="section-label">Live Scoring</div>
     <div class="card" id="scorecardLinksCard">
       <details>
-        <summary class="setup-summary">Live Scorecard Links</summary>
+        <summary class="setup-summary">Live Scorecard Access</summary>
         <div class="head">
-          <strong>Live Scorecard Links</strong>
+          <strong>Live Scorecard Access</strong>
           <label>Day
             <select id="linkDaySelect"></select>
           </label>
@@ -152,9 +204,67 @@
       </details>
     </div>
 
+    <div id="mobileScorecardShell">
+      <div class="mobile-scorecard-bar" id="mobileScorecardBar">
+        <div>
+          <strong>Scorecard View</strong>
+          <div class="muted">Exit full-screen to return to the main page.</div>
+        </div>
+        <button id="exitMobileScorecardBtn" type="button">Exit Scorecard</button>
+      </div>
+
+      <div class="card" id="scorecardCard" style="display:none;">
+        <details>
+          <summary class="setup-summary">Full Scorecard</summary>
+          <div class="head">
+            <strong id="scorecardTitle">Scorecard</strong>
+            <div class="row" style="justify-content:flex-end;">
+              <span id="updatedAt" class="muted"></span>
+              <button id="hideFullScorecardBtn" type="button">Hide Full Scorecard</button>
+            </div>
+          </div>
+          <div class="muted" style="margin:6px 0 10px;">Full 18-hole summary for review only. Day-to-day entry stays focused on the current hole.</div>
+          <div class="table-wrap" id="scoreTableWrap"></div>
+        </details>
+      </div>
+
+      <div class="card" id="holeEntryCard" style="display:none;">
+        <details>
+          <summary class="setup-summary">Hole-By-Hole Score Entry</summary>
+          <div class="hole-nav" id="holeEntryWrap"></div>
+        </details>
+      </div>
+
+      <div class="card" id="markersCard" style="display:none;">
+        <details>
+          <summary class="setup-summary">Live Markers</summary>
+          <div class="muted" style="margin:6px 0 10px;">Set Closest to Pin and Long Drive winner by hole when applicable.</div>
+          <div class="table-wrap" id="markerTableWrap"></div>
+        </details>
+      </div>
+    </div>
+
+    <div class="section-label">Special Scoring</div>
+    <div class="card" id="scrambleAdminCard">
+      <details>
+        <summary class="setup-summary">Scramble Scoring</summary>
+        <div class="muted" style="margin-top:4px;">Enter scramble team hole scores to compute team rank and scramble points automatically.</div>
+        <div id="scrambleAdminWrap" class="table-wrap" style="margin-top:10px;"></div>
+      </details>
+    </div>
+
+    <div class="card" id="sideGamesCard">
+      <details>
+        <summary class="setup-summary">Side Game Winners</summary>
+        <div class="muted" style="margin-top:4px;">Assign Long Putt and Secret Snowman winners for the spreadsheet side-game payouts.</div>
+        <div id="sideGamesWrap" class="table-wrap" style="margin-top:10px;"></div>
+      </details>
+    </div>
+
+    <div class="section-label">Scoring Setup</div>
     <div class="card" id="golferSetupCard">
       <details>
-        <summary class="setup-summary">Trip Golfer Setup</summary>
+        <summary class="setup-summary">Golfer Roster Setup</summary>
         <div class="muted" style="margin:8px 0 10px;">Create or edit golfers, set handicap, and mark each as Previous Champ (`x1/x2/x3`) or Rookie.</div>
         <div class="setup-actions">
           <button id="addGolferRowBtn" type="button">Add Golfer Row</button>
@@ -181,46 +291,34 @@
       </details>
     </div>
 
-    <div id="mobileScorecardShell">
-      <div class="mobile-scorecard-bar" id="mobileScorecardBar">
-        <div>
-          <strong>Scorecard View</strong>
-          <div class="muted">Exit full-screen to return to the main page.</div>
-        </div>
-        <button id="exitMobileScorecardBtn" type="button">Exit Scorecard</button>
-      </div>
-
-      <div class="card" id="scorecardCard" style="display:none;">
-        <details>
-          <summary class="setup-summary">Full Scorecard (Optional)</summary>
-          <div class="head">
-            <strong id="scorecardTitle">Scorecard</strong>
-            <span id="updatedAt" class="muted"></span>
+    <div class="card" id="workbookSetupCard">
+      <details>
+        <summary class="setup-summary">Scoring Rules and Payout Config</summary>
+        <div class="muted" style="margin:8px 0 10px;">Converted handicaps, point constants, side-game values, and payout settings used by the Tin Cup scoring model.</div>
+        <div class="workbook-grid">
+          <div class="workbook-two-col">
+            <div class="workbook-config-card">
+              <strong>Scoring Config</strong>
+              <div id="workbookConfigWrap" class="workbook-config-grid"></div>
+              <div class="row" style="justify-content:flex-start;">
+                <button id="saveWorkbookConfigBtn" type="button">Save Scoring Config</button>
+                <span id="workbookConfigStatus" class="muted"></span>
+              </div>
+            </div>
+            <div class="workbook-config-card">
+              <strong>Pot Summary</strong>
+              <div id="workbookPotWrap" class="muted"></div>
+            </div>
           </div>
-          <div class="muted" style="margin:6px 0 10px;">Full 18-hole summary for review only. Day-to-day entry stays focused on the current hole.</div>
-          <div class="table-wrap" id="scoreTableWrap"></div>
-        </details>
-      </div>
-
-      <div class="card" id="holeEntryCard" style="display:none;">
-        <details>
-          <summary class="setup-summary">Hole-By-Hole Entry</summary>
-          <div class="hole-nav" id="holeEntryWrap"></div>
-        </details>
-      </div>
-
-      <div class="card" id="markersCard" style="display:none;">
-        <details>
-          <summary class="setup-summary">Closest To Pin / Long Drive</summary>
-          <div class="muted" style="margin:6px 0 10px;">Set winner per hole when applicable. Leave blank to clear.</div>
-          <div class="table-wrap" id="markerTableWrap"></div>
-        </details>
-      </div>
+          <div class="table-wrap" id="workbookHandicapWrap"></div>
+        </div>
+      </details>
     </div>
 
+    <div class="section-label">Admin Tools</div>
     <div class="card" id="adminUtilityCard">
       <details>
-        <summary class="setup-summary">Admin Code Utility</summary>
+        <summary class="setup-summary">Admin Tools</summary>
         <div class="muted" style="margin-top:4px;">Generate missing foursome codes for Tin Cup (admin only).</div>
         <div class="row" style="margin-top:8px;">
           <label>Admin Code
@@ -233,6 +331,7 @@
         <div id="generatedCodes" class="muted" style="margin-top:8px;"></div>
       </details>
     </div>
+
   </div>
 
   <script>
@@ -244,6 +343,7 @@
     const scorecardCard = document.getElementById('scorecardCard');
     const scorecardTitle = document.getElementById('scorecardTitle');
     const updatedAt = document.getElementById('updatedAt');
+    const hideFullScorecardBtn = document.getElementById('hideFullScorecardBtn');
     const scoreTableWrap = document.getElementById('scoreTableWrap');
     const holeEntryCard = document.getElementById('holeEntryCard');
     const holeEntryWrap = document.getElementById('holeEntryWrap');
@@ -260,6 +360,8 @@
     const seedScoresBtn = document.getElementById('seedScoresBtn');
     const adminStatus = document.getElementById('adminStatus');
     const generatedCodes = document.getElementById('generatedCodes');
+    const scrambleAdminWrap = document.getElementById('scrambleAdminWrap');
+    const sideGamesWrap = document.getElementById('sideGamesWrap');
     const entryIntro = document.getElementById('entryIntro');
     const scorecardLinksCard = document.getElementById('scorecardLinksCard');
     const adminUtilityCard = document.getElementById('adminUtilityCard');
@@ -269,6 +371,11 @@
     const importGolfersCsvInput = document.getElementById('importGolfersCsvInput');
     const saveGolferSetupBtn = document.getElementById('saveGolferSetupBtn');
     const golferSetupStatus = document.getElementById('golferSetupStatus');
+    const workbookConfigWrap = document.getElementById('workbookConfigWrap');
+    const workbookPotWrap = document.getElementById('workbookPotWrap');
+    const workbookHandicapWrap = document.getElementById('workbookHandicapWrap');
+    const saveWorkbookConfigBtn = document.getElementById('saveWorkbookConfigBtn');
+    const workbookConfigStatus = document.getElementById('workbookConfigStatus');
 
     const TIN_CUP_CONTEXT_STORAGE_KEY = 'tinCupTripContextV1';
     const TIN_CUP_LIVE_LOCAL_STATE_KEY = 'tinCupLiveLocalStateV1';
@@ -344,7 +451,10 @@
     (function seedTripContext() {
       const qs = new URLSearchParams(window.location.search);
       allowLocalFallback = String(qs.get('local') || '').trim() === '1';
+      const qSecondary = String(qs.get('secondary') || '').trim();
       useSecondaryTripDb = false;
+      if (qSecondary === '1' || qSecondary.toLowerCase() === 'true') useSecondaryTripDb = true;
+      if (qSecondary === '0' || qSecondary.toLowerCase() === 'false') useSecondaryTripDb = false;
       const forcedId = String(qs.get('tripId') || '').trim();
       if (forcedId) { tripId = forcedId; return; }
       try {
@@ -352,6 +462,8 @@
         if (!raw) return;
         const parsed = JSON.parse(raw);
         if (parsed && parsed.tripId) tripId = String(parsed.tripId);
+        if (parsed && (parsed.secondary === '1' || parsed.secondary === 1 || parsed.secondary === true)) useSecondaryTripDb = true;
+        if (parsed && (parsed.secondary === '0' || parsed.secondary === 0 || parsed.secondary === false)) useSecondaryTripDb = false;
       } catch (_err) {}
     })();
 
@@ -1256,10 +1368,127 @@
       }
     }
 
+    async function fetchRemoteScramble() {
+      const id = await resolveTripId();
+      const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/leaderboard?day=Day+1&matchDay=Day+1`));
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Failed to load scramble results');
+      return payload.scramble || { teams: [] };
+    }
+
+    function renderScrambleAdmin(payload = {}) {
+      const teams = Array.isArray(payload.teams) ? payload.teams : [];
+      if (!teams.length) {
+        scrambleAdminWrap.innerHTML = '<div class="muted" style="padding:10px;">Scramble teams are unavailable in local preview mode.</div>';
+        return;
+      }
+      const headerHoles = Array.from({ length: 18 }, (_, index) => `<th>H${index + 1}</th>`).join('');
+      scrambleAdminWrap.innerHTML = `<table><thead><tr><th>Team</th><th>Players</th>${headerHoles}<th>Total</th><th>Rank</th><th>Points</th></tr></thead><tbody>${teams.map((team) => `<tr><td><strong>${esc(team.label)}</strong></td><td>${esc((team.players || []).join(', '))}</td>${Array.from({ length: 18 }, (_, index) => `<td><input type="number" min="1" max="12" step="1" data-scramble-hole="${esc(team.teamIndex)}|${index + 1}" value="${team.holes && team.holes[index] !== null && team.holes[index] !== undefined ? esc(team.holes[index]) : ''}" style="width:56px;"></td>`).join('')}<td>${team.total === null || team.total === undefined ? '-' : esc(team.total)}</td><td>${team.rank ? esc(team.rank) : '-'}</td><td>${esc(team.points || 0)}</td></tr>`).join('')}</tbody></table>`;
+    }
+
+    async function renderScrambleAdminCard() {
+      scrambleAdminWrap.innerHTML = '<div class="muted" style="padding:10px;">Loading scramble results...</div>';
+      try {
+        if (localMode) {
+          renderScrambleAdmin({ teams: [] });
+          return;
+        }
+        renderScrambleAdmin(await fetchRemoteScramble());
+      } catch (error) {
+        scrambleAdminWrap.innerHTML = `<div class="bad" style="padding:10px;">${esc(error && error.message ? error.message : 'Failed to load scramble results')}</div>`;
+      }
+    }
+
+    function renderSideGamesCard() {
+      const sideGames = (meta && meta.sideGames) || {};
+      const players = [''].concat((meta && Array.isArray(meta.playerHandicaps) ? meta.playerHandicaps.map((row) => row.name) : []));
+      const sections = [
+        { key: 'longPutt', label: 'Long Putt' },
+        { key: 'secretSnowman', label: 'Secret Snowman' },
+      ].map((section) => {
+        const payload = sideGames[section.key] || { days: [], totals: [] };
+        const days = Array.isArray(payload.days) ? payload.days : [];
+        const totals = Array.isArray(payload.totals) ? payload.totals : [];
+        const table = `<table><thead><tr><th>${esc(section.label)}</th><th>Winner</th></tr></thead><tbody>${days.map((row) => `<tr><td><strong>${esc(row.dayKey)}</strong></td><td><select data-side-game="${esc(section.key)}|${esc(row.dayKey)}"${localMode ? ' disabled' : ''}>${players.map((name) => `<option value="${esc(name)}"${String(name) === String(row.winner || '') ? ' selected' : ''}>${name ? esc(name) : '-'}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table>`;
+        const summary = totals.length
+          ? `<div class="muted" style="margin-top:8px;">${totals.map((row) => `${esc(row.name)} (${esc(row.wins)})`).join(' | ')}</div>`
+          : '<div class="muted" style="margin-top:8px;">No winners recorded yet.</div>';
+        return `<div style="display:grid;gap:6px;margin-bottom:12px;">${table}${summary}</div>`;
+      }).join('');
+      sideGamesWrap.innerHTML = sections || '<div class="muted" style="padding:10px;">Side game configuration is unavailable.</div>';
+    }
+
+    async function saveSideGameWinner(type, dayKey, winner) {
+      if (localMode) throw new Error('Side game winners require a linked Tin Cup trip.');
+      const id = await resolveTripId();
+      let adminCode = String(adminCodeInput.value || '').trim();
+      if (!adminCode) {
+        adminCode = String(window.prompt('Enter admin code to save side game winners:') || '').trim();
+        if (adminCode) adminCodeInput.value = adminCode;
+      }
+      if (!adminCode) throw new Error('Admin code required');
+      const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/admin/side-game`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-code': adminCode },
+        body: JSON.stringify({ type, dayKey, winner })
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Failed to save side game winner');
+      return payload.sideGames || {};
+    }
+
+    async function saveScrambleHole(teamIndex, hole, gross) {
+      if (localMode) throw new Error('Scramble admin requires a linked Tin Cup trip.');
+      const id = await resolveTripId();
+      let adminCode = String(adminCodeInput.value || '').trim();
+      if (!adminCode) {
+        adminCode = String(window.prompt('Enter admin code to save scramble scores:') || '').trim();
+        if (adminCode) adminCodeInput.value = adminCode;
+      }
+      if (!adminCode) throw new Error('Admin code required');
+      const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/admin/scramble-score`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-code': adminCode },
+        body: JSON.stringify({ teamIndex, hole, gross })
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Failed to save scramble score');
+      return payload.scramble || { teams: [] };
+    }
+
     function buildLocalMeta() {
       const penalties = {};
       FINAL_INPUT_PLAYERS.forEach((name) => {
         penalties[norm(name)] = getPenaltyEntry(name);
+      });
+      const config = {
+        handicap: {
+          indexToHcConversion: 0.17920353982300874,
+          avgCourseSlope: 133.25,
+          avgSlope: 113,
+          maxHandicap: 32,
+          par3Fraction: 0.375
+        },
+        accounting: {
+          entryFee: 200,
+          finalPayouts: [1000, 500, 250, 125],
+          markerPayouts: { longDrive: 25, ctp: 25, longPutt: 25, secretSnowman: 25, loser: 50 },
+          skins: { perPerson: 25 },
+          scramblePoints: [3, 2, 1, 0]
+        }
+      };
+      const sideGames = {
+        longPutt: { label: 'Long Putt', days: ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4', 'Scramble'].map((dayKey) => ({ dayKey, winner: '' })), totals: [] },
+        secretSnowman: { label: 'Secret Snowman', days: ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4'].map((dayKey) => ({ dayKey, winner: '' })), totals: [] }
+      };
+      const handicapSummary = FINAL_INPUT_PLAYERS.map((name) => {
+        const handicapIndex = Number(PLAYER_HANDICAPS[norm(name)] || 0);
+        const converted = Number((handicapIndex * (1 + config.handicap.indexToHcConversion)).toFixed(2));
+        const eighteenHole = Math.min(config.handicap.maxHandicap, Math.round(converted));
+        const nineHole = Math.min(config.handicap.maxHandicap * 0.5, Math.round(eighteenHole / 2));
+        const par3 = Math.round(eighteenHole * config.handicap.par3Fraction);
+        const penalty = penalties[norm(name)] || { champion: 0, rookie: 0, total: 0 };
+        return { name, handicapIndex, convertedHandicap: converted, eighteenHole, nineHole, par3, championPenalty: penalty.champion || 0, rookiePenalty: penalty.rookie || 0, totalPenalty: penalty.total || 0 };
       });
       return {
         matchDayOptions: DAY_KEYS.slice(),
@@ -1269,6 +1498,10 @@
         })),
         penalties,
         playerHandicaps: FINAL_INPUT_PLAYERS.map((name) => ({ name, handicap: Number(PLAYER_HANDICAPS[norm(name)] || 0) })),
+        handicapSummary,
+        sideGames,
+        config,
+        payouts: null,
         settings: {
           enableLiveFoursomeScoring: true,
           enableFoursomeCodes: false,
@@ -1426,6 +1659,111 @@
       settings = (payload && payload.settings) ? payload.settings : nextSettings;
       return settings;
     }
+    function getWorkbookConfigValue(pathKey = '', fallback = '') {
+      const config = meta && meta.config ? meta.config : null;
+      if (!config) return fallback;
+      const parts = String(pathKey || '').split('.');
+      let current = config;
+      for (const part of parts) {
+        if (!current || typeof current !== 'object') return fallback;
+        current = current[part];
+      }
+      return current === undefined || current === null ? fallback : current;
+    }
+
+    function renderWorkbookSetup() {
+      const config = meta && meta.config ? meta.config : null;
+      const handicapSummary = Array.isArray(meta && meta.handicapSummary) ? meta.handicapSummary : [];
+      if (!config) {
+        workbookConfigWrap.innerHTML = '<div class="muted">Workbook config is unavailable in this mode.</div>';
+        workbookPotWrap.innerHTML = '<div class="muted">Pot summary requires linked trip data.</div>';
+        workbookHandicapWrap.innerHTML = '<div class="muted" style="padding:10px;">Handicap verification is unavailable in this mode.</div>';
+        saveWorkbookConfigBtn.disabled = true;
+        return;
+      }
+      saveWorkbookConfigBtn.disabled = localMode;
+      const fields = [
+        ['handicap.indexToHcConversion', 'Index->HC %'],
+        ['handicap.avgCourseSlope', 'Avg Course Slope'],
+        ['handicap.avgSlope', 'Avg Slope'],
+        ['handicap.maxHandicap', 'Max HC'],
+        ['handicap.par3Fraction', 'Par 3 Fraction'],
+        ['accounting.entryFee', 'Entry Fee'],
+        ['accounting.finalPayouts.0', 'Winner'],
+        ['accounting.finalPayouts.1', '2nd'],
+        ['accounting.finalPayouts.2', '3rd'],
+        ['accounting.finalPayouts.3', '4th'],
+        ['accounting.markerPayouts.longDrive', 'Long Drive'],
+        ['accounting.markerPayouts.ctp', 'CTP'],
+        ['accounting.markerPayouts.longPutt', 'Long Putt'],
+        ['accounting.markerPayouts.secretSnowman', 'Secret Snowman'],
+        ['accounting.markerPayouts.loser', 'Loser'],
+        ['accounting.skins.perPerson', 'Skins / Person'],
+        ['accounting.scramblePoints.0', 'Scramble 1st'],
+        ['accounting.scramblePoints.1', 'Scramble 2nd'],
+        ['accounting.scramblePoints.2', 'Scramble 3rd'],
+      ];
+      workbookConfigWrap.innerHTML = fields.map(([pathKey, label]) => `<label>${esc(label)}<input type="number" step="0.01" data-workbook-config="${esc(pathKey)}" value="${esc(getWorkbookConfigValue(pathKey, ''))}" ${localMode ? 'disabled' : ''}></label>`).join('');
+      const payout = meta && meta.payouts ? meta.payouts : null;
+      workbookPotWrap.innerHTML = payout
+        ? `Combined Pot <strong>${esc(Number(payout.pot || 0).toFixed(2))}</strong><br>Entry Pot ${esc(Number(payout.mainPot || 0).toFixed(2))}<br>Skins Pot ${esc(Number(payout.skinsPot || 0).toFixed(2))}<br>Distributed ${esc(Number(payout.distributed || 0).toFixed(2))}<br>Balance ${esc(Number(payout.balance || 0).toFixed(2))}`
+        : '<div class="muted">Pot summary will appear after leaderboard data loads.</div>';
+      workbookHandicapWrap.innerHTML = handicapSummary.length
+        ? `<table><thead><tr><th>Player</th><th>Index</th><th>Converted</th><th>9-Hole</th><th>18-Hole</th><th>Par 3</th><th>Penalty</th></tr></thead><tbody>${handicapSummary.map((row) => `<tr><td><strong>${esc(row.name)}</strong></td><td>${esc(row.handicapIndex)}</td><td>${esc(row.convertedHandicap)}</td><td>${esc(row.nineHole)}</td><td>${esc(row.eighteenHole)}</td><td>${esc(row.par3)}</td><td>${esc(Number(row.totalPenalty || 0).toFixed(2))}</td></tr>`).join('')}</tbody></table>`
+        : '<div class="muted" style="padding:10px;">No handicap verification rows are available yet.</div>';
+    }
+
+    function collectWorkbookConfigFromDom() {
+      const out = {
+        handicap: {},
+        accounting: {
+          finalPayouts: [],
+          markerPayouts: {},
+          skins: {},
+          scramblePoints: [],
+        },
+      };
+      workbookConfigWrap.querySelectorAll('[data-workbook-config]').forEach((input) => {
+        const pathKey = String(input.getAttribute('data-workbook-config') || '');
+        const value = toNum(input.value);
+        if (!pathKey || value === null) return;
+        const parts = pathKey.split('.');
+        let current = out;
+        for (let index = 0; index < parts.length - 1; index += 1) {
+          const part = parts[index];
+          if (/^\d+$/.test(parts[index + 1])) {
+            if (!Array.isArray(current[part])) current[part] = [];
+          } else if (!current[part] || typeof current[part] !== 'object') {
+            current[part] = {};
+          }
+          current = current[part];
+        }
+        const finalKey = parts[parts.length - 1];
+        if (Array.isArray(current)) current[Number(finalKey)] = value;
+        else current[finalKey] = value;
+      });
+      return out;
+    }
+
+    async function saveWorkbookConfig() {
+      if (localMode) throw new Error('Workbook config requires a linked Tin Cup trip.');
+      const id = await resolveTripId();
+      let adminCode = String(adminCodeInput.value || '').trim();
+      if (!adminCode) {
+        adminCode = String(window.prompt('Enter admin code to save workbook config:') || '').trim();
+        if (adminCode) adminCodeInput.value = adminCode;
+      }
+      if (!adminCode) throw new Error('Admin code required');
+      const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/admin/config`), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', 'x-admin-code': adminCode },
+        body: JSON.stringify({ config: collectWorkbookConfigFromDom() })
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Failed to save workbook config');
+      return payload.config || null;
+    }
+
 
     function getSlotsForDay(dayKey = '') {
       const row = (meta && Array.isArray(meta.daySlots) ? meta.daySlots : []).find((d) => d.dayKey === dayKey);
@@ -1532,7 +1870,7 @@
       params.set('dayKey', dayKey);
       params.set('slotIndex', String(slotIndex));
       if (tripId) params.set('tripId', String(tripId));
-      params.delete('secondary');
+      params.set('secondary', useSecondaryTripDb ? '1' : '0');
       return `${window.location.pathname}?${params.toString()}`;
     }
 
@@ -1544,7 +1882,8 @@
         return;
       }
       scorecardLinksList.innerHTML = `<div class="scorecard-links-grid">${slots.map((slot) => {
-        const players = Array.isArray(slot.players) ? slot.players : [];        const playersWithMeta = players.map((name) => {
+        const players = Array.isArray(slot.players) ? slot.players : [];
+        const playersWithMeta = players.map((name) => {
           const penalty = getPenaltyEntry(name);
           const hcp = Number(PLAYER_HANDICAPS[norm(name)] || 0);
           const penTxt = penalty.total ? `, Pen +${penalty.total}` : '';
@@ -1618,6 +1957,8 @@
       linkDaySelect.value = selectedLinkDay;
       renderScorecardLinks();
       renderGolferSetup();
+      renderWorkbookSetup();
+      renderSideGamesCard();
     }
 
     async function loadScorecard(dayKey, slotIndex) {
@@ -2018,6 +2359,47 @@
       statusEl.textContent = 'Returned to the main scorecard page.';
     });
 
+    hideFullScorecardBtn.addEventListener('click', () => {
+      if (!active || !active.view) return;
+      setFullScorecardVisibility(false);
+      renderHoleEntry(active.view);
+      holeEntryCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
+    scrambleAdminWrap.addEventListener('change', async (event) => {
+      const input = event.target.closest('[data-scramble-hole]');
+      if (!input) return;
+      const [teamIndexRaw, holeRaw] = String(input.dataset.scrambleHole || '').split('|');
+      try {
+        adminStatus.className = 'muted';
+        adminStatus.textContent = 'Saving scramble score...';
+        const scramble = await saveScrambleHole(Number(teamIndexRaw), Number(holeRaw), input.value);
+        renderScrambleAdmin(scramble);
+        adminStatus.className = 'ok';
+        adminStatus.textContent = 'Scramble score saved.';
+      } catch (error) {
+        adminStatus.className = 'bad';
+        adminStatus.textContent = error && error.message ? error.message : 'Failed to save scramble score';
+      }
+    });
+
+    sideGamesWrap.addEventListener('change', async (event) => {
+      const input = event.target.closest('[data-side-game]');
+      if (!input) return;
+      const [type, dayKey] = String(input.dataset.sideGame || '').split('|');
+      try {
+        adminStatus.className = 'muted';
+        adminStatus.textContent = 'Saving side game winner...';
+        meta.sideGames = await saveSideGameWinner(type, dayKey, input.value);
+        renderSideGamesCard();
+        adminStatus.className = 'ok';
+        adminStatus.textContent = 'Side game winner saved.';
+      } catch (error) {
+        adminStatus.className = 'bad';
+        adminStatus.textContent = error && error.message ? error.message : 'Failed to save side game winner';
+      }
+    });
+
     window.addEventListener('resize', () => {
       if (!isMobileScorecardViewport()) exitMobileScorecardMode();
     });
@@ -2242,6 +2624,7 @@
         if (!res.ok) throw new Error(payload.error || 'Failed to seed scores');
         meta = await fetchMeta();
         renderSelectors();
+        await renderScrambleAdminCard();
         if (active && active.dayKey && Number.isInteger(active.slotIndex) && active.slotIndex >= 0) {
           const refreshed = await loadScorecard(active.dayKey, active.slotIndex);
           renderScorecard(refreshed);
@@ -2260,6 +2643,24 @@
       }
     });
 
+
+    saveWorkbookConfigBtn.addEventListener('click', async () => {
+      workbookConfigStatus.className = 'muted';
+      workbookConfigStatus.textContent = 'Saving workbook config...';
+      saveWorkbookConfigBtn.disabled = true;
+      try {
+        await saveWorkbookConfig();
+        meta = await fetchMeta();
+        renderSelectors();
+        workbookConfigStatus.className = 'ok';
+        workbookConfigStatus.textContent = 'Workbook config saved.';
+      } catch (error) {
+        workbookConfigStatus.className = 'bad';
+        workbookConfigStatus.textContent = error && error.message ? error.message : 'Failed to save workbook config';
+      } finally {
+        saveWorkbookConfigBtn.disabled = localMode;
+      }
+    });
 
     codeProtectToggle.addEventListener('change', async () => {
       const next = codeProtectToggle.checked === true;
@@ -2298,6 +2699,7 @@
         const queryDay = getQueryValue('dayKey');
         if (queryDay) selectedLinkDay = queryDay;
         renderSelectors();
+        await renderScrambleAdminCard();
         const slotRaw = getQueryValue('slotIndex');
         const slotIndex = Number(slotRaw);
         if (queryDay && Number.isInteger(slotIndex) && slotIndex >= 0) {

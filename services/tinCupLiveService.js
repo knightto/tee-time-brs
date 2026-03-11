@@ -37,7 +37,36 @@ const SEED_MARKER_HOLES = {
   ctp: [3, 7, 12, 17],
   longDrive: [5, 14],
 };
+const SIDE_GAME_DEFS = {
+  longPutt: { label: 'Long Putt', days: ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4', 'Scramble'] },
+  secretSnowman: { label: 'Secret Snowman', days: ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4'] },
+};
 const ALL_HOLES = Array.from({ length: 18 }, (_, index) => index + 1);
+const SCRAMBLE_POINTS = [3, 2, 1, 0];
+const TIN_CUP_WORKBOOK_DEFAULTS = {
+  handicap: {
+    indexToHcConversion: 0.17920353982300874,
+    avgCourseSlope: 133.25,
+    avgSlope: 113,
+    maxHandicap: 32,
+    par3Fraction: 0.375,
+  },
+  accounting: {
+    entryFee: 200,
+    finalPayouts: [1000, 500, 250, 125],
+    markerPayouts: {
+      longDrive: 25,
+      ctp: 25,
+      longPutt: 25,
+      secretSnowman: 25,
+      loser: 50,
+    },
+    skins: {
+      perPerson: 25,
+    },
+    scramblePoints: SCRAMBLE_POINTS.slice(),
+  },
+};
 
 const clean = (v = '') => String(v || '').trim();
 const normalize = (v = '') => clean(v).replace(/\s+/g, ' ').toLowerCase();
@@ -90,6 +119,109 @@ function buildPenaltyTable(state) {
   }, {});
 }
 
+function defaultWorkbookConfig() {
+  return JSON.parse(JSON.stringify(TIN_CUP_WORKBOOK_DEFAULTS));
+}
+
+function normalizeWorkbookConfig(input = {}) {
+  const src = (input && typeof input === 'object') ? input : {};
+  const defaults = defaultWorkbookConfig();
+  const handicap = src.handicap && typeof src.handicap === 'object' ? src.handicap : {};
+  const accounting = src.accounting && typeof src.accounting === 'object' ? src.accounting : {};
+  const markerPayouts = accounting.markerPayouts && typeof accounting.markerPayouts === 'object' ? accounting.markerPayouts : {};
+  const skins = accounting.skins && typeof accounting.skins === 'object' ? accounting.skins : {};
+  const scramblePoints = Array.isArray(accounting.scramblePoints) ? accounting.scramblePoints : defaults.accounting.scramblePoints;
+  return {
+    handicap: {
+      indexToHcConversion: toNumOrNull(handicap.indexToHcConversion) ?? defaults.handicap.indexToHcConversion,
+      avgCourseSlope: toNumOrNull(handicap.avgCourseSlope) ?? defaults.handicap.avgCourseSlope,
+      avgSlope: toNumOrNull(handicap.avgSlope) ?? defaults.handicap.avgSlope,
+      maxHandicap: toNumOrNull(handicap.maxHandicap) ?? defaults.handicap.maxHandicap,
+      par3Fraction: toNumOrNull(handicap.par3Fraction) ?? defaults.handicap.par3Fraction,
+    },
+    accounting: {
+      entryFee: toNumOrNull(accounting.entryFee) ?? defaults.accounting.entryFee,
+      finalPayouts: defaults.accounting.finalPayouts.map((value, index) => toNumOrNull((accounting.finalPayouts || [])[index]) ?? value),
+      markerPayouts: {
+        longDrive: toNumOrNull(markerPayouts.longDrive) ?? defaults.accounting.markerPayouts.longDrive,
+        ctp: toNumOrNull(markerPayouts.ctp) ?? defaults.accounting.markerPayouts.ctp,
+        longPutt: toNumOrNull(markerPayouts.longPutt) ?? defaults.accounting.markerPayouts.longPutt,
+        secretSnowman: toNumOrNull(markerPayouts.secretSnowman) ?? defaults.accounting.markerPayouts.secretSnowman,
+        loser: toNumOrNull(markerPayouts.loser) ?? defaults.accounting.markerPayouts.loser,
+      },
+      skins: {
+        perPerson: toNumOrNull(skins.perPerson) ?? defaults.accounting.skins.perPerson,
+      },
+      scramblePoints: defaults.accounting.scramblePoints.map((value, index) => toNumOrNull(scramblePoints[index]) ?? value),
+    },
+  };
+}
+
+
+function updateWorkbookConfig(state, payload = {}) {
+  const current = normalizeWorkbookConfig(state && state.config ? state.config : defaultWorkbookConfig());
+  const incoming = (payload && typeof payload === 'object') ? payload : {};
+  const next = {
+    handicap: {
+      ...current.handicap,
+      ...((incoming.handicap && typeof incoming.handicap === 'object') ? incoming.handicap : {}),
+    },
+    accounting: {
+      ...current.accounting,
+      ...((incoming.accounting && typeof incoming.accounting === 'object') ? incoming.accounting : {}),
+      markerPayouts: {
+        ...current.accounting.markerPayouts,
+        ...((incoming.accounting && incoming.accounting.markerPayouts && typeof incoming.accounting.markerPayouts === 'object') ? incoming.accounting.markerPayouts : {}),
+      },
+      skins: {
+        ...current.accounting.skins,
+        ...((incoming.accounting && incoming.accounting.skins && typeof incoming.accounting.skins === 'object') ? incoming.accounting.skins : {}),
+      },
+      finalPayouts: Array.isArray(incoming.accounting && incoming.accounting.finalPayouts)
+        ? incoming.accounting.finalPayouts
+        : current.accounting.finalPayouts,
+      scramblePoints: Array.isArray(incoming.accounting && incoming.accounting.scramblePoints)
+        ? incoming.accounting.scramblePoints
+        : current.accounting.scramblePoints,
+    },
+  };
+  state.config = normalizeWorkbookConfig(next);
+  return state.config;
+}
+
+function holeScoreArray(input) {
+  const out = Array.isArray(input) ? input.slice(0, 18) : [];
+  while (out.length < 18) out.push(null);
+  return out.map((value) => toIntOrNull(value));
+}
+
+function normalizeScrambleState(input = {}) {
+  const src = (input && typeof input === 'object') ? input : {};
+  const scores = src.scores && typeof src.scores === 'object' ? src.scores : {};
+  const normalized = {};
+  Object.keys(scores).forEach((key) => {
+    normalized[key] = holeScoreArray(scores[key]);
+  });
+  return { scores: normalized };
+}
+
+function normalizeSideGamesState(input = {}) {
+  const src = (input && typeof input === 'object') ? input : {};
+  const out = {};
+  Object.entries(SIDE_GAME_DEFS).forEach(([type, def]) => {
+    const rawDays = src[type] && typeof src[type] === 'object' ? src[type] : {};
+    out[type] = {};
+    def.days.forEach((dayKey) => {
+      const winner = String(rawDays[dayKey] || '').trim();
+      const key = normalize(winner);
+      out[type][dayKey] = PLAYER_KEYS.has(key)
+        ? (PLAYERS.find((player) => normalize(player.name) === key) || {}).name || ''
+        : '';
+    });
+  });
+  return out;
+}
+
 function defaultTinCupLiveState() {
   return {
     version: 1,
@@ -102,7 +234,10 @@ function defaultTinCupLiveState() {
     codes: {},
     scorecards: {},
     scrambleBonus: {},
+    scramble: normalizeScrambleState(),
+    sideGames: normalizeSideGamesState(),
     penalties: {},
+    config: defaultWorkbookConfig(),
   };
 }
 
@@ -135,7 +270,10 @@ function ensureTinCupLiveState(trip = {}) {
     codes: (src && typeof src.codes === 'object' && src.codes) ? src.codes : {},
     scorecards: (src && typeof src.scorecards === 'object' && src.scorecards) ? src.scorecards : {},
     scrambleBonus: (src && typeof src.scrambleBonus === 'object' && src.scrambleBonus) ? src.scrambleBonus : {},
+    scramble: normalizeScrambleState((src && typeof src.scramble === 'object' && src.scramble) ? src.scramble : defaults.scramble),
+    sideGames: normalizeSideGamesState((src && typeof src.sideGames === 'object' && src.sideGames) ? src.sideGames : defaults.sideGames),
     penalties: normalizePenalties((src && typeof src.penalties === 'object' && src.penalties) ? src.penalties : {}),
+    config: normalizeWorkbookConfig((src && typeof src.config === 'object' && src.config) ? src.config : defaults.config),
   };
   trip.tinCupLive = out;
   return out;
@@ -144,6 +282,48 @@ function ensureTinCupLiveState(trip = {}) {
 function updateSettings(state, nextSettings = {}) {
   state.settings = normalizeSettings(nextSettings, state.settings || defaultTinCupLiveState().settings);
   return state.settings;
+}
+
+function getSideGameWinner(state, type = '', dayKey = '') {
+  const sideGames = normalizeSideGamesState(state && state.sideGames);
+  return String((((sideGames[type] || {})[dayKey]) || '')).trim();
+}
+
+function buildSideGameSummary(state) {
+  const sideGames = normalizeSideGamesState(state && state.sideGames);
+  return Object.entries(SIDE_GAME_DEFS).reduce((acc, [type, def]) => {
+    const counts = new Map(PLAYERS.map((player) => [normalize(player.name), 0]));
+    const days = def.days.map((dayKey) => {
+      const winner = String((((sideGames[type] || {})[dayKey]) || '')).trim();
+      const key = normalize(winner);
+      if (key && counts.has(key)) counts.set(key, (counts.get(key) || 0) + 1);
+      return { dayKey, winner };
+    });
+    acc[type] = {
+      label: def.label,
+      days,
+      totals: PLAYERS.map((player) => ({
+        name: player.name,
+        wins: counts.get(normalize(player.name)) || 0,
+      })).filter((row) => row.wins > 0),
+    };
+    return acc;
+  }, {});
+}
+
+function updateSideGameWinner(state, payload = {}) {
+  const type = String(payload.type || '').trim();
+  const dayKey = String(payload.dayKey || '').trim();
+  if (!SIDE_GAME_DEFS[type]) throw new Error('Unsupported side game type');
+  if (!SIDE_GAME_DEFS[type].days.includes(dayKey)) throw new Error('Unsupported side game day');
+  if (!state.sideGames || typeof state.sideGames !== 'object') state.sideGames = normalizeSideGamesState();
+  state.sideGames = normalizeSideGamesState(state.sideGames);
+  const winner = String(payload.winner || '').trim();
+  const key = normalize(winner);
+  state.sideGames[type][dayKey] = winner && PLAYER_KEYS.has(key)
+    ? (PLAYERS.find((player) => normalize(player.name) === key) || {}).name || ''
+    : '';
+  return buildSideGameSummary(state);
 }
 
 function getDaySlots(dayKey = '') {
@@ -498,6 +678,398 @@ function getDay4RankPointsFromLive(state) {
   return { pts, ranks };
 }
 
+function deriveWorkbookHandicap(config, handicapIndex) {
+  const settings = normalizeWorkbookConfig(config);
+  const index = toNumOrNull(handicapIndex) || 0;
+  const converted = Number((index * (1 + settings.handicap.indexToHcConversion)).toFixed(2));
+  const eighteenHole = Math.min(settings.handicap.maxHandicap, Math.round(converted));
+  const nineHole = Math.min(settings.handicap.maxHandicap * 0.5, Math.round(eighteenHole / 2));
+  const par3 = Math.round(eighteenHole * settings.handicap.par3Fraction);
+  return {
+    handicapIndex: index,
+    converted,
+    eighteenHole,
+    nineHole,
+    par3,
+  };
+}
+
+function buildHandicapSummary(state) {
+  const config = state.config || defaultWorkbookConfig();
+  return PLAYERS.map((player) => {
+    const derived = deriveWorkbookHandicap(config, player.handicap);
+    const penalty = getPenaltyEntry(state, player.name);
+    return {
+      name: player.name,
+      handicapIndex: player.handicap,
+      convertedHandicap: derived.converted,
+      eighteenHole: derived.eighteenHole,
+      nineHole: derived.nineHole,
+      par3: derived.par3,
+      championPenalty: penalty.champion,
+      rookiePenalty: penalty.rookie,
+      totalPenalty: penalty.total,
+    };
+  });
+}
+
+function getScrambleTeams() {
+  return getDaySlots('Day 1').map((slot) => ({
+    teamIndex: slot.slotIndex,
+    key: `team${slot.slotIndex + 1}`,
+    label: `Team ${slot.slotIndex + 1}`,
+    players: slot.players.map((player) => player.name),
+  }));
+}
+
+function ensureScrambleTeamScores(state, teamIndex) {
+  if (!state.scramble || typeof state.scramble !== 'object') state.scramble = normalizeScrambleState();
+  if (!state.scramble.scores || typeof state.scramble.scores !== 'object') state.scramble.scores = {};
+  const key = `team${Number(teamIndex) + 1}`;
+  if (!state.scramble.scores[key]) state.scramble.scores[key] = holeScoreArray();
+  state.scramble.scores[key] = holeScoreArray(state.scramble.scores[key]);
+  return { key, holes: state.scramble.scores[key] };
+}
+
+function updateScrambleHoleScore(state, payload = {}) {
+  const teamIndex = Number(payload.teamIndex);
+  const hole = Number(payload.hole);
+  if (!Number.isInteger(teamIndex) || teamIndex < 0) throw new Error('teamIndex required');
+  if (!Number.isInteger(hole) || hole < 1 || hole > 18) throw new Error('hole must be 1-18');
+  const team = getScrambleTeams().find((entry) => entry.teamIndex === teamIndex);
+  if (!team) throw new Error('Scramble team not found');
+  const { holes } = ensureScrambleTeamScores(state, teamIndex);
+  holes[hole - 1] = toIntOrNull(payload.gross);
+  return getScrambleResults(state);
+}
+
+function getScrambleResults(state) {
+  const teams = getScrambleTeams().map((team) => {
+    const { holes } = ensureScrambleTeamScores(state, team.teamIndex);
+    const played = holes.filter((value) => value !== null).length;
+    const total = played === 18 ? holes.reduce((sum, value) => sum + (value || 0), 0) : null;
+    return {
+      ...team,
+      holes: holeScoreArray(holes),
+      played,
+      total,
+      rank: null,
+      points: 0,
+    };
+  });
+  const complete = teams.filter((team) => team.total !== null).sort((a, b) => a.total - b.total || a.teamIndex - b.teamIndex);
+  let idx = 0;
+  while (idx < complete.length) {
+    const start = idx;
+    const score = complete[idx].total;
+    while (idx < complete.length && complete[idx].total === score) idx += 1;
+    const firstRank = start + 1;
+    let totalPoints = 0;
+    for (let pos = firstRank; pos <= idx; pos += 1) totalPoints += SCRAMBLE_POINTS[pos - 1] || 0;
+    const avgPoints = idx > start ? Number((totalPoints / (idx - start)).toFixed(2)) : 0;
+    complete.slice(start, idx).forEach((team) => {
+      team.rank = firstRank;
+      team.points = avgPoints;
+    });
+  }
+  const pointsByPlayer = new Map(PLAYERS.map((player) => [normalize(player.name), 0]));
+  teams.forEach((team) => {
+    team.players.forEach((name) => {
+      pointsByPlayer.set(normalize(name), team.points || 0);
+    });
+  });
+  return {
+    teams,
+    hasScores: teams.some((team) => team.played > 0),
+    pointsByPlayer,
+  };
+}
+
+function getScramblePointsByPlayer(state) {
+  const scramble = getScrambleResults(state);
+  if (scramble.hasScores) return scramble.pointsByPlayer;
+  return new Map(PLAYERS.map((player) => [normalize(player.name), toNumOrNull((state.scrambleBonus || {})[normalize(player.name)]) || 0]));
+}
+
+function buildScoreRankings(state) {
+  const config = state.config || defaultWorkbookConfig();
+  const competitiveDays = ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4'];
+  const dayMaps = new Map(competitiveDays.map((dayKey) => [dayKey, getDayPlayerSummaries(state, dayKey)]));
+  const rows = PLAYERS.map((player) => {
+    const key = normalize(player.name);
+    const rounds = competitiveDays.map((dayKey) => dayMaps.get(dayKey).get(key)).filter((summary) => summary && summary.grossTotal !== null);
+    const grossValues = rounds.map((summary) => summary.grossTotal);
+    const averageGross = grossValues.length ? Number((grossValues.reduce((sum, value) => sum + value, 0) / grossValues.length).toFixed(2)) : null;
+    const derived = deriveWorkbookHandicap(config, player.handicap);
+    const netScore = averageGross === null ? null : Number((averageGross - derived.eighteenHole).toFixed(2));
+    return {
+      name: player.name,
+      roundsPlayed: grossValues.length,
+      averageGross,
+      handicap18: derived.eighteenHole,
+      netScore,
+      position: null,
+      label: '',
+    };
+  }).filter((row) => row.averageGross !== null)
+    .sort((a, b) => (a.netScore - b.netScore) || (a.averageGross - b.averageGross) || a.name.localeCompare(b.name));
+  rows.forEach((row, index) => {
+    row.position = index + 1;
+    row.label = row.position === 1 ? 'Winner' : row.position === 2 ? '2nd' : row.position === 3 ? '3rd' : '';
+  });
+  return rows;
+}
+
+function getSkinsDayDefinitions() {
+  return [
+    { dayKey: 'Day 1', sourceDays: ['Day 1'], payoutEligible: true },
+    { dayKey: 'Day 2', sourceDays: ['Day 2A', 'Day 2B'], payoutEligible: true },
+    { dayKey: 'Day 3', sourceDays: ['Day 3'], payoutEligible: true },
+    { dayKey: 'Day 4', sourceDays: ['Day 4'], payoutEligible: true },
+    { dayKey: 'Practice', sourceDays: ['Practice'], payoutEligible: false },
+  ];
+}
+
+function buildSkinsForDay(state, definition) {
+  const src = definition || {};
+  const sourceDays = Array.isArray(src.sourceDays) && src.sourceDays.length ? src.sourceDays : [src.dayKey];
+  const summaryMaps = sourceDays.map((dayKey) => ({ dayKey, summaries: getDayPlayerSummaries(state, dayKey) }));
+  const holes = ALL_HOLES.map((holeNo) => {
+    const sourceIndex = sourceDays.length > 1 && holeNo > 9 ? 1 : 0;
+    const source = summaryMaps[sourceIndex] || summaryMaps[0];
+    const entries = PLAYERS.map((player) => {
+      const summary = source.summaries.get(normalize(player.name));
+      if (!summary) return null;
+      const gross = toIntOrNull(summary.holes[holeNo - 1]);
+      if (gross === null) return null;
+      return {
+        name: player.name,
+        net: gross - getHoleStrokeAllowance(summary.hcp, holeNo),
+      };
+    }).filter(Boolean).sort((a, b) => a.net - b.net || a.name.localeCompare(b.name));
+    if (!entries.length) return { hole: holeNo, winner: '', net: null, hasSkin: false };
+    const low = entries[0].net;
+    const tied = entries.filter((entry) => entry.net === low);
+    if (tied.length !== 1) return { hole: holeNo, winner: '', net: low, hasSkin: false };
+    return { hole: holeNo, winner: tied[0].name, net: low, hasSkin: true };
+  });
+  const skinCount = holes.filter((hole) => hole.hasSkin).length;
+  const pot = src.payoutEligible === false
+    ? 0
+    : Number((((state.config || defaultWorkbookConfig()).accounting || {}).skins || {}).perPerson || 0) * PLAYERS.length;
+  const payoutPerSkin = skinCount && pot ? Number((pot / skinCount).toFixed(2)) : 0;
+  const payouts = PLAYERS.reduce((acc, player) => {
+    acc[normalize(player.name)] = 0;
+    return acc;
+  }, {});
+  holes.forEach((hole) => {
+    if (!hole.hasSkin || !hole.winner || !payoutPerSkin) return;
+    payouts[normalize(hole.winner)] = Number((payouts[normalize(hole.winner)] + payoutPerSkin).toFixed(2));
+  });
+  const winners = PLAYERS.map((player) => ({
+    name: player.name,
+    skins: holes.filter((hole) => normalize(hole.winner) === normalize(player.name)).length,
+    payout: payouts[normalize(player.name)] || 0,
+  })).filter((row) => row.skins > 0 || row.payout > 0);
+  return { dayKey: src.dayKey || sourceDays[0], sourceDays, payoutEligible: src.payoutEligible !== false, pot, payoutPerSkin, skinCount, holes, winners };
+}
+
+function buildSkinsResults(state) {
+  const days = getSkinsDayDefinitions().map((definition) => buildSkinsForDay(state, definition));
+  const totals = PLAYERS.map((player) => ({ name: player.name, skins: 0, payout: 0 }));
+  const byKey = new Map(totals.map((row) => [normalize(row.name), row]));
+  days.filter((day) => day.payoutEligible !== false).forEach((day) => {
+    day.winners.forEach((winner) => {
+      const row = byKey.get(normalize(winner.name));
+      row.skins += winner.skins;
+      row.payout = Number((row.payout + winner.payout).toFixed(2));
+    });
+  });
+  return {
+    days,
+    totals: totals.filter((row) => row.skins > 0 || row.payout > 0).sort((a, b) => (b.payout - a.payout) || (b.skins - a.skins) || a.name.localeCompare(b.name)),
+  };
+}
+
+function getFinalPayouts(rows, payoutValues = []) {
+  const out = new Map(PLAYERS.map((player) => [normalize(player.name), 0]));
+  let index = 0;
+  while (index < rows.length && index < payoutValues.length) {
+    const start = index;
+    const position = rows[index].position;
+    while (index < rows.length && rows[index].position === position && index < payoutValues.length) index += 1;
+    const total = payoutValues.slice(start, index).reduce((sum, value) => sum + (toNumOrNull(value) || 0), 0);
+    const avg = index > start ? Number((total / (index - start)).toFixed(2)) : 0;
+    rows.slice(start, index).forEach((row) => out.set(normalize(row.name), avg));
+  }
+  return out;
+}
+
+function getMarkerPayoutCounts(state) {
+  const counts = {
+    ctp: new Map(PLAYERS.map((player) => [normalize(player.name), 0])),
+    longDrive: new Map(PLAYERS.map((player) => [normalize(player.name), 0])),
+  };
+  ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4'].forEach((dayKey) => {
+    const markers = getDayMarkers(state, dayKey);
+    ['ctp', 'longDrive'].forEach((type) => {
+      Object.values(markers[type] || {}).forEach((winner) => {
+        const key = normalize(winner);
+        counts[type].set(key, (counts[type].get(key) || 0) + 1);
+      });
+    });
+  });
+  return counts;
+}
+
+function buildPayoutSummary(state, leaderboard = null) {
+  const board = leaderboard || buildLeaderboard(state);
+  const config = normalizeWorkbookConfig(state.config || defaultWorkbookConfig());
+  const mainPot = Number((config.accounting.entryFee || 0) * PLAYERS.length);
+  const skins = buildSkinsResults(state);
+  const sideGames = buildSideGameSummary(state);
+  const skinsPot = Number((skins.days || []).filter((day) => day.payoutEligible !== false).reduce((sum, day) => sum + Number(day.pot || 0), 0).toFixed(2));
+  const combinedPot = Number((mainPot + skinsPot).toFixed(2));
+  const finalPayouts = getFinalPayouts(board.totals || [], config.accounting.finalPayouts || []);
+  const markerCounts = getMarkerPayoutCounts(state);
+  const loserRow = (board.totals || []).slice().sort((a, b) => (a.total - b.total) || b.name.localeCompare(a.name))[0] || null;
+  const rows = PLAYERS.map((player) => {
+    const key = normalize(player.name);
+    const finalPrize = finalPayouts.get(key) || 0;
+    const ctp = Number(((markerCounts.ctp.get(key) || 0) * (config.accounting.markerPayouts.ctp || 0)).toFixed(2));
+    const longDrive = Number(((markerCounts.longDrive.get(key) || 0) * (config.accounting.markerPayouts.longDrive || 0)).toFixed(2));
+    const longPuttWins = ((((sideGames.longPutt || {}).totals) || []).find((row) => normalize(row.name) === key) || {}).wins || 0;
+    const secretSnowmanWins = ((((sideGames.secretSnowman || {}).totals) || []).find((row) => normalize(row.name) === key) || {}).wins || 0;
+    const longPutt = Number((longPuttWins * (config.accounting.markerPayouts.longPutt || 0)).toFixed(2));
+    const secretSnowman = Number((secretSnowmanWins * (config.accounting.markerPayouts.secretSnowman || 0)).toFixed(2));
+    const skinsRow = (skins.totals || []).find((row) => normalize(row.name) === key);
+    const loser = loserRow && normalize(loserRow.name) === key ? Number(config.accounting.markerPayouts.loser || 0) : 0;
+    const total = Number((finalPrize + ctp + longDrive + longPutt + secretSnowman + (skinsRow ? skinsRow.payout : 0) + loser).toFixed(2));
+    return {
+      name: player.name,
+      finalPrize,
+      ctp,
+      longDrive,
+      longPutt,
+      secretSnowman,
+      skins: skinsRow ? skinsRow.payout : 0,
+      loser,
+      total,
+    };
+  });
+  const distributed = Number(rows.reduce((sum, row) => sum + row.total, 0).toFixed(2));
+  return {
+    pot: combinedPot,
+    mainPot,
+    skinsPot,
+    distributed,
+    balance: Number((combinedPot - distributed).toFixed(2)),
+    rows: rows.filter((row) => row.total > 0).sort((a, b) => (b.total - a.total) || a.name.localeCompare(b.name)),
+  };
+}
+
+
+function buildWorkbookResultsAudit(state, leaderboard = null) {
+  const board = leaderboard || buildLeaderboard(state);
+  const rankings = Array.isArray(board.scoreRankings) ? board.scoreRankings : buildScoreRankings(state);
+  const payouts = board.payouts && Array.isArray(board.payouts.rows) ? board.payouts : buildPayoutSummary(state, board);
+  const skins = board.skins || buildSkinsResults(state);
+  const scramble = board.scramble || getScrambleResults(state);
+  const sideGames = board.sideGames || buildSideGameSummary(state);
+  const rankingByName = new Map(rankings.map((row) => [normalize(row.name), row]));
+  const payoutByName = new Map((payouts.rows || []).map((row) => [normalize(row.name), row]));
+  const skinsByName = new Map((skins.totals || []).map((row) => [normalize(row.name), row]));
+  const longPuttByName = new Map((((sideGames.longPutt || {}).totals) || []).map((row) => [normalize(row.name), row]));
+  const secretSnowmanByName = new Map((((sideGames.secretSnowman || {}).totals) || []).map((row) => [normalize(row.name), row]));
+  const markerCounts = getMarkerPayoutCounts(state);
+  const loserSet = new Set((payouts.rows || []).filter((row) => Number(row.loser || 0) > 0).map((row) => normalize(row.name)));
+  const scrambleByName = new Map();
+  (scramble.teams || []).forEach((team) => {
+    (team.players || []).forEach((name) => {
+      scrambleByName.set(normalize(name), {
+        label: team.label,
+        total: team.total,
+        rank: team.rank,
+        points: team.points || 0,
+      });
+    });
+  });
+  return (board.totals || []).map((row) => {
+    const key = normalize(row.name);
+    const rank = rankingByName.get(key) || {};
+    const payout = payoutByName.get(key) || {};
+    const skin = skinsByName.get(key) || {};
+    const longPutt = longPuttByName.get(key) || {};
+    const secretSnowman = secretSnowmanByName.get(key) || {};
+    const scrambleRow = scrambleByName.get(key) || {};
+    return {
+      name: row.name,
+      tripPosition: row.position,
+      tripTotal: row.total,
+      averageGross: rank.averageGross ?? null,
+      netScore: rank.netScore ?? null,
+      netRank: rank.position ?? null,
+      scoreLabel: rank.label || '',
+      scrambleTeam: scrambleRow.label || '',
+      scrambleTotal: scrambleRow.total ?? null,
+      scrambleRank: scrambleRow.rank ?? null,
+      scramblePoints: scrambleRow.points ?? row.scramble ?? 0,
+      skinsWon: skin.skins || 0,
+      skinsPayout: skin.payout || 0,
+      ctpWins: markerCounts.ctp.get(key) || 0,
+      longDriveWins: markerCounts.longDrive.get(key) || 0,
+      longPuttWins: longPutt.wins || 0,
+      secretSnowmanWins: secretSnowman.wins || 0,
+      loser: loserSet.has(key),
+      finalPrize: payout.finalPrize || 0,
+      payoutTotal: payout.total || 0,
+    };
+  }).sort((a, b) => (a.tripPosition - b.tripPosition) || a.name.localeCompare(b.name));
+}
+
+function buildMatchDetailBoards(state) {
+  const labels = ['Front 9', 'Back 9 #1', 'Back 9 #2'];
+  const rules = [{ pairs: [[0, 1], [2, 3]] }, { pairs: [[0, 2], [1, 3]] }, { pairs: [[0, 3], [1, 2]] }];
+  return MATCH_DAY_OPTIONS.reduce((acc, dayKey) => {
+    const summaries = getDayPlayerSummaries(state, dayKey);
+    acc[dayKey] = getDaySlots(dayKey).map((slot) => ({
+      slotIndex: slot.slotIndex,
+      label: slot.label,
+      players: slot.players.map((player) => player.name),
+      segments: rules.map((rule, segmentIndex) => ({
+        label: labels[segmentIndex] || `Segment ${segmentIndex + 1}`,
+        matches: rule.pairs.map(([leftIndex, rightIndex]) => {
+          const left = slot.players[leftIndex];
+          const right = slot.players[rightIndex];
+          const start = segmentIndex === 0 ? 1 : 10;
+          const end = segmentIndex === 0 ? 9 : 18;
+          const leftSummary = summaries.get(normalize(left.name));
+          const rightSummary = summaries.get(normalize(right.name));
+          const holes = [];
+          for (let holeNo = start; holeNo <= end; holeNo += 1) {
+            const leftGross = leftSummary ? toIntOrNull(leftSummary.holes[holeNo - 1]) : null;
+            const rightGross = rightSummary ? toIntOrNull(rightSummary.holes[holeNo - 1]) : null;
+            holes.push({
+              hole: holeNo,
+              leftGross,
+              rightGross,
+              leftNet: leftGross === null ? null : leftGross - getHoleStrokeAllowance(left.hcp, holeNo),
+              rightNet: rightGross === null ? null : rightGross - getHoleStrokeAllowance(right.hcp, holeNo),
+            });
+          }
+          return {
+            left: left.name,
+            right: right.name,
+            result: compareSegment(summaries, left.name, right.name, segmentIndex),
+            holes,
+          };
+        }),
+      })),
+    }));
+    return acc;
+  }, {});
+}
+
 function buildLeaderboard(state) {
   const day1Summaries = getDayPlayerSummaries(state, 'Day 1');
   const day3Summaries = getDayPlayerSummaries(state, 'Day 3');
@@ -525,7 +1097,8 @@ function buildLeaderboard(state) {
     const day1Net = toNumOrNull(day1Summaries.get(key) && day1Summaries.get(key).adjustedNetTotal);
     const day3Net = toNumOrNull(day3Summaries.get(key) && day3Summaries.get(key).adjustedNetTotal);
     const day4Net = toNumOrNull(day4Summaries.get(key) && day4Summaries.get(key).adjustedNetTotal);
-    const scramble = toNumOrNull((state.scrambleBonus || {})[key]) || 0;
+    const scramblePoints = getScramblePointsByPlayer(state);
+    const scramble = scramblePoints.get(key) || 0;
     const day4Points = d4.pts.get(key) || 0;
     const day1Total = match1 + stroke1;
     const day2Total = match2;
@@ -564,7 +1137,7 @@ function buildLeaderboard(state) {
     last = row.total;
   });
 
-  return {
+  const leaderboard = {
     generatedAt: new Date().toISOString(),
     dayOptions: DAY_OPTIONS.slice(),
     matchDayOptions: MATCH_DAY_OPTIONS.slice(),
@@ -576,8 +1149,18 @@ function buildLeaderboard(state) {
       'Day 4': day4.rows,
       Practice: practice.rows,
     },
+    matchDetails: buildMatchDetailBoards(state),
     totals,
+    handicapSummary: buildHandicapSummary(state),
+    scoreRankings: buildScoreRankings(state),
+    skins: buildSkinsResults(state),
+    scramble: getScrambleResults(state),
+    sideGames: buildSideGameSummary(state),
+    payouts: null,
+    workbookResults: [],
   };
+  leaderboard.workbookResults = buildWorkbookResultsAudit(state, leaderboard);
+  return leaderboard;
 }
 
 function buildDayRows(leaderboard, selectedDay) {
@@ -637,6 +1220,11 @@ function getLiveMeta(state) {
     penalties: buildPenaltyTable(state),
     playerHandicaps: PLAYERS.map((player) => ({ name: player.name, handicap: player.handicap })),
     daySlots,
+    handicapSummary: buildHandicapSummary(state),
+    scramble: getScrambleResults(state),
+    sideGames: buildSideGameSummary(state),
+    payouts: buildPayoutSummary(state),
+    config: normalizeWorkbookConfig(state.config || defaultWorkbookConfig()),
   };
 }
 
@@ -828,6 +1416,8 @@ function seedAllScores(state, options = {}) {
   const reset = options.reset !== false;
   if (!state.scorecards || typeof state.scorecards !== 'object' || reset) state.scorecards = {};
   if (!state.scrambleBonus || typeof state.scrambleBonus !== 'object' || reset) state.scrambleBonus = {};
+  if (!state.scramble || typeof state.scramble !== 'object' || reset) state.scramble = normalizeScrambleState();
+  if (!state.sideGames || typeof state.sideGames !== 'object' || reset) state.sideGames = normalizeSideGamesState();
   if (!state.penalties || typeof state.penalties !== 'object' || reset) state.penalties = {};
 
   state.penalties = {
@@ -838,6 +1428,10 @@ function seedAllScores(state, options = {}) {
     ...(reset ? {} : state.scrambleBonus),
     ...SEED_SCRAMBLE_BONUS,
   };
+  state.sideGames = normalizeSideGamesState({
+    longPutt: { 'Day 1': 'Matt', 'Day 2A': 'Tommy', 'Day 2B': 'Steve', 'Day 3': 'Rick', 'Day 4': 'David', Scramble: 'Manny' },
+    secretSnowman: { 'Day 1': 'Spiro', 'Day 2A': 'Bob', 'Day 2B': 'CSamm', 'Day 3': 'Pat', 'Day 4': 'Brian' },
+  });
 
   MATCH_DAY_OPTIONS.forEach((dayKey) => {
     getDaySlots(dayKey).forEach((slot) => {
@@ -864,7 +1458,17 @@ function seedAllScores(state, options = {}) {
     });
   });
 
-  return buildLeaderboard(state);
+  getScrambleTeams().forEach((team) => {
+    const { holes } = ensureScrambleTeamScores(state, team.teamIndex);
+    holes.splice(0, holes.length, ...ALL_HOLES.map((holeNumber) => {
+      const seedPlayers = team.players.map((name) => ({ name, hcp: getDayHandicapMap('Day 1').get(normalize(name)) || 0 }));
+      return Math.min(...seedPlayers.map((player) => getSeedGrossScore('Day 3', team.teamIndex, player, holeNumber)));
+    }));
+  });
+
+  const leaderboard = buildLeaderboard(state);
+  leaderboard.payouts = buildPayoutSummary(state, leaderboard);
+  return leaderboard;
 }
 
 module.exports = {
@@ -885,7 +1489,17 @@ module.exports = {
   buildLeaderboard,
   buildDayRows,
   setScrambleBonus,
+  updateScrambleHoleScore,
   setPlayerPenalty,
   seedAllScores,
+  buildHandicapSummary,
+  buildScoreRankings,
+  buildSkinsResults,
+  getScrambleResults,
+  buildSideGameSummary,
+  buildPayoutSummary,
+  buildWorkbookResultsAudit,
+  updateWorkbookConfig,
+  updateSideGameWinner,
 };
 

@@ -9,6 +9,13 @@ const {
   updateMarker,
   submitScorecard,
   seedAllScores,
+  getScrambleResults,
+  buildSkinsResults,
+  buildScoreRankings,
+  buildHandicapSummary,
+  buildPayoutSummary,
+  updateScrambleHoleScore,
+  updateWorkbookConfig,
 } = require('../services/tinCupLiveService');
 
 function run() {
@@ -34,6 +41,49 @@ function run() {
   assert.strictEqual(spiro.penaltyTotal, 1, 'Spiro seed penalty should be reflected in totals');
   assert.notStrictEqual(matt.day1Net, null, 'Seeded stroke totals should populate Day 1 net totals');
   assert.notStrictEqual(spiro.day4Net, null, 'Seeded stroke totals should populate Day 4 net totals');
+  assert(leaderboard.scramble && Array.isArray(leaderboard.scramble.teams) && leaderboard.scramble.teams.length === 4, 'Seeded leaderboard should expose scramble teams');
+  assert(leaderboard.skins && Array.isArray(leaderboard.skins.days) && leaderboard.skins.days.length >= 5, 'Seeded leaderboard should expose skins summaries');
+  assert(leaderboard.sideGames && leaderboard.sideGames.longPutt && leaderboard.sideGames.secretSnowman, 'Seeded leaderboard should expose side game summaries');
+  assert(leaderboard.payouts && Array.isArray(leaderboard.payouts.rows), 'Seeded leaderboard should expose payout summary');
+  assert(Array.isArray(leaderboard.scoreRankings) && leaderboard.scoreRankings.length > 0, 'Seeded leaderboard should expose average score rankings');
+  assert(Array.isArray(leaderboard.handicapSummary) && leaderboard.handicapSummary.length === 16, 'Seeded leaderboard should expose handicap summary rows');
+  assert(Array.isArray(leaderboard.workbookResults) && leaderboard.workbookResults.length === 16, 'Seeded leaderboard should expose workbook audit rows');
+
+  const scramble = getScrambleResults(state);
+  assert(scramble.teams.every((team) => team.played === 18), 'Seeded scramble teams should have 18 entered holes');
+  assert(scramble.teams.some((team) => team.rank === 1), 'Seeded scramble teams should rank teams automatically');
+
+  const skins = buildSkinsResults(state);
+  assert(skins.days.some((day) => day.skinCount > 0), 'Seeded skins data should produce at least one winning skin day');
+
+  const rankings = buildScoreRankings(state);
+  assert(rankings[0] && rankings[0].label === 'Winner', 'Average score rankings should label the winner');
+
+  const handicapSummary = buildHandicapSummary(state);
+  const mattHandicap = handicapSummary.find((row) => row.name === 'Matt');
+  assert(mattHandicap && mattHandicap.eighteenHole > 0 && mattHandicap.par3 > 0, 'Handicap summary should include converted values');
+
+  const payouts = buildPayoutSummary(state, leaderboard);
+  assert.strictEqual(typeof payouts.balance, 'number', 'Payout summary should compute remaining balance');
+
+  const mattWorkbookRow = leaderboard.workbookResults.find((row) => row.name === 'Matt');
+  assert(mattWorkbookRow && typeof mattWorkbookRow.ctpWins === 'number' && typeof mattWorkbookRow.longDriveWins === 'number', 'Workbook audit rows should include marker counts');
+
+  const updatedConfig = updateWorkbookConfig(state, {
+    accounting: { entryFee: 225, markerPayouts: { ctp: 30 } },
+    handicap: { maxHandicap: 30 }
+  });
+  assert.strictEqual(updatedConfig.accounting.entryFee, 225, 'Workbook config updates should persist entry fee changes');
+  assert.strictEqual(updatedConfig.accounting.markerPayouts.ctp, 30, 'Workbook config updates should merge nested marker payouts');
+  assert.strictEqual(updatedConfig.accounting.markerPayouts.longPutt, 25, 'Workbook config should retain long putt defaults when not overridden');
+  assert.strictEqual(updatedConfig.handicap.maxHandicap, 30, 'Workbook config updates should persist handicap config changes');
+
+  const recalculatedPayouts = buildPayoutSummary(state);
+  assert.strictEqual(recalculatedPayouts.mainPot, 3600, 'Updated entry fee should flow into payout pot calculations');
+  const mattPayout = recalculatedPayouts.rows.find((row) => row.name === 'Matt');
+  assert(mattPayout && mattPayout.longPutt >= 25, 'Long putt winnings should flow into payout rows');
+  const spiroAudit = leaderboard.workbookResults.find((row) => row.name === 'Spiro');
+  assert(spiroAudit && spiroAudit.secretSnowmanWins >= 1, 'Workbook audit rows should include secret snowman wins');
 
   const day3Rows = buildDayRows(leaderboard, 'Day 3');
   const mattDay3 = day3Rows.find((row) => row.name === 'Matt');
@@ -62,6 +112,9 @@ function run() {
   const replacedLongDrive = updateMarker(state, { dayKey: 'Day 1', slotIndex: 2, type: 'longDrive', hole: 5, winner: 'Brian' });
   assert.strictEqual(replacedLongDrive.markers.longDrive['5'], 'Brian', 'Later long-drive picks should replace earlier picks for the same day and hole');
   assert.strictEqual(getScorecardView(state, 'Day 1', 1).markers.longDrive['5'], 'Brian', 'Replaced long-drive winner should show across other scorecards for that day');
+
+  const scrambleUpdate = updateScrambleHoleScore(state, { teamIndex: 0, hole: 1, gross: 3 });
+  assert.strictEqual(scrambleUpdate.teams[0].holes[0], 3, 'Scramble hole updates should persist team hole scores');
 
   const opened = setScorecardScorer(state, { dayKey: 'Day 1', slotIndex: 0, scorerName: 'Rick' });
   assert.strictEqual(opened.scorerName, 'Rick', 'Scorecard should persist the golfer who opened it to keep score');
