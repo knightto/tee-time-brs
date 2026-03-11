@@ -50,10 +50,41 @@
     .setup-table-wrap { overflow:auto; border:1px solid var(--line); border-radius:10px; }
     .setup-table input, .setup-table select { width:100%; min-width:120px; }
     .setup-table .name-input { min-width:180px; }
+    #mobileScorecardShell { display:block; }
+    .mobile-scorecard-bar { display:none; }
     a { color: var(--accent); text-decoration:none; font-weight:700; }
     a:hover { text-decoration:underline; }
     @media (max-width: 900px) {
       .entry-input-grid { grid-template-columns: 1fr; }
+      body.mobile-scorecard-active { overflow:hidden; }
+      body.mobile-scorecard-active #mobileScorecardShell {
+        position: fixed;
+        inset: 0;
+        z-index: 999;
+        overflow: auto;
+        padding: 10px 12px 24px;
+        background: radial-gradient(circle at 20% 10%, rgba(118,210,255,.12), transparent 32%), var(--bg);
+      }
+      body.mobile-scorecard-active .mobile-scorecard-bar {
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:10px;
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        margin: 0 0 10px;
+        padding: 10px 12px;
+        border:1px solid var(--line);
+        border-radius:12px;
+        background: linear-gradient(140deg, var(--panel), #0c1b2f);
+      }
+      body.mobile-scorecard-active .mobile-scorecard-bar button {
+        flex: 0 0 auto;
+      }
+      body.mobile-scorecard-active .mobile-scorecard-bar .muted {
+        font-size: .8rem;
+      }
     }
   </style>
 </head>
@@ -65,17 +96,6 @@
         <div id="entryIntro" class="muted">Enter hole-by-hole scores for your foursome with your foursome code.</div>
       </div>
       <a href="/tin-cup/trip-2026.html">Back to Tin Cup Page</a>
-    </div>
-
-    <div class="card" id="liveScoringFlowCard">
-      <details>
-        <summary class="setup-summary">Live Scoring Flow</summary>
-        <ol class="muted" style="margin:8px 0 0;padding-left:18px;display:grid;gap:6px;">
-          <li>One golfer in each foursome opens the live scorecard link and enters hole-by-hole scores.</li>
-          <li>Every score save updates the shared Tin Cup live data, and the leaderboard reflects changes immediately.</li>
-          <li>Match Scoring is auto-derived from real scorecards: completed segments show W/T/L, in-progress segments show current leader (W*/L*/T*).</li>
-        </ol>
-      </details>
     </div>
 
     <div class="card" id="scorecardLinksCard">
@@ -132,30 +152,41 @@
       </details>
     </div>
 
-    <div class="card" id="scorecardCard" style="display:none;">
-      <details>
-        <summary class="setup-summary">Live Scorecard</summary>
-        <div class="head">
-          <strong id="scorecardTitle">Scorecard</strong>
-          <span id="updatedAt" class="muted"></span>
+    <div id="mobileScorecardShell">
+      <div class="mobile-scorecard-bar" id="mobileScorecardBar">
+        <div>
+          <strong>Scorecard View</strong>
+          <div class="muted">Exit full-screen to return to the main page.</div>
         </div>
-        <div class="table-wrap" id="scoreTableWrap"></div>
-      </details>
-    </div>
+        <button id="exitMobileScorecardBtn" type="button">Exit Scorecard</button>
+      </div>
 
-    <div class="card" id="holeEntryCard" style="display:none;">
-      <details>
-        <summary class="setup-summary">Hole-By-Hole Entry</summary>
-        <div class="hole-nav" id="holeEntryWrap"></div>
-      </details>
-    </div>
+      <div class="card" id="scorecardCard" style="display:none;">
+        <details>
+          <summary class="setup-summary">Full Scorecard</summary>
+          <div class="head">
+            <strong id="scorecardTitle">Scorecard</strong>
+            <span id="updatedAt" class="muted"></span>
+          </div>
+          <div class="muted" style="margin:6px 0 10px;">Read-only summary. Enter and update scores in Hole-By-Hole Entry.</div>
+          <div class="table-wrap" id="scoreTableWrap"></div>
+        </details>
+      </div>
 
-    <div class="card" id="markersCard" style="display:none;">
-      <details>
-        <summary class="setup-summary">Closest To Pin / Long Drive</summary>
-        <div class="muted" style="margin:6px 0 10px;">Set winner per hole when applicable. Leave blank to clear.</div>
-        <div class="table-wrap" id="markerTableWrap"></div>
-      </details>
+      <div class="card" id="holeEntryCard" style="display:none;">
+        <details>
+          <summary class="setup-summary">Hole-By-Hole Entry</summary>
+          <div class="hole-nav" id="holeEntryWrap"></div>
+        </details>
+      </div>
+
+      <div class="card" id="markersCard" style="display:none;">
+        <details>
+          <summary class="setup-summary">Closest To Pin / Long Drive</summary>
+          <div class="muted" style="margin:6px 0 10px;">Set winner per hole when applicable. Leave blank to clear.</div>
+          <div class="table-wrap" id="markerTableWrap"></div>
+        </details>
+      </div>
     </div>
 
     <div class="card" id="adminUtilityCard">
@@ -179,6 +210,8 @@
     const linkDaySelect = document.getElementById('linkDaySelect');
     const scorecardLinksList = document.getElementById('scorecardLinksList');
     const statusEl = document.getElementById('status');
+    const mobileScorecardShell = document.getElementById('mobileScorecardShell');
+    const exitMobileScorecardBtn = document.getElementById('exitMobileScorecardBtn');
     const scorecardCard = document.getElementById('scorecardCard');
     const scorecardTitle = document.getElementById('scorecardTitle');
     const updatedAt = document.getElementById('updatedAt');
@@ -212,6 +245,7 @@
     const TIN_CUP_LIVE_LOCAL_STATE_KEY = 'tinCupLiveLocalStateV1';
     const TIN_CUP_SCORING_STORAGE_KEY = 'tinCupScoringStateV2';
     const TIN_CUP_SCORECARD_CODE_KEY = 'tinCupScorecardCodesV1';
+    const TIN_CUP_CTP_HOLES = [3, 7, 12, 17];
 
     const DAY_KEYS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4', 'Practice'];
     const DAY_OPTIONS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 2 Total', 'Day 3', 'Day 4'];
@@ -393,13 +427,16 @@
       if (!slot) throw new Error('Foursome not found for this day');
       const key = localKey(dayKey, slotIndex);
       if (!state.scorecards[key]) {
-        state.scorecards[key] = { dayKey, slotIndex: Number(slotIndex), players: {}, markers: { ctp: {}, longDrive: {} }, updatedAt: new Date().toISOString() };
+        state.scorecards[key] = { dayKey, slotIndex: Number(slotIndex), players: {}, markers: { ctp: {}, longDrive: {} }, scorerName: '', submittedAt: null, submittedBy: '', updatedAt: new Date().toISOString() };
       }
       const card = state.scorecards[key];
       if (!card.players || typeof card.players !== 'object') card.players = {};
       if (!card.markers || typeof card.markers !== 'object') card.markers = { ctp: {}, longDrive: {} };
       if (!card.markers.ctp || typeof card.markers.ctp !== 'object') card.markers.ctp = {};
       if (!card.markers.longDrive || typeof card.markers.longDrive !== 'object') card.markers.longDrive = {};
+      if (typeof card.scorerName !== 'string') card.scorerName = card.scorerName ? String(card.scorerName) : '';
+      if (typeof card.submittedAt !== 'string') card.submittedAt = card.submittedAt ? String(card.submittedAt) : null;
+      if (typeof card.submittedBy !== 'string') card.submittedBy = card.submittedBy ? String(card.submittedBy) : '';
       slot.players.forEach((player) => {
         const keyName = norm(player.name);
         if (!card.players[keyName]) card.players[keyName] = { name: player.name, hcp: player.hcp, holes: holeArray() };
@@ -413,8 +450,53 @@
       return { state, slot, card };
     }
 
+    function getStoredLocalCard(state, dayKey, slotIndex) {
+      const key = localKey(dayKey, slotIndex);
+      const card = state && state.scorecards && typeof state.scorecards === 'object' ? state.scorecards[key] : null;
+      if (!card || typeof card !== 'object') return null;
+      if (!card.players || typeof card.players !== 'object') card.players = {};
+      if (!card.markers || typeof card.markers !== 'object') card.markers = { ctp: {}, longDrive: {} };
+      if (!card.markers.ctp || typeof card.markers.ctp !== 'object') card.markers.ctp = {};
+      if (!card.markers.longDrive || typeof card.markers.longDrive !== 'object') card.markers.longDrive = {};
+      if (typeof card.scorerName !== 'string') card.scorerName = card.scorerName ? String(card.scorerName) : '';
+      if (typeof card.submittedAt !== 'string') card.submittedAt = card.submittedAt ? String(card.submittedAt) : null;
+      if (typeof card.submittedBy !== 'string') card.submittedBy = card.submittedBy ? String(card.submittedBy) : '';
+      return card;
+    }
+
+    function getLocalDayMarkers(state, dayKey) {
+      const winners = { ctp: {}, longDrive: {} };
+      const winnerTs = { ctp: {}, longDrive: {} };
+      getDaySlots(dayKey).forEach((slot) => {
+        const card = getStoredLocalCard(state, dayKey, slot.slotIndex);
+        if (!card) return;
+        const ts = Date.parse(card.updatedAt || '') || 0;
+        ['ctp', 'longDrive'].forEach((type) => {
+          const markerMap = card.markers && card.markers[type] ? card.markers[type] : {};
+          Object.keys(markerMap).forEach((holeKey) => {
+            const winner = String(markerMap[holeKey] || '').trim();
+            if (!winner) return;
+            if (!winnerTs[type][holeKey] || ts >= winnerTs[type][holeKey]) {
+              winners[type][holeKey] = winner;
+              winnerTs[type][holeKey] = ts;
+            }
+          });
+        });
+      });
+      return winners;
+    }
+
+    function clearLocalMarkerAssignments(state, dayKey, type, hole) {
+      const holeKey = String(Number(hole));
+      getDaySlots(dayKey).forEach((slot) => {
+        const card = getStoredLocalCard(state, dayKey, slot.slotIndex);
+        if (!card || !card.markers || !card.markers[type]) return;
+        delete card.markers[type][holeKey];
+      });
+    }
+
     function buildLocalScorecardView(dayKey, slotIndex) {
-      const { slot, card } = ensureLocalCard(dayKey, slotIndex);
+      const { state, slot, card } = ensureLocalCard(dayKey, slotIndex);
       return {
         dayKey,
         slotIndex,
@@ -427,10 +509,19 @@
             handicap: player.hcp,
             holes: entry.holes,
             grossTotal: summary.grossTotal,
-            netTotal: summary.netTotal
+            netTotal: summary.netTotal,
+            complete18: summary.complete18
           };
         }),
-        markers: card.markers,
+        markers: getLocalDayMarkers(state, dayKey),
+        markerHoles: {
+          ctp: TIN_CUP_CTP_HOLES.slice(),
+          longDrive: Array.from({ length: 18 }, (_, index) => index + 1)
+        },
+        scorerName: card.scorerName || '',
+        submittedAt: card.submittedAt || null,
+        submittedBy: card.submittedBy || '',
+        submitted: Boolean(card.submittedAt),
         updatedAt: card.updatedAt
       };
     }
@@ -1312,6 +1403,64 @@
       return row ? row.slots : [];
     }
 
+    function isMobileScorecardViewport() {
+      return Boolean(window.matchMedia && window.matchMedia('(max-width: 900px)').matches);
+    }
+
+    function enterMobileScorecardMode() {
+      if (!isMobileScorecardViewport()) return;
+      document.body.classList.add('mobile-scorecard-active');
+      if (mobileScorecardShell && typeof mobileScorecardShell.scrollTo === 'function') {
+        mobileScorecardShell.scrollTo({ top: 0, behavior: 'auto' });
+      }
+    }
+
+    function exitMobileScorecardMode() {
+      document.body.classList.remove('mobile-scorecard-active');
+    }
+
+    function hideScorecardPanels() {
+      scorecardCard.style.display = 'none';
+      holeEntryCard.style.display = 'none';
+      markersCard.style.display = 'none';
+      exitMobileScorecardMode();
+    }
+
+    function getAdminOverrideCode() {
+      return String(adminCodeInput.value || '').trim();
+    }
+
+    function hasAdminOverrideCode() {
+      return Boolean(getAdminOverrideCode());
+    }
+
+    function isSubmittedScorecard(view) {
+      return Boolean(view && view.submittedAt);
+    }
+
+    function formatSubmissionMeta(view) {
+      if (!view || !view.submittedAt) return '';
+      const stamp = new Date(view.submittedAt);
+      const who = String(view.submittedBy || '').trim();
+      const when = Number.isNaN(stamp.getTime()) ? String(view.submittedAt) : stamp.toLocaleString();
+      return who ? `Submitted ${when} by ${who}` : `Submitted ${when}`;
+    }
+
+    function formatScorerMeta(view) {
+      const who = String(view && view.scorerName || '').trim();
+      return who ? `Scorer: ${who}` : '';
+    }
+
+    async function requestAdminOverride() {
+      let adminCode = getAdminOverrideCode();
+      if (!adminCode) {
+        adminCode = String(window.prompt('Enter admin code to edit this submitted scorecard:') || '').trim();
+        if (adminCode) adminCodeInput.value = adminCode;
+      }
+      if (!adminCode) throw new Error('Admin code required to edit this submitted scorecard.');
+      return adminCode;
+    }
+
     function scorecardCodeKey(dayKey, slotIndex) {
       return `${String(dayKey || '').trim()}|${Number(slotIndex)}`;
     }
@@ -1463,14 +1612,22 @@
       const holes = Array.from({ length: 18 }, (_, i) => i + 1);
       const players = Array.isArray(view.players) ? view.players : [];
       scorecardTitle.textContent = `${view.dayKey} - ${view.label}`;
-      updatedAt.textContent = view.updatedAt ? `Updated: ${new Date(view.updatedAt).toLocaleTimeString()}` : '';
+      const metaParts = [];
+      const scorerMeta = formatScorerMeta(view);
+      if (scorerMeta) metaParts.push(scorerMeta);
+      if (view.updatedAt) metaParts.push(`Updated: ${new Date(view.updatedAt).toLocaleTimeString()}`);
+      if (view.submittedAt) metaParts.push(formatSubmissionMeta(view));
+      updatedAt.textContent = metaParts.join(' | ');
       const head = `<tr><th>Player</th>${holes.map((h) => `<th>H${h}</th>`).join('')}<th>Gross</th><th>Net</th></tr>`;
       const body = players.map((player) => {
         const championPenalty = toNum(player.penaltyChampion) || 0;
         const rookiePenalty = toNum(player.penaltyRookie) || 0;
         const totalPenalty = toNum(player.penaltyTotal) || 0;
         const adjustedNet = player.adjustedNetTotal;
-        return `<tr><td><strong>${esc(player.name)}</strong> <span class="muted">(HCP ${esc(player.handicap)} | CP ${esc(championPenalty)} | RP ${esc(rookiePenalty)} | Pen ${esc(totalPenalty)})</span></td>${holes.map((hole) => `<td><input type="number" min="1" max="20" data-hole-input="${esc(player.name)}|${hole}" value="${esc(player.holes && player.holes[hole - 1] !== null ? player.holes[hole - 1] : '')}"></td>`).join('')}<td>${player.grossTotal === null ? '-' : esc(player.grossTotal)}</td><td>${player.netTotal === null ? '-' : esc(player.netTotal)}${adjustedNet === null || adjustedNet === undefined ? '' : ` <span class="muted">(Adj ${esc(adjustedNet)})</span>`}</td></tr>`;
+        return `<tr><td><strong>${esc(player.name)}</strong> <span class="muted">(HCP ${esc(player.handicap)} | CP ${esc(championPenalty)} | RP ${esc(rookiePenalty)} | Pen ${esc(totalPenalty)})</span></td>${holes.map((hole) => {
+          const gross = player.holes && player.holes[hole - 1] !== null ? player.holes[hole - 1] : null;
+          return `<td>${gross === null ? '<span class="muted">-</span>' : esc(gross)}</td>`;
+        }).join('')}<td>${player.grossTotal === null ? '-' : esc(player.grossTotal)}</td><td>${player.netTotal === null ? '-' : esc(player.netTotal)}${adjustedNet === null || adjustedNet === undefined ? '' : ` <span class="muted">(Adj ${esc(adjustedNet)})</span>`}</td></tr>`;
       }).join('');
       scoreTableWrap.innerHTML = `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
       scorecardCard.style.display = 'block';
@@ -1498,25 +1655,47 @@
       }
       currentHole = clampHole(currentHole);
       const players = view.players || [];
+      const submitted = isSubmittedScorecard(view);
+      const adminOverride = hasAdminOverrideCode();
+      const submissionMeta = submitted ? formatSubmissionMeta(view) : '';
+      const canEdit = !submitted || adminOverride;
+      const allComplete = players.every((player) => player && player.complete18 === true);
       const chips = [2, 3, 4, 5, 6, 7, 8, 9, 10];
       const playerRows = players.map((player) => {
         const name = String(player.name || '');
         const current = toInt(player && player.holes && player.holes[currentHole - 1]);
         const currentLabel = current === null ? '-' : String(current);
-        const chipMarkup = chips.map((value) => `<button class="hole-chip${current === value ? ' active' : ''}" type="button" data-hole-set="${esc(name)}|${currentHole}|${value}">${value}</button>`).join('');
+        const chipMarkup = canEdit
+          ? chips.map((value) => `<button class="hole-chip${current === value ? ' active' : ''}" type="button" data-hole-set="${esc(name)}|${currentHole}|${value}">${value}</button>`).join('')
+          : `<div class="muted">Submitted score: <strong>${esc(currentLabel)}</strong></div>`;
+        const inlineControls = canEdit
+          ? `<div class="hole-inline-controls">
+            <button type="button" data-hole-step="${esc(name)}|${currentHole}|-1">-1</button>
+            <button type="button" data-hole-step="${esc(name)}|${currentHole}|1">+1</button>
+            <button type="button" data-hole-clear="${esc(name)}|${currentHole}">Clear</button>
+          </div>`
+          : '';
         return `<div class="hole-player-row">
           <div class="hole-player-head">
             <strong>${esc(name)}</strong>
             <span class="muted">HCP ${esc(player.handicap)} | Hole ${currentHole}: <strong>${esc(currentLabel)}</strong></span>
           </div>
           <div class="hole-chip-row">${chipMarkup}</div>
-          <div class="hole-inline-controls">
-            <button type="button" data-hole-step="${esc(name)}|${currentHole}|-1">-1</button>
-            <button type="button" data-hole-step="${esc(name)}|${currentHole}|1">+1</button>
-            <button type="button" data-hole-clear="${esc(name)}|${currentHole}">Clear</button>
-          </div>
+          ${inlineControls}
         </div>`;
       }).join('');
+      const submittedBanner = submitted
+        ? `<div class="${adminOverride ? 'ok' : 'muted'}">${esc(submissionMeta)}${adminOverride ? ' | Admin override active.' : ' | Scorecard is locked.'}</div>`
+        : '';
+      const adminEditButton = submitted && !adminOverride
+        ? `<button type="button" data-admin-edit="1">Enter Admin Code To Edit</button>`
+        : '';
+      const submitButton = currentHole === 18 && !submitted
+        ? `<div class="row" style="margin-top:8px;justify-content:space-between;align-items:center;">
+            <span class="muted">${allComplete ? 'All player holes are entered. Submit to lock this scorecard.' : 'Complete all 18 holes for every player to submit the scorecard.'}</span>
+            <button type="button" data-submit-scorecard="1"${allComplete ? '' : ' disabled'}>Submit Final Scorecard</button>
+          </div>`
+        : '';
       holeEntryWrap.innerHTML = `
         <div class="hole-nav-top">
           <strong>Live Hole Entry - ${esc(view.dayKey)} ${esc(view.label)}</strong>
@@ -1527,7 +1706,10 @@
           <div class="hole-nav-hole">Hole ${currentHole}</div>
           <button type="button" data-hole-nav="1"${currentHole >= 18 ? ' disabled' : ''}>Next &rarr;</button>
         </div>
+        ${submittedBanner}
+        ${adminEditButton}
         <div class="hole-player-grid">${playerRows}</div>
+        ${submitButton}
       `;
       holeEntryCard.style.display = 'block';
     }
@@ -1537,7 +1719,15 @@
       const players = [''].concat((view.players || []).map((p) => p.name));
       const ctp = (view.markers && view.markers.ctp) || {};
       const longDrive = (view.markers && view.markers.longDrive) || {};
-      const row = (type, map) => `<tr><th>${type}</th>${holes.map((hole) => `<td><select data-marker-input="${esc(type)}|${hole}">${players.map((name) => `<option value="${esc(name)}"${String(map[hole] || '') === String(name) ? ' selected' : ''}>${name ? esc(name) : '-'}</option>`).join('')}</select></td>`).join('')}</tr>`;
+      const markersLocked = isSubmittedScorecard(view) && !hasAdminOverrideCode();
+      const markerHoles = (view && view.markerHoles && typeof view.markerHoles === 'object') ? view.markerHoles : {};
+      const ctpHoles = new Set((Array.isArray(markerHoles.ctp) ? markerHoles.ctp : TIN_CUP_CTP_HOLES).map((hole) => Number(hole)));
+      const row = (type, map) => `<tr><th>${type}</th>${holes.map((hole) => {
+        if (type === 'ctp' && !ctpHoles.has(hole)) {
+          return '<td class="muted">-</td>';
+        }
+        return `<td><select data-marker-input="${esc(type)}|${hole}"${markersLocked ? ' disabled' : ''}>${players.map((name) => `<option value="${esc(name)}"${String(map[hole] || '') === String(name) ? ' selected' : ''}>${name ? esc(name) : '-'}</option>`).join('')}</select></td>`;
+      }).join('')}</tr>`;
       markerTableWrap.innerHTML = `<table><thead><tr><th>Type</th>${holes.map((h) => `<th>H${h}</th>`).join('')}</tr></thead><tbody>${row('ctp', ctp)}${row('longDrive', longDrive)}</tbody></table>`;
       markersCard.style.display = settings.enableLiveMarkers ? 'block' : 'none';
     }
@@ -1545,6 +1735,8 @@
     async function saveHole(playerName, hole, gross) {
       if (localMode) {
         const { state, card } = ensureLocalCard(active.dayKey, active.slotIndex);
+        if (card.submittedAt && !hasAdminOverrideCode()) throw new Error('Scorecard already submitted. Admin code required to edit.');
+        card.scorerName = String(active.scorerName || '').trim() || card.scorerName || '';
         const key = norm(playerName);
         if (!card.players[key]) throw new Error('Player not in this foursome');
         card.players[key].holes[hole - 1] = toInt(gross);
@@ -1562,12 +1754,24 @@
       }
 
       const id = await resolveTripId();
+      const headers = { 'Content-Type': 'application/json' };
+      const adminCode = getAdminOverrideCode();
+      if (adminCode) headers['x-admin-code'] = adminCode;
       const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/scorecard/hole`), {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dayKey: active.dayKey, slotIndex: active.slotIndex, code: active.code, playerName, hole, gross }),
+        method: 'PUT', headers,
+        body: JSON.stringify({ dayKey: active.dayKey, slotIndex: active.slotIndex, code: active.code, scorerName: String(active.scorerName || '').trim(), playerName, hole, gross }),
       });
       const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error || 'Failed to save score');
+      if (!res.ok) {
+        if (/Admin code required/i.test(String(payload && payload.error || ''))) {
+          adminCodeInput.value = '';
+          if (active.view) {
+            renderHoleEntry(active.view);
+            renderMarkers(active.view);
+          }
+        }
+        throw new Error(payload.error || 'Failed to save score');
+      }
       active.view = payload;
       renderScorecard(payload);
       renderMarkers(payload);
@@ -1578,8 +1782,10 @@
     async function saveMarker(type, hole, winner) {
       if (localMode) {
         const { state, card } = ensureLocalCard(active.dayKey, active.slotIndex);
+        if (card.submittedAt && !hasAdminOverrideCode()) throw new Error('Scorecard already submitted. Admin code required to edit.');
+        card.scorerName = String(active.scorerName || '').trim() || card.scorerName || '';
+        clearLocalMarkerAssignments(state, active.dayKey, type, hole);
         if (winner) card.markers[type][String(hole)] = winner;
-        else delete card.markers[type][String(hole)];
         card.updatedAt = new Date().toISOString();
         state.scorecards[localKey(active.dayKey, active.slotIndex)] = card;
         saveLocalLiveState(state);
@@ -1593,17 +1799,80 @@
       }
 
       const id = await resolveTripId();
+      const headers = { 'Content-Type': 'application/json' };
+      const adminCode = getAdminOverrideCode();
+      if (adminCode) headers['x-admin-code'] = adminCode;
       const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/scorecard/marker`), {
-        method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dayKey: active.dayKey, slotIndex: active.slotIndex, code: active.code, type, hole, winner }),
+        method: 'PUT', headers,
+        body: JSON.stringify({ dayKey: active.dayKey, slotIndex: active.slotIndex, code: active.code, scorerName: String(active.scorerName || '').trim(), type, hole, winner }),
       });
       const payload = await res.json();
-      if (!res.ok) throw new Error(payload.error || 'Failed to save marker');
+      if (!res.ok) {
+        if (/Admin code required/i.test(String(payload && payload.error || ''))) {
+          adminCodeInput.value = '';
+          if (active.view) {
+            renderHoleEntry(active.view);
+            renderMarkers(active.view);
+          }
+        }
+        throw new Error(payload.error || 'Failed to save marker');
+      }
       active.view = payload;
       renderScorecard(payload);
       renderMarkers(payload);
       statusEl.className = 'ok';
       statusEl.textContent = `Saved ${type.toUpperCase()} H${hole}`;
+    }
+
+    async function submitActiveScorecard() {
+      if (!active || !active.dayKey || !Number.isInteger(active.slotIndex) || active.slotIndex < 0) {
+        throw new Error('Open a scorecard before submitting.');
+      }
+      if (localMode) {
+        const { state, card } = ensureLocalCard(active.dayKey, active.slotIndex);
+        const view = buildLocalScorecardView(active.dayKey, active.slotIndex);
+        const allComplete = Array.isArray(view.players) && view.players.every((player) => player && player.complete18 === true);
+        if (!allComplete) throw new Error('All 18 holes for all players must be entered before submitting the scorecard.');
+        card.scorerName = String(active.scorerName || '').trim() || card.scorerName || '';
+        card.submittedAt = card.submittedAt || new Date().toISOString();
+        card.submittedBy = String(active.scorerName || '').trim() || card.submittedBy || 'Unknown scorer';
+        card.updatedAt = new Date().toISOString();
+        state.scorecards[localKey(active.dayKey, active.slotIndex)] = card;
+        saveLocalLiveState(state);
+        computeAndStoreLocalTinCupState();
+        const payload = buildLocalScorecardView(active.dayKey, active.slotIndex);
+        active.view = payload;
+        return payload;
+      }
+
+      const id = await resolveTripId();
+      const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/scorecard/submit`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dayKey: active.dayKey,
+          slotIndex: active.slotIndex,
+          code: active.code,
+          scorerName: String(active.scorerName || '').trim(),
+        }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Failed to submit scorecard');
+      active.view = payload;
+      return payload;
+    }
+
+    async function openRemoteScorecard(dayKey, slotIndex, scorerName, code) {
+      const id = await resolveTripId();
+      const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/scorecard/open`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dayKey, slotIndex, code, scorerName }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Scorecard not available');
+      active = { dayKey, slotIndex, code, view: payload, scorerName: scorerName || '' };
+      return payload;
     }
 
     async function openScorecardFromLink(dayKey, slotIndex) {
@@ -1614,7 +1883,7 @@
         if (!scorerName) {
           scorerName = String(window.prompt(`Enter your name to open ${dayKey} ${slotIndex + 1}`) || '').trim();
         }
-        if (!scorerName) throw new Error('Your name is required to open a live scorecard.');
+        if (!scorerName) throw new Error('Your name is required to open this scorecard.');
         sessionStorage.setItem('TIN_CUP_SCORE_ENTRY_NAME', scorerName);
         let code = '';
         if (settings.enableFoursomeCodes && !localMode) {
@@ -1625,18 +1894,29 @@
           if (!code) throw new Error('Foursome code required to open this scorecard.');
           saveStoredScorecardCode(dayKey, slotIndex, code);
         }
-        active = { ...active, scorerName, code };
-        const view = await loadScorecard(dayKey, slotIndex);
+        let view = null;
+        if (localMode) {
+          const { state, card } = ensureLocalCard(dayKey, slotIndex);
+          card.scorerName = scorerName;
+          card.updatedAt = new Date().toISOString();
+          state.scorecards[localKey(dayKey, slotIndex)] = card;
+          saveLocalLiveState(state);
+          view = buildLocalScorecardView(dayKey, slotIndex);
+          active = { dayKey, slotIndex, code, view, scorerName };
+        } else {
+          view = await openRemoteScorecard(dayKey, slotIndex, scorerName, code);
+        }
         currentHole = deriveCurrentHole(view);
         renderScorecard(view);
         renderHoleEntry(view);
         renderMarkers(view);
+        enterMobileScorecardMode();
         expandCard('scorecardCard');
         expandCard('holeEntryCard');
         expandCard('markersCard');
         holeEntryCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
         statusEl.className = 'ok';
-        statusEl.textContent = localMode ? `Local scorecard opened for ${scorerName}.` : `Live scorecard opened for ${scorerName}.`;
+        statusEl.textContent = localMode ? `Local scorecard opened for ${scorerName}.` : `Scorecard opened for ${scorerName}.`;
       } catch (error) {
         if (/Invalid foursome code/i.test(String(error && error.message || ''))) {
           saveStoredScorecardCode(dayKey, slotIndex, '');
@@ -1658,11 +1938,20 @@
     linkDaySelect.addEventListener('change', () => {
       selectedLinkDay = String(linkDaySelect.value || '');
       renderScorecardLinks();
-      scorecardCard.style.display = 'none';
-      holeEntryCard.style.display = 'none';
-      markersCard.style.display = 'none';
+      hideScorecardPanels();
       statusEl.className = 'muted';
       statusEl.textContent = localMode ? 'Local mode ready.' : '';
+    });
+
+    exitMobileScorecardBtn.addEventListener('click', () => {
+      hideScorecardPanels();
+      scorecardLinksCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      statusEl.className = 'muted';
+      statusEl.textContent = 'Returned to the main scorecard page.';
+    });
+
+    window.addEventListener('resize', () => {
+      if (!isMobileScorecardViewport()) exitMobileScorecardMode();
     });
 
     holeEntryWrap.addEventListener('click', async (event) => {
@@ -1671,6 +1960,37 @@
         const delta = Number(navBtn.dataset.holeNav);
         currentHole = clampHole(currentHole + (Number.isFinite(delta) ? delta : 0));
         renderHoleEntry(active.view);
+        return;
+      }
+
+      const adminEditBtn = event.target.closest('[data-admin-edit]');
+      if (adminEditBtn && active && active.view) {
+        try {
+          await requestAdminOverride();
+          renderHoleEntry(active.view);
+          renderMarkers(active.view);
+          statusEl.className = 'ok';
+          statusEl.textContent = 'Admin override enabled for submitted scorecard edits.';
+        } catch (error) {
+          statusEl.className = 'bad';
+          statusEl.textContent = error.message;
+        }
+        return;
+      }
+
+      const submitBtn = event.target.closest('[data-submit-scorecard]');
+      if (submitBtn && active && active.view) {
+        try {
+          const view = await submitActiveScorecard();
+          renderScorecard(view);
+          renderHoleEntry(view);
+          renderMarkers(view);
+          statusEl.className = 'ok';
+          statusEl.textContent = 'Scorecard submitted and locked.';
+        } catch (error) {
+          statusEl.className = 'bad';
+          statusEl.textContent = error.message;
+        }
         return;
       }
 
@@ -1719,21 +2039,6 @@
           statusEl.textContent = error.message;
         }
       }
-    });
-
-    scoreTableWrap.addEventListener('change', async (event) => {
-      const input = event.target.closest('[data-hole-input]');
-      if (!input || !active.view) return;
-      const [playerName, holeRaw] = String(input.dataset.holeInput || '').split('|');
-      const hole = Number(holeRaw);
-      const value = String(input.value || '').trim();
-      const gross = value ? Number(value) : null;
-      try {
-        await saveHole(playerName, hole, gross);
-        if (Number.isInteger(hole) && hole >= 1 && hole <= 18) currentHole = hole;
-        renderHoleEntry(active.view);
-      }
-      catch (error) { statusEl.className = 'bad'; statusEl.textContent = error.message; }
     });
 
     markerTableWrap.addEventListener('change', async (event) => {

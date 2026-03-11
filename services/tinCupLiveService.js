@@ -37,6 +37,7 @@ const SEED_MARKER_HOLES = {
   ctp: [3, 7, 12, 17],
   longDrive: [5, 14],
 };
+const ALL_HOLES = Array.from({ length: 18 }, (_, index) => index + 1);
 
 const clean = (v = '') => String(v || '').trim();
 const normalize = (v = '') => clean(v).replace(/\s+/g, ' ').toLowerCase();
@@ -186,6 +187,9 @@ function ensureSlotScorecard(state, dayKey, slotIndex) {
       slotIndex: Number(slotIndex),
       players: {},
       markers: { ctp: {}, longDrive: {} },
+      scorerName: '',
+      submittedAt: null,
+      submittedBy: '',
       updatedAt: new Date().toISOString(),
     };
   }
@@ -194,6 +198,9 @@ function ensureSlotScorecard(state, dayKey, slotIndex) {
   if (!sc.markers || typeof sc.markers !== 'object') sc.markers = { ctp: {}, longDrive: {} };
   if (!sc.markers.ctp || typeof sc.markers.ctp !== 'object') sc.markers.ctp = {};
   if (!sc.markers.longDrive || typeof sc.markers.longDrive !== 'object') sc.markers.longDrive = {};
+  if (typeof sc.scorerName !== 'string') sc.scorerName = sc.scorerName ? String(sc.scorerName) : '';
+  if (typeof sc.submittedAt !== 'string') sc.submittedAt = sc.submittedAt ? String(sc.submittedAt) : null;
+  if (typeof sc.submittedBy !== 'string') sc.submittedBy = sc.submittedBy ? String(sc.submittedBy) : '';
   slot.players.forEach((player) => {
     const playerKey = normalize(player.name);
     if (!sc.players[playerKey]) {
@@ -206,6 +213,59 @@ function ensureSlotScorecard(state, dayKey, slotIndex) {
   });
   sc.updatedAt = new Date().toISOString();
   return { slot, scorecard: sc };
+}
+
+function getStoredScorecard(state, dayKey, slotIndex) {
+  const k = keyFor(dayKey, slotIndex);
+  const sc = state && state.scorecards && typeof state.scorecards === 'object' ? state.scorecards[k] : null;
+  if (!sc || typeof sc !== 'object') return null;
+  if (!sc.players || typeof sc.players !== 'object') sc.players = {};
+  if (!sc.markers || typeof sc.markers !== 'object') sc.markers = { ctp: {}, longDrive: {} };
+  if (!sc.markers.ctp || typeof sc.markers.ctp !== 'object') sc.markers.ctp = {};
+  if (!sc.markers.longDrive || typeof sc.markers.longDrive !== 'object') sc.markers.longDrive = {};
+  if (typeof sc.scorerName !== 'string') sc.scorerName = sc.scorerName ? String(sc.scorerName) : '';
+  if (typeof sc.submittedAt !== 'string') sc.submittedAt = sc.submittedAt ? String(sc.submittedAt) : null;
+  if (typeof sc.submittedBy !== 'string') sc.submittedBy = sc.submittedBy ? String(sc.submittedBy) : '';
+  return sc;
+}
+
+function getDayMarkers(state, dayKey) {
+  const winners = { ctp: {}, longDrive: {} };
+  const winnerTs = { ctp: {}, longDrive: {} };
+  getDaySlots(dayKey).forEach((slot) => {
+    const scorecard = getStoredScorecard(state, dayKey, slot.slotIndex);
+    if (!scorecard) return;
+    const ts = Date.parse(scorecard.updatedAt || '') || 0;
+    ['ctp', 'longDrive'].forEach((type) => {
+      const markerMap = scorecard.markers && scorecard.markers[type] ? scorecard.markers[type] : {};
+      Object.keys(markerMap).forEach((holeKey) => {
+        const winner = clean(markerMap[holeKey]);
+        if (!winner) return;
+        if (!winnerTs[type][holeKey] || ts >= winnerTs[type][holeKey]) {
+          winners[type][holeKey] = winner;
+          winnerTs[type][holeKey] = ts;
+        }
+      });
+    });
+  });
+  return winners;
+}
+
+function clearMarkerAssignments(state, dayKey, type, hole) {
+  const holeKey = String(Number(hole));
+  getDaySlots(dayKey).forEach((slot) => {
+    const scorecard = getStoredScorecard(state, dayKey, slot.slotIndex);
+    if (!scorecard || !scorecard.markers || !scorecard.markers[type]) return;
+    delete scorecard.markers[type][holeKey];
+  });
+}
+
+function assertScorecardEditable(scorecard, allowSubmittedEdit = false) {
+  if (scorecard && scorecard.submittedAt && allowSubmittedEdit !== true) {
+    const error = new Error('Scorecard already submitted. Admin code required to edit.');
+    error.status = 403;
+    throw error;
+  }
 }
 
 function setSlotCode(state, dayKey, slotIndex, code) {
@@ -240,6 +300,11 @@ function getDayHandicapMap(dayKey) {
     });
   }
   return map;
+}
+
+function getAllowedMarkerHoles(type = '') {
+  if (type === 'ctp') return SEED_MARKER_HOLES.ctp.slice();
+  return ALL_HOLES.slice();
 }
 
 function getHoleStrokeAllowance(hcp, holeNumber) {
@@ -577,6 +642,7 @@ function getLiveMeta(state) {
 
 function getScorecardView(state, dayKey, slotIndex) {
   const { slot, scorecard } = ensureSlotScorecard(state, dayKey, slotIndex);
+  const dayMarkers = getDayMarkers(state, dayKey);
   return {
     dayKey,
     slotIndex: Number(slotIndex),
@@ -598,7 +664,15 @@ function getScorecardView(state, dayKey, slotIndex) {
         complete18: summary.complete18,
       };
     }),
-    markers: scorecard.markers || { ctp: {}, longDrive: {} },
+    markers: dayMarkers,
+    markerHoles: {
+      ctp: getAllowedMarkerHoles('ctp'),
+      longDrive: getAllowedMarkerHoles('longDrive'),
+    },
+    scorerName: scorecard.scorerName || '',
+    submittedAt: scorecard.submittedAt || null,
+    submittedBy: scorecard.submittedBy || '',
+    submitted: Boolean(scorecard.submittedAt),
     updatedAt: scorecard.updatedAt || null,
   };
 }
@@ -615,8 +689,11 @@ function updateHoleScore(state, payload = {}) {
   if (!Number.isInteger(hole) || hole < 1 || hole > 18) throw new Error('hole must be 1-18');
 
   const { slot, scorecard } = ensureSlotScorecard(state, dayKey, slotIndex);
+  assertScorecardEditable(scorecard, payload.allowSubmittedEdit === true);
   const player = slot.players.find((entry) => normalize(entry.name) === normalize(playerName));
   if (!player) throw new Error('Player not in this foursome');
+  const scorerName = clean(payload.scorerName);
+  if (scorerName) scorecard.scorerName = scorerName;
 
   const key = normalize(player.name);
   const entry = scorecard.players[key] || { name: player.name, holes: holeArray() };
@@ -637,16 +714,57 @@ function updateMarker(state, payload = {}) {
   if (!Number.isInteger(slotIndex) || slotIndex < 0) throw new Error('slotIndex required');
   if (!['ctp', 'longDrive'].includes(type)) throw new Error('Marker type must be ctp or longDrive');
   if (!Number.isInteger(hole) || hole < 1 || hole > 18) throw new Error('hole must be 1-18');
+  if (type === 'ctp' && !getAllowedMarkerHoles('ctp').includes(hole)) throw new Error('CTP is only allowed on par-3 holes');
 
   const { slot, scorecard } = ensureSlotScorecard(state, dayKey, slotIndex);
+  assertScorecardEditable(scorecard, payload.allowSubmittedEdit === true);
   const allowed = new Map(slot.players.map((player) => [normalize(player.name), player.name]));
+  const scorerName = clean(payload.scorerName);
+  if (scorerName) scorecard.scorerName = scorerName;
+  clearMarkerAssignments(state, dayKey, type, hole);
   if (winner) {
     const winnerKey = normalize(winner);
     if (!allowed.has(winnerKey)) throw new Error('Winner must be in this foursome');
     scorecard.markers[type][String(hole)] = allowed.get(winnerKey);
-  } else {
-    delete scorecard.markers[type][String(hole)];
   }
+  scorecard.updatedAt = new Date().toISOString();
+  return getScorecardView(state, dayKey, slotIndex);
+}
+
+function setScorecardScorer(state, payload = {}) {
+  const dayKey = clean(payload.dayKey);
+  const slotIndex = Number(payload.slotIndex);
+  const scorerName = clean(payload.scorerName);
+  if (!dayKey) throw new Error('dayKey required');
+  if (!Number.isInteger(slotIndex) || slotIndex < 0) throw new Error('slotIndex required');
+  if (!scorerName) throw new Error('scorerName required');
+  const { scorecard } = ensureSlotScorecard(state, dayKey, slotIndex);
+  scorecard.scorerName = scorerName;
+  scorecard.updatedAt = new Date().toISOString();
+  return getScorecardView(state, dayKey, slotIndex);
+}
+
+function submitScorecard(state, payload = {}) {
+  const dayKey = clean(payload.dayKey);
+  const slotIndex = Number(payload.slotIndex);
+  const scorerName = clean(payload.scorerName);
+  if (!dayKey) throw new Error('dayKey required');
+  if (!Number.isInteger(slotIndex) || slotIndex < 0) throw new Error('slotIndex required');
+
+  const { slot, scorecard } = ensureSlotScorecard(state, dayKey, slotIndex);
+  if (scorerName) scorecard.scorerName = scorerName;
+  const incompletePlayer = slot.players.find((player) => {
+    const entry = scorecard.players[normalize(player.name)] || { name: player.name, holes: holeArray() };
+    const summary = summarizePlayerCard(entry, player.hcp);
+    return summary.complete18 !== true;
+  });
+  if (incompletePlayer) {
+    throw new Error('All 18 holes for all players must be entered before submitting the scorecard.');
+  }
+
+  if (!scorecard.submittedAt) scorecard.submittedAt = new Date().toISOString();
+  if (scorerName) scorecard.submittedBy = scorerName;
+  if (!scorecard.submittedBy) scorecard.submittedBy = 'Unknown scorer';
   scorecard.updatedAt = new Date().toISOString();
   return getScorecardView(state, dayKey, slotIndex);
 }
@@ -725,6 +843,7 @@ function seedAllScores(state, options = {}) {
     getDaySlots(dayKey).forEach((slot) => {
       const { scorecard } = ensureSlotScorecard(state, dayKey, slot.slotIndex);
       scorecard.players = {};
+      scorecard.scorerName = '';
       slot.players.forEach((player) => {
         scorecard.players[normalize(player.name)] = {
           name: player.name,
@@ -732,6 +851,8 @@ function seedAllScores(state, options = {}) {
         };
       });
       scorecard.markers = { ctp: {}, longDrive: {} };
+      scorecard.submittedAt = null;
+      scorecard.submittedBy = '';
       SEED_MARKER_HOLES.ctp.forEach((holeNumber) => {
         scorecard.markers.ctp[String(holeNumber)] = getSeedMarkerWinner(slot.players, dayKey, slot.slotIndex, holeNumber, 1);
       });
@@ -759,6 +880,8 @@ module.exports = {
   getScorecardView,
   updateHoleScore,
   updateMarker,
+  setScorecardScorer,
+  submitScorecard,
   buildLeaderboard,
   buildDayRows,
   setScrambleBonus,
