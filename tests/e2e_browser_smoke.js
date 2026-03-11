@@ -6,7 +6,7 @@ require('dotenv').config();
 
 const PORT = Number(process.env.E2E_PORT || 5055);
 const BASE = `http://127.0.0.1:${PORT}`;
-const DEBUG_PORT = Number(process.env.E2E_BROWSER_DEBUG_PORT || 9223);
+const DEBUG_PORT = Number(process.env.E2E_BROWSER_DEBUG_PORT || 9233);
 const BROWSER_CANDIDATES = [
   process.env.E2E_BROWSER_BIN,
   'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
