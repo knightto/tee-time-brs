@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tin Cup 2026 Golf Trip Tracker</title>
+  <title>Tin Cup 2026 Tracker</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     :root {
@@ -898,12 +898,11 @@
   <a href="/" style="position:fixed;top:12px;left:12px;padding:8px 12px;background:#0c1a2c;color:#f9fafb;text-decoration:none;border-radius:10px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);z-index:999;">← Main Page</a>
   <div class="container">
     <header class="hero">
-      <h1>Tin Cup 2026 Golf Trip <span>5/12-5/17/26</span></h1>
+      <h1>Tin Cup 2026 <span>5/12-5/17/26</span></h1>
       <div class="chips">
         <div class="chip">Southern Pines, NC</div>
         <button id="tripInfoTrigger" class="chip chip-button" type="button">Trip Info</button>
         <a id="tinCupGuestsChip" class="chip cta" href="/tin-cup/guests-lodging.html">Guests & Lodging</a>
-        <a class="chip cta" href="https://my.golfbreaks.com/guest/4045f310-b25c-4bbd-bb26-0b1b3576a9f8/" target="_blank" rel="noopener">Vendor Trip Portal</a>
         <a id="tinCupLiveEntryChip" class="chip cta" href="/tin-cup/live-score-entry.html">Scoring and Data Page</a>
         <a id="tinCupLiveLeaderboardChip" class="chip cta" href="/tin-cup/leaderboard-2026.html">Live Leaderboards</a>
       </div>
@@ -1214,14 +1213,13 @@
     ];
     const TIN_CUP_SCORING_STORAGE_KEY = 'tinCupScoringStateV2';
     const TIN_CUP_CONTEXT_STORAGE_KEY = 'tinCupTripContextV1';
-    const TIN_CUP_MAP_COLLAPSED_KEY = 'tinCupMapCollapsedV1';
     const TIN_CUP_RANK_POINTS = [12, 10, 8.5, 7, 5.75, 4.5, 3, 1.25, 0, 0, 0, 0, 0, 0, 0, 0];
     const TIN_CUP_DAY_LEADERBOARD_OPTIONS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 2 Total', 'Day 3', 'Day 4'];
 
     let tripId = null;
     let trip = null;
     let participants = [];
-    let useSecondaryTripDb = true;
+    let useSecondaryTripDb = false;
     let tinCupScoringState = null;
     let tinCupLeaderboardDay = 'Day 1';
     const DEFAULT_TIN_CUP_LIVE_SETTINGS = {
@@ -1258,7 +1256,7 @@
         return path;
       }
       const sep = path.includes('?') ? '&' : '?';
-      return `${path}${sep}tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}`;
+      return `${path}${sep}tripId=${encodeURIComponent(String(tripId))}`;
     };
     const saveTinCupTripContext = () => {
       if (!tripId) return;
@@ -2123,13 +2121,13 @@
 
     async function loadTrip() {
       if (!tinCupScoringState) tinCupScoringState = loadTinCupScoringState();
-      useSecondaryTripDb = true;
+      useSecondaryTripDb = false;
       let res = await fetch(tripApi('/api/trips'));
       let trips = await res.json();
       trip = trips.find((t) => t.name && /tin\s*cup/i.test(String(t.name || ''))) || null;
       if (!trip) {
-        useSecondaryTripDb = false;
-        res = await fetch('/api/trips');
+        useSecondaryTripDb = true;
+        res = await fetch(tripApi('/api/trips'));
         trips = await res.json();
         trip = trips.find((t) => t.name && /tin\s*cup/i.test(String(t.name || ''))) || null;
       }
@@ -2153,30 +2151,6 @@
       }
       tinCupLiveSettings = getTinCupLiveSettingsFromTrip();
       renderAll();
-    }
-
-    function initTripMapToggle() {
-      const mapBox = document.getElementById('tripMapBox');
-      const toggleBtn = document.getElementById('tripMapToggle');
-      if (!mapBox || !toggleBtn) return;
-      let collapsed = true;
-      try {
-        const raw = localStorage.getItem(TIN_CUP_MAP_COLLAPSED_KEY);
-        if (raw === '0') collapsed = false;
-        if (raw === '1') collapsed = true;
-      } catch (_err) {}
-      const sync = () => {
-        mapBox.classList.toggle('trip-map-collapsed', collapsed);
-        toggleBtn.textContent = collapsed ? 'Expand Map' : 'Minimize Map';
-      };
-      sync();
-      toggleBtn.addEventListener('click', () => {
-        collapsed = !collapsed;
-        try {
-          localStorage.setItem(TIN_CUP_MAP_COLLAPSED_KEY, collapsed ? '1' : '0');
-        } catch (_err) {}
-        sync();
-      });
     }
 
     function renderTinCupLiveNavChips() {
@@ -2248,6 +2222,7 @@
           <div><strong>Arrival:</strong> ${arrivalDateDisplay} &nbsp;|&nbsp; <strong>Departure:</strong> ${departureDateDisplay}</div>
           <div><strong>Featured Courses:</strong> Mid Pines, Pine Needles, Talamore, Tobacco Road, Mid South</div>
           <div><strong>Lodging / Resort Base:</strong> 610 Palmer Drive, Southern Pines, North Carolina 28387, United States</div>
+          <div><strong>Vendor Trip Portal:</strong> <a class="cta" href="https://my.golfbreaks.com/guest/4045f310-b25c-4bbd-bb26-0b1b3576a9f8/" target="_blank" rel="noopener">Open Vendor Trip Portal</a></div>
           <div style="margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,0.03);display:grid;gap:6px;">
             <label style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:0.9rem;">
               <input id="tinCupLiveScoringToggle" type="checkbox" ${tinCupLiveSettings.enableLiveFoursomeScoring ? 'checked' : ''} ${liveSettingsDisabled ? 'disabled' : ''}>
@@ -2715,17 +2690,6 @@
               <button type="button" id="tripNextMonth" class="trip-calendar-nav" title="Next month">›</button>
             </div>
             <div id="tripCalendarGrid" class="trip-calendar-grid"></div>
-            <div class="trip-map-panel trip-map-collapsed" id="tripMapBox">
-              <div class="trip-map-head">
-                <h2>Trip Map</h2>
-                <div class="trip-map-actions">
-                  <button id="tripMapToggle" type="button">Expand Map</button>
-                </div>
-              </div>
-              <div class="map-frame-wrap">
-                <iframe src="https://www.google.com/maps?q=610+Palmer+Drive,+Southern+Pines,+North+Carolina+28387&output=embed" width="640" height="480" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Tin Cup 2026 Golf Trip Map"></iframe>
-              </div>
-            </div>
             <div class="trip-sidebar-tee-sheet" id="tripSidebarTeeSheet">
               <h3>Tee Sheet</h3>
               <div class="trip-empty-state">Select a date to view tee times.</div>
@@ -2740,8 +2704,6 @@
           </section>
         </div>
       `;
-
-      initTripMapToggle();
 
       const rounds = getTripRounds();
       renderTripSchedule(rounds);
@@ -3060,7 +3022,6 @@
 
     window.addEventListener('DOMContentLoaded', () => {
       initTripInfoModal();
-      initTripMapToggle();
       loadTrip();
     });
   </script>

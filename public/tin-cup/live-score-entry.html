@@ -31,6 +31,9 @@
     .scorecard-link-title { display:flex; justify-content:space-between; align-items:center; gap:8px; font-weight:700; }
     .scorecard-link-players { color:var(--muted); font-size:.82rem; }
     .scorecard-link-row { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+    .scorecard-access-box { margin:10px 0 12px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:rgba(255,255,255,.03); display:grid; gap:8px; }
+    .scorecard-access-box label { flex-direction:row; align-items:center; gap:8px; color:var(--ink); font-size:.9rem; }
+    .scorecard-access-row { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
     .hole-nav { display:grid; gap:10px; }
     .hole-nav-top { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
     .hole-nav-controls { display:flex; align-items:center; gap:6px; }
@@ -85,6 +88,16 @@
           </label>
         </div>
         <div class="muted" style="margin:6px 0 10px;">Open your foursome link to score hole-by-hole live. Changes sync to match scoring and the live leaderboard.</div>
+        <div class="scorecard-access-box">
+          <div class="scorecard-access-row">
+            <label>
+              <input id="codeProtectToggle" type="checkbox">
+              <span><strong>Require Foursome Code To Open Scorecards</strong></span>
+            </label>
+            <span id="codeProtectState" class="muted"></span>
+          </div>
+          <small id="codeProtectHelp" class="muted">When disabled, golfers can open a scorecard with just their name. When enabled, a foursome code is required before entry.</small>
+        </div>
         <div id="scorecardLinksList"></div>
         <div style="margin-top:10px;"><span id="status" class="muted"></span></div>
       </details>
@@ -149,13 +162,6 @@
       <details>
         <summary class="setup-summary">Admin Code Utility</summary>
         <div class="muted" style="margin-top:4px;">Generate missing foursome codes for Tin Cup (admin only).</div>
-        <div style="margin-top:8px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:rgba(255,255,255,.03);display:grid;gap:6px;">
-          <label style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:0.9rem;">
-            <input id="codeProtectToggle" type="checkbox">
-            <span><strong>Require Foursome Code For Scorecard Entry</strong></span>
-          </label>
-          <small id="codeProtectHelp" class="muted">Live scorecards now open by player name and no foursome code is required.</small>
-        </div>
         <div class="row" style="margin-top:8px;">
           <label>Admin Code
             <input id="adminCodeInput" type="password" placeholder="Admin code">
@@ -187,6 +193,7 @@
     const adminCodeInput = document.getElementById('adminCodeInput');
     const codeProtectToggle = document.getElementById('codeProtectToggle');
     const codeProtectHelp = document.getElementById('codeProtectHelp');
+    const codeProtectState = document.getElementById('codeProtectState');
     const genCodesBtn = document.getElementById('genCodesBtn');
     const seedScoresBtn = document.getElementById('seedScoresBtn');
     const adminStatus = document.getElementById('adminStatus');
@@ -204,6 +211,7 @@
     const TIN_CUP_CONTEXT_STORAGE_KEY = 'tinCupTripContextV1';
     const TIN_CUP_LIVE_LOCAL_STATE_KEY = 'tinCupLiveLocalStateV1';
     const TIN_CUP_SCORING_STORAGE_KEY = 'tinCupScoringStateV2';
+    const TIN_CUP_SCORECARD_CODE_KEY = 'tinCupScorecardCodesV1';
 
     const DAY_KEYS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4', 'Practice'];
     const DAY_OPTIONS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 2 Total', 'Day 3', 'Day 4'];
@@ -237,7 +245,7 @@
 
     let tripId = null;
     let meta = null;
-    let useSecondaryTripDb = true;
+    let useSecondaryTripDb = false;
     let localMode = false;
     let selectedLinkDay = 'Day 1';
     let settings = {
@@ -273,9 +281,7 @@
     (function seedTripContext() {
       const qs = new URLSearchParams(window.location.search);
       allowLocalFallback = String(qs.get('local') || '').trim() === '1';
-      const qsSecondary = String(qs.get('secondary') || '').trim();
-      if (qsSecondary === '0' || qsSecondary.toLowerCase() === 'false') useSecondaryTripDb = false;
-      if (qsSecondary === '1' || qsSecondary.toLowerCase() === 'true') useSecondaryTripDb = true;
+      useSecondaryTripDb = false;
       const forcedId = String(qs.get('tripId') || '').trim();
       if (forcedId) { tripId = forcedId; return; }
       try {
@@ -283,8 +289,6 @@
         if (!raw) return;
         const parsed = JSON.parse(raw);
         if (parsed && parsed.tripId) tripId = String(parsed.tripId);
-        if (parsed && parsed.secondary === '0') useSecondaryTripDb = false;
-        if (parsed && parsed.secondary === '1') useSecondaryTripDb = true;
       } catch (_err) {}
     })();
 
@@ -1186,20 +1190,75 @@
       return null;
     }
 
-    async function resolveTripId() {
-      if (tripId) return tripId;
-      let res = await fetch(tripApi('/api/trips'));
-      let trips = await res.json();
-      let match = findTinCupTrip(trips);
-      if (!match) {
-        useSecondaryTripDb = false;
-        res = await fetch('/api/trips');
-        trips = await res.json();
-        match = findTinCupTrip(trips);
+    function isTinCupTrip(trip) {
+      if (!trip || typeof trip !== 'object') return false;
+      return /tin\s*cup/i.test(String(trip.name || ''))
+        || /tin\s*cup/i.test(String(trip.groupName || ''))
+        || /tin\s*cup/i.test(String(trip.reservationNumber || ''));
+    }
+
+    function saveTripContext() {
+      if (!tripId) return;
+      try {
+        localStorage.setItem(TIN_CUP_CONTEXT_STORAGE_KEY, JSON.stringify({
+          tripId: String(tripId),
+          secondary: useSecondaryTripDb ? '1' : '0'
+        }));
+      } catch (_err) {}
+    }
+
+    async function fetchTripsFromSource(secondaryFlag) {
+      const prev = useSecondaryTripDb;
+      useSecondaryTripDb = secondaryFlag === true;
+      try {
+        const res = await fetch(tripApi('/api/trips'));
+        const payload = await res.json().catch(() => ([]));
+        return Array.isArray(payload) ? payload : [];
+      } finally {
+        useSecondaryTripDb = prev;
       }
-      if (!match || !match._id) throw new Error('Tin Cup trip not found');
-      tripId = String(match._id);
-      return tripId;
+    }
+
+    async function fetchTripBundleFromSource(candidateTripId, secondaryFlag) {
+      if (!candidateTripId) return null;
+      const prev = useSecondaryTripDb;
+      useSecondaryTripDb = secondaryFlag === true;
+      try {
+        const res = await fetch(tripApi(`/api/trips/${candidateTripId}`));
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok || !isTinCupTrip(payload && payload.trip)) return null;
+        return payload;
+      } catch (_error) {
+        return null;
+      } finally {
+        useSecondaryTripDb = prev;
+      }
+    }
+
+    async function resolveTripId() {
+      const preferredOrder = useSecondaryTripDb ? [true, false] : [false, true];
+      if (tripId) {
+        for (const secondaryFlag of preferredOrder) {
+          const bundle = await fetchTripBundleFromSource(tripId, secondaryFlag);
+          if (bundle && bundle.trip && bundle.trip._id) {
+            tripId = String(bundle.trip._id);
+            useSecondaryTripDb = secondaryFlag;
+            saveTripContext();
+            return tripId;
+          }
+        }
+        tripId = null;
+      }
+      for (const secondaryFlag of preferredOrder) {
+        const trips = await fetchTripsFromSource(secondaryFlag);
+        const match = findTinCupTrip(trips);
+        if (!match || !match._id) continue;
+        tripId = String(match._id);
+        useSecondaryTripDb = secondaryFlag;
+        saveTripContext();
+        return tripId;
+      }
+      throw new Error('Tin Cup trip not found');
     }
 
     function activateLocalMode(reason = '') {
@@ -1219,6 +1278,7 @@
         const payload = await res.json();
         if (!res.ok) throw new Error(payload.error || 'Failed to load live scoring setup');
         localMode = false;
+        saveTripContext();
         return payload;
       } catch (error) {
         const msg = String(error && error.message || 'metadata load failed');
@@ -1230,7 +1290,11 @@
     async function saveLiveSettings(nextSettings) {
       if (localMode) throw new Error('Live settings require a linked Tin Cup trip.');
       const id = await resolveTripId();
-      const adminCode = String(adminCodeInput.value || '').trim();
+      let adminCode = String(adminCodeInput.value || '').trim();
+      if (!adminCode) {
+        adminCode = String(window.prompt('Enter admin code to update scorecard access settings:') || '').trim();
+        if (adminCode) adminCodeInput.value = adminCode;
+      }
       if (!adminCode) throw new Error('Admin code required');
       const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/settings`), {
         method: 'PUT',
@@ -1248,12 +1312,42 @@
       return row ? row.slots : [];
     }
 
+    function scorecardCodeKey(dayKey, slotIndex) {
+      return `${String(dayKey || '').trim()}|${Number(slotIndex)}`;
+    }
+
+    function loadStoredScorecardCodes() {
+      try {
+        const raw = localStorage.getItem(TIN_CUP_SCORECARD_CODE_KEY);
+        const parsed = raw ? JSON.parse(raw) : {};
+        return (parsed && typeof parsed === 'object') ? parsed : {};
+      } catch (_error) {
+        return {};
+      }
+    }
+
+    function saveStoredScorecardCode(dayKey, slotIndex, code) {
+      try {
+        const store = loadStoredScorecardCodes();
+        const key = scorecardCodeKey(dayKey, slotIndex);
+        const cleanCode = String(code || '').trim().toUpperCase();
+        if (cleanCode) store[key] = cleanCode;
+        else delete store[key];
+        localStorage.setItem(TIN_CUP_SCORECARD_CODE_KEY, JSON.stringify(store));
+      } catch (_error) {}
+    }
+
+    function getStoredScorecardCode(dayKey, slotIndex) {
+      const store = loadStoredScorecardCodes();
+      return String(store[scorecardCodeKey(dayKey, slotIndex)] || '').trim().toUpperCase();
+    }
+
     function buildSelfLink(dayKey, slotIndex) {
       const params = new URLSearchParams(window.location.search);
       params.set('dayKey', dayKey);
       params.set('slotIndex', String(slotIndex));
       if (tripId) params.set('tripId', String(tripId));
-      params.set('secondary', useSecondaryTripDb ? '1' : '0');
+      params.delete('secondary');
       return `${window.location.pathname}?${params.toString()}`;
     }
 
@@ -1280,7 +1374,7 @@
           <div class="muted" style="margin-top:10px;">Open the scorecard and enter your name to start keeping score.</div>
           <div class="scorecard-link-row">
             <a href="${esc(buildSelfLink(dayKey, slot.slotIndex))}" target="_blank" rel="noopener">Open in New Tab</a>
-            <span class="muted">Open access by player name</span>
+            <span class="muted">${settings.enableFoursomeCodes ? 'Foursome code required' : 'Open access by player name'}</span>
           </div>
         </div>`;
       }).join('')}</div>`;
@@ -1300,6 +1394,11 @@
       adminUtilityCard.style.display = !localMode ? '' : 'none';
       codeProtectToggle.checked = settings.enableFoursomeCodes === true;
       codeProtectToggle.disabled = localMode || !settings.enableLiveFoursomeScoring;
+      if (codeProtectState) {
+        codeProtectState.textContent = localMode
+          ? 'Unavailable in local mode'
+          : (settings.enableFoursomeCodes ? 'Code required' : 'Open by player name');
+      }
       codeProtectHelp.textContent = localMode
         ? 'Link the Tin Cup trip to the database to manage scorecard access settings here.'
         : (!settings.enableLiveFoursomeScoring
@@ -1346,12 +1445,17 @@
         return payload;
       }
 
+      const code = settings.enableFoursomeCodes
+        ? String(active.code || getStoredScorecardCode(dayKey, slotIndex) || '').trim().toUpperCase()
+        : '';
       const id = await resolveTripId();
-      const q = new URLSearchParams({ dayKey, slotIndex: String(slotIndex) }).toString();
+      const query = { dayKey, slotIndex: String(slotIndex) };
+      if (code) query.code = code;
+      const q = new URLSearchParams(query).toString();
       const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/scorecard?${q}`));
       const payload = await res.json();
       if (!res.ok) throw new Error(payload.error || 'Scorecard not available');
-      active = { dayKey, slotIndex, code: '', view: payload, scorerName: active.scorerName || '' };
+      active = { dayKey, slotIndex, code, view: payload, scorerName: active.scorerName || '' };
       return payload;
     }
 
@@ -1512,7 +1616,16 @@
         }
         if (!scorerName) throw new Error('Your name is required to open a live scorecard.');
         sessionStorage.setItem('TIN_CUP_SCORE_ENTRY_NAME', scorerName);
-        active = { ...active, scorerName };
+        let code = '';
+        if (settings.enableFoursomeCodes && !localMode) {
+          code = getStoredScorecardCode(dayKey, slotIndex);
+          if (!code) {
+            code = String(window.prompt(`Enter the foursome code to open ${dayKey} ${slotIndex + 1}`) || '').trim().toUpperCase();
+          }
+          if (!code) throw new Error('Foursome code required to open this scorecard.');
+          saveStoredScorecardCode(dayKey, slotIndex, code);
+        }
+        active = { ...active, scorerName, code };
         const view = await loadScorecard(dayKey, slotIndex);
         currentHole = deriveCurrentHole(view);
         renderScorecard(view);
@@ -1525,6 +1638,9 @@
         statusEl.className = 'ok';
         statusEl.textContent = localMode ? `Local scorecard opened for ${scorerName}.` : `Live scorecard opened for ${scorerName}.`;
       } catch (error) {
+        if (/Invalid foursome code/i.test(String(error && error.message || ''))) {
+          saveStoredScorecardCode(dayKey, slotIndex, '');
+        }
         statusEl.className = 'bad';
         statusEl.textContent = error.message;
       }
@@ -1764,6 +1880,8 @@
     codeProtectToggle.addEventListener('change', async () => {
       const next = codeProtectToggle.checked === true;
       codeProtectToggle.disabled = true;
+      statusEl.className = 'muted';
+      statusEl.textContent = 'Saving scorecard access setting...';
       adminStatus.className = 'muted';
       adminStatus.textContent = 'Saving code protection setting...';
       try {
@@ -1773,12 +1891,18 @@
         });
         meta = await fetchMeta();
         renderSelectors();
+        statusEl.className = 'ok';
+        statusEl.textContent = next
+          ? 'Foursome code requirement enabled.'
+          : 'Foursome code requirement disabled.';
         adminStatus.className = 'ok';
         adminStatus.textContent = next
           ? 'Foursome code requirement enabled.'
           : 'Foursome code requirement disabled.';
       } catch (error) {
         codeProtectToggle.checked = !next;
+        statusEl.className = 'bad';
+        statusEl.textContent = error.message;
         adminStatus.className = 'bad';
         adminStatus.textContent = error.message;
       }

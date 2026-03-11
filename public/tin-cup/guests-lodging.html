@@ -112,6 +112,43 @@
       align-items: center;
       color: var(--ink-soft);
     }
+    .trip-map-panel {
+      display: grid;
+      gap: 10px;
+    }
+    .trip-map-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .trip-map-head h2 {
+      margin: 0;
+      font-size: 1.05rem;
+      color: var(--ink);
+    }
+    .trip-map-links {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .map-frame-wrap {
+      position: relative;
+      width: 100%;
+      padding-top: 52%;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.03);
+    }
+    .map-frame-wrap iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
     input, select, button {
       font: inherit;
       border-radius: 9px;
@@ -141,6 +178,22 @@
       </div>
       <div id="tripMeta" style="margin-top:6px;color:var(--ink-soft);">Loading trip...</div>
       <div id="tripDebug" style="margin-top:4px;color:var(--muted);font-size:0.78rem;"></div>
+    </section>
+
+    <section class="panel trip-map-panel">
+      <div class="trip-map-head">
+        <div>
+          <h2>Trip Map</h2>
+          <div style="margin-top:4px;color:var(--ink-soft);">Talamore Golf Resort, 610 Palmer Drive, Southern Pines, NC 28387</div>
+        </div>
+        <div class="trip-map-links">
+          <a class="cta" href="https://www.google.com/maps/search/?api=1&query=Talamore+Golf+Resort+610+Palmer+Drive+Southern+Pines+NC+28387" target="_blank" rel="noopener">Open Full Map</a>
+          <a class="cta" href="https://waze.com/ul?ll=35.188834,-79.469227&navigate=yes" target="_blank" rel="noopener">Waze</a>
+        </div>
+      </div>
+      <div class="map-frame-wrap">
+        <iframe src="https://www.google.com/maps?q=610+Palmer+Drive,+Southern+Pines,+North+Carolina+28387&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Tin Cup 2026 Trip Map"></iframe>
+      </div>
     </section>
 
     <section class="panel">
