@@ -5,20 +5,20 @@
   <title>Tin Cup Scoring and Data Page</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    :root { --bg:#0c1523; --panel:#10243d; --line:rgba(255,255,255,.16); --ink:#e8eef8; --muted:#a9bdd9; --accent:#76d2ff; }
+    :root { --bg:#112417; --panel:#274235; --line:rgba(232,255,219,.14); --ink:#f9f3e7; --muted:#d2dfc3; --accent:#c89a4b; }
     * { box-sizing: border-box; }
-    body { margin:0; font-family:'Segoe UI', Arial, sans-serif; color:var(--ink); background: radial-gradient(circle at 20% 10%, rgba(118,210,255,.12), transparent 32%), var(--bg); }
+    body { margin:0; font-family:'Segoe UI', Arial, sans-serif; color:var(--ink); background: radial-gradient(circle at 20% 10%, rgba(200,154,75,.14), transparent 32%), var(--bg); }
     .wrap { max-width: 1240px; margin: 18px auto 40px; padding: 0 14px; }
-    .card { background: linear-gradient(140deg, var(--panel), #0c1b2f); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
+    .card { background: linear-gradient(140deg, var(--panel), #1f3427); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
     .entry-input-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:12px; margin-bottom:12px; align-items:start; }
     .entry-input-grid .card { margin-bottom:0; min-width:0; }
     .row { display:flex; flex-wrap:wrap; gap:10px; align-items:center; }
     label { color: var(--muted); font-size: .85rem; display:flex; flex-direction:column; gap:4px; }
-    input, select, button { border:1px solid var(--line); background:#0b1727; color:var(--ink); border-radius:8px; padding:7px 9px; }
-    button { background: rgba(118,210,255,.18); border-color: rgba(118,210,255,.5); font-weight: 700; cursor: pointer; }
-    button:hover { background: rgba(118,210,255,.28); }
+    input, select, button { border:1px solid var(--line); background:#173224; color:var(--ink); border-radius:8px; padding:7px 9px; }
+    button { background: rgba(200,154,75,.18); border-color: rgba(200,154,75,.5); font-weight: 700; cursor: pointer; }
+    button:hover { background: rgba(200,154,75,.28); }
     .muted { color:var(--muted); font-size:.84rem; }
-    .ok { color: #7df6b2; font-weight:700; }
+    .ok { color: #dce8c8; font-weight:700; }
     .bad { color: #ff9ea0; font-weight:700; }
     .table-wrap { overflow:auto; border:1px solid var(--line); border-radius:10px; }
     table { border-collapse: collapse; width:max-content; min-width:100%; }
@@ -42,9 +42,27 @@
     .hole-player-row { border:1px solid var(--line); border-radius:10px; padding:8px; background:rgba(255,255,255,.03); display:grid; gap:6px; }
     .hole-player-head { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
     .hole-chip-row { display:flex; flex-wrap:wrap; gap:6px; }
-    .hole-chip { min-width:36px; padding:6px 8px; border-radius:999px; border:1px solid var(--line); background:#0b1727; color:var(--ink); cursor:pointer; font-weight:700; }
-    .hole-chip.active { border-color: rgba(118,210,255,.8); background: rgba(118,210,255,.25); }
-    .hole-inline-controls { display:flex; align-items:center; gap:6px; }
+    .hole-chip { min-width:36px; padding:6px 8px; border-radius:999px; border:1px solid var(--line); background:#173224; color:var(--ink); cursor:pointer; font-weight:700; }
+    .hole-chip.active { border-color: rgba(200,154,75,.8); background: rgba(200,154,75,.25); }
+    .hole-inline-controls { display:flex; align-items:center; gap:6px; flex-wrap:wrap; }
+    .hole-entry-header { display:grid; gap:8px; }
+    .hole-entry-topline { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap; }
+    .hole-entry-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .hole-progress { display:grid; gap:6px; }
+    .hole-progress-bar { height:8px; border-radius:999px; background:rgba(255,255,255,.08); overflow:hidden; }
+    .hole-progress-fill { height:100%; border-radius:999px; background:linear-gradient(90deg, rgba(200,154,75,.95), rgba(220,232,200,.45)); }
+    .hole-summary-strip { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:8px; }
+    .hole-summary-pill { border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:rgba(255,255,255,.03); display:grid; gap:2px; }
+    .hole-summary-pill strong { font-size:.96rem; }
+    .hole-player-row.compact { padding:7px 8px; gap:5px; }
+    .hole-player-name-row { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+    .hole-player-meta { color:var(--muted); font-size:.78rem; }
+    .hole-current-value { display:inline-flex; align-items:center; justify-content:center; min-width:38px; padding:4px 8px; border-radius:999px; background:rgba(200,154,75,.14); border:1px solid rgba(200,154,75,.28); font-weight:700; }
+    .compact-link-btn { display:inline-flex; align-items:center; justify-content:center; }
+    .marker-current-wrap { display:grid; gap:8px; }
+    .marker-current-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:8px; }
+    .marker-current-card { border:1px solid var(--line); border-radius:10px; padding:10px; background:rgba(255,255,255,.03); display:grid; gap:6px; }
+    .marker-current-card select { width:100%; }
     .setup-summary { cursor:pointer; font-weight:700; }
     .setup-actions { display:flex; gap:8px; flex-wrap:wrap; margin:8px 0; }
     .setup-table-wrap { overflow:auto; border:1px solid var(--line); border-radius:10px; }
@@ -63,7 +81,7 @@
         z-index: 999;
         overflow: auto;
         padding: 10px 12px 24px;
-        background: radial-gradient(circle at 20% 10%, rgba(118,210,255,.12), transparent 32%), var(--bg);
+        background: radial-gradient(circle at 20% 10%, rgba(200,154,75,.12), transparent 32%), var(--bg);
       }
       body.mobile-scorecard-active .mobile-scorecard-bar {
         display:flex;
@@ -77,7 +95,7 @@
         padding: 10px 12px;
         border:1px solid var(--line);
         border-radius:12px;
-        background: linear-gradient(140deg, var(--panel), #0c1b2f);
+        background: linear-gradient(140deg, var(--panel), #1f3427);
       }
       body.mobile-scorecard-active .mobile-scorecard-bar button {
         flex: 0 0 auto;
@@ -85,6 +103,17 @@
       body.mobile-scorecard-active .mobile-scorecard-bar .muted {
         font-size: .8rem;
       }
+      .card { padding:12px; }
+      .hole-nav { gap:8px; }
+      .hole-nav-hole { font-size:.95rem; min-width:auto; }
+      .hole-chip-row { gap:5px; }
+      .hole-chip { min-width:32px; padding:5px 7px; font-size:.82rem; }
+      .hole-inline-controls button,
+      .hole-nav-controls button,
+      .compact-link-btn { padding:6px 8px; font-size:.82rem; }
+      .hole-player-row.compact { padding:6px 7px; }
+      .hole-summary-strip { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+      .marker-current-grid { grid-template-columns:1fr; }
     }
   </style>
 </head>
@@ -163,12 +192,12 @@
 
       <div class="card" id="scorecardCard" style="display:none;">
         <details>
-          <summary class="setup-summary">Full Scorecard</summary>
+          <summary class="setup-summary">Full Scorecard (Optional)</summary>
           <div class="head">
             <strong id="scorecardTitle">Scorecard</strong>
             <span id="updatedAt" class="muted"></span>
           </div>
-          <div class="muted" style="margin:6px 0 10px;">Read-only summary. Enter and update scores in Hole-By-Hole Entry.</div>
+          <div class="muted" style="margin:6px 0 10px;">Full 18-hole summary for review only. Day-to-day entry stays focused on the current hole.</div>
           <div class="table-wrap" id="scoreTableWrap"></div>
         </details>
       </div>
@@ -1419,8 +1448,15 @@
       document.body.classList.remove('mobile-scorecard-active');
     }
 
+    function setFullScorecardVisibility(nextVisible) {
+      showFullScorecard = Boolean(nextVisible);
+      scorecardCard.style.display = showFullScorecard ? 'block' : 'none';
+      const details = scorecardCard ? scorecardCard.querySelector('details') : null;
+      if (details) details.open = showFullScorecard;
+    }
+
     function hideScorecardPanels() {
-      scorecardCard.style.display = 'none';
+      setFullScorecardVisibility(false);
       holeEntryCard.style.display = 'none';
       markersCard.style.display = 'none';
       exitMobileScorecardMode();
@@ -1630,7 +1666,7 @@
         }).join('')}<td>${player.grossTotal === null ? '-' : esc(player.grossTotal)}</td><td>${player.netTotal === null ? '-' : esc(player.netTotal)}${adjustedNet === null || adjustedNet === undefined ? '' : ` <span class="muted">(Adj ${esc(adjustedNet)})</span>`}</td></tr>`;
       }).join('');
       scoreTableWrap.innerHTML = `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
-      scorecardCard.style.display = 'block';
+      setFullScorecardVisibility(showFullScorecard);
     }
 
     function deriveCurrentHole(view) {
@@ -1661,10 +1697,13 @@
       const canEdit = !submitted || adminOverride;
       const allComplete = players.every((player) => player && player.complete18 === true);
       const chips = [2, 3, 4, 5, 6, 7, 8, 9, 10];
+      const enteredCount = players.filter((player) => toInt(player && player.holes && player.holes[currentHole - 1]) !== null).length;
+      const progressPct = players.length ? Math.round((enteredCount / players.length) * 100) : 0;
       const playerRows = players.map((player) => {
         const name = String(player.name || '');
         const current = toInt(player && player.holes && player.holes[currentHole - 1]);
         const currentLabel = current === null ? '-' : String(current);
+        const holeNet = current === null ? null : current - getStrokeAllowance(player.handicap, currentHole);
         const chipMarkup = canEdit
           ? chips.map((value) => `<button class="hole-chip${current === value ? ' active' : ''}" type="button" data-hole-set="${esc(name)}|${currentHole}|${value}">${value}</button>`).join('')
           : `<div class="muted">Submitted score: <strong>${esc(currentLabel)}</strong></div>`;
@@ -1675,11 +1714,12 @@
             <button type="button" data-hole-clear="${esc(name)}|${currentHole}">Clear</button>
           </div>`
           : '';
-        return `<div class="hole-player-row">
-          <div class="hole-player-head">
+        return `<div class="hole-player-row compact">
+          <div class="hole-player-name-row">
             <strong>${esc(name)}</strong>
-            <span class="muted">HCP ${esc(player.handicap)} | Hole ${currentHole}: <strong>${esc(currentLabel)}</strong></span>
+            <span class="hole-current-value">${esc(currentLabel)}</span>
           </div>
+          <div class="hole-player-meta">HCP ${esc(player.handicap)} | Hole Net ${holeNet === null ? '-' : esc(holeNet)} | Totals ${player.grossTotal === null ? '-' : esc(player.grossTotal)}/${player.netTotal === null ? '-' : esc(player.netTotal)}</div>
           <div class="hole-chip-row">${chipMarkup}</div>
           ${inlineControls}
         </div>`;
@@ -1697,14 +1737,29 @@
           </div>`
         : '';
       holeEntryWrap.innerHTML = `
-        <div class="hole-nav-top">
-          <strong>Live Hole Entry - ${esc(view.dayKey)} ${esc(view.label)}</strong>
-          <span class="muted">Updates save immediately to leaderboard and match scoring.</span>
-        </div>
-        <div class="hole-nav-controls">
-          <button type="button" data-hole-nav="-1"${currentHole <= 1 ? ' disabled' : ''}>&larr; Previous</button>
-          <div class="hole-nav-hole">Hole ${currentHole}</div>
-          <button type="button" data-hole-nav="1"${currentHole >= 18 ? ' disabled' : ''}>Next &rarr;</button>
+        <div class="hole-entry-header">
+          <div class="hole-entry-topline">
+            <div>
+              <strong>Live Hole Entry</strong>
+              <div class="muted">${esc(view.dayKey)} ${esc(view.label)} | Updates save immediately.</div>
+            </div>
+            <div class="hole-entry-actions">
+              <button type="button" class="compact-link-btn" data-toggle-full-scorecard="1">${showFullScorecard ? 'Hide Full Scorecard' : 'View Full Scorecard'}</button>
+            </div>
+          </div>
+          <div class="hole-nav-controls">
+            <button type="button" data-hole-nav="-1"${currentHole <= 1 ? ' disabled' : ''}>&larr; Prev</button>
+            <div class="hole-nav-hole">Hole ${currentHole}</div>
+            <button type="button" data-hole-nav="1"${currentHole >= 18 ? ' disabled' : ''}>Next &rarr;</button>
+          </div>
+          <div class="hole-progress">
+            <div class="hole-summary-strip">
+              <div class="hole-summary-pill"><span class="muted">Hole Progress</span><strong>${enteredCount}/${players.length} entered</strong></div>
+              <div class="hole-summary-pill"><span class="muted">Round Progress</span><strong>Hole ${currentHole} of 18</strong></div>
+              <div class="hole-summary-pill"><span class="muted">Scorer</span><strong>${esc(active.scorerName || view.scorerName || '-')}</strong></div>
+            </div>
+            <div class="hole-progress-bar"><div class="hole-progress-fill" style="width:${progressPct}%;"></div></div>
+          </div>
         </div>
         ${submittedBanner}
         ${adminEditButton}
@@ -1715,21 +1770,34 @@
     }
 
     function renderMarkers(view) {
-      const holes = Array.from({ length: 18 }, (_, i) => i + 1);
+      if (!settings.enableLiveMarkers || !view) {
+        markersCard.style.display = 'none';
+        return;
+      }
       const players = [''].concat((view.players || []).map((p) => p.name));
       const ctp = (view.markers && view.markers.ctp) || {};
       const longDrive = (view.markers && view.markers.longDrive) || {};
       const markersLocked = isSubmittedScorecard(view) && !hasAdminOverrideCode();
       const markerHoles = (view && view.markerHoles && typeof view.markerHoles === 'object') ? view.markerHoles : {};
-      const ctpHoles = new Set((Array.isArray(markerHoles.ctp) ? markerHoles.ctp : TIN_CUP_CTP_HOLES).map((hole) => Number(hole)));
-      const row = (type, map) => `<tr><th>${type}</th>${holes.map((hole) => {
-        if (type === 'ctp' && !ctpHoles.has(hole)) {
-          return '<td class="muted">-</td>';
-        }
-        return `<td><select data-marker-input="${esc(type)}|${hole}"${markersLocked ? ' disabled' : ''}>${players.map((name) => `<option value="${esc(name)}"${String(map[hole] || '') === String(name) ? ' selected' : ''}>${name ? esc(name) : '-'}</option>`).join('')}</select></td>`;
-      }).join('')}</tr>`;
-      markerTableWrap.innerHTML = `<table><thead><tr><th>Type</th>${holes.map((h) => `<th>H${h}</th>`).join('')}</tr></thead><tbody>${row('ctp', ctp)}${row('longDrive', longDrive)}</tbody></table>`;
-      markersCard.style.display = settings.enableLiveMarkers ? 'block' : 'none';
+      const ctpHoleList = Array.isArray(markerHoles.ctp) && markerHoles.ctp.length ? markerHoles.ctp : TIN_CUP_CTP_HOLES;
+      const longDriveHoleList = Array.isArray(markerHoles.longDrive) ? markerHoles.longDrive : [];
+      const ctpHoles = new Set(ctpHoleList.map((hole) => Number(hole)));
+      const longDriveHoles = new Set(longDriveHoleList.map((hole) => Number(hole)));
+      const currentHoleSelect = (type, selected) => `<select data-marker-input="${esc(type)}|${currentHole}"${markersLocked ? ' disabled' : ''}>${players.map((name) => `<option value="${esc(name)}"${String(selected || '') === String(name) ? ' selected' : ''}>${name ? esc(name) : '-'}</option>`).join('')}</select>`;
+      const cards = [];
+      if (longDriveHoles.has(currentHole)) {
+        cards.push(`<div class="marker-current-card"><strong>Long Drive</strong><div class="muted">Hole ${currentHole}</div>${currentHoleSelect('longDrive', longDrive[currentHole])}</div>`);
+      }
+      if (ctpHoles.has(currentHole)) {
+        cards.push(`<div class="marker-current-card"><strong>Closest To Pin</strong><div class="muted">Par 3 marker for hole ${currentHole}</div>${currentHoleSelect('ctp', ctp[currentHole])}</div>`);
+      }
+      if (!cards.length) {
+        markerTableWrap.innerHTML = `<div class="marker-current-wrap"><div class="muted">No live markers are assigned to hole ${currentHole}.</div></div>`;
+        markersCard.style.display = 'block';
+        return;
+      }
+      markerTableWrap.innerHTML = `<div class="marker-current-wrap"><div class="muted">Only the current hole markers are shown here to keep entry focused. Use the full scorecard if you need the rest of the round.</div><div class="marker-current-grid">${cards.join('')}</div></div>`;
+      markersCard.style.display = 'block';
     }
 
     async function saveHole(playerName, hole, gross) {
@@ -1907,11 +1975,11 @@
           view = await openRemoteScorecard(dayKey, slotIndex, scorerName, code);
         }
         currentHole = deriveCurrentHole(view);
+        showFullScorecard = false;
         renderScorecard(view);
         renderHoleEntry(view);
         renderMarkers(view);
         enterMobileScorecardMode();
-        expandCard('scorecardCard');
         expandCard('holeEntryCard');
         expandCard('markersCard');
         holeEntryCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1960,6 +2028,17 @@
         const delta = Number(navBtn.dataset.holeNav);
         currentHole = clampHole(currentHole + (Number.isFinite(delta) ? delta : 0));
         renderHoleEntry(active.view);
+        renderMarkers(active.view);
+        return;
+      }
+
+      const toggleScorecardBtn = event.target.closest('[data-toggle-full-scorecard]');
+      if (toggleScorecardBtn && active && active.view) {
+        setFullScorecardVisibility(!showFullScorecard);
+        renderHoleEntry(active.view);
+        if (showFullScorecard) {
+          scorecardCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
         return;
       }
 
@@ -2232,6 +2311,3 @@
   </script>
 </body>
 </html>
-
-
-
