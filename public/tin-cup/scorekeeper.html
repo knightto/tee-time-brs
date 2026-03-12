@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tin Cup Admin</title>
+  <title>Tin Cup Score</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="manifest" href="/manifest.json">
   <meta name="theme-color" content="#173224">
@@ -17,7 +17,7 @@
   <style>
     :root { --bg:#112417; --panel:#274235; --line:rgba(232,255,219,.14); --ink:#f9f3e7; --muted:#d2dfc3; --accent:#c89a4b; --icon-flag:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23c89a4b' d='M6 3a1 1 0 0 1 1 1v2h9.6l-1.3 3 1.3 3H7v8H5V4a1 1 0 0 1 1-1Z'/%3E%3Ccircle cx='6' cy='20' r='2' fill='%23d2dfc3'/%3E%3C/svg%3E"); --icon-ball:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9' fill='%23f9f3e7' stroke='%23c89a4b' stroke-width='1.5'/%3E%3Ccircle cx='9' cy='9' r='1' fill='%23c89a4b'/%3E%3Ccircle cx='13.5' cy='8' r='1' fill='%23c89a4b'/%3E%3Ccircle cx='15.5' cy='12' r='1' fill='%23c89a4b'/%3E%3Ccircle cx='10.5' cy='14' r='1' fill='%23c89a4b'/%3E%3Ccircle cx='13.5' cy='16' r='1' fill='%23c89a4b'/%3E%3C/svg%3E"); }
     * { box-sizing: border-box; }
-    body { margin:0; font-family:'Segoe UI', Arial, sans-serif; color:var(--ink); background: radial-gradient(circle at 20% 10%, rgba(200,154,75,.14), transparent 32%), var(--bg); padding-bottom:84px; }
+    body { margin:0; font-family:'Segoe UI', Arial, sans-serif; color:var(--ink); background: radial-gradient(circle at 20% 10%, rgba(200,154,75,.14), transparent 32%), var(--bg); padding-bottom:154px; }
     .wrap { max-width: 1240px; margin: 18px auto 40px; padding: 0 14px; }
     .card { background: linear-gradient(140deg, var(--panel), #1f3427); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
     .section-label { margin:16px 0 8px; color:var(--muted); font-size:.78rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
@@ -256,10 +256,7 @@
       line-height:1.45;
     }
     .admin-only {
-      display:none;
-    }
-    body.admin-mode .admin-only {
-      display:block;
+      display:none !important;
     }
     body.scorekeeper-mode .scorekeeper-focus {
       display:block;
@@ -355,14 +352,100 @@
       .hole-entry-tools { padding:8px; gap:8px; }
       .marker-current-grid { grid-template-columns:1fr; }
     }
+    .sticky-score-controls {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: 76px;
+      z-index: 14;
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr) auto auto;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(200,154,75,.28);
+      background: rgba(17,36,23,.94);
+      box-shadow: 0 16px 28px rgba(0,0,0,.28);
+      backdrop-filter: blur(10px);
+    }
+    .sticky-score-controls button {
+      min-height: 48px;
+      min-width: 70px;
+    }
+    .sticky-score-summary {
+      min-width: 0;
+      display: grid;
+      gap: 4px;
+    }
+    .sticky-score-summary strong {
+      font-size: .96rem;
+    }
+    .sticky-score-summary span {
+      color: var(--muted);
+      font-size: .75rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sticky-score-meta {
+      display:flex;
+      flex-wrap:wrap;
+      gap:6px;
+      align-items:center;
+    }
+    .sticky-save-state {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      padding:4px 8px;
+      border-radius:999px;
+      font-size:.72rem;
+      font-weight:800;
+      letter-spacing:.02em;
+      border:1px solid rgba(249,243,231,.14);
+      background:rgba(255,255,255,.05);
+      color:var(--ink);
+    }
+    .sticky-save-state.live {
+      border-color:rgba(114,200,128,.45);
+      background:rgba(114,200,128,.14);
+      color:#dff7dd;
+    }
+    .sticky-save-state.warn {
+      border-color:rgba(230,176,74,.45);
+      background:rgba(230,176,74,.18);
+      color:#ffe6a6;
+    }
+    .sticky-save-state.ready {
+      border-color:rgba(120,190,255,.42);
+      background:rgba(120,190,255,.16);
+      color:#d9edff;
+    }
+    @media (max-width: 720px) {
+      .sticky-score-controls {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .sticky-score-summary {
+        grid-column: 1 / -1;
+        order: -1;
+      }
+      .sticky-score-controls button {
+        width: 100%;
+        min-width: 0;
+      }
+      .sticky-score-meta {
+        row-gap:4px;
+      }
+    }
   </style>
 </head>
 <body>
   <div class="wrap">
     <div class="card head">
       <div>
-        <h1 class="golf-title" style="margin:0;font-size:1.35rem;">Tin Cup Admin</h1>
-        <div id="entryIntro" class="muted">Set the roster, rules, side games, and admin controls here. During play, use the separate Score page to drive all score-derived results.</div>
+        <h1 class="golf-title" style="margin:0;font-size:1.35rem;">Tin Cup Score</h1>
+        <div id="entryIntro" class="muted">Use this page during play. Hole-by-hole scoring and live markers should drive every result that can be derived from actual golf scores.</div>
       </div>
       <div class="row" style="justify-content:flex-end;">
         <a id="adminGuideLink" href="/tin-cup/admin-guide.html">Admin Guide</a>
@@ -372,8 +455,8 @@
 
     <div class="mode-tabs">
       <a id="todayModeLink" class="mode-tab" href="/tin-cup/today.html">Today</a>
-      <a id="scoreModeLink" class="mode-tab" href="/tin-cup/scorekeeper.html">Score</a>
-      <a id="adminModeLink" class="mode-tab active" href="/tin-cup/live-score-entry.html">Admin</a>
+      <a id="scoreModeLink" class="mode-tab active" href="/tin-cup/scorekeeper.html">Score</a>
+      <a id="adminModeLink" class="mode-tab" href="/tin-cup/live-score-entry.html">Admin</a>
       <a id="resultsModeLink" class="mode-tab" href="/tin-cup/leaderboard-2026.html">Results</a>
     </div>
 
@@ -590,7 +673,6 @@
             <button id="exportCompetitionCsvBtn" type="button">Export Final Competition CSV</button>
             <button id="openCompetitionReportBtn" type="button">Open Final Competition Report</button>
             <button id="printCompetitionReportBtn" type="button">Open Printable Report</button>
-            <button id="openWinnersModeBtn" type="button">Open Winners Mode</button>
             <span id="exportCompetitionStatus" class="muted"></span>
           </div>
         </div>
@@ -601,11 +683,13 @@
 
   <nav class="app-bottom-nav" aria-label="Tin Cup Navigation">
     <a id="bottomNavTrip" class="bottom-nav-link" href="/tin-cup/trip-2026.html">Trip</a>
-    <a id="bottomNavScore" class="bottom-nav-link" href="/tin-cup/scorekeeper.html">Score</a>
+    <a id="bottomNavScore" class="bottom-nav-link active" href="/tin-cup/scorekeeper.html">Score</a>
     <a id="bottomNavResults" class="bottom-nav-link" href="/tin-cup/leaderboard-2026.html">Results</a>
     <a id="bottomNavLodging" class="bottom-nav-link" href="/tin-cup/guests-lodging.html">Lodging</a>
-    <a id="bottomNavAdmin" class="bottom-nav-link active" href="/tin-cup/live-score-entry.html">Admin</a>
+    <a id="bottomNavAdmin" class="bottom-nav-link" href="/tin-cup/live-score-entry.html">Admin</a>
   </nav>
+
+  <div id="stickyScoreControls" class="sticky-score-controls" style="display:none;"></div>
 
   <script>
     const linkDaySelect = document.getElementById('linkDaySelect');
@@ -639,7 +723,6 @@
     const exportCompetitionCsvBtn = document.getElementById('exportCompetitionCsvBtn');
     const openCompetitionReportBtn = document.getElementById('openCompetitionReportBtn');
     const printCompetitionReportBtn = document.getElementById('printCompetitionReportBtn');
-    const openWinnersModeBtn = document.getElementById('openWinnersModeBtn');
     const exportCompetitionStatus = document.getElementById('exportCompetitionStatus');
     const clearCompetitionBtn = document.getElementById('clearCompetitionBtn');
     const clearCompetitionStatus = document.getElementById('clearCompetitionStatus');
@@ -662,6 +745,7 @@
     const bottomNavResults = document.getElementById('bottomNavResults');
     const bottomNavLodging = document.getElementById('bottomNavLodging');
     const bottomNavAdmin = document.getElementById('bottomNavAdmin');
+    const stickyScoreControls = document.getElementById('stickyScoreControls');
     const golferSetupTableBody = document.getElementById('golferSetupTableBody');
     const addGolferRowBtn = document.getElementById('addGolferRowBtn');
     const importGolfersCsvBtn = document.getElementById('importGolfersCsvBtn');
@@ -741,7 +825,7 @@
     let golferSetupRows = [];
     let allowLocalFallback = false;
     let lastDraftGolferCount = 0;
-    let pageMode = 'admin';
+    let pageMode = 'score';
 
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
     const norm = (v = '') => String(v || '').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -768,9 +852,8 @@
     (function seedTripContext() {
       const qs = new URLSearchParams(window.location.search);
       allowLocalFallback = String(qs.get('local') || '').trim() === '1';
-      pageMode = 'admin';
-      document.body.classList.add('admin-mode');
-      document.body.classList.remove('scorekeeper-mode');
+      pageMode = 'score';
+      document.body.classList.add('scorekeeper-mode');
       const qSecondary = String(qs.get('secondary') || '').trim();
       useSecondaryTripDb = false;
       if (qSecondary === '1' || qSecondary.toLowerCase() === 'true') useSecondaryTripDb = true;
@@ -821,10 +904,10 @@
       if (bottomNavLodging) bottomNavLodging.href = buildTinCupContextHref('/tin-cup/guests-lodging.html');
       if (bottomNavAdmin) bottomNavAdmin.href = buildTinCupContextHref('/tin-cup/live-score-entry.html');
       if (todayModeLink) todayModeLink.classList.remove('active');
-      if (scoreModeLink) scoreModeLink.classList.remove('active');
-      if (adminModeLink) adminModeLink.classList.add('active');
-      if (bottomNavScore) bottomNavScore.classList.remove('active');
-      if (bottomNavAdmin) bottomNavAdmin.classList.add('active');
+      if (scoreModeLink) scoreModeLink.classList.add('active');
+      if (adminModeLink) adminModeLink.classList.remove('active');
+      if (bottomNavScore) bottomNavScore.classList.add('active');
+      if (bottomNavAdmin) bottomNavAdmin.classList.remove('active');
     }
 
     function getDaySlots(dayKey = '') {
@@ -1099,6 +1182,7 @@
           appSyncBadge.className = lastSync ? 'status-badge ready' : 'status-badge';
         }
       }
+      if (active && active.view) renderStickyScoreControls(active.view);
     }
 
     function isNetworkFailure(error) {
@@ -2765,13 +2849,6 @@
       return `${base}${separator}report=1${printMode ? '&print=1' : ''}#readable-report`;
     }
 
-    function buildWinnersModeLink(printMode = false) {
-      const base = buildTinCupContextHref('/tin-cup/winners.html');
-      if (!printMode) return base;
-      const separator = base.includes('?') ? '&' : '?';
-      return `${base}${separator}print=1`;
-    }
-
     function renderScorecardLinks() {
       const dayKey = String(selectedLinkDay || '');
       const slots = getSlotsForDay(dayKey);
@@ -2850,26 +2927,16 @@
         });
       }
       syncGolferSetupRowsFromPersistedState();
-      if (localMode) {
-        entryIntro.textContent = pageMode === 'admin'
-          ? 'Local mode active: no Tin Cup trip found in database. Admin setup changes affect local Tin Cup state only.'
-          : 'Local mode active: no Tin Cup trip found in database. Foursome and scramble entries will sync to local leaderboard state.';
-      } else {
-        entryIntro.textContent = pageMode === 'admin'
-          ? 'Use this admin view to manage roster, rules, side games, access settings, exports, and reset tools.'
-          : 'Use the day selector to open a foursome or scramble team and enter scores hole by hole.';
-      }
-      if (scorekeeperHero) scorekeeperHero.style.display = pageMode === 'admin' ? 'none' : 'block';
-      if (appModeBadge) appModeBadge.textContent = pageMode === 'admin' ? 'Admin Mode' : 'Score Mode';
+      entryIntro.textContent = localMode
+        ? 'Local mode active: no Tin Cup trip found in database. Foursome and scramble entries will sync to local leaderboard state.'
+        : 'Use the day selector to open a foursome or scramble team and enter scores hole by hole.';
+      if (scorekeeperHero) scorekeeperHero.style.display = 'block';
+      if (appModeBadge) appModeBadge.textContent = 'Score Mode';
       if (appDataBadge) {
         appDataBadge.textContent = localMode ? 'Local fallback data' : (useSecondaryTripDb ? 'Secondary trip database' : 'Primary trip database');
         appDataBadge.className = `status-badge${localMode ? ' warn' : ''}`;
       }
-      if (appSyncBadge) {
-        const liveText = pageMode === 'admin' ? 'Score open for the round' : 'Live round in progress';
-        appSyncBadge.textContent = settings.enableLiveFoursomeScoring ? liveText : 'Score paused';
-        appSyncBadge.className = `status-badge${settings.enableLiveFoursomeScoring ? ' live' : ' warn'}`;
-      }
+      renderSyncState();
 
       if (!settings.enableLiveFoursomeScoring) {
         scorecardLinksCard.style.opacity = '0.7';
@@ -3084,11 +3151,56 @@
       }
     }
 
+    function getStickySaveState(view) {
+      const pending = getPendingSyncQueue().length;
+      if (!navigator.onLine && pending > 0) {
+        return { text: `${pending} queued offline`, tone: 'warn' };
+      }
+      if (pending > 0) {
+        return { text: `${pending} pending sync`, tone: 'warn' };
+      }
+      if (view && !isScrambleView(view) && isSubmittedScorecard(view)) {
+        return { text: 'Submitted', tone: 'ready' };
+      }
+      const lastSync = formatSyncStamp(getLastSuccessfulSync());
+      if (lastSync) {
+        return { text: `Saved ${lastSync}`, tone: 'live' };
+      }
+      return { text: localMode ? 'Local save only' : 'Ready to save', tone: 'live' };
+    }
+
     entryAssist = loadEntryAssistSettings();
+
+    function renderStickyScoreControls(view) {
+      if (!stickyScoreControls) return;
+      if (!view || !Array.isArray(view.players) || !view.players.length) {
+        stickyScoreControls.style.display = 'none';
+        stickyScoreControls.innerHTML = '';
+        return;
+      }
+      const scrambleView = isScrambleView(view);
+      const scorerLabel = String(active.scorerName || view.scorerName || '').trim();
+      const saveState = getStickySaveState(view);
+      stickyScoreControls.innerHTML = `
+        <button type="button" data-hole-nav="-1"${currentHole <= 1 ? ' disabled' : ''}>&larr; Prev</button>
+        <div class="sticky-score-summary">
+          <strong>${scrambleView ? 'Scramble' : 'Live score'} | Hole ${currentHole}</strong>
+          <span>${esc(view.dayKey)} ${esc(view.label)}${scorerLabel ? ` | Scorer: ${esc(scorerLabel)}` : ''}</span>
+          <div class="sticky-score-meta">
+            <span class="sticky-save-state ${esc(saveState.tone)}">${esc(saveState.text)}</span>
+            ${scrambleView ? '<span class="sticky-save-state">Team scoring</span>' : '<span class="sticky-save-state">Player scoring</span>'}
+          </div>
+        </div>
+        <button type="button" data-hole-nav="1"${currentHole >= 18 ? ' disabled' : ''}>Next &rarr;</button>
+        <button type="button" data-toggle-full-scorecard="1">${showFullScorecard ? 'Hide Card' : 'Full Card'}</button>
+      `;
+      stickyScoreControls.style.display = 'grid';
+    }
 
     function renderHoleEntry(view) {
       if (!view || !Array.isArray(view.players)) {
         holeEntryCard.style.display = 'none';
+        renderStickyScoreControls(null);
         return;
       }
       currentHole = clampHole(currentHole);
@@ -3212,6 +3324,7 @@
         ${scrambleView ? '' : submitButton}
       `;
       holeEntryCard.style.display = 'block';
+      renderStickyScoreControls(view);
     }
 
     function renderMarkers(view) {
@@ -3883,10 +3996,6 @@
       window.open(buildCompetitionReportLink(true), '_blank', 'noopener');
     });
 
-    openWinnersModeBtn.addEventListener('click', () => {
-      window.open(buildWinnersModeLink(false), '_blank', 'noopener');
-    });
-
     if (adminToolsDetails) {
       const summary = adminToolsDetails.querySelector('summary');
       if (summary) {
@@ -4065,19 +4174,15 @@
 
     window.addEventListener('online', () => {
       renderSyncState();
-      if (statusEl) {
-        statusEl.className = 'ok';
-        statusEl.textContent = 'Back online. Syncing queued saves...';
-      }
+      statusEl.className = 'muted';
+      statusEl.textContent = 'Back online. Syncing queued saves...';
       flushQueuedSyncOps().catch(() => {});
     });
 
     window.addEventListener('offline', () => {
       renderSyncState();
-      if (statusEl) {
-        statusEl.className = 'warn';
-        statusEl.textContent = 'Offline detected. Score and marker saves will queue locally until the connection returns.';
-      }
+      statusEl.className = 'warn';
+      statusEl.textContent = 'Offline detected. Score and marker saves will queue locally until the connection returns.';
     });
 
     (async () => {

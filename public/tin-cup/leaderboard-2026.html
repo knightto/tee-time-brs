@@ -2,9 +2,18 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tin Cup Live Results</title>
+  <title>Tin Cup Results</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#173224">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tin Cup">
+  <link rel="apple-touch-icon" href="/assets/knight-club-icon.png">
   <link rel="icon" href="/assets/knight-club-icon.png">
+  <link rel="stylesheet" href="/pwa-shell.css">
+  <script src="/pwa-shell.js" defer></script>
   <style>
     :root { --bg:#112417; --panel:#274235; --ink:#f9f3e7; --ink-soft:#d2dfc3; --line:rgba(232,255,219,.14); --accent:#c89a4b; --icon-flag:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23c89a4b' d='M6 3a1 1 0 0 1 1 1v2h9.6l-1.3 3 1.3 3H7v8H5V4a1 1 0 0 1 1-1Z'/%3E%3Ccircle cx='6' cy='20' r='2' fill='%23d2dfc3'/%3E%3C/svg%3E"); --icon-ball:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9' fill='%23f9f3e7' stroke='%23c89a4b' stroke-width='1.5'/%3E%3Ccircle cx='9' cy='9' r='1' fill='%23c89a4b'/%3E%3Ccircle cx='13.5' cy='8' r='1' fill='%23c89a4b'/%3E%3Ccircle cx='15.5' cy='12' r='1' fill='%23c89a4b'/%3E%3Ccircle cx='10.5' cy='14' r='1' fill='%23c89a4b'/%3E%3Ccircle cx='13.5' cy='16' r='1' fill='%23c89a4b'/%3E%3C/svg%3E"); }
     * { box-sizing: border-box; }
@@ -146,6 +155,35 @@
       border-color:rgba(200,154,75,.45);
       color:#f4e5bf;
     }
+    .status-chip.live {
+      border-color:rgba(94,214,122,.45);
+      background:rgba(94,214,122,.14);
+      color:#dff6d9;
+    }
+    .status-chip.ready {
+      border-color:rgba(94,173,255,.45);
+      background:rgba(94,173,255,.14);
+      color:#dbeeff;
+    }
+    .table-note {
+      margin-bottom:10px;
+      padding:8px 10px;
+      border-radius:10px;
+      border:1px solid var(--line);
+      background:rgba(255,255,255,.04);
+      color:var(--ink-soft);
+      font-size:.82rem;
+    }
+    .table-note.warn {
+      border-color:rgba(200,154,75,.45);
+      background:rgba(200,154,75,.12);
+      color:#f4e5bf;
+    }
+    .table-note.ready {
+      border-color:rgba(94,173,255,.45);
+      background:rgba(94,173,255,.12);
+      color:#dbeeff;
+    }
     .app-bottom-nav {
       position:fixed;
       left:12px;
@@ -278,7 +316,7 @@
     <div class="hero">
       <div class="hero-row">
         <div>
-          <h1>Tin Cup Live Results</h1>
+          <h1>Tin Cup Results</h1>
           <div class="muted">Live standings, side games, payouts, and scoring verification from the Tin Cup scoring system.</div>
         </div>
         <a class="cta" href="/tin-cup/trip-2026.html">Back to Tin Cup 2026</a>
@@ -312,6 +350,7 @@
         <div class="report-toolbar">
           <button id="generateReportBtn" class="report-btn" type="button">Generate Readable Report</button>
           <button id="printReportBtn" class="report-btn" type="button">Print / Save As PDF</button>
+          <button id="openWinnersModeBtn" class="report-btn" type="button">Open Winners Mode</button>
           <button id="shareReportBtn" class="report-btn" type="button">Share Winners Summary</button>
         </div>
         <div id="readableReport"></div>
@@ -446,10 +485,10 @@
   </div>
   <nav class="app-bottom-nav" aria-label="Tin Cup Navigation">
     <a id="bottomNavTrip" class="bottom-nav-link" href="/tin-cup/trip-2026.html">Trip</a>
-    <a id="bottomNavScore" class="bottom-nav-link" href="/tin-cup/live-score-entry.html?mode=score">Score</a>
+    <a id="bottomNavScore" class="bottom-nav-link" href="/tin-cup/scorekeeper.html">Score</a>
     <a id="bottomNavResults" class="bottom-nav-link active" href="/tin-cup/leaderboard-2026.html">Results</a>
     <a id="bottomNavLodging" class="bottom-nav-link" href="/tin-cup/guests-lodging.html">Lodging</a>
-    <a id="bottomNavAdmin" class="bottom-nav-link" href="/tin-cup/live-score-entry.html?mode=admin">Admin</a>
+    <a id="bottomNavAdmin" class="bottom-nav-link" href="/tin-cup/live-score-entry.html">Admin</a>
   </nav>
 
   <script>
@@ -483,6 +522,7 @@
     const readableReportEl = document.getElementById('readableReport');
     const generateReportBtn = document.getElementById('generateReportBtn');
     const printReportBtn = document.getElementById('printReportBtn');
+    const openWinnersModeBtn = document.getElementById('openWinnersModeBtn');
     const shareReportBtn = document.getElementById('shareReportBtn');
     const resultsDataChip = document.getElementById('resultsDataChip');
     const resultsRefreshChip = document.getElementById('resultsRefreshChip');
@@ -534,6 +574,14 @@
       const qs = new URLSearchParams(window.location.search);
       const print = String(qs.get('print') || '').trim().toLowerCase();
       return print === '1' || print === 'true';
+    }
+
+    function buildWinnersModeLink(printMode = false) {
+      const base = tripId
+        ? `/tin-cup/winners.html?tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}`
+        : '/tin-cup/winners.html';
+      if (!printMode) return base;
+      return `${base}${base.includes('?') ? '&' : '?'}print=1`;
     }
 
     function findTinCupTrip(trips) {
@@ -883,7 +931,11 @@
         scrambleBoardEl.innerHTML = '<div class="muted">No scramble teams available.</div>';
         return;
       }
-      scrambleBoardEl.innerHTML = `<table><thead><tr><th>Team</th><th>Players</th><th>Played</th><th>Total</th><th>Rank</th><th>Points</th></tr></thead><tbody>${teams.map((team) => `<tr><td><strong>${esc(team.label)}</strong></td><td>${esc((team.players || []).join(', '))}</td><td>${esc(team.played || 0)}</td><td>${team.total === null || team.total === undefined ? '-' : esc(team.total)}</td><td>${team.rank ? esc(team.rank) : '-'}</td><td>${esc(team.points || 0)}</td></tr>`).join('')}</tbody></table>`;
+      const incompleteTeams = teams.filter((team) => Number(team.played || 0) < 18).length;
+      const note = incompleteTeams
+        ? `<div class="table-note warn">Scramble incomplete: ${incompleteTeams} team${incompleteTeams === 1 ? '' : 's'} still need holes entered before the scramble results are final.</div>`
+        : '<div class="table-note ready">Scramble complete: all team totals are in and scramble points are final.</div>';
+      scrambleBoardEl.innerHTML = `${note}<table><thead><tr><th>Team</th><th>Players</th><th>Played</th><th>Total</th><th>Rank</th><th>Points</th></tr></thead><tbody>${teams.map((team) => `<tr><td><strong>${esc(team.label)}</strong></td><td>${esc((team.players || []).join(', '))}</td><td>${esc(team.played || 0)}</td><td>${team.total === null || team.total === undefined ? '-' : esc(team.total)}</td><td>${team.rank ? esc(team.rank) : '-'}</td><td>${esc(team.points || 0)}</td></tr>`).join('')}</tbody></table>`;
     }
 
     function renderSideGames(payload = {}) {
@@ -1073,12 +1125,13 @@
         resultsDataChip.className = 'status-chip';
       }
       if (resultsRefreshChip) {
-        resultsRefreshChip.textContent = contextSource === 'local-fallback' ? 'Local fallback data' : 'Live linked refresh';
-        resultsRefreshChip.className = `status-chip${contextSource === 'local-fallback' ? ' warn' : ''}`;
+        resultsRefreshChip.textContent = contextSource === 'local-fallback' ? 'Using local fallback results' : 'Live round refresh active';
+        resultsRefreshChip.className = `status-chip${contextSource === 'local-fallback' ? ' warn' : ' live'}`;
       }
       if (resultsReportChip) {
-        resultsReportChip.textContent = 'Readable report ready';
-        resultsReportChip.className = 'status-chip';
+        const reportReady = Array.isArray(payload.totals) && payload.totals.length > 0;
+        resultsReportChip.textContent = reportReady ? 'Report ready to present' : 'Report waiting on scores';
+        resultsReportChip.className = `status-chip${reportReady ? ' ready' : ' warn'}`;
       }
       refreshEl.textContent = `Last refresh: ${new Date().toLocaleTimeString()}${contextSource === 'local-fallback' ? ' (local fallback)' : ''}`;
       if (shouldAutoPrintReadableReport() && !autoPrintTriggered) {
@@ -1165,6 +1218,10 @@
       window.print();
     });
 
+    openWinnersModeBtn.addEventListener('click', () => {
+      window.open(buildWinnersModeLink(false), '_blank', 'noopener');
+    });
+
     shareReportBtn.addEventListener('click', async () => {
       if (!latestPayload) renderReadableReport({});
       const totals = Array.isArray((latestPayload || {}).totals) ? latestPayload.totals.slice(0, 3) : [];
@@ -1196,10 +1253,10 @@
 
     loadContext();
     if (bottomNavTrip) bottomNavTrip.href = tripId ? `/tin-cup/trip-2026.html?tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}` : '/tin-cup/trip-2026.html';
-    if (bottomNavScore) bottomNavScore.href = tripId ? `/tin-cup/live-score-entry.html?tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}&mode=score` : '/tin-cup/live-score-entry.html?mode=score';
+    if (bottomNavScore) bottomNavScore.href = tripId ? `/tin-cup/scorekeeper.html?tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}` : '/tin-cup/scorekeeper.html';
     if (bottomNavResults) bottomNavResults.href = tripId ? `/tin-cup/leaderboard-2026.html?tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}` : '/tin-cup/leaderboard-2026.html';
     if (bottomNavLodging) bottomNavLodging.href = tripId ? `/tin-cup/guests-lodging.html?tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}` : '/tin-cup/guests-lodging.html';
-    if (bottomNavAdmin) bottomNavAdmin.href = tripId ? `/tin-cup/live-score-entry.html?tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}&mode=admin` : '/tin-cup/live-score-entry.html?mode=admin';
+    if (bottomNavAdmin) bottomNavAdmin.href = tripId ? `/tin-cup/live-score-entry.html?tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}` : '/tin-cup/live-score-entry.html';
     setInterval(render, 5000);
     render();
   </script>

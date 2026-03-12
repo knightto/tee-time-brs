@@ -4,7 +4,16 @@
   <meta charset="UTF-8">
   <title>Tin Cup Admin Guide</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#173224">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tin Cup">
+  <link rel="apple-touch-icon" href="/assets/knight-club-icon.png">
   <link rel="icon" href="/assets/knight-club-icon.png">
+  <link rel="stylesheet" href="/pwa-shell.css">
+  <script src="/pwa-shell.js" defer></script>
   <style>
     :root {
       --bg: #112417;
@@ -211,12 +220,12 @@
       <div class="guide-pill-row">
         <span class="guide-pill">Leader Inputs is the setup area for roster, config, and manual side games</span>
         <span class="guide-pill">Lodging edits stay on the Lodging page</span>
-        <span class="guide-pill">Live Results and Readable Final Report are read-only verification</span>
+        <span class="guide-pill">Results and Readable Final Report are read-only verification</span>
       </div>
       <div class="guide-link-row">
         <a id="guideTripLink" class="guide-link" href="/tin-cup/trip-2026.html">Trip Page</a>
-        <a id="guideScoreLink" class="guide-link" href="/tin-cup/live-score-entry.html">Scoring / Inputs</a>
-        <a id="guideLeaderboardLink" class="guide-link" href="/tin-cup/leaderboard-2026.html">Live Results</a>
+        <a id="guideScoreLink" class="guide-link" href="/tin-cup/scorekeeper.html">Score</a>
+        <a id="guideLeaderboardLink" class="guide-link" href="/tin-cup/leaderboard-2026.html">Results</a>
         <a id="guideLodgingLink" class="guide-link" href="/tin-cup/guests-lodging.html">Lodging</a>
       </div>
     </section>
@@ -226,19 +235,19 @@
       <table class="info-table">
         <tr>
           <th>Tin Cup 2026</th>
-          <td>Main trip page. Use it to review the schedule, open Trip Info, jump to Scoring / Inputs, Live Results, Lodging, and add trip tee times to your calendar.</td>
+          <td>Main trip page. Use it to review the schedule, open Trip Info, jump to Score, Results, Lodging, and add trip tee times to your calendar.</td>
         </tr>
         <tr>
-          <th>Scoring / Inputs</th>
+          <th>Score</th>
           <td>Main admin workspace. Start in <strong>Leader Inputs</strong> for roster, scoring config, and manual side-game setup, then use <strong>Score-Driven Entry</strong> for live hole scores, scramble scoring, markers, and scorecard access.</td>
         </tr>
         <tr>
-          <th>Live Results</th>
+          <th>Results</th>
           <td>Read-only verification page. Use it to confirm totals, gross and net stroke results, match points, scramble points, skins, side games, payouts, the readable report, and audit rows after entries are saved.</td>
         </tr>
         <tr>
           <th>Lodging</th>
-          <td>Manual condo, room, extra-night, and payment management. The golfer list on this page comes from the Scoring / Inputs roster and should not be edited here.</td>
+          <td>Manual condo, room, extra-night, and payment management. The golfer list on this page comes from the Admin roster and should not be edited here.</td>
         </tr>
       </table>
     </section>
@@ -246,7 +255,7 @@
     <section class="guide-card">
       <h2>1. Set Up The Outing</h2>
       <ol>
-        <li>Open <strong>Scoring / Inputs</strong> first. Complete the leader-input section before anyone starts scoring.</li>
+        <li>Open <strong>Admin</strong> first. Complete the leader-input section before anyone starts scoring.</li>
         <li>Use <strong>Golfer Roster Setup</strong> to enter the player list, handicaps, and classification tags such as previous champ or rookie.</li>
         <li>Use <strong>Scoring Rules and Payout Config</strong> to confirm entry fee, place payouts, side-game values, skins value, and scramble point settings.</li>
         <li>Use <strong>Manual Side Game Inputs</strong> to confirm Long Putt and any other leader-entered winners that are not derived directly from golf scores.</li>
@@ -258,18 +267,18 @@
     <section class="guide-card">
       <h2>2. Test The Outing</h2>
       <ol>
-        <li>Use <strong>Clear And Reseed Demo Scores</strong> on Scoring / Inputs if you want a full practice run with fresh sample results.</li>
+        <li>Use <strong>Clear And Reseed Demo Scores</strong> on Admin if you want a full practice run with fresh sample results.</li>
         <li>Open at least one live scorecard and confirm hole entry works, current-hole navigation works, and the full scorecard can be shown and hidden.</li>
         <li>Open a scramble team and enter a few scramble holes to confirm scramble totals and points update.</li>
         <li>Enter a marker on a valid Closest To Pin or Long Drive hole and confirm it appears on the results page.</li>
-        <li>Open <strong>Live Results</strong> and confirm the leaderboard, stroke results, scramble, side games, readable report, and payouts all render without missing data.</li>
+        <li>Open <strong>Results</strong> and confirm the leaderboard, stroke results, scramble, side games, readable report, and payouts all render without missing data.</li>
       </ol>
     </section>
 
     <section class="guide-card">
       <h2>3. Confirm Scoring Accuracy</h2>
       <ol>
-        <li>Use <strong>Stroke Results (Read-Only)</strong> on Live Results to compare gross and net numbers for Day 1, Day 3, and Day 4.</li>
+        <li>Use <strong>Stroke Results (Read-Only)</strong> on Results to compare gross and net numbers for Day 1, Day 3, and Day 4.</li>
         <li>Use <strong>Tin Cup Match Scoring By Day</strong> and <strong>Hole-By-Hole Match Detail</strong> to verify match points came from the entered hole scores.</li>
         <li>Use <strong>Scramble Results</strong> to verify team totals, rank, and distributed scramble points.</li>
         <li>Use <strong>Skins</strong>, <strong>Manual Side Game Inputs</strong>, and <strong>Payout Summary</strong> to verify side-game winners and money distribution.</li>
@@ -280,11 +289,11 @@
     <section class="guide-card">
       <h2>4. Save The Report</h2>
       <ol>
-        <li>Open <strong>Live Results</strong> and expand <strong>Readable Final Report</strong>.</li>
+        <li>Open <strong>Results</strong> and expand <strong>Readable Final Report</strong>.</li>
         <li>Select <strong>Generate Readable Report</strong> to build the presentation-friendly winner summary.</li>
         <li>Select <strong>Print / Save As PDF</strong> to save a readable final report for the group leader.</li>
-        <li>Use <strong>Open Final Competition Report</strong> or <strong>Open Printable Report</strong> from Scoring / Inputs when you need a polished presentation document for the group leader.</li>
-        <li>Use <strong>Export Final Competition CSV</strong> from Scoring / Inputs when you also want a raw archive of standings, scorecards, scramble, markers, side games, and payouts.</li>
+        <li>Use <strong>Open Final Competition Report</strong> or <strong>Open Printable Report</strong> from Admin when you need a polished presentation document for the group leader.</li>
+        <li>Use <strong>Export Final Competition CSV</strong> from Admin when you also want a raw archive of standings, scorecards, scramble, markers, side games, and payouts.</li>
       </ol>
     </section>
 
@@ -295,7 +304,7 @@
           <li>Use <strong>Trip Info</strong> to open the travel and trip details modal.</li>
           <li>Use the calendar to switch days inside the current Tin Cup trip month. The calendar is locked to the trip month and does not move outside it.</li>
           <li>Use <strong>Add trip tee times to your calendar</strong> to download the trip tee times into a calendar app.</li>
-          <li>Use the top chips to open <strong>Live Results</strong>, <strong>Lodging</strong>, <strong>Scoring / Inputs</strong>, and this guide.</li>
+          <li>Use the top chips to open <strong>Results</strong>, <strong>Lodging</strong>, <strong>Score</strong>, and this guide.</li>
           <li>Event cards, tee times, travel links, map links, and course details are primarily review surfaces on this page, not the main place for scoring changes.</li>
         </ul>
       </section>
@@ -367,7 +376,7 @@
       <section class="guide-card">
         <h2>Admin Tools</h2>
         <ul>
-          <li><strong>Live Foursome Scoring</strong>: turns access to the Scoring / Inputs live entry flow on or off.</li>
+          <li><strong>Live Foursome Scoring</strong>: turns access to the Score live entry flow on or off.</li>
           <li><strong>Closest To Pin / Long Drive Entry</strong>: shows or hides marker entry on the scoring page.</li>
           <li><strong>Live Leaderboard Page</strong>: shows or hides the dedicated live results page and nav chip.</li>
           <li><strong>Admin Code</strong> is used for protected admin actions, including reseeding, reset, and submitted-card override edits.</li>
@@ -385,18 +394,18 @@
           <li>Use the status summary and condo groups to see who is assigned, unassigned, or outside the active condo count.</li>
           <li>Manual lodging inputs include <strong>Assign to condo</strong>, <strong>Move condo</strong>, <strong>Room</strong>, <strong>Unassign</strong>, <strong>Extra night</strong>, and <strong>Paid</strong>.</li>
           <li>The Lodging page is also where Tin Cup payment amounts are maintained.</li>
-          <li>The roster list itself is not edited here. If a golfer is missing or needs to be removed, do that in <strong>Scoring / Inputs</strong>.</li>
+          <li>The roster list itself is not edited here. If a golfer is missing or needs to be removed, do that in <strong>Admin</strong>.</li>
         </ul>
       </section>
 
       <section class="guide-card">
-        <h2>Live Results Page</h2>
+        <h2>Results Page</h2>
         <ul>
           <li>Use <strong>Day</strong> to switch the live day leaderboard.</li>
           <li>Use the match day tabs to review hole-by-hole match results by day.</li>
           <li>Review read-only sections for readable final report, stroke results, score rankings, skins, scramble, side games, payouts, and workbook results audit.</li>
           <li><strong>Stroke Results (Read-Only)</strong> now shows both gross and net round totals for scoring confirmation.</li>
-          <li>If numbers look wrong here, the fix normally belongs on the Scoring / Inputs or Lodging page, not on the leaderboard page itself.</li>
+          <li>If numbers look wrong here, the fix normally belongs on the Admin, Score, or Lodging page, not on the results page itself.</li>
         </ul>
       </section>
 
@@ -405,7 +414,7 @@
         <div class="callout">Automatic calculations: gross and net day totals, trip totals, handicap stroke application, penalties, Secret Snowman draw eligibility, skins, scramble points, payout rollups, readable report output, and audit tables after data is saved.</div>
         <ul>
           <li>Manual entry surfaces: roster rows, handicaps, classifications, penalties, hole scores, markers, Long Putt, live-access toggles, condo assignments, extra nights, and payment amounts.</li>
-          <li>Verification surfaces: Live Results, Readable Final Report, Pot Summary, handicap verification, full scorecard review, and trip-page schedule/event displays.</li>
+          <li>Verification surfaces: Results, Readable Final Report, Pot Summary, handicap verification, full scorecard review, and trip-page schedule/event displays.</li>
         </ul>
       </section>
     </div>
@@ -417,7 +426,7 @@
         <li>Before each round, confirm the correct day is selected, live scoring is enabled, and the scorecard links open the expected foursomes or scramble teams.</li>
         <li>During play, enter hole scores first. Let the scorecards drive every value that can be derived from actual golf scores.</li>
         <li>After score entry, save markers and any manual side-game winners that are not score-driven.</li>
-        <li>After each round, review <strong>Live Results</strong> using gross/net stroke results, match detail, scramble, skins, payouts, and workbook audit to confirm the math.</li>
+        <li>After each round, review <strong>Results</strong> using gross/net stroke results, match detail, scramble, skins, payouts, and workbook audit to confirm the math.</li>
         <li>At the end of the event, generate the <strong>Readable Final Report</strong>, save it as PDF, and export the final CSV archive.</li>
       </ol>
     </section>
@@ -460,7 +469,7 @@
 
     [
       ['guideTripLink', '/tin-cup/trip-2026.html'],
-      ['guideScoreLink', '/tin-cup/live-score-entry.html'],
+      ['guideScoreLink', '/tin-cup/scorekeeper.html'],
       ['guideLeaderboardLink', '/tin-cup/leaderboard-2026.html'],
       ['guideLodgingLink', '/tin-cup/guests-lodging.html'],
       ['guideBackLink', '/tin-cup/trip-2026.html']

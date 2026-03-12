@@ -1,0 +1,132 @@
+(() => {
+  const DISMISS_KEY = 'pwaInstallDismissedUntilV1';
+  const IOS_TIP_KEY = 'pwaIosTipDismissedV1';
+  let deferredPrompt = null;
+  let installBar = null;
+
+  const isStandalone = () => {
+    try {
+      return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    } catch (_err) {
+      return window.navigator.standalone === true;
+    }
+  };
+
+  const isIosSafari = () => {
+    const ua = window.navigator.userAgent || '';
+    const isiOS = /iphone|ipad|ipod/i.test(ua);
+    const isWebkit = /webkit/i.test(ua);
+    const isCriOS = /crios/i.test(ua);
+    const isFxiOS = /fxios/i.test(ua);
+    return isiOS && isWebkit && !isCriOS && !isFxiOS;
+  };
+
+  function dismissed(key) {
+    try {
+      const value = Number(localStorage.getItem(key) || 0);
+      return Number.isFinite(value) && value > Date.now();
+    } catch (_err) {
+      return false;
+    }
+  }
+
+  function setDismissed(key, days = 7) {
+    try {
+      localStorage.setItem(key, String(Date.now() + (days * 24 * 60 * 60 * 1000)));
+    } catch (_err) {}
+  }
+
+  function applyStandaloneClass() {
+    document.body.classList.toggle('standalone-app', isStandalone());
+    document.body.classList.toggle('browser-app', !isStandalone());
+  }
+
+  function ensureInstallBar() {
+    if (installBar) return installBar;
+    installBar = document.createElement('div');
+    installBar.className = 'pwa-install-bar';
+    installBar.innerHTML = `
+      <div class="pwa-install-copy">
+        <strong>Install Tee Time BRS</strong>
+        <span id="pwaInstallMessage">Add the app to your home screen for a full-screen golf trip view.</span>
+      </div>
+      <div class="pwa-install-actions">
+        <button id="pwaInstallButton" class="pwa-install-btn" type="button">Install</button>
+        <button id="pwaDismissButton" class="pwa-dismiss-btn" type="button">Not Now</button>
+      </div>
+    `;
+    document.body.appendChild(installBar);
+
+    const installButton = installBar.querySelector('#pwaInstallButton');
+    const dismissButton = installBar.querySelector('#pwaDismissButton');
+
+    installButton.addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        try {
+          await deferredPrompt.userChoice;
+        } catch (_err) {}
+        deferredPrompt = null;
+        hideInstallBar();
+        return;
+      }
+      hideInstallBar();
+      setDismissed(IOS_TIP_KEY, 14);
+    });
+
+    dismissButton.addEventListener('click', () => {
+      if (deferredPrompt) setDismissed(DISMISS_KEY, 14);
+      else setDismissed(IOS_TIP_KEY, 14);
+      hideInstallBar();
+    });
+
+    return installBar;
+  }
+
+  function setInstallMessage(message, installLabel = 'Install') {
+    const bar = ensureInstallBar();
+    const messageEl = bar.querySelector('#pwaInstallMessage');
+    const installButton = bar.querySelector('#pwaInstallButton');
+    if (messageEl) messageEl.textContent = message;
+    if (installButton) installButton.textContent = installLabel;
+  }
+
+  function showInstallBar() {
+    if (isStandalone()) return;
+    ensureInstallBar().classList.add('visible');
+  }
+
+  function hideInstallBar() {
+    if (!installBar) return;
+    installBar.classList.remove('visible');
+  }
+
+  function maybeShowIosTip() {
+    if (!isIosSafari() || isStandalone() || dismissed(IOS_TIP_KEY)) return;
+    setInstallMessage('On iPhone or iPad, use Share and then Add to Home Screen for the standalone golf app.', 'Got It');
+    showInstallBar();
+  }
+
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    if (dismissed(DISMISS_KEY) || isStandalone()) return;
+    deferredPrompt = event;
+    setInstallMessage('Install the app for a cleaner standalone golf-trip experience with bottom navigation and offline shell support.', 'Install');
+    showInstallBar();
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredPrompt = null;
+    hideInstallBar();
+    applyStandaloneClass();
+  });
+
+  window.addEventListener('DOMContentLoaded', () => {
+    applyStandaloneClass();
+    maybeShowIosTip();
+  });
+
+  try {
+    window.matchMedia('(display-mode: standalone)').addEventListener('change', applyStandaloneClass);
+  } catch (_err) {}
+})();

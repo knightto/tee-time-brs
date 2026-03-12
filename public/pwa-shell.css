@@ -1,0 +1,101 @@
+body.standalone-app {
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+body.standalone-app .topbar,
+body.standalone-app header.hero,
+body.standalone-app .card.head {
+  margin-top: max(0px, env(safe-area-inset-top, 0px));
+}
+
+body.standalone-app .app-bottom-nav {
+  left: max(12px, env(safe-area-inset-left, 0px));
+  right: max(12px, env(safe-area-inset-right, 0px));
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+}
+
+.pwa-install-bar {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: calc(76px + env(safe-area-inset-bottom, 0px));
+  z-index: 40;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(200,154,75,.32);
+  background: rgba(17,36,23,.96);
+  color: #f9f3e7;
+  box-shadow: 0 18px 32px rgba(0,0,0,.28);
+  backdrop-filter: blur(12px);
+}
+
+.pwa-install-bar.visible {
+  display: flex;
+}
+
+.pwa-install-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.pwa-install-copy strong {
+  font-size: .95rem;
+}
+
+.pwa-install-copy span {
+  color: #d2dfc3;
+  font-size: .8rem;
+  line-height: 1.35;
+}
+
+.pwa-install-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.pwa-install-btn,
+.pwa-dismiss-btn {
+  min-height: 38px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(200,154,75,.36);
+  background: rgba(200,154,75,.2);
+  color: #f9f3e7;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.pwa-dismiss-btn {
+  background: rgba(255,255,255,.05);
+  border-color: rgba(255,255,255,.12);
+}
+
+body.standalone-app .pwa-install-bar {
+  display: none !important;
+}
+
+@media (max-width: 720px) {
+  .pwa-install-bar {
+    left: 10px;
+    right: 10px;
+    bottom: calc(72px + env(safe-area-inset-bottom, 0px));
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .pwa-install-actions {
+    justify-content: stretch;
+  }
+
+  .pwa-install-btn,
+  .pwa-dismiss-btn {
+    flex: 1 1 0;
+  }
+}

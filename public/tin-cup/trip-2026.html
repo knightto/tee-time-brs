@@ -4,7 +4,16 @@
   <meta charset="UTF-8">
   <title>Tin Cup 2026</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#173224">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Tin Cup">
+  <link rel="apple-touch-icon" href="/assets/knight-club-icon.png">
   <link rel="icon" href="/assets/knight-club-icon.png">
+  <link rel="stylesheet" href="/pwa-shell.css">
+  <script src="/pwa-shell.js" defer></script>
   <style>
     :root {
       --bg: #f4ecd7;
@@ -159,6 +168,16 @@
     .mobile-status-chip.warn {
       color:#f4e5bf;
       border-color:rgba(200,154,75,.5);
+    }
+    .mobile-status-chip.live {
+      color:#dff6d9;
+      border-color:rgba(94,214,122,.45);
+      background:rgba(94,214,122,.14);
+    }
+    .mobile-status-chip.ready {
+      color:#dbeeff;
+      border-color:rgba(94,173,255,.45);
+      background:rgba(94,173,255,.14);
     }
     .today-card {
       display:grid;
@@ -1058,10 +1077,11 @@
       <h1>Tin Cup 2026 <span>Southern Pines, NC | 5/12-5/17/26</span></h1>
       <div class="chips">
         <button id="tripInfoTrigger" class="chip chip-button" type="button">Trip Info</button>
-        <a id="tinCupLiveLeaderboardChip" class="chip cta" href="/tin-cup/leaderboard-2026.html">Live Leaderboards</a>
+        <a id="tinCupTodayChip" class="chip cta" href="/tin-cup/today.html">Today</a>
+        <a id="tinCupLiveLeaderboardChip" class="chip cta" href="/tin-cup/leaderboard-2026.html">Results</a>
         <a id="tinCupGuestsChip" class="chip cta" href="/tin-cup/guests-lodging.html">Lodging</a>
-        <a id="tinCupLiveEntryChip" class="chip cta" href="/tin-cup/live-score-entry.html?mode=score">Score Now</a>
-        <a id="tinCupAdminSetupChip" class="chip cta" href="/tin-cup/live-score-entry.html?mode=admin">Admin / Setup</a>
+        <a id="tinCupLiveEntryChip" class="chip cta" href="/tin-cup/scorekeeper.html">Score</a>
+        <a id="tinCupAdminSetupChip" class="chip cta" href="/tin-cup/live-score-entry.html">Admin</a>
         <a id="tinCupAdminGuideChip" class="chip cta" href="/tin-cup/admin-guide.html">Admin Guide</a>
       </div>
     </header>
@@ -1073,20 +1093,24 @@
         <span id="dashboardResultsChip" class="mobile-status-chip">Results</span>
       </div>
       <div class="action-grid">
-        <a id="dashboardScoreLink" class="action-card" href="/tin-cup/live-score-entry.html?mode=score">
-          <strong>Score Now</strong>
+        <a id="dashboardTodayLink" class="action-card" href="/tin-cup/today.html">
+          <strong>Today</strong>
+          <span class="meta">See the current round, first tee time, and the most useful Tin Cup actions in one place.</span>
+        </a>
+        <a id="dashboardScoreLink" class="action-card" href="/tin-cup/scorekeeper.html">
+          <strong>Score</strong>
           <span class="meta">Open the mobile scorekeeper flow for the active foursome or scramble team.</span>
         </a>
         <a id="dashboardResultsLink" class="action-card" href="/tin-cup/leaderboard-2026.html">
-          <strong>Live Results</strong>
+          <strong>Results</strong>
           <span class="meta">See trip standings, day standings, winners, and final report views.</span>
         </a>
         <a id="dashboardLodgingLink" class="action-card" href="/tin-cup/guests-lodging.html">
           <strong>Lodging</strong>
           <span class="meta">Review condo assignments, payments, and unassigned golfers.</span>
         </a>
-        <a id="dashboardAdminLink" class="action-card" href="/tin-cup/live-score-entry.html?mode=admin">
-          <strong>Admin / Setup</strong>
+        <a id="dashboardAdminLink" class="action-card" href="/tin-cup/live-score-entry.html">
+          <strong>Admin</strong>
           <span class="meta">Manage roster, rules, side games, exports, and competition reset tools.</span>
         </a>
       </div>
@@ -1111,10 +1135,10 @@
   </div>
   <nav class="app-bottom-nav" aria-label="Tin Cup Navigation">
     <a id="bottomNavTrip" class="bottom-nav-link active" href="/tin-cup/trip-2026.html">Trip</a>
-    <a id="bottomNavScore" class="bottom-nav-link" href="/tin-cup/live-score-entry.html?mode=score">Score</a>
+    <a id="bottomNavScore" class="bottom-nav-link" href="/tin-cup/scorekeeper.html">Score</a>
     <a id="bottomNavResults" class="bottom-nav-link" href="/tin-cup/leaderboard-2026.html">Results</a>
     <a id="bottomNavLodging" class="bottom-nav-link" href="/tin-cup/guests-lodging.html">Lodging</a>
-    <a id="bottomNavAdmin" class="bottom-nav-link" href="/tin-cup/live-score-entry.html?mode=admin">Admin</a>
+    <a id="bottomNavAdmin" class="bottom-nav-link" href="/tin-cup/live-score-entry.html">Admin</a>
   </nav>
   <a href="/admin.html" target="_blank" aria-label="Admin login" style="position:fixed;left:12px;bottom:12px;padding:8px 12px;border-radius:10px;background:#0c1a2c;color:#f9fafb;text-decoration:none;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);">ADMIN</a>
   <a id="tripAuditLink" href="/trip-audit.html" aria-label="Trip audit log" style="position:fixed;right:12px;bottom:12px;padding:8px 12px;border-radius:10px;background:#0c1a2c;color:#f9fafb;text-decoration:none;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);display:none;">Trip Audit</a>
@@ -2338,7 +2362,7 @@
     };
     const renderTinCupLeaderboardPromo = (compact = false) => `
       <div class="tin-cup-score-card${compact ? ' compact' : ''}"${compact ? '' : ' style="text-align:center;"'}>
-        <strong>Live Leaderboards</strong>
+        <strong>Results</strong>
         <div style="font-size:${compact ? '0.76rem' : '0.8rem'};color:var(--ink-soft);margin-top:6px;">${tinCupLiveSettings.enableLiveLeaderboard ? 'Day and trip standings are now on a dedicated page.' : 'Live leaderboard is currently disabled for this trip.'}</div>
         ${tinCupLiveSettings.enableLiveLeaderboard
           ? `<a class="cta" href="${buildTinCupContextHref('/tin-cup/leaderboard-2026.html')}" style="display:inline-block;margin-top:${compact ? '6px' : '10px'};">Open Leaderboard Page</a>`
@@ -2428,11 +2452,13 @@
     }
 
     function renderTinCupLiveNavChips() {
+      const todayChip = document.getElementById('tinCupTodayChip');
       const guestsChip = document.getElementById('tinCupGuestsChip');
       const entryChip = document.getElementById('tinCupLiveEntryChip');
       const adminChip = document.getElementById('tinCupAdminSetupChip');
       const boardChip = document.getElementById('tinCupLiveLeaderboardChip');
       const guideChip = document.getElementById('tinCupAdminGuideChip');
+      const dashboardTodayLink = document.getElementById('dashboardTodayLink');
       const dashboardScoreLink = document.getElementById('dashboardScoreLink');
       const dashboardResultsLink = document.getElementById('dashboardResultsLink');
       const dashboardLodgingLink = document.getElementById('dashboardLodgingLink');
@@ -2442,15 +2468,18 @@
       const bottomNavResults = document.getElementById('bottomNavResults');
       const bottomNavLodging = document.getElementById('bottomNavLodging');
       const bottomNavAdmin = document.getElementById('bottomNavAdmin');
+      if (todayChip) {
+        todayChip.href = buildTinCupContextHref('/tin-cup/today.html');
+      }
       if (guestsChip) {
         guestsChip.href = buildTinCupContextHref('/tin-cup/guests-lodging.html');
       }
       if (entryChip) {
         entryChip.style.display = tinCupLiveSettings.enableLiveFoursomeScoring ? '' : 'none';
-        entryChip.href = withExtraQuery('/tin-cup/live-score-entry.html', 'mode=score');
+        entryChip.href = buildTinCupContextHref('/tin-cup/scorekeeper.html');
       }
       if (adminChip) {
-        adminChip.href = withExtraQuery('/tin-cup/live-score-entry.html', 'mode=admin');
+        adminChip.href = buildTinCupContextHref('/tin-cup/live-score-entry.html');
       }
       if (boardChip) {
         boardChip.style.display = tinCupLiveSettings.enableLiveLeaderboard ? '' : 'none';
@@ -2459,15 +2488,16 @@
       if (guideChip) {
         guideChip.href = buildTinCupContextHref('/tin-cup/admin-guide.html');
       }
-      if (dashboardScoreLink) dashboardScoreLink.href = withExtraQuery('/tin-cup/live-score-entry.html', 'mode=score');
+      if (dashboardTodayLink) dashboardTodayLink.href = buildTinCupContextHref('/tin-cup/today.html');
+      if (dashboardScoreLink) dashboardScoreLink.href = buildTinCupContextHref('/tin-cup/scorekeeper.html');
       if (dashboardResultsLink) dashboardResultsLink.href = buildTinCupContextHref('/tin-cup/leaderboard-2026.html');
       if (dashboardLodgingLink) dashboardLodgingLink.href = buildTinCupContextHref('/tin-cup/guests-lodging.html');
-      if (dashboardAdminLink) dashboardAdminLink.href = withExtraQuery('/tin-cup/live-score-entry.html', 'mode=admin');
+      if (dashboardAdminLink) dashboardAdminLink.href = buildTinCupContextHref('/tin-cup/live-score-entry.html');
       if (bottomNavTrip) bottomNavTrip.href = buildTinCupContextHref('/tin-cup/trip-2026.html');
-      if (bottomNavScore) bottomNavScore.href = withExtraQuery('/tin-cup/live-score-entry.html', 'mode=score');
+      if (bottomNavScore) bottomNavScore.href = buildTinCupContextHref('/tin-cup/scorekeeper.html');
       if (bottomNavResults) bottomNavResults.href = buildTinCupContextHref('/tin-cup/leaderboard-2026.html');
       if (bottomNavLodging) bottomNavLodging.href = buildTinCupContextHref('/tin-cup/guests-lodging.html');
-      if (bottomNavAdmin) bottomNavAdmin.href = withExtraQuery('/tin-cup/live-score-entry.html', 'mode=admin');
+      if (bottomNavAdmin) bottomNavAdmin.href = buildTinCupContextHref('/tin-cup/live-score-entry.html');
     }
 
     function renderDashboardSummary() {
@@ -2480,12 +2510,12 @@
         dataChip.className = 'mobile-status-chip';
       }
       if (scoringChip) {
-        scoringChip.textContent = tinCupLiveSettings.enableLiveFoursomeScoring ? 'Scorekeeper open' : 'Scorekeeper paused';
-        scoringChip.className = `mobile-status-chip${tinCupLiveSettings.enableLiveFoursomeScoring ? '' : ' warn'}`;
+        scoringChip.textContent = tinCupLiveSettings.enableLiveFoursomeScoring ? 'Live round in progress' : 'Score paused';
+        scoringChip.className = `mobile-status-chip${tinCupLiveSettings.enableLiveFoursomeScoring ? ' live' : ' warn'}`;
       }
       if (resultsChip) {
-        resultsChip.textContent = tinCupLiveSettings.enableLiveLeaderboard ? 'Results visible' : 'Results hidden';
-        resultsChip.className = `mobile-status-chip${tinCupLiveSettings.enableLiveLeaderboard ? '' : ' warn'}`;
+        resultsChip.textContent = tinCupLiveSettings.enableLiveLeaderboard ? 'Report ready when scoring is in' : 'Results hidden';
+        resultsChip.className = `mobile-status-chip${tinCupLiveSettings.enableLiveLeaderboard ? ' ready' : ' warn'}`;
       }
       if (!todaySummary) return;
       const rounds = Array.isArray(trip && trip.rounds) ? trip.rounds : DEFAULT_ROUNDS;
