@@ -2,6 +2,9 @@ const express = require('express');
 const { getSecondaryConn, initSecondaryConn } = require('../secondary-conn');
 initSecondaryConn();
 const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
+const ADMIN_WRITE_CODE = process.env.ADMIN_WRITE_CODE || process.env.ADMIN_CODE || ADMIN_DELETE_CODE;
+const ADMIN_DESTRUCTIVE_CODE = process.env.ADMIN_DESTRUCTIVE_CODE || ADMIN_DELETE_CODE;
+const ADMIN_DESTRUCTIVE_CONFIRM_CODE = process.env.ADMIN_DESTRUCTIVE_CONFIRM_CODE || '';
 const TripPrimary = require('../models/Trip');
 const TripParticipantPrimary = require('../models/TripParticipant');
 const TripAuditLogPrimary = require('../models/TripAuditLog');
@@ -54,8 +57,27 @@ function getSecondaryModels() {
 }
 
 function isAdmin(req) {
-  const code = req.headers['x-admin-code'] || req.query.code || (req.body && req.body.adminCode);
-  return Boolean(ADMIN_DELETE_CODE && code && code === ADMIN_DELETE_CODE);
+  const code = req.headers['x-admin-code'] || req.query.code || (req.body && (req.body.code || req.body.adminCode));
+  return Boolean(ADMIN_WRITE_CODE && code && code === ADMIN_WRITE_CODE);
+}
+
+function isDeleteAdmin(req) {
+  const code = req.headers['x-admin-delete-code']
+    || req.query.deleteCode
+    || (req.body && req.body.deleteCode)
+    || req.headers['x-admin-code']
+    || req.query.code
+    || (req.body && (req.body.code || req.body.adminCode));
+  return Boolean(ADMIN_DESTRUCTIVE_CODE && code && code === ADMIN_DESTRUCTIVE_CODE);
+}
+
+function hasDestructiveConfirm(req) {
+  if (!ADMIN_DESTRUCTIVE_CONFIRM_CODE) return true;
+  const code = req.headers['x-admin-confirm-code']
+    || req.query.confirmCode
+    || (req.body && req.body.confirmCode)
+    || '';
+  return code === ADMIN_DESTRUCTIVE_CONFIRM_CODE;
 }
 
 function getTripModelsForRequest(req) {
@@ -883,7 +905,8 @@ router.post('/:tripId/tin-cup/live/admin/seed-scores', async (req, res) => {
 });
 
 router.post('/:tripId/tin-cup/live/admin/clear-competition', async (req, res) => {
-  if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+  if (!isDeleteAdmin(req)) return res.status(403).json({ error: 'Delete code required' });
+  if (!hasDestructiveConfirm(req)) return res.status(403).json({ error: 'Destructive confirmation code required' });
   try {
     const { trip, TripModel, TripAuditLogModel } = await loadTripBundle(req);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
@@ -1050,8 +1073,8 @@ router.put('/:tripId/participants/:participantId', async (req, res) => {
 
 // Delete participant
 router.delete('/:tripId/participants/:participantId', async (req, res) => {
-  if (!isAdmin(req)) {
-    return res.status(403).json({ error: 'Admin code required' });
+  if (!isDeleteAdmin(req)) {
+    return res.status(403).json({ error: 'Delete code required' });
   }
   try {
     const { TripModel, TripParticipantModel, TripAuditLogModel } = getTripModelsForRequest(req);

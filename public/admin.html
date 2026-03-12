@@ -61,15 +61,63 @@
     .admin-section {
       border: 1px solid #d6dde8;
       border-radius: 12px;
-      padding: 14px;
+      padding: 0;
       margin-bottom: 14px;
       background: #fff;
+      overflow: hidden;
     }
 
-    .admin-section h2 {
-      margin: 0 0 10px 0;
+    .section-toggle {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 14px 16px;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    .section-toggle:hover {
+      background: rgba(255,255,255,.35);
+    }
+
+    .section-toggle-main {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .section-toggle-title {
+      margin: 0;
       font-size: 18px;
       line-height: 1.25;
+      font-weight: 800;
+    }
+
+    .section-toggle-meta {
+      margin: 0;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    .section-toggle-icon {
+      flex: 0 0 auto;
+      font-size: 18px;
+      font-weight: 900;
+      color: #334155;
+      transition: transform .18s ease;
+    }
+
+    .admin-section[data-expanded="true"] .section-toggle-icon {
+      transform: rotate(180deg);
+    }
+
+    .section-body {
+      padding: 0 14px 14px;
     }
 
     .section-quick {
@@ -77,7 +125,7 @@
       border-color: #93c5fd;
     }
 
-    .section-quick h2 {
+    .section-quick .section-toggle-title {
       color: #1e40af;
     }
 
@@ -86,7 +134,7 @@
       border-color: #fcd34d;
     }
 
-    .section-notifications h2 {
+    .section-notifications .section-toggle-title {
       color: #92400e;
     }
 
@@ -95,11 +143,11 @@
       border-color: #86efac;
     }
 
-    .section-log h2 {
+    .section-log .section-toggle-title {
       color: #14532d;
     }
 
-    .section-subscribers h2 {
+    .section-subscribers .section-toggle-title {
       color: #111827;
     }
 
@@ -107,6 +155,40 @@
       margin: 0 0 10px 0;
       color: #334155;
       font-size: 13px;
+    }
+
+    .status-note-list {
+      display: grid;
+      gap: 6px;
+      margin: 0 0 12px 0;
+    }
+
+    .status-note {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      max-width: 100%;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 12px;
+      line-height: 1.35;
+      font-weight: 600;
+      border: 1px solid #d6dde8;
+      background: #f8fafc;
+      color: #334155;
+    }
+
+    .status-note.warn {
+      border-color: #f5d68f;
+      background: #fffbeb;
+      color: #92400e;
+    }
+
+    .status-note.ok {
+      border-color: #86efac;
+      background: #ecfdf3;
+      color: #166534;
     }
 
     .test-buttons {
@@ -223,6 +305,42 @@
       font-weight: 800;
       margin: 0;
       line-height: 1.1;
+    }
+
+    .backup-overview-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 6px 14px;
+      margin-bottom: 10px;
+      padding: 8px 10px;
+      border: 1px solid #d9e2ec;
+      border-radius: 10px;
+      background: rgba(255,255,255,.65);
+    }
+
+    .backup-overview-row {
+      display: grid;
+      grid-template-columns: 140px minmax(0, 1fr);
+      gap: 8px;
+      align-items: start;
+      min-width: 0;
+    }
+
+    .backup-overview-label {
+      font-size: 11px;
+      line-height: 1.35;
+      letter-spacing: .3px;
+      text-transform: uppercase;
+      color: #64748b;
+      font-weight: 800;
+    }
+
+    .backup-overview-value {
+      font-size: 13px;
+      line-height: 1.35;
+      color: #0f172a;
+      font-weight: 700;
+      word-break: break-word;
     }
 
     .table-shell {
@@ -504,6 +622,23 @@
         padding-top: 8px;
       }
 
+      .section-toggle {
+        padding: 12px 14px;
+      }
+
+      .section-body {
+        padding: 0 12px 12px;
+      }
+
+      .backup-overview-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .backup-overview-row {
+        grid-template-columns: 1fr;
+        gap: 2px;
+      }
+
       .admin-table td[data-label="Actions"]::before {
         content: '';
         display: none;
@@ -559,6 +694,8 @@
     <section id="backupsSection" class="admin-section section-log">
       <h2>Backups</h2>
       <p class="section-intro">Create a recovery bundle with the primary database, secondary database, and a site snapshot. Run this before major changes and at least monthly.</p>
+      <div id="backupOverviewGrid" class="backup-overview-grid"></div>
+      <div id="backupWarnings" style="margin-bottom:12px;"></div>
       <div class="toggle-card" style="margin-bottom:10px;">
         <div>
           <p class="toggle-title">Monthly Backup Schedule</p>
@@ -567,6 +704,26 @@
         <label class="toggle-control">
           <span id="monthlyBackupStatusText" class="toggle-status">Loading...</span>
           <input type="checkbox" id="monthlyBackupToggle" class="toggle-input">
+        </label>
+      </div>
+      <div class="toggle-card" style="margin-bottom:10px;">
+        <div>
+          <p class="toggle-title">Weekly Backup Schedule</p>
+          <p class="toggle-text">Adds a weekly full backup in addition to monthly retention coverage.</p>
+        </div>
+        <label class="toggle-control">
+          <span id="weeklyBackupStatusText" class="toggle-status">Loading...</span>
+          <input type="checkbox" id="weeklyBackupToggle" class="toggle-input">
+        </label>
+      </div>
+      <div class="toggle-card" style="margin-bottom:10px;">
+        <div>
+          <p class="toggle-title">Daily Backup During Active Trip Season</p>
+          <p class="toggle-text">Runs daily only within the selected season window.</p>
+        </div>
+        <label class="toggle-control">
+          <span id="dailyBackupStatusText" class="toggle-status">Loading...</span>
+          <input type="checkbox" id="dailyBackupToggle" class="toggle-input">
         </label>
       </div>
       <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:10px;">
@@ -586,7 +743,57 @@
           <span>Keep Backups</span>
           <input id="backupRetainCountInput" type="number" min="1" max="120" value="12">
         </label>
+        <label style="display:grid;gap:4px;font-size:13px;">
+          <span>Weekly Day</span>
+          <select id="backupWeeklyDayInput">
+            <option value="0">Sunday</option>
+            <option value="1">Monday</option>
+            <option value="2">Tuesday</option>
+            <option value="3">Wednesday</option>
+            <option value="4">Thursday</option>
+            <option value="5">Friday</option>
+            <option value="6">Saturday</option>
+          </select>
+        </label>
+        <label style="display:grid;gap:4px;font-size:13px;">
+          <span>Weekly Hour</span>
+          <input id="backupWeeklyHourInput" type="number" min="0" max="23" value="2">
+        </label>
+        <label style="display:grid;gap:4px;font-size:13px;">
+          <span>Weekly Minute</span>
+          <input id="backupWeeklyMinuteInput" type="number" min="0" max="59" value="15">
+        </label>
+        <label style="display:grid;gap:4px;font-size:13px;">
+          <span>Daily Hour</span>
+          <input id="backupDailyHourInput" type="number" min="0" max="23" value="2">
+        </label>
+        <label style="display:grid;gap:4px;font-size:13px;">
+          <span>Daily Minute</span>
+          <input id="backupDailyMinuteInput" type="number" min="0" max="59" value="15">
+        </label>
+        <label style="display:grid;gap:4px;font-size:13px;">
+          <span>Season Start Month</span>
+          <input id="backupSeasonStartMonthInput" type="number" min="1" max="12" value="3">
+        </label>
+        <label style="display:grid;gap:4px;font-size:13px;">
+          <span>Season End Month</span>
+          <input id="backupSeasonEndMonthInput" type="number" min="1" max="12" value="10">
+        </label>
       </div>
+      <div class="toggle-card" style="margin-bottom:10px;">
+        <div>
+          <p class="toggle-title">Off-Machine Copy Policy</p>
+          <p class="toggle-text">Track whether backups are also copied somewhere outside this server.</p>
+        </div>
+        <label class="toggle-control">
+          <span id="offsiteBackupStatusText" class="toggle-status">Loading...</span>
+          <input type="checkbox" id="offsiteBackupToggle" class="toggle-input">
+        </label>
+      </div>
+      <label style="display:grid;gap:4px;font-size:13px;margin-bottom:10px;">
+        <span>Off-Machine Location / Process</span>
+        <input id="backupOffsiteLocationInput" type="text" maxlength="200" placeholder="Example: Monthly copy to OneDrive\\tee-time-brs-backups">
+      </label>
       <div class="test-buttons">
         <button class="btn-test btn-blue" id="createBackupBtn" type="button">Create Full Backup</button>
         <button class="btn-test btn-log" id="refreshBackupsBtn" type="button">Refresh Backup List</button>
@@ -611,6 +818,14 @@
           <label style="display:grid;gap:4px;font-size:13px;">
             <span>Confirm Backup ID</span>
             <input id="restoreConfirmInput" type="text" placeholder="Type selected backup id">
+          </label>
+          <label style="display:grid;gap:4px;font-size:13px;">
+            <span>Delete / Restore Code</span>
+            <input id="restoreDeleteCodeInput" type="password" placeholder="Only needed if separate from admin code">
+          </label>
+          <label style="display:grid;gap:4px;font-size:13px;">
+            <span>Destructive Confirm Secret</span>
+            <input id="restoreConfirmCodeInput" type="password" placeholder="Required only if configured">
           </label>
         </div>
         <div class="test-buttons" style="margin-top:10px;">
@@ -804,6 +1019,74 @@
   </dialog>
 
   <script>
+    function setupCollapsibleSections() {
+      const defaultExpanded = new Set();
+      document.querySelectorAll('.admin-section').forEach((section) => {
+        if (section.dataset.collapsibleReady === '1') return;
+        const heading = section.querySelector(':scope > h2');
+        if (!heading) return;
+
+        const intro = section.querySelector(':scope > .section-intro');
+        const title = heading.textContent.trim();
+        const meta = intro ? intro.textContent.trim() : 'Show or hide this admin section.';
+        const expanded = defaultExpanded.has(section.id);
+
+        const toggle = document.createElement('button');
+        toggle.type = 'button';
+        toggle.className = 'section-toggle';
+        toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        toggle.innerHTML = `
+          <span class="section-toggle-main">
+            <span class="section-toggle-title"></span>
+            <span class="section-toggle-meta"></span>
+          </span>
+          <span class="section-toggle-icon" aria-hidden="true">▾</span>
+        `;
+        toggle.querySelector('.section-toggle-title').textContent = title;
+        toggle.querySelector('.section-toggle-meta').textContent = meta;
+
+        const body = document.createElement('div');
+        body.className = 'section-body';
+
+        const nodes = Array.from(section.childNodes);
+        for (const node of nodes) {
+          if (node === heading) continue;
+          body.appendChild(node);
+        }
+        heading.remove();
+        section.prepend(body);
+        section.prepend(toggle);
+
+        const applyExpanded = (nextExpanded) => {
+          section.dataset.expanded = nextExpanded ? 'true' : 'false';
+          toggle.setAttribute('aria-expanded', nextExpanded ? 'true' : 'false');
+          body.hidden = !nextExpanded;
+        };
+
+        toggle.addEventListener('click', () => {
+          applyExpanded(section.dataset.expanded !== 'true');
+        });
+
+        section.dataset.collapsibleReady = '1';
+        applyExpanded(expanded);
+      });
+
+      document.querySelectorAll('.section-nav a[href^="#"]').forEach((link) => {
+        link.addEventListener('click', () => {
+          const id = (link.getAttribute('href') || '').slice(1);
+          const section = document.getElementById(id);
+          if (!section || section.dataset.collapsibleReady !== '1') return;
+          section.dataset.expanded = 'true';
+          const toggle = section.querySelector(':scope > .section-toggle');
+          const body = section.querySelector(':scope > .section-body');
+          if (toggle) toggle.setAttribute('aria-expanded', 'true');
+          if (body) body.hidden = false;
+        });
+      });
+    }
+
+    setupCollapsibleSections();
+
     const ADMIN_CODE = prompt('Enter admin code:');
     if (!ADMIN_CODE) {
       document.getElementById('content').innerHTML = '<div class="empty-state">Admin access required</div>';
@@ -1054,14 +1337,70 @@
 
     function applyBackupSettings(settings = {}) {
       const monthlyEnabled = settings.monthlyEnabled !== false;
+      const weeklyEnabled = settings.weeklyEnabled === true;
+      const dailyEnabled = settings.dailyEnabled === true;
+      const offsiteEnabled = settings.offsiteCopyEnabled === true;
       document.getElementById('monthlyBackupToggle').checked = monthlyEnabled;
+      document.getElementById('weeklyBackupToggle').checked = weeklyEnabled;
+      document.getElementById('dailyBackupToggle').checked = dailyEnabled;
       document.getElementById('backupDayInput').value = settings.monthlyDay ?? 1;
       document.getElementById('backupHourInput').value = settings.monthlyHour ?? 2;
       document.getElementById('backupMinuteInput').value = settings.monthlyMinute ?? 15;
+      document.getElementById('backupWeeklyDayInput').value = settings.weeklyDay ?? 0;
+      document.getElementById('backupWeeklyHourInput').value = settings.weeklyHour ?? 2;
+      document.getElementById('backupWeeklyMinuteInput').value = settings.weeklyMinute ?? 15;
+      document.getElementById('backupDailyHourInput').value = settings.dailyHour ?? 2;
+      document.getElementById('backupDailyMinuteInput').value = settings.dailyMinute ?? 15;
+      document.getElementById('backupSeasonStartMonthInput').value = settings.activeSeasonStartMonth ?? 3;
+      document.getElementById('backupSeasonEndMonthInput').value = settings.activeSeasonEndMonth ?? 10;
       document.getElementById('backupRetainCountInput').value = settings.retainCount ?? 12;
+      document.getElementById('offsiteBackupToggle').checked = offsiteEnabled;
+      document.getElementById('backupOffsiteLocationInput').value = settings.offsiteLocation ?? '';
       const statusText = document.getElementById('monthlyBackupStatusText');
       statusText.textContent = monthlyEnabled ? 'Enabled' : 'Disabled';
       statusText.style.color = monthlyEnabled ? '#059669' : '#dc2626';
+      const weeklyStatusText = document.getElementById('weeklyBackupStatusText');
+      weeklyStatusText.textContent = weeklyEnabled ? 'Enabled' : 'Disabled';
+      weeklyStatusText.style.color = weeklyEnabled ? '#059669' : '#dc2626';
+      const dailyStatusText = document.getElementById('dailyBackupStatusText');
+      dailyStatusText.textContent = dailyEnabled ? 'Enabled' : 'Disabled';
+      dailyStatusText.style.color = dailyEnabled ? '#059669' : '#dc2626';
+      const offsiteStatusText = document.getElementById('offsiteBackupStatusText');
+      offsiteStatusText.textContent = offsiteEnabled ? 'Documented' : 'Not Set';
+      offsiteStatusText.style.color = offsiteEnabled ? '#059669' : '#dc2626';
+    }
+
+    function formatBackupBytes(bytes = 0) {
+      const value = Number(bytes || 0);
+      if (!value) return '0 B';
+      if (value >= 1024 * 1024 * 1024) return `${(value / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+      if (value >= 1024 * 1024) return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+      if (value >= 1024) return `${Math.round(value / 1024)} KB`;
+      return `${value} B`;
+    }
+
+    function renderBackupOverview(overview = {}, auth = {}) {
+      const wrap = document.getElementById('backupOverviewGrid');
+      const cards = [
+        ['Last Successful Backup', overview.lastSuccessfulBackupAt ? new Date(overview.lastSuccessfulBackupAt).toLocaleString() : 'None yet'],
+        ['Last Backup ID', overview.lastSuccessfulBackupId || '-'],
+        ['Last Backup Size', formatBackupBytes(overview.lastSuccessfulBackupBytes || 0)],
+        ['Next Scheduled Backup', overview.nextScheduledBackupAt ? new Date(overview.nextScheduledBackupAt).toLocaleString() : 'No schedule enabled'],
+        ['Last Failure', overview.lastFailureAt ? new Date(overview.lastFailureAt).toLocaleString() : 'No recent failures'],
+        ['Protection Mode', auth.separateDeleteCode ? 'Separate delete code active' : 'Shared admin/delete code'],
+      ];
+      wrap.innerHTML = cards.map(([label, value]) => `
+        <div class="backup-overview-row">
+          <div class="backup-overview-label">${escapeHtml(label)}</div>
+          <div class="backup-overview-value">${escapeHtml(value)}</div>
+        </div>
+      `).join('');
+      const warnings = Array.isArray(overview.warnings) ? overview.warnings : [];
+      const warnWrap = document.getElementById('backupWarnings');
+      warnWrap.className = 'status-note-list';
+      warnWrap.innerHTML = warnings.length
+        ? warnings.map((warning) => `<div class="status-note warn">${escapeHtml(warning)}</div>`).join('')
+        : '<div class="status-note ok">Backup health looks clean.</div>';
     }
 
     function renderRestoreBackupOptions(backups = []) {
@@ -1138,6 +1477,7 @@
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error || 'Failed to load backups');
         applyBackupSettings(payload.settings || {});
+        renderBackupOverview(payload.overview || {}, payload.auth || {});
         renderBackups(payload.backups || [], payload.backupRoot || '');
         renderRestoreBackupOptions(payload.backups || []);
         showBackupResult(payload.backupInProgress ? 'Backup list refreshed. A backup is currently running.' : 'Backup list refreshed.');
@@ -1171,10 +1511,22 @@
         const payload = {
           code: ADMIN_CODE,
           monthlyEnabled: document.getElementById('monthlyBackupToggle').checked,
+          weeklyEnabled: document.getElementById('weeklyBackupToggle').checked,
+          dailyEnabled: document.getElementById('dailyBackupToggle').checked,
           monthlyDay: Number(document.getElementById('backupDayInput').value || 1),
           monthlyHour: Number(document.getElementById('backupHourInput').value || 2),
           monthlyMinute: Number(document.getElementById('backupMinuteInput').value || 15),
-          retainCount: Number(document.getElementById('backupRetainCountInput').value || 12)
+          weeklyDay: Number(document.getElementById('backupWeeklyDayInput').value || 0),
+          weeklyHour: Number(document.getElementById('backupWeeklyHourInput').value || 2),
+          weeklyMinute: Number(document.getElementById('backupWeeklyMinuteInput').value || 15),
+          dailyHour: Number(document.getElementById('backupDailyHourInput').value || 2),
+          dailyMinute: Number(document.getElementById('backupDailyMinuteInput').value || 15),
+          activeSeasonOnly: document.getElementById('dailyBackupToggle').checked,
+          activeSeasonStartMonth: Number(document.getElementById('backupSeasonStartMonthInput').value || 3),
+          activeSeasonEndMonth: Number(document.getElementById('backupSeasonEndMonthInput').value || 10),
+          retainCount: Number(document.getElementById('backupRetainCountInput').value || 12),
+          offsiteCopyEnabled: document.getElementById('offsiteBackupToggle').checked,
+          offsiteLocation: document.getElementById('backupOffsiteLocationInput').value || ''
         };
         const response = await fetch(`/api/admin/settings/backups?code=${encodeURIComponent(ADMIN_CODE)}`, {
           method: 'PUT',
@@ -1194,6 +1546,8 @@
       const backupId = String(document.getElementById('restoreBackupSelect').value || '').trim();
       const target = String(document.getElementById('restoreTargetSelect').value || 'both').trim();
       const confirmBackupId = String(document.getElementById('restoreConfirmInput').value || '').trim();
+      const deleteCode = String(document.getElementById('restoreDeleteCodeInput').value || '').trim() || ADMIN_CODE;
+      const confirmCode = String(document.getElementById('restoreConfirmCodeInput').value || '').trim();
       if (!backupId) {
         showBackupResult('Error: choose a backup to restore.', false);
         return;
@@ -1207,12 +1561,17 @@
         showBackupResult(`Restoring ${target} from ${backupId}...`, true, true);
         const response = await fetch(`/api/admin/backups/${encodeURIComponent(backupId)}/restore?code=${encodeURIComponent(ADMIN_CODE)}`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ code: ADMIN_CODE, target, confirmBackupId })
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-delete-code': deleteCode,
+            'x-admin-confirm-code': confirmCode,
+          },
+          body: JSON.stringify({ code: ADMIN_CODE, deleteCode, confirmCode, target, confirmBackupId })
         });
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error || 'Failed to restore backup');
         document.getElementById('restoreConfirmInput').value = '';
+        document.getElementById('restoreConfirmCodeInput').value = '';
         showBackupResult(`Restore completed for ${target} from ${backupId}.`);
       } catch (error) {
         showBackupResult(`Error: ${error.message}`, false);

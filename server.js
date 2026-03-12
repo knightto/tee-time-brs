@@ -68,6 +68,10 @@ app.set('trust proxy', 1);
 app.use(express.json());
 const PORT = process.env.PORT || 5000;
 const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
+const ADMIN_READ_CODE = process.env.ADMIN_READ_CODE || process.env.ADMIN_CODE || ADMIN_DELETE_CODE;
+const ADMIN_WRITE_CODE = process.env.ADMIN_WRITE_CODE || process.env.ADMIN_CODE || ADMIN_DELETE_CODE;
+const ADMIN_DESTRUCTIVE_CODE = process.env.ADMIN_DESTRUCTIVE_CODE || ADMIN_DELETE_CODE;
+const ADMIN_DESTRUCTIVE_CONFIRM_CODE = process.env.ADMIN_DESTRUCTIVE_CONFIRM_CODE || '';
 const SITE_URL = (process.env.SITE_URL || 'https://tee-time-brs.onrender.com/').replace(/\/$/, '') + '/';
 const LOCAL_TZ = process.env.LOCAL_TZ || 'America/New_York';
 const CALENDAR_EVENT_DURATION_MINUTES = Math.max(30, Number(process.env.CALENDAR_EVENT_DURATION_MINUTES || 270) || 270);
@@ -1124,9 +1128,29 @@ const BACKUP_SETTINGS_DEFAULTS = Object.freeze({
   monthlyDay: 1,
   monthlyHour: 2,
   monthlyMinute: 15,
+  weeklyEnabled: false,
+  weeklyDay: 0,
+  weeklyHour: 2,
+  weeklyMinute: 15,
+  dailyEnabled: false,
+  dailyHour: 2,
+  dailyMinute: 15,
+  activeSeasonOnly: false,
+  activeSeasonStartMonth: 3,
+  activeSeasonEndMonth: 10,
   retainCount: 12,
+  offsiteCopyEnabled: false,
+  offsiteLocation: '',
 });
 let backupSettingsCache = { value: { ...BACKUP_SETTINGS_DEFAULTS }, ts: 0 };
+const BACKUP_STATUS_DEFAULTS = Object.freeze({
+  lastSuccessfulBackupAt: null,
+  lastSuccessfulBackupId: '',
+  lastSuccessfulBackupBytes: 0,
+  lastFailureAt: null,
+  lastFailureMessage: '',
+});
+let backupStatusCache = { value: { ...BACKUP_STATUS_DEFAULTS }, ts: 0 };
 
 async function areSchedulerJobsEnabled() {
   if (SCHEDULER_ENV_DISABLED) return false;
@@ -1184,11 +1208,30 @@ function normalizeBackupSettings(rawValue) {
   const monthlyDay = Number(rawValue.monthlyDay);
   const monthlyHour = Number(rawValue.monthlyHour);
   const monthlyMinute = Number(rawValue.monthlyMinute);
+  const weeklyDay = Number(rawValue.weeklyDay);
+  const weeklyHour = Number(rawValue.weeklyHour);
+  const weeklyMinute = Number(rawValue.weeklyMinute);
+  const dailyHour = Number(rawValue.dailyHour);
+  const dailyMinute = Number(rawValue.dailyMinute);
+  const activeSeasonStartMonth = Number(rawValue.activeSeasonStartMonth);
+  const activeSeasonEndMonth = Number(rawValue.activeSeasonEndMonth);
   const retainCount = Number(rawValue.retainCount);
   if (Number.isInteger(monthlyDay) && monthlyDay >= 1 && monthlyDay <= 28) base.monthlyDay = monthlyDay;
   if (Number.isInteger(monthlyHour) && monthlyHour >= 0 && monthlyHour <= 23) base.monthlyHour = monthlyHour;
   if (Number.isInteger(monthlyMinute) && monthlyMinute >= 0 && monthlyMinute <= 59) base.monthlyMinute = monthlyMinute;
+  if (typeof rawValue.weeklyEnabled === 'boolean') base.weeklyEnabled = rawValue.weeklyEnabled;
+  if (Number.isInteger(weeklyDay) && weeklyDay >= 0 && weeklyDay <= 6) base.weeklyDay = weeklyDay;
+  if (Number.isInteger(weeklyHour) && weeklyHour >= 0 && weeklyHour <= 23) base.weeklyHour = weeklyHour;
+  if (Number.isInteger(weeklyMinute) && weeklyMinute >= 0 && weeklyMinute <= 59) base.weeklyMinute = weeklyMinute;
+  if (typeof rawValue.dailyEnabled === 'boolean') base.dailyEnabled = rawValue.dailyEnabled;
+  if (Number.isInteger(dailyHour) && dailyHour >= 0 && dailyHour <= 23) base.dailyHour = dailyHour;
+  if (Number.isInteger(dailyMinute) && dailyMinute >= 0 && dailyMinute <= 59) base.dailyMinute = dailyMinute;
+  if (typeof rawValue.activeSeasonOnly === 'boolean') base.activeSeasonOnly = rawValue.activeSeasonOnly;
+  if (Number.isInteger(activeSeasonStartMonth) && activeSeasonStartMonth >= 1 && activeSeasonStartMonth <= 12) base.activeSeasonStartMonth = activeSeasonStartMonth;
+  if (Number.isInteger(activeSeasonEndMonth) && activeSeasonEndMonth >= 1 && activeSeasonEndMonth <= 12) base.activeSeasonEndMonth = activeSeasonEndMonth;
   if (Number.isInteger(retainCount) && retainCount >= 1 && retainCount <= 120) base.retainCount = retainCount;
+  if (typeof rawValue.offsiteCopyEnabled === 'boolean') base.offsiteCopyEnabled = rawValue.offsiteCopyEnabled;
+  if (typeof rawValue.offsiteLocation === 'string') base.offsiteLocation = rawValue.offsiteLocation.trim().slice(0, 200);
   return base;
 }
 
@@ -1208,6 +1251,61 @@ async function getBackupSettings() {
   }
   backupSettingsCache = { value: settings, ts: now };
   return settings;
+}
+
+function normalizeBackupStatus(rawValue) {
+  const base = { ...BACKUP_STATUS_DEFAULTS };
+  if (!rawValue || typeof rawValue !== 'object') return base;
+  if (rawValue.lastSuccessfulBackupAt) base.lastSuccessfulBackupAt = String(rawValue.lastSuccessfulBackupAt);
+  if (rawValue.lastSuccessfulBackupId) base.lastSuccessfulBackupId = String(rawValue.lastSuccessfulBackupId);
+  if (Number.isFinite(Number(rawValue.lastSuccessfulBackupBytes))) base.lastSuccessfulBackupBytes = Number(rawValue.lastSuccessfulBackupBytes);
+  if (rawValue.lastFailureAt) base.lastFailureAt = String(rawValue.lastFailureAt);
+  if (rawValue.lastFailureMessage) base.lastFailureMessage = String(rawValue.lastFailureMessage).slice(0, 500);
+  return base;
+}
+
+async function getBackupStatus() {
+  const now = Date.now();
+  if (now - backupStatusCache.ts < SCHEDULER_SETTINGS_CACHE_TTL_MS) {
+    return backupStatusCache.value;
+  }
+  let status = { ...BACKUP_STATUS_DEFAULTS };
+  if (Settings) {
+    try {
+      const setting = await Settings.findOne({ key: 'backupStatus' });
+      status = normalizeBackupStatus(setting && setting.value);
+    } catch (e) {
+      console.error('Error checking backup status:', e);
+    }
+  }
+  backupStatusCache = { value: status, ts: now };
+  return status;
+}
+
+async function saveBackupStatus(nextStatus) {
+  const status = normalizeBackupStatus(nextStatus);
+  if (Settings) {
+    await Settings.findOneAndUpdate(
+      { key: 'backupStatus' },
+      { key: 'backupStatus', value: status },
+      { upsert: true, new: true }
+    );
+  }
+  backupStatusCache = { value: status, ts: Date.now() };
+  return status;
+}
+
+async function updateBackupStatus(patch = {}) {
+  const current = await getBackupStatus();
+  return saveBackupStatus({ ...current, ...patch });
+}
+
+async function recordBackupFailure(error) {
+  const message = error && error.message ? error.message : String(error || 'Unknown backup error');
+  return updateBackupStatus({
+    lastFailureAt: new Date().toISOString(),
+    lastFailureMessage: message,
+  });
 }
 
 async function sendEmailToAll(subject, html) {
@@ -1452,14 +1550,83 @@ function buildEventsIcs(events = [], opts = {}) {
   return `${lines.map(foldIcsLine).join('\r\n')}\r\n`;
 }
 
+function getScopedAdminCode(req) {
+  return String(req.headers['x-admin-code'] || req.query.code || req.body?.code || '').trim();
+}
+
+function getDestructiveAdminCode(req) {
+  return String(
+    req.headers['x-admin-delete-code']
+      || req.query.deleteCode
+      || req.body?.deleteCode
+      || getScopedAdminCode(req)
+      || ''
+  ).trim();
+}
+
+function getDestructiveConfirmCode(req) {
+  return String(
+    req.headers['x-admin-confirm-code']
+      || req.query.confirmCode
+      || req.body?.confirmCode
+      || ''
+  ).trim();
+}
+
+function isAdminRead(req) {
+  const code = getScopedAdminCode(req);
+  return Boolean(ADMIN_READ_CODE && code === ADMIN_READ_CODE);
+}
+
+function isAdminWrite(req) {
+  const code = getScopedAdminCode(req);
+  return Boolean(ADMIN_WRITE_CODE && code === ADMIN_WRITE_CODE);
+}
+
+function isAdminDelete(req) {
+  const code = getDestructiveAdminCode(req);
+  return Boolean(ADMIN_DESTRUCTIVE_CODE && code === ADMIN_DESTRUCTIVE_CODE);
+}
+
+function hasDestructiveConfirm(req) {
+  if (!ADMIN_DESTRUCTIVE_CONFIRM_CODE) return true;
+  return getDestructiveConfirmCode(req) === ADMIN_DESTRUCTIVE_CONFIRM_CODE;
+}
+
 function isAdmin(req){
-  const code = (req.headers['x-admin-code'] || req.query.code || req.body?.code || '').trim();
-  return ADMIN_DELETE_CODE && code === ADMIN_DELETE_CODE;
+  return isAdminWrite(req);
 }
 
 function backupIdFromDate(date = new Date()) {
   const iso = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().replace(/\.\d{3}Z$/, 'Z');
   return `backup-${iso.replace(/[:]/g, '-').replace(/\./g, '-').replace('T', '_')}`;
+}
+
+function formatDateKeyInTZ(date = new Date(), timeZone = 'America/New_York') {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(date);
+}
+
+function weekKeyInTZ(date = new Date(), timeZone = 'America/New_York') {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: 'numeric',
+    day: 'numeric',
+  }).formatToParts(date);
+  const year = Number(parts.find((part) => part.type === 'year')?.value || 0);
+  const month = Number(parts.find((part) => part.type === 'month')?.value || 1);
+  const day = Number(parts.find((part) => part.type === 'day')?.value || 1);
+  const dt = new Date(Date.UTC(year, month - 1, day));
+  const dayNum = dt.getUTCDay() || 7;
+  dt.setUTCDate(dt.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(dt.getUTCFullYear(), 0, 1));
+  const weekNo = Math.ceil((((dt - yearStart) / 86400000) + 1) / 7);
+  return `${dt.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`;
 }
 
 function isSafeBackupSegment(value = '') {
@@ -1719,6 +1886,13 @@ async function createAdminBackupBundle() {
   await fsp.writeFile(manifestFile, JSON.stringify(manifest, null, 2), 'utf8');
   const retention = await pruneBackupRetention(backupSettings.retainCount);
   if (retention.removed.length) manifest.retention.removed = retention.removed;
+  await updateBackupStatus({
+    lastSuccessfulBackupAt: manifest.createdAt,
+    lastSuccessfulBackupId: manifest.id,
+    lastSuccessfulBackupBytes: files.reduce((sum, file) => sum + Number(file && file.size || 0), 0),
+    lastFailureAt: null,
+    lastFailureMessage: '',
+  });
   return manifest;
 }
 
@@ -1756,6 +1930,76 @@ function monthKeyInTZ(date = new Date(), timeZone = LOCAL_TZ) {
   const year = parts.find((part) => part.type === 'year')?.value || '0000';
   const month = parts.find((part) => part.type === 'month')?.value || '00';
   return `${year}-${month}`;
+}
+
+function monthInActiveSeason(settings, date = new Date(), timeZone = LOCAL_TZ) {
+  if (!settings.activeSeasonOnly) return true;
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    month: 'numeric',
+  }).formatToParts(date);
+  const month = Number(parts.find((part) => part.type === 'month')?.value || 1);
+  const start = Number(settings.activeSeasonStartMonth || 1);
+  const end = Number(settings.activeSeasonEndMonth || 12);
+  if (start <= end) return month >= start && month <= end;
+  return month >= start || month <= end;
+}
+
+function nextScheduledBackupAt(settings, now = new Date(), timeZone = LOCAL_TZ) {
+  const candidates = [];
+  const start = new Date(now.getTime() + 60000);
+  for (let dayOffset = 0; dayOffset < 400; dayOffset += 1) {
+    const cursor = new Date(start.getTime() + (dayOffset * 86400000));
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+    }).formatToParts(cursor);
+    const year = Number(parts.find((part) => part.type === 'year')?.value || 0);
+    const month = Number(parts.find((part) => part.type === 'month')?.value || 1);
+    const day = Number(parts.find((part) => part.type === 'day')?.value || 1);
+    const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+    if (settings.monthlyEnabled && day === Number(settings.monthlyDay || 1)) {
+      candidates.push(new Date(year, month - 1, day, Number(settings.monthlyHour || 0), Number(settings.monthlyMinute || 0), 0, 0));
+    }
+    if (settings.weeklyEnabled && weekday === Number(settings.weeklyDay || 0)) {
+      candidates.push(new Date(year, month - 1, day, Number(settings.weeklyHour || 0), Number(settings.weeklyMinute || 0), 0, 0));
+    }
+    if (settings.dailyEnabled && monthInActiveSeason(settings, cursor, timeZone)) {
+      candidates.push(new Date(year, month - 1, day, Number(settings.dailyHour || 0), Number(settings.dailyMinute || 0), 0, 0));
+    }
+    const valid = candidates.filter((candidate) => candidate.getTime() > now.getTime());
+    if (valid.length) {
+      valid.sort((a, b) => a.getTime() - b.getTime());
+      return valid[0].toISOString();
+    }
+  }
+  return null;
+}
+
+function buildBackupOverview(backups = [], settings = {}, status = {}) {
+  const latest = Array.isArray(backups) && backups.length ? backups[0] : null;
+  const lastSuccessfulBackupAt = status.lastSuccessfulBackupAt || (latest && latest.createdAt) || null;
+  const lastSuccessfulBackupId = status.lastSuccessfulBackupId || (latest && latest.id) || '';
+  const lastSuccessfulBackupBytes = Number(status.lastSuccessfulBackupBytes || 0) || (
+    latest ? (Array.isArray(latest.files) ? latest.files.reduce((sum, file) => sum + Number(file && file.size || 0), 0) : 0) : 0
+  );
+  const warnings = [];
+  if (!lastSuccessfulBackupAt) warnings.push('No successful backups have been recorded yet.');
+  if (!settings.offsiteCopyEnabled) warnings.push('Off-machine copy is not configured.');
+  if (status.lastFailureAt && (!lastSuccessfulBackupAt || new Date(status.lastFailureAt).getTime() > new Date(lastSuccessfulBackupAt).getTime())) {
+    warnings.push(`Most recent backup failure: ${status.lastFailureMessage || status.lastFailureAt}`);
+  }
+  return {
+    lastSuccessfulBackupAt,
+    lastSuccessfulBackupId,
+    lastSuccessfulBackupBytes,
+    lastFailureAt: status.lastFailureAt || null,
+    lastFailureMessage: status.lastFailureMessage || '',
+    nextScheduledBackupAt: nextScheduledBackupAt(settings),
+    warnings,
+  };
 }
 function buildDedupeKey(dateVal, teeTimes = [], isTeam = false) {
   if (isTeam) return null;
@@ -2296,8 +2540,7 @@ app.put('/api/events/:id', async (req, res) => {
 });
 
 app.delete('/api/events/:id', async (req, res) => {
-  const code = req.query.code || req.body?.code || '';
-  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) return res.status(403).json({ error: 'Forbidden' });
+  if (!isAdminDelete(req)) return res.status(403).json({ error: 'Delete code required' });
   const del = await Event.findByIdAndDelete(req.params.id);
   if (!del) return res.status(404).json({ error: 'Not found' });
   
@@ -2644,7 +2887,7 @@ app.put('/api/events/:id/tee-times/:teeId', async (req, res) => {
 
 app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
   try {
-    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+    if (!isAdminDelete(req)) return res.status(403).json({ error: 'Delete code required' });
     const notifyClub = String(req.query.notifyClub || '0') === '1';
     const adminCode = (req.query.code || '').trim();
     console.log('[tee-time] Remove request', { eventId: req.params.id, teeId: req.params.teeId, notifyClub, hasCode: !!adminCode });
@@ -2809,6 +3052,7 @@ app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPla
 });
 app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res) => {
   try {
+    if (!isAdminDelete(req)) return res.status(403).json({ error: 'Delete code required' });
     const ev = await Event.findById(req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     const tt = ev.teeTimes.id(req.params.teeId);
@@ -3790,8 +4034,7 @@ app.put('/api/admin/settings/scheduled-email-rules', async (req, res) => {
 
 /* Admin - List Subscribers */
 app.get('/api/admin/subscribers', async (req, res) => {
-  const code = req.query.code || '';
-  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+  if (!isAdminRead(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   
@@ -3816,9 +4059,8 @@ app.get('/api/admin/subscribers', async (req, res) => {
 
 /* Admin - Delete Subscriber */
 app.delete('/api/admin/subscribers/:id', async (req, res) => {
-  const code = req.query.code || req.body?.code || '';
-  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
-    return res.status(403).json({ error: 'Forbidden' });
+  if (!isAdminDelete(req)) {
+    return res.status(403).json({ error: 'Delete code required' });
   }
   
   try {
@@ -3834,7 +4076,7 @@ app.delete('/api/admin/subscribers/:id', async (req, res) => {
 
 // Admin - Tee time change log
 app.get('/api/admin/tee-time-log', async (req, res) => {
-  if (!ADMIN_DELETE_CODE || (req.query.code || req.body?.code || '') !== ADMIN_DELETE_CODE) {
+  if (!isAdminRead(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   if (!TeeTimeLog) return res.status(500).json({ error: 'TeeTimeLog model not available' });
@@ -3849,17 +4091,24 @@ app.get('/api/admin/tee-time-log', async (req, res) => {
 
 /* Admin - Create/List/Download Backups */
 app.get('/api/admin/backups', async (req, res) => {
-  const code = req.query.code || '';
-  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+  if (!isAdminRead(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
     const backups = await listAdminBackups();
+    const settings = await getBackupSettings();
+    const status = await getBackupStatus();
     return res.json({
       backupRoot: BACKUP_ROOT,
       backupInProgress: Boolean(backupJobPromise),
       restoreInProgress: Boolean(restoreJobPromise),
-      settings: await getBackupSettings(),
+      settings,
+      status,
+      overview: buildBackupOverview(backups, settings, status),
+      auth: {
+        separateDeleteCode: ADMIN_DESTRUCTIVE_CODE !== ADMIN_WRITE_CODE,
+        destructiveConfirmRequired: Boolean(ADMIN_DESTRUCTIVE_CONFIRM_CODE),
+      },
       backups,
     });
   } catch (e) {
@@ -3868,20 +4117,20 @@ app.get('/api/admin/backups', async (req, res) => {
 });
 
 app.get('/api/admin/settings/backups', async (req, res) => {
-  const code = req.query.code || '';
-  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+  if (!isAdminRead(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
-    return res.json({ settings: await getBackupSettings() });
+    const settings = await getBackupSettings();
+    const status = await getBackupStatus();
+    return res.json({ settings, status, overview: buildBackupOverview(await listAdminBackups(), settings, status) });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
 });
 
 app.put('/api/admin/settings/backups', async (req, res) => {
-  const code = req.query.code || req.body?.code || '';
-  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+  if (!isAdminWrite(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
@@ -3900,8 +4149,7 @@ app.put('/api/admin/settings/backups', async (req, res) => {
 });
 
 app.post('/api/admin/backups', async (req, res) => {
-  const code = req.query.code || req.body?.code || '';
-  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+  if (!isAdminWrite(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   if (backupJobPromise) {
@@ -3916,6 +4164,7 @@ app.post('/api/admin/backups', async (req, res) => {
       manifest,
     });
   } catch (e) {
+    await recordBackupFailure(e).catch(() => {});
     return res.status(500).json({ error: e.message });
   } finally {
     backupJobPromise = null;
@@ -3923,9 +4172,11 @@ app.post('/api/admin/backups', async (req, res) => {
 });
 
 app.post('/api/admin/backups/:backupId/restore', async (req, res) => {
-  const code = req.query.code || req.body?.code || '';
-  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
-    return res.status(403).json({ error: 'Forbidden' });
+  if (!isAdminDelete(req)) {
+    return res.status(403).json({ error: 'Delete code required' });
+  }
+  if (!hasDestructiveConfirm(req)) {
+    return res.status(403).json({ error: 'Destructive confirmation code required' });
   }
   if (backupJobPromise || restoreJobPromise) {
     return res.status(409).json({ error: 'Another backup or restore job is already in progress' });
@@ -3972,8 +4223,7 @@ app.post('/api/admin/backups/:backupId/restore', async (req, res) => {
 });
 
 app.get('/api/admin/backups/:backupId/files/:fileName', async (req, res) => {
-  const code = req.query.code || '';
-  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+  if (!isAdminRead(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   const backupId = String(req.params.backupId || '').trim();
@@ -4333,6 +4583,8 @@ if (require.main === module && !SCHEDULER_ENV_DISABLED) {
   let lastAdminCheckHour = null;
   let lastWeatherRefreshHour = null;
   let lastMonthlyBackupKey = null;
+  let lastWeeklyBackupKey = null;
+  let lastDailyBackupKey = null;
   let lastSchedulerDisabledLogHour = null;
 
   setInterval(async () => {
@@ -4357,6 +4609,7 @@ if (require.main === module && !SCHEDULER_ENV_DISABLED) {
       const todayParts = todayLocalYMD.split('-').map(Number);
       const dayOfMonth = Number(todayParts[2] || 0);
       const currentMonthKey = monthKeyInTZ(now, LOCAL_TZ);
+      const currentWeekKey = weekKeyInTZ(now, LOCAL_TZ);
 
 
       // Daily 4:00 PM Brian Jones alert for empty tee times tomorrow
@@ -4405,7 +4658,7 @@ if (require.main === module && !SCHEDULER_ENV_DISABLED) {
         if (hour === 0) lastWeatherRefreshHour = null;
       }
 
-      // Monthly automated backup and retention cleanup
+      // Automated backups and retention cleanup
       if (
         backupSettings.monthlyEnabled
         && dayOfMonth === Number(backupSettings.monthlyDay)
@@ -4421,7 +4674,52 @@ if (require.main === module && !SCHEDULER_ENV_DISABLED) {
           const manifest = await backupJobPromise;
           console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'monthly-backup-complete', backupId: manifest.id, currentMonthKey }));
         } catch (error) {
+          await recordBackupFailure(error).catch(() => {});
           console.error('monthly backup error', error);
+        } finally {
+          backupJobPromise = null;
+        }
+      }
+
+      if (
+        backupSettings.weeklyEnabled
+        && now.getDay() === Number(backupSettings.weeklyDay)
+        && hour === Number(backupSettings.weeklyHour)
+        && minute === Number(backupSettings.weeklyMinute)
+        && lastWeeklyBackupKey !== currentWeekKey
+        && !backupJobPromise
+        && !restoreJobPromise
+      ) {
+        lastWeeklyBackupKey = currentWeekKey;
+        try {
+          backupJobPromise = createAdminBackupBundle();
+          const manifest = await backupJobPromise;
+          console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'weekly-backup-complete', backupId: manifest.id, currentWeekKey }));
+        } catch (error) {
+          await recordBackupFailure(error).catch(() => {});
+          console.error('weekly backup error', error);
+        } finally {
+          backupJobPromise = null;
+        }
+      }
+
+      if (
+        backupSettings.dailyEnabled
+        && monthInActiveSeason(backupSettings, now, LOCAL_TZ)
+        && hour === Number(backupSettings.dailyHour)
+        && minute === Number(backupSettings.dailyMinute)
+        && lastDailyBackupKey !== todayLocalYMD
+        && !backupJobPromise
+        && !restoreJobPromise
+      ) {
+        lastDailyBackupKey = todayLocalYMD;
+        try {
+          backupJobPromise = createAdminBackupBundle();
+          const manifest = await backupJobPromise;
+          console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'daily-backup-complete', backupId: manifest.id, todayLocalYMD }));
+        } catch (error) {
+          await recordBackupFailure(error).catch(() => {});
+          console.error('daily backup error', error);
         } finally {
           backupJobPromise = null;
         }
@@ -4431,7 +4729,7 @@ if (require.main === module && !SCHEDULER_ENV_DISABLED) {
     }
   }, 60 * 1000); // check once per minute
 
-  console.log('Scheduler enabled: Brian empty-tee alert at 4 PM, daily reminders at 5 PM (24hr & 48hr), admin alerts every 6 hours, weather refresh every 2 hours, monthly backups by backup settings');
+  console.log('Scheduler enabled: Brian empty-tee alert at 4 PM, daily reminders at 5 PM (24hr & 48hr), admin alerts every 6 hours, weather refresh every 2 hours, and scheduled backups by backup settings');
 }
 
 if (require.main === module) {

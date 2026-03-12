@@ -1997,14 +1997,19 @@
       const id = await resolveTripId();
       let adminCode = String(adminCodeInput.value || '').trim();
       if (!adminCode) {
-        adminCode = String(window.prompt('Enter admin code to clear the Tin Cup competition:') || '').trim();
+        adminCode = String(window.prompt('Enter admin delete code to clear the Tin Cup competition:') || '').trim();
         if (adminCode) adminCodeInput.value = adminCode;
       }
-      if (!adminCode) throw new Error('Admin code required');
+      if (!adminCode) throw new Error('Delete code required');
+      const confirmCode = String(window.prompt('If configured, enter the destructive confirmation code. Otherwise leave blank and press OK.') || '').trim();
       const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/admin/clear-competition`), {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-admin-code': adminCode },
-        body: JSON.stringify({})
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-delete-code': adminCode,
+          'x-admin-confirm-code': confirmCode
+        },
+        body: JSON.stringify({ deleteCode: adminCode, confirmCode })
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload.error || 'Failed to clear the Tin Cup competition');

@@ -339,6 +339,30 @@ if ('serviceWorker' in navigator) {
     return `${y}-${m}-${day}`;
   }
 
+  const DELETE_CODE_STORAGE_KEY = 'teeTimeDeleteCode';
+
+  function getStoredDeleteCode() {
+    try {
+      return String(sessionStorage.getItem(DELETE_CODE_STORAGE_KEY) || '').trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function rememberDeleteCode(code) {
+    try {
+      if (code) sessionStorage.setItem(DELETE_CODE_STORAGE_KEY, code);
+    } catch (_) {}
+  }
+
+  function promptForDeleteCode(label = 'this action') {
+    const existing = getStoredDeleteCode();
+    const prompted = window.prompt(`Admin delete code required for ${label}:`, existing || '');
+    const code = String(prompted || '').trim();
+    if (code) rememberDeleteCode(code);
+    return code;
+  }
+
   function parseHHMMToMinutes(rawTime = '') {
     const m = /^(\d{1,2}):(\d{2})$/.exec(String(rawTime).trim());
     if (!m) return null;
@@ -1425,7 +1449,7 @@ if ('serviceWorker' in navigator) {
       if(t.dataset.delTee){
         const [eventId, teeId] = t.dataset.delTee.split(':');
         if(!confirm('Remove this tee/team?')) return;
-        const adminCode = (prompt('Admin delete code (required):') || '').trim();
+        const adminCode = promptForDeleteCode('removing this tee/team');
         if(!adminCode) return;
         const ev = await getEventForAction(eventId);
         const isTeamEvent = !!(ev && ev.isTeamEvent);
@@ -1441,9 +1465,11 @@ if ('serviceWorker' in navigator) {
         try {
           const params = new URLSearchParams();
           if (notifyClub) params.set('notifyClub', '1');
-          if (adminCode) params.set('code', adminCode);
           const url = `/api/events/${eventId}/tee-times/${teeId}${params.toString() ? `?${params.toString()}` : ''}`;
-          const resp = await api(url, { method: 'DELETE' });
+          const resp = await api(url, {
+            method: 'DELETE',
+            headers: { 'x-admin-delete-code': adminCode }
+          });
           if (resp && resp.notifyClub) {
             alert('Club notified and tee time removed.');
           } else {
@@ -1462,11 +1488,16 @@ if ('serviceWorker' in navigator) {
       if(t.dataset.delPlayer){
         const [eventId, teeId, playerId] = t.dataset.delPlayer.split(':');
         if(!confirm('Remove this player?')) return;
+        const deleteCode = promptForDeleteCode('removing this player');
+        if(!deleteCode) return;
         const origText = t.textContent;
         t.disabled = true;
         t.textContent = '...';
         try {
-          await api(`/api/events/${eventId}/tee-times/${teeId}/players/${playerId}`, { method: 'DELETE' });
+          await api(`/api/events/${eventId}/tee-times/${teeId}/players/${playerId}`, {
+            method: 'DELETE',
+            headers: { 'x-admin-delete-code': deleteCode }
+          });
           await updateEventCard(eventId);
         } catch (err) {
           console.error(err);
@@ -1549,13 +1580,16 @@ if ('serviceWorker' in navigator) {
         return;
       }
       if(t.dataset.del){
-        const code=(prompt('Admin delete code:') || '').trim(); if(!code) return;
+        const code = promptForDeleteCode('deleting this event'); if(!code) return;
         t.disabled = true;
         t.textContent = 'Deleting...';
         t.style.background = '#dc2626';
         t.style.color = 'white';
         try {
-          await api(`/api/events/${t.dataset.del}?code=${encodeURIComponent(code)}`,{method:'DELETE'});
+          await api(`/api/events/${t.dataset.del}`,{
+            method:'DELETE',
+            headers: { 'x-admin-delete-code': code }
+          });
           await updateEventCard(t.dataset.del);
         } catch(err) {
           console.error(err);
