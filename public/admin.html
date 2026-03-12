@@ -539,6 +539,7 @@
   <div class="admin-container">
     <nav class="section-nav">
       <a href="#quickActionsSection">Quick Actions</a>
+      <a href="#backupsSection">Backups</a>
       <a href="#notificationsSection">Notifications</a>
       <a href="#scheduledEmailRulesSection">Email Rules</a>
       <a href="#teeLogSection">Change Log</a>
@@ -553,6 +554,71 @@
         <button class="btn-test btn-purple" onclick="showCustomMessageDialog()">💬 Message All Subscribers</button>
       </div>
       <div id="quickResult" class="test-result"></div>
+    </section>
+
+    <section id="backupsSection" class="admin-section section-log">
+      <h2>Backups</h2>
+      <p class="section-intro">Create a recovery bundle with the primary database, secondary database, and a site snapshot. Run this before major changes and at least monthly.</p>
+      <div class="toggle-card" style="margin-bottom:10px;">
+        <div>
+          <p class="toggle-title">Monthly Backup Schedule</p>
+          <p class="toggle-text">Uses the existing scheduler. On the configured day/time it creates a full backup bundle and then trims older backups by retention count.</p>
+        </div>
+        <label class="toggle-control">
+          <span id="monthlyBackupStatusText" class="toggle-status">Loading...</span>
+          <input type="checkbox" id="monthlyBackupToggle" class="toggle-input">
+        </label>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:10px;">
+        <label style="display:grid;gap:4px;font-size:13px;">
+          <span>Monthly Day</span>
+          <input id="backupDayInput" type="number" min="1" max="28" value="1">
+        </label>
+        <label style="display:grid;gap:4px;font-size:13px;">
+          <span>Hour</span>
+          <input id="backupHourInput" type="number" min="0" max="23" value="2">
+        </label>
+        <label style="display:grid;gap:4px;font-size:13px;">
+          <span>Minute</span>
+          <input id="backupMinuteInput" type="number" min="0" max="59" value="15">
+        </label>
+        <label style="display:grid;gap:4px;font-size:13px;">
+          <span>Keep Backups</span>
+          <input id="backupRetainCountInput" type="number" min="1" max="120" value="12">
+        </label>
+      </div>
+      <div class="test-buttons">
+        <button class="btn-test btn-blue" id="createBackupBtn" type="button">Create Full Backup</button>
+        <button class="btn-test btn-log" id="refreshBackupsBtn" type="button">Refresh Backup List</button>
+        <button class="btn-test btn-green" id="saveBackupSettingsBtn" type="button">Save Backup Settings</button>
+      </div>
+      <div style="margin-top:12px;padding:12px;border:1px solid #d9e2ec;border-radius:10px;background:#fff;">
+        <h3 style="margin:0 0 8px 0;font-size:15px;">Restore Databases</h3>
+        <p class="section-intro" style="margin-bottom:8px;">Restore the primary DB, secondary DB, or both from a selected backup. This replaces live data. The confirmation id must exactly match the selected backup.</p>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;">
+          <label style="display:grid;gap:4px;font-size:13px;">
+            <span>Backup</span>
+            <select id="restoreBackupSelect"></select>
+          </label>
+          <label style="display:grid;gap:4px;font-size:13px;">
+            <span>Target</span>
+            <select id="restoreTargetSelect">
+              <option value="primary">Primary DB</option>
+              <option value="secondary">Secondary DB</option>
+              <option value="both">Both DBs</option>
+            </select>
+          </label>
+          <label style="display:grid;gap:4px;font-size:13px;">
+            <span>Confirm Backup ID</span>
+            <input id="restoreConfirmInput" type="text" placeholder="Type selected backup id">
+          </label>
+        </div>
+        <div class="test-buttons" style="margin-top:10px;">
+          <button class="btn-test btn-amber" id="restoreBackupBtn" type="button">Restore Selected Backup</button>
+        </div>
+      </div>
+      <div id="backupResult" class="test-result" style="display:block;"></div>
+      <div id="backupTable" style="margin-top:12px;"></div>
     </section>
 
     <section id="notificationsSection" class="admin-section section-notifications">
@@ -743,12 +809,21 @@
       document.getElementById('content').innerHTML = '<div class="empty-state">Admin access required</div>';
     } else {
       loadSubscribers();
+      loadBackups();
       loadNotificationSettings();
       loadSchedulerSettings();
       loadScheduledEmailRuleSettings();
       checkGolfApiHealth(); // Check API health on load
       const teeLogBtn = document.getElementById('teeLogBtn');
       if (teeLogBtn) teeLogBtn.addEventListener('click', loadTeeTimeLog);
+      const createBackupBtn = document.getElementById('createBackupBtn');
+      if (createBackupBtn) createBackupBtn.addEventListener('click', createBackup);
+      const refreshBackupsBtn = document.getElementById('refreshBackupsBtn');
+      if (refreshBackupsBtn) refreshBackupsBtn.addEventListener('click', loadBackups);
+      const saveBackupSettingsBtn = document.getElementById('saveBackupSettingsBtn');
+      if (saveBackupSettingsBtn) saveBackupSettingsBtn.addEventListener('click', saveBackupSettings);
+      const restoreBackupBtn = document.getElementById('restoreBackupBtn');
+      if (restoreBackupBtn) restoreBackupBtn.addEventListener('click', restoreBackup);
     }
 
     // Golf API Health Check - test by fetching courses
@@ -965,6 +1040,182 @@
         console.error('Log load error', err);
         result.classList.add('error');
         result.textContent = `Error loading log: ${err.message}`;
+      }
+    }
+
+    function showBackupResult(message, isSuccess = true, persist = false) {
+      const resultDiv = document.getElementById('backupResult');
+      resultDiv.textContent = message;
+      resultDiv.style.display = 'block';
+      resultDiv.style.background = isSuccess ? '#d1fae5' : '#fee2e2';
+      resultDiv.style.color = isSuccess ? '#065f46' : '#991b1b';
+      if (!persist) setTimeout(() => { resultDiv.style.display = 'none'; }, 4000);
+    }
+
+    function applyBackupSettings(settings = {}) {
+      const monthlyEnabled = settings.monthlyEnabled !== false;
+      document.getElementById('monthlyBackupToggle').checked = monthlyEnabled;
+      document.getElementById('backupDayInput').value = settings.monthlyDay ?? 1;
+      document.getElementById('backupHourInput').value = settings.monthlyHour ?? 2;
+      document.getElementById('backupMinuteInput').value = settings.monthlyMinute ?? 15;
+      document.getElementById('backupRetainCountInput').value = settings.retainCount ?? 12;
+      const statusText = document.getElementById('monthlyBackupStatusText');
+      statusText.textContent = monthlyEnabled ? 'Enabled' : 'Disabled';
+      statusText.style.color = monthlyEnabled ? '#059669' : '#dc2626';
+    }
+
+    function renderRestoreBackupOptions(backups = []) {
+      const select = document.getElementById('restoreBackupSelect');
+      const options = Array.isArray(backups) ? backups : [];
+      select.innerHTML = options.length
+        ? options.map((backup) => `<option value="${escapeHtml(backup.id || '')}">${escapeHtml(`${backup.id || ''} | ${backup.createdAt ? new Date(backup.createdAt).toLocaleString() : ''}`)}</option>`).join('')
+        : '<option value="">No backups available</option>';
+    }
+
+    function backupFileLink(backupId, fileName, label) {
+      const href = `/api/admin/backups/${encodeURIComponent(backupId)}/files/${encodeURIComponent(fileName)}?code=${encodeURIComponent(ADMIN_CODE)}`;
+      return `<a href="${href}" target="_blank" rel="noopener">${escapeHtml(label)}</a>`;
+    }
+
+    function renderBackups(backups = [], backupRoot = '') {
+      const tableWrap = document.getElementById('backupTable');
+      if (!Array.isArray(backups) || !backups.length) {
+        tableWrap.innerHTML = `<div class="empty-state">No backups yet.<br><small>${escapeHtml(backupRoot || '')}</small></div>`;
+        return;
+      }
+      tableWrap.innerHTML = `
+        <div class="table-shell">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Created</th>
+                <th>ID</th>
+                <th>Primary DB</th>
+                <th>Secondary DB</th>
+                <th>Site Snapshot</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${backups.map((backup) => {
+                const files = Array.isArray(backup.files) ? backup.files : [];
+                const primarySummary = backup.databases && backup.databases.primary
+                  ? `${backup.databases.primary.collectionCount || 0} cols / ${backup.databases.primary.documentCount || 0} docs`
+                  : '-';
+                const secondarySummary = backup.databases && backup.databases.secondary
+                  ? `${backup.databases.secondary.collectionCount || 0} cols / ${backup.databases.secondary.documentCount || 0} docs`
+                  : '-';
+                const siteSummary = backup.site
+                  ? `${backup.site.fileCount || 0} files / ${Math.round((Number(backup.site.totalBytes || 0) / 1024))} KB`
+                  : '-';
+                return `
+                  <tr>
+                    <td data-label="Created">${escapeHtml(backup.createdAt ? new Date(backup.createdAt).toLocaleString() : '-')}</td>
+                    <td data-label="ID"><strong>${escapeHtml(backup.id || '-')}</strong></td>
+                    <td data-label="Primary DB">${escapeHtml(primarySummary)}</td>
+                    <td data-label="Secondary DB">${escapeHtml(secondarySummary)}</td>
+                    <td data-label="Site Snapshot">${escapeHtml(siteSummary)}</td>
+                    <td data-label="Actions">
+                      ${backupFileLink(backup.id, 'manifest.json', 'Manifest')}
+                      ${files.some((entry) => entry.name === 'primary-db.ejson.gz') ? ` | ${backupFileLink(backup.id, 'primary-db.ejson.gz', 'Primary')}` : ''}
+                      ${files.some((entry) => entry.name === 'secondary-db.ejson.gz') ? ` | ${backupFileLink(backup.id, 'secondary-db.ejson.gz', 'Secondary')}` : ''}
+                      ${files.some((entry) => entry.name === 'site-snapshot.json.gz') ? ` | ${backupFileLink(backup.id, 'site-snapshot.json.gz', 'Site')}` : ''}
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+        <p class="section-intro" style="margin-top:10px;">Backup folder: ${escapeHtml(backupRoot || '')}</p>
+      `;
+    }
+
+    async function loadBackups() {
+      try {
+        showBackupResult('Loading backups...', true, true);
+        const response = await fetch(`/api/admin/backups?code=${encodeURIComponent(ADMIN_CODE)}`);
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Failed to load backups');
+        applyBackupSettings(payload.settings || {});
+        renderBackups(payload.backups || [], payload.backupRoot || '');
+        renderRestoreBackupOptions(payload.backups || []);
+        showBackupResult(payload.backupInProgress ? 'Backup list refreshed. A backup is currently running.' : 'Backup list refreshed.');
+      } catch (error) {
+        showBackupResult(`Error: ${error.message}`, false);
+      }
+    }
+
+    async function createBackup() {
+      if (!confirm('Create a full backup of the primary DB, secondary DB, and site snapshot now?')) return;
+      try {
+        showBackupResult('Creating full backup. This may take a minute...', true, true);
+        const response = await fetch(`/api/admin/backups?code=${encodeURIComponent(ADMIN_CODE)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: ADMIN_CODE })
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Failed to create backup');
+        const manifest = payload.manifest || {};
+        showBackupResult(`Backup created: ${manifest.id || 'unknown id'}`);
+        await loadBackups();
+      } catch (error) {
+        showBackupResult(`Error: ${error.message}`, false);
+      }
+    }
+
+    async function saveBackupSettings() {
+      try {
+        showBackupResult('Saving backup settings...', true, true);
+        const payload = {
+          code: ADMIN_CODE,
+          monthlyEnabled: document.getElementById('monthlyBackupToggle').checked,
+          monthlyDay: Number(document.getElementById('backupDayInput').value || 1),
+          monthlyHour: Number(document.getElementById('backupHourInput').value || 2),
+          monthlyMinute: Number(document.getElementById('backupMinuteInput').value || 15),
+          retainCount: Number(document.getElementById('backupRetainCountInput').value || 12)
+        };
+        const response = await fetch(`/api/admin/settings/backups?code=${encodeURIComponent(ADMIN_CODE)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Failed to save backup settings');
+        applyBackupSettings(result.settings || payload);
+        showBackupResult('Backup settings saved.');
+      } catch (error) {
+        showBackupResult(`Error: ${error.message}`, false);
+      }
+    }
+
+    async function restoreBackup() {
+      const backupId = String(document.getElementById('restoreBackupSelect').value || '').trim();
+      const target = String(document.getElementById('restoreTargetSelect').value || 'both').trim();
+      const confirmBackupId = String(document.getElementById('restoreConfirmInput').value || '').trim();
+      if (!backupId) {
+        showBackupResult('Error: choose a backup to restore.', false);
+        return;
+      }
+      if (confirmBackupId !== backupId) {
+        showBackupResult('Error: confirmation backup id must exactly match the selected backup.', false);
+        return;
+      }
+      if (!confirm(`Restore ${target} from ${backupId}? This replaces live database data.`)) return;
+      try {
+        showBackupResult(`Restoring ${target} from ${backupId}...`, true, true);
+        const response = await fetch(`/api/admin/backups/${encodeURIComponent(backupId)}/restore?code=${encodeURIComponent(ADMIN_CODE)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: ADMIN_CODE, target, confirmBackupId })
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Failed to restore backup');
+        document.getElementById('restoreConfirmInput').value = '';
+        showBackupResult(`Restore completed for ${target} from ${backupId}.`);
+      } catch (error) {
+        showBackupResult(`Error: ${error.message}`, false);
       }
     }
 

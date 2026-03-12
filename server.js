@@ -38,11 +38,15 @@ async function alertNearlyFullTeeTimes() {
   return { ok: true, sent: res.sent, blocks };
 }
 /* server.js v3.13 — daily 5pm empty-tee reminder + manual trigger */
+const fs = require('fs');
+const fsp = fs.promises;
 const path = require('path');
+const zlib = require('zlib');
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
 const compression = require('compression');
+const { EJSON } = require('bson');
 // Secondary connection for Myrtle Trip (kept in separate module to avoid circular requires)
 const { initSecondaryConn, getSecondaryConn } = require('./secondary-conn');
 initSecondaryConn();
@@ -67,7 +71,26 @@ const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
 const SITE_URL = (process.env.SITE_URL || 'https://tee-time-brs.onrender.com/').replace(/\/$/, '') + '/';
 const LOCAL_TZ = process.env.LOCAL_TZ || 'America/New_York';
 const CALENDAR_EVENT_DURATION_MINUTES = Math.max(30, Number(process.env.CALENDAR_EVENT_DURATION_MINUTES || 270) || 270);
+const BACKUP_ROOT = path.join(__dirname, 'backups');
+const SITE_BACKUP_TARGETS = [
+  'public',
+  'routes',
+  'services',
+  'models',
+  'middleware',
+  'utils',
+  'docs',
+  'scripts',
+  'server.js',
+  'secondary-conn.js',
+  'package.json',
+  'package-lock.json',
+  'README.md',
+  '.env.example',
+];
 const processedEmailIds = new Map(); // simple idempotency guard for inbound emails
+let backupJobPromise = null;
+let restoreJobPromise = null;
 
 function parseIcsReminderMinutes(input = '') {
   const parsed = String(input || '')
@@ -1096,6 +1119,14 @@ async function areNotificationsEnabled() {
 const SCHEDULER_SETTINGS_CACHE_TTL_MS = 30 * 1000;
 let schedulerEnabledCache = { value: !SCHEDULER_ENV_DISABLED, ts: 0 };
 let scheduledEmailRulesCache = { value: { ...SCHEDULED_EMAIL_RULE_DEFAULTS }, ts: 0 };
+const BACKUP_SETTINGS_DEFAULTS = Object.freeze({
+  monthlyEnabled: true,
+  monthlyDay: 1,
+  monthlyHour: 2,
+  monthlyMinute: 15,
+  retainCount: 12,
+});
+let backupSettingsCache = { value: { ...BACKUP_SETTINGS_DEFAULTS }, ts: 0 };
 
 async function areSchedulerJobsEnabled() {
   if (SCHEDULER_ENV_DISABLED) return false;
@@ -1144,6 +1175,39 @@ async function getScheduledEmailRules() {
   }
   scheduledEmailRulesCache = { value: rules, ts: now };
   return rules;
+}
+
+function normalizeBackupSettings(rawValue) {
+  const base = { ...BACKUP_SETTINGS_DEFAULTS };
+  if (!rawValue || typeof rawValue !== 'object') return base;
+  if (typeof rawValue.monthlyEnabled === 'boolean') base.monthlyEnabled = rawValue.monthlyEnabled;
+  const monthlyDay = Number(rawValue.monthlyDay);
+  const monthlyHour = Number(rawValue.monthlyHour);
+  const monthlyMinute = Number(rawValue.monthlyMinute);
+  const retainCount = Number(rawValue.retainCount);
+  if (Number.isInteger(monthlyDay) && monthlyDay >= 1 && monthlyDay <= 28) base.monthlyDay = monthlyDay;
+  if (Number.isInteger(monthlyHour) && monthlyHour >= 0 && monthlyHour <= 23) base.monthlyHour = monthlyHour;
+  if (Number.isInteger(monthlyMinute) && monthlyMinute >= 0 && monthlyMinute <= 59) base.monthlyMinute = monthlyMinute;
+  if (Number.isInteger(retainCount) && retainCount >= 1 && retainCount <= 120) base.retainCount = retainCount;
+  return base;
+}
+
+async function getBackupSettings() {
+  const now = Date.now();
+  if (now - backupSettingsCache.ts < SCHEDULER_SETTINGS_CACHE_TTL_MS) {
+    return backupSettingsCache.value;
+  }
+  let settings = { ...BACKUP_SETTINGS_DEFAULTS };
+  if (Settings) {
+    try {
+      const setting = await Settings.findOne({ key: 'backupSettings' });
+      settings = normalizeBackupSettings(setting && setting.value);
+    } catch (e) {
+      console.error('Error checking backup settings:', e);
+    }
+  }
+  backupSettingsCache = { value: settings, ts: now };
+  return settings;
 }
 
 async function sendEmailToAll(subject, html) {
@@ -1391,6 +1455,307 @@ function buildEventsIcs(events = [], opts = {}) {
 function isAdmin(req){
   const code = (req.headers['x-admin-code'] || req.query.code || req.body?.code || '').trim();
   return ADMIN_DELETE_CODE && code === ADMIN_DELETE_CODE;
+}
+
+function backupIdFromDate(date = new Date()) {
+  const iso = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().replace(/\.\d{3}Z$/, 'Z');
+  return `backup-${iso.replace(/[:]/g, '-').replace(/\./g, '-').replace('T', '_')}`;
+}
+
+function isSafeBackupSegment(value = '') {
+  return /^[A-Za-z0-9._-]+$/.test(String(value || ''));
+}
+
+async function ensureConnectionReady(conn) {
+  if (!conn) throw new Error('Database connection is unavailable');
+  if (conn.readyState === 1) return conn;
+  if (conn.readyState === 2) {
+    await new Promise((resolve, reject) => {
+      const onOpen = () => {
+        conn.off('error', onError);
+        resolve();
+      };
+      const onError = (error) => {
+        conn.off('open', onOpen);
+        reject(error);
+      };
+      conn.once('open', onOpen);
+      conn.once('error', onError);
+    });
+    return conn;
+  }
+  throw new Error('Database connection is not ready');
+}
+
+async function walkSnapshotFiles(absPath, relPath = '', files = []) {
+  const stat = await fsp.stat(absPath);
+  if (stat.isDirectory()) {
+    const entries = await fsp.readdir(absPath, { withFileTypes: true });
+    for (const entry of entries) {
+      if (entry.name === '.git' || entry.name === 'node_modules' || entry.name === 'backups') continue;
+      await walkSnapshotFiles(path.join(absPath, entry.name), path.join(relPath, entry.name), files);
+    }
+    return files;
+  }
+  const raw = await fsp.readFile(absPath);
+  files.push({
+    path: relPath.replace(/\\/g, '/'),
+    size: raw.length,
+    encoding: 'base64',
+    data: raw.toString('base64'),
+  });
+  return files;
+}
+
+async function buildSiteSnapshotFile(destFile) {
+  const files = [];
+  for (const target of SITE_BACKUP_TARGETS) {
+    const absTarget = path.join(__dirname, target);
+    try {
+      await fsp.access(absTarget);
+    } catch (_err) {
+      continue;
+    }
+    await walkSnapshotFiles(absTarget, target, files);
+  }
+  const totalBytes = files.reduce((sum, entry) => sum + Number(entry.size || 0), 0);
+  const payload = {
+    createdAt: new Date().toISOString(),
+    root: __dirname,
+    targets: SITE_BACKUP_TARGETS.slice(),
+    fileCount: files.length,
+    totalBytes,
+    files,
+  };
+  await fsp.writeFile(destFile, zlib.gzipSync(Buffer.from(JSON.stringify(payload))), 'binary');
+  return {
+    fileCount: files.length,
+    totalBytes,
+  };
+}
+
+async function buildDatabaseSnapshotFile(conn, label, destFile) {
+  const readyConn = await ensureConnectionReady(conn);
+  const db = readyConn.db;
+  const collections = await db.listCollections().toArray();
+  const collectionSummaries = [];
+  const exportPayload = {
+    label,
+    createdAt: new Date().toISOString(),
+    databaseName: db.databaseName,
+    collections: {},
+  };
+
+  for (const collection of collections) {
+    const name = String(collection && collection.name || '').trim();
+    if (!name || name.startsWith('system.')) continue;
+    const nativeCollection = db.collection(name);
+    const [documents, indexes] = await Promise.all([
+      nativeCollection.find({}).toArray(),
+      nativeCollection.indexes().catch(() => ([])),
+    ]);
+    exportPayload.collections[name] = {
+      indexes,
+      documents,
+    };
+    collectionSummaries.push({
+      name,
+      count: documents.length,
+    });
+  }
+
+  const serialized = EJSON.stringify(exportPayload, null, 2, { relaxed: false });
+  await fsp.writeFile(destFile, zlib.gzipSync(Buffer.from(serialized, 'utf8')), 'binary');
+  return {
+    databaseName: db.databaseName,
+    collectionCount: collectionSummaries.length,
+    documentCount: collectionSummaries.reduce((sum, row) => sum + Number(row.count || 0), 0),
+    collections: collectionSummaries,
+  };
+}
+
+async function statFileSafe(filePath) {
+  try {
+    return await fsp.stat(filePath);
+  } catch (_err) {
+    return null;
+  }
+}
+
+async function loadBackupManifest(backupId) {
+  if (!isSafeBackupSegment(backupId)) throw new Error('Invalid backup id');
+  const manifestPath = path.join(BACKUP_ROOT, backupId, 'manifest.json');
+  return JSON.parse(await fsp.readFile(manifestPath, 'utf8'));
+}
+
+async function pruneBackupRetention(retainCount = BACKUP_SETTINGS_DEFAULTS.retainCount) {
+  const keep = Math.max(1, Number(retainCount) || BACKUP_SETTINGS_DEFAULTS.retainCount);
+  const backups = await listAdminBackups();
+  if (backups.length <= keep) return { removed: [] };
+  const removable = backups.slice(keep);
+  const removed = [];
+  for (const backup of removable) {
+    const backupId = String(backup && backup.id || '').trim();
+    if (!isSafeBackupSegment(backupId)) continue;
+    const backupDir = path.join(BACKUP_ROOT, backupId);
+    await fsp.rm(backupDir, { recursive: true, force: true });
+    removed.push(backupId);
+  }
+  return { removed };
+}
+
+async function loadDatabaseSnapshotFile(filePath) {
+  const raw = await fsp.readFile(filePath);
+  return EJSON.parse(zlib.gunzipSync(raw).toString('utf8'), { relaxed: false });
+}
+
+function buildRestoreIndexes(indexes = []) {
+  return indexes
+    .filter((index) => index && index.name && index.name !== '_id_' && index.key)
+    .map((index) => {
+      const options = {
+        name: index.name,
+      };
+      if (index.unique) options.unique = true;
+      if (index.sparse) options.sparse = true;
+      if (index.expireAfterSeconds !== undefined) options.expireAfterSeconds = index.expireAfterSeconds;
+      return { key: index.key, ...options };
+    });
+}
+
+async function restoreDatabaseFromSnapshot(conn, snapshot = {}, label = 'database') {
+  const readyConn = await ensureConnectionReady(conn);
+  const db = readyConn.db;
+  const collectionEntries = Object.entries(snapshot && snapshot.collections && typeof snapshot.collections === 'object'
+    ? snapshot.collections
+    : {});
+  const targetNames = new Set(collectionEntries.map(([name]) => name));
+  const existing = await db.listCollections().toArray();
+  for (const collection of existing) {
+    const name = String(collection && collection.name || '').trim();
+    if (!name || name.startsWith('system.')) continue;
+    await db.collection(name).drop().catch(() => {});
+  }
+
+  for (const [name, payload] of collectionEntries) {
+    const documents = Array.isArray(payload && payload.documents) ? payload.documents : [];
+    const indexes = buildRestoreIndexes(Array.isArray(payload && payload.indexes) ? payload.indexes : []);
+    await db.createCollection(name).catch((error) => {
+      if (!/already exists/i.test(String(error && error.message || ''))) throw error;
+    });
+    const collection = db.collection(name);
+    if (documents.length) {
+      await collection.insertMany(documents, { ordered: true });
+    }
+    if (indexes.length) {
+      await collection.createIndexes(indexes);
+    }
+  }
+
+  return {
+    label,
+    databaseName: db.databaseName,
+    collectionCount: targetNames.size,
+    documentCount: collectionEntries.reduce((sum, [, payload]) => sum + (Array.isArray(payload && payload.documents) ? payload.documents.length : 0), 0),
+  };
+}
+
+async function createAdminBackupBundle() {
+  const backupSettings = await getBackupSettings();
+  const id = backupIdFromDate(new Date());
+  const backupDir = path.join(BACKUP_ROOT, id);
+  await fsp.mkdir(backupDir, { recursive: true });
+
+  const primaryFile = path.join(backupDir, 'primary-db.ejson.gz');
+  const secondaryFile = path.join(backupDir, 'secondary-db.ejson.gz');
+  const siteFile = path.join(backupDir, 'site-snapshot.json.gz');
+  const manifestFile = path.join(backupDir, 'manifest.json');
+  const secondaryConn = getSecondaryConn();
+
+  const [primarySummary, secondarySummary, siteSummary] = await Promise.all([
+    buildDatabaseSnapshotFile(mongoose.connection, 'primary', primaryFile),
+    secondaryConn
+      ? buildDatabaseSnapshotFile(secondaryConn, 'secondary', secondaryFile)
+      : Promise.resolve({
+        databaseName: null,
+        collectionCount: 0,
+        documentCount: 0,
+        collections: [],
+        available: false,
+      }),
+    buildSiteSnapshotFile(siteFile),
+  ]);
+
+  const primaryStat = await statFileSafe(primaryFile);
+  const secondaryStat = await statFileSafe(secondaryFile);
+  const siteStat = await statFileSafe(siteFile);
+  const files = [
+    { name: 'primary-db.ejson.gz', size: primaryStat ? primaryStat.size : 0 },
+    { name: 'site-snapshot.json.gz', size: siteStat ? siteStat.size : 0 },
+  ];
+  if (secondaryStat) files.splice(1, 0, { name: 'secondary-db.ejson.gz', size: secondaryStat.size });
+  const manifest = {
+    id,
+    createdAt: new Date().toISOString(),
+    app: {
+      siteUrl: SITE_URL,
+      nodeVersion: process.version,
+    },
+    files,
+    databases: {
+      primary: primarySummary,
+      secondary: secondarySummary,
+    },
+    site: siteSummary,
+    retention: {
+      retainCount: backupSettings.retainCount,
+    },
+    notes: [
+      'Database files are EJSON gzip exports.',
+      'Site snapshot file is a gzip JSON package of application files.',
+      'Store a copy of this backup outside the server machine for disaster recovery.',
+    ],
+  };
+  await fsp.writeFile(manifestFile, JSON.stringify(manifest, null, 2), 'utf8');
+  const retention = await pruneBackupRetention(backupSettings.retainCount);
+  if (retention.removed.length) manifest.retention.removed = retention.removed;
+  return manifest;
+}
+
+async function listAdminBackups() {
+  await fsp.mkdir(BACKUP_ROOT, { recursive: true });
+  const entries = await fsp.readdir(BACKUP_ROOT, { withFileTypes: true });
+  const backups = [];
+  for (const entry of entries) {
+    if (!entry.isDirectory() || !isSafeBackupSegment(entry.name)) continue;
+    const dirPath = path.join(BACKUP_ROOT, entry.name);
+    const manifestPath = path.join(dirPath, 'manifest.json');
+    try {
+      const manifest = JSON.parse(await fsp.readFile(manifestPath, 'utf8'));
+      backups.push(manifest);
+    } catch (_err) {
+      const stat = await fsp.stat(dirPath).catch(() => null);
+      backups.push({
+        id: entry.name,
+        createdAt: stat ? stat.mtime.toISOString() : null,
+        files: [],
+        note: 'Manifest missing',
+      });
+    }
+  }
+  backups.sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')));
+  return backups;
+}
+
+function monthKeyInTZ(date = new Date(), timeZone = LOCAL_TZ) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+  }).formatToParts(date);
+  const year = parts.find((part) => part.type === 'year')?.value || '0000';
+  const month = parts.find((part) => part.type === 'month')?.value || '00';
+  return `${year}-${month}`;
 }
 function buildDedupeKey(dateVal, teeTimes = [], isTeam = false) {
   if (isTeam) return null;
@@ -3482,6 +3847,149 @@ app.get('/api/admin/tee-time-log', async (req, res) => {
   }
 });
 
+/* Admin - Create/List/Download Backups */
+app.get('/api/admin/backups', async (req, res) => {
+  const code = req.query.code || '';
+  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    const backups = await listAdminBackups();
+    return res.json({
+      backupRoot: BACKUP_ROOT,
+      backupInProgress: Boolean(backupJobPromise),
+      restoreInProgress: Boolean(restoreJobPromise),
+      settings: await getBackupSettings(),
+      backups,
+    });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/settings/backups', async (req, res) => {
+  const code = req.query.code || '';
+  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    return res.json({ settings: await getBackupSettings() });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/admin/settings/backups', async (req, res) => {
+  const code = req.query.code || req.body?.code || '';
+  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  try {
+    if (!Settings) return res.status(500).json({ error: 'Settings model not available' });
+    const settings = normalizeBackupSettings(req.body || {});
+    await Settings.findOneAndUpdate(
+      { key: 'backupSettings' },
+      { key: 'backupSettings', value: settings },
+      { upsert: true, new: true }
+    );
+    backupSettingsCache = { value: settings, ts: Date.now() };
+    return res.json({ ok: true, settings });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/admin/backups', async (req, res) => {
+  const code = req.query.code || req.body?.code || '';
+  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  if (backupJobPromise) {
+    return res.status(409).json({ error: 'A backup is already in progress' });
+  }
+  try {
+    backupJobPromise = createAdminBackupBundle();
+    const manifest = await backupJobPromise;
+    return res.json({
+      ok: true,
+      message: 'Backup created successfully',
+      manifest,
+    });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  } finally {
+    backupJobPromise = null;
+  }
+});
+
+app.post('/api/admin/backups/:backupId/restore', async (req, res) => {
+  const code = req.query.code || req.body?.code || '';
+  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  if (backupJobPromise || restoreJobPromise) {
+    return res.status(409).json({ error: 'Another backup or restore job is already in progress' });
+  }
+  const backupId = String(req.params.backupId || '').trim();
+  const target = String(req.body?.target || 'both').trim().toLowerCase();
+  const confirmBackupId = String(req.body?.confirmBackupId || '').trim();
+  if (!['primary', 'secondary', 'both'].includes(target)) {
+    return res.status(400).json({ error: 'target must be primary, secondary, or both' });
+  }
+  if (!backupId || confirmBackupId !== backupId) {
+    return res.status(400).json({ error: 'confirmBackupId must exactly match the selected backup id' });
+  }
+  try {
+    restoreJobPromise = (async () => {
+      await loadBackupManifest(backupId);
+      const backupDir = path.join(BACKUP_ROOT, backupId);
+      const results = {};
+      if (target === 'primary' || target === 'both') {
+        const snapshot = await loadDatabaseSnapshotFile(path.join(backupDir, 'primary-db.ejson.gz'));
+        results.primary = await restoreDatabaseFromSnapshot(mongoose.connection, snapshot, 'primary');
+      }
+      if (target === 'secondary' || target === 'both') {
+        const secondaryConn = getSecondaryConn();
+        if (!secondaryConn) throw new Error('Secondary database connection is unavailable');
+        const snapshot = await loadDatabaseSnapshotFile(path.join(backupDir, 'secondary-db.ejson.gz'));
+        results.secondary = await restoreDatabaseFromSnapshot(secondaryConn, snapshot, 'secondary');
+      }
+      return results;
+    })();
+    const results = await restoreJobPromise;
+    return res.json({
+      ok: true,
+      message: `Restore completed for ${target}`,
+      backupId,
+      target,
+      results,
+    });
+  } catch (e) {
+    return res.status(500).json({ error: e.message });
+  } finally {
+    restoreJobPromise = null;
+  }
+});
+
+app.get('/api/admin/backups/:backupId/files/:fileName', async (req, res) => {
+  const code = req.query.code || '';
+  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  const backupId = String(req.params.backupId || '').trim();
+  const fileName = String(req.params.fileName || '').trim();
+  if (!isSafeBackupSegment(backupId) || !isSafeBackupSegment(fileName)) {
+    return res.status(400).json({ error: 'Invalid backup path' });
+  }
+  const filePath = path.join(BACKUP_ROOT, backupId, fileName);
+  try {
+    await fsp.access(filePath);
+    return res.download(filePath);
+  } catch (_err) {
+    return res.status(404).json({ error: 'Backup file not found' });
+  }
+});
+
 /* Admin - Send Custom Message to All Subscribers */
 app.post('/api/admin/send-custom-message', async (req, res) => {
   const { code, subject, message } = req.body;
@@ -3824,6 +4332,7 @@ if (require.main === module && !SCHEDULER_ENV_DISABLED) {
   let lastBrianAlertForYMD = null;
   let lastAdminCheckHour = null;
   let lastWeatherRefreshHour = null;
+  let lastMonthlyBackupKey = null;
   let lastSchedulerDisabledLogHour = null;
 
   setInterval(async () => {
@@ -3841,9 +4350,13 @@ if (require.main === module && !SCHEDULER_ENV_DISABLED) {
       }
       lastSchedulerDisabledLogHour = null;
       const emailRules = await getScheduledEmailRules();
+      const backupSettings = await getBackupSettings();
       const todayLocalYMD = ymdInTZ(now, LOCAL_TZ);
       const ymdTomorrow = ymdLocalPlusDays(1);
       const ymd48 = ymdLocalPlusDays(2);
+      const todayParts = todayLocalYMD.split('-').map(Number);
+      const dayOfMonth = Number(todayParts[2] || 0);
+      const currentMonthKey = monthKeyInTZ(now, LOCAL_TZ);
 
 
       // Daily 4:00 PM Brian Jones alert for empty tee times tomorrow
@@ -3891,12 +4404,34 @@ if (require.main === module && !SCHEDULER_ENV_DISABLED) {
         // Reset at end of day
         if (hour === 0) lastWeatherRefreshHour = null;
       }
+
+      // Monthly automated backup and retention cleanup
+      if (
+        backupSettings.monthlyEnabled
+        && dayOfMonth === Number(backupSettings.monthlyDay)
+        && hour === Number(backupSettings.monthlyHour)
+        && minute === Number(backupSettings.monthlyMinute)
+        && lastMonthlyBackupKey !== currentMonthKey
+        && !backupJobPromise
+        && !restoreJobPromise
+      ) {
+        lastMonthlyBackupKey = currentMonthKey;
+        try {
+          backupJobPromise = createAdminBackupBundle();
+          const manifest = await backupJobPromise;
+          console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'monthly-backup-complete', backupId: manifest.id, currentMonthKey }));
+        } catch (error) {
+          console.error('monthly backup error', error);
+        } finally {
+          backupJobPromise = null;
+        }
+      }
     } catch (e) {
       console.error('scheduler tick error', e);
     }
   }, 60 * 1000); // check once per minute
 
-  console.log('Scheduler enabled: Brian empty-tee alert at 4 PM, daily reminders at 5 PM (24hr & 48hr), admin alerts every 6 hours, weather refresh every 2 hours');
+  console.log('Scheduler enabled: Brian empty-tee alert at 4 PM, daily reminders at 5 PM (24hr & 48hr), admin alerts every 6 hours, weather refresh every 2 hours, monthly backups by backup settings');
 }
 
 if (require.main === module) {
