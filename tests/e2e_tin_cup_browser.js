@@ -167,18 +167,39 @@ async function runTinCupLiveFlow(results) {
       await send('Log.enable');
       await send('Network.enable');
       await send('Emulation.setDeviceMetricsOverride', { width: 390, height: 844, deviceScaleFactor: 2, mobile: true });
+      await send('Page.addScriptToEvaluateOnNewDocument', {
+        source: `(() => {
+          try {
+            localStorage.removeItem('tinCupLiveLocalStateV1');
+            localStorage.removeItem('tinCupScoringStateV2');
+            localStorage.removeItem('tinCupScorecardCodesV1');
+            sessionStorage.clear();
+          } catch (_err) {}
+          const nativeFetch = window.fetch.bind(window);
+          window.fetch = (input, init) => {
+            const url = typeof input === 'string' ? input : ((input && input.url) || '');
+            if (/\\/api\\/trips(?:\\?.*)?$/i.test(url)) {
+              return Promise.resolve(new Response('[]', {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+              }));
+            }
+            if (/\\/api\\/trips\\//i.test(url)) {
+              return Promise.resolve(new Response('{"error":"Trip not found"}', {
+                status: 404,
+                headers: { 'Content-Type': 'application/json' }
+              }));
+            }
+            return nativeFetch(input, init);
+          };
+          window.prompt = () => 'E2E Scorer';
+        })();`
+      });
 
+      loaded = false;
+      await send('Page.reload', { ignoreCache: true });
       for (let i = 0; i < 40 && !loaded; i += 1) await sleep(250);
       await sleep(800);
-
-      await evalValue(send, `(() => {
-        localStorage.removeItem('tinCupLiveLocalStateV1');
-        localStorage.removeItem('tinCupScoringStateV2');
-        localStorage.removeItem('tinCupScorecardCodesV1');
-        sessionStorage.clear();
-        window.prompt = () => 'E2E Scorer';
-        return true;
-      })()`);
 
       const openerExists = await waitFor(send, `(() => !!document.querySelector('[data-open-scorecard="Day 1|0"]'))()`);
       expect(results, openerExists, 'Tin Cup open button rendered', openerExists ? 'Day 1 Group 1 available' : 'missing');
@@ -293,10 +314,36 @@ async function runTinCupLeaderboardFlow(results) {
       await send('Runtime.enable');
       await send('Log.enable');
       await send('Network.enable');
+      await send('Page.addScriptToEvaluateOnNewDocument', {
+        source: `(() => {
+          const nativeFetch = window.fetch.bind(window);
+          window.fetch = (input, init) => {
+            const url = typeof input === 'string' ? input : ((input && input.url) || '');
+            if (/\\/api\\/trips(?:\\?.*)?$/i.test(url)) {
+              return Promise.resolve(new Response('[]', {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+              }));
+            }
+            if (/\\/api\\/trips\\//i.test(url)) {
+              return Promise.resolve(new Response('{"error":"Trip not found"}', {
+                status: 404,
+                headers: { 'Content-Type': 'application/json' }
+              }));
+            }
+            return nativeFetch(input, init);
+          };
+        })();`
+      });
+      loaded = false;
+      await send('Page.reload', { ignoreCache: true });
       for (let i = 0; i < 40 && !loaded; i += 1) await sleep(250);
       await sleep(1200);
 
-      const boardReady = await waitFor(send, `(() => !!document.querySelector('#tripBoard table') && /Matt/.test(document.body.innerText || ''))()`);
+      const boardReady = await waitFor(send, `(() => {
+        const board = document.getElementById('tripBoard');
+        return !!document.querySelector('#tripBoard table') && /Matt/.test((board && board.textContent) || '');
+      })()`);
       expect(results, boardReady, 'Tin Cup leaderboard renders from local state', boardReady ? 'trip board visible' : 'trip board missing');
 
       const markerSynced = await waitFor(send, `(() => {

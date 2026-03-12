@@ -18,6 +18,7 @@ const {
   ensureTinCupLiveState,
   getLiveMeta,
   updateSettings,
+  clearCompetitionState,
   setSlotCode,
   verifySlotCode,
   getScorecardView,
@@ -875,6 +876,58 @@ router.post('/:tripId/tin-cup/live/admin/seed-scores', async (req, res) => {
       holeCount,
       topFive: (leaderboard.totals || []).slice(0, 5),
       seedSummary,
+    });
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.post('/:tripId/tin-cup/live/admin/clear-competition', async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+  try {
+    const { trip, TripModel, TripAuditLogModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const state = ensureTinCupLiveState(trip);
+    const scorecardCount = Object.keys(state.scorecards || {}).length;
+    const holeCount = Object.values(state.scorecards || {}).reduce((sum, card) => {
+      const players = (card && card.players && typeof card.players === 'object') ? Object.values(card.players) : [];
+      return sum + players.reduce((playerSum, player) => playerSum + (Array.isArray(player && player.holes) ? player.holes.filter((gross) => Number.isFinite(Number(gross))).length : 0), 0);
+    }, 0);
+    const scrambleHoleCount = Object.values(((state.scramble || {}).scores) || {}).reduce((sum, holes) => {
+      const list = Array.isArray(holes) ? holes : [];
+      return sum + list.filter((gross) => Number.isFinite(Number(gross))).length;
+    }, 0);
+    const sideGameWinnerCount = Object.values(state.sideGames || {}).reduce((sum, game) => {
+      const days = (game && typeof game === 'object') ? Object.values(game) : [];
+      return sum + days.filter((winner) => String(winner || '').trim()).length;
+    }, 0);
+    const preservedCodeCount = Object.keys(state.codes || {}).length;
+    clearCompetitionState(state, {
+      preserveCodes: true,
+      preservePenalties: false,
+      preserveConfig: true,
+      preserveSettings: true,
+    });
+    trip.markModified('tinCupLive');
+    await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
+    await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_clear_competition', 'Tin Cup competition data cleared for a fresh start', {
+      scorecardCount,
+      holeCount,
+      scrambleHoleCount,
+      sideGameWinnerCount,
+      preservedCodeCount,
+    });
+    return res.json({
+      message: 'Cleared Tin Cup competition data. Player names and handicaps remain ready for Day 1, while settings, codes, and scoring config were preserved.',
+      cleared: {
+        scorecardCount,
+        holeCount,
+        scrambleHoleCount,
+        sideGameWinnerCount,
+      },
+      preserved: {
+        codeCount: preservedCodeCount,
+      },
     });
   } catch (error) {
     return sendTripRouteError(res, error);

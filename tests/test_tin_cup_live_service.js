@@ -1,9 +1,12 @@
 const assert = require('assert');
 const {
   defaultTinCupLiveState,
+  clearCompetitionState,
   getScorecardView,
   buildLeaderboard,
   buildDayRows,
+  setSlotCode,
+  verifySlotCode,
   setScorecardScorer,
   updateHoleScore,
   updateMarker,
@@ -239,6 +242,37 @@ function run() {
   assert(exportCsv.includes('player_total'), 'Competition export CSV should include final leaderboard rows');
   assert(exportCsv.includes('scorecard_player'), 'Competition export CSV should include hole-by-hole scorecard rows');
   assert(exportCsv.includes('scramble_team'), 'Competition export CSV should include scramble rows');
+
+  const clearedState = defaultTinCupLiveState();
+  clearedState.settings.enableLiveLeaderboard = false;
+  clearedState.settings.enableLiveMarkers = false;
+  updateWorkbookConfig(clearedState, { accounting: { entryFee: 250 } });
+  const retainedCode = setSlotCode(clearedState, 'Day 1', 0, 'BIRD').code;
+  seedAllScores(clearedState, { reset: true });
+  setPlayerPenalty(clearedState, 'Matt', { champion: 4, rookie: 0 });
+  const preClearHoleCount = Object.values(clearedState.scorecards || {}).reduce((sum, card) => {
+    const players = (card && card.players && typeof card.players === 'object') ? Object.values(card.players) : [];
+    return sum + players.reduce((playerSum, player) => playerSum + (Array.isArray(player && player.holes) ? player.holes.filter((gross) => Number.isFinite(Number(gross))).length : 0), 0);
+  }, 0);
+  assert(preClearHoleCount > 0, 'Clear-competition test should start with seeded hole scores');
+  clearCompetitionState(clearedState, {
+    preserveCodes: true,
+    preservePenalties: false,
+    preserveConfig: true,
+    preserveSettings: true,
+  });
+  assert.strictEqual(Object.keys(clearedState.scorecards || {}).length, 0, 'Clearing competition should remove all saved scorecards');
+  assert.strictEqual(Object.keys((clearedState.scramble || {}).scores || {}).length, 0, 'Clearing competition should remove scramble hole scores');
+  assert.strictEqual(Object.keys(clearedState.scrambleBonus || {}).length, 0, 'Clearing competition should remove scramble bonus fallbacks');
+  assert(verifySlotCode(clearedState, 'Day 1', 0, retainedCode), 'Clearing competition should preserve generated foursome codes');
+  assert.strictEqual(clearedState.settings.enableLiveLeaderboard, false, 'Clearing competition should preserve live settings');
+  assert.strictEqual(clearedState.settings.enableLiveMarkers, false, 'Clearing competition should preserve live settings');
+  assert.strictEqual(clearedState.config.accounting.entryFee, 250, 'Clearing competition should preserve workbook config');
+  const mattAfterClear = buildHandicapSummary(clearedState).find((row) => row.name === 'Matt');
+  assert(mattAfterClear && mattAfterClear.totalPenalty === 0, 'Clearing competition should clear seeded golfer penalties');
+  const clearedSideGames = buildLeaderboard(clearedState).sideGames;
+  assert((clearedSideGames.longPutt.days || []).every((row) => !row.winner), 'Clearing competition should remove Long Putt winners');
+  assert((clearedSideGames.secretSnowman.days || []).every((row) => !row.winner), 'Clearing competition should remove Secret Snowman winners');
 
   const day3Rows = buildDayRows(leaderboard, 'Day 3');
   const mattDay3 = day3Rows.find((row) => row.name === 'Matt');

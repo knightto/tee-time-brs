@@ -359,6 +359,14 @@
         </div>
         <div id="generatedCodes" class="muted" style="margin-top:8px;"></div>
         <div class="scorecard-access-box" style="margin-top:12px;">
+          <strong>Clear Competition</strong>
+          <div class="muted" style="margin-top:4px;">Clears seeded scorecards, scramble results, markers, side-game winners, and penalties so Tin Cup is ready for Round 1. Keeps player names, handicaps, live settings, group codes, and scoring config.</div>
+          <div class="row" style="margin-top:8px;">
+            <button id="clearCompetitionBtn" type="button">Clear Competition</button>
+            <span id="clearCompetitionStatus" class="muted"></span>
+          </div>
+        </div>
+        <div class="scorecard-access-box" style="margin-top:12px;">
           <strong>Final Competition Export</strong>
           <div class="muted" style="margin-top:4px;">Available after the Tin Cup trip end date. Downloads one CSV with final standings, scorecards, scramble results, skins, markers, side games, and payouts.</div>
           <div class="row" style="margin-top:8px;">
@@ -402,6 +410,8 @@
     const generatedCodes = document.getElementById('generatedCodes');
     const exportCompetitionCsvBtn = document.getElementById('exportCompetitionCsvBtn');
     const exportCompetitionStatus = document.getElementById('exportCompetitionStatus');
+    const clearCompetitionBtn = document.getElementById('clearCompetitionBtn');
+    const clearCompetitionStatus = document.getElementById('clearCompetitionStatus');
     const sideGamesWrap = document.getElementById('sideGamesWrap');
     const entryIntro = document.getElementById('entryIntro');
     const scorecardLinksCard = document.getElementById('scorecardLinksCard');
@@ -1980,6 +1990,27 @@
       return filename;
     }
 
+    async function clearCompetitionData() {
+      if (localMode) throw new Error('Competition reset requires a linked Tin Cup trip.');
+      const confirmed = window.confirm('Clear all seeded Tin Cup scorecards, scramble results, markers, side-game winners, and penalties? This keeps player names, handicaps, live settings, group codes, and scoring config, and resets the page for Round 1.');
+      if (!confirmed) return null;
+      const id = await resolveTripId();
+      let adminCode = String(adminCodeInput.value || '').trim();
+      if (!adminCode) {
+        adminCode = String(window.prompt('Enter admin code to clear the Tin Cup competition:') || '').trim();
+        if (adminCode) adminCodeInput.value = adminCode;
+      }
+      if (!adminCode) throw new Error('Admin code required');
+      const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/admin/clear-competition`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-code': adminCode },
+        body: JSON.stringify({})
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Failed to clear the Tin Cup competition');
+      return payload;
+    }
+
     function getWorkbookConfigValue(pathKey = '', fallback = '') {
       const config = meta && meta.config ? meta.config : null;
       if (!config) return fallback;
@@ -2277,6 +2308,7 @@
       adminCodeProtectToggle.checked = settings.enableFoursomeCodes === true;
       adminCodeProtectToggle.disabled = localMode || !settings.enableLiveFoursomeScoring;
       exportCompetitionCsvBtn.disabled = localMode;
+      clearCompetitionBtn.disabled = localMode;
       liveSettingsStatus.textContent = localMode
         ? 'Link the Tin Cup trip to the database to manage scorecard access settings here.'
         : (!settings.enableLiveFoursomeScoring
@@ -3161,6 +3193,43 @@
         exportCompetitionStatus.textContent = error && error.message ? error.message : 'Failed to export final competition CSV';
       } finally {
         exportCompetitionCsvBtn.disabled = localMode;
+      }
+    });
+
+    clearCompetitionBtn.addEventListener('click', async () => {
+      clearCompetitionStatus.className = 'muted';
+      clearCompetitionStatus.textContent = 'Clearing competition data...';
+      clearCompetitionBtn.disabled = true;
+      try {
+        const payload = await clearCompetitionData();
+        if (!payload) {
+          clearCompetitionStatus.className = 'muted';
+          clearCompetitionStatus.textContent = 'Competition clear cancelled.';
+          return;
+        }
+        meta = await fetchMeta();
+        selectedLinkDay = 'Day 1';
+        currentHole = 1;
+        active = { dayKey: '', slotIndex: -1, code: '', view: null, scorerName: '' };
+        renderSelectors();
+        const cleared = payload && payload.cleared && typeof payload.cleared === 'object' ? payload.cleared : {};
+        scorecardCard.style.display = 'none';
+        holeEntryCard.style.display = 'none';
+        markersCard.style.display = 'none';
+        fullScorecardNote.style.display = 'none';
+        hideFullScorecardBtn.style.display = 'none';
+        exitMobileScorecardMode();
+        updatedAt.textContent = '';
+        scorecardTitle.textContent = 'Day 1 - Select a group';
+        statusEl.className = 'ok';
+        statusEl.textContent = 'Competition cleared. Ready for Day 1.';
+        clearCompetitionStatus.className = 'ok';
+        clearCompetitionStatus.textContent = `Cleared ${Number(cleared.scorecardCount || 0)} scorecards, ${Number(cleared.holeCount || 0)} hole scores, and ${Number(cleared.sideGameWinnerCount || 0)} side-game winners. Round 1 is ready.`;
+      } catch (error) {
+        clearCompetitionStatus.className = 'bad';
+        clearCompetitionStatus.textContent = error && error.message ? error.message : 'Failed to clear the Tin Cup competition';
+      } finally {
+        clearCompetitionBtn.disabled = localMode;
       }
     });
 

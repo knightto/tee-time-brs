@@ -309,6 +309,32 @@ function updateSettings(state, nextSettings = {}) {
   return state.settings;
 }
 
+function clearCompetitionState(state, options = {}) {
+  const defaults = defaultTinCupLiveState();
+  const preserveCodes = options.preserveCodes !== false;
+  const preservePenalties = options.preservePenalties !== false;
+  const preserveConfig = options.preserveConfig !== false;
+  const preserveSettings = options.preserveSettings !== false;
+  state.version = defaults.version;
+  state.settings = preserveSettings
+    ? normalizeSettings(state && state.settings ? state.settings : {}, defaults.settings)
+    : defaults.settings;
+  state.codes = preserveCodes
+    ? JSON.parse(JSON.stringify((state && state.codes && typeof state.codes === 'object') ? state.codes : {}))
+    : {};
+  state.scorecards = {};
+  state.scrambleBonus = {};
+  state.scramble = normalizeScrambleState();
+  state.sideGames = normalizeSideGamesState();
+  state.penalties = preservePenalties
+    ? normalizePenalties((state && state.penalties && typeof state.penalties === 'object') ? state.penalties : {})
+    : {};
+  state.config = preserveConfig
+    ? normalizeWorkbookConfig((state && state.config && typeof state.config === 'object') ? state.config : defaults.config)
+    : defaultWorkbookConfig();
+  return state;
+}
+
 function getSideGameWinner(state, type = '', dayKey = '') {
   const sideGames = normalizeSideGamesState(state && state.sideGames);
   return String((((sideGames[type] || {})[dayKey]) || '')).trim();
@@ -1999,6 +2025,7 @@ module.exports = {
   ensureTinCupLiveState,
   getLiveMeta,
   updateSettings,
+  clearCompetitionState,
   setSlotCode,
   verifySlotCode,
   getScorecardView,
