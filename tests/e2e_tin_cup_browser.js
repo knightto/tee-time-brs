@@ -235,6 +235,35 @@ async function runTinCupLiveFlow(results) {
       const markerDetail = await evalValue(send, `(() => document.getElementById('status')?.textContent || '')()`);
       expect(results, ctpSaved, 'Tin Cup CTP marker updates in UI', ctpSaved ? 'CTP H3 = Matt' : (markerDetail || 'marker save missing')); 
 
+      await evalValue(send, `(() => {
+        const select = document.getElementById('linkDaySelect');
+        if (!select) return false;
+        select.value = 'Scramble';
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+        return true;
+      })()`);
+      const scrambleOpener = await waitFor(send, `(() => !!document.querySelector('[data-open-scorecard="Scramble|0"]'))()`);
+      expect(results, scrambleOpener, 'Tin Cup scramble opener rendered', scrambleOpener ? 'Scramble Team 1 available' : 'missing');
+
+      await evalValue(send, `(() => { document.querySelector('[data-open-scorecard="Scramble|0"]')?.click(); return true; })()`);
+      const scrambleOpened = await waitFor(send, `(() => {
+        const title = document.getElementById('scorecardTitle')?.textContent || '';
+        const status = document.getElementById('status')?.textContent || '';
+        return /Scramble/.test(title) && /opened/i.test(status);
+      })()`);
+      const scrambleTitle = await evalValue(send, `(() => document.getElementById('scorecardTitle')?.textContent || '')()`);
+      expect(results, scrambleOpened, 'Tin Cup scramble scoring opens in scorecard view', scrambleOpened ? scrambleTitle : 'scramble view did not open');
+
+      await evalValue(send, `saveHole('Team 1', 1, 3).then(() => true)`);
+      const scrambleSaved = await waitFor(send, `(() => {
+        const row = document.querySelector('.hole-player-row');
+        const value = row && row.querySelector('.hole-current-value');
+        const status = document.getElementById('status')?.textContent || '';
+        return value && value.textContent.trim() === '3' && /Saved Team 1 H1/.test(status);
+      })()`);
+      const scrambleDetail = await evalValue(send, `(() => document.getElementById('status')?.textContent || '')()`);
+      expect(results, scrambleSaved, 'Tin Cup scramble score uses shared hole entry UI', scrambleSaved ? 'Team 1 H1 = 3' : (scrambleDetail || 'scramble save missing'));
+
       removeLoad();
       removeException();
       removeLog();
@@ -271,6 +300,12 @@ async function runTinCupLeaderboardFlow(results) {
 
       const boardReady = await waitFor(send, `(() => !!document.querySelector('#tripBoard table') && /Matt/.test(document.body.innerText || ''))()`);
       expect(results, boardReady, 'Tin Cup leaderboard renders from local state', boardReady ? 'trip board visible' : 'trip board missing');
+
+      const markerSynced = await waitFor(send, `(() => {
+        const text = document.getElementById('workbookResultsBoard')?.textContent || '';
+        return /Matt/.test(text) && /CTP\\s+1\\s*\\/\\s*LD\\s+0/.test(text);
+      })()`, 15000);
+      expect(results, markerSynced, 'Tin Cup leaderboard reflects local marker entry', markerSynced ? 'Matt CTP win visible in audit board' : 'marker summary missing from local leaderboard');
 
       const refreshText = await evalValue(send, `(() => document.getElementById('refreshNote')?.textContent || '')()`);
       expect(results, /Last refresh:/i.test(refreshText || ''), 'Tin Cup leaderboard refresh note shown', refreshText || 'missing');

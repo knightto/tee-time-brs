@@ -606,6 +606,22 @@ app.post('/webhooks/resend', async (req, res) => {
   }
 });
 
+const LEGACY_STATIC_REDIRECTS = new Map([
+  ['/myrtle-trip-2026.html', '/myrtle/trip-2026.html'],
+  ['/myrtle-trip-competition-entry.html', '/myrtle/competition-entry.html'],
+  ['/tin-cup-trip-2026.html', '/tin-cup/trip-2026.html'],
+  ['/tin-cup-live-score-entry.html', '/tin-cup/live-score-entry.html'],
+  ['/tin-cup-leaderboard-2026.html', '/tin-cup/leaderboard-2026.html'],
+  ['/tin-cup-guests-lodging.html', '/tin-cup/guests-lodging.html'],
+]);
+
+app.get(Array.from(LEGACY_STATIC_REDIRECTS.keys()), (req, res) => {
+  const target = LEGACY_STATIC_REDIRECTS.get(req.path);
+  if (!target) return res.status(404).end();
+  const suffix = `${req.url.includes('?') ? `?${req.url.split('?')[1]}` : ''}`;
+  return res.redirect(302, `${target}${suffix}`);
+});
+
 app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: '1h',
   etag: true,

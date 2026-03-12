@@ -93,16 +93,16 @@
           <h1>Tin Cup Live Results</h1>
           <div class="muted">Live standings, side games, payouts, and scoring verification from the Tin Cup scoring system.</div>
         </div>
-        <a class="cta" href="/tin-cup/trip-2026.html">Back to Tin Cup Trip</a>
+        <a class="cta" href="/tin-cup/trip-2026.html">Back to Tin Cup 2026</a>
       </div>
     </div>
 
     <div class="section-label">Standings</div>
     <div class="card">
       <details open>
-        <summary class="section-summary">Live Trip Leaderboard</summary>
+        <summary class="section-summary">Live Tin Cup 2026 Leaderboard</summary>
         <div class="toolbar">
-          <strong>Live Trip Leaderboard</strong>
+          <strong>Live Tin Cup 2026 Leaderboard</strong>
           <span class="refresh-note" id="refreshNote"></span>
         </div>
         <div id="tripBoard"></div>
@@ -314,22 +314,102 @@
     }
 
     function defaultLocalState() {
-      return { matchResults: { 'Day 1': {}, 'Day 2A': {}, 'Day 2B': {}, 'Day 3': {}, 'Day 4': {}, Practice: {} }, strokeNet: { 'Day 1': {}, 'Day 3': {}, 'Day 4': {} }, scrambleBonus: {}, penalties: {} };
+      return {
+        matchResults: { 'Day 1': {}, 'Day 2A': {}, 'Day 2B': {}, 'Day 3': {}, 'Day 4': {}, Practice: {} },
+        strokeNet: { 'Day 1': {}, 'Day 3': {}, 'Day 4': {} },
+        markerCounts: { ctp: {}, longDrive: {} },
+        scrambleBonus: {},
+        penalties: {}
+      };
     }
     function loadLocalState() {
       try {
         const raw = localStorage.getItem(LOCAL_KEY);
         if (!raw) return defaultLocalState();
+        const base = defaultLocalState();
         const incoming = JSON.parse(raw);
         return {
-          matchResults: { ...defaultLocalState().matchResults, ...(incoming.matchResults || {}) },
-          strokeNet: { ...defaultLocalState().strokeNet, ...(incoming.strokeNet || {}) },
+          matchResults: { ...base.matchResults, ...(incoming.matchResults || {}) },
+          strokeNet: { ...base.strokeNet, ...(incoming.strokeNet || {}) },
+          markerCounts: {
+            ctp: { ...(base.markerCounts.ctp || {}), ...((((incoming.markerCounts || {}).ctp) || {})) },
+            longDrive: { ...(base.markerCounts.longDrive || {}), ...((((incoming.markerCounts || {}).longDrive) || {})) }
+          },
           scrambleBonus: { ...(incoming.scrambleBonus || {}) },
           penalties: { ...(incoming.penalties || {}) }
         };
       } catch (_err) {
         return defaultLocalState();
       }
+    }
+    function getLocalMarkerWins(state, type, playerName) {
+      const key = norm(playerName);
+      return Number((((state.markerCounts || {})[type] || {})[key]) || 0);
+    }
+    function buildSharedPayoutMap(rows = [], payoutValues = []) {
+      const out = new Map(PLAYERS.map((name) => [norm(name), 0]));
+      let index = 0;
+      while (index < rows.length && index < payoutValues.length) {
+        const start = index;
+        const position = rows[index].position;
+        while (index < rows.length && rows[index].position === position && index < payoutValues.length) index += 1;
+        const total = payoutValues.slice(start, index).reduce((sum, value) => sum + (num(value) || 0), 0);
+        const avg = index > start ? Number((total / (index - start)).toFixed(2)) : 0;
+        rows.slice(start, index).forEach((row) => out.set(norm(row.name), avg));
+      }
+      return out;
+    }
+    function buildLocalPayoutSummary(totals = [], state = defaultLocalState()) {
+      const finalPayouts = buildSharedPayoutMap(totals, [1000, 500, 250, 125]);
+      const loserRow = totals.slice().sort((a, b) => (a.total - b.total) || b.name.localeCompare(a.name))[0] || null;
+      const rows = PLAYERS.map((name) => {
+        const key = norm(name);
+        const finalPrize = finalPayouts.get(key) || 0;
+        const ctp = Number((getLocalMarkerWins(state, 'ctp', name) * 25).toFixed(2));
+        const longDrive = Number((getLocalMarkerWins(state, 'longDrive', name) * 25).toFixed(2));
+        const loser = loserRow && norm(loserRow.name) === key ? 50 : 0;
+        const total = Number((finalPrize + ctp + longDrive + loser).toFixed(2));
+        return { name, finalPrize, ctp, longDrive, longPutt: 0, secretSnowman: 0, skins: 0, loser, total };
+      }).filter((row) => row.total > 0)
+        .sort((a, b) => (b.total - a.total) || a.name.localeCompare(b.name));
+      const mainPot = 200 * PLAYERS.length;
+      const distributed = Number(rows.reduce((sum, row) => sum + row.total, 0).toFixed(2));
+      return {
+        pot: mainPot,
+        mainPot,
+        skinsPot: 0,
+        distributed,
+        balance: Number((mainPot - distributed).toFixed(2)),
+        rows,
+      };
+    }
+    function buildLocalWorkbookResults(totals = [], payouts = { rows: [] }, state = defaultLocalState()) {
+      const payoutByName = new Map((payouts.rows || []).map((row) => [norm(row.name), row]));
+      return totals.map((row) => {
+        const payout = payoutByName.get(norm(row.name)) || {};
+        return {
+          tripPosition: row.position,
+          name: row.name,
+          tripTotal: row.total,
+          averageGross: null,
+          netScore: null,
+          netRank: null,
+          scoreLabel: '',
+          scrambleTeam: '',
+          scrambleTotal: null,
+          scrambleRank: null,
+          scramblePoints: row.scramble || 0,
+          skinsWon: 0,
+          skinsPayout: 0,
+          ctpWins: getLocalMarkerWins(state, 'ctp', row.name),
+          longDriveWins: getLocalMarkerWins(state, 'longDrive', row.name),
+          longPuttWins: 0,
+          secretSnowmanWins: 0,
+          loser: Number(payout.loser || 0) > 0,
+          finalPrize: Number(payout.finalPrize || 0),
+          payoutTotal: Number(payout.total || 0),
+        };
+      });
     }
     function getDayMatrixByPlayer(dayKey) {
       const rules = [{ pairs: [[0, 1], [2, 3]] }, { pairs: [[0, 2], [1, 3]] }, { pairs: [[0, 3], [1, 2]] }];
@@ -628,6 +708,7 @@
       contextSource = 'local-fallback';
       const state = loadLocalState();
       const totals = computeTotals(state);
+      const payouts = buildLocalPayoutSummary(totals, state);
       const payload = {
         dayOptions: DAY_OPTIONS,
         matchDayOptions: MATCH_DAY_OPTIONS,
@@ -638,8 +719,8 @@
         skins: { days: [], totals: [] },
         scramble: { teams: [] },
         sideGames: {},
-        payouts: { rows: [] },
-        workbookResults: [],
+        payouts,
+        workbookResults: buildLocalWorkbookResults(totals, payouts, state),
         matchDetailRows: [],
       };
       renderFromPayload(payload);

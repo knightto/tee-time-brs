@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="/assets/knight-club-icon.png">
-  <title>Tin Cup Guests & Lodging</title>
+  <title>Tin Cup Lodging</title>
   <style>
     :root {
       --bg: #f4ecd7;
@@ -195,8 +195,8 @@
   <main class="container">
     <section class="panel">
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;">
-        <h1 class="golf-title" style="margin:0;font-size:1.35rem;">Tin Cup Guests & Lodging</h1>
-        <a id="backLink" class="cta" href="/tin-cup/trip-2026.html">Back to Tin Cup Page</a>
+        <h1 class="golf-title" style="margin:0;font-size:1.35rem;">Tin Cup Lodging</h1>
+        <a id="backLink" class="cta" href="/tin-cup/trip-2026.html">Back to Tin Cup 2026</a>
       </div>
       <div id="tripMeta" style="margin-top:6px;color:var(--ink-soft);">Loading trip...</div>
       <div id="tripDebug" style="margin-top:4px;color:var(--muted);font-size:0.78rem;"></div>
@@ -204,8 +204,8 @@
 
     <section class="panel">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-        <h2 class="golf-section-title" style="margin:0;font-size:1.05rem;">Guests & Lodging</h2>
-        <button id="addParticipantBtn" type="button">Add Golfer</button>
+        <h2 class="golf-section-title" style="margin:0;font-size:1.05rem;">Lodging</h2>
+        <div style="color:var(--muted);font-size:0.88rem;">Golfer roster is managed from the Tin Cup data page.</div>
       </div>
       <div id="statusSummaryRow" style="margin-top:10px;"></div>
       <div class="layout" style="margin-top:10px;">
@@ -234,7 +234,7 @@
       <div id="tripMapCollapsedNote" class="trip-map-collapsed-note">Map is minimized on page load. Use Expand Map to view it here.</div>
       <div id="tripMapBody" class="trip-map-body" hidden>
         <div class="map-frame-wrap">
-          <iframe src="https://www.google.com/maps?q=610+Palmer+Drive,+Southern+Pines,+North+Carolina+28387&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Tin Cup 2026 Trip Map"></iframe>
+          <iframe src="https://www.google.com/maps?q=610+Palmer+Drive,+Southern+Pines,+North+Carolina+28387&output=embed" loading="lazy" referrerpolicy="no-referrer-when-downgrade" title="Tin Cup 2026 Map"></iframe>
         </div>
       </div>
     </section>
@@ -246,12 +246,6 @@
     const BASE_GROUP_SIZES = [4, 8, 12, 16, 20, 24];
     const DEFAULT_GROUP_SIZE = 16;
     const TIN_CUP_CONTEXT_STORAGE_KEY = 'tinCupTripContextV1';
-    const CURRENT_TIN_CUP_GOLFERS = [
-      'Matt', 'Rick', 'OB', 'Kyle',
-      'Manny', 'Steve', 'Tommy', 'Pat',
-      'Mil', 'CSamm', 'Brian', 'Bob',
-      'David', 'John', 'Tony', 'Spiro'
-    ];
 
     const qs = new URLSearchParams(window.location.search);
     let useSecondaryTripDb = qs.get('secondary') === '1' || qs.get('myrtleBeach2026') === 'true';
@@ -313,12 +307,6 @@
       return Number.isFinite(condoNum) ? condoNum : null;
     };
     const normalizeName = (value) => String(value || '').trim().toLowerCase();
-    const getDefaultRoomAssignment = (idx) => {
-      const condo = Math.floor(idx / 4) + 1;
-      const inCondo = idx % 4;
-      const room = inCondo < 2 ? 'A' : 'B';
-      return `Condo ${condo} - Room ${room}`;
-    };
     const persistTripContext = () => {
       if (!tripId) return;
       try {
@@ -469,7 +457,7 @@
           card.className = 'participant-card';
           card.innerHTML = `
             <div class="fields-row">
-              <label class="stacked"><span>Name</span><input type="text" value="${p.name || ''}" data-id="${p._id}" class="name-input"></label>
+              <label class="stacked"><span>Name</span><input type="text" value="${p.name || ''}" readonly disabled></label>
               <label class="stacked"><span>Room</span><select class="room-select" data-id="${p._id}">
                 <option value="A"${room === 'A' ? ' selected' : ''}>A</option>
                 <option value="B"${room === 'B' ? ' selected' : ''}>B</option>
@@ -521,7 +509,6 @@
               <select class="assign-condo-select" data-id="${p._id}">
                 <option value="">Assign to condo...</option>${condoOptions}
               </select>
-              <button class="remove-golfer-btn" data-id="${p._id}" type="button" style="margin-top:8px;background:#c93636;color:#fff;">Delete</button>
             `;
             ul.appendChild(li);
           });
@@ -566,9 +553,6 @@
             const condoNum = match ? match[1] : null;
             if (condoNum) await updateParticipant(id, { roomAssignment: `Condo ${condoNum} - Room ${room}` });
           }
-          if (e.target.classList.contains('name-input')) {
-            await updateParticipant(e.target.dataset.id, { name: e.target.value });
-          }
           if (e.target.classList.contains('extra-night-input')) {
             await updateParticipant(e.target.dataset.id, { wantsExtraNight: e.target.checked });
           }
@@ -592,33 +576,6 @@
             });
             await loadTrip();
           }
-        });
-        sidebar.addEventListener('click', async (e) => {
-          if (e.target.classList.contains('remove-golfer-btn')) {
-            const code = getAdminCode();
-            if (!code) return;
-            if (!confirm('Remove this golfer from the event?')) return;
-            await fetch(tripApi(`/api/trips/${tripId}/participants/${e.target.dataset.id}`), {
-              method: 'DELETE',
-              headers: { 'x-admin-code': code }
-            });
-            await loadTrip();
-          }
-        });
-      }
-
-      const addBtn = $('#addParticipantBtn');
-      if (addBtn) {
-        addBtn.addEventListener('click', async () => {
-          if (!tripId) return;
-          const name = prompt('Golfer name:');
-          if (!name) return;
-          await fetch(tripApi(`/api/trips/${tripId}/participants`), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, status: 'invited' })
-          });
-          await loadTrip();
         });
       }
     }
@@ -743,31 +700,6 @@
       }
 
       participants = Array.isArray(resolvedParticipants) ? resolvedParticipants : [];
-      if (tripId) {
-        const existingNames = new Set((participants || []).map((p) => normalizeName(p && p.name)));
-        const missingGolfers = CURRENT_TIN_CUP_GOLFERS.filter((name) => !existingNames.has(normalizeName(name)));
-        if (missingGolfers.length) {
-          for (const name of missingGolfers) {
-            const defaultIdx = CURRENT_TIN_CUP_GOLFERS.indexOf(name);
-            const addRes = await fetch(tripApi(`/api/trips/${tripId}/participants`), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                name,
-                status: 'in',
-                roomAssignment: getDefaultRoomAssignment(defaultIdx)
-              })
-            });
-            if (!addRes.ok) {
-              const payload = await addRes.json().catch(() => ({}));
-              debugParts.push(`seed:${name}:err(${payload.error || addRes.status})`);
-            }
-          }
-          try {
-            participants = await fetchJson(tripApi(`/api/trips/${tripId}/participants`));
-          } catch (_err) {}
-        }
-      }
 
       trip = found;
       loadDebugText = `Debug: tripId=${tripId || 'none'} | source=${useSecondaryTripDb ? 'secondary' : 'primary'} | ${debugParts.join(' | ')}`;

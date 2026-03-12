@@ -33,6 +33,7 @@ const {
   setPlayerPenalty,
   seedAllScores,
   buildPayoutSummary,
+  buildSeedSummary,
   updateWorkbookConfig,
 } = require('../services/tinCupLiveService');
 const router = express.Router();
@@ -445,7 +446,7 @@ router.put('/:tripId/tin-cup/live/scorecard/hole', async (req, res) => {
       slotIndex,
       hole: payload.hole,
       playerName: payload.playerName,
-      score: payload.score,
+      gross: payload.gross,
       scorerName: payload.scorerName,
     });
     return res.json(view);
@@ -472,9 +473,9 @@ router.put('/:tripId/tin-cup/live/scorecard/marker', async (req, res) => {
     await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_marker', 'Tin Cup live marker updated', {
       dayKey,
       slotIndex,
-      markerType: payload.markerType,
+      markerType: payload.type,
       hole: payload.hole,
-      playerName: payload.playerName,
+      winner: payload.winner,
       scorerName: payload.scorerName,
     });
     return res.json(view);
@@ -504,6 +505,28 @@ router.post('/:tripId/tin-cup/live/scorecard/submit', async (req, res) => {
       scorerName: payload.scorerName,
     });
     return res.json(view);
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.put('/:tripId/tin-cup/live/scramble/hole', async (req, res) => {
+  try {
+    const { trip, TripModel, TripAuditLogModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const payload = req.body || {};
+    const state = ensureTinCupLiveState(trip);
+    if (!isLiveScoringEnabled(state)) return res.status(403).json({ error: 'Live foursome scoring is disabled for this trip.' });
+    const scramble = updateScrambleHoleScore(state, payload);
+    trip.markModified('tinCupLive');
+    await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
+    await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_scramble_score', 'Tin Cup scramble hole updated', {
+      teamIndex: payload.teamIndex,
+      hole: payload.hole,
+      gross: payload.gross,
+      scorerName: payload.scorerName,
+    });
+    return res.json({ scramble });
   } catch (error) {
     return sendTripRouteError(res, error);
   }
@@ -691,6 +714,7 @@ router.post('/:tripId/tin-cup/live/admin/seed-scores', async (req, res) => {
     const state = ensureTinCupLiveState(trip);
     const reset = !(req.body && req.body.reset === false);
     const leaderboard = seedAllScores(state, { reset });
+    const seedSummary = buildSeedSummary(state, leaderboard);
     trip.markModified('tinCupLive');
     await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
     await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_seed_scores', 'Tin Cup demo scores seeded for all rounds', {
@@ -708,6 +732,7 @@ router.post('/:tripId/tin-cup/live/admin/seed-scores', async (req, res) => {
       scorecardCount,
       holeCount,
       topFive: (leaderboard.totals || []).slice(0, 5),
+      seedSummary,
     });
   } catch (error) {
     return sendTripRouteError(res, error);

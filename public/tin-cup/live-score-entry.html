@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tin Cup Scoring and Setup</title>
+  <title>Tin Cup Scoring / Inputs</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="/assets/knight-club-icon.png">
   <style>
@@ -80,12 +80,19 @@
     .scorecard-access-box { margin:10px 0 12px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:rgba(255,255,255,.03); display:grid; gap:8px; }
     .scorecard-access-box label { flex-direction:row; align-items:center; gap:8px; color:var(--ink); font-size:.9rem; }
     .scorecard-access-row { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+    .scorecard-access-setting { display:grid; gap:4px; }
+    .scorecard-access-setting small { color:var(--muted); }
     .hole-nav { display:grid; gap:10px; }
     .hole-nav-top { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
     .hole-nav-controls { display:flex; align-items:center; gap:6px; }
     .hole-nav-hole { font-size:1.05rem; font-weight:700; min-width:110px; text-align:center; }
+    .hole-jump-strip { display:flex; gap:6px; overflow:auto; padding-bottom:2px; scrollbar-width:none; }
+    .hole-jump-strip::-webkit-scrollbar { display:none; }
+    .hole-jump-btn { min-width:36px; padding:6px 0; border-radius:999px; border:1px solid var(--line); background:#173224; color:var(--ink); font-weight:700; cursor:pointer; }
+    .hole-jump-btn.active { border-color:rgba(200,154,75,.8); background:rgba(200,154,75,.24); color:#f4e5bf; }
     .hole-player-grid { display:grid; gap:8px; }
     .hole-player-row { border:1px solid var(--line); border-radius:10px; padding:8px; background:rgba(255,255,255,.03); display:grid; gap:6px; }
+    .hole-player-row.entered { border-color:rgba(200,154,75,.42); background:linear-gradient(140deg, rgba(255,255,255,.05), rgba(200,154,75,.08)); }
     .hole-player-head { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
     .hole-chip-row { display:flex; flex-wrap:wrap; gap:6px; }
     .hole-chip { min-width:36px; padding:6px 8px; border-radius:999px; border:1px solid var(--line); background:#173224; color:var(--ink); cursor:pointer; font-weight:700; }
@@ -94,16 +101,17 @@
     .hole-entry-header { display:grid; gap:8px; }
     .hole-entry-topline { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap; }
     .hole-entry-actions { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-    .hole-progress { display:grid; gap:6px; }
-    .hole-progress-bar { height:8px; border-radius:999px; background:rgba(255,255,255,.08); overflow:hidden; }
-    .hole-progress-fill { height:100%; border-radius:999px; background:linear-gradient(90deg, rgba(200,154,75,.95), rgba(220,232,200,.45)); }
-    .hole-summary-strip { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:8px; }
-    .hole-summary-pill { border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:rgba(255,255,255,.03); display:grid; gap:2px; }
-    .hole-summary-pill strong { font-size:.96rem; }
     .hole-player-row.compact { padding:7px 8px; gap:5px; }
     .hole-player-name-row { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
     .hole-player-meta { color:var(--muted); font-size:.78rem; }
     .hole-current-value { display:inline-flex; align-items:center; justify-content:center; min-width:38px; padding:4px 8px; border-radius:999px; background:rgba(200,154,75,.14); border:1px solid rgba(200,154,75,.28); font-weight:700; }
+    .scorepad-row { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)) auto; gap:6px; align-items:center; }
+    .score-step-btn { min-height:42px; border-radius:12px; font-size:1rem; font-weight:800; }
+    .score-step-btn.primary { background:rgba(200,154,75,.26); border-color:rgba(200,154,75,.65); }
+    .score-step-btn.clear { background:rgba(255,255,255,.04); }
+    .score-step-display { min-height:42px; border-radius:12px; font-size:1.15rem; background:rgba(249,243,231,.08); border:1px solid rgba(249,243,231,.12); }
+    .score-quick-grid { display:grid; grid-template-columns:repeat(5, minmax(0, 1fr)); gap:6px; }
+    .score-quick-grid .hole-chip { min-width:0; width:100%; padding:8px 0; border-radius:12px; }
     .compact-link-btn { display:inline-flex; align-items:center; justify-content:center; }
     .marker-current-wrap { display:grid; gap:8px; }
     .marker-current-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:8px; }
@@ -158,12 +166,16 @@
       .hole-nav { gap:8px; }
       .hole-nav-hole { font-size:.95rem; min-width:auto; }
       .hole-chip-row { gap:5px; }
+      .hole-jump-btn { min-width:34px; padding:7px 0; }
       .hole-chip { min-width:32px; padding:5px 7px; font-size:.82rem; }
       .hole-inline-controls button,
       .hole-nav-controls button,
       .compact-link-btn { padding:6px 8px; font-size:.82rem; }
       .hole-player-row.compact { padding:6px 7px; }
-      .hole-summary-strip { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+      .scorepad-row { grid-template-columns:repeat(3, minmax(0, 1fr)) auto; }
+      .score-step-btn { min-height:40px; }
+      .score-step-display { min-height:40px; }
+      .score-quick-grid { grid-template-columns:repeat(5, minmax(0, 1fr)); }
       .marker-current-grid { grid-template-columns:1fr; }
     }
   </style>
@@ -172,10 +184,10 @@
   <div class="wrap">
     <div class="card head">
       <div>
-        <h1 class="golf-title" style="margin:0;font-size:1.35rem;">Tin Cup Scoring and Setup</h1>
+        <h1 class="golf-title" style="margin:0;font-size:1.35rem;">Tin Cup Scoring / Inputs</h1>
         <div id="entryIntro" class="muted">Live score entry, special scoring inputs, golfer roster setup, and scoring configuration.</div>
       </div>
-      <a href="/tin-cup/trip-2026.html">Back to Tin Cup Page</a>
+      <a href="/tin-cup/trip-2026.html">Back to Tin Cup 2026</a>
     </div>
 
     <div class="section-label">Live Scoring</div>
@@ -188,17 +200,7 @@
             <select id="linkDaySelect"></select>
           </label>
         </div>
-        <div class="muted" style="margin:6px 0 10px;">Open your foursome link to score hole-by-hole live. Changes sync to match scoring and the live leaderboard.</div>
-        <div class="scorecard-access-box">
-          <div class="scorecard-access-row">
-            <label>
-              <input id="codeProtectToggle" type="checkbox">
-              <span><strong>Require Foursome Code To Open Scorecards</strong></span>
-            </label>
-            <span id="codeProtectState" class="muted"></span>
-          </div>
-          <small id="codeProtectHelp" class="muted">When disabled, golfers can open a scorecard with just their name. When enabled, a foursome code is required before entry.</small>
-        </div>
+        <div class="muted" style="margin:6px 0 10px;">Open your foursome link to score hole-by-hole live. Select Scramble in the day menu to enter team scores in the same score-entry flow.</div>
         <div id="scorecardLinksList"></div>
         <div style="margin-top:10px;"><span id="status" class="muted"></span></div>
       </details>
@@ -223,7 +225,7 @@
               <button id="hideFullScorecardBtn" type="button">Hide Full Scorecard</button>
             </div>
           </div>
-          <div class="muted" style="margin:6px 0 10px;">Full 18-hole summary for review only. Day-to-day entry stays focused on the current hole.</div>
+          <div id="fullScorecardNote" class="muted" style="margin:6px 0 10px;">Full 18-hole summary for review only. Day-to-day entry stays focused on the current hole.</div>
           <div class="table-wrap" id="scoreTableWrap"></div>
         </details>
       </div>
@@ -244,15 +246,7 @@
       </div>
     </div>
 
-    <div class="section-label">Special Scoring</div>
-    <div class="card" id="scrambleAdminCard">
-      <details>
-        <summary class="setup-summary">Scramble Scoring</summary>
-        <div class="muted" style="margin-top:4px;">Enter scramble team hole scores to compute team rank and scramble points automatically.</div>
-        <div id="scrambleAdminWrap" class="table-wrap" style="margin-top:10px;"></div>
-      </details>
-    </div>
-
+    <div class="section-label">Side Games</div>
     <div class="card" id="sideGamesCard">
       <details>
         <summary class="setup-summary">Side Game Winners</summary>
@@ -319,7 +313,39 @@
     <div class="card" id="adminUtilityCard">
       <details>
         <summary class="setup-summary">Admin Tools</summary>
-        <div class="muted" style="margin-top:4px;">Generate missing foursome codes for Tin Cup (admin only).</div>
+        <div class="muted" style="margin-top:4px;">Manage live scoring access and Tin Cup admin actions.</div>
+        <div class="scorecard-access-box">
+          <strong>Live Scoring Controls</strong>
+          <div id="liveSettingsStatus" class="muted">Use these toggles to control the Tin Cup scoring page, leaderboard, and scorecard access.</div>
+          <div class="scorecard-access-setting">
+            <label>
+              <input id="adminLiveScoringToggle" type="checkbox">
+              <span><strong>Live Foursome Scoring</strong></span>
+            </label>
+            <small>Controls access to the Scoring / Inputs page.</small>
+          </div>
+          <div class="scorecard-access-setting">
+            <label>
+              <input id="adminLiveMarkersToggle" type="checkbox">
+              <span><strong>Closest To Pin / Long Drive Entry</strong></span>
+            </label>
+            <small>Shows or hides live marker entry on the scoring page.</small>
+          </div>
+          <div class="scorecard-access-setting">
+            <label>
+              <input id="adminLiveLeaderboardToggle" type="checkbox">
+              <span><strong>Live Leaderboard Page</strong></span>
+            </label>
+            <small>Controls the dedicated live leaderboard page and nav chip.</small>
+          </div>
+          <div class="scorecard-access-setting">
+            <label>
+              <input id="adminCodeProtectToggle" type="checkbox">
+              <span><strong>Code-Protected Group Scorecard Links</strong></span>
+            </label>
+            <small>When enabled, each foursome must enter its code to open a live scorecard.</small>
+          </div>
+        </div>
         <div class="row" style="margin-top:8px;">
           <label>Admin Code
             <input id="adminCodeInput" type="password" placeholder="Admin code">
@@ -343,6 +369,7 @@
     const scorecardCard = document.getElementById('scorecardCard');
     const scorecardTitle = document.getElementById('scorecardTitle');
     const updatedAt = document.getElementById('updatedAt');
+    const fullScorecardNote = document.getElementById('fullScorecardNote');
     const hideFullScorecardBtn = document.getElementById('hideFullScorecardBtn');
     const scoreTableWrap = document.getElementById('scoreTableWrap');
     const holeEntryCard = document.getElementById('holeEntryCard');
@@ -353,14 +380,15 @@
     const matchInputsTableWrap = document.getElementById('matchInputsTableWrap');
     const strokeInputsTableWrap = document.getElementById('strokeInputsTableWrap');
     const adminCodeInput = document.getElementById('adminCodeInput');
-    const codeProtectToggle = document.getElementById('codeProtectToggle');
-    const codeProtectHelp = document.getElementById('codeProtectHelp');
-    const codeProtectState = document.getElementById('codeProtectState');
+    const adminLiveScoringToggle = document.getElementById('adminLiveScoringToggle');
+    const adminLiveMarkersToggle = document.getElementById('adminLiveMarkersToggle');
+    const adminLiveLeaderboardToggle = document.getElementById('adminLiveLeaderboardToggle');
+    const adminCodeProtectToggle = document.getElementById('adminCodeProtectToggle');
+    const liveSettingsStatus = document.getElementById('liveSettingsStatus');
     const genCodesBtn = document.getElementById('genCodesBtn');
     const seedScoresBtn = document.getElementById('seedScoresBtn');
     const adminStatus = document.getElementById('adminStatus');
     const generatedCodes = document.getElementById('generatedCodes');
-    const scrambleAdminWrap = document.getElementById('scrambleAdminWrap');
     const sideGamesWrap = document.getElementById('sideGamesWrap');
     const entryIntro = document.getElementById('entryIntro');
     const scorecardLinksCard = document.getElementById('scorecardLinksCard');
@@ -382,6 +410,8 @@
     const TIN_CUP_SCORING_STORAGE_KEY = 'tinCupScoringStateV2';
     const TIN_CUP_SCORECARD_CODE_KEY = 'tinCupScorecardCodesV1';
     const TIN_CUP_CTP_HOLES = [3, 7, 12, 17];
+    const SCRAMBLE_DAY_KEY = 'Scramble';
+    const SCRAMBLE_POINTS_DEFAULT = [3, 2, 1, 0];
 
     const DAY_KEYS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4', 'Practice'];
     const DAY_OPTIONS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 2 Total', 'Day 3', 'Day 4'];
@@ -412,6 +442,13 @@
       { playersByDay: { 'Day 1': [{ name: 'Mil', hcp: 8 }, { name: 'CSamm', hcp: 13 }, { name: 'Brian', hcp: 12 }, { name: 'Bob', hcp: 13 }], 'Day 2A': [{ name: 'OB', hcp: 6 }, { name: 'Brian', hcp: 12 }, { name: 'Tony', hcp: 8 }, { name: 'Tommy', hcp: 5 }], 'Day 2B': [{ name: 'OB', hcp: 6 }, { name: 'John', hcp: 7 }, { name: 'Mil', hcp: 8 }, { name: 'Pat', hcp: 10 }], 'Day 3': [{ name: 'Manny', hcp: 13 }, { name: 'CSamm', hcp: 13 }, { name: 'Spiro', hcp: 14 }, { name: 'OB', hcp: 6 }], 'Day 4': [{ name: 'Mil', hcp: 8 }, { name: 'CSamm', hcp: 13 }, { name: 'Brian', hcp: 12 }, { name: 'Bob', hcp: 13 }], Practice: [{ name: 'Mil', hcp: 8 }, { name: 'CSamm', hcp: 13 }, { name: 'Brian', hcp: 12 }, { name: 'Bob', hcp: 13 }] } },
       { playersByDay: { 'Day 1': [{ name: 'David', hcp: 8 }, { name: 'John', hcp: 7 }, { name: 'Tony', hcp: 8 }, { name: 'Spiro', hcp: 14 }], 'Day 2A': [{ name: 'Mil', hcp: 8 }, { name: 'David', hcp: 8 }, { name: 'Matt', hcp: 6 }, { name: 'Manny', hcp: 13 }], 'Day 2B': [{ name: 'Manny', hcp: 13 }, { name: 'Rick', hcp: 8 }, { name: 'Bob', hcp: 13 }, { name: 'Tony', hcp: 8 }], 'Day 3': [{ name: 'Pat', hcp: 10 }, { name: 'Brian', hcp: 12 }, { name: 'David', hcp: 8 }, { name: 'Rick', hcp: 8 }], 'Day 4': [{ name: 'David', hcp: 8 }, { name: 'John', hcp: 7 }, { name: 'Tony', hcp: 8 }, { name: 'Spiro', hcp: 14 }], Practice: [{ name: 'David', hcp: 8 }, { name: 'John', hcp: 7 }, { name: 'Tony', hcp: 8 }, { name: 'Spiro', hcp: 14 }] } }
     ];
+    const DAY_HOLE_STROKE_INDEX = {
+      'Day 1': [12, 4, 18, 10, 2, 16, 14, 8, 6, 11, 17, 1, 9, 3, 13, 7, 15, 5],
+      'Day 2A': [13, 3, 17, 9, 15, 7, 11, 1, 5, 2, 16, 8, 14, 4, 18, 10, 6, 12],
+      'Day 2B': [5, 15, 7, 13, 9, 1, 3, 17, 11, 2, 18, 8, 10, 16, 12, 6, 14, 4],
+      'Day 3': [3, 11, 17, 9, 15, 13, 7, 5, 1, 6, 10, 14, 2, 8, 12, 16, 18, 4],
+      'Day 4': [11, 5, 17, 9, 7, 1, 3, 15, 13, 4, 12, 14, 16, 2, 6, 18, 8, 10]
+    };
 
     let tripId = null;
     let meta = null;
@@ -434,6 +471,11 @@
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
     const norm = (v = '') => String(v || '').trim().replace(/\s+/g, ' ').toLowerCase();
     const holeArray = () => Array.from({ length: 18 }, () => null);
+    const normalizeHoleScores = (input = []) => {
+      const holes = Array.isArray(input) ? input.slice(0, 18) : [];
+      while (holes.length < 18) holes.push(null);
+      return holes.map((value) => toInt(value));
+    };
     const toInt = (v) => {
       if (v === '' || v === null || v === undefined) return null;
       const n = Number(v);
@@ -475,6 +517,158 @@
       })).filter((slot) => slot.players.length === 4);
     }
 
+    function isScrambleDay(dayKey = '') {
+      return String(dayKey || '').trim() === SCRAMBLE_DAY_KEY;
+    }
+
+    function getScrambleScoreKey(teamIndex) {
+      return `team${Number(teamIndex) + 1}`;
+    }
+
+    function getScrambleTeams() {
+      return getDaySlots('Day 1').map((slot) => ({
+        slotIndex: slot.slotIndex,
+        teamIndex: slot.slotIndex,
+        key: getScrambleScoreKey(slot.slotIndex),
+        label: `Team ${slot.slotIndex + 1}`,
+        players: slot.players.map((player) => player.name)
+      }));
+    }
+
+    function defaultWorkbookConfig() {
+      return {
+        handicap: {
+          indexToHcConversion: 0.17920353982300874,
+          avgCourseSlope: 133.25,
+          avgSlope: 113,
+          maxHandicap: 32,
+          par3Fraction: 0.375
+        },
+        accounting: {
+          entryFee: 200,
+          finalPayouts: [1000, 500, 250, 125],
+          markerPayouts: { longDrive: 25, ctp: 25, longPutt: 25, secretSnowman: 25, loser: 50 },
+          skins: { perPerson: 25 },
+          scramblePoints: SCRAMBLE_POINTS_DEFAULT.slice()
+        }
+      };
+    }
+
+    function getActiveWorkbookConfig() {
+      return (meta && meta.config && typeof meta.config === 'object') ? meta.config : defaultWorkbookConfig();
+    }
+
+    function getScramblePointSchedule(configOverride = null) {
+      const config = (configOverride && typeof configOverride === 'object') ? configOverride : getActiveWorkbookConfig();
+      const raw = Array.isArray(config && config.accounting && config.accounting.scramblePoints)
+        ? config.accounting.scramblePoints
+        : SCRAMBLE_POINTS_DEFAULT;
+      return raw.map((value, index) => {
+        const parsed = Number(value);
+        return Number.isFinite(parsed) ? parsed : (SCRAMBLE_POINTS_DEFAULT[index] || 0);
+      });
+    }
+
+    function getScrambleResultsFromState(state, configOverride = null) {
+      const scrambleScores = (state && state.scramble && state.scramble.scores && typeof state.scramble.scores === 'object')
+        ? state.scramble.scores
+        : {};
+      const scramblePoints = getScramblePointSchedule(configOverride);
+      const teams = getScrambleTeams().map((team) => {
+        const holes = normalizeHoleScores(scrambleScores[team.key]);
+        const played = holes.filter((value) => value !== null).length;
+        const total = played === 18 ? holes.reduce((sum, value) => sum + (value || 0), 0) : null;
+        return {
+          ...team,
+          holes,
+          played,
+          total,
+          rank: null,
+          points: 0
+        };
+      });
+      const complete = teams.filter((team) => team.total !== null).sort((a, b) => a.total - b.total || a.teamIndex - b.teamIndex);
+      let idx = 0;
+      while (idx < complete.length) {
+        const start = idx;
+        const score = complete[idx].total;
+        while (idx < complete.length && complete[idx].total === score) idx += 1;
+        const firstRank = start + 1;
+        let totalPoints = 0;
+        for (let pos = firstRank; pos <= idx; pos += 1) totalPoints += Number(scramblePoints[pos - 1] || 0);
+        const avgPoints = idx > start ? Number((totalPoints / (idx - start)).toFixed(2)) : 0;
+        complete.slice(start, idx).forEach((team) => {
+          team.rank = firstRank;
+          team.points = avgPoints;
+        });
+      }
+      const pointsByPlayer = {};
+      FINAL_INPUT_PLAYERS.forEach((name) => { pointsByPlayer[norm(name)] = 0; });
+      teams.forEach((team) => {
+        team.players.forEach((name) => {
+          pointsByPlayer[norm(name)] = Number(team.points || 0);
+        });
+      });
+      return {
+        teams,
+        hasScores: teams.some((team) => team.played > 0),
+        pointsByPlayer
+      };
+    }
+
+    function buildScrambleView(payload = {}, teamIndex, scorerName = '') {
+      const teams = Array.isArray(payload.teams) ? payload.teams : [];
+      const team = teams.find((entry) => Number(entry.teamIndex) === Number(teamIndex));
+      if (!team) throw new Error('Scramble team not found');
+      const holes = normalizeHoleScores(team.holes);
+      const played = Number(team.played) || holes.filter((value) => value !== null).length;
+      const total = team.total === null || team.total === undefined
+        ? (played === 18 ? holes.reduce((sum, value) => sum + (value || 0), 0) : null)
+        : Number(team.total);
+      const label = String(team.label || `Team ${Number(teamIndex) + 1}`);
+      const members = Array.isArray(team.players) ? team.players.slice() : [];
+      return {
+        entryMode: 'scramble',
+        dayKey: SCRAMBLE_DAY_KEY,
+        slotIndex: Number(team.teamIndex),
+        teamIndex: Number(team.teamIndex),
+        label,
+        teamPlayers: members,
+        players: [{
+          name: label,
+          members,
+          holes,
+          handicap: null,
+          grossTotal: total,
+          netTotal: null,
+          complete18: played === 18,
+          played,
+          scrambleRank: team.rank === null || team.rank === undefined ? null : Number(team.rank),
+          scramblePoints: Number(team.points || 0)
+        }],
+        markers: { ctp: {}, longDrive: {} },
+        markerHoles: { ctp: [], longDrive: [] },
+        scorerName: String(scorerName || '').trim(),
+        submittedAt: null,
+        submittedBy: '',
+        submitted: false,
+        updatedAt: new Date().toISOString(),
+        scrambleTeam: {
+          label,
+          players: members,
+          holes,
+          played,
+          total,
+          rank: team.rank === null || team.rank === undefined ? null : Number(team.rank),
+          points: Number(team.points || 0)
+        }
+      };
+    }
+
+    function buildLocalScrambleView(teamIndex, scorerName = '') {
+      return buildScrambleView(getScrambleResultsFromState(loadLocalLiveState(), getActiveWorkbookConfig()), teamIndex, scorerName);
+    }
+
     function localKey(dayKey, slotIndex) {
       return `${dayKey}|${Number(slotIndex)}`;
     }
@@ -483,11 +677,18 @@
       try {
         const raw = localStorage.getItem(TIN_CUP_LIVE_LOCAL_STATE_KEY);
         const parsed = raw ? JSON.parse(raw) : {};
+        const scrambleSrc = (parsed && parsed.scramble && typeof parsed.scramble === 'object') ? parsed.scramble : {};
+        const scrambleScores = (scrambleSrc.scores && typeof scrambleSrc.scores === 'object') ? scrambleSrc.scores : {};
+        const normalizedScrambleScores = {};
+        Object.keys(scrambleScores).forEach((key) => {
+          normalizedScrambleScores[key] = normalizeHoleScores(scrambleScores[key]);
+        });
         return {
-          scorecards: (parsed && parsed.scorecards && typeof parsed.scorecards === 'object') ? parsed.scorecards : {}
+          scorecards: (parsed && parsed.scorecards && typeof parsed.scorecards === 'object') ? parsed.scorecards : {},
+          scramble: { scores: normalizedScrambleScores }
         };
       } catch (_err) {
-        return { scorecards: {} };
+        return { scorecards: {}, scramble: { scores: {} } };
       }
     }
 
@@ -495,15 +696,16 @@
       localStorage.setItem(TIN_CUP_LIVE_LOCAL_STATE_KEY, JSON.stringify(state));
     }
 
-    function getStrokeAllowance(hcp, hole) {
+    function getStrokeAllowance(hcp, hole, dayKey = '') {
       const playing = Math.max(0, Math.round(Number(hcp) || 0));
       if (!playing) return 0;
       const base = Math.floor(playing / 18);
       const extra = playing % 18;
-      return base + (hole <= extra ? 1 : 0);
+      const strokeIndex = (((DAY_HOLE_STROKE_INDEX[String(dayKey || '').trim()] || [])[Number(hole) - 1]) || Number(hole));
+      return base + (strokeIndex <= extra ? 1 : 0);
     }
 
-    function summarizeHoles(holes, hcp) {
+    function summarizeHoles(holes, hcp, dayKey = '') {
       let grossTotal = 0; let netTotal = 0;
       let frontNet = 0; let backNet = 0;
       let complete18 = true; let completeFront = true; let completeBack = true;
@@ -516,7 +718,7 @@
           else completeBack = false;
           continue;
         }
-        const net = gross - getStrokeAllowance(hcp, hole);
+        const net = gross - getStrokeAllowance(hcp, hole, dayKey);
         grossTotal += gross;
         netTotal += net;
         if (hole <= 9) frontNet += net;
@@ -535,7 +737,7 @@
       };
     }
 
-    function compareSegmentFromSummaries(sa, sb, segmentIndex) {
+    function compareSegmentFromSummaries(sa, sb, segmentIndex, dayKey = '') {
       if (!sa || !sb) return '';
       const start = segmentIndex === 0 ? 0 : 9;
       const end = segmentIndex === 0 ? 8 : 17;
@@ -547,8 +749,8 @@
         const aGross = toInt(sa.holes && sa.holes[idx]);
         const bGross = toInt(sb.holes && sb.holes[idx]);
         if (aGross === null || bGross === null) continue;
-        aNet += aGross - getStrokeAllowance(sa.hcp, holeNo);
-        bNet += bGross - getStrokeAllowance(sb.hcp, holeNo);
+        aNet += aGross - getStrokeAllowance(sa.hcp, holeNo, dayKey);
+        bNet += bGross - getStrokeAllowance(sb.hcp, holeNo, dayKey);
         shared += 1;
       }
       if (!shared) return '';
@@ -644,7 +846,7 @@
         label: slot.label,
         players: slot.players.map((player) => {
           const entry = card.players[norm(player.name)] || { name: player.name, hcp: player.hcp, holes: holeArray() };
-          const summary = summarizeHoles(entry.holes, player.hcp);
+          const summary = summarizeHoles(entry.holes, player.hcp, dayKey);
           return {
             name: player.name,
             handicap: player.hcp,
@@ -672,6 +874,7 @@
       const out = {
         matchResults: { 'Day 1': {}, 'Day 2A': {}, 'Day 2B': {}, 'Day 3': {}, 'Day 4': {}, Practice: {} },
         strokeNet: { 'Day 1': {}, 'Day 3': {}, 'Day 4': {} },
+        markerCounts: { ctp: {}, longDrive: {} },
         scrambleBonus: {},
         penalties: {}
       };
@@ -689,7 +892,7 @@
           const summaryByName = new Map();
           slot.players.forEach((player) => {
             const entry = card.players[norm(player.name)] || { holes: holeArray() };
-            const sum = summarizeHoles(entry.holes || holeArray(), player.hcp);
+            const sum = summarizeHoles(entry.holes || holeArray(), player.hcp, dayKey);
             summaryByName.set(norm(player.name), sum);
             if (['Day 1', 'Day 3', 'Day 4'].includes(dayKey) && sum.complete18 && Number.isFinite(sum.netTotal)) {
               const penalty = getPenaltyEntry(player.name);
@@ -709,7 +912,7 @@
               const pb = p[b].name;
               const sa = summaryByName.get(norm(pa));
               const sb = summaryByName.get(norm(pb));
-              const ar = compareSegmentFromSummaries(sa, sb, segmentIndex);
+              const ar = compareSegmentFromSummaries(sa, sb, segmentIndex, dayKey);
               const br = ar === 'W' ? 'L' : ar === 'L' ? 'W' : ar === 'W*' ? 'L*' : ar === 'L*' ? 'W*' : ar;
               const ak = norm(pa); const bk = norm(pb);
               if (!out.matchResults[dayKey][ak]) out.matchResults[dayKey][ak] = {};
@@ -719,7 +922,25 @@
             });
           });
         });
+        if (['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4'].includes(dayKey)) {
+          const dayMarkers = getLocalDayMarkers(local, dayKey);
+          ['ctp', 'longDrive'].forEach((type) => {
+            Object.values((dayMarkers && dayMarkers[type]) || {}).forEach((winner) => {
+              const key = norm(winner);
+              if (!key) return;
+              out.markerCounts[type][key] = (Number(out.markerCounts[type][key]) || 0) + 1;
+            });
+          });
+        }
       });
+
+      const localScramble = getScrambleResultsFromState(local, getActiveWorkbookConfig());
+      if (localScramble.hasScores) {
+        out.scrambleBonus = {};
+        FINAL_INPUT_PLAYERS.forEach((name) => {
+          out.scrambleBonus[norm(name)] = Number(localScramble.pointsByPlayer[norm(name)] || 0);
+        });
+      }
 
       localStorage.setItem(TIN_CUP_SCORING_STORAGE_KEY, JSON.stringify(out));
     }
@@ -728,6 +949,7 @@
       const base = {
         matchResults: { 'Day 1': {}, 'Day 2A': {}, 'Day 2B': {}, 'Day 3': {}, 'Day 4': {}, Practice: {} },
         strokeNet: { 'Day 1': {}, 'Day 3': {}, 'Day 4': {} },
+        markerCounts: { ctp: {}, longDrive: {} },
         scrambleBonus: {},
         penalties: {}
       };
@@ -738,6 +960,10 @@
         return {
           matchResults: { ...base.matchResults, ...(parsed.matchResults || {}) },
           strokeNet: { ...base.strokeNet, ...(parsed.strokeNet || {}) },
+          markerCounts: {
+            ctp: { ...(base.markerCounts.ctp || {}), ...((((parsed.markerCounts || {}).ctp) || {})) },
+            longDrive: { ...(base.markerCounts.longDrive || {}), ...((((parsed.markerCounts || {}).longDrive) || {})) }
+          },
           scrambleBonus: { ...(parsed.scrambleBonus || {}) },
           penalties: { ...(parsed.penalties || {}) }
         };
@@ -1376,27 +1602,25 @@
       return payload.scramble || { teams: [] };
     }
 
-    function renderScrambleAdmin(payload = {}) {
-      const teams = Array.isArray(payload.teams) ? payload.teams : [];
-      if (!teams.length) {
-        scrambleAdminWrap.innerHTML = '<div class="muted" style="padding:10px;">Scramble teams are unavailable in local preview mode.</div>';
-        return;
-      }
-      const headerHoles = Array.from({ length: 18 }, (_, index) => `<th>H${index + 1}</th>`).join('');
-      scrambleAdminWrap.innerHTML = `<table><thead><tr><th>Team</th><th>Players</th>${headerHoles}<th>Total</th><th>Rank</th><th>Points</th></tr></thead><tbody>${teams.map((team) => `<tr><td><strong>${esc(team.label)}</strong></td><td>${esc((team.players || []).join(', '))}</td>${Array.from({ length: 18 }, (_, index) => `<td><input type="number" min="1" max="12" step="1" data-scramble-hole="${esc(team.teamIndex)}|${index + 1}" value="${team.holes && team.holes[index] !== null && team.holes[index] !== undefined ? esc(team.holes[index]) : ''}" style="width:56px;"></td>`).join('')}<td>${team.total === null || team.total === undefined ? '-' : esc(team.total)}</td><td>${team.rank ? esc(team.rank) : '-'}</td><td>${esc(team.points || 0)}</td></tr>`).join('')}</tbody></table>`;
+    function saveLocalScrambleHole(teamIndex, hole, gross) {
+      const parsedHole = Number(hole);
+      if (!Number.isInteger(parsedHole) || parsedHole < 1 || parsedHole > 18) throw new Error('hole must be 1-18');
+      const team = getScrambleTeams().find((entry) => entry.teamIndex === Number(teamIndex));
+      if (!team) throw new Error('Scramble team not found');
+      const state = loadLocalLiveState();
+      if (!state.scramble || typeof state.scramble !== 'object') state.scramble = { scores: {} };
+      if (!state.scramble.scores || typeof state.scramble.scores !== 'object') state.scramble.scores = {};
+      const key = getScrambleScoreKey(team.teamIndex);
+      const holes = normalizeHoleScores(state.scramble.scores[key]);
+      holes[parsedHole - 1] = toInt(gross);
+      state.scramble.scores[key] = holes;
+      saveLocalLiveState(state);
+      return getScrambleResultsFromState(state, getActiveWorkbookConfig());
     }
 
-    async function renderScrambleAdminCard() {
-      scrambleAdminWrap.innerHTML = '<div class="muted" style="padding:10px;">Loading scramble results...</div>';
-      try {
-        if (localMode) {
-          renderScrambleAdmin({ teams: [] });
-          return;
-        }
-        renderScrambleAdmin(await fetchRemoteScramble());
-      } catch (error) {
-        scrambleAdminWrap.innerHTML = `<div class="bad" style="padding:10px;">${esc(error && error.message ? error.message : 'Failed to load scramble results')}</div>`;
-      }
+    async function loadScrambleView(teamIndex, scorerName = '') {
+      if (localMode) return buildLocalScrambleView(teamIndex, scorerName);
+      return buildScrambleView(await fetchRemoteScramble(), teamIndex, scorerName);
     }
 
     function renderSideGamesCard() {
@@ -1438,18 +1662,12 @@
     }
 
     async function saveScrambleHole(teamIndex, hole, gross) {
-      if (localMode) throw new Error('Scramble admin requires a linked Tin Cup trip.');
+      if (localMode) throw new Error('Scramble scoring requires a linked Tin Cup trip.');
       const id = await resolveTripId();
-      let adminCode = String(adminCodeInput.value || '').trim();
-      if (!adminCode) {
-        adminCode = String(window.prompt('Enter admin code to save scramble scores:') || '').trim();
-        if (adminCode) adminCodeInput.value = adminCode;
-      }
-      if (!adminCode) throw new Error('Admin code required');
-      const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/admin/scramble-score`), {
+      const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/scramble/hole`), {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', 'x-admin-code': adminCode },
-        body: JSON.stringify({ teamIndex, hole, gross })
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ teamIndex, hole, gross, scorerName: String(active.scorerName || '').trim() })
       });
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload.error || 'Failed to save scramble score');
@@ -1461,26 +1679,12 @@
       FINAL_INPUT_PLAYERS.forEach((name) => {
         penalties[norm(name)] = getPenaltyEntry(name);
       });
-      const config = {
-        handicap: {
-          indexToHcConversion: 0.17920353982300874,
-          avgCourseSlope: 133.25,
-          avgSlope: 113,
-          maxHandicap: 32,
-          par3Fraction: 0.375
-        },
-        accounting: {
-          entryFee: 200,
-          finalPayouts: [1000, 500, 250, 125],
-          markerPayouts: { longDrive: 25, ctp: 25, longPutt: 25, secretSnowman: 25, loser: 50 },
-          skins: { perPerson: 25 },
-          scramblePoints: [3, 2, 1, 0]
-        }
-      };
+      const config = defaultWorkbookConfig();
       const sideGames = {
         longPutt: { label: 'Long Putt', days: ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4', 'Scramble'].map((dayKey) => ({ dayKey, winner: '' })), totals: [] },
         secretSnowman: { label: 'Secret Snowman', days: ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4'].map((dayKey) => ({ dayKey, winner: '' })), totals: [] }
       };
+      const scramble = getScrambleResultsFromState(loadLocalLiveState(), config);
       const handicapSummary = FINAL_INPUT_PLAYERS.map((name) => {
         const handicapIndex = Number(PLAYER_HANDICAPS[norm(name)] || 0);
         const converted = Number((handicapIndex * (1 + config.handicap.indexToHcConversion)).toFixed(2));
@@ -1499,6 +1703,7 @@
         penalties,
         playerHandicaps: FINAL_INPUT_PLAYERS.map((name) => ({ name, handicap: Number(PLAYER_HANDICAPS[norm(name)] || 0) })),
         handicapSummary,
+        scramble,
         sideGames,
         config,
         payouts: null,
@@ -1766,8 +1971,33 @@
 
 
     function getSlotsForDay(dayKey = '') {
+      if (isScrambleDay(dayKey)) {
+        const scramble = (meta && meta.scramble && typeof meta.scramble === 'object')
+          ? meta.scramble
+          : getScrambleResultsFromState(loadLocalLiveState(), getActiveWorkbookConfig());
+        const teams = Array.isArray(scramble.teams) ? scramble.teams : [];
+        return teams.map((team) => ({
+          slotIndex: Number(team.teamIndex),
+          label: String(team.label || `Team ${Number(team.teamIndex) + 1}`),
+          players: Array.isArray(team.players) ? team.players.slice() : [],
+          played: Number(team.played) || 0,
+          total: team.total === null || team.total === undefined ? null : Number(team.total),
+          rank: team.rank === null || team.rank === undefined ? null : Number(team.rank),
+          points: Number(team.points || 0),
+          hasCode: false
+        }));
+      }
       const row = (meta && Array.isArray(meta.daySlots) ? meta.daySlots : []).find((d) => d.dayKey === dayKey);
       return row ? row.slots : [];
+    }
+
+    function getEntryDayOptions() {
+      const dayOptions = (meta && Array.isArray(meta.matchDayOptions) ? meta.matchDayOptions : []);
+      return Array.from(new Set(dayOptions.concat(SCRAMBLE_DAY_KEY)));
+    }
+
+    function isScrambleView(view) {
+      return Boolean(view && String(view.entryMode || '').trim().toLowerCase() === 'scramble');
     }
 
     function isMobileScorecardViewport() {
@@ -1878,27 +2108,33 @@
       const dayKey = String(selectedLinkDay || '');
       const slots = getSlotsForDay(dayKey);
       if (!slots.length) {
-        scorecardLinksList.innerHTML = '<div class="muted">No foursomes for this day.</div>';
+        scorecardLinksList.innerHTML = `<div class="muted">No ${isScrambleDay(dayKey) ? 'scramble teams' : 'foursomes'} for this day.</div>`;
         return;
       }
+      const scrambleMode = isScrambleDay(dayKey);
       scorecardLinksList.innerHTML = `<div class="scorecard-links-grid">${slots.map((slot) => {
         const players = Array.isArray(slot.players) ? slot.players : [];
-        const playersWithMeta = players.map((name) => {
-          const penalty = getPenaltyEntry(name);
-          const hcp = Number(PLAYER_HANDICAPS[norm(name)] || 0);
-          const penTxt = penalty.total ? `, Pen +${penalty.total}` : '';
-          return `${name} (HCP ${hcp}${penTxt})`;
-        }).join(' | ');
+        const playersWithMeta = scrambleMode
+          ? players.join(' | ')
+          : players.map((name) => {
+            const penalty = getPenaltyEntry(name);
+            const hcp = Number(PLAYER_HANDICAPS[norm(name)] || 0);
+            const penTxt = penalty.total ? `, Pen +${penalty.total}` : '';
+            return `${name} (HCP ${hcp}${penTxt})`;
+          }).join(' | ');
+        const scrambleMeta = scrambleMode
+          ? `Played ${Number(slot.played || 0)}/18${slot.total === null || slot.total === undefined ? '' : ` | Total ${slot.total}`}${slot.rank ? ` | Rank ${slot.rank}` : ''} | Points ${Number(slot.points || 0)}`
+          : '';
         return `<div class="scorecard-link-card">
           <div class="scorecard-link-title">
             <span>${esc(slot.label)} - ${esc(dayKey)}</span>
-            <button type="button" data-open-scorecard="${esc(dayKey)}|${esc(String(slot.slotIndex))}">Open Scorecard</button>
+            <button type="button" data-open-scorecard="${esc(dayKey)}|${esc(String(slot.slotIndex))}">${scrambleMode ? 'Open Scoring' : 'Open Scorecard'}</button>
           </div>
           <div class="scorecard-link-players">${esc(playersWithMeta)}</div>
-          <div class="muted" style="margin-top:10px;">Open the scorecard and enter your name to start keeping score.</div>
+          <div class="muted" style="margin-top:10px;">${scrambleMode ? esc(scrambleMeta || 'Open the scramble team and enter the team score hole by hole.') : 'Open the scorecard and enter your name to start keeping score.'}</div>
           <div class="scorecard-link-row">
             <a href="${esc(buildSelfLink(dayKey, slot.slotIndex))}" target="_blank" rel="noopener">Open in New Tab</a>
-            <span class="muted">${settings.enableFoursomeCodes ? 'Foursome code required' : 'Open access by player name'}</span>
+            <span class="muted">${scrambleMode ? 'Open access by player name' : (settings.enableFoursomeCodes ? 'Foursome code required' : 'Open access by player name')}</span>
           </div>
         </div>`;
       }).join('')}</div>`;
@@ -1912,22 +2148,23 @@
     }
 
     function renderSelectors() {
-      const dayOptions = (meta && Array.isArray(meta.matchDayOptions) ? meta.matchDayOptions : []);
+      const dayOptions = getEntryDayOptions();
       settings = (meta && meta.settings) ? meta.settings : settings;
       penaltiesByPlayer = (meta && typeof meta.penalties === 'object' && meta.penalties) ? meta.penalties : {};
       adminUtilityCard.style.display = !localMode ? '' : 'none';
-      codeProtectToggle.checked = settings.enableFoursomeCodes === true;
-      codeProtectToggle.disabled = localMode || !settings.enableLiveFoursomeScoring;
-      if (codeProtectState) {
-        codeProtectState.textContent = localMode
-          ? 'Unavailable in local mode'
-          : (settings.enableFoursomeCodes ? 'Code required' : 'Open by player name');
-      }
-      codeProtectHelp.textContent = localMode
+      adminLiveScoringToggle.checked = settings.enableLiveFoursomeScoring === true;
+      adminLiveScoringToggle.disabled = localMode;
+      adminLiveMarkersToggle.checked = settings.enableLiveMarkers === true;
+      adminLiveMarkersToggle.disabled = localMode;
+      adminLiveLeaderboardToggle.checked = settings.enableLiveLeaderboard === true;
+      adminLiveLeaderboardToggle.disabled = localMode;
+      adminCodeProtectToggle.checked = settings.enableFoursomeCodes === true;
+      adminCodeProtectToggle.disabled = localMode || !settings.enableLiveFoursomeScoring;
+      liveSettingsStatus.textContent = localMode
         ? 'Link the Tin Cup trip to the database to manage scorecard access settings here.'
         : (!settings.enableLiveFoursomeScoring
-          ? 'Enable live foursome scoring first.'
-          : 'When enabled, each foursome must enter its code before opening a live scorecard.');
+          ? 'Live foursome scoring is disabled. Enable it here before requiring foursome codes.'
+          : 'Changes here update scorecard access, live marker entry, and leaderboard availability.');
       genCodesBtn.style.display = 'none';
       if (Array.isArray(meta && meta.playerHandicaps)) {
         meta.playerHandicaps.forEach((row) => {
@@ -1937,9 +2174,9 @@
       }
       syncGolferSetupRowsFromPersistedState();
       if (localMode) {
-        entryIntro.textContent = 'Local mode active: no Tin Cup trip found in database. Entries will sync to local leaderboard state.';
+        entryIntro.textContent = 'Local mode active: no Tin Cup trip found in database. Foursome and scramble entries will sync to local leaderboard state.';
       } else {
-        entryIntro.textContent = 'Use your foursome live scorecard link and enter your name to keep hole-by-hole scores.';
+        entryIntro.textContent = 'Use the day selector to open a foursome or scramble team and enter scores hole by hole.';
       }
 
       if (!settings.enableLiveFoursomeScoring) {
@@ -1961,9 +2198,41 @@
       renderSideGamesCard();
     }
 
+    async function updateLiveSettingToggle(element, buildSettings, pendingMessage, successMessage) {
+      if (!element) return;
+      const next = element.checked === true;
+      element.disabled = true;
+      statusEl.className = 'muted';
+      statusEl.textContent = pendingMessage;
+      adminStatus.className = 'muted';
+      adminStatus.textContent = pendingMessage;
+      try {
+        await saveLiveSettings(buildSettings(next));
+        meta = await fetchMeta();
+        renderSelectors();
+        const message = successMessage(next);
+        statusEl.className = 'ok';
+        statusEl.textContent = message;
+        adminStatus.className = 'ok';
+        adminStatus.textContent = message;
+      } catch (error) {
+        renderSelectors();
+        statusEl.className = 'bad';
+        statusEl.textContent = error.message;
+        adminStatus.className = 'bad';
+        adminStatus.textContent = error.message;
+      }
+    }
+
     async function loadScorecard(dayKey, slotIndex) {
       if (!settings.enableLiveFoursomeScoring) throw new Error('Live foursome scoring is disabled for this trip.');
       if (!dayKey || !Number.isInteger(slotIndex) || slotIndex < 0) throw new Error('Select day and foursome.');
+
+      if (isScrambleDay(dayKey)) {
+        const payload = await loadScrambleView(slotIndex, active.scorerName || '');
+        active = { dayKey, slotIndex, code: '', view: payload, scorerName: active.scorerName || '' };
+        return payload;
+      }
 
       if (localMode) {
         const payload = buildLocalScorecardView(dayKey, slotIndex);
@@ -1988,13 +2257,42 @@
     function renderScorecard(view) {
       const holes = Array.from({ length: 18 }, (_, i) => i + 1);
       const players = Array.isArray(view.players) ? view.players : [];
+      const scrambleView = isScrambleView(view);
       scorecardTitle.textContent = `${view.dayKey} - ${view.label}`;
       const metaParts = [];
       const scorerMeta = formatScorerMeta(view);
       if (scorerMeta) metaParts.push(scorerMeta);
       if (view.updatedAt) metaParts.push(`Updated: ${new Date(view.updatedAt).toLocaleTimeString()}`);
-      if (view.submittedAt) metaParts.push(formatSubmissionMeta(view));
+      if (scrambleView) {
+        const summary = view.scrambleTeam || {};
+        const summaryParts = [];
+        if (Array.isArray(summary.players) && summary.players.length) summaryParts.push(summary.players.join(', '));
+        summaryParts.push(`Played ${Number(summary.played || 0)}/18`);
+        if (summary.rank) summaryParts.push(`Rank ${summary.rank}`);
+        summaryParts.push(`Points ${Number(summary.points || 0)}`);
+        metaParts.push(summaryParts.join(' | '));
+      } else if (view.submittedAt) {
+        metaParts.push(formatSubmissionMeta(view));
+      }
       updatedAt.textContent = metaParts.join(' | ');
+      if (fullScorecardNote) {
+        fullScorecardNote.textContent = scrambleView
+          ? 'Full 18-hole scramble summary. Enter the current team hole here and standings update automatically.'
+          : 'Full 18-hole summary for review only. Day-to-day entry stays focused on the current hole.';
+      }
+      if (scrambleView) {
+        const head = `<tr><th>Team</th>${holes.map((h) => `<th>H${h}</th>`).join('')}<th>Total</th><th>Rank</th><th>Points</th></tr>`;
+        const body = players.map((player) => {
+          const members = Array.isArray(player.members) && player.members.length ? player.members.join(', ') : '';
+          return `<tr><td><strong>${esc(player.name)}</strong>${members ? ` <span class="muted">(${esc(members)})</span>` : ''}</td>${holes.map((hole) => {
+            const gross = player.holes && player.holes[hole - 1] !== null ? player.holes[hole - 1] : null;
+            return `<td>${gross === null ? '<span class="muted">-</span>' : esc(gross)}</td>`;
+          }).join('')}<td>${player.grossTotal === null ? '-' : esc(player.grossTotal)}</td><td>${player.scrambleRank ? esc(player.scrambleRank) : '-'}</td><td>${esc(Number(player.scramblePoints || 0))}</td></tr>`;
+        }).join('');
+        scoreTableWrap.innerHTML = `<table><thead>${head}</thead><tbody>${body}</tbody></table>`;
+        setFullScorecardVisibility(showFullScorecard);
+        return;
+      }
       const head = `<tr><th>Player</th>${holes.map((h) => `<th>H${h}</th>`).join('')}<th>Gross</th><th>Net</th></tr>`;
       const body = players.map((player) => {
         const championPenalty = toNum(player.penaltyChampion) || 0;
@@ -2032,37 +2330,62 @@
       }
       currentHole = clampHole(currentHole);
       const players = view.players || [];
-      const submitted = isSubmittedScorecard(view);
-      const adminOverride = hasAdminOverrideCode();
+      const scrambleView = isScrambleView(view);
+      const submitted = scrambleView ? false : isSubmittedScorecard(view);
+      const adminOverride = scrambleView ? false : hasAdminOverrideCode();
       const submissionMeta = submitted ? formatSubmissionMeta(view) : '';
-      const canEdit = !submitted || adminOverride;
+      const canEdit = scrambleView ? true : (!submitted || adminOverride);
       const allComplete = players.every((player) => player && player.complete18 === true);
       const chips = [2, 3, 4, 5, 6, 7, 8, 9, 10];
       const enteredCount = players.filter((player) => toInt(player && player.holes && player.holes[currentHole - 1]) !== null).length;
-      const progressPct = players.length ? Math.round((enteredCount / players.length) * 100) : 0;
+      const holeJumpButtons = Array.from({ length: 18 }, (_, index) => {
+        const holeNo = index + 1;
+        return `<button class="hole-jump-btn${holeNo === currentHole ? ' active' : ''}" type="button" data-hole-go="${holeNo}">${holeNo}</button>`;
+      }).join('');
       const playerRows = players.map((player) => {
         const name = String(player.name || '');
         const current = toInt(player && player.holes && player.holes[currentHole - 1]);
         const currentLabel = current === null ? '-' : String(current);
-        const holeNet = current === null ? null : current - getStrokeAllowance(player.handicap, currentHole);
+        const holeNet = current === null ? null : current - getStrokeAllowance(player.handicap, currentHole, view.dayKey);
         const chipMarkup = canEdit
           ? chips.map((value) => `<button class="hole-chip${current === value ? ' active' : ''}" type="button" data-hole-set="${esc(name)}|${currentHole}|${value}">${value}</button>`).join('')
           : `<div class="muted">Submitted score: <strong>${esc(currentLabel)}</strong></div>`;
-        const inlineControls = canEdit
-          ? `<div class="hole-inline-controls">
-            <button type="button" data-hole-step="${esc(name)}|${currentHole}|-1">-1</button>
-            <button type="button" data-hole-step="${esc(name)}|${currentHole}|1">+1</button>
-            <button type="button" data-hole-clear="${esc(name)}|${currentHole}">Clear</button>
+        const scorepad = canEdit
+          ? `<div class="scorepad-row">
+            <button class="score-step-btn" type="button" data-hole-step="${esc(name)}|${currentHole}|-1">-</button>
+            <div class="hole-current-value score-step-display">${esc(currentLabel)}</div>
+            <button class="score-step-btn primary" type="button" data-hole-step="${esc(name)}|${currentHole}|1">+</button>
+            <button class="score-step-btn clear" type="button" data-hole-clear="${esc(name)}|${currentHole}">Clear</button>
           </div>`
-          : '';
-        return `<div class="hole-player-row compact">
+          : `<div class="scorepad-row"><div class="hole-current-value score-step-display" style="grid-column:1 / span 4;">${esc(currentLabel)}</div></div>`;
+        if (scrambleView) {
+          const members = Array.isArray(player.members) && player.members.length ? player.members.join(', ') : '';
+          const totalLabel = player.grossTotal === null ? '-' : esc(player.grossTotal);
+          const rankLabel = player.scrambleRank ? ` | Rank ${esc(player.scrambleRank)}` : '';
+          return `<div class="hole-player-row compact${current !== null ? ' entered' : ''}">
+            <div class="hole-player-name-row">
+              <div>
+                <strong>${esc(name)}</strong>
+                <div class="hole-player-meta">${members ? esc(members) : 'Scramble team score'}</div>
+              </div>
+              <span class="hole-current-value">${esc(currentLabel)}</span>
+            </div>
+            <div class="hole-player-meta">Played ${esc(Number(player.played || 0))}/18 | Total ${totalLabel}${rankLabel} | Points ${esc(Number(player.scramblePoints || 0))}</div>
+            ${scorepad}
+            <div class="score-quick-grid">${chipMarkup}</div>
+          </div>`;
+        }
+        return `<div class="hole-player-row compact${current !== null ? ' entered' : ''}">
           <div class="hole-player-name-row">
-            <strong>${esc(name)}</strong>
+            <div>
+              <strong>${esc(name)}</strong>
+              <div class="hole-player-meta">HCP ${esc(player.handicap)} | Hole Net ${holeNet === null ? '-' : esc(holeNet)}</div>
+            </div>
             <span class="hole-current-value">${esc(currentLabel)}</span>
           </div>
-          <div class="hole-player-meta">HCP ${esc(player.handicap)} | Hole Net ${holeNet === null ? '-' : esc(holeNet)} | Totals ${player.grossTotal === null ? '-' : esc(player.grossTotal)}/${player.netTotal === null ? '-' : esc(player.netTotal)}</div>
-          <div class="hole-chip-row">${chipMarkup}</div>
-          ${inlineControls}
+          <div class="hole-player-meta">Round totals ${player.grossTotal === null ? '-' : esc(player.grossTotal)} gross / ${player.netTotal === null ? '-' : esc(player.netTotal)} net</div>
+          ${scorepad}
+          <div class="score-quick-grid">${chipMarkup}</div>
         </div>`;
       }).join('');
       const submittedBanner = submitted
@@ -2081,8 +2404,8 @@
         <div class="hole-entry-header">
           <div class="hole-entry-topline">
             <div>
-              <strong>Live Hole Entry</strong>
-              <div class="muted">${esc(view.dayKey)} ${esc(view.label)} | Updates save immediately.</div>
+              <strong>${scrambleView ? 'Scramble Hole Entry' : 'Live Hole Entry'}</strong>
+              <div class="muted">${esc(view.dayKey)} ${esc(view.label)} | Hole ${currentHole} of 18 | ${enteredCount}/${players.length} ${scrambleView ? 'scores entered' : 'golfers entered'}${active.scorerName || view.scorerName ? ` | Scorer: ${esc(active.scorerName || view.scorerName)}` : ''}</div>
             </div>
             <div class="hole-entry-actions">
               <button type="button" class="compact-link-btn" data-toggle-full-scorecard="1">${showFullScorecard ? 'Hide Full Scorecard' : 'View Full Scorecard'}</button>
@@ -2093,25 +2416,18 @@
             <div class="hole-nav-hole">Hole ${currentHole}</div>
             <button type="button" data-hole-nav="1"${currentHole >= 18 ? ' disabled' : ''}>Next &rarr;</button>
           </div>
-          <div class="hole-progress">
-            <div class="hole-summary-strip">
-              <div class="hole-summary-pill"><span class="muted">Hole Progress</span><strong>${enteredCount}/${players.length} entered</strong></div>
-              <div class="hole-summary-pill"><span class="muted">Round Progress</span><strong>Hole ${currentHole} of 18</strong></div>
-              <div class="hole-summary-pill"><span class="muted">Scorer</span><strong>${esc(active.scorerName || view.scorerName || '-')}</strong></div>
-            </div>
-            <div class="hole-progress-bar"><div class="hole-progress-fill" style="width:${progressPct}%;"></div></div>
-          </div>
+          <div class="hole-jump-strip">${holeJumpButtons}</div>
         </div>
         ${submittedBanner}
         ${adminEditButton}
         <div class="hole-player-grid">${playerRows}</div>
-        ${submitButton}
+        ${scrambleView ? '' : submitButton}
       `;
       holeEntryCard.style.display = 'block';
     }
 
     function renderMarkers(view) {
-      if (!settings.enableLiveMarkers || !view) {
+      if (!settings.enableLiveMarkers || !view || isScrambleView(view)) {
         markersCard.style.display = 'none';
         return;
       }
@@ -2142,6 +2458,33 @@
     }
 
     async function saveHole(playerName, hole, gross) {
+      if (active.view && isScrambleView(active.view)) {
+        if (localMode) {
+          const scramble = saveLocalScrambleHole(active.slotIndex, hole, gross);
+          computeAndStoreLocalTinCupState();
+          if (meta && typeof meta === 'object') meta.scramble = scramble;
+          const payload = buildScrambleView(scramble, active.slotIndex, active.scorerName);
+          active.view = payload;
+          renderScorecard(payload);
+          renderHoleEntry(payload);
+          renderMarkers(payload);
+          statusEl.className = 'ok';
+          statusEl.textContent = `Saved ${payload.label} H${hole} (local)`;
+          return;
+        }
+
+        const scramble = await saveScrambleHole(active.slotIndex, hole, gross);
+        if (meta && typeof meta === 'object') meta.scramble = scramble;
+        const payload = buildScrambleView(scramble, active.slotIndex, active.scorerName);
+        active.view = payload;
+        renderScorecard(payload);
+        renderHoleEntry(payload);
+        renderMarkers(payload);
+        statusEl.className = 'ok';
+        statusEl.textContent = `Saved ${payload.label} H${hole}`;
+        return;
+      }
+
       if (localMode) {
         const { state, card } = ensureLocalCard(active.dayKey, active.slotIndex);
         if (card.submittedAt && !hasAdminOverrideCode()) throw new Error('Scorecard already submitted. Admin code required to edit.');
@@ -2156,6 +2499,7 @@
         const payload = buildLocalScorecardView(active.dayKey, active.slotIndex);
         active.view = payload;
         renderScorecard(payload);
+        renderHoleEntry(payload);
         renderMarkers(payload);
         statusEl.className = 'ok';
         statusEl.textContent = `Saved ${playerName} H${hole} (local)`;
@@ -2183,6 +2527,7 @@
       }
       active.view = payload;
       renderScorecard(payload);
+      renderHoleEntry(payload);
       renderMarkers(payload);
       statusEl.className = 'ok';
       statusEl.textContent = `Saved ${playerName} H${hole}`;
@@ -2198,6 +2543,7 @@
         card.updatedAt = new Date().toISOString();
         state.scorecards[localKey(active.dayKey, active.slotIndex)] = card;
         saveLocalLiveState(state);
+        computeAndStoreLocalTinCupState();
         const payload = buildLocalScorecardView(active.dayKey, active.slotIndex);
         active.view = payload;
         renderScorecard(payload);
@@ -2294,6 +2640,21 @@
         }
         if (!scorerName) throw new Error('Your name is required to open this scorecard.');
         sessionStorage.setItem('TIN_CUP_SCORE_ENTRY_NAME', scorerName);
+        if (isScrambleDay(dayKey)) {
+          const view = await loadScrambleView(slotIndex, scorerName);
+          active = { dayKey, slotIndex, code: '', view, scorerName };
+          currentHole = deriveCurrentHole(view);
+          showFullScorecard = false;
+          renderScorecard(view);
+          renderHoleEntry(view);
+          renderMarkers(view);
+          enterMobileScorecardMode();
+          expandCard('holeEntryCard');
+          holeEntryCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          statusEl.className = 'ok';
+          statusEl.textContent = localMode ? `Local scramble scoring opened for ${scorerName}.` : `Scramble scoring opened for ${scorerName}.`;
+          return;
+        }
         let code = '';
         if (settings.enableFoursomeCodes && !localMode) {
           code = getStoredScorecardCode(dayKey, slotIndex);
@@ -2366,23 +2727,6 @@
       holeEntryCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 
-    scrambleAdminWrap.addEventListener('change', async (event) => {
-      const input = event.target.closest('[data-scramble-hole]');
-      if (!input) return;
-      const [teamIndexRaw, holeRaw] = String(input.dataset.scrambleHole || '').split('|');
-      try {
-        adminStatus.className = 'muted';
-        adminStatus.textContent = 'Saving scramble score...';
-        const scramble = await saveScrambleHole(Number(teamIndexRaw), Number(holeRaw), input.value);
-        renderScrambleAdmin(scramble);
-        adminStatus.className = 'ok';
-        adminStatus.textContent = 'Scramble score saved.';
-      } catch (error) {
-        adminStatus.className = 'bad';
-        adminStatus.textContent = error && error.message ? error.message : 'Failed to save scramble score';
-      }
-    });
-
     sideGamesWrap.addEventListener('change', async (event) => {
       const input = event.target.closest('[data-side-game]');
       if (!input) return;
@@ -2409,6 +2753,14 @@
       if (navBtn && active && active.view) {
         const delta = Number(navBtn.dataset.holeNav);
         currentHole = clampHole(currentHole + (Number.isFinite(delta) ? delta : 0));
+        renderHoleEntry(active.view);
+        renderMarkers(active.view);
+        return;
+      }
+
+      const holeGoBtn = event.target.closest('[data-hole-go]');
+      if (holeGoBtn && active && active.view) {
+        currentHole = clampHole(Number(holeGoBtn.dataset.holeGo));
         renderHoleEntry(active.view);
         renderMarkers(active.view);
         return;
@@ -2624,7 +2976,6 @@
         if (!res.ok) throw new Error(payload.error || 'Failed to seed scores');
         meta = await fetchMeta();
         renderSelectors();
-        await renderScrambleAdminCard();
         if (active && active.dayKey && Number.isInteger(active.slotIndex) && active.slotIndex >= 0) {
           const refreshed = await loadScorecard(active.dayKey, active.slotIndex);
           renderScorecard(refreshed);
@@ -2633,15 +2984,72 @@
         }
         adminStatus.className = 'ok';
         adminStatus.textContent = `Seeded ${payload.scorecardCount || 0} scorecards (${payload.holeCount || 0} hole scores)`;
-        const topFive = Array.isArray(payload.topFive) ? payload.topFive : [];
-        generatedCodes.innerHTML = topFive.length
-          ? topFive.map((row, index) => `${index + 1}. <strong>${esc(row.name)}</strong> - ${esc(row.total)}`).join('<br>')
-          : 'Seed complete.';
+        generatedCodes.innerHTML = formatSeedSummary(payload);
       } catch (error) {
         adminStatus.className = 'bad';
         adminStatus.textContent = error.message;
       }
     });
+
+
+    function formatSeedSummary(payload) {
+      const topFive = Array.isArray(payload && payload.topFive) ? payload.topFive : [];
+      const seedSummary = (payload && payload.seedSummary && typeof payload.seedSummary === 'object') ? payload.seedSummary : {};
+      const formatCurrency = (value) => `$${Number(value || 0).toFixed(2)}`;
+      const sections = [];
+
+      if (topFive.length) {
+        sections.push(`<strong>Top 5 Leaderboard</strong><br>${topFive.map((row, index) => `${index + 1}. <strong>${esc(row.name)}</strong> - ${esc(row.total)}`).join('<br>')}`);
+      }
+
+      const addWinnerDays = (block, label) => {
+        const days = Array.isArray(block && block.days) ? block.days : [];
+        if (!days.length) return;
+        sections.push(`<strong>${esc(label)}</strong><br>${days.map((row) => `${esc(row.dayKey)}: <strong>${esc(row.winner || '-')}</strong>`).join('<br>')}`);
+      };
+      addWinnerDays(seedSummary.longPutt, 'Long Putt Winners');
+      addWinnerDays(seedSummary.secretSnowman, 'Secret Snowman Winners');
+
+      const markerTotals = seedSummary.markerTotals && typeof seedSummary.markerTotals === 'object' ? seedSummary.markerTotals : {};
+      const ctpRows = Array.isArray(markerTotals.ctp) ? markerTotals.ctp : [];
+      if (ctpRows.length) {
+        sections.push(`<strong>Closest To Pin Totals</strong><br>${ctpRows.map((row) => `${esc(row.name)} (${esc(row.wins)})`).join(' | ')}`);
+      }
+      const longDriveRows = Array.isArray(markerTotals.longDrive) ? markerTotals.longDrive : [];
+      if (longDriveRows.length) {
+        sections.push(`<strong>Long Drive Totals</strong><br>${longDriveRows.map((row) => `${esc(row.name)} (${esc(row.wins)})`).join(' | ')}`);
+      }
+
+      const scrambleTeams = Array.isArray(seedSummary.scramble && seedSummary.scramble.teams) ? seedSummary.scramble.teams : [];
+      if (scrambleTeams.length) {
+        sections.push(`<strong>Scramble Standings</strong><br>${scrambleTeams.map((team) => `${team.rank ? `${esc(team.rank)}.` : '-'} <strong>${esc(team.label)}</strong> - ${team.total === null || team.total === undefined ? '-' : esc(team.total)} (${esc(team.points || 0)} pts, ${esc((team.players || []).join(', '))})`).join('<br>')}`);
+      }
+
+      const skinsTotals = Array.isArray(seedSummary.skins && seedSummary.skins.totals) ? seedSummary.skins.totals : [];
+      if (skinsTotals.length) {
+        sections.push(`<strong>Skins Winners</strong><br>${skinsTotals.map((row) => `${esc(row.name)} (${esc(row.skins)} skins, ${formatCurrency(row.payout)})`).join('<br>')}`);
+      }
+
+      if (seedSummary.loser && seedSummary.loser.name) {
+        sections.push(`<strong>Loser Payout</strong><br>${esc(seedSummary.loser.name)} - ${formatCurrency(seedSummary.loser.payout)}`);
+      }
+
+      const payoutRows = Array.isArray(seedSummary.payoutRows) ? seedSummary.payoutRows : [];
+      if (payoutRows.length) {
+        sections.push(`<strong>Side Game Payouts</strong><br>${payoutRows.map((row) => {
+          const parts = [];
+          if (row.ctp > 0) parts.push(`CTP ${formatCurrency(row.ctp)}`);
+          if (row.longDrive > 0) parts.push(`LD ${formatCurrency(row.longDrive)}`);
+          if (row.longPutt > 0) parts.push(`LP ${formatCurrency(row.longPutt)}`);
+          if (row.secretSnowman > 0) parts.push(`Snowman ${formatCurrency(row.secretSnowman)}`);
+          if (row.skins > 0) parts.push(`Skins ${formatCurrency(row.skins)}`);
+          if (row.loser > 0) parts.push(`Loser ${formatCurrency(row.loser)}`);
+          return `<strong>${esc(row.name)}</strong>: ${parts.join(', ')}`;
+        }).join('<br>')}`);
+      }
+
+      return sections.join('<br><br>') || 'Seed complete.';
+    }
 
 
     saveWorkbookConfigBtn.addEventListener('click', async () => {
@@ -2662,35 +3070,53 @@
       }
     });
 
-    codeProtectToggle.addEventListener('change', async () => {
-      const next = codeProtectToggle.checked === true;
-      codeProtectToggle.disabled = true;
-      statusEl.className = 'muted';
-      statusEl.textContent = 'Saving scorecard access setting...';
-      adminStatus.className = 'muted';
-      adminStatus.textContent = 'Saving code protection setting...';
-      try {
-        await saveLiveSettings({
+    adminLiveScoringToggle.addEventListener('change', async () => {
+      await updateLiveSettingToggle(
+        adminLiveScoringToggle,
+        (next) => ({
+          ...settings,
+          enableLiveFoursomeScoring: next,
+          enableFoursomeCodes: next ? settings.enableFoursomeCodes : false
+        }),
+        'Saving live foursome scoring setting...',
+        (next) => (next ? 'Live foursome scoring enabled.' : 'Live foursome scoring disabled.')
+      );
+    });
+
+    adminLiveMarkersToggle.addEventListener('change', async () => {
+      await updateLiveSettingToggle(
+        adminLiveMarkersToggle,
+        (next) => ({
+          ...settings,
+          enableLiveMarkers: next
+        }),
+        'Saving live marker entry setting...',
+        (next) => (next ? 'Live marker entry enabled.' : 'Live marker entry disabled.')
+      );
+    });
+
+    adminLiveLeaderboardToggle.addEventListener('change', async () => {
+      await updateLiveSettingToggle(
+        adminLiveLeaderboardToggle,
+        (next) => ({
+          ...settings,
+          enableLiveLeaderboard: next
+        }),
+        'Saving live leaderboard setting...',
+        (next) => (next ? 'Live leaderboard enabled.' : 'Live leaderboard disabled.')
+      );
+    });
+
+    adminCodeProtectToggle.addEventListener('change', async () => {
+      await updateLiveSettingToggle(
+        adminCodeProtectToggle,
+        (next) => ({
           ...settings,
           enableFoursomeCodes: next
-        });
-        meta = await fetchMeta();
-        renderSelectors();
-        statusEl.className = 'ok';
-        statusEl.textContent = next
-          ? 'Foursome code requirement enabled.'
-          : 'Foursome code requirement disabled.';
-        adminStatus.className = 'ok';
-        adminStatus.textContent = next
-          ? 'Foursome code requirement enabled.'
-          : 'Foursome code requirement disabled.';
-      } catch (error) {
-        codeProtectToggle.checked = !next;
-        statusEl.className = 'bad';
-        statusEl.textContent = error.message;
-        adminStatus.className = 'bad';
-        adminStatus.textContent = error.message;
-      }
+        }),
+        'Saving code protection setting...',
+        (next) => (next ? 'Foursome code requirement enabled.' : 'Foursome code requirement disabled.')
+      );
     });
     (async () => {
       try {
@@ -2699,7 +3125,6 @@
         const queryDay = getQueryValue('dayKey');
         if (queryDay) selectedLinkDay = queryDay;
         renderSelectors();
-        await renderScrambleAdminCard();
         const slotRaw = getQueryValue('slotIndex');
         const slotIndex = Number(slotRaw);
         if (queryDay && Number.isInteger(slotIndex) && slotIndex >= 0) {

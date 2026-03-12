@@ -73,7 +73,7 @@ async function main() {
       '/valley-sip-and-smoke.html',
       '/blue-ridge-outings.html',
       '/blue-ridge-outings-admin.html',
-      '/myrtle-trip-2026.html',
+      '/myrtle/trip-2026.html',
       '/rules.html',
       '/handicaps.html',
       '/user-guide.html',

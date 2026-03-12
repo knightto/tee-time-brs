@@ -41,7 +41,32 @@ const SIDE_GAME_DEFS = {
   longPutt: { label: 'Long Putt', days: ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4', 'Scramble'] },
   secretSnowman: { label: 'Secret Snowman', days: ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4'] },
 };
+const SEED_SIDE_GAME_WINNERS = Object.freeze({
+  longPutt: Object.freeze({
+    'Day 1': 'Matt',
+    'Day 2A': 'Tommy',
+    'Day 2B': 'Steve',
+    'Day 3': 'Rick',
+    'Day 4': 'David',
+    Scramble: 'Manny',
+  }),
+  secretSnowman: Object.freeze({
+    'Day 1': 'Spiro',
+    'Day 2A': 'Bob',
+    'Day 2B': 'CSamm',
+    'Day 3': 'Pat',
+    'Day 4': 'Brian',
+  }),
+});
+const COMPETITIVE_DAYS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4'];
 const ALL_HOLES = Array.from({ length: 18 }, (_, index) => index + 1);
+const DAY_HOLE_STROKE_INDEX = Object.freeze({
+  'Day 1': [12, 4, 18, 10, 2, 16, 14, 8, 6, 11, 17, 1, 9, 3, 13, 7, 15, 5],
+  'Day 2A': [13, 3, 17, 9, 15, 7, 11, 1, 5, 2, 16, 8, 14, 4, 18, 10, 6, 12],
+  'Day 2B': [5, 15, 7, 13, 9, 1, 3, 17, 11, 2, 18, 8, 10, 16, 12, 6, 14, 4],
+  'Day 3': [3, 11, 17, 9, 15, 13, 7, 5, 1, 6, 10, 14, 2, 8, 12, 16, 18, 4],
+  'Day 4': [11, 5, 17, 9, 7, 1, 3, 15, 13, 4, 12, 14, 16, 2, 6, 18, 8, 10],
+});
 const SCRAMBLE_POINTS = [3, 2, 1, 0];
 const TIN_CUP_WORKBOOK_DEFAULTS = {
   handicap: {
@@ -487,15 +512,22 @@ function getAllowedMarkerHoles(type = '') {
   return ALL_HOLES.slice();
 }
 
-function getHoleStrokeAllowance(hcp, holeNumber) {
+function getDayHoleStrokeIndex(dayKey = '', holeNumber = 0) {
+  const row = DAY_HOLE_STROKE_INDEX[clean(dayKey)] || null;
+  if (!row || !Number.isInteger(holeNumber) || holeNumber < 1 || holeNumber > 18) return null;
+  return toIntOrNull(row[holeNumber - 1]);
+}
+
+function getHoleStrokeAllowance(hcp, holeNumber, dayKey = '') {
   const playing = Math.max(0, Math.round(Number(hcp) || 0));
   if (!playing) return 0;
   const base = Math.floor(playing / 18);
   const extra = playing % 18;
-  return base + (holeNumber <= extra ? 1 : 0);
+  const strokeIndex = getDayHoleStrokeIndex(dayKey, holeNumber) || holeNumber;
+  return base + (strokeIndex <= extra ? 1 : 0);
 }
 
-function summarizePlayerCard(playerCard, hcp) {
+function summarizePlayerCard(playerCard, hcp, dayKey = '') {
   const holes = Array.isArray(playerCard && playerCard.holes) ? playerCard.holes.slice(0, 18) : holeArray();
   while (holes.length < 18) holes.push(null);
   let grossTotal = 0;
@@ -518,7 +550,7 @@ function summarizePlayerCard(playerCard, hcp) {
       else completeBack = false;
       continue;
     }
-    const strokes = getHoleStrokeAllowance(hcp, holeNo);
+    const strokes = getHoleStrokeAllowance(hcp, holeNo, dayKey);
     const net = gross - strokes;
     grossTotal += gross;
     netTotal += net;
@@ -557,7 +589,7 @@ function getDayPlayerSummaries(state, dayKey) {
       const nameKey = normalize(player.name);
       const src = cardPlayers[nameKey] || { name: player.name, holes: holeArray() };
       const penalties = getPenaltyEntry(state, player.name);
-      const summary = summarizePlayerCard(src, handicapMap.get(nameKey) || 0);
+      const summary = summarizePlayerCard(src, handicapMap.get(nameKey) || 0, dayKey);
       out.set(nameKey, {
         name: player.name,
         hcp: handicapMap.get(nameKey) || 0,
@@ -592,7 +624,7 @@ function getDayMatrixByPlayer(dayKey) {
   return new Map(rows.map((row) => [normalize(row.player), row]));
 }
 
-function compareSegment(daySummaries, playerName, opponentName, segmentIndex) {
+function compareSegment(daySummaries, dayKey, playerName, opponentName, segmentIndex) {
   const me = daySummaries.get(normalize(playerName));
   const opp = daySummaries.get(normalize(opponentName));
   if (!me || !opp) return '';
@@ -606,8 +638,8 @@ function compareSegment(daySummaries, playerName, opponentName, segmentIndex) {
     const mineGross = toIntOrNull(me.holes[idx]);
     const theirsGross = toIntOrNull(opp.holes[idx]);
     if (mineGross === null || theirsGross === null) continue;
-    mineShared += mineGross - getHoleStrokeAllowance(me.hcp, holeNo);
-    theirsShared += theirsGross - getHoleStrokeAllowance(opp.hcp, holeNo);
+    mineShared += mineGross - getHoleStrokeAllowance(me.hcp, holeNo, dayKey);
+    theirsShared += theirsGross - getHoleStrokeAllowance(opp.hcp, holeNo, dayKey);
     sharedHoles += 1;
   }
   if (!sharedHoles) return '';
@@ -629,7 +661,7 @@ function getMatchPointsFromLive(state, dayKey) {
   matrix.forEach((row, key) => {
     let points = 0;
     const segments = (row.segments || []).map((segment) => {
-      const result = compareSegment(daySummaries, row.player, segment.opponent, segment.segmentIndex);
+      const result = compareSegment(daySummaries, dayKey, row.player, segment.opponent, segment.segmentIndex);
       if (result === 'W') points += 2;
       if (result === 'T') points += 1;
       return { opponent: segment.opponent, result, segmentIndex: segment.segmentIndex };
@@ -744,6 +776,10 @@ function updateScrambleHoleScore(state, payload = {}) {
 }
 
 function getScrambleResults(state) {
+  const config = normalizeWorkbookConfig(state && state.config ? state.config : defaultWorkbookConfig());
+  const scramblePoints = Array.isArray(config.accounting && config.accounting.scramblePoints)
+    ? config.accounting.scramblePoints
+    : SCRAMBLE_POINTS;
   const teams = getScrambleTeams().map((team) => {
     const { holes } = ensureScrambleTeamScores(state, team.teamIndex);
     const played = holes.filter((value) => value !== null).length;
@@ -765,7 +801,7 @@ function getScrambleResults(state) {
     while (idx < complete.length && complete[idx].total === score) idx += 1;
     const firstRank = start + 1;
     let totalPoints = 0;
-    for (let pos = firstRank; pos <= idx; pos += 1) totalPoints += SCRAMBLE_POINTS[pos - 1] || 0;
+    for (let pos = firstRank; pos <= idx; pos += 1) totalPoints += toNumOrNull(scramblePoints[pos - 1]) || 0;
     const avgPoints = idx > start ? Number((totalPoints / (idx - start)).toFixed(2)) : 0;
     complete.slice(start, idx).forEach((team) => {
       team.rank = firstRank;
@@ -844,7 +880,7 @@ function buildSkinsForDay(state, definition) {
       if (gross === null) return null;
       return {
         name: player.name,
-        net: gross - getHoleStrokeAllowance(summary.hcp, holeNo),
+        net: gross - getHoleStrokeAllowance(summary.hcp, holeNo, source.dayKey),
       };
     }).filter(Boolean).sort((a, b) => a.net - b.net || a.name.localeCompare(b.name));
     if (!entries.length) return { hole: holeNo, winner: '', net: null, hasSkin: false };
@@ -968,6 +1004,60 @@ function buildPayoutSummary(state, leaderboard = null) {
   };
 }
 
+function buildSeedSummary(state, leaderboard = null) {
+  const board = leaderboard || buildLeaderboard(state);
+  const payouts = board.payouts && Array.isArray(board.payouts.rows) ? board.payouts : buildPayoutSummary(state, board);
+  const sideGames = board.sideGames || buildSideGameSummary(state);
+  const scramble = board.scramble || getScrambleResults(state);
+  const skins = board.skins || buildSkinsResults(state);
+  const markerCounts = getMarkerPayoutCounts(state);
+  const winsByPlayer = (map = new Map()) => PLAYERS.map((player) => ({
+    name: player.name,
+    wins: map.get(normalize(player.name)) || 0,
+  })).filter((row) => row.wins > 0)
+    .sort((a, b) => (b.wins - a.wins) || a.name.localeCompare(b.name));
+  const loserRow = (payouts.rows || []).find((row) => Number(row.loser || 0) > 0) || null;
+  return {
+    longPutt: sideGames.longPutt || { label: SIDE_GAME_DEFS.longPutt.label, days: [], totals: [] },
+    secretSnowman: sideGames.secretSnowman || { label: SIDE_GAME_DEFS.secretSnowman.label, days: [], totals: [] },
+    markerTotals: {
+      ctp: winsByPlayer(markerCounts.ctp),
+      longDrive: winsByPlayer(markerCounts.longDrive),
+    },
+    scramble: {
+      teams: (scramble.teams || []).map((team) => ({
+        label: team.label,
+        players: Array.isArray(team.players) ? team.players.slice() : [],
+        total: team.total,
+        rank: team.rank,
+        points: team.points || 0,
+      })),
+    },
+    skins: {
+      totals: Array.isArray(skins.totals) ? skins.totals.slice() : [],
+    },
+    loser: loserRow ? { name: loserRow.name, payout: Number(loserRow.loser || 0) } : null,
+    payoutRows: (payouts.rows || [])
+      .filter((row) => Number(row.ctp || 0) > 0
+        || Number(row.longDrive || 0) > 0
+        || Number(row.longPutt || 0) > 0
+        || Number(row.secretSnowman || 0) > 0
+        || Number(row.skins || 0) > 0
+        || Number(row.loser || 0) > 0)
+      .map((row) => ({
+        name: row.name,
+        ctp: Number(row.ctp || 0),
+        longDrive: Number(row.longDrive || 0),
+        longPutt: Number(row.longPutt || 0),
+        secretSnowman: Number(row.secretSnowman || 0),
+        skins: Number(row.skins || 0),
+        loser: Number(row.loser || 0),
+        total: Number(row.total || 0),
+      })),
+    competitionDays: COMPETITIVE_DAYS.slice(),
+  };
+}
+
 
 function buildWorkbookResultsAudit(state, leaderboard = null) {
   const board = leaderboard || buildLeaderboard(state);
@@ -1053,14 +1143,14 @@ function buildMatchDetailBoards(state) {
               hole: holeNo,
               leftGross,
               rightGross,
-              leftNet: leftGross === null ? null : leftGross - getHoleStrokeAllowance(left.hcp, holeNo),
-              rightNet: rightGross === null ? null : rightGross - getHoleStrokeAllowance(right.hcp, holeNo),
+              leftNet: leftGross === null ? null : leftGross - getHoleStrokeAllowance(left.hcp, holeNo, dayKey),
+              rightNet: rightGross === null ? null : rightGross - getHoleStrokeAllowance(right.hcp, holeNo, dayKey),
             });
           }
           return {
             left: left.name,
             right: right.name,
-            result: compareSegment(summaries, left.name, right.name, segmentIndex),
+            result: compareSegment(summaries, dayKey, left.name, right.name, segmentIndex),
             holes,
           };
         }),
@@ -1237,7 +1327,7 @@ function getScorecardView(state, dayKey, slotIndex) {
     label: slot.label,
     players: slot.players.map((player) => {
       const entry = scorecard.players[normalize(player.name)] || { name: player.name, holes: holeArray() };
-      const summary = summarizePlayerCard(entry, player.hcp);
+      const summary = summarizePlayerCard(entry, player.hcp, dayKey);
       const penalty = getPenaltyEntry(state, player.name);
       return {
         name: player.name,
@@ -1343,7 +1433,7 @@ function submitScorecard(state, payload = {}) {
   if (scorerName) scorecard.scorerName = scorerName;
   const incompletePlayer = slot.players.find((player) => {
     const entry = scorecard.players[normalize(player.name)] || { name: player.name, holes: holeArray() };
-    const summary = summarizePlayerCard(entry, player.hcp);
+    const summary = summarizePlayerCard(entry, player.hcp, dayKey);
     return summary.complete18 !== true;
   });
   if (incompletePlayer) {
@@ -1428,10 +1518,7 @@ function seedAllScores(state, options = {}) {
     ...(reset ? {} : state.scrambleBonus),
     ...SEED_SCRAMBLE_BONUS,
   };
-  state.sideGames = normalizeSideGamesState({
-    longPutt: { 'Day 1': 'Matt', 'Day 2A': 'Tommy', 'Day 2B': 'Steve', 'Day 3': 'Rick', 'Day 4': 'David', Scramble: 'Manny' },
-    secretSnowman: { 'Day 1': 'Spiro', 'Day 2A': 'Bob', 'Day 2B': 'CSamm', 'Day 3': 'Pat', 'Day 4': 'Brian' },
-  });
+  state.sideGames = normalizeSideGamesState(SEED_SIDE_GAME_WINNERS);
 
   MATCH_DAY_OPTIONS.forEach((dayKey) => {
     getDaySlots(dayKey).forEach((slot) => {
@@ -1498,6 +1585,7 @@ module.exports = {
   getScrambleResults,
   buildSideGameSummary,
   buildPayoutSummary,
+  buildSeedSummary,
   buildWorkbookResultsAudit,
   updateWorkbookConfig,
   updateSideGameWinner,

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Tin Cup 2026 Tracker</title>
+  <title>Tin Cup 2026</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="/assets/knight-club-icon.png">
   <style>
@@ -49,7 +49,7 @@
     }
     h1 {
       margin: 0;
-      font-size: clamp(1.05rem, 3vw, 1.5rem);
+      font-size: clamp(0.98rem, 2.5vw, 1.3rem);
       display: flex;
       align-items: baseline;
       gap: 10px;
@@ -72,7 +72,7 @@
     }
     h1 span {
       color: var(--accent);
-      font-size: 0.9rem;
+      font-size: 0.82rem;
       letter-spacing: 1px;
       text-transform: uppercase;
     }
@@ -933,8 +933,8 @@
       <div class="chips">
         <button id="tripInfoTrigger" class="chip chip-button" type="button">Trip Info</button>
         <a id="tinCupLiveLeaderboardChip" class="chip cta" href="/tin-cup/leaderboard-2026.html">Live Leaderboards</a>
-        <a id="tinCupGuestsChip" class="chip cta" href="/tin-cup/guests-lodging.html">Guests & Lodging</a>
-        <a id="tinCupLiveEntryChip" class="chip cta" href="/tin-cup/live-score-entry.html">Scoring and Data Page</a>
+        <a id="tinCupGuestsChip" class="chip cta" href="/tin-cup/guests-lodging.html">Lodging</a>
+        <a id="tinCupLiveEntryChip" class="chip cta" href="/tin-cup/live-score-entry.html">Scoring / Inputs</a>
       </div>
     </header>
 
@@ -942,7 +942,7 @@
       <div class="trip-modal-backdrop" data-close-trip-info></div>
       <div class="trip-modal-dialog" role="dialog" aria-modal="true" aria-labelledby="tripInfoTitle">
         <div class="trip-modal-header">
-          <h2 class="trip-modal-title" id="tripInfoTitle">Tin Cup Trip Info</h2>
+          <h2 class="trip-modal-title" id="tripInfoTitle">Tin Cup 2026 Info</h2>
           <button type="button" class="trip-modal-close" data-close-trip-info>Close</button>
         </div>
         <div class="summary-card" id="tripSummary"></div>
@@ -960,13 +960,13 @@
     const TIN_CUP_ARRIVAL_DATE = '2026-05-12';
     const TIN_CUP_DEPARTURE_DATE = '2026-05-17';
     const DEFAULT_TRIP = {
-      name: 'Tin Cup 2026 Trip',
+      name: 'Tin Cup 2026',
       location: 'Talamore Golf Resort, Southern Pines, NC',
       arrivalDate: TIN_CUP_ARRIVAL_DATE,
       departureDate: TIN_CUP_DEPARTURE_DATE,
       package: 'Practice + Day 1-4 + Scramble',
       groupSize: 12,
-      preparedBy: 'Tin Cup Trip Planner',
+      preparedBy: 'Tin Cup 2026 Planner',
       phone: '',
       reservationNumber: 'Tin Cup 2026',
       accommodations: {
@@ -2068,7 +2068,7 @@
       const totals = computeTinCupTotals();
       return `
         <div class="tin-cup-score-card">
-          <strong>Live Trip Leaderboard</strong>
+          <strong>Live Tin Cup 2026 Leaderboard</strong>
           <div class="tin-cup-score-table-wrap">
             <table class="tin-cup-score-table">
               <thead>
@@ -2231,7 +2231,6 @@
     function renderAll() {
       renderTinCupLiveNavChips();
       renderTripSummary();
-      bindTinCupLiveSettingControls();
       renderTripLocationLinks();
       renderItinerary();
       renderParticipants();
@@ -2241,11 +2240,9 @@
       const t = trip || DEFAULT_TRIP;
       const arrivalDateDisplay = formatDate(TIN_CUP_ARRIVAL_DATE) || '5/12/2026';
       const departureDateDisplay = formatDate(TIN_CUP_DEPARTURE_DATE) || '5/17/2026';
-      const codeToggleDisabled = !tripId || !tinCupLiveSettings.enableLiveFoursomeScoring;
-      const liveSettingsDisabled = !tripId;
       const summary = `
         <div style="display:grid;gap:6px;">
-          <div><strong>Trip Name:</strong> ${t.name || 'Tin Cup 2026 Trip'}</div>
+          <div><strong>Trip Name:</strong> ${t.name || 'Tin Cup 2026'}</div>
           <div><strong>Location:</strong> ${t.location || 'Southern Pines, NC'}</div>
           <div><strong>Package:</strong> ${t.package || '5 Courses / 6 Tee Times'}</div>
           <div><strong>Golfers:</strong> 16 total</div>
@@ -2253,28 +2250,6 @@
           <div><strong>Featured Courses:</strong> Mid Pines, Pine Needles, Talamore, Tobacco Road, Mid South</div>
           <div><strong>Lodging / Resort Base:</strong> 610 Palmer Drive, Southern Pines, North Carolina 28387, United States</div>
           <div><strong>Vendor Trip Portal:</strong> <a class="cta" href="https://my.golfbreaks.com/guest/4045f310-b25c-4bbd-bb26-0b1b3576a9f8/" target="_blank" rel="noopener">Open Vendor Trip Portal</a></div>
-          <div style="margin-top:4px;padding:8px 10px;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,0.03);display:grid;gap:6px;">
-            <label style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:0.9rem;">
-              <input id="tinCupLiveScoringToggle" type="checkbox" ${tinCupLiveSettings.enableLiveFoursomeScoring ? 'checked' : ''} ${liveSettingsDisabled ? 'disabled' : ''}>
-              <span><strong>Live Foursome Scoring</strong></span>
-            </label>
-            <small style="color:var(--ink-soft);">${liveSettingsDisabled ? 'Link trip to database first.' : 'Controls access to the live scoring and data page.'}</small>
-            <label style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:0.9rem;">
-              <input id="tinCupLiveMarkersToggle" type="checkbox" ${tinCupLiveSettings.enableLiveMarkers ? 'checked' : ''} ${liveSettingsDisabled ? 'disabled' : ''}>
-              <span><strong>Closest To Pin / Long Drive Entry</strong></span>
-            </label>
-            <small style="color:var(--ink-soft);">${liveSettingsDisabled ? 'Link trip to database first.' : 'Shows or hides live marker entry on the scoring page.'}</small>
-            <label style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:0.9rem;">
-              <input id="tinCupLiveLeaderboardToggle" type="checkbox" ${tinCupLiveSettings.enableLiveLeaderboard ? 'checked' : ''} ${liveSettingsDisabled ? 'disabled' : ''}>
-              <span><strong>Live Leaderboard Page</strong></span>
-            </label>
-            <small style="color:var(--ink-soft);">${liveSettingsDisabled ? 'Link trip to database first.' : 'Controls the dedicated live leaderboard page and nav chip.'}</small>
-            <label style="display:flex;align-items:center;gap:8px;color:var(--ink);font-size:0.9rem;">
-              <input id="tinCupCodeProtectToggle" type="checkbox" ${tinCupLiveSettings.enableFoursomeCodes ? 'checked' : ''} ${codeToggleDisabled ? 'disabled' : ''}>
-              <span><strong>Code-Protected Group Scorecard Links</strong></span>
-            </label>
-            <small style="color:var(--ink-soft);">${codeToggleDisabled ? (tripId ? 'Enable live foursome scoring first.' : 'Link trip to database first.') : 'When enabled, each foursome must enter its code to open a live scorecard.'}</small>
-          </div>
           <div style="display:grid;gap:8px;margin-top:8px;">
             <a class="cta" href="https://www.google.com/maps/search/?api=1&query=Talamore+Golf+Resort+610+Palmer+Drive+Southern+Pines+NC+28387" target="_blank" rel="noopener">Open Talamore Golf Resort in Maps</a>
             ${tripId ? '' : '<small style="color:var(--ink-soft);">Preview mode: trip not linked to database yet.</small>'}
@@ -2282,41 +2257,6 @@
         </div>
       `;
       $('#tripSummary').innerHTML = summary;
-    }
-
-    function bindTinCupLiveSettingControls() {
-      const scoringToggle = document.getElementById('tinCupLiveScoringToggle');
-      const markersToggle = document.getElementById('tinCupLiveMarkersToggle');
-      const leaderboardToggle = document.getElementById('tinCupLiveLeaderboardToggle');
-      const codeToggle = document.getElementById('tinCupCodeProtectToggle');
-      const bindToggle = (element, buildSettings) => {
-        if (!element) return;
-        element.addEventListener('change', async () => {
-          const next = element.checked === true;
-          element.disabled = true;
-          const ok = await saveTinCupLiveSettings(buildSettings(next));
-          if (!ok) element.checked = !next;
-          renderTripSummary();
-          bindTinCupLiveSettingControls();
-        });
-      };
-      bindToggle(scoringToggle, (next) => ({
-        ...tinCupLiveSettings,
-        enableLiveFoursomeScoring: next,
-        enableFoursomeCodes: next ? tinCupLiveSettings.enableFoursomeCodes : false
-      }));
-      bindToggle(markersToggle, (next) => ({
-        ...tinCupLiveSettings,
-        enableLiveMarkers: next
-      }));
-      bindToggle(leaderboardToggle, (next) => ({
-        ...tinCupLiveSettings,
-        enableLiveLeaderboard: next
-      }));
-      bindToggle(codeToggle, (next) => ({
-        ...tinCupLiveSettings,
-        enableFoursomeCodes: next
-      }));
     }
 
     function setTripInfoModalOpen(isOpen) {
@@ -2429,7 +2369,7 @@
       const lines = [
         'BEGIN:VCALENDAR',
         'VERSION:2.0',
-        'PRODID:-//Tee Time Manager//Tin Cup Trip//EN',
+        'PRODID:-//Tee Time Manager//Tin Cup 2026//EN',
         'CALSCALE:GREGORIAN',
         'METHOD:PUBLISH',
       ];

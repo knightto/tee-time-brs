@@ -1459,7 +1459,7 @@
       window.tripId = trip._id;
       const auditLink = document.getElementById('tripAuditLink');
       if (auditLink) {
-        auditLink.href = `/trip-audit.html?tripId=${encodeURIComponent(String(tripId))}&myrtleBeach2026=true&back=${encodeURIComponent('/myrtle-trip-2026.html')}`;
+        auditLink.href = `/trip-audit.html?tripId=${encodeURIComponent(String(tripId))}&myrtleBeach2026=true&back=${encodeURIComponent('/myrtle/trip-2026.html')}`;
         auditLink.style.display = '';
       }
       const [nextParticipants, nextCompetition] = await Promise.all([
@@ -1926,7 +1926,7 @@
               <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Trip Competition</h2>
               <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
                 <span class="competition-note">Stableford, daily best ball, CTP, and skins</span>
-                <a class="cta" href="/myrtle-trip-competition-entry.html" target="_blank" rel="noopener">Competition Entry Page</a>
+                <a class="cta" href="/myrtle/competition-entry.html" target="_blank" rel="noopener">Competition Entry Page</a>
               </div>
             </div>
             ${renderCompetitionOverview(competitionData.overview || {}, competitionData.buckets || [])}

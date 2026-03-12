@@ -16,7 +16,7 @@ const BROWSER_CANDIDATES = [
 
 const PAGE_SPECS = [
   { path: '/', label: 'Home', selector: 'body' },
-  { path: '/myrtle-trip-2026.html', label: 'Myrtle Trip', selector: 'body' },
+  { path: '/myrtle/trip-2026.html', label: 'Myrtle Trip', selector: 'body' },
   { path: '/tin-cup/trip-2026.html', label: 'Tin Cup Trip', selector: '.container' },
   { path: '/tin-cup/live-score-entry.html', label: 'Tin Cup Live Entry', selector: '.container, main, body' },
   { path: '/tin-cup/leaderboard-2026.html', label: 'Tin Cup Leaderboard', selector: '.container, main, body' },

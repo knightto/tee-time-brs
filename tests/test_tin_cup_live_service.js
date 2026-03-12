@@ -14,11 +14,22 @@ const {
   buildScoreRankings,
   buildHandicapSummary,
   buildPayoutSummary,
+  buildSeedSummary,
+  buildWorkbookResultsAudit,
   updateScrambleHoleScore,
   updateWorkbookConfig,
+  setPlayerPenalty,
 } = require('../services/tinCupLiveService');
 
 function run() {
+  const workbookStrokeState = defaultTinCupLiveState();
+  updateHoleScore(workbookStrokeState, { dayKey: 'Day 1', slotIndex: 0, playerName: 'Matt', hole: 1, gross: 5 });
+  updateHoleScore(workbookStrokeState, { dayKey: 'Day 1', slotIndex: 0, playerName: 'Matt', hole: 2, gross: 5 });
+  const workbookStrokeBoard = buildLeaderboard(workbookStrokeState);
+  const mattVsRickFront9 = (((workbookStrokeBoard.matchDetails || {})['Day 1'] || [])[0] || { segments: [] }).segments[0].matches[0];
+  assert.strictEqual(mattVsRickFront9.holes[0].leftNet, 5, 'Day 1 hole 1 should use the workbook stroke index so Matt gets no stroke there');
+  assert.strictEqual(mattVsRickFront9.holes[1].leftNet, 4, 'Day 1 hole 2 should use the workbook stroke index so Matt gets one stroke there');
+
   const state = defaultTinCupLiveState();
   const leaderboard = seedAllScores(state, { reset: true });
 
@@ -65,9 +76,36 @@ function run() {
 
   const payouts = buildPayoutSummary(state, leaderboard);
   assert.strictEqual(typeof payouts.balance, 'number', 'Payout summary should compute remaining balance');
+  const seedSummary = buildSeedSummary(state, leaderboard);
+  assert.strictEqual((seedSummary.longPutt.days || []).length, 6, 'Seed summary should include Long Putt winners for every configured day');
+  assert((seedSummary.longPutt.days || []).every((row) => row.winner), 'Seed summary should assign every Long Putt winner');
+  assert.strictEqual((seedSummary.secretSnowman.days || []).length, 5, 'Seed summary should include Secret Snowman winners for every configured day');
+  assert((seedSummary.secretSnowman.days || []).every((row) => row.winner), 'Seed summary should assign every Secret Snowman winner');
+  assert.strictEqual((seedSummary.markerTotals.ctp || []).reduce((sum, row) => sum + row.wins, 0), 20, 'Seed summary should seed all 20 Closest To Pin markers across competitive rounds');
+  assert.strictEqual((seedSummary.markerTotals.longDrive || []).reduce((sum, row) => sum + row.wins, 0), 10, 'Seed summary should seed all 10 Long Drive markers across competitive rounds');
+  assert((seedSummary.scramble.teams || []).every((team) => team.rank !== null), 'Seed summary should include ranked scramble standings');
+  assert(Array.isArray(seedSummary.skins.totals) && seedSummary.skins.totals.length > 0, 'Seed summary should include seeded skins winners');
+  assert(seedSummary.loser && seedSummary.loser.name, 'Seed summary should include the seeded loser payout');
+  assert((seedSummary.payoutRows || []).some((row) => row.ctp > 0), 'Seed summary should include seeded Closest To Pin payouts');
+  assert((seedSummary.payoutRows || []).some((row) => row.longDrive > 0), 'Seed summary should include seeded Long Drive payouts');
+  assert((seedSummary.payoutRows || []).some((row) => row.longPutt > 0), 'Seed summary should include seeded Long Putt payouts');
+  assert((seedSummary.payoutRows || []).some((row) => row.secretSnowman > 0), 'Seed summary should include seeded Secret Snowman payouts');
+  assert((seedSummary.payoutRows || []).some((row) => row.skins > 0), 'Seed summary should include seeded skins payouts');
+  assert((seedSummary.payoutRows || []).some((row) => row.loser > 0), 'Seed summary should include the seeded loser payout row');
 
   const mattWorkbookRow = leaderboard.workbookResults.find((row) => row.name === 'Matt');
   assert(mattWorkbookRow && typeof mattWorkbookRow.ctpWins === 'number' && typeof mattWorkbookRow.longDriveWins === 'number', 'Workbook audit rows should include marker counts');
+
+  const mattBeforePenaltyRemoval = leaderboard.totals.find((row) => row.name === 'Matt');
+  setPlayerPenalty(state, 'Matt', { champion: 0, rookie: 0 });
+  const noPenaltyBoard = buildLeaderboard(state);
+  const mattAfterPenaltyRemoval = noPenaltyBoard.totals.find((row) => row.name === 'Matt');
+  assert(mattBeforePenaltyRemoval && mattAfterPenaltyRemoval, 'Matt leaderboard rows should exist before and after penalty changes');
+  assert.strictEqual(mattAfterPenaltyRemoval.day1Net, mattBeforePenaltyRemoval.day1Net - 2, 'Removing Matt penalty should lower Day 1 adjusted net by two strokes');
+  assert.strictEqual(mattAfterPenaltyRemoval.day3Net, mattBeforePenaltyRemoval.day3Net - 2, 'Removing Matt penalty should lower Day 3 adjusted net by two strokes');
+  assert.strictEqual(mattAfterPenaltyRemoval.day4Net, mattBeforePenaltyRemoval.day4Net - 2, 'Removing Matt penalty should lower Day 4 adjusted net by two strokes');
+  assert(mattAfterPenaltyRemoval.total >= mattBeforePenaltyRemoval.total, 'Removing a penalty should not reduce Matt total points');
+  setPlayerPenalty(state, 'Matt', { champion: 2, rookie: 0 });
 
   const updatedConfig = updateWorkbookConfig(state, {
     accounting: { entryFee: 225, markerPayouts: { ctp: 30 } },
@@ -84,6 +122,33 @@ function run() {
   assert(mattPayout && mattPayout.longPutt >= 25, 'Long putt winnings should flow into payout rows');
   const spiroAudit = leaderboard.workbookResults.find((row) => row.name === 'Spiro');
   assert(spiroAudit && spiroAudit.secretSnowmanWins >= 1, 'Workbook audit rows should include secret snowman wins');
+
+  updateWorkbookConfig(state, {
+    accounting: { scramblePoints: [10, 5, 1, 0] }
+  });
+  const customScrambleBoard = buildLeaderboard(state);
+  const scrambleRank1 = (customScrambleBoard.scramble.teams || []).find((team) => team.rank === 1);
+  const scrambleRank2 = (customScrambleBoard.scramble.teams || []).find((team) => team.rank === 2);
+  const scrambleRank3 = (customScrambleBoard.scramble.teams || []).find((team) => team.rank === 3);
+  assert(scrambleRank1 && scrambleRank1.points === 10, 'Configured scramble points should apply to the first-place scramble team');
+  assert(scrambleRank2 && scrambleRank2.points === 5, 'Configured scramble points should apply to the second-place scramble team');
+  assert(scrambleRank3 && scrambleRank3.points === 1, 'Configured scramble points should apply to the third-place scramble team');
+  (scrambleRank1.players || []).forEach((name) => {
+    const row = customScrambleBoard.totals.find((entry) => entry.name === name);
+    assert(row && row.scramble === 10, `First-place scramble points should flow into ${name}'s leaderboard row`);
+  });
+
+  const payoutAuditBoard = buildLeaderboard(state);
+  payoutAuditBoard.payouts = buildPayoutSummary(state, payoutAuditBoard);
+  const payoutAuditRows = buildWorkbookResultsAudit(state, payoutAuditBoard);
+  payoutAuditRows.forEach((auditRow) => {
+    const payoutRow = payoutAuditBoard.payouts.rows.find((row) => row.name === auditRow.name);
+    const leaderboardRow = payoutAuditBoard.totals.find((row) => row.name === auditRow.name);
+    assert(leaderboardRow, `Leaderboard row should exist for ${auditRow.name}`);
+    assert.strictEqual(auditRow.tripTotal, leaderboardRow.total, `Workbook audit should mirror trip total for ${auditRow.name}`);
+    assert.strictEqual(auditRow.scramblePoints, leaderboardRow.scramble, `Workbook audit should mirror scramble points for ${auditRow.name}`);
+    assert.strictEqual(auditRow.payoutTotal, payoutRow ? payoutRow.total : 0, `Workbook audit should mirror payout total for ${auditRow.name}`);
+  });
 
   const day3Rows = buildDayRows(leaderboard, 'Day 3');
   const mattDay3 = day3Rows.find((row) => row.name === 'Matt');
