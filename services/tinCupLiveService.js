@@ -107,6 +107,10 @@ const toNumOrNull = (v) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
 };
+const toDollar = (v) => {
+  const n = toNumOrNull(v);
+  return n === null ? 0 : Math.round(n);
+};
 const holeArray = () => Array.from({ length: 18 }, () => null);
 const toPenalty = (v) => {
   const n = toNumOrNull(v);
@@ -1044,15 +1048,15 @@ function buildSkinsForDay(state, definition) {
   const skinCount = holes.filter((hole) => hole.hasSkin).length;
   const pot = src.payoutEligible === false
     ? 0
-    : Number((((state.config || defaultWorkbookConfig()).accounting || {}).skins || {}).perPerson || 0) * PLAYERS.length;
-  const payoutPerSkin = skinCount && pot ? Number((pot / skinCount).toFixed(2)) : 0;
+    : toDollar(Number((((state.config || defaultWorkbookConfig()).accounting || {}).skins || {}).perPerson || 0) * PLAYERS.length);
+  const payoutPerSkin = skinCount && pot ? toDollar(pot / skinCount) : 0;
   const payouts = PLAYERS.reduce((acc, player) => {
     acc[normalize(player.name)] = 0;
     return acc;
   }, {});
   holes.forEach((hole) => {
     if (!hole.hasSkin || !hole.winner || !payoutPerSkin) return;
-    payouts[normalize(hole.winner)] = Number((payouts[normalize(hole.winner)] + payoutPerSkin).toFixed(2));
+    payouts[normalize(hole.winner)] = toDollar(payouts[normalize(hole.winner)] + payoutPerSkin);
   });
   const winners = PLAYERS.map((player) => ({
     name: player.name,
@@ -1070,7 +1074,7 @@ function buildSkinsResults(state) {
     day.winners.forEach((winner) => {
       const row = byKey.get(normalize(winner.name));
       row.skins += winner.skins;
-      row.payout = Number((row.payout + winner.payout).toFixed(2));
+      row.payout = toDollar(row.payout + winner.payout);
     });
   });
   return {
@@ -1087,10 +1091,19 @@ function getFinalPayouts(rows, payoutValues = []) {
     const position = rows[index].position;
     while (index < rows.length && rows[index].position === position && index < payoutValues.length) index += 1;
     const total = payoutValues.slice(start, index).reduce((sum, value) => sum + (toNumOrNull(value) || 0), 0);
-    const avg = index > start ? Number((total / (index - start)).toFixed(2)) : 0;
+    const avg = index > start ? toDollar(total / (index - start)) : 0;
     rows.slice(start, index).forEach((row) => out.set(normalize(row.name), avg));
   }
   return out;
+}
+
+function buildLeftoverSuggestion(balance) {
+  const dollars = toDollar(balance);
+  if (dollars <= 0) return '';
+  if (dollars <= 10) return `Use the remaining $${dollars} as a tip add-on or cash tiebreak bonus.`;
+  if (dollars <= 25) return `Use the remaining $${dollars} for drinks or a closest-to-the-pin bonus.`;
+  if (dollars <= 50) return `Use the remaining $${dollars} for a final-hole side prize or drinks.`;
+  return `Use the remaining $${dollars} for drinks, dinner, or roll it into next year's side-game pot.`;
 }
 
 function getMarkerPayoutCounts(state) {
@@ -1113,26 +1126,27 @@ function getMarkerPayoutCounts(state) {
 function buildPayoutSummary(state, leaderboard = null) {
   const board = leaderboard || buildLeaderboard(state);
   const config = normalizeWorkbookConfig(state.config || defaultWorkbookConfig());
-  const mainPot = Number((config.accounting.entryFee || 0) * PLAYERS.length);
+  const mainPot = toDollar((config.accounting.entryFee || 0) * PLAYERS.length);
   const skins = buildSkinsResults(state);
   const sideGames = buildSideGameSummary(state);
-  const skinsPot = Number((skins.days || []).filter((day) => day.payoutEligible !== false).reduce((sum, day) => sum + Number(day.pot || 0), 0).toFixed(2));
-  const combinedPot = Number((mainPot + skinsPot).toFixed(2));
+  const skinsPot = toDollar((skins.days || []).filter((day) => day.payoutEligible !== false).reduce((sum, day) => sum + Number(day.pot || 0), 0));
+  const combinedPot = toDollar(mainPot + skinsPot);
   const finalPayouts = getFinalPayouts(board.totals || [], config.accounting.finalPayouts || []);
   const markerCounts = getMarkerPayoutCounts(state);
   const loserRow = (board.totals || []).slice().sort((a, b) => (a.total - b.total) || b.name.localeCompare(a.name))[0] || null;
   const rows = PLAYERS.map((player) => {
     const key = normalize(player.name);
     const finalPrize = finalPayouts.get(key) || 0;
-    const ctp = Number(((markerCounts.ctp.get(key) || 0) * (config.accounting.markerPayouts.ctp || 0)).toFixed(2));
-    const longDrive = Number(((markerCounts.longDrive.get(key) || 0) * (config.accounting.markerPayouts.longDrive || 0)).toFixed(2));
+    const ctp = toDollar((markerCounts.ctp.get(key) || 0) * (config.accounting.markerPayouts.ctp || 0));
+    const longDrive = toDollar((markerCounts.longDrive.get(key) || 0) * (config.accounting.markerPayouts.longDrive || 0));
     const longPuttWins = ((((sideGames.longPutt || {}).totals) || []).find((row) => normalize(row.name) === key) || {}).wins || 0;
     const secretSnowmanWins = ((((sideGames.secretSnowman || {}).totals) || []).find((row) => normalize(row.name) === key) || {}).wins || 0;
-    const longPutt = Number((longPuttWins * (config.accounting.markerPayouts.longPutt || 0)).toFixed(2));
-    const secretSnowman = Number((secretSnowmanWins * (config.accounting.markerPayouts.secretSnowman || 0)).toFixed(2));
+    const longPutt = toDollar(longPuttWins * (config.accounting.markerPayouts.longPutt || 0));
+    const secretSnowman = toDollar(secretSnowmanWins * (config.accounting.markerPayouts.secretSnowman || 0));
     const skinsRow = (skins.totals || []).find((row) => normalize(row.name) === key);
-    const loser = loserRow && normalize(loserRow.name) === key ? Number(config.accounting.markerPayouts.loser || 0) : 0;
-    const total = Number((finalPrize + ctp + longDrive + longPutt + secretSnowman + (skinsRow ? skinsRow.payout : 0) + loser).toFixed(2));
+    const loser = loserRow && normalize(loserRow.name) === key ? toDollar(config.accounting.markerPayouts.loser || 0) : 0;
+    const skinsPayout = toDollar(skinsRow ? skinsRow.payout : 0);
+    const total = toDollar(finalPrize + ctp + longDrive + longPutt + secretSnowman + skinsPayout + loser);
     return {
       name: player.name,
       finalPrize,
@@ -1140,18 +1154,20 @@ function buildPayoutSummary(state, leaderboard = null) {
       longDrive,
       longPutt,
       secretSnowman,
-      skins: skinsRow ? skinsRow.payout : 0,
+      skins: skinsPayout,
       loser,
       total,
     };
   });
-  const distributed = Number(rows.reduce((sum, row) => sum + row.total, 0).toFixed(2));
+  const distributed = toDollar(rows.reduce((sum, row) => sum + row.total, 0));
+  const balance = toDollar(combinedPot - distributed);
   return {
     pot: combinedPot,
     mainPot,
     skinsPot,
     distributed,
-    balance: Number((combinedPot - distributed).toFixed(2)),
+    balance,
+    leftoverSuggestion: buildLeftoverSuggestion(balance),
     rows: rows.filter((row) => row.total > 0).sort((a, b) => (b.total - a.total) || a.name.localeCompare(b.name)),
   };
 }
@@ -1643,6 +1659,9 @@ function buildLeaderboard(state) {
     const match3 = day3.points.get(key) || 0;
     const stroke1 = s1.get(key) || 0;
     const stroke3 = s3.get(key) || 0;
+    const day1Gross = toNumOrNull(day1Summaries.get(key) && day1Summaries.get(key).grossTotal);
+    const day3Gross = toNumOrNull(day3Summaries.get(key) && day3Summaries.get(key).grossTotal);
+    const day4Gross = toNumOrNull(day4Summaries.get(key) && day4Summaries.get(key).grossTotal);
     const day1Net = toNumOrNull(day1Summaries.get(key) && day1Summaries.get(key).adjustedNetTotal);
     const day3Net = toNumOrNull(day3Summaries.get(key) && day3Summaries.get(key).adjustedNetTotal);
     const day4Net = toNumOrNull(day4Summaries.get(key) && day4Summaries.get(key).adjustedNetTotal);
@@ -1660,6 +1679,9 @@ function buildLeaderboard(state) {
       match2B,
       match2,
       match3,
+      day1Gross,
+      day3Gross,
+      day4Gross,
       day1Net,
       day3Net,
       day4Net,
@@ -1936,6 +1958,10 @@ function setPlayerPenalty(state, playerName, payload = {}) {
 }
 
 function getSeedGrossScore(dayKey, slotIndex, player, holeNumber) {
+  return getSeedGrossScoreWithRandomizer(dayKey, slotIndex, player, holeNumber, null);
+}
+
+function getSeedGrossScoreWithRandomizer(dayKey, slotIndex, player, holeNumber, randomizer = null) {
   const playerKey = normalize(player && player.name);
   const playerIndex = Math.max(0, PLAYERS.findIndex((entry) => normalize(entry.name) === playerKey));
   const dayIndex = Math.max(0, MATCH_DAY_OPTIONS.indexOf(dayKey));
@@ -1945,15 +1971,30 @@ function getSeedGrossScore(dayKey, slotIndex, player, holeNumber) {
   if (((holeNumber * (Number(slotIndex) + 2) + playerIndex + dayIndex) % 9) === 0) gross += 1;
   if (((holeNumber + dayIndex + playerIndex) % 13) === 0) gross += 1;
   if (((holeNumber + Number(slotIndex) + playerIndex) % 11) === 0) gross -= 1;
+  if (randomizer) {
+    gross += randomizer.getPlayerTripBias(playerKey);
+    gross += randomizer.getPlayerDayBias(playerKey, dayKey);
+    gross += randomizer.getPlayerHoleBias(playerKey, dayKey, holeNumber);
+    const roll = randomizer.int(100);
+    if (roll < 18) gross -= 1;
+    else if (roll > 80) gross += 1;
+    if (randomizer.int(100) < 8) gross += 1;
+    if (randomizer.int(100) < 8) gross -= 1;
+  }
   return Math.max(3, Math.min(8, gross));
 }
 
 function getSeedMarkerWinner(players = [], dayKey, slotIndex, holeNumber, offset = 0) {
+  return getSeedMarkerWinnerWithRandomizer(players, dayKey, slotIndex, holeNumber, offset, null);
+}
+
+function getSeedMarkerWinnerWithRandomizer(players = [], dayKey, slotIndex, holeNumber, offset = 0, randomizer = null) {
   const dayIndex = Math.max(0, MATCH_DAY_OPTIONS.indexOf(dayKey));
   let best = null;
   players.forEach((player, playerIndex) => {
-    const gross = getSeedGrossScore(dayKey, slotIndex, player, holeNumber);
-    const tieBreaker = ((playerIndex + 1) * (holeNumber + dayIndex + offset + Number(slotIndex) + 1)) % 17;
+    const gross = getSeedGrossScoreWithRandomizer(dayKey, slotIndex, player, holeNumber, randomizer);
+    const baseTieBreaker = ((playerIndex + 1) * (holeNumber + dayIndex + offset + Number(slotIndex) + 1)) % 17;
+    const tieBreaker = randomizer ? (baseTieBreaker + randomizer.int(17)) % 17 : baseTieBreaker;
     if (!best || gross < best.gross || (gross === best.gross && tieBreaker < best.tieBreaker)) {
       best = { name: player.name, gross, tieBreaker };
     }
@@ -1961,13 +2002,85 @@ function getSeedMarkerWinner(players = [], dayKey, slotIndex, holeNumber, offset
   return best ? best.name : '';
 }
 
+function createSeedRandomizer() {
+  const tripBias = new Map();
+  const dayBias = new Map();
+  const holeBias = new Map();
+  return {
+    int(max) {
+      return crypto.randomInt(Math.max(1, Number(max) || 1));
+    },
+    pick(list = []) {
+      if (!Array.isArray(list) || !list.length) return null;
+      return list[this.int(list.length)];
+    },
+    getPlayerTripBias(playerKey = '') {
+      const key = String(playerKey || '');
+      if (!tripBias.has(key)) tripBias.set(key, this.int(5) - 2);
+      return tripBias.get(key) || 0;
+    },
+    getPlayerDayBias(playerKey = '', dayKey = '') {
+      const key = `${playerKey}|${dayKey}`;
+      if (!dayBias.has(key)) dayBias.set(key, this.int(5) - 2);
+      return dayBias.get(key) || 0;
+    },
+    getPlayerHoleBias(playerKey = '', dayKey = '', holeNumber = 0) {
+      const key = `${playerKey}|${dayKey}|${holeNumber}`;
+      if (!holeBias.has(key)) {
+        const roll = this.int(100);
+        holeBias.set(key, roll < 8 ? -1 : roll > 91 ? 1 : 0);
+      }
+      return holeBias.get(key) || 0;
+    },
+  };
+}
+
+function getSeedMarkerWinnerFromScorecard(scorecard, players = [], holeNumber, randomizer = null) {
+  if (!scorecard || !scorecard.players || !Array.isArray(players) || !players.length) return '';
+  let best = null;
+  players.forEach((player, playerIndex) => {
+    const entry = scorecard.players[normalize(player.name)];
+    const gross = toIntOrNull(entry && Array.isArray(entry.holes) ? entry.holes[holeNumber - 1] : null);
+    if (gross === null) return;
+    const tieBreaker = randomizer ? randomizer.int(1000) : playerIndex;
+    if (!best || gross < best.gross || (gross === best.gross && tieBreaker < best.tieBreaker)) {
+      best = { name: player.name, gross, tieBreaker };
+    }
+  });
+  return best ? best.name : '';
+}
+
+function ensureSeedSnowmanCandidate(state, dayKey, randomizer) {
+  const slots = getDaySlots(dayKey).filter((slot) => Array.isArray(slot.players) && slot.players.length);
+  if (!slots.length) return;
+  const slot = randomizer.pick(slots);
+  if (!slot) return;
+  const player = randomizer.pick(slot.players);
+  if (!player) return;
+  const scorecard = getStoredScorecard(state, dayKey, slot.slotIndex);
+  if (!scorecard || !scorecard.players) return;
+  const entry = scorecard.players[normalize(player.name)];
+  if (!entry || !Array.isArray(entry.holes) || !entry.holes.length) return;
+  const holeIndex = randomizer.int(Math.min(18, entry.holes.length));
+  entry.holes[holeIndex] = 8;
+}
+
 function seedAllScores(state, options = {}) {
   const reset = options.reset !== false;
-  if (!state.scorecards || typeof state.scorecards !== 'object' || reset) state.scorecards = {};
-  if (!state.scrambleBonus || typeof state.scrambleBonus !== 'object' || reset) state.scrambleBonus = {};
-  if (!state.scramble || typeof state.scramble !== 'object' || reset) state.scramble = normalizeScrambleState();
-  if (!state.sideGames || typeof state.sideGames !== 'object' || reset) state.sideGames = normalizeSideGamesState();
-  if (!state.penalties || typeof state.penalties !== 'object' || reset) state.penalties = {};
+  const randomizer = createSeedRandomizer();
+  if (reset) {
+    clearCompetitionState(state, {
+      preserveCodes: true,
+      preservePenalties: false,
+      preserveConfig: true,
+      preserveSettings: true,
+    });
+  }
+  if (!state.scorecards || typeof state.scorecards !== 'object') state.scorecards = {};
+  if (!state.scrambleBonus || typeof state.scrambleBonus !== 'object') state.scrambleBonus = {};
+  if (!state.scramble || typeof state.scramble !== 'object') state.scramble = normalizeScrambleState();
+  if (!state.sideGames || typeof state.sideGames !== 'object') state.sideGames = normalizeSideGamesState();
+  if (!state.penalties || typeof state.penalties !== 'object') state.penalties = {};
 
   state.penalties = {
     ...(reset ? {} : state.penalties),
@@ -1977,7 +2090,11 @@ function seedAllScores(state, options = {}) {
     ...(reset ? {} : state.scrambleBonus),
     ...SEED_SCRAMBLE_BONUS,
   };
-  state.sideGames = normalizeSideGamesState(SEED_SIDE_GAME_WINNERS);
+  state.sideGames = normalizeSideGamesState();
+  SIDE_GAME_DEFS.longPutt.days.forEach((dayKey) => {
+    const winner = randomizer.pick(PLAYERS);
+    if (winner) updateSideGameWinner(state, { type: 'longPutt', dayKey, winner: winner.name });
+  });
 
   MATCH_DAY_OPTIONS.forEach((dayKey) => {
     getDaySlots(dayKey).forEach((slot) => {
@@ -1987,17 +2104,17 @@ function seedAllScores(state, options = {}) {
       slot.players.forEach((player) => {
         scorecard.players[normalize(player.name)] = {
           name: player.name,
-          holes: Array.from({ length: 18 }, (_, index) => getSeedGrossScore(dayKey, slot.slotIndex, player, index + 1)),
+          holes: Array.from({ length: 18 }, (_, index) => getSeedGrossScoreWithRandomizer(dayKey, slot.slotIndex, player, index + 1, randomizer)),
         };
       });
       scorecard.markers = { ctp: {}, longDrive: {} };
       scorecard.submittedAt = null;
       scorecard.submittedBy = '';
       SEED_MARKER_HOLES.ctp.forEach((holeNumber) => {
-        scorecard.markers.ctp[String(holeNumber)] = getSeedMarkerWinner(slot.players, dayKey, slot.slotIndex, holeNumber, 1);
+        scorecard.markers.ctp[String(holeNumber)] = getSeedMarkerWinnerFromScorecard(scorecard, slot.players, holeNumber, randomizer);
       });
       SEED_MARKER_HOLES.longDrive.forEach((holeNumber) => {
-        scorecard.markers.longDrive[String(holeNumber)] = getSeedMarkerWinner(slot.players, dayKey, slot.slotIndex, holeNumber, 7);
+        scorecard.markers.longDrive[String(holeNumber)] = getSeedMarkerWinnerFromScorecard(scorecard, slot.players, holeNumber, randomizer);
       });
       scorecard.updatedAt = new Date().toISOString();
       state.scorecards[keyFor(dayKey, slot.slotIndex)] = scorecard;
@@ -2008,8 +2125,14 @@ function seedAllScores(state, options = {}) {
     const { holes } = ensureScrambleTeamScores(state, team.teamIndex);
     holes.splice(0, holes.length, ...ALL_HOLES.map((holeNumber) => {
       const seedPlayers = team.players.map((name) => ({ name, hcp: getDayHandicapMap('Day 1').get(normalize(name)) || 0 }));
-      return Math.min(...seedPlayers.map((player) => getSeedGrossScore('Day 3', team.teamIndex, player, holeNumber)));
+      return Math.min(...seedPlayers.map((player) => getSeedGrossScoreWithRandomizer('Day 3', team.teamIndex, player, holeNumber, randomizer)));
     }));
+  });
+
+  SIDE_GAME_DEFS.secretSnowman.days.forEach((dayKey) => {
+    ensureSeedSnowmanCandidate(state, dayKey, randomizer);
+    state.sideGames.secretSnowman[dayKey] = '';
+    maybeAutoDrawSecretSnowman(state, { dayKey });
   });
 
   const leaderboard = buildLeaderboard(state);

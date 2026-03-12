@@ -209,9 +209,9 @@
         <p class="muted">This page documents the current Tin Cup admin workflow: where data is entered, which items are manual, and which pages are verification-only.</p>
       </div>
       <div class="guide-pill-row">
-        <span class="guide-pill">Roster, handicaps, penalties, and payout settings live in Scoring / Inputs</span>
+        <span class="guide-pill">Leader Inputs is the setup area for roster, config, and manual side games</span>
         <span class="guide-pill">Lodging edits stay on the Lodging page</span>
-        <span class="guide-pill">Leaderboard numbers are read-only verification</span>
+        <span class="guide-pill">Live Results and Readable Final Report are read-only verification</span>
       </div>
       <div class="guide-link-row">
         <a id="guideTripLink" class="guide-link" href="/tin-cup/trip-2026.html">Trip Page</a>
@@ -230,17 +230,62 @@
         </tr>
         <tr>
           <th>Scoring / Inputs</th>
-          <td>Main admin workspace. This is where live scores, scramble scores, markers, side-game winners, golfer setup, handicap settings, penalties, payout values, and live-access toggles are managed.</td>
+          <td>Main admin workspace. Start in <strong>Leader Inputs</strong> for roster, scoring config, and manual side-game setup, then use <strong>Score-Driven Entry</strong> for live hole scores, scramble scoring, markers, and scorecard access.</td>
         </tr>
         <tr>
           <th>Live Results</th>
-          <td>Read-only verification page. Use it to confirm totals, match points, scramble points, skins, side games, payouts, and audit rows after entries are saved.</td>
+          <td>Read-only verification page. Use it to confirm totals, gross and net stroke results, match points, scramble points, skins, side games, payouts, the readable report, and audit rows after entries are saved.</td>
         </tr>
         <tr>
           <th>Lodging</th>
           <td>Manual condo, room, extra-night, and payment management. The golfer list on this page comes from the Scoring / Inputs roster and should not be edited here.</td>
         </tr>
       </table>
+    </section>
+
+    <section class="guide-card">
+      <h2>1. Set Up The Outing</h2>
+      <ol>
+        <li>Open <strong>Scoring / Inputs</strong> first. Complete the leader-input section before anyone starts scoring.</li>
+        <li>Use <strong>Golfer Roster Setup</strong> to enter the player list, handicaps, and classification tags such as previous champ or rookie.</li>
+        <li>Use <strong>Scoring Rules and Payout Config</strong> to confirm entry fee, place payouts, side-game values, skins value, and scramble point settings.</li>
+        <li>Use <strong>Manual Side Game Inputs</strong> to confirm Long Putt and any other leader-entered winners that are not derived directly from golf scores.</li>
+        <li>Use <strong>Admin Tools</strong> to confirm live scoring, live markers, leaderboard access, and reset/reseed controls before Round 1 starts.</li>
+        <li>Return to the trip page and confirm the top links open the correct Tin Cup scoring and results pages.</li>
+      </ol>
+    </section>
+
+    <section class="guide-card">
+      <h2>2. Test The Outing</h2>
+      <ol>
+        <li>Use <strong>Clear And Reseed Demo Scores</strong> on Scoring / Inputs if you want a full practice run with fresh sample results.</li>
+        <li>Open at least one live scorecard and confirm hole entry works, current-hole navigation works, and the full scorecard can be shown and hidden.</li>
+        <li>Open a scramble team and enter a few scramble holes to confirm scramble totals and points update.</li>
+        <li>Enter a marker on a valid Closest To Pin or Long Drive hole and confirm it appears on the results page.</li>
+        <li>Open <strong>Live Results</strong> and confirm the leaderboard, stroke results, scramble, side games, readable report, and payouts all render without missing data.</li>
+      </ol>
+    </section>
+
+    <section class="guide-card">
+      <h2>3. Confirm Scoring Accuracy</h2>
+      <ol>
+        <li>Use <strong>Stroke Results (Read-Only)</strong> on Live Results to compare gross and net numbers for Day 1, Day 3, and Day 4.</li>
+        <li>Use <strong>Tin Cup Match Scoring By Day</strong> and <strong>Hole-By-Hole Match Detail</strong> to verify match points came from the entered hole scores.</li>
+        <li>Use <strong>Scramble Results</strong> to verify team totals, rank, and distributed scramble points.</li>
+        <li>Use <strong>Skins</strong>, <strong>Manual Side Game Inputs</strong>, and <strong>Payout Summary</strong> to verify side-game winners and money distribution.</li>
+        <li>Use <strong>Workbook Results Audit</strong> as the final cross-check table to confirm trip finish, score ranking, scramble, skins, and payouts all agree.</li>
+      </ol>
+    </section>
+
+    <section class="guide-card">
+      <h2>4. Save The Report</h2>
+      <ol>
+        <li>Open <strong>Live Results</strong> and expand <strong>Readable Final Report</strong>.</li>
+        <li>Select <strong>Generate Readable Report</strong> to build the presentation-friendly winner summary.</li>
+        <li>Select <strong>Print / Save As PDF</strong> to save a readable final report for the group leader.</li>
+        <li>Use <strong>Open Final Competition Report</strong> or <strong>Open Printable Report</strong> from Scoring / Inputs when you need a polished presentation document for the group leader.</li>
+        <li>Use <strong>Export Final Competition CSV</strong> from Scoring / Inputs when you also want a raw archive of standings, scorecards, scramble, markers, side games, and payouts.</li>
+      </ol>
     </section>
 
     <div class="guide-grid">
@@ -260,7 +305,7 @@
         <ul>
           <li>Choose a round from the <strong>Day</strong> selector. This includes <strong>Scramble</strong> in the same selector as the other rounds.</li>
           <li>Open a group link to launch the live scorecard for a foursome or scramble team.</li>
-          <li>Scorers enter their name when opening a card. If code protection is enabled, they must also enter the group code.</li>
+          <li>Scorers enter their name when opening a card. The page is organized to keep the current hole and relevant marker visible without showing the entire scorecard by default.</li>
           <li>Use the hole jump strip to move between holes. The mobile score pad supports <strong>-</strong>, <strong>+</strong>, <strong>Clear</strong>, and quick score chips.</li>
           <li>Use <strong>Full Scorecard</strong> only for review. Hole-by-hole entry is the main scoring surface.</li>
           <li>On non-scramble rounds, the scorecard auto-locks as soon as all 18 holes are entered for every player. Editing a submitted card still requires an admin-code override.</li>
@@ -271,8 +316,9 @@
         <h2>Markers And Side Games</h2>
         <ul>
           <li><strong>Live Markers</strong> is where Closest To Pin and Long Drive winners are assigned on applicable holes.</li>
-          <li><strong>Side Game Winners</strong> is where Long Putt is assigned manually and Secret Snowman is drawn from a random score of 8 once a full day is entered.</li>
-          <li>The leaderboard and payout tables update from the Long Putt selection and the Secret Snowman draw result saved there.</li>
+          <li><strong>Manual Side Game Inputs</strong> is where Long Putt and other leader-entered side-game winners are saved.</li>
+          <li><strong>Secret Snowman</strong> is score-driven and is drawn from an eligible score of 8 after the relevant day has real or seeded scores.</li>
+          <li>The leaderboard and payout tables update from the saved Long Putt selection and the Secret Snowman draw result.</li>
           <li>If marker entry is hidden, re-enable it from the <strong>Admin Tools</strong> live-scoring toggles.</li>
         </ul>
       </section>
@@ -324,12 +370,12 @@
           <li><strong>Live Foursome Scoring</strong>: turns access to the Scoring / Inputs live entry flow on or off.</li>
           <li><strong>Closest To Pin / Long Drive Entry</strong>: shows or hides marker entry on the scoring page.</li>
           <li><strong>Live Leaderboard Page</strong>: shows or hides the dedicated live results page and nav chip.</li>
-          <li><strong>Code-Protected Group Scorecard Links</strong>: requires each group code before a live scorecard opens.</li>
-          <li><strong>Admin Code</strong> is used for protected admin actions, including code generation, demo score seeding, and submitted-card override edits.</li>
-          <li><strong>Generate Missing Codes</strong> creates any missing foursome codes.</li>
-          <li><strong>Seed All Rounds Demo Scores</strong> loads demo winners and results for testing every side game and scoring surface.</li>
-          <li><strong>Clear Competition</strong> removes seeded scorecards, scramble scores, markers, side-game winners, and penalties so Tin Cup is ready for Round 1 while keeping player names, handicaps, live settings, foursome codes, and scoring config.</li>
-          <li><strong>Export Final Competition CSV</strong> becomes available after the trip end date and downloads a full archive of final standings, scorecards, scramble results, markers, skins, side games, and payouts.</li>
+          <li><strong>Admin Code</strong> is used for protected admin actions, including reseeding, reset, and submitted-card override edits.</li>
+          <li><strong>Clear And Reseed Demo Scores</strong> removes existing competition scoring and generates a fresh random demo event for testing every scoring surface.</li>
+          <li><strong>Clear Competition</strong> removes scorecards, scramble scores, markers, side-game winners, and penalties so Tin Cup is ready for Round 1 while keeping player names, handicaps, live settings, and scoring config.</li>
+          <li><strong>Open Final Competition Report</strong> opens the polished summary document built from the final standings, score proof, side games, and payouts.</li>
+          <li><strong>Open Printable Report</strong> opens that same document in print-friendly mode so it can be saved as PDF for the group.</li>
+          <li><strong>Export Final Competition CSV</strong> downloads a full raw archive of final standings, scorecards, scramble results, markers, skins, side games, and payouts.</li>
         </ul>
       </section>
 
@@ -348,17 +394,18 @@
         <ul>
           <li>Use <strong>Day</strong> to switch the live day leaderboard.</li>
           <li>Use the match day tabs to review hole-by-hole match results by day.</li>
-          <li>Review read-only sections for stroke results, skins, scramble, side games, payouts, score rankings, and results audit.</li>
+          <li>Review read-only sections for readable final report, stroke results, score rankings, skins, scramble, side games, payouts, and workbook results audit.</li>
+          <li><strong>Stroke Results (Read-Only)</strong> now shows both gross and net round totals for scoring confirmation.</li>
           <li>If numbers look wrong here, the fix normally belongs on the Scoring / Inputs or Lodging page, not on the leaderboard page itself.</li>
         </ul>
       </section>
 
       <section class="guide-card">
         <h2>Automatic Vs Manual</h2>
-        <div class="callout">Automatic calculations: trip totals, day totals, handicap stroke application, penalties, skins, scramble points, payout rollups, and audit tables after data is saved.</div>
+        <div class="callout">Automatic calculations: gross and net day totals, trip totals, handicap stroke application, penalties, Secret Snowman draw eligibility, skins, scramble points, payout rollups, readable report output, and audit tables after data is saved.</div>
         <ul>
-          <li>Manual entry surfaces: roster rows, handicaps, classifications, penalties, hole scores, markers, Long Putt, Secret Snowman, live-access toggles, admin codes, condo assignments, extra nights, and payment amounts.</li>
-          <li>Verification surfaces: Live Results, Pot Summary, handicap verification, full scorecard review, and trip-page schedule/event displays.</li>
+          <li>Manual entry surfaces: roster rows, handicaps, classifications, penalties, hole scores, markers, Long Putt, live-access toggles, condo assignments, extra nights, and payment amounts.</li>
+          <li>Verification surfaces: Live Results, Readable Final Report, Pot Summary, handicap verification, full scorecard review, and trip-page schedule/event displays.</li>
         </ul>
       </section>
     </div>
@@ -366,12 +413,12 @@
     <section class="guide-card">
       <h2>Recommended Admin Workflow</h2>
       <ol>
-        <li>Before the trip, confirm the roster, handicap values, classifications, penalties, payout config, scramble points, and lodging assignments.</li>
-        <li>Before each round, confirm the correct day is selected, live scoring is enabled, and group codes are generated if code protection is on.</li>
-        <li>During play, enter hole scores first, then marker winners for applicable holes, then side-game winners when those results are known.</li>
-        <li>For scramble day, enter team hole scores from the same live score-entry flow used by the other rounds.</li>
-        <li>After a round, submit scorecards, review Live Results, and use the Results Audit section to confirm totals and payouts.</li>
-        <li>If testing is needed, seed demo scores from Admin Tools and use the resulting summaries to verify every scoring surface.</li>
+        <li>Before the trip, finish every field in <strong>Leader Inputs</strong>: roster, handicap values, classifications, penalties, payout config, scramble points, and any manual side-game setup.</li>
+        <li>Before each round, confirm the correct day is selected, live scoring is enabled, and the scorecard links open the expected foursomes or scramble teams.</li>
+        <li>During play, enter hole scores first. Let the scorecards drive every value that can be derived from actual golf scores.</li>
+        <li>After score entry, save markers and any manual side-game winners that are not score-driven.</li>
+        <li>After each round, review <strong>Live Results</strong> using gross/net stroke results, match detail, scramble, skins, payouts, and workbook audit to confirm the math.</li>
+        <li>At the end of the event, generate the <strong>Readable Final Report</strong>, save it as PDF, and export the final CSV archive.</li>
       </ol>
     </section>
 

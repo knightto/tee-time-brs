@@ -73,10 +73,18 @@
       background-size:contain;
     }
     .scorecard-links-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:10px; }
-    .scorecard-link-card { border:1px solid var(--line); border-radius:10px; padding:10px; background:rgba(255,255,255,.03); display:grid; gap:7px; }
-    .scorecard-link-title { display:flex; justify-content:space-between; align-items:center; gap:8px; font-weight:700; }
-    .scorecard-link-players { color:var(--muted); font-size:.82rem; }
-    .scorecard-link-row { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; }
+    .scorecard-link-card { border:1px solid var(--line); border-radius:10px; padding:12px; background:rgba(255,255,255,.03); display:grid; gap:10px; }
+    .scorecard-link-title { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; font-weight:700; }
+    .scorecard-link-heading { display:grid; gap:3px; min-width:0; }
+    .scorecard-link-subtitle { color:var(--muted); font-size:.78rem; font-weight:600; letter-spacing:.04em; text-transform:uppercase; }
+    .scorecard-link-players { display:grid; gap:6px; }
+    .scorecard-player-line { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; padding-bottom:6px; border-bottom:1px solid rgba(255,255,255,.05); }
+    .scorecard-player-line:last-child { padding-bottom:0; border-bottom:none; }
+    .scorecard-player-name { font-weight:700; color:var(--ink); }
+    .scorecard-player-meta { color:var(--muted); font-size:.78rem; text-align:right; }
+    .scorecard-link-info { color:var(--muted); font-size:.8rem; line-height:1.45; }
+    .scorecard-link-row { display:flex; justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap; padding-top:2px; border-top:1px solid rgba(255,255,255,.05); }
+    .scorecard-link-badge { display:inline-flex; align-items:center; gap:6px; padding:4px 8px; border:1px solid rgba(200,154,75,.28); border-radius:999px; background:rgba(200,154,75,.12); color:var(--ink-soft); font-size:.74rem; font-weight:700; letter-spacing:.04em; text-transform:uppercase; }
     .scorecard-access-box { margin:10px 0 12px; padding:10px 12px; border:1px solid var(--line); border-radius:10px; background:rgba(255,255,255,.03); display:grid; gap:8px; }
     .scorecard-access-box label { flex-direction:row; align-items:center; gap:8px; color:var(--ink); font-size:.9rem; }
     .scorecard-access-row { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
@@ -185,7 +193,7 @@
     <div class="card head">
       <div>
         <h1 class="golf-title" style="margin:0;font-size:1.35rem;">Tin Cup Scoring / Inputs</h1>
-        <div id="entryIntro" class="muted">Live score entry, special scoring inputs, golfer roster setup, and scoring configuration.</div>
+        <div id="entryIntro" class="muted">Fill out the leader inputs first, then use live score entry for anything that should be derived automatically from golf scores.</div>
       </div>
       <div class="row" style="justify-content:flex-end;">
         <a id="adminGuideLink" href="/tin-cup/admin-guide.html">Admin Guide</a>
@@ -193,72 +201,13 @@
       </div>
     </div>
 
-    <div class="section-label">Live Scoring</div>
-    <div class="card" id="scorecardLinksCard">
-      <details>
-        <summary class="setup-summary">Live Scorecards</summary>
-        <div class="head">
-          <strong>Live Scorecards</strong>
-          <label>Day
-            <select id="linkDaySelect"></select>
-          </label>
-        </div>
-        <div class="muted" style="margin:6px 0 10px;">Open your foursome link to score hole-by-hole live. Select Scramble in the day menu to enter team scores in the same score-entry flow.</div>
-        <div id="scorecardLinksList"></div>
-        <div style="margin-top:10px;"><span id="status" class="muted"></span></div>
-      </details>
+    <div class="section-label">Leader Inputs</div>
+    <div class="card">
+      <strong>Leader Input Checklist</strong>
+      <div class="muted" style="margin:6px 0 0;">Complete the manual setup items here before Round 1. After that, use live score entry and let actual scorecards drive standings, payouts, skins, and other derived results.</div>
+      <div class="muted" style="margin-top:8px;">Manual items in this section: golfer roster and handicap classes, scoring config and payout constants, live access settings, and side games that are not derived from scorecards.</div>
     </div>
 
-    <div id="mobileScorecardShell">
-      <div class="mobile-scorecard-bar" id="mobileScorecardBar">
-        <div>
-          <strong>Scorecard View</strong>
-          <div class="muted">Exit full-screen to return to the main page.</div>
-        </div>
-        <button id="exitMobileScorecardBtn" type="button">Exit Scorecard</button>
-      </div>
-
-      <div class="card" id="scorecardCard" style="display:none;">
-        <details>
-          <summary class="setup-summary">Full Scorecard</summary>
-          <div class="head">
-            <strong id="scorecardTitle">Scorecard</strong>
-            <div class="row" style="justify-content:flex-end;">
-              <span id="updatedAt" class="muted"></span>
-              <button id="hideFullScorecardBtn" type="button">Hide Full Scorecard</button>
-            </div>
-          </div>
-          <div id="fullScorecardNote" class="muted" style="margin:6px 0 10px;">Full 18-hole summary for review only. Day-to-day entry stays focused on the current hole.</div>
-          <div class="table-wrap" id="scoreTableWrap"></div>
-        </details>
-      </div>
-
-      <div class="card" id="holeEntryCard" style="display:none;">
-        <details>
-          <summary class="setup-summary">Hole-By-Hole Score Entry</summary>
-          <div class="hole-nav" id="holeEntryWrap"></div>
-        </details>
-      </div>
-
-      <div class="card" id="markersCard" style="display:none;">
-        <details>
-          <summary class="setup-summary">Live Markers</summary>
-          <div class="muted" style="margin:6px 0 10px;">Set Closest to Pin and Long Drive winner by hole when applicable.</div>
-          <div class="table-wrap" id="markerTableWrap"></div>
-        </details>
-      </div>
-    </div>
-
-    <div class="section-label">Side Games</div>
-    <div class="card" id="sideGamesCard">
-      <details>
-        <summary class="setup-summary">Side Game Winners</summary>
-        <div class="muted" style="margin-top:4px;">Assign Long Putt manually. Secret Snowman is drawn from a random 8 on a fully entered day.</div>
-        <div id="sideGamesWrap" class="table-wrap" style="margin-top:10px;"></div>
-      </details>
-    </div>
-
-    <div class="section-label">Scoring Setup</div>
     <div class="card" id="golferSetupCard">
       <details>
         <summary class="setup-summary">Golfer Roster Setup</summary>
@@ -312,9 +261,73 @@
       </details>
     </div>
 
+    <div class="card" id="sideGamesCard">
+      <details>
+        <summary class="setup-summary">Manual Side Game Inputs</summary>
+        <div class="muted" style="margin-top:4px;">Only keep manual side-game items here. Long Putt is assigned manually. Secret Snowman is still auto-drawn from entered scores.</div>
+        <div id="sideGamesWrap" class="table-wrap" style="margin-top:10px;"></div>
+      </details>
+    </div>
+
+    <div class="section-label">Score-Driven Entry</div>
+    <div class="card" id="scorecardLinksCard">
+      <details>
+        <summary class="setup-summary">Live Scorecards</summary>
+        <div class="head">
+          <strong>Live Scorecards</strong>
+          <label>Day
+            <select id="linkDaySelect"></select>
+          </label>
+        </div>
+        <div class="muted" style="margin:6px 0 10px;">Open your foursome link to score hole-by-hole live. Select Scramble in the day menu to enter team scores in the same score-entry flow. These scores drive every leaderboard value that can be derived from actual golf play.</div>
+        <div id="scorecardLinksList"></div>
+        <div style="margin-top:10px;"><span id="status" class="muted"></span></div>
+      </details>
+    </div>
+
+    <div id="mobileScorecardShell">
+      <div class="mobile-scorecard-bar" id="mobileScorecardBar">
+        <div>
+          <strong>Scorecard View</strong>
+          <div class="muted">Exit full-screen to return to the main page.</div>
+        </div>
+        <button id="exitMobileScorecardBtn" type="button">Exit Scorecard</button>
+      </div>
+
+      <div class="card" id="scorecardCard" style="display:none;">
+        <details>
+          <summary class="setup-summary">Full Scorecard</summary>
+          <div class="head">
+            <strong id="scorecardTitle">Scorecard</strong>
+            <div class="row" style="justify-content:flex-end;">
+              <span id="updatedAt" class="muted"></span>
+              <button id="hideFullScorecardBtn" type="button">Hide Full Scorecard</button>
+            </div>
+          </div>
+          <div id="fullScorecardNote" class="muted" style="margin:6px 0 10px;">Full 18-hole summary for review only. Day-to-day entry stays focused on the current hole.</div>
+          <div class="table-wrap" id="scoreTableWrap"></div>
+        </details>
+      </div>
+
+      <div class="card" id="holeEntryCard" style="display:none;">
+        <details>
+          <summary class="setup-summary">Hole-By-Hole Score Entry</summary>
+          <div class="hole-nav" id="holeEntryWrap"></div>
+        </details>
+      </div>
+
+      <div class="card" id="markersCard" style="display:none;">
+        <details>
+          <summary class="setup-summary">Live Markers</summary>
+          <div class="muted" style="margin:6px 0 10px;">Set Closest to Pin and Long Drive winner by hole when applicable.</div>
+          <div class="table-wrap" id="markerTableWrap"></div>
+        </details>
+      </div>
+    </div>
+
     <div class="section-label">Admin Tools</div>
     <div class="card" id="adminUtilityCard">
-      <details>
+      <details id="adminToolsDetails">
         <summary class="setup-summary">Admin Tools</summary>
         <div class="muted" style="margin-top:4px;">Manage live scoring access and Tin Cup admin actions.</div>
         <div class="scorecard-access-box">
@@ -354,7 +367,7 @@
             <input id="adminCodeInput" type="password" placeholder="Admin code">
           </label>
           <button id='genCodesBtn' type='button'>Generate Missing Codes</button>
-          <button id='seedScoresBtn' type='button'>Seed All Rounds Demo Scores</button>
+          <button id='seedScoresBtn' type='button'>Clear And Reseed Demo Scores</button>
           <span id="adminStatus" class="muted"></span>
         </div>
         <div id="generatedCodes" class="muted" style="margin-top:8px;"></div>
@@ -368,9 +381,11 @@
         </div>
         <div class="scorecard-access-box" style="margin-top:12px;">
           <strong>Final Competition Export</strong>
-          <div class="muted" style="margin-top:4px;">Available after the Tin Cup trip end date. Downloads one CSV with final standings, scorecards, scramble results, skins, markers, side games, and payouts.</div>
+          <div class="muted" style="margin-top:4px;">Use the CSV for raw archival backup and the formatted report document for a clean presentation of winners, score proof, side games, and payouts.</div>
           <div class="row" style="margin-top:8px;">
             <button id="exportCompetitionCsvBtn" type="button">Export Final Competition CSV</button>
+            <button id="openCompetitionReportBtn" type="button">Open Final Competition Report</button>
+            <button id="printCompetitionReportBtn" type="button">Open Printable Report</button>
             <span id="exportCompetitionStatus" class="muted"></span>
           </div>
         </div>
@@ -409,6 +424,8 @@
     const adminStatus = document.getElementById('adminStatus');
     const generatedCodes = document.getElementById('generatedCodes');
     const exportCompetitionCsvBtn = document.getElementById('exportCompetitionCsvBtn');
+    const openCompetitionReportBtn = document.getElementById('openCompetitionReportBtn');
+    const printCompetitionReportBtn = document.getElementById('printCompetitionReportBtn');
     const exportCompetitionStatus = document.getElementById('exportCompetitionStatus');
     const clearCompetitionBtn = document.getElementById('clearCompetitionBtn');
     const clearCompetitionStatus = document.getElementById('clearCompetitionStatus');
@@ -416,6 +433,7 @@
     const entryIntro = document.getElementById('entryIntro');
     const scorecardLinksCard = document.getElementById('scorecardLinksCard');
     const adminUtilityCard = document.getElementById('adminUtilityCard');
+    const adminToolsDetails = document.getElementById('adminToolsDetails');
     const golferSetupTableBody = document.getElementById('golferSetupTableBody');
     const addGolferRowBtn = document.getElementById('addGolferRowBtn');
     const importGolfersCsvBtn = document.getElementById('importGolfersCsvBtn');
@@ -2190,6 +2208,22 @@
       return Boolean(getAdminOverrideCode());
     }
 
+    function ensureAdminToolsUnlocked() {
+      let adminCode = getAdminOverrideCode();
+      if (!adminCode) {
+        adminCode = String(window.prompt('Enter admin code to open Admin Tools:') || '').trim();
+        if (adminCode) adminCodeInput.value = adminCode;
+      }
+      if (!adminCode) {
+        adminStatus.className = 'bad';
+        adminStatus.textContent = 'Admin code required to open Admin Tools.';
+        return false;
+      }
+      adminStatus.className = 'ok';
+      adminStatus.textContent = 'Admin Tools unlocked.';
+      return true;
+    }
+
     function isSubmittedScorecard(view) {
       return Boolean(view && view.submittedAt);
     }
@@ -2256,6 +2290,12 @@
       return `${window.location.pathname}?${params.toString()}`;
     }
 
+    function buildCompetitionReportLink(printMode = false) {
+      const base = buildTinCupContextHref('/tin-cup/leaderboard-2026.html');
+      const separator = base.includes('?') ? '&' : '?';
+      return `${base}${separator}report=1${printMode ? '&print=1' : ''}#readable-report`;
+    }
+
     function renderScorecardLinks() {
       const dayKey = String(selectedLinkDay || '');
       const slots = getSlotsForDay(dayKey);
@@ -2266,27 +2306,32 @@
       const scrambleMode = isScrambleDay(dayKey);
       scorecardLinksList.innerHTML = `<div class="scorecard-links-grid">${slots.map((slot) => {
         const players = Array.isArray(slot.players) ? slot.players : [];
-        const playersWithMeta = scrambleMode
-          ? players.join(' | ')
+        const playerLines = scrambleMode
+          ? players.map((name) => `<div class="scorecard-player-line"><span class="scorecard-player-name">${esc(name)}</span><span class="scorecard-player-meta">Scramble team member</span></div>`).join('')
           : players.map((name) => {
             const penalty = getPenaltyEntry(name);
             const hcp = Number(PLAYER_HANDICAPS[norm(name)] || 0);
-            const penTxt = penalty.total ? `, Pen +${penalty.total}` : '';
-            return `${name} (HCP ${hcp}${penTxt})`;
-          }).join(' | ');
+            const metaParts = [`HCP ${hcp}`];
+            if (penalty.total) metaParts.push(`Pen +${penalty.total}`);
+            return `<div class="scorecard-player-line"><span class="scorecard-player-name">${esc(name)}</span><span class="scorecard-player-meta">${esc(metaParts.join(' | '))}</span></div>`;
+          }).join('');
         const scrambleMeta = scrambleMode
           ? `Played ${Number(slot.played || 0)}/18${slot.total === null || slot.total === undefined ? '' : ` | Total ${slot.total}`}${slot.rank ? ` | Rank ${slot.rank}` : ''} | Points ${Number(slot.points || 0)}`
           : '';
+        const accessLabel = scrambleMode ? 'Open access by player name' : (settings.enableFoursomeCodes ? 'Foursome code required' : 'Open access by player name');
         return `<div class="scorecard-link-card">
           <div class="scorecard-link-title">
-            <span>${esc(slot.label)} - ${esc(dayKey)}</span>
+            <div class="scorecard-link-heading">
+              <span>${esc(slot.label)} - ${esc(dayKey)}</span>
+              <span class="scorecard-link-subtitle">${scrambleMode ? 'Team score entry' : 'Hole-by-hole foursome scoring'}</span>
+            </div>
             <button type="button" data-open-scorecard="${esc(dayKey)}|${esc(String(slot.slotIndex))}">${scrambleMode ? 'Open Scoring' : 'Open Scorecard'}</button>
           </div>
-          <div class="scorecard-link-players">${esc(playersWithMeta)}</div>
-          <div class="muted" style="margin-top:10px;">${scrambleMode ? esc(scrambleMeta || 'Open the scramble team and enter the team score hole by hole.') : 'Open the scorecard and enter your name to start keeping score.'}</div>
+          <div class="scorecard-link-players">${playerLines}</div>
+          <div class="scorecard-link-info">${scrambleMode ? esc(scrambleMeta || 'Open the scramble team and enter the team score hole by hole.') : 'Open the scorecard and enter your name to start keeping score.'}</div>
           <div class="scorecard-link-row">
             <a href="${esc(buildSelfLink(dayKey, slot.slotIndex))}" target="_blank" rel="noopener">Open in New Tab</a>
-            <span class="muted">${scrambleMode ? 'Open access by player name' : (settings.enableFoursomeCodes ? 'Foursome code required' : 'Open access by player name')}</span>
+            <span class="scorecard-link-badge">${esc(accessLabel)}</span>
           </div>
         </div>`;
       }).join('')}</div>`;
@@ -2313,6 +2358,8 @@
       adminCodeProtectToggle.checked = settings.enableFoursomeCodes === true;
       adminCodeProtectToggle.disabled = localMode || !settings.enableLiveFoursomeScoring;
       exportCompetitionCsvBtn.disabled = localMode;
+      openCompetitionReportBtn.disabled = false;
+      printCompetitionReportBtn.disabled = false;
       clearCompetitionBtn.disabled = localMode;
       liveSettingsStatus.textContent = localMode
         ? 'Link the Tin Cup trip to the database to manage scorecard access settings here.'
@@ -3159,7 +3206,7 @@
       const code = String(adminCodeInput.value || '').trim();
       if (!code) { adminStatus.className = 'bad'; adminStatus.textContent = 'Admin code required'; return; }
       adminStatus.className = 'muted';
-      adminStatus.textContent = 'Seeding demo scores...';
+      adminStatus.textContent = 'Clearing current competition and reseeding demo scores...';
       generatedCodes.textContent = '';
       try {
         const id = await resolveTripId();
@@ -3177,7 +3224,7 @@
           renderMarkers(refreshed);
         }
         adminStatus.className = 'ok';
-        adminStatus.textContent = `Seeded ${payload.scorecardCount || 0} scorecards (${payload.holeCount || 0} hole scores)`;
+        adminStatus.textContent = `Cleared and reseeded ${payload.scorecardCount || 0} scorecards (${payload.holeCount || 0} hole scores)`;
         generatedCodes.innerHTML = formatSeedSummary(payload);
       } catch (error) {
         adminStatus.className = 'bad';
@@ -3200,6 +3247,25 @@
         exportCompetitionCsvBtn.disabled = localMode;
       }
     });
+
+    openCompetitionReportBtn.addEventListener('click', () => {
+      window.open(buildCompetitionReportLink(false), '_blank', 'noopener');
+    });
+
+    printCompetitionReportBtn.addEventListener('click', () => {
+      window.open(buildCompetitionReportLink(true), '_blank', 'noopener');
+    });
+
+    if (adminToolsDetails) {
+      const summary = adminToolsDetails.querySelector('summary');
+      if (summary) {
+        summary.addEventListener('click', (event) => {
+          if (adminToolsDetails.open) return;
+          if (ensureAdminToolsUnlocked()) return;
+          event.preventDefault();
+        });
+      }
+    }
 
     clearCompetitionBtn.addEventListener('click', async () => {
       clearCompetitionStatus.className = 'muted';

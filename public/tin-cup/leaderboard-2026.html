@@ -82,6 +82,107 @@
     }
     .tab-btn.active { border-color:rgba(200,154,75,.65); background:rgba(200,154,75,.18); color:#f4e5bf; }
     .match-result { display:inline-block; margin-left:6px; color:var(--ink-soft); font-size:.78rem; font-weight:700; }
+    .report-toolbar { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; }
+    .report-btn { background:#173224; color:var(--ink); border:1px solid var(--line); border-radius:999px; padding:7px 12px; cursor:pointer; font-weight:700; }
+    .report-btn:hover { background:rgba(200,154,75,.18); border-color:rgba(200,154,75,.45); }
+    .report-shell { display:grid; gap:10px; }
+    .report-head { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; flex-wrap:wrap; padding:10px 12px; border:1px solid var(--line); border-radius:12px; background:rgba(255,255,255,.03); }
+    .report-head h3 { margin:0; font-size:1rem; }
+    .report-meta { color:var(--ink-soft); font-size:.8rem; display:grid; gap:3px; text-align:right; }
+    .report-highlights { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:8px; }
+    .report-stat { border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:rgba(255,255,255,.025); }
+    .report-stat-label { color:var(--ink-soft); font-size:.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.06em; }
+    .report-stat-value { margin-top:3px; font-size:1rem; font-weight:800; }
+    .report-block { border:1px solid var(--line); border-radius:12px; padding:10px 12px; background:rgba(255,255,255,.03); }
+    .report-block h3 { margin:0 0 7px 0; font-size:.95rem; color:var(--ink); }
+    .report-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:10px; }
+    .report-list { margin:0; padding-left:16px; }
+    .report-list li { margin:0 0 4px 0; color:var(--ink-soft); }
+    .report-list li:last-child { margin-bottom:0; }
+    .report-standings { display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:8px; }
+    .report-place { border:1px solid var(--line); border-radius:10px; padding:8px 10px; background:rgba(255,255,255,.025); }
+    .report-place-rank { color:var(--accent); font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+    .report-place-name { margin-top:3px; font-weight:800; }
+    .report-place-value { color:var(--ink-soft); font-size:.84rem; }
+    .report-proof { display:grid; gap:6px; color:var(--ink-soft); font-size:.86rem; }
+    .report-empty { color:var(--ink-soft); font-size:.9rem; }
+
+    @media print {
+      body {
+        background: #fff;
+        color: #132016;
+        font-size: 11pt;
+      }
+      .wrap {
+        max-width: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      .hero,
+      .section-label,
+      .card:not(#readable-report),
+      .report-toolbar,
+      .cta,
+      .refresh-note {
+        display: none !important;
+      }
+      #readable-report {
+        display: block !important;
+        margin: 0;
+        padding: 0;
+        background: #fff;
+        border: 0;
+        box-shadow: none;
+      }
+      #readable-report details {
+        display: block;
+      }
+      #readable-report summary,
+      #readable-report .toolbar .muted {
+        display: none !important;
+      }
+      #readable-report .toolbar {
+        margin: 0 0 10pt 0;
+      }
+      #readable-report .toolbar strong {
+        color: #132016;
+        font-size: 16pt;
+      }
+      #readable-report .report-head,
+      #readable-report .report-block,
+      #readable-report .report-stat,
+      #readable-report .report-place {
+        background: #fff;
+        color: #132016;
+        border: 1px solid #c7d1c7;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      #readable-report .report-meta,
+      #readable-report .report-list li,
+      #readable-report .report-place-value,
+      #readable-report .report-proof,
+      #readable-report .report-stat-label,
+      #readable-report .report-empty {
+        color: #425243 !important;
+      }
+      #readable-report .report-place-rank,
+      #readable-report .report-stat-value,
+      #readable-report .report-block h3,
+      #readable-report .report-head h3 {
+        color: #132016 !important;
+      }
+      #readable-report .report-shell,
+      #readable-report .report-grid,
+      #readable-report .report-highlights,
+      #readable-report .report-standings {
+        gap: 8pt;
+      }
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+    }
 
   </style>
 </head>
@@ -98,6 +199,21 @@
     </div>
 
     <div class="section-label">Standings</div>
+    <div class="card" id="readable-report">
+      <details>
+        <summary class="section-summary">Readable Final Report</summary>
+        <div class="toolbar">
+          <strong>Readable Final Report</strong>
+          <span class="muted">A presentation-friendly summary of winners, standings, and scoring proof.</span>
+        </div>
+        <div class="report-toolbar">
+          <button id="generateReportBtn" class="report-btn" type="button">Generate Readable Report</button>
+          <button id="printReportBtn" class="report-btn" type="button">Print / Save As PDF</button>
+        </div>
+        <div id="readableReport"></div>
+      </details>
+    </div>
+
     <div class="card">
       <details>
         <summary class="section-summary">Live Tin Cup 2026 Leaderboard</summary>
@@ -253,12 +369,17 @@
     const payoutBoardEl = document.getElementById('payoutBoard');
     const workbookResultsBoardEl = document.getElementById('workbookResultsBoard');
     const matchDetailBoardEl = document.getElementById('matchDetailBoard');
+    const readableReportEl = document.getElementById('readableReport');
+    const generateReportBtn = document.getElementById('generateReportBtn');
+    const printReportBtn = document.getElementById('printReportBtn');
 
     let selectedDay = 'Day 1';
     let selectedMatchDay = 'Day 1';
     let tripId = null;
     let useSecondaryTripDb = false;
     let contextSource = 'unknown';
+    let latestPayload = null;
+    let autoPrintTriggered = false;
 
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
     const norm = (v = '') => String(v || '').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -280,6 +401,19 @@
         if (parsed && (parsed.secondary === '0' || parsed.secondary === 0 || parsed.secondary === false)) useSecondaryTripDb = false;
         if (parsed && (parsed.secondary === '1' || parsed.secondary === 1 || parsed.secondary === true)) useSecondaryTripDb = true;
       } catch (_err) {}
+    }
+
+    function shouldAutoOpenReadableReport() {
+      const qs = new URLSearchParams(window.location.search);
+      const report = String(qs.get('report') || '').trim().toLowerCase();
+      const print = String(qs.get('print') || '').trim().toLowerCase();
+      return report === '1' || report === 'true' || print === '1' || print === 'true';
+    }
+
+    function shouldAutoPrintReadableReport() {
+      const qs = new URLSearchParams(window.location.search);
+      const print = String(qs.get('print') || '').trim().toLowerCase();
+      return print === '1' || print === 'true';
     }
 
     function findTinCupTrip(trips) {
@@ -354,10 +488,18 @@
         const position = rows[index].position;
         while (index < rows.length && rows[index].position === position && index < payoutValues.length) index += 1;
         const total = payoutValues.slice(start, index).reduce((sum, value) => sum + (num(value) || 0), 0);
-        const avg = index > start ? Number((total / (index - start)).toFixed(2)) : 0;
+        const avg = index > start ? Math.round(total / (index - start)) : 0;
         rows.slice(start, index).forEach((row) => out.set(norm(row.name), avg));
       }
       return out;
+    }
+    function getLeftoverSuggestion(balance) {
+      const dollars = Math.round(Number(balance || 0));
+      if (dollars <= 0) return '';
+      if (dollars <= 10) return `Suggested use: tip add-on or cash tiebreak bonus for the remaining $${dollars}.`;
+      if (dollars <= 25) return `Suggested use: drinks or a closest-to-the-pin bonus for the remaining $${dollars}.`;
+      if (dollars <= 50) return `Suggested use: final-hole side prize or drinks with the remaining $${dollars}.`;
+      return `Suggested use: drinks, dinner, or next year's side-game pot with the remaining $${dollars}.`;
     }
     function buildLocalPayoutSummary(totals = [], state = defaultLocalState()) {
       const finalPayouts = buildSharedPayoutMap(totals, [1000, 500, 250, 125]);
@@ -365,21 +507,23 @@
       const rows = PLAYERS.map((name) => {
         const key = norm(name);
         const finalPrize = finalPayouts.get(key) || 0;
-        const ctp = Number((getLocalMarkerWins(state, 'ctp', name) * 25).toFixed(2));
-        const longDrive = Number((getLocalMarkerWins(state, 'longDrive', name) * 25).toFixed(2));
+        const ctp = Math.round(getLocalMarkerWins(state, 'ctp', name) * 25);
+        const longDrive = Math.round(getLocalMarkerWins(state, 'longDrive', name) * 25);
         const loser = loserRow && norm(loserRow.name) === key ? 50 : 0;
-        const total = Number((finalPrize + ctp + longDrive + loser).toFixed(2));
+        const total = Math.round(finalPrize + ctp + longDrive + loser);
         return { name, finalPrize, ctp, longDrive, longPutt: 0, secretSnowman: 0, skins: 0, loser, total };
       }).filter((row) => row.total > 0)
         .sort((a, b) => (b.total - a.total) || a.name.localeCompare(b.name));
-      const mainPot = 200 * PLAYERS.length;
-      const distributed = Number(rows.reduce((sum, row) => sum + row.total, 0).toFixed(2));
+      const mainPot = Math.round(200 * PLAYERS.length);
+      const distributed = Math.round(rows.reduce((sum, row) => sum + row.total, 0));
+      const balance = Math.round(mainPot - distributed);
       return {
         pot: mainPot,
         mainPot,
         skinsPot: 0,
         distributed,
-        balance: Number((mainPot - distributed).toFixed(2)),
+        balance,
+        leftoverSuggestion: getLeftoverSuggestion(balance),
         rows,
       };
     }
@@ -498,7 +642,7 @@
         const day1Net = num((((state.strokeNet || {})['Day 1'] || {})[key]));
         const day3Net = num((((state.strokeNet || {})['Day 3'] || {})[key]));
         const day4Net = num((((state.strokeNet || {})['Day 4'] || {})[key]));
-        return { name, day1Net, day3Net, day4Net, match1, match2A, match2B, match2, match3, stroke1, stroke3, scramble, penaltyTotal, day4Points, day4Rank: d4.ranks.get(key), day1Total, day2Total, day3Total, total };
+        return { name, day1Gross: null, day3Gross: null, day4Gross: null, day1Net, day3Net, day4Net, match1, match2A, match2B, match2, match3, stroke1, stroke3, scramble, penaltyTotal, day4Points, day4Rank: d4.ranks.get(key), day1Total, day2Total, day3Total, total };
       }).sort((a, b) => (b.total - a.total) || a.name.localeCompare(b.name));
       let pos = 0; let last = null;
       rows.forEach((r, idx) => { if (last === null || r.total !== last) pos = idx + 1; r.position = pos; last = r.total; });
@@ -592,7 +736,7 @@
         strokeBoardEl.innerHTML = '<div class="muted">No stroke results yet.</div>';
         return;
       }
-      strokeBoardEl.innerHTML = `<table><thead><tr><th>Player</th><th>Day 1 Net</th><th>Day 3 Net</th><th>Day 4 Net</th><th>Scramble</th><th>Day 1 Stroke Pts</th><th>Day 3 Stroke Pts</th><th>Day 4 Rank Pts</th></tr></thead><tbody>${rows.map((r) => `<tr><td><strong>${esc(r.name)}</strong></td><td>${r.day1Net === null || r.day1Net === undefined ? '-' : esc(r.day1Net)}</td><td>${r.day3Net === null || r.day3Net === undefined ? '-' : esc(r.day3Net)}</td><td>${r.day4Net === null || r.day4Net === undefined ? '-' : esc(r.day4Net)}</td><td>${r.scramble === null || r.scramble === undefined ? '-' : esc(r.scramble)}</td><td>${esc(r.stroke1 || 0)}</td><td>${esc(r.stroke3 || 0)}</td><td>${esc(r.day4Points || 0)}${Number.isInteger(r.day4Rank) ? ` <span class="muted">(r${esc(r.day4Rank)})</span>` : ''}</td></tr>`).join('')}</tbody></table>`;
+      strokeBoardEl.innerHTML = `<table><thead><tr><th>Player</th><th>Day 1 Gross</th><th>Day 1 Net</th><th>Day 3 Gross</th><th>Day 3 Net</th><th>Day 4 Gross</th><th>Day 4 Net</th><th>Scramble</th><th>Day 1 Stroke Pts</th><th>Day 3 Stroke Pts</th><th>Day 4 Rank Pts</th></tr></thead><tbody>${rows.map((r) => `<tr><td><strong>${esc(r.name)}</strong></td><td>${r.day1Gross === null || r.day1Gross === undefined ? '-' : esc(r.day1Gross)}</td><td>${r.day1Net === null || r.day1Net === undefined ? '-' : esc(r.day1Net)}</td><td>${r.day3Gross === null || r.day3Gross === undefined ? '-' : esc(r.day3Gross)}</td><td>${r.day3Net === null || r.day3Net === undefined ? '-' : esc(r.day3Net)}</td><td>${r.day4Gross === null || r.day4Gross === undefined ? '-' : esc(r.day4Gross)}</td><td>${r.day4Net === null || r.day4Net === undefined ? '-' : esc(r.day4Net)}</td><td>${r.scramble === null || r.scramble === undefined ? '-' : esc(r.scramble)}</td><td>${esc(r.stroke1 || 0)}</td><td>${esc(r.stroke3 || 0)}</td><td>${esc(r.day4Points || 0)}${Number.isInteger(r.day4Rank) ? ` <span class="muted">(r${esc(r.day4Rank)})</span>` : ''}</td></tr>`).join('')}</tbody></table>`;
     }
 
     function renderScoreRankings(rows = []) {
@@ -658,12 +802,12 @@
 
     function renderPayouts(payload = {}) {
       const rows = Array.isArray(payload.rows) ? payload.rows : [];
-      const summary = `<div class="muted" style="margin-bottom:10px;">Combined Pot ${esc(Number(payload.pot || 0).toFixed(2))} | Entry Pot ${esc(Number(payload.mainPot || 0).toFixed(2))} | Skins Pot ${esc(Number(payload.skinsPot || 0).toFixed(2))} | Distributed ${esc(Number(payload.distributed || 0).toFixed(2))} | Balance ${esc(Number(payload.balance || 0).toFixed(2))}</div>`;
+      const summary = `<div class="muted" style="margin-bottom:10px;">Combined Pot ${esc(Math.round(Number(payload.pot || 0)))} | Entry Pot ${esc(Math.round(Number(payload.mainPot || 0)))} | Skins Pot ${esc(Math.round(Number(payload.skinsPot || 0)))} | Distributed ${esc(Math.round(Number(payload.distributed || 0)))} | Balance ${esc(Math.round(Number(payload.balance || 0)))}</div>${payload.leftoverSuggestion ? `<div class="muted" style="margin-bottom:10px;">${esc(payload.leftoverSuggestion)}</div>` : ''}`;
       if (!rows.length) {
         payoutBoardEl.innerHTML = `${summary}<div class="muted">No payouts have been generated yet.</div>`;
         return;
       }
-      payoutBoardEl.innerHTML = `${summary}<table><thead><tr><th>Player</th><th>Final</th><th>CTP</th><th>Long Drive</th><th>Long Putt</th><th>Secret Snowman</th><th>Skins</th><th>Loser</th><th>Total</th></tr></thead><tbody>${rows.map((row) => `<tr><td><strong>${esc(row.name)}</strong></td><td>${esc(Number(row.finalPrize || 0).toFixed(2))}</td><td>${esc(Number(row.ctp || 0).toFixed(2))}</td><td>${esc(Number(row.longDrive || 0).toFixed(2))}</td><td>${esc(Number(row.longPutt || 0).toFixed(2))}</td><td>${esc(Number(row.secretSnowman || 0).toFixed(2))}</td><td>${esc(Number(row.skins || 0).toFixed(2))}</td><td>${esc(Number(row.loser || 0).toFixed(2))}</td><td><strong>${esc(Number(row.total || 0).toFixed(2))}</strong></td></tr>`).join('')}</tbody></table>`;
+      payoutBoardEl.innerHTML = `${summary}<table><thead><tr><th>Player</th><th>Final</th><th>CTP</th><th>Long Drive</th><th>Long Putt</th><th>Secret Snowman</th><th>Skins</th><th>Loser</th><th>Total</th></tr></thead><tbody>${rows.map((row) => `<tr><td><strong>${esc(row.name)}</strong></td><td>${esc(Math.round(Number(row.finalPrize || 0)))}</td><td>${esc(Math.round(Number(row.ctp || 0)))}</td><td>${esc(Math.round(Number(row.longDrive || 0)))}</td><td>${esc(Math.round(Number(row.longPutt || 0)))}</td><td>${esc(Math.round(Number(row.secretSnowman || 0)))}</td><td>${esc(Math.round(Number(row.skins || 0)))}</td><td>${esc(Math.round(Number(row.loser || 0)))}</td><td><strong>${esc(Math.round(Number(row.total || 0)))}</strong></td></tr>`).join('')}</tbody></table>`;
     }
 
     function renderMatchDetails(groups = []) {
@@ -680,7 +824,104 @@
       </div>`).join('');
     }
 
+    function currency(v) {
+      const n = Number(v || 0);
+      return `$${Math.round(n)}`;
+    }
+
+    function renderReadableReport(payload = {}) {
+      const totals = Array.isArray(payload.totals) ? payload.totals : [];
+      const payouts = payload.payouts || {};
+      const sideGames = payload.sideGames || {};
+      const skins = payload.skins || {};
+      const scramble = payload.scramble || {};
+      if (!totals.length) {
+        readableReportEl.innerHTML = '<div class="report-empty">No final report is available until results have been entered.</div>';
+        return;
+      }
+      const topFive = totals.slice(0, 5);
+      const payoutRows = Array.isArray(payouts.rows) ? payouts.rows.slice(0, 8) : [];
+      const scrambleRows = Array.isArray(scramble.teams) ? scramble.teams.filter((team) => team.rank !== null).sort((a, b) => (a.rank - b.rank) || a.label.localeCompare(b.label)) : [];
+      const skinRows = Array.isArray(skins.totals) ? skins.totals.slice(0, 8) : [];
+      const longPuttDays = (((sideGames.longPutt || {}).days) || []).filter((row) => row && row.winner);
+      const snowmanDays = (((sideGames.secretSnowman || {}).days) || []).filter((row) => row && row.winner);
+      const winner = topFive[0] || null;
+      const runnerUp = topFive[1] || null;
+      const payoutLeader = payoutRows[0] || null;
+      const skinLeader = skinRows[0] || null;
+      const generatedAt = new Date().toLocaleString();
+      const sideGameLines = []
+        .concat(longPuttDays.map((row) => `Long Putt ${row.dayKey}: ${row.winner}`))
+        .concat(snowmanDays.map((row) => `Secret Snowman ${row.dayKey}: ${row.winner}`));
+      readableReportEl.innerHTML = `
+        <div class="report-shell">
+          <div class="report-head">
+            <div>
+              <h3>Final Competition Report</h3>
+              <div class="muted">Compact summary of winners, payouts, and scoring proof from the saved Tin Cup competition.</div>
+            </div>
+            <div class="report-meta">
+              <div>Generated: ${esc(generatedAt)}</div>
+              <div>Players: ${esc(totals.length)}</div>
+            </div>
+          </div>
+          <div class="report-highlights">
+            <div class="report-stat">
+              <div class="report-stat-label">Champion</div>
+              <div class="report-stat-value">${winner ? esc(winner.name) : '-'}</div>
+            </div>
+            <div class="report-stat">
+              <div class="report-stat-label">Runner-Up</div>
+              <div class="report-stat-value">${runnerUp ? esc(runnerUp.name) : '-'}</div>
+            </div>
+            <div class="report-stat">
+              <div class="report-stat-label">Top Payout</div>
+              <div class="report-stat-value">${payoutLeader ? `${esc(payoutLeader.name)} ${currency(payoutLeader.total)}` : '-'}</div>
+            </div>
+            <div class="report-stat">
+              <div class="report-stat-label">Top Skins</div>
+              <div class="report-stat-value">${skinLeader ? `${esc(skinLeader.name)} (${esc(skinLeader.skins)})` : '-'}</div>
+            </div>
+          </div>
+          <div class="report-block">
+            <h3>Final Standings</h3>
+            <div class="report-standings">${topFive.map((row, index) => `<div class="report-place"><div class="report-place-rank">${esc(index + 1)}${index === 0 ? 'st' : index === 1 ? 'nd' : index === 2 ? 'rd' : 'th'} Place</div><div class="report-place-name">${esc(row.name)}</div><div class="report-place-value">${esc(row.total)} points</div></div>`).join('')}</div>
+          </div>
+          <div class="report-grid">
+            <div class="report-block">
+              <h3>Prize Winners</h3>
+              ${payoutRows.length ? `<ul class="report-list">${payoutRows.map((row) => `<li><strong>${esc(row.name)}</strong> - ${currency(row.total)}</li>`).join('')}</ul>` : '<div class="report-empty">No payouts recorded yet.</div>'}
+            </div>
+            <div class="report-block">
+              <h3>Scramble Results</h3>
+              ${scrambleRows.length ? `<ul class="report-list">${scrambleRows.map((team) => `<li><strong>${esc(team.label)}</strong> - ${team.total === null ? '-' : esc(team.total)} total, ${esc(team.points || 0)} pts</li>`).join('')}</ul>` : '<div class="report-empty">No scramble results recorded yet.</div>'}
+            </div>
+          </div>
+          <div class="report-grid">
+            <div class="report-block">
+              <h3>Side Games</h3>
+              ${sideGameLines.length ? `<ul class="report-list">${sideGameLines.map((line) => `<li>${esc(line)}</li>`).join('')}</ul>` : '<div class="report-empty">No side-game winners yet.</div>'}
+            </div>
+            <div class="report-block">
+              <h3>Skins Summary</h3>
+              ${skinRows.length ? `<ul class="report-list">${skinRows.map((row) => `<li><strong>${esc(row.name)}</strong> - ${esc(row.skins)} skins, ${currency(row.payout)}</li>`).join('')}</ul>` : '<div class="report-empty">No skins winners yet.</div>'}
+            </div>
+          </div>
+          <div class="report-block">
+            <h3>Scoring Proof</h3>
+            <div class="report-proof">
+              <div>Standings come directly from saved live scorecards, scramble team scores, markers, and penalty settings.</div>
+              <div>Stroke results show both gross and net values for Day 1, Day 3, and Day 4.</div>
+              <div>Match points, scramble points, skins, side games, and payouts can be cross-checked in the detailed sections below this report.</div>
+              <div>Use Workbook Results Audit and Stroke Results together when presenting the fairness of the final results.</div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     function renderFromPayload(payload) {
+      latestPayload = payload;
       const dayOptions = Array.isArray(payload.dayOptions) ? payload.dayOptions : DAY_OPTIONS.slice();
       const matchOptions = Array.isArray(payload.matchDayOptions) ? payload.matchDayOptions : MATCH_DAY_OPTIONS.slice();
       if (!dayOptions.includes(selectedDay)) selectedDay = dayOptions[0];
@@ -701,7 +942,17 @@
       renderWorkbookResults(payload.workbookResults || []);
       renderPayouts(payload.payouts || {});
       renderMatchDetails(payload.matchDetailRows || payload.matchDetails && payload.matchDetails[selectedMatchDay] || []);
+      renderReadableReport(payload);
+      if (shouldAutoOpenReadableReport()) {
+        const reportCard = document.getElementById('readable-report');
+        const details = reportCard ? reportCard.querySelector('details') : null;
+        if (details) details.open = true;
+      }
       refreshEl.textContent = `Last refresh: ${new Date().toLocaleTimeString()}${contextSource === 'local-fallback' ? ' (local fallback)' : ''}`;
+      if (shouldAutoPrintReadableReport() && !autoPrintTriggered) {
+        autoPrintTriggered = true;
+        window.setTimeout(() => window.print(), 150);
+      }
     }
 
     function renderLocalFallback() {
@@ -760,6 +1011,15 @@
       if (!btn) return;
       selectedMatchDay = String(btn.dataset.matchDay || '').trim();
       render();
+    });
+
+    generateReportBtn.addEventListener('click', () => {
+      renderReadableReport(latestPayload || {});
+    });
+
+    printReportBtn.addEventListener('click', () => {
+      if (!latestPayload) renderReadableReport({});
+      window.print();
     });
 
     loadContext();
