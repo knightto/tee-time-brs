@@ -304,7 +304,7 @@
     .trip-calendar-header {
       display: flex;
       align-items: flex-start;
-      justify-content: space-between;
+      justify-content: center;
       gap: 8px;
     }
     .trip-calendar-month-controls {
@@ -339,16 +339,16 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      max-width: 100%;
+      width: 100%;
       border: 1px solid rgba(200,154,75,0.5);
       background: rgba(200,154,75,0.14);
       color: #fae4bb;
       text-decoration: none;
-      font-size: 0.75rem;
+      font-size: 0.86rem;
       font-weight: 700;
       line-height: 1.25;
-      padding: 3px 8px;
-      border-radius: 999px;
+      padding: 10px 12px;
+      border-radius: 12px;
       text-align: center;
     }
     .trip-calendar-month-link:hover {
@@ -390,6 +390,10 @@
     }
     .trip-calendar-day.other-month {
       opacity: 0.45;
+    }
+    .trip-calendar-day:disabled {
+      cursor: default;
+      pointer-events: none;
     }
     .trip-calendar-day.today {
       border-color: rgba(224,180,87,0.85);
@@ -466,6 +470,17 @@
       font-weight: 800;
       line-height: 1;
     }
+    .trip-event-time.trip-first-tee-flash {
+      display: inline-flex;
+      align-items: center;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(200,154,75,0.88);
+      background: linear-gradient(135deg, rgba(200,154,75,0.24), rgba(220,232,200,0.10));
+      color: #fff4d6;
+      box-shadow: 0 0 0 rgba(200,154,75,0);
+      animation: tripFirstTeeFlash 1.35s ease-in-out infinite;
+    }
     .trip-slot-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -478,6 +493,16 @@
       background: rgba(21,38,28,0.58);
       display: grid;
       gap: 5px;
+    }
+    @keyframes tripFirstTeeFlash {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 rgba(200,154,75,0);
+      }
+      50% {
+        transform: scale(1.02);
+        box-shadow: 0 0 0 4px rgba(200,154,75,0.18), 0 12px 24px rgba(200,154,75,0.18);
+      }
     }
     .trip-slot-head {
       display: flex;
@@ -924,6 +949,11 @@
         font-size: 0.72rem;
       }
     }
+    @media (prefers-reduced-motion: reduce) {
+      .trip-event-time.trip-first-tee-flash {
+        animation: none;
+      }
+    }
   </style>
 </head>
 <body>
@@ -935,6 +965,7 @@
         <a id="tinCupLiveLeaderboardChip" class="chip cta" href="/tin-cup/leaderboard-2026.html">Live Leaderboards</a>
         <a id="tinCupGuestsChip" class="chip cta" href="/tin-cup/guests-lodging.html">Lodging</a>
         <a id="tinCupLiveEntryChip" class="chip cta" href="/tin-cup/live-score-entry.html">Scoring / Inputs</a>
+        <a id="tinCupAdminGuideChip" class="chip cta" href="/tin-cup/admin-guide.html">Admin Guide</a>
       </div>
     </header>
 
@@ -2187,6 +2218,7 @@
       const guestsChip = document.getElementById('tinCupGuestsChip');
       const entryChip = document.getElementById('tinCupLiveEntryChip');
       const boardChip = document.getElementById('tinCupLiveLeaderboardChip');
+      const guideChip = document.getElementById('tinCupAdminGuideChip');
       if (guestsChip) {
         guestsChip.href = buildTinCupContextHref('/tin-cup/guests-lodging.html');
       }
@@ -2197,6 +2229,9 @@
       if (boardChip) {
         boardChip.style.display = tinCupLiveSettings.enableLiveLeaderboard ? '' : 'none';
         boardChip.href = buildTinCupContextHref('/tin-cup/leaderboard-2026.html');
+      }
+      if (guideChip) {
+        guideChip.href = buildTinCupContextHref('/tin-cup/admin-guide.html');
       }
     }
 
@@ -2442,15 +2477,14 @@
       dayEl.className = 'trip-calendar-day';
       dayEl.textContent = String(day);
       if (isOtherMonth) dayEl.classList.add('other-month');
+      if (isOtherMonth) dayEl.disabled = true;
       const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
       if (eventDates.has(dateStr)) dayEl.classList.add('has-events');
       if (tripScheduleState.selectedDate && dateStr === tripScheduleState.selectedDate) dayEl.classList.add('selected');
       const todayIso = toIsoDate(new Date());
       if (dateStr === todayIso) dayEl.classList.add('today');
       dayEl.addEventListener('click', () => {
-        if (isOtherMonth) {
-          tripScheduleState.currentDate = new Date(year, month, 1);
-        }
+        if (isOtherMonth) return;
         tripScheduleState.selectedDate = dateStr;
         renderTripSchedule(getTripRounds());
       });
@@ -2462,13 +2496,14 @@
       const gridEl = document.getElementById('tripCalendarGrid');
       const monthLinkEl = document.getElementById('tripMonthCalendarLink');
       if (!monthEl || !gridEl || !monthLinkEl) return;
+      tripScheduleState.currentDate = new Date(Number(TIN_CUP_ARRIVAL_DATE.slice(0, 4)), Number(TIN_CUP_ARRIVAL_DATE.slice(5, 7)) - 1, 1);
       const year = tripScheduleState.currentDate.getFullYear();
       const month = tripScheduleState.currentDate.getMonth();
       const firstOfMonth = new Date(year, month, 1);
       const fullMonth = firstOfMonth.toLocaleDateString(undefined, { month: 'long' });
       monthEl.textContent = firstOfMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-      monthLinkEl.textContent = `Add tee times to your calendar for ${fullMonth}`;
-      monthLinkEl.setAttribute('title', `Download all ${fullMonth} tee times`);
+      monthLinkEl.textContent = 'Add trip tee times to your calendar';
+      monthLinkEl.setAttribute('title', `Download all trip tee times for ${fullMonth}`);
       gridEl.innerHTML = '';
       ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach((name) => {
         const head = document.createElement('div');
@@ -2534,6 +2569,7 @@
       }
       renderSidebarTeeSheet(dayRounds, templateDay);
       const templateMatchupMarkup = renderTemplateMatchups(rounds, selectedDate, dayRounds);
+      let highlightedFirstTee = false;
       eventsEl.innerHTML = `
         <div class="trip-event-list">
           ${dayRounds.map((round) => {
@@ -2544,12 +2580,14 @@
               ? `<a class="waze-link" href="${waze}" target="_blank" rel="noopener">${escapeHtml(courseLabel)}</a>`
               : escapeHtml(courseLabel);
             const firstTime = getRoundPrimaryTime(round);
+            const shouldFlashFirstTee = Boolean(firstTime) && !highlightedFirstTee;
+            if (shouldFlashFirstTee) highlightedFirstTee = true;
             const scorecardMarkup = renderCourseScorecard(round);
             return `
               <article class="trip-event-card">
                 <div class="trip-event-top">
                   <h3 class="trip-event-course">${courseMarkup}</h3>
-                  <span class="trip-event-time">${escapeHtml(firstTime ? `First tee ${formatTime12(firstTime)}` : 'Time TBD')}</span>
+                  <span class="trip-event-time${shouldFlashFirstTee ? ' trip-first-tee-flash' : ''}">${escapeHtml(firstTime ? `First tee ${formatTime12(firstTime)}` : 'Time TBD')}</span>
                 </div>
                 ${round.venue ? `<small>at ${escapeHtml(round.venue)}</small>` : ''}
                 ${round.address ? `<small>${escapeHtml(round.address)}</small>` : ''}
@@ -2652,13 +2690,11 @@
         <div class="trip-schedule-layout">
           <aside class="trip-calendar-sidebar">
             <div class="trip-calendar-header">
-              <button type="button" id="tripPrevMonth" class="trip-calendar-nav" title="Previous month">‹</button>
               <div class="trip-calendar-month-controls">
                 <h3 id="tripCurrentMonth" class="trip-calendar-month">Month Year</h3>
-                <a id="tripMonthCalendarLink" class="trip-calendar-month-link" href="#">Add tee times to your calendar for this month</a>
               </div>
-              <button type="button" id="tripNextMonth" class="trip-calendar-nav" title="Next month">›</button>
             </div>
+            <a id="tripMonthCalendarLink" class="trip-calendar-month-link" href="#">Add trip tee times to your calendar</a>
             <div id="tripCalendarGrid" class="trip-calendar-grid"></div>
             <div class="trip-sidebar-tee-sheet" id="tripSidebarTeeSheet">
               <h3>Tee Sheet</h3>
@@ -2678,21 +2714,7 @@
       const rounds = getTripRounds();
       renderTripSchedule(rounds);
 
-      const prevBtn = document.getElementById('tripPrevMonth');
-      const nextBtn = document.getElementById('tripNextMonth');
       const monthLink = document.getElementById('tripMonthCalendarLink');
-      if (prevBtn) {
-        prevBtn.addEventListener('click', () => {
-          tripScheduleState.currentDate = new Date(tripScheduleState.currentDate.getFullYear(), tripScheduleState.currentDate.getMonth() - 1, 1);
-          renderTripCalendar(getTripRounds());
-        });
-      }
-      if (nextBtn) {
-        nextBtn.addEventListener('click', () => {
-          tripScheduleState.currentDate = new Date(tripScheduleState.currentDate.getFullYear(), tripScheduleState.currentDate.getMonth() + 1, 1);
-          renderTripCalendar(getTripRounds());
-        });
-      }
       if (monthLink) {
         monthLink.addEventListener('click', (event) => {
           event.preventDefault();

@@ -18,6 +18,7 @@ const PAGE_SPECS = [
   { path: '/', label: 'Home', selector: 'body' },
   { path: '/myrtle/trip-2026.html', label: 'Myrtle Trip', selector: 'body' },
   { path: '/tin-cup/trip-2026.html', label: 'Tin Cup Trip', selector: '.container' },
+  { path: '/tin-cup/admin-guide.html', label: 'Tin Cup Admin Guide', selector: '.guide-wrap, main, body' },
   { path: '/tin-cup/live-score-entry.html', label: 'Tin Cup Live Entry', selector: '.container, main, body' },
   { path: '/tin-cup/leaderboard-2026.html', label: 'Tin Cup Leaderboard', selector: '.container, main, body' },
   { path: '/blue-ridge-outings.html', label: 'Blue Ridge Outings', selector: 'body' },

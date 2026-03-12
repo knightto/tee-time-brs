@@ -30,11 +30,15 @@ const {
   setScrambleBonus,
   updateScrambleHoleScore,
   updateSideGameWinner,
+  pickSecretSnowmanWinner,
   setPlayerPenalty,
   seedAllScores,
   buildPayoutSummary,
   buildSeedSummary,
+  buildCompetitionExportCsv,
   updateWorkbookConfig,
+  maybeAutoSubmitScorecard,
+  maybeAutoDrawSecretSnowman,
 } = require('../services/tinCupLiveService');
 const router = express.Router();
 
@@ -125,10 +129,51 @@ function getTripStartDate(trip) {
   return null;
 }
 
+function getTripEndDate(trip) {
+  if (!trip) return null;
+  let latest = null;
+  const rounds = Array.isArray(trip.rounds) ? trip.rounds : [];
+  rounds.forEach((round) => {
+    const dt = parseRoundStartDate(round);
+    if (!dt) return;
+    if (!latest || dt.getTime() > latest.getTime()) latest = dt;
+  });
+  if (trip.departureDate) {
+    const departure = new Date(trip.departureDate);
+    if (!Number.isNaN(departure.getTime())) {
+      departure.setHours(23, 59, 59, 999);
+      if (!latest || departure.getTime() > latest.getTime()) latest = departure;
+    }
+  }
+  return latest;
+}
+
 function hasTripStarted(trip) {
   const start = getTripStartDate(trip);
   if (!start) return false;
   return Date.now() >= start.getTime();
+}
+
+function hasTripEnded(trip) {
+  const end = getTripEndDate(trip);
+  if (!end) return false;
+  return Date.now() > end.getTime();
+}
+
+function formatTripDateLabel(value) {
+  if (!value) return '';
+  const dt = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(dt.getTime())) return '';
+  return dt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+}
+
+function sanitizeCsvFilename(value = '') {
+  const safe = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return safe || 'tin-cup-competition';
 }
 
 function truncateValue(value, maxLen = 240) {
@@ -378,6 +423,38 @@ router.get('/:tripId/tin-cup/live/leaderboard', async (req, res) => {
   }
 });
 
+router.get('/:tripId/tin-cup/live/export.csv', async (req, res) => {
+  try {
+    const { trip, TripAuditLogModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    const tripEnd = getTripEndDate(trip);
+    if (!tripEnd) return res.status(400).json({ error: 'Trip end date unavailable for final CSV export.' });
+    if (!hasTripEnded(trip)) {
+      return res.status(403).json({ error: `Final CSV export is available after ${formatTripDateLabel(tripEnd)}.` });
+    }
+    const state = ensureTinCupLiveState(trip);
+    const csv = buildCompetitionExportCsv(state, {
+      tripId: String(trip._id || ''),
+      tripName: String(trip.name || trip.groupName || 'Tin Cup 2026'),
+      tripStartDate: getTripStartDate(trip),
+      tripEndDate: tripEnd,
+      exportedAt: new Date(),
+    });
+    const filename = `${sanitizeCsvFilename(trip.name || trip.groupName || 'tin-cup-competition')}-final-competition.csv`;
+    await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_export_csv', 'Exported final Tin Cup competition CSV', {
+      filename,
+      rowCount: csv ? Math.max(csv.split('\n').length - 1, 0) : 0,
+    });
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Cache-Control', 'no-store');
+    return res.send(`\ufeff${csv}`);
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
 router.get('/:tripId/tin-cup/live/scorecard', async (req, res) => {
   try {
     const { trip, TripModel } = await loadTripBundle(req);
@@ -391,10 +468,14 @@ router.get('/:tripId/tin-cup/live/scorecard', async (req, res) => {
     if (!isLiveScoringEnabled(state)) return res.status(403).json({ error: 'Live foursome scoring is disabled for this trip.' });
     if (state.settings.enableFoursomeCodes && !code) return res.status(403).json({ error: 'Foursome code required' });
     if (!verifySlotCode(state, dayKey, slotIndex, code)) return res.status(403).json({ error: 'Invalid foursome code' });
-    const view = getScorecardView(state, dayKey, slotIndex);
+    const autoSubmit = maybeAutoSubmitScorecard(state, { dayKey, slotIndex });
+    const view = autoSubmit && autoSubmit.view ? autoSubmit.view : getScorecardView(state, dayKey, slotIndex);
     trip.markModified('tinCupLive');
     await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
-    return res.json(view);
+    return res.json({
+      ...view,
+      autoSubmitted: Boolean(autoSubmit && autoSubmit.autoSubmitted),
+    });
   } catch (error) {
     return sendTripRouteError(res, error);
   }
@@ -412,7 +493,9 @@ router.post('/:tripId/tin-cup/live/scorecard/open', async (req, res) => {
     if (!isLiveScoringEnabled(state)) return res.status(403).json({ error: 'Live foursome scoring is disabled for this trip.' });
     if (state.settings.enableFoursomeCodes && !code) return res.status(403).json({ error: 'Foursome code required' });
     if (!verifySlotCode(state, dayKey, slotIndex, code)) return res.status(403).json({ error: 'Invalid foursome code' });
-    const view = setScorecardScorer(state, payload);
+    let view = setScorecardScorer(state, payload);
+    const autoSubmit = maybeAutoSubmitScorecard(state, payload);
+    if (autoSubmit && autoSubmit.view) view = autoSubmit.view;
     trip.markModified('tinCupLive');
     await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
     await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_scorecard_open', 'Tin Cup live scorecard opened', {
@@ -420,7 +503,17 @@ router.post('/:tripId/tin-cup/live/scorecard/open', async (req, res) => {
       slotIndex,
       scorerName: payload.scorerName,
     });
-    return res.json(view);
+    if (autoSubmit && autoSubmit.autoSubmitted) {
+      await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_scorecard_auto_submit', 'Tin Cup live scorecard auto-submitted after completion', {
+        dayKey,
+        slotIndex,
+        scorerName: payload.scorerName,
+      });
+    }
+    return res.json({
+      ...view,
+      autoSubmitted: Boolean(autoSubmit && autoSubmit.autoSubmitted),
+    });
   } catch (error) {
     return sendTripRouteError(res, error);
   }
@@ -438,7 +531,10 @@ router.put('/:tripId/tin-cup/live/scorecard/hole', async (req, res) => {
     if (!isLiveScoringEnabled(state)) return res.status(403).json({ error: 'Live foursome scoring is disabled for this trip.' });
     if (state.settings.enableFoursomeCodes && !code) return res.status(403).json({ error: 'Foursome code required' });
     if (!verifySlotCode(state, dayKey, slotIndex, code)) return res.status(403).json({ error: 'Invalid foursome code' });
-    const view = updateHoleScore(state, { ...payload, allowSubmittedEdit: isAdmin(req) });
+    let view = updateHoleScore(state, { ...payload, allowSubmittedEdit: isAdmin(req) });
+    const autoSubmit = maybeAutoSubmitScorecard(state, payload);
+    if (autoSubmit && autoSubmit.view) view = autoSubmit.view;
+    const autoSnowman = maybeAutoDrawSecretSnowman(state, payload);
     trip.markModified('tinCupLive');
     await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
     await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_hole_score', 'Tin Cup live hole score updated', {
@@ -449,7 +545,29 @@ router.put('/:tripId/tin-cup/live/scorecard/hole', async (req, res) => {
       gross: payload.gross,
       scorerName: payload.scorerName,
     });
-    return res.json(view);
+    if (autoSubmit && autoSubmit.autoSubmitted) {
+      await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_scorecard_auto_submit', 'Tin Cup live scorecard auto-submitted after completion', {
+        dayKey,
+        slotIndex,
+        scorerName: payload.scorerName,
+      });
+    }
+    if (autoSnowman && autoSnowman.autoDrawn && autoSnowman.picked) {
+      await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_secret_snowman_auto_draw', 'Tin Cup Secret Snowman auto-drawn after day completion', {
+        dayKey,
+        winner: autoSnowman.picked.playerName,
+        slotIndex: autoSnowman.picked.slotIndex,
+        slotLabel: autoSnowman.picked.label,
+        hole: autoSnowman.picked.hole,
+        gross: autoSnowman.picked.gross,
+      });
+    }
+    return res.json({
+      ...view,
+      autoSubmitted: Boolean(autoSubmit && autoSubmit.autoSubmitted),
+      autoSecretSnowman: autoSnowman && autoSnowman.autoDrawn ? autoSnowman.picked : null,
+      sideGames: autoSnowman && autoSnowman.autoDrawn ? autoSnowman.sideGames : undefined,
+    });
   } catch (error) {
     return sendTripRouteError(res, error);
   }
@@ -681,6 +799,30 @@ router.put('/:tripId/tin-cup/live/admin/side-game', async (req, res) => {
       winner: payload.winner,
     });
     return res.json({ sideGames });
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.post('/:tripId/tin-cup/live/admin/side-game/secret-snowman', async (req, res) => {
+  if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+  try {
+    const { trip, TripModel, TripAuditLogModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const payload = req.body || {};
+    const state = ensureTinCupLiveState(trip);
+    const result = pickSecretSnowmanWinner(state, payload);
+    trip.markModified('tinCupLive');
+    await TripModel.updateOne({ _id: trip._id }, { tinCupLive: trip.tinCupLive });
+    await writeTripAudit(req, trip, TripAuditLogModel, 'tin_cup_secret_snowman_draw', 'Tin Cup Secret Snowman winner drawn', {
+      dayKey: payload.dayKey,
+      winner: result.picked.playerName,
+      slotIndex: result.picked.slotIndex,
+      slotLabel: result.picked.label,
+      hole: result.picked.hole,
+      gross: result.picked.gross,
+    });
+    return res.json(result);
   } catch (error) {
     return sendTripRouteError(res, error);
   }

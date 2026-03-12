@@ -351,6 +351,132 @@ function updateSideGameWinner(state, payload = {}) {
   return buildSideGameSummary(state);
 }
 
+function getSecretSnowmanCandidates(state, dayKey = '') {
+  const cleanDayKey = clean(dayKey);
+  if (!SIDE_GAME_DEFS.secretSnowman.days.includes(cleanDayKey)) throw new Error('Unsupported side game day');
+  const incompleteSlots = [];
+  const eligibleCards = [];
+  getDaySlots(cleanDayKey).forEach((slot) => {
+    const scorecard = getStoredScorecard(state, cleanDayKey, slot.slotIndex);
+    if (!scorecard) {
+      incompleteSlots.push(slot.label);
+      return;
+    }
+    const cardCandidates = [];
+    let completeCard = true;
+    slot.players.forEach((player) => {
+      const entry = scorecard.players[normalize(player.name)] || { name: player.name, holes: holeArray() };
+      const summary = summarizePlayerCard(entry, player.hcp, cleanDayKey);
+      if (!summary.complete18) {
+        completeCard = false;
+        return;
+      }
+      summary.holes.forEach((gross, index) => {
+        if (gross !== 8) return;
+        cardCandidates.push({
+          dayKey: cleanDayKey,
+          slotIndex: slot.slotIndex,
+          label: slot.label,
+          playerName: player.name,
+          hole: index + 1,
+          gross,
+        });
+      });
+    });
+    if (!completeCard) {
+      incompleteSlots.push(slot.label);
+      return;
+    }
+    if (cardCandidates.length) {
+      eligibleCards.push({
+        dayKey: cleanDayKey,
+        slotIndex: slot.slotIndex,
+        label: slot.label,
+        candidates: cardCandidates,
+      });
+    }
+  });
+  if (incompleteSlots.length) {
+    const error = new Error(`All scores for ${cleanDayKey} must be entered before drawing Secret Snowman. Missing: ${incompleteSlots.join(', ')}`);
+    error.status = 400;
+    throw error;
+  }
+  if (!eligibleCards.length) {
+    const error = new Error(`No score of 8 was entered on ${cleanDayKey}, so Secret Snowman cannot be drawn.`);
+    error.status = 400;
+    throw error;
+  }
+  return eligibleCards;
+}
+
+function pickSecretSnowmanWinner(state, payload = {}) {
+  const dayKey = clean(payload.dayKey);
+  const eligibleCards = getSecretSnowmanCandidates(state, dayKey);
+  const pickedCard = eligibleCards[crypto.randomInt(eligibleCards.length)];
+  const picked = pickedCard.candidates[crypto.randomInt(pickedCard.candidates.length)];
+  return {
+    picked,
+    sideGames: updateSideGameWinner(state, {
+      type: 'secretSnowman',
+      dayKey,
+      winner: picked.playerName,
+    }),
+  };
+}
+
+function isScorecardComplete(state, dayKey = '', slotIndex = 0) {
+  const cleanDayKey = clean(dayKey);
+  const slot = getDaySlots(cleanDayKey).find((item) => item.slotIndex === Number(slotIndex));
+  if (!slot) return false;
+  const scorecard = getStoredScorecard(state, cleanDayKey, slotIndex);
+  if (!scorecard) return false;
+  return slot.players.every((player) => {
+    const entry = scorecard.players[normalize(player.name)] || { name: player.name, holes: holeArray() };
+    const summary = summarizePlayerCard(entry, player.hcp, cleanDayKey);
+    return summary.complete18 === true;
+  });
+}
+
+function maybeAutoSubmitScorecard(state, payload = {}) {
+  const dayKey = clean(payload.dayKey);
+  const slotIndex = Number(payload.slotIndex);
+  if (!dayKey) throw new Error('dayKey required');
+  if (!Number.isInteger(slotIndex) || slotIndex < 0) throw new Error('slotIndex required');
+  const scorecard = getStoredScorecard(state, dayKey, slotIndex);
+  if (!scorecard || scorecard.submittedAt) return { autoSubmitted: false, view: getScorecardView(state, dayKey, slotIndex) };
+  if (!isScorecardComplete(state, dayKey, slotIndex)) return { autoSubmitted: false, view: getScorecardView(state, dayKey, slotIndex) };
+  return {
+    autoSubmitted: true,
+    view: submitScorecard(state, {
+      dayKey,
+      slotIndex,
+      scorerName: clean(payload.scorerName) || scorecard.scorerName || '',
+    }),
+  };
+}
+
+function maybeAutoDrawSecretSnowman(state, payload = {}) {
+  const dayKey = clean(payload.dayKey);
+  if (!SIDE_GAME_DEFS.secretSnowman.days.includes(dayKey)) return { autoDrawn: false, picked: null, sideGames: buildSideGameSummary(state) };
+  if (getSideGameWinner(state, 'secretSnowman', dayKey)) {
+    return { autoDrawn: false, picked: null, sideGames: buildSideGameSummary(state) };
+  }
+  try {
+    const result = pickSecretSnowmanWinner(state, { dayKey });
+    return {
+      autoDrawn: true,
+      picked: result.picked,
+      sideGames: result.sideGames,
+    };
+  } catch (error) {
+    const message = String(error && error.message || '');
+    if (/All scores .* must be entered/i.test(message) || /No score of 8 was entered/i.test(message)) {
+      return { autoDrawn: false, picked: null, sideGames: buildSideGameSummary(state) };
+    }
+    throw error;
+  }
+}
+
 function getDaySlots(dayKey = '') {
   return FOURSOMES.map((group, index) => {
     const dayPlayers = (group.playersByDay && group.playersByDay[dayKey]) || [];
@@ -1117,6 +1243,313 @@ function buildWorkbookResultsAudit(state, leaderboard = null) {
   }).sort((a, b) => (a.tripPosition - b.tripPosition) || a.name.localeCompare(b.name));
 }
 
+function toIsoText(value) {
+  if (!value) return '';
+  const dt = value instanceof Date ? value : new Date(value);
+  return Number.isNaN(dt.getTime()) ? '' : dt.toISOString();
+}
+
+function csvCell(value) {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'boolean') return value ? 'true' : 'false';
+  if (Array.isArray(value)) return value.join(' | ');
+  return String(value);
+}
+
+function buildCsvText(rows = []) {
+  const preferred = [
+    'rowType',
+    'tripId',
+    'tripName',
+    'exportedAt',
+    'tripStartDate',
+    'tripEndDate',
+    'leaderboardGeneratedAt',
+    'dayKey',
+    'slotIndex',
+    'slotLabel',
+    'playerName',
+    'teamIndex',
+    'teamLabel',
+    'type',
+    'hole',
+    'winner',
+    'position',
+    'points',
+    'tripTotal',
+    'total',
+    'payoutTotal',
+  ];
+  const headers = [];
+  rows.forEach((row) => {
+    Object.keys(row || {}).forEach((key) => {
+      if (!headers.includes(key)) headers.push(key);
+    });
+  });
+  const orderedHeaders = [
+    ...preferred.filter((key) => headers.includes(key)),
+    ...headers.filter((key) => !preferred.includes(key)),
+  ];
+  if (!orderedHeaders.length) return '';
+  const escape = (value) => `"${csvCell(value).replace(/"/g, '""')}"`;
+  return [
+    orderedHeaders.map(escape).join(','),
+    ...rows.map((row) => orderedHeaders.map((key) => escape(row && Object.prototype.hasOwnProperty.call(row, key) ? row[key] : '')).join(',')),
+  ].join('\n');
+}
+
+function buildCompetitionExportRows(state, options = {}) {
+  const board = buildLeaderboard(state);
+  board.payouts = buildPayoutSummary(state, board);
+  const settings = normalizeSettings(state && state.settings ? state.settings : {}, defaultTinCupLiveState().settings);
+  const config = normalizeWorkbookConfig(state && state.config ? state.config : defaultWorkbookConfig());
+  const exportedAt = toIsoText(options.exportedAt) || new Date().toISOString();
+  const base = {
+    tripId: clean(options.tripId),
+    tripName: clean(options.tripName) || 'Tin Cup 2026',
+    exportedAt,
+    tripStartDate: toIsoText(options.tripStartDate),
+    tripEndDate: toIsoText(options.tripEndDate),
+    leaderboardGeneratedAt: clean(board.generatedAt),
+  };
+  const workbookByName = new Map((board.workbookResults || []).map((row) => [normalize(row.name), row]));
+  const handicapByName = new Map((board.handicapSummary || []).map((row) => [normalize(row.name), row]));
+  const payoutByName = new Map((((board.payouts || {}).rows) || []).map((row) => [normalize(row.name), row]));
+  const practiceByName = new Map((((board.matchBoards || {}).Practice) || []).map((row) => [normalize(row.player), row]));
+  const rows = [{
+    ...base,
+    rowType: 'trip_summary',
+    playerCount: PLAYERS.length,
+    matchDayCount: MATCH_DAY_OPTIONS.length,
+    competitiveDayCount: COMPETITIVE_DAYS.length,
+    scorecardCount: Object.keys((state && state.scorecards && typeof state.scorecards === 'object') ? state.scorecards : {}).length,
+    scrambleTeamCount: Array.isArray(board.scramble && board.scramble.teams) ? board.scramble.teams.length : 0,
+    combinedPot: Number(((board.payouts || {}).pot) || 0),
+    entryPot: Number(((board.payouts || {}).mainPot) || 0),
+    skinsPot: Number(((board.payouts || {}).skinsPot) || 0),
+    distributed: Number(((board.payouts || {}).distributed) || 0),
+    balance: Number(((board.payouts || {}).balance) || 0),
+  }, {
+    ...base,
+    rowType: 'config',
+    enableLiveFoursomeScoring: settings.enableLiveFoursomeScoring === true,
+    enableFoursomeCodes: settings.enableFoursomeCodes === true,
+    enableLiveMarkers: settings.enableLiveMarkers === true,
+    enableLiveLeaderboard: settings.enableLiveLeaderboard === true,
+    handicapIndexToHcConversion: config.handicap.indexToHcConversion,
+    averageCourseSlope: config.handicap.avgCourseSlope,
+    averageSlope: config.handicap.avgSlope,
+    maxHandicap: config.handicap.maxHandicap,
+    par3Fraction: config.handicap.par3Fraction,
+    entryFee: config.accounting.entryFee,
+    finalPayout1: config.accounting.finalPayouts[0] || 0,
+    finalPayout2: config.accounting.finalPayouts[1] || 0,
+    finalPayout3: config.accounting.finalPayouts[2] || 0,
+    finalPayout4: config.accounting.finalPayouts[3] || 0,
+    markerPayoutLongDrive: config.accounting.markerPayouts.longDrive,
+    markerPayoutCtp: config.accounting.markerPayouts.ctp,
+    markerPayoutLongPutt: config.accounting.markerPayouts.longPutt,
+    markerPayoutSecretSnowman: config.accounting.markerPayouts.secretSnowman,
+    markerPayoutLoser: config.accounting.markerPayouts.loser,
+    skinsPerPerson: config.accounting.skins.perPerson,
+    scramblePoints1: config.accounting.scramblePoints[0] || 0,
+    scramblePoints2: config.accounting.scramblePoints[1] || 0,
+    scramblePoints3: config.accounting.scramblePoints[2] || 0,
+    scramblePoints4: config.accounting.scramblePoints[3] || 0,
+  }];
+
+  (board.totals || []).forEach((row) => {
+    const key = normalize(row.name);
+    const workbook = workbookByName.get(key) || {};
+    const handicap = handicapByName.get(key) || {};
+    const payout = payoutByName.get(key) || {};
+    const practice = practiceByName.get(key) || {};
+    rows.push({
+      ...base,
+      rowType: 'player_total',
+      playerName: row.name,
+      position: row.position,
+      tripTotal: row.total,
+      day1MatchPoints: row.match1,
+      day2AMatchPoints: row.match2A,
+      day2BMatchPoints: row.match2B,
+      day2TotalMatchPoints: row.match2,
+      day3MatchPoints: row.match3,
+      practiceMatchPoints: practice.points || 0,
+      day1StrokeBonus: row.stroke1,
+      day3StrokeBonus: row.stroke3,
+      scramblePoints: row.scramble,
+      day4RankPoints: row.day4Points,
+      day4Rank: row.day4Rank,
+      day1TotalPoints: row.day1Total,
+      day2TotalPoints: row.day2Total,
+      day3TotalPoints: row.day3Total,
+      day1Net: row.day1Net,
+      day3Net: row.day3Net,
+      day4Net: row.day4Net,
+      penaltyChampion: row.penaltyChampion,
+      penaltyRookie: row.penaltyRookie,
+      penaltyTotal: row.penaltyTotal,
+      handicapIndex: handicap.handicapIndex ?? null,
+      convertedHandicap: handicap.convertedHandicap ?? null,
+      nineHoleHandicap: handicap.nineHole ?? null,
+      eighteenHoleHandicap: handicap.eighteenHole ?? null,
+      par3Handicap: handicap.par3 ?? null,
+      averageGross: workbook.averageGross ?? null,
+      netScore: workbook.netScore ?? null,
+      netRank: workbook.netRank ?? null,
+      scoreLabel: workbook.scoreLabel || '',
+      scrambleTeam: workbook.scrambleTeam || '',
+      scrambleGrossTotal: workbook.scrambleTotal ?? null,
+      scrambleRank: workbook.scrambleRank ?? null,
+      skinsWon: workbook.skinsWon || 0,
+      skinsPayout: workbook.skinsPayout || 0,
+      ctpWins: workbook.ctpWins || 0,
+      longDriveWins: workbook.longDriveWins || 0,
+      longPuttWins: workbook.longPuttWins || 0,
+      secretSnowmanWins: workbook.secretSnowmanWins || 0,
+      loserFlag: workbook.loser === true,
+      finalPrize: payout.finalPrize || 0,
+      ctpPayout: payout.ctp || 0,
+      longDrivePayout: payout.longDrive || 0,
+      longPuttPayout: payout.longPutt || 0,
+      secretSnowmanPayout: payout.secretSnowman || 0,
+      loserPayout: payout.loser || 0,
+      payoutTotal: payout.total || 0,
+    });
+  });
+
+  Object.entries(board.matchBoards || {}).forEach(([dayKey, matchRows]) => {
+    (matchRows || []).forEach((row) => {
+      const segments = Array.isArray(row.segments) ? row.segments : [];
+      rows.push({
+        ...base,
+        rowType: 'match_day',
+        dayKey,
+        playerName: row.player,
+        points: row.points,
+        segment1Opponent: (segments[0] || {}).opponent || '',
+        segment1Result: (segments[0] || {}).result || '',
+        segment2Opponent: (segments[1] || {}).opponent || '',
+        segment2Result: (segments[1] || {}).result || '',
+        segment3Opponent: (segments[2] || {}).opponent || '',
+        segment3Result: (segments[2] || {}).result || '',
+      });
+    });
+  });
+
+  MATCH_DAY_OPTIONS.forEach((dayKey) => {
+    getDaySlots(dayKey).forEach((slot) => {
+      const scorecard = getStoredScorecard(state, dayKey, slot.slotIndex);
+      const scorerName = clean(scorecard && scorecard.scorerName);
+      const submittedAt = clean(scorecard && scorecard.submittedAt);
+      const submittedBy = clean(scorecard && scorecard.submittedBy);
+      const updatedAt = clean(scorecard && scorecard.updatedAt);
+      slot.players.forEach((player) => {
+        const entry = scorecard && scorecard.players ? (scorecard.players[normalize(player.name)] || { name: player.name, holes: holeArray() }) : { name: player.name, holes: holeArray() };
+        const summary = summarizePlayerCard(entry, player.hcp, dayKey);
+        const penalty = getPenaltyEntry(state, player.name);
+        const holeValues = {};
+        summary.holes.forEach((gross, index) => {
+          holeValues[`hole${index + 1}`] = gross;
+        });
+        rows.push({
+          ...base,
+          rowType: 'scorecard_player',
+          dayKey,
+          slotIndex: slot.slotIndex,
+          slotLabel: slot.label,
+          playerName: player.name,
+          scorerName,
+          submitted: Boolean(submittedAt),
+          submittedAt,
+          submittedBy,
+          updatedAt,
+          handicap: player.hcp,
+          grossTotal: summary.grossTotal,
+          netTotal: summary.netTotal,
+          penaltyChampion: penalty.champion,
+          penaltyRookie: penalty.rookie,
+          penaltyTotal: penalty.total,
+          adjustedNetTotal: summary.netTotal === null ? null : Number((summary.netTotal + penalty.total).toFixed(2)),
+          complete18: summary.complete18 === true,
+          ...holeValues,
+        });
+      });
+    });
+  });
+
+  MATCH_DAY_OPTIONS.forEach((dayKey) => {
+    const markers = getDayMarkers(state, dayKey);
+    ['ctp', 'longDrive'].forEach((type) => {
+      Object.entries((markers && markers[type]) || {}).forEach(([holeKey, winner]) => {
+        rows.push({
+          ...base,
+          rowType: 'marker',
+          dayKey,
+          type,
+          hole: Number(holeKey),
+          winner,
+        });
+      });
+    });
+  });
+
+  Object.entries(board.sideGames || {}).forEach(([type, summary]) => {
+    ((summary && summary.days) || []).forEach((dayRow) => {
+      rows.push({
+        ...base,
+        rowType: 'side_game',
+        type,
+        dayKey: dayRow.dayKey,
+        winner: dayRow.winner || '',
+      });
+    });
+  });
+
+  ((board.scramble || {}).teams || []).forEach((team) => {
+    const holeValues = {};
+    (team.holes || []).forEach((gross, index) => {
+      holeValues[`hole${index + 1}`] = gross;
+    });
+    rows.push({
+      ...base,
+      rowType: 'scramble_team',
+      teamIndex: team.teamIndex,
+      teamLabel: team.label,
+      players: Array.isArray(team.players) ? team.players.join(' | ') : '',
+      playedHoles: team.played,
+      total: team.total,
+      rank: team.rank,
+      points: team.points || 0,
+      ...holeValues,
+    });
+  });
+
+  ((board.skins || {}).days || []).forEach((day) => {
+    (day.holes || []).forEach((hole) => {
+      rows.push({
+        ...base,
+        rowType: 'skin_hole',
+        dayKey: day.dayKey,
+        hole: hole.hole,
+        winner: hole.winner || '',
+        net: hole.net,
+        hasSkin: hole.hasSkin === true,
+        payoutEligible: day.payoutEligible !== false,
+        pot: day.pot || 0,
+        payoutPerSkin: day.payoutPerSkin || 0,
+      });
+    });
+  });
+
+  return rows;
+}
+
+function buildCompetitionExportCsv(state, options = {}) {
+  return buildCsvText(buildCompetitionExportRows(state, options));
+}
+
 function buildMatchDetailBoards(state) {
   const labels = ['Front 9', 'Back 9 #1', 'Back 9 #2'];
   const rules = [{ pairs: [[0, 1], [2, 3]] }, { pairs: [[0, 2], [1, 3]] }, { pairs: [[0, 3], [1, 2]] }];
@@ -1587,7 +2020,12 @@ module.exports = {
   buildPayoutSummary,
   buildSeedSummary,
   buildWorkbookResultsAudit,
+  buildCompetitionExportRows,
+  buildCompetitionExportCsv,
   updateWorkbookConfig,
   updateSideGameWinner,
+  pickSecretSnowmanWinner,
+  maybeAutoSubmitScorecard,
+  maybeAutoDrawSecretSnowman,
 };
 

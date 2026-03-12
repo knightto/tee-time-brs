@@ -16,10 +16,29 @@ const {
   buildPayoutSummary,
   buildSeedSummary,
   buildWorkbookResultsAudit,
+  buildCompetitionExportRows,
+  buildCompetitionExportCsv,
   updateScrambleHoleScore,
   updateWorkbookConfig,
   setPlayerPenalty,
+  pickSecretSnowmanWinner,
+  maybeAutoSubmitScorecard,
+  maybeAutoDrawSecretSnowman,
 } = require('../services/tinCupLiveService');
+
+function fillCompleteDay(state, dayKey, defaultGross = 5, overrides = []) {
+  const overrideMap = new Map(overrides.map((row) => [`${row.slotIndex}|${row.playerName}|${row.hole}`, row.gross]));
+  for (let slotIndex = 0; slotIndex < 4; slotIndex += 1) {
+    const view = getScorecardView(state, dayKey, slotIndex);
+    view.players.forEach((player) => {
+      for (let hole = 1; hole <= 18; hole += 1) {
+        const key = `${slotIndex}|${player.name}|${hole}`;
+        const gross = overrideMap.has(key) ? overrideMap.get(key) : defaultGross;
+        updateHoleScore(state, { dayKey, slotIndex, playerName: player.name, hole, gross });
+      }
+    });
+  }
+}
 
 function run() {
   const workbookStrokeState = defaultTinCupLiveState();
@@ -96,6 +115,40 @@ function run() {
   const mattWorkbookRow = leaderboard.workbookResults.find((row) => row.name === 'Matt');
   assert(mattWorkbookRow && typeof mattWorkbookRow.ctpWins === 'number' && typeof mattWorkbookRow.longDriveWins === 'number', 'Workbook audit rows should include marker counts');
 
+  assert.throws(() => {
+    pickSecretSnowmanWinner(defaultTinCupLiveState(), { dayKey: 'Day 1' });
+  }, /All scores for Day 1 must be entered/, 'Secret Snowman draw should require a fully entered day');
+
+  const noEightState = defaultTinCupLiveState();
+  fillCompleteDay(noEightState, 'Day 1', 5);
+  assert.throws(() => {
+    pickSecretSnowmanWinner(noEightState, { dayKey: 'Day 1' });
+  }, /No score of 8 was entered on Day 1/, 'Secret Snowman draw should require at least one score of 8');
+
+  const snowmanState = defaultTinCupLiveState();
+  fillCompleteDay(snowmanState, 'Day 1', 5, [{ slotIndex: 0, playerName: 'Matt', hole: 7, gross: 8 }]);
+  const snowmanDraw = pickSecretSnowmanWinner(snowmanState, { dayKey: 'Day 1' });
+  assert.strictEqual(snowmanDraw.picked.playerName, 'Matt', 'Secret Snowman draw should pick the player attached to the selected 8');
+  assert.strictEqual(snowmanDraw.picked.label, 'Group 1', 'Secret Snowman draw should report the foursome label');
+  assert.strictEqual(snowmanDraw.picked.hole, 7, 'Secret Snowman draw should report the winning hole');
+  const snowmanDayRow = (snowmanDraw.sideGames.secretSnowman.days || []).find((row) => row.dayKey === 'Day 1');
+  assert(snowmanDayRow && snowmanDayRow.winner === 'Matt', 'Secret Snowman draw should persist the winner into side-game state');
+
+  const autoSubmitState = defaultTinCupLiveState();
+  fillCompleteDay(autoSubmitState, 'Day 1', 5);
+  const autoSubmit = maybeAutoSubmitScorecard(autoSubmitState, { dayKey: 'Day 1', slotIndex: 0, scorerName: 'Rick' });
+  assert.strictEqual(autoSubmit.autoSubmitted, true, 'Completed scorecards should auto-submit');
+  assert.strictEqual(autoSubmit.view.submitted, true, 'Auto-submitted scorecards should come back locked');
+  assert.strictEqual(autoSubmit.view.submittedBy, 'Rick', 'Auto-submitted scorecards should use the active scorer name');
+
+  const autoSnowmanState = defaultTinCupLiveState();
+  fillCompleteDay(autoSnowmanState, 'Day 1', 5, [{ slotIndex: 1, playerName: 'Steve', hole: 12, gross: 8 }]);
+  const autoSnowman = maybeAutoDrawSecretSnowman(autoSnowmanState, { dayKey: 'Day 1' });
+  assert.strictEqual(autoSnowman.autoDrawn, true, 'Completed day with an 8 should auto-draw Secret Snowman');
+  assert(autoSnowman.picked && autoSnowman.picked.playerName === 'Steve', 'Auto-drawn Secret Snowman should report the matched player');
+  const autoSnowmanDayRow = (autoSnowman.sideGames.secretSnowman.days || []).find((row) => row.dayKey === 'Day 1');
+  assert(autoSnowmanDayRow && autoSnowmanDayRow.winner === 'Steve', 'Auto-drawn Secret Snowman should persist into side-game state');
+
   const mattBeforePenaltyRemoval = leaderboard.totals.find((row) => row.name === 'Matt');
   setPlayerPenalty(state, 'Matt', { champion: 0, rookie: 0 });
   const noPenaltyBoard = buildLeaderboard(state);
@@ -149,6 +202,43 @@ function run() {
     assert.strictEqual(auditRow.scramblePoints, leaderboardRow.scramble, `Workbook audit should mirror scramble points for ${auditRow.name}`);
     assert.strictEqual(auditRow.payoutTotal, payoutRow ? payoutRow.total : 0, `Workbook audit should mirror payout total for ${auditRow.name}`);
   });
+
+  const currentExportBoard = buildLeaderboard(state);
+  const currentMatt = currentExportBoard.totals.find((row) => row.name === 'Matt');
+  const exportRows = buildCompetitionExportRows(state, {
+    tripId: 'trip-123',
+    tripName: 'Tin Cup 2026',
+    tripStartDate: '2026-03-01T00:00:00.000Z',
+    tripEndDate: '2026-03-05T23:59:59.999Z',
+    exportedAt: '2026-03-06T12:00:00.000Z',
+  });
+  const summaryRow = exportRows.find((row) => row.rowType === 'trip_summary');
+  assert(summaryRow && summaryRow.tripName === 'Tin Cup 2026', 'Competition export should include a trip summary row');
+  const mattExport = exportRows.find((row) => row.rowType === 'player_total' && row.playerName === 'Matt');
+  assert(mattExport && currentMatt && mattExport.tripTotal === currentMatt.total, 'Competition export should include per-player final totals');
+  const practiceExport = exportRows.find((row) => row.rowType === 'match_day' && row.dayKey === 'Practice' && row.playerName === 'Matt');
+  assert(practiceExport, 'Competition export should include practice match rows');
+  const mattScorecardExport = exportRows.find((row) => row.rowType === 'scorecard_player' && row.dayKey === 'Day 1' && row.playerName === 'Matt');
+  assert(mattScorecardExport && Object.prototype.hasOwnProperty.call(mattScorecardExport, 'hole18'), 'Competition export should include full hole-by-hole scorecard rows');
+  const markerExport = exportRows.find((row) => row.rowType === 'marker' && row.type === 'ctp');
+  assert(markerExport, 'Competition export should include marker winner rows');
+  const sideGameExport = exportRows.find((row) => row.rowType === 'side_game' && row.type === 'secretSnowman' && row.dayKey === 'Day 1');
+  assert(sideGameExport && sideGameExport.winner, 'Competition export should include side-game winner rows');
+  const scrambleExport = exportRows.find((row) => row.rowType === 'scramble_team' && row.teamLabel === 'Team 1');
+  assert(scrambleExport && Object.prototype.hasOwnProperty.call(scrambleExport, 'hole18'), 'Competition export should include scramble team rows');
+  const skinsExport = exportRows.find((row) => row.rowType === 'skin_hole' && row.hasSkin === true);
+  assert(skinsExport, 'Competition export should include skins hole rows');
+
+  const exportCsv = buildCompetitionExportCsv(state, {
+    tripId: 'trip-123',
+    tripName: 'Tin Cup 2026',
+    tripStartDate: '2026-03-01T00:00:00.000Z',
+    tripEndDate: '2026-03-05T23:59:59.999Z',
+    exportedAt: '2026-03-06T12:00:00.000Z',
+  });
+  assert(exportCsv.includes('player_total'), 'Competition export CSV should include final leaderboard rows');
+  assert(exportCsv.includes('scorecard_player'), 'Competition export CSV should include hole-by-hole scorecard rows');
+  assert(exportCsv.includes('scramble_team'), 'Competition export CSV should include scramble rows');
 
   const day3Rows = buildDayRows(leaderboard, 'Day 3');
   const mattDay3 = day3Rows.find((row) => row.name === 'Matt');

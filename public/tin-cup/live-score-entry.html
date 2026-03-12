@@ -187,15 +187,18 @@
         <h1 class="golf-title" style="margin:0;font-size:1.35rem;">Tin Cup Scoring / Inputs</h1>
         <div id="entryIntro" class="muted">Live score entry, special scoring inputs, golfer roster setup, and scoring configuration.</div>
       </div>
-      <a href="/tin-cup/trip-2026.html">Back to Tin Cup 2026</a>
+      <div class="row" style="justify-content:flex-end;">
+        <a id="adminGuideLink" href="/tin-cup/admin-guide.html">Admin Guide</a>
+        <a id="backToTripLink" href="/tin-cup/trip-2026.html">Back to Tin Cup 2026</a>
+      </div>
     </div>
 
     <div class="section-label">Live Scoring</div>
     <div class="card" id="scorecardLinksCard">
       <details>
-        <summary class="setup-summary">Live Scorecard Access</summary>
+        <summary class="setup-summary">Live Scorecards</summary>
         <div class="head">
-          <strong>Live Scorecard Access</strong>
+          <strong>Live Scorecards</strong>
           <label>Day
             <select id="linkDaySelect"></select>
           </label>
@@ -250,7 +253,7 @@
     <div class="card" id="sideGamesCard">
       <details>
         <summary class="setup-summary">Side Game Winners</summary>
-        <div class="muted" style="margin-top:4px;">Assign Long Putt and Secret Snowman winners for the spreadsheet side-game payouts.</div>
+        <div class="muted" style="margin-top:4px;">Assign Long Putt manually. Secret Snowman is drawn from a random 8 on a fully entered day.</div>
         <div id="sideGamesWrap" class="table-wrap" style="margin-top:10px;"></div>
       </details>
     </div>
@@ -355,6 +358,14 @@
           <span id="adminStatus" class="muted"></span>
         </div>
         <div id="generatedCodes" class="muted" style="margin-top:8px;"></div>
+        <div class="scorecard-access-box" style="margin-top:12px;">
+          <strong>Final Competition Export</strong>
+          <div class="muted" style="margin-top:4px;">Available after the Tin Cup trip end date. Downloads one CSV with final standings, scorecards, scramble results, skins, markers, side games, and payouts.</div>
+          <div class="row" style="margin-top:8px;">
+            <button id="exportCompetitionCsvBtn" type="button">Export Final Competition CSV</button>
+            <span id="exportCompetitionStatus" class="muted"></span>
+          </div>
+        </div>
       </details>
     </div>
 
@@ -389,6 +400,8 @@
     const seedScoresBtn = document.getElementById('seedScoresBtn');
     const adminStatus = document.getElementById('adminStatus');
     const generatedCodes = document.getElementById('generatedCodes');
+    const exportCompetitionCsvBtn = document.getElementById('exportCompetitionCsvBtn');
+    const exportCompetitionStatus = document.getElementById('exportCompetitionStatus');
     const sideGamesWrap = document.getElementById('sideGamesWrap');
     const entryIntro = document.getElementById('entryIntro');
     const scorecardLinksCard = document.getElementById('scorecardLinksCard');
@@ -508,6 +521,25 @@
         if (parsed && (parsed.secondary === '0' || parsed.secondary === 0 || parsed.secondary === false)) useSecondaryTripDb = false;
       } catch (_err) {}
     })();
+
+    const buildTinCupContextHref = (path) => {
+      if (!tripId) {
+        if (/\/tin-cup\/live-score-entry\.html$/i.test(path)) {
+          const sep = path.includes('?') ? '&' : '?';
+          return `${path}${sep}local=1`;
+        }
+        return path;
+      }
+      const sep = path.includes('?') ? '&' : '?';
+      return `${path}${sep}tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}`;
+    };
+
+    function syncPageLinks() {
+      const guideLink = document.getElementById('adminGuideLink');
+      const backLink = document.getElementById('backToTripLink');
+      if (guideLink) guideLink.href = buildTinCupContextHref('/tin-cup/admin-guide.html');
+      if (backLink) backLink.href = buildTinCupContextHref('/tin-cup/trip-2026.html');
+    }
 
     function getDaySlots(dayKey = '') {
       return FOURSOMES.map((group, index) => ({
@@ -867,6 +899,22 @@
         submitted: Boolean(card.submittedAt),
         updatedAt: card.updatedAt
       };
+    }
+
+    function maybeAutoSubmitLocalCard(dayKey, slotIndex, scorerName = '') {
+      const { state, card } = ensureLocalCard(dayKey, slotIndex);
+      if (card.submittedAt) return { autoSubmitted: false, view: buildLocalScorecardView(dayKey, slotIndex) };
+      const view = buildLocalScorecardView(dayKey, slotIndex);
+      const allComplete = Array.isArray(view.players) && view.players.every((player) => player && player.complete18 === true);
+      if (!allComplete) return { autoSubmitted: false, view };
+      card.scorerName = String(scorerName || card.scorerName || '').trim();
+      card.submittedAt = card.submittedAt || new Date().toISOString();
+      card.submittedBy = String(scorerName || card.submittedBy || card.scorerName || 'Unknown scorer').trim() || 'Unknown scorer';
+      card.updatedAt = new Date().toISOString();
+      state.scorecards[localKey(dayKey, slotIndex)] = card;
+      saveLocalLiveState(state);
+      computeAndStoreLocalTinCupState();
+      return { autoSubmitted: true, view: buildLocalScorecardView(dayKey, slotIndex) };
     }
 
     function computeAndStoreLocalTinCupState() {
@@ -1633,7 +1681,9 @@
         const payload = sideGames[section.key] || { days: [], totals: [] };
         const days = Array.isArray(payload.days) ? payload.days : [];
         const totals = Array.isArray(payload.totals) ? payload.totals : [];
-        const table = `<table><thead><tr><th>${esc(section.label)}</th><th>Winner</th></tr></thead><tbody>${days.map((row) => `<tr><td><strong>${esc(row.dayKey)}</strong></td><td><select data-side-game="${esc(section.key)}|${esc(row.dayKey)}"${localMode ? ' disabled' : ''}>${players.map((name) => `<option value="${esc(name)}"${String(name) === String(row.winner || '') ? ' selected' : ''}>${name ? esc(name) : '-'}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table>`;
+        const table = section.key === 'secretSnowman'
+          ? `<table><thead><tr><th>${esc(section.label)}</th><th>Selected Player</th><th>Action</th></tr></thead><tbody>${days.map((row) => `<tr><td><strong>${esc(row.dayKey)}</strong></td><td>${row.winner ? `<strong>${esc(row.winner)}</strong>` : '<span class="muted">Not drawn yet</span>'}</td><td><button type="button" data-secret-snowman-draw="${esc(row.dayKey)}"${localMode ? ' disabled' : ''}>Pick Random 8</button></td></tr>`).join('')}</tbody></table><div class="muted" style="margin-top:8px;">Requires all scores for that day to be entered. The draw picks a random scorecard first, then a random hole on that card that scored 8.</div>`
+          : `<table><thead><tr><th>${esc(section.label)}</th><th>Winner</th></tr></thead><tbody>${days.map((row) => `<tr><td><strong>${esc(row.dayKey)}</strong></td><td><select data-side-game="${esc(section.key)}|${esc(row.dayKey)}"${localMode ? ' disabled' : ''}>${players.map((name) => `<option value="${esc(name)}"${String(name) === String(row.winner || '') ? ' selected' : ''}>${name ? esc(name) : '-'}</option>`).join('')}</select></td></tr>`).join('')}</tbody></table>`;
         const summary = totals.length
           ? `<div class="muted" style="margin-top:8px;">${totals.map((row) => `${esc(row.name)} (${esc(row.wins)})`).join(' | ')}</div>`
           : '<div class="muted" style="margin-top:8px;">No winners recorded yet.</div>';
@@ -1659,6 +1709,25 @@
       const payload = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(payload.error || 'Failed to save side game winner');
       return payload.sideGames || {};
+    }
+
+    async function drawSecretSnowman(dayKey) {
+      if (localMode) throw new Error('Secret Snowman drawing requires a linked Tin Cup trip.');
+      const id = await resolveTripId();
+      let adminCode = String(adminCodeInput.value || '').trim();
+      if (!adminCode) {
+        adminCode = String(window.prompt('Enter admin code to draw Secret Snowman:') || '').trim();
+        if (adminCode) adminCodeInput.value = adminCode;
+      }
+      if (!adminCode) throw new Error('Admin code required');
+      const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/admin/side-game/secret-snowman`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-admin-code': adminCode },
+        body: JSON.stringify({ dayKey })
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Failed to draw Secret Snowman');
+      return payload;
     }
 
     async function saveScrambleHole(teamIndex, hole, gross) {
@@ -1864,6 +1933,53 @@
       settings = (payload && payload.settings) ? payload.settings : nextSettings;
       return settings;
     }
+
+    function getDownloadFilename(disposition, fallback = 'tin-cup-final-competition.csv') {
+      const raw = String(disposition || '');
+      const utfMatch = /filename\*=UTF-8''([^;]+)/i.exec(raw);
+      if (utfMatch && utfMatch[1]) {
+        try { return decodeURIComponent(utfMatch[1]); } catch (_err) {}
+      }
+      const plainMatch = /filename="?([^";]+)"?/i.exec(raw);
+      return plainMatch && plainMatch[1] ? plainMatch[1] : fallback;
+    }
+
+    async function exportCompetitionCsv() {
+      if (localMode) throw new Error('Competition export requires a linked Tin Cup trip.');
+      const id = await resolveTripId();
+      let adminCode = String(adminCodeInput.value || '').trim();
+      if (!adminCode) {
+        adminCode = String(window.prompt('Enter admin code to export the final competition CSV:') || '').trim();
+        if (adminCode) adminCodeInput.value = adminCode;
+      }
+      if (!adminCode) throw new Error('Admin code required');
+      const res = await fetch(tripApi(`/api/trips/${id}/tin-cup/live/export.csv`), {
+        headers: { 'x-admin-code': adminCode }
+      });
+      const rawText = await res.text();
+      if (!res.ok) {
+        let message = 'Failed to export final competition CSV';
+        try {
+          const payload = rawText ? JSON.parse(rawText) : {};
+          message = payload.error || message;
+        } catch (_err) {
+          if (rawText) message = rawText;
+        }
+        throw new Error(message);
+      }
+      const filename = getDownloadFilename(res.headers.get('content-disposition'));
+      const blob = new Blob([rawText], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      return filename;
+    }
+
     function getWorkbookConfigValue(pathKey = '', fallback = '') {
       const config = meta && meta.config ? meta.config : null;
       if (!config) return fallback;
@@ -2160,6 +2276,7 @@
       adminLiveLeaderboardToggle.disabled = localMode;
       adminCodeProtectToggle.checked = settings.enableFoursomeCodes === true;
       adminCodeProtectToggle.disabled = localMode || !settings.enableLiveFoursomeScoring;
+      exportCompetitionCsvBtn.disabled = localMode;
       liveSettingsStatus.textContent = localMode
         ? 'Link the Tin Cup trip to the database to manage scorecard access settings here.'
         : (!settings.enableLiveFoursomeScoring
@@ -2496,13 +2613,16 @@
         state.scorecards[localKey(active.dayKey, active.slotIndex)] = card;
         saveLocalLiveState(state);
         computeAndStoreLocalTinCupState();
-        const payload = buildLocalScorecardView(active.dayKey, active.slotIndex);
+        const autoSubmit = maybeAutoSubmitLocalCard(active.dayKey, active.slotIndex, active.scorerName);
+        const payload = autoSubmit && autoSubmit.view ? autoSubmit.view : buildLocalScorecardView(active.dayKey, active.slotIndex);
         active.view = payload;
         renderScorecard(payload);
         renderHoleEntry(payload);
         renderMarkers(payload);
         statusEl.className = 'ok';
-        statusEl.textContent = `Saved ${playerName} H${hole} (local)`;
+        statusEl.textContent = autoSubmit && autoSubmit.autoSubmitted
+          ? `Saved ${playerName} H${hole} and scorecard auto-locked (local)`
+          : `Saved ${playerName} H${hole} (local)`;
         return;
       }
 
@@ -2530,7 +2650,17 @@
       renderHoleEntry(payload);
       renderMarkers(payload);
       statusEl.className = 'ok';
-      statusEl.textContent = `Saved ${playerName} H${hole}`;
+      if (payload && payload.sideGames && meta && typeof meta === 'object') meta.sideGames = payload.sideGames;
+      const autoSnowman = payload && payload.autoSecretSnowman && typeof payload.autoSecretSnowman === 'object' ? payload.autoSecretSnowman : null;
+      if (payload && payload.autoSubmitted && autoSnowman) {
+        statusEl.textContent = `Saved ${playerName} H${hole}, scorecard auto-locked, Secret Snowman: ${autoSnowman.playerName} from ${autoSnowman.label} H${autoSnowman.hole}`;
+      } else if (payload && payload.autoSubmitted) {
+        statusEl.textContent = `Saved ${playerName} H${hole} and scorecard auto-locked`;
+      } else if (autoSnowman) {
+        statusEl.textContent = `Saved ${playerName} H${hole}. Secret Snowman: ${autoSnowman.playerName} from ${autoSnowman.label} H${autoSnowman.hole}`;
+      } else {
+        statusEl.textContent = `Saved ${playerName} H${hole}`;
+      }
     }
 
     async function saveMarker(type, hole, winner) {
@@ -2671,7 +2801,8 @@
           card.updatedAt = new Date().toISOString();
           state.scorecards[localKey(dayKey, slotIndex)] = card;
           saveLocalLiveState(state);
-          view = buildLocalScorecardView(dayKey, slotIndex);
+          const autoSubmit = maybeAutoSubmitLocalCard(dayKey, slotIndex, scorerName);
+          view = autoSubmit && autoSubmit.view ? autoSubmit.view : buildLocalScorecardView(dayKey, slotIndex);
           active = { dayKey, slotIndex, code, view, scorerName };
         } else {
           view = await openRemoteScorecard(dayKey, slotIndex, scorerName, code);
@@ -2686,7 +2817,9 @@
         expandCard('markersCard');
         holeEntryCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
         statusEl.className = 'ok';
-        statusEl.textContent = localMode ? `Local scorecard opened for ${scorerName}.` : `Scorecard opened for ${scorerName}.`;
+        statusEl.textContent = view && view.autoSubmitted
+          ? (localMode ? `Local scorecard opened for ${scorerName} and auto-locked because all holes were already entered.` : `Scorecard opened for ${scorerName} and auto-locked because all holes were already entered.`)
+          : (localMode ? `Local scorecard opened for ${scorerName}.` : `Scorecard opened for ${scorerName}.`);
       } catch (error) {
         if (/Invalid foursome code/i.test(String(error && error.message || ''))) {
           saveStoredScorecardCode(dayKey, slotIndex, '');
@@ -2741,6 +2874,30 @@
       } catch (error) {
         adminStatus.className = 'bad';
         adminStatus.textContent = error && error.message ? error.message : 'Failed to save side game winner';
+      }
+    });
+
+    sideGamesWrap.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-secret-snowman-draw]');
+      if (!button) return;
+      const dayKey = String(button.dataset.secretSnowmanDraw || '').trim();
+      if (!dayKey) return;
+      try {
+        adminStatus.className = 'muted';
+        adminStatus.textContent = `Drawing Secret Snowman for ${dayKey}...`;
+        button.disabled = true;
+        const payload = await drawSecretSnowman(dayKey);
+        meta.sideGames = payload.sideGames || {};
+        renderSideGamesCard();
+        const picked = payload && payload.picked && typeof payload.picked === 'object' ? payload.picked : null;
+        adminStatus.className = 'ok';
+        adminStatus.textContent = picked
+          ? `Secret Snowman: ${picked.playerName} from ${picked.label} hole ${picked.hole}.`
+          : 'Secret Snowman winner drawn.';
+      } catch (error) {
+        button.disabled = false;
+        adminStatus.className = 'bad';
+        adminStatus.textContent = error && error.message ? error.message : 'Failed to draw Secret Snowman';
       }
     });
 
@@ -2991,6 +3148,22 @@
       }
     });
 
+    exportCompetitionCsvBtn.addEventListener('click', async () => {
+      exportCompetitionStatus.className = 'muted';
+      exportCompetitionStatus.textContent = 'Preparing final competition CSV...';
+      exportCompetitionCsvBtn.disabled = true;
+      try {
+        const filename = await exportCompetitionCsv();
+        exportCompetitionStatus.className = 'ok';
+        exportCompetitionStatus.textContent = `Downloaded ${filename}`;
+      } catch (error) {
+        exportCompetitionStatus.className = 'bad';
+        exportCompetitionStatus.textContent = error && error.message ? error.message : 'Failed to export final competition CSV';
+      } finally {
+        exportCompetitionCsvBtn.disabled = localMode;
+      }
+    });
+
 
     function formatSeedSummary(payload) {
       const topFive = Array.isArray(payload && payload.topFive) ? payload.topFive : [];
@@ -3120,6 +3293,7 @@
     });
     (async () => {
       try {
+        syncPageLinks();
         initGolferSetupRows();
         meta = await fetchMeta();
         const queryDay = getQueryValue('dayKey');
