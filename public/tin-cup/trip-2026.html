@@ -1308,6 +1308,18 @@
       if (!useSecondaryTripDb) return path;
       return path.includes('?') ? `${path}&myrtleBeach2026=true` : `${path}?myrtleBeach2026=true`;
     };
+    const isTinCupTrip = (candidate) => {
+      const tripLike = candidate && typeof candidate === 'object' && candidate.trip ? candidate.trip : candidate;
+      if (!tripLike || typeof tripLike !== 'object') return false;
+      return /tin\s*cup/i.test(String(tripLike.name || ''))
+        || /tin\s*cup/i.test(String(tripLike.groupName || ''))
+        || /tin\s*cup/i.test(String(tripLike.reservationNumber || ''))
+        || Boolean(tripLike.tinCupLive && typeof tripLike.tinCupLive === 'object');
+    };
+    const findTinCupTrip = (trips) => {
+      const list = Array.isArray(trips) ? trips : [];
+      return list.find((entry) => isTinCupTrip(entry)) || null;
+    };
     const buildTinCupContextHref = (path) => {
       if (!tripId) {
         if (/\/tin-cup\/live-score-entry\.html$/i.test(path)) {
@@ -1328,6 +1340,51 @@
         }));
       } catch (_err) {}
     };
+    const loadTinCupTripContext = () => {
+      const qs = new URLSearchParams(window.location.search);
+      const forcedTripId = String(qs.get('tripId') || '').trim();
+      const forcedSecondary = String(qs.get('secondary') || '').trim();
+      if (forcedSecondary === '1' || forcedSecondary.toLowerCase() === 'true') useSecondaryTripDb = true;
+      if (forcedSecondary === '0' || forcedSecondary.toLowerCase() === 'false') useSecondaryTripDb = false;
+      if (forcedTripId) {
+        tripId = forcedTripId;
+        return;
+      }
+      try {
+        const raw = localStorage.getItem(TIN_CUP_CONTEXT_STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.tripId) tripId = String(parsed.tripId);
+        if (parsed && (parsed.secondary === '1' || parsed.secondary === 1 || parsed.secondary === true)) useSecondaryTripDb = true;
+        if (parsed && (parsed.secondary === '0' || parsed.secondary === 0 || parsed.secondary === false)) useSecondaryTripDb = false;
+      } catch (_err) {}
+    };
+    async function fetchTripsFromSource(secondaryFlag) {
+      const previous = useSecondaryTripDb;
+      useSecondaryTripDb = secondaryFlag === true;
+      try {
+        const res = await fetch(tripApi('/api/trips'));
+        const payload = await res.json().catch(() => ([]));
+        return Array.isArray(payload) ? payload : [];
+      } finally {
+        useSecondaryTripDb = previous;
+      }
+    }
+    async function fetchTripBundleFromSource(candidateTripId, secondaryFlag) {
+      if (!candidateTripId) return null;
+      const previous = useSecondaryTripDb;
+      useSecondaryTripDb = secondaryFlag === true;
+      try {
+        const res = await fetch(tripApi(`/api/trips/${candidateTripId}`));
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok || !isTinCupTrip(payload)) return null;
+        return payload;
+      } catch (_error) {
+        return null;
+      } finally {
+        useSecondaryTripDb = previous;
+      }
+    }
     const safeNumber = (val) => (val === '' || isNaN(val) ? 0 : parseFloat(val));
     const getCondoCount = () => {
       const size = Number(trip?.baseGroupSize) || Number(trip?.groupSize) || DEFAULT_TRIP.groupSize;
@@ -2182,16 +2239,32 @@
 
     async function loadTrip() {
       if (!tinCupScoringState) tinCupScoringState = loadTinCupScoringState();
-      useSecondaryTripDb = false;
-      let res = await fetch(tripApi('/api/trips'));
-      let trips = await res.json();
-      trip = trips.find((t) => t.name && /tin\s*cup/i.test(String(t.name || ''))) || null;
-      if (!trip) {
-        useSecondaryTripDb = true;
-        res = await fetch(tripApi('/api/trips'));
-        trips = await res.json();
-        trip = trips.find((t) => t.name && /tin\s*cup/i.test(String(t.name || ''))) || null;
+      loadTinCupTripContext();
+      const preferredOrder = useSecondaryTripDb ? [true, false] : [false, true];
+      trip = null;
+      if (tripId) {
+        for (const secondaryFlag of preferredOrder) {
+          const bundle = await fetchTripBundleFromSource(tripId, secondaryFlag);
+          if (!bundle || !bundle.trip || !bundle.trip._id) continue;
+          trip = bundle.trip;
+          tripId = String(bundle.trip._id);
+          useSecondaryTripDb = secondaryFlag;
+          break;
+        }
       }
+      if (!trip) {
+        tripId = null;
+        for (const secondaryFlag of preferredOrder) {
+          const trips = await fetchTripsFromSource(secondaryFlag);
+          const match = findTinCupTrip(trips);
+          if (!match || !match._id) continue;
+          trip = match;
+          tripId = String(match._id);
+          useSecondaryTripDb = secondaryFlag;
+          break;
+        }
+      }
+      if (!trip) useSecondaryTripDb = preferredOrder[0] === true;
       tripId = trip ? trip._id : null;
       window.tripId = tripId;
       const auditLink = document.getElementById('tripAuditLink');
