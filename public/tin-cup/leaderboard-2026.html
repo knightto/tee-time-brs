@@ -8,7 +8,7 @@
   <style>
     :root { --bg:#112417; --panel:#274235; --ink:#f9f3e7; --ink-soft:#d2dfc3; --line:rgba(232,255,219,.14); --accent:#c89a4b; --icon-flag:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23c89a4b' d='M6 3a1 1 0 0 1 1 1v2h9.6l-1.3 3 1.3 3H7v8H5V4a1 1 0 0 1 1-1Z'/%3E%3Ccircle cx='6' cy='20' r='2' fill='%23d2dfc3'/%3E%3C/svg%3E"); --icon-ball:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9' fill='%23f9f3e7' stroke='%23c89a4b' stroke-width='1.5'/%3E%3Ccircle cx='9' cy='9' r='1' fill='%23c89a4b'/%3E%3Ccircle cx='13.5' cy='8' r='1' fill='%23c89a4b'/%3E%3Ccircle cx='15.5' cy='12' r='1' fill='%23c89a4b'/%3E%3Ccircle cx='10.5' cy='14' r='1' fill='%23c89a4b'/%3E%3Ccircle cx='13.5' cy='16' r='1' fill='%23c89a4b'/%3E%3C/svg%3E"); }
     * { box-sizing: border-box; }
-    body { margin:0; font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif; color:var(--ink); background:radial-gradient(circle at 20% 20%, rgba(200,154,75,.14), transparent 35%), #112417; }
+    body { margin:0; font-family:'Segoe UI','Helvetica Neue',Arial,sans-serif; color:var(--ink); background:radial-gradient(circle at 20% 20%, rgba(200,154,75,.14), transparent 35%), #112417; padding-bottom:84px; }
     .wrap { max-width:1120px; margin:18px auto 36px; padding:0 14px; }
     .hero,.card { background:linear-gradient(145deg,var(--panel) 0%, #1f3427 100%); border:1px solid var(--line); border-radius:14px; padding:14px; margin-bottom:12px; }
     .section-label { margin:18px 0 8px; color:var(--ink-soft); font-size:.78rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
@@ -106,6 +106,93 @@
     .report-place-value { color:var(--ink-soft); font-size:.84rem; }
     .report-proof { display:grid; gap:6px; color:var(--ink-soft); font-size:.86rem; }
     .report-empty { color:var(--ink-soft); font-size:.9rem; }
+    .mobile-view-row,
+    .status-row {
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-bottom:12px;
+    }
+    .view-btn,
+    .status-chip,
+    .bottom-nav-link {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:#173224;
+      color:var(--ink);
+      text-decoration:none;
+      font-weight:700;
+    }
+    .view-btn {
+      padding:8px 12px;
+      font-size:.82rem;
+      cursor:pointer;
+    }
+    .view-btn.active {
+      border-color:rgba(200,154,75,.75);
+      background:rgba(200,154,75,.22);
+      color:#f4e5bf;
+    }
+    .status-chip {
+      padding:6px 10px;
+      font-size:.78rem;
+      background:rgba(255,255,255,.05);
+    }
+    .status-chip.warn {
+      border-color:rgba(200,154,75,.45);
+      color:#f4e5bf;
+    }
+    .app-bottom-nav {
+      position:fixed;
+      left:12px;
+      right:12px;
+      bottom:12px;
+      z-index:1200;
+      display:flex;
+      gap:8px;
+      justify-content:space-between;
+      padding:8px;
+      background:rgba(16, 36, 29, .96);
+      border:1px solid var(--line);
+      border-radius:16px;
+      backdrop-filter:blur(12px);
+      box-shadow:0 18px 40px rgba(0,0,0,.28);
+    }
+    .bottom-nav-link {
+      flex:1 1 0;
+      min-width:0;
+      padding:8px 6px;
+      background:transparent;
+      border-color:transparent;
+      font-size:.74rem;
+      text-align:center;
+      color:var(--ink-soft);
+    }
+    .bottom-nav-link.active {
+      background:rgba(200,154,75,.18);
+      border-color:rgba(200,154,75,.5);
+      color:#f4e5bf;
+    }
+    .mobile-highlight-card {
+      display:grid;
+      gap:8px;
+    }
+    @media (max-width: 640px) {
+      .app-bottom-nav {
+        left:10px;
+        right:10px;
+        bottom:10px;
+        gap:4px;
+      }
+      .bottom-nav-link {
+        font-size:.7rem;
+        padding:8px 4px;
+      }
+    }
 
     @media print {
       body {
@@ -198,6 +285,22 @@
       </div>
     </div>
 
+    <div class="status-row">
+      <span id="resultsDataChip" class="status-chip">Data</span>
+      <span id="resultsRefreshChip" class="status-chip">Refresh</span>
+      <span id="resultsReportChip" class="status-chip">Report</span>
+    </div>
+
+    <div class="card mobile-highlight-card">
+      <div class="mobile-view-row">
+        <button class="view-btn active" type="button" data-view-target="tripBoardCard">Trip View</button>
+        <button class="view-btn" type="button" data-view-target="dayBoardCard">Today</button>
+        <button class="view-btn" type="button" data-view-target="readable-report">Winners</button>
+        <button class="view-btn" type="button" data-view-target="workbookAuditCard">Audit</button>
+      </div>
+      <div class="muted">Use these quick views on mobile to jump straight to the most relevant results without opening every section.</div>
+    </div>
+
     <div class="section-label">Standings</div>
     <div class="card" id="readable-report">
       <details>
@@ -209,12 +312,13 @@
         <div class="report-toolbar">
           <button id="generateReportBtn" class="report-btn" type="button">Generate Readable Report</button>
           <button id="printReportBtn" class="report-btn" type="button">Print / Save As PDF</button>
+          <button id="shareReportBtn" class="report-btn" type="button">Share Winners Summary</button>
         </div>
         <div id="readableReport"></div>
       </details>
     </div>
 
-    <div class="card">
+    <div class="card" id="tripBoardCard">
       <details>
         <summary class="section-summary">Live Tin Cup 2026 Leaderboard</summary>
         <div class="toolbar">
@@ -225,7 +329,7 @@
       </details>
     </div>
 
-    <div class="card">
+    <div class="card" id="dayBoardCard">
       <details>
         <summary class="section-summary">Live Day Leaderboard</summary>
         <div class="toolbar">
@@ -329,7 +433,7 @@
       </details>
     </div>
 
-    <div class="card">
+    <div class="card" id="workbookAuditCard">
       <details>
         <summary class="section-summary">Results Audit</summary>
         <div class="toolbar">
@@ -340,6 +444,13 @@
       </details>
     </div>
   </div>
+  <nav class="app-bottom-nav" aria-label="Tin Cup Navigation">
+    <a id="bottomNavTrip" class="bottom-nav-link" href="/tin-cup/trip-2026.html">Trip</a>
+    <a id="bottomNavScore" class="bottom-nav-link" href="/tin-cup/live-score-entry.html?mode=score">Score</a>
+    <a id="bottomNavResults" class="bottom-nav-link active" href="/tin-cup/leaderboard-2026.html">Results</a>
+    <a id="bottomNavLodging" class="bottom-nav-link" href="/tin-cup/guests-lodging.html">Lodging</a>
+    <a id="bottomNavAdmin" class="bottom-nav-link" href="/tin-cup/live-score-entry.html?mode=admin">Admin</a>
+  </nav>
 
   <script>
     const TIN_CUP_CONTEXT_STORAGE_KEY = 'tinCupTripContextV1';
@@ -372,6 +483,15 @@
     const readableReportEl = document.getElementById('readableReport');
     const generateReportBtn = document.getElementById('generateReportBtn');
     const printReportBtn = document.getElementById('printReportBtn');
+    const shareReportBtn = document.getElementById('shareReportBtn');
+    const resultsDataChip = document.getElementById('resultsDataChip');
+    const resultsRefreshChip = document.getElementById('resultsRefreshChip');
+    const resultsReportChip = document.getElementById('resultsReportChip');
+    const bottomNavTrip = document.getElementById('bottomNavTrip');
+    const bottomNavScore = document.getElementById('bottomNavScore');
+    const bottomNavResults = document.getElementById('bottomNavResults');
+    const bottomNavLodging = document.getElementById('bottomNavLodging');
+    const bottomNavAdmin = document.getElementById('bottomNavAdmin');
 
     let selectedDay = 'Day 1';
     let selectedMatchDay = 'Day 1';
@@ -948,6 +1068,18 @@
         const details = reportCard ? reportCard.querySelector('details') : null;
         if (details) details.open = true;
       }
+      if (resultsDataChip) {
+        resultsDataChip.textContent = useSecondaryTripDb ? 'Secondary trip database' : 'Primary trip database';
+        resultsDataChip.className = 'status-chip';
+      }
+      if (resultsRefreshChip) {
+        resultsRefreshChip.textContent = contextSource === 'local-fallback' ? 'Local fallback data' : 'Live linked refresh';
+        resultsRefreshChip.className = `status-chip${contextSource === 'local-fallback' ? ' warn' : ''}`;
+      }
+      if (resultsReportChip) {
+        resultsReportChip.textContent = 'Readable report ready';
+        resultsReportChip.className = 'status-chip';
+      }
       refreshEl.textContent = `Last refresh: ${new Date().toLocaleTimeString()}${contextSource === 'local-fallback' ? ' (local fallback)' : ''}`;
       if (shouldAutoPrintReadableReport() && !autoPrintTriggered) {
         autoPrintTriggered = true;
@@ -1013,6 +1145,17 @@
       render();
     });
 
+    document.addEventListener('click', (event) => {
+      const btn = event.target.closest('[data-view-target]');
+      if (!btn) return;
+      const target = document.getElementById(String(btn.dataset.viewTarget || '').trim());
+      if (!target) return;
+      document.querySelectorAll('[data-view-target]').forEach((node) => node.classList.toggle('active', node === btn));
+      const details = target.querySelector('details');
+      if (details) details.open = true;
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+
     generateReportBtn.addEventListener('click', () => {
       renderReadableReport(latestPayload || {});
     });
@@ -1022,7 +1165,41 @@
       window.print();
     });
 
+    shareReportBtn.addEventListener('click', async () => {
+      if (!latestPayload) renderReadableReport({});
+      const totals = Array.isArray((latestPayload || {}).totals) ? latestPayload.totals.slice(0, 3) : [];
+      const payouts = Array.isArray(((latestPayload || {}).payouts || {}).rows) ? latestPayload.payouts.rows.slice(0, 3) : [];
+      const text = [
+        'Tin Cup Winners Summary',
+        ...totals.map((row, index) => `${index + 1}. ${row.name} - ${row.total} pts`),
+        payouts.length ? `Top payout: ${payouts[0].name} - $${Math.round(Number(payouts[0].total || 0))}` : ''
+      ].filter(Boolean).join('\n');
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: 'Tin Cup Winners Summary', text, url: window.location.href });
+          return;
+        }
+      } catch (_err) {}
+      try {
+        await navigator.clipboard.writeText(text);
+        if (resultsReportChip) {
+          resultsReportChip.textContent = 'Winners summary copied';
+          resultsReportChip.className = 'status-chip';
+        }
+      } catch (_err) {
+        if (resultsReportChip) {
+          resultsReportChip.textContent = 'Share unavailable';
+          resultsReportChip.className = 'status-chip warn';
+        }
+      }
+    });
+
     loadContext();
+    if (bottomNavTrip) bottomNavTrip.href = tripId ? `/tin-cup/trip-2026.html?tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}` : '/tin-cup/trip-2026.html';
+    if (bottomNavScore) bottomNavScore.href = tripId ? `/tin-cup/live-score-entry.html?tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}&mode=score` : '/tin-cup/live-score-entry.html?mode=score';
+    if (bottomNavResults) bottomNavResults.href = tripId ? `/tin-cup/leaderboard-2026.html?tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}` : '/tin-cup/leaderboard-2026.html';
+    if (bottomNavLodging) bottomNavLodging.href = tripId ? `/tin-cup/guests-lodging.html?tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}` : '/tin-cup/guests-lodging.html';
+    if (bottomNavAdmin) bottomNavAdmin.href = tripId ? `/tin-cup/live-score-entry.html?tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}&mode=admin` : '/tin-cup/live-score-entry.html?mode=admin';
     setInterval(render, 5000);
     render();
   </script>

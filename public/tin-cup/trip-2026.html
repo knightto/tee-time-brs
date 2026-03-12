@@ -108,6 +108,91 @@
       font: inherit;
       cursor: pointer;
     }
+    .mobile-dashboard {
+      display:grid;
+      gap:12px;
+      margin-top:16px;
+    }
+    .action-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+      gap:10px;
+    }
+    .action-card {
+      display:grid;
+      gap:6px;
+      padding:12px 14px;
+      border-radius:12px;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,0.05);
+      color:var(--ink);
+      text-decoration:none;
+    }
+    .action-card strong {
+      font-size:1rem;
+    }
+    .action-card .meta {
+      color:var(--ink-soft);
+      font-size:.8rem;
+      line-height:1.45;
+    }
+    .mobile-status-row {
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .mobile-status-chip,
+    .bottom-nav-link {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,0.05);
+      color:var(--ink-soft);
+      padding:7px 10px;
+      font-size:.78rem;
+      font-weight:700;
+      text-decoration:none;
+    }
+    .mobile-status-chip.warn {
+      color:#f4e5bf;
+      border-color:rgba(200,154,75,.5);
+    }
+    .today-card {
+      display:grid;
+      gap:6px;
+    }
+    .app-bottom-nav {
+      position:fixed;
+      left:12px;
+      right:12px;
+      bottom:12px;
+      z-index:1200;
+      display:flex;
+      gap:8px;
+      justify-content:space-between;
+      padding:8px;
+      background:rgba(16, 36, 29, .96);
+      border:1px solid var(--border);
+      border-radius:16px;
+      backdrop-filter:blur(12px);
+      box-shadow:0 18px 40px rgba(0,0,0,.28);
+    }
+    .bottom-nav-link {
+      flex:1 1 0;
+      min-width:0;
+      padding:8px 6px;
+      background:transparent;
+      border-color:transparent;
+      text-align:center;
+    }
+    .bottom-nav-link.active {
+      background:rgba(200,154,75,.18);
+      border-color:rgba(200,154,75,.5);
+      color:#f4e5bf;
+    }
     .panel {
       background: linear-gradient(145deg, var(--panel) 0%, #1f3427 100%);
       border: 1px solid var(--border);
@@ -939,6 +1024,7 @@
     }
     @media (max-width: 640px) {
       .container { padding: 0 12px; }
+      body { padding-bottom:84px; }
       .cards-grid { grid-template-columns: 1fr; }
       .actions { grid-template-columns: 1fr; }
       #allParticipantsList ol { padding-left: 20px; }
@@ -947,6 +1033,16 @@
       }
       .trip-player-chip {
         font-size: 0.72rem;
+      }
+      .app-bottom-nav {
+        left:10px;
+        right:10px;
+        bottom:10px;
+        gap:4px;
+      }
+      .bottom-nav-link {
+        font-size:.7rem;
+        padding:8px 4px;
       }
     }
     @media (prefers-reduced-motion: reduce) {
@@ -964,10 +1060,41 @@
         <button id="tripInfoTrigger" class="chip chip-button" type="button">Trip Info</button>
         <a id="tinCupLiveLeaderboardChip" class="chip cta" href="/tin-cup/leaderboard-2026.html">Live Leaderboards</a>
         <a id="tinCupGuestsChip" class="chip cta" href="/tin-cup/guests-lodging.html">Lodging</a>
-        <a id="tinCupLiveEntryChip" class="chip cta" href="/tin-cup/live-score-entry.html">Scoring / Inputs</a>
+        <a id="tinCupLiveEntryChip" class="chip cta" href="/tin-cup/live-score-entry.html?mode=score">Score Now</a>
+        <a id="tinCupAdminSetupChip" class="chip cta" href="/tin-cup/live-score-entry.html?mode=admin">Admin / Setup</a>
         <a id="tinCupAdminGuideChip" class="chip cta" href="/tin-cup/admin-guide.html">Admin Guide</a>
       </div>
     </header>
+
+    <section class="panel mobile-dashboard">
+      <div class="mobile-status-row">
+        <span id="dashboardDataChip" class="mobile-status-chip">Data</span>
+        <span id="dashboardScoringChip" class="mobile-status-chip">Scoring</span>
+        <span id="dashboardResultsChip" class="mobile-status-chip">Results</span>
+      </div>
+      <div class="action-grid">
+        <a id="dashboardScoreLink" class="action-card" href="/tin-cup/live-score-entry.html?mode=score">
+          <strong>Score Now</strong>
+          <span class="meta">Open the mobile scorekeeper flow for the active foursome or scramble team.</span>
+        </a>
+        <a id="dashboardResultsLink" class="action-card" href="/tin-cup/leaderboard-2026.html">
+          <strong>Live Results</strong>
+          <span class="meta">See trip standings, day standings, winners, and final report views.</span>
+        </a>
+        <a id="dashboardLodgingLink" class="action-card" href="/tin-cup/guests-lodging.html">
+          <strong>Lodging</strong>
+          <span class="meta">Review condo assignments, payments, and unassigned golfers.</span>
+        </a>
+        <a id="dashboardAdminLink" class="action-card" href="/tin-cup/live-score-entry.html?mode=admin">
+          <strong>Admin / Setup</strong>
+          <span class="meta">Manage roster, rules, side games, exports, and competition reset tools.</span>
+        </a>
+      </div>
+      <div class="today-card">
+        <strong>Today At A Glance</strong>
+        <div id="todaySummary" class="meta">Loading current Tin Cup schedule...</div>
+      </div>
+    </section>
 
     <div class="trip-modal" id="tripInfoModal" hidden>
       <div class="trip-modal-backdrop" data-close-trip-info></div>
@@ -982,6 +1109,13 @@
     <div class="panel" id="topLocationLinks" style="margin-bottom:12px;"></div>
     <div class="panel" id="itineraryBox" style="margin-bottom:12px;"></div>
   </div>
+  <nav class="app-bottom-nav" aria-label="Tin Cup Navigation">
+    <a id="bottomNavTrip" class="bottom-nav-link active" href="/tin-cup/trip-2026.html">Trip</a>
+    <a id="bottomNavScore" class="bottom-nav-link" href="/tin-cup/live-score-entry.html?mode=score">Score</a>
+    <a id="bottomNavResults" class="bottom-nav-link" href="/tin-cup/leaderboard-2026.html">Results</a>
+    <a id="bottomNavLodging" class="bottom-nav-link" href="/tin-cup/guests-lodging.html">Lodging</a>
+    <a id="bottomNavAdmin" class="bottom-nav-link" href="/tin-cup/live-score-entry.html?mode=admin">Admin</a>
+  </nav>
   <a href="/admin.html" target="_blank" aria-label="Admin login" style="position:fixed;left:12px;bottom:12px;padding:8px 12px;border-radius:10px;background:#0c1a2c;color:#f9fafb;text-decoration:none;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);">ADMIN</a>
   <a id="tripAuditLink" href="/trip-audit.html" aria-label="Trip audit log" style="position:fixed;right:12px;bottom:12px;padding:8px 12px;border-radius:10px;background:#0c1a2c;color:#f9fafb;text-decoration:none;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);display:none;">Trip Audit</a>
   <script>
@@ -1330,6 +1464,12 @@
       }
       const sep = path.includes('?') ? '&' : '?';
       return `${path}${sep}tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}`;
+    };
+    const withExtraQuery = (path, queryText = '') => {
+      const base = buildTinCupContextHref(path);
+      if (!queryText) return base;
+      const sep = base.includes('?') ? '&' : '?';
+      return `${base}${sep}${queryText}`;
     };
     const saveTinCupTripContext = () => {
       if (!tripId) return;
@@ -2290,14 +2430,27 @@
     function renderTinCupLiveNavChips() {
       const guestsChip = document.getElementById('tinCupGuestsChip');
       const entryChip = document.getElementById('tinCupLiveEntryChip');
+      const adminChip = document.getElementById('tinCupAdminSetupChip');
       const boardChip = document.getElementById('tinCupLiveLeaderboardChip');
       const guideChip = document.getElementById('tinCupAdminGuideChip');
+      const dashboardScoreLink = document.getElementById('dashboardScoreLink');
+      const dashboardResultsLink = document.getElementById('dashboardResultsLink');
+      const dashboardLodgingLink = document.getElementById('dashboardLodgingLink');
+      const dashboardAdminLink = document.getElementById('dashboardAdminLink');
+      const bottomNavTrip = document.getElementById('bottomNavTrip');
+      const bottomNavScore = document.getElementById('bottomNavScore');
+      const bottomNavResults = document.getElementById('bottomNavResults');
+      const bottomNavLodging = document.getElementById('bottomNavLodging');
+      const bottomNavAdmin = document.getElementById('bottomNavAdmin');
       if (guestsChip) {
         guestsChip.href = buildTinCupContextHref('/tin-cup/guests-lodging.html');
       }
       if (entryChip) {
         entryChip.style.display = tinCupLiveSettings.enableLiveFoursomeScoring ? '' : 'none';
-        entryChip.href = buildTinCupContextHref('/tin-cup/live-score-entry.html');
+        entryChip.href = withExtraQuery('/tin-cup/live-score-entry.html', 'mode=score');
+      }
+      if (adminChip) {
+        adminChip.href = withExtraQuery('/tin-cup/live-score-entry.html', 'mode=admin');
       }
       if (boardChip) {
         boardChip.style.display = tinCupLiveSettings.enableLiveLeaderboard ? '' : 'none';
@@ -2306,6 +2459,43 @@
       if (guideChip) {
         guideChip.href = buildTinCupContextHref('/tin-cup/admin-guide.html');
       }
+      if (dashboardScoreLink) dashboardScoreLink.href = withExtraQuery('/tin-cup/live-score-entry.html', 'mode=score');
+      if (dashboardResultsLink) dashboardResultsLink.href = buildTinCupContextHref('/tin-cup/leaderboard-2026.html');
+      if (dashboardLodgingLink) dashboardLodgingLink.href = buildTinCupContextHref('/tin-cup/guests-lodging.html');
+      if (dashboardAdminLink) dashboardAdminLink.href = withExtraQuery('/tin-cup/live-score-entry.html', 'mode=admin');
+      if (bottomNavTrip) bottomNavTrip.href = buildTinCupContextHref('/tin-cup/trip-2026.html');
+      if (bottomNavScore) bottomNavScore.href = withExtraQuery('/tin-cup/live-score-entry.html', 'mode=score');
+      if (bottomNavResults) bottomNavResults.href = buildTinCupContextHref('/tin-cup/leaderboard-2026.html');
+      if (bottomNavLodging) bottomNavLodging.href = buildTinCupContextHref('/tin-cup/guests-lodging.html');
+      if (bottomNavAdmin) bottomNavAdmin.href = withExtraQuery('/tin-cup/live-score-entry.html', 'mode=admin');
+    }
+
+    function renderDashboardSummary() {
+      const todaySummary = document.getElementById('todaySummary');
+      const dataChip = document.getElementById('dashboardDataChip');
+      const scoringChip = document.getElementById('dashboardScoringChip');
+      const resultsChip = document.getElementById('dashboardResultsChip');
+      if (dataChip) {
+        dataChip.textContent = useSecondaryTripDb ? 'Secondary trip database' : 'Primary trip database';
+        dataChip.className = 'mobile-status-chip';
+      }
+      if (scoringChip) {
+        scoringChip.textContent = tinCupLiveSettings.enableLiveFoursomeScoring ? 'Scorekeeper open' : 'Scorekeeper paused';
+        scoringChip.className = `mobile-status-chip${tinCupLiveSettings.enableLiveFoursomeScoring ? '' : ' warn'}`;
+      }
+      if (resultsChip) {
+        resultsChip.textContent = tinCupLiveSettings.enableLiveLeaderboard ? 'Results visible' : 'Results hidden';
+        resultsChip.className = `mobile-status-chip${tinCupLiveSettings.enableLiveLeaderboard ? '' : ' warn'}`;
+      }
+      if (!todaySummary) return;
+      const rounds = Array.isArray(trip && trip.rounds) ? trip.rounds : DEFAULT_ROUNDS;
+      const nextRound = rounds.find((round) => Array.isArray(round.teeTimes) && round.teeTimes.length) || null;
+      if (!nextRound) {
+        todaySummary.textContent = 'No round details are available yet.';
+        return;
+      }
+      const firstTee = (nextRound.teeTimes || []).find((slot) => String(slot && slot.time || '').trim()) || {};
+      todaySummary.textContent = `${nextRound.course || 'Upcoming round'}${nextRound.date ? ` | ${formatDate(nextRound.date)}` : ''}${firstTee.time ? ` | First tee ${formatTime(firstTee.time)}` : ''}`;
     }
 
     async function saveTinCupLiveSettings(nextSettings) {
@@ -2338,6 +2528,7 @@
 
     function renderAll() {
       renderTinCupLiveNavChips();
+      renderDashboardSummary();
       renderTripSummary();
       renderTripLocationLinks();
       renderItinerary();

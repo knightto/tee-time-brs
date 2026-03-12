@@ -28,6 +28,7 @@
         radial-gradient(circle at 15% 15%, rgba(200,154,75,0.14), transparent 32%),
         radial-gradient(circle at 85% 0%, rgba(220,232,200,0.10), transparent 28%),
         #112417;
+      padding-bottom: 84px;
     }
     .container { max-width: 1150px; margin: 18px auto 34px; padding: 0 14px; }
     .panel {
@@ -61,9 +62,32 @@
       border: 1px solid var(--border);
       background: rgba(249,243,231,0.04);
       border-radius: 10px;
-      padding: 8px;
+      padding: 10px;
       display: grid;
       gap: 6px;
+    }
+    .participant-summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .participant-summary strong {
+      color: #fff;
+    }
+    .participant-meta {
+      color: var(--ink-soft);
+      font-size: 0.8rem;
+    }
+    .participant-card details > summary {
+      cursor: pointer;
+      color: var(--accent);
+      font-weight: 700;
+      list-style: none;
+    }
+    .participant-card details > summary::-webkit-details-marker {
+      display: none;
     }
     .fields-row {
       display: grid;
@@ -182,12 +206,77 @@
     button { cursor: pointer; font-weight: 700; }
     a.cta { color: var(--accent); text-decoration: none; font-weight: 700; }
     a.cta:hover { text-decoration: underline; }
+    .status-row,
+    .app-bottom-nav {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .status-chip,
+    .bottom-nav-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.05);
+      color: var(--ink-soft);
+      text-decoration: none;
+      font-weight: 700;
+    }
+    .status-chip {
+      padding: 7px 10px;
+      font-size: 0.78rem;
+    }
+    .status-chip.warn {
+      color: #f4e5bf;
+      border-color: rgba(200,154,75,0.45);
+    }
+    .app-bottom-nav {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: 12px;
+      z-index: 1200;
+      justify-content: space-between;
+      padding: 8px;
+      background: rgba(16, 36, 29, 0.96);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      backdrop-filter: blur(12px);
+      box-shadow: 0 18px 40px rgba(0,0,0,0.28);
+    }
+    .bottom-nav-link {
+      flex: 1 1 0;
+      min-width: 0;
+      padding: 8px 6px;
+      background: transparent;
+      border-color: transparent;
+      font-size: 0.74rem;
+      text-align: center;
+    }
+    .bottom-nav-link.active {
+      background: rgba(200,154,75,0.18);
+      border-color: rgba(200,154,75,0.5);
+      color: #f4e5bf;
+    }
     @media (max-width: 980px) {
       .layout { grid-template-columns: 1fr; }
     }
     @media (max-width: 640px) {
       .fields-row { grid-template-columns: 1fr; }
       .actions { grid-template-columns: 1fr; }
+      .app-bottom-nav {
+        left: 10px;
+        right: 10px;
+        bottom: 10px;
+        gap: 4px;
+      }
+      .bottom-nav-link {
+        font-size: 0.7rem;
+        padding: 8px 4px;
+      }
     }
   </style>
 </head>
@@ -200,6 +289,14 @@
       </div>
       <div id="tripMeta" style="margin-top:6px;color:var(--ink-soft);">Loading trip...</div>
       <div id="tripDebug" style="margin-top:4px;color:var(--muted);font-size:0.78rem;"></div>
+    </section>
+
+    <section class="panel">
+      <div class="status-row">
+        <span id="lodgingDataChip" class="status-chip">Data</span>
+        <span id="lodgingRosterChip" class="status-chip">Roster</span>
+        <span id="lodgingMapChip" class="status-chip">Map</span>
+      </div>
     </section>
 
     <section class="panel">
@@ -239,6 +336,13 @@
       </div>
     </section>
   </main>
+  <nav class="app-bottom-nav" aria-label="Tin Cup Navigation">
+    <a id="bottomNavTrip" class="bottom-nav-link" href="/tin-cup/trip-2026.html">Trip</a>
+    <a id="bottomNavScore" class="bottom-nav-link" href="/tin-cup/live-score-entry.html?mode=score">Score</a>
+    <a id="bottomNavResults" class="bottom-nav-link" href="/tin-cup/leaderboard-2026.html">Results</a>
+    <a id="bottomNavLodging" class="bottom-nav-link active" href="/tin-cup/guests-lodging.html">Lodging</a>
+    <a id="bottomNavAdmin" class="bottom-nav-link" href="/tin-cup/live-score-entry.html?mode=admin">Admin</a>
+  </nav>
 
   <script>
     const STATUS_ORDER = ['in', 'out', 'maybe', 'waitlist', 'invited'];
@@ -279,6 +383,11 @@
     const tripMapToggleBtn = $('#tripMapToggleBtn');
     const tripMapBody = $('#tripMapBody');
     const tripMapCollapsedNote = $('#tripMapCollapsedNote');
+    const bottomNavTrip = $('#bottomNavTrip');
+    const bottomNavScore = $('#bottomNavScore');
+    const bottomNavResults = $('#bottomNavResults');
+    const bottomNavLodging = $('#bottomNavLodging');
+    const bottomNavAdmin = $('#bottomNavAdmin');
     const tripApi = (path) => {
       if (!useSecondaryTripDb) return path;
       return path.includes('?') ? `${path}&myrtleBeach2026=true` : `${path}?myrtleBeach2026=true`;
@@ -320,6 +429,12 @@
       if (!tripId) return path;
       const sep = path.includes('?') ? '&' : '?';
       return `${path}${sep}tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}`;
+    };
+    const withExtraQuery = (path, queryText = '') => {
+      const base = withContextHref(path);
+      if (!queryText) return base;
+      const sep = base.includes('?') ? '&' : '?';
+      return `${base}${sep}${queryText}`;
     };
     const isTinCupTrip = (tripObj) => {
       if (!tripObj || typeof tripObj !== 'object') return false;
@@ -456,20 +571,29 @@
           const card = document.createElement('div');
           card.className = 'participant-card';
           card.innerHTML = `
-            <div class="fields-row">
-              <label class="stacked"><span>Name</span><input type="text" value="${p.name || ''}" readonly disabled></label>
-              <label class="stacked"><span>Room</span><select class="room-select" data-id="${p._id}">
-                <option value="A"${room === 'A' ? ' selected' : ''}>A</option>
-                <option value="B"${room === 'B' ? ' selected' : ''}>B</option>
-              </select></label>
-              <label class="stacked"><span>Extra Night</span><input type="checkbox" ${p.wantsExtraNight ? 'checked' : ''} class="extra-night-input" data-id="${p._id}"></label>
+            <div class="participant-summary">
+              <div>
+                <strong>${p.name || ''}</strong>
+                <div class="participant-meta">Condo ${currentCondo || '-'} · Room ${room} · ${p.wantsExtraNight ? 'Extra night' : 'Standard stay'}</div>
+              </div>
             </div>
-            <div class="actions">
-              <button class="remove-condo-btn" data-id="${p._id}" type="button">Unassign</button>
-              <select class="move-condo-select" data-id="${p._id}">
-                <option value="">Move to...</option>${moveOptions}
-              </select>
-            </div>
+            <details>
+              <summary>Edit Lodging</summary>
+              <div class="fields-row" style="margin-top:8px;">
+                <label class="stacked"><span>Name</span><input type="text" value="${p.name || ''}" readonly disabled></label>
+                <label class="stacked"><span>Room</span><select class="room-select" data-id="${p._id}">
+                  <option value="A"${room === 'A' ? ' selected' : ''}>A</option>
+                  <option value="B"${room === 'B' ? ' selected' : ''}>B</option>
+                </select></label>
+                <label class="stacked"><span>Extra Night</span><input type="checkbox" ${p.wantsExtraNight ? 'checked' : ''} class="extra-night-input" data-id="${p._id}"></label>
+              </div>
+              <div class="actions" style="margin-top:8px;">
+                <button class="remove-condo-btn" data-id="${p._id}" type="button">Unassign</button>
+                <select class="move-condo-select" data-id="${p._id}">
+                  <option value="">Move to...</option>${moveOptions}
+                </select>
+              </div>
+            </details>
           `;
           grid.appendChild(card);
         });
@@ -527,6 +651,29 @@
           </div>
         `;
       }
+      const dataChip = $('#lodgingDataChip');
+      const rosterChip = $('#lodgingRosterChip');
+      const mapChip = $('#lodgingMapChip');
+      if (dataChip) {
+        dataChip.textContent = useSecondaryTripDb ? 'Secondary trip database' : 'Primary trip database';
+        dataChip.className = 'status-chip';
+      }
+      if (rosterChip) {
+        rosterChip.textContent = `${participants.length} lodging golfers`;
+        rosterChip.className = 'status-chip';
+      }
+      if (mapChip) {
+        mapChip.textContent = tripMapBody && !tripMapBody.hidden ? 'Map expanded' : 'Map minimized';
+        mapChip.className = `status-chip${tripMapBody && tripMapBody.hidden ? '' : ' warn'}`;
+      }
+    }
+
+    function syncBottomNav() {
+      if (bottomNavTrip) bottomNavTrip.href = withContextHref('/tin-cup/trip-2026.html');
+      if (bottomNavScore) bottomNavScore.href = withExtraQuery('/tin-cup/live-score-entry.html', 'mode=score');
+      if (bottomNavResults) bottomNavResults.href = withContextHref('/tin-cup/leaderboard-2026.html');
+      if (bottomNavLodging) bottomNavLodging.href = withContextHref('/tin-cup/guests-lodging.html');
+      if (bottomNavAdmin) bottomNavAdmin.href = withExtraQuery('/tin-cup/live-score-entry.html', 'mode=admin');
     }
 
     function bindInteractions() {
@@ -696,6 +843,7 @@
         renderMeta();
         renderParticipants();
         renderStatusList();
+        syncBottomNav();
         return;
       }
 
@@ -706,6 +854,7 @@
       renderMeta();
       renderParticipants();
       renderStatusList();
+      syncBottomNav();
     }
 
     window.addEventListener('DOMContentLoaded', async () => {

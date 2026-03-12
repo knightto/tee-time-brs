@@ -8,7 +8,7 @@
   <style>
     :root { --bg:#112417; --panel:#274235; --line:rgba(232,255,219,.14); --ink:#f9f3e7; --muted:#d2dfc3; --accent:#c89a4b; --icon-flag:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23c89a4b' d='M6 3a1 1 0 0 1 1 1v2h9.6l-1.3 3 1.3 3H7v8H5V4a1 1 0 0 1 1-1Z'/%3E%3Ccircle cx='6' cy='20' r='2' fill='%23d2dfc3'/%3E%3C/svg%3E"); --icon-ball:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='9' fill='%23f9f3e7' stroke='%23c89a4b' stroke-width='1.5'/%3E%3Ccircle cx='9' cy='9' r='1' fill='%23c89a4b'/%3E%3Ccircle cx='13.5' cy='8' r='1' fill='%23c89a4b'/%3E%3Ccircle cx='15.5' cy='12' r='1' fill='%23c89a4b'/%3E%3Ccircle cx='10.5' cy='14' r='1' fill='%23c89a4b'/%3E%3Ccircle cx='13.5' cy='16' r='1' fill='%23c89a4b'/%3E%3C/svg%3E"); }
     * { box-sizing: border-box; }
-    body { margin:0; font-family:'Segoe UI', Arial, sans-serif; color:var(--ink); background: radial-gradient(circle at 20% 10%, rgba(200,154,75,.14), transparent 32%), var(--bg); }
+    body { margin:0; font-family:'Segoe UI', Arial, sans-serif; color:var(--ink); background: radial-gradient(circle at 20% 10%, rgba(200,154,75,.14), transparent 32%), var(--bg); padding-bottom:84px; }
     .wrap { max-width: 1240px; margin: 18px auto 40px; padding: 0 14px; }
     .card { background: linear-gradient(140deg, var(--panel), #1f3427); border:1px solid var(--line); border-radius:12px; padding:14px; margin-bottom:12px; }
     .section-label { margin:16px 0 8px; color:var(--muted); font-size:.78rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
@@ -135,6 +135,113 @@
     .workbook-config-card { border:1px solid var(--line); border-radius:10px; padding:10px; background:rgba(255,255,255,.03); display:grid; gap:8px; }
     .workbook-config-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(140px, 1fr)); gap:8px; }
     .workbook-config-grid input { width:100%; }
+    .mode-tabs,
+    .app-status-row,
+    .app-bottom-nav {
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+    }
+    .mode-tabs {
+      margin:0 0 12px;
+    }
+    .mode-tab,
+    .status-badge,
+    .bottom-nav-link {
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      gap:6px;
+      border-radius:999px;
+      border:1px solid var(--line);
+      background:#173224;
+      color:var(--ink);
+      text-decoration:none;
+      font-weight:700;
+    }
+    .mode-tab {
+      padding:8px 12px;
+      font-size:.84rem;
+    }
+    .mode-tab.active {
+      border-color:rgba(200,154,75,.75);
+      background:rgba(200,154,75,.22);
+      color:#f4e5bf;
+    }
+    .app-status-row {
+      margin:0 0 12px;
+    }
+    .status-badge {
+      padding:6px 10px;
+      font-size:.78rem;
+      background:rgba(255,255,255,.05);
+    }
+    .status-badge.warn {
+      border-color:rgba(200,154,75,.4);
+      color:#f4e5bf;
+    }
+    .scorekeeper-hero {
+      display:grid;
+      gap:10px;
+    }
+    .quick-score-actions {
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+      gap:8px;
+    }
+    .quick-score-card {
+      border:1px solid var(--line);
+      border-radius:10px;
+      padding:10px 12px;
+      background:rgba(255,255,255,.03);
+      display:grid;
+      gap:4px;
+    }
+    .quick-score-card strong {
+      font-size:.95rem;
+    }
+    .quick-score-card .muted {
+      font-size:.78rem;
+      line-height:1.45;
+    }
+    .admin-only {
+      display:none;
+    }
+    body.admin-mode .admin-only {
+      display:block;
+    }
+    body.scorekeeper-mode .scorekeeper-focus {
+      display:block;
+    }
+    .app-bottom-nav {
+      position:fixed;
+      left:12px;
+      right:12px;
+      bottom:12px;
+      z-index:1200;
+      padding:8px;
+      justify-content:space-between;
+      background:rgba(16, 36, 29, .96);
+      border:1px solid var(--line);
+      border-radius:16px;
+      backdrop-filter:blur(12px);
+      box-shadow:0 18px 40px rgba(0,0,0,.28);
+    }
+    .bottom-nav-link {
+      flex:1 1 0;
+      min-width:0;
+      padding:8px 6px;
+      font-size:.74rem;
+      background:transparent;
+      border-color:transparent;
+      color:var(--muted);
+      text-align:center;
+    }
+    .bottom-nav-link.active {
+      background:rgba(200,154,75,.18);
+      border-color:rgba(200,154,75,.5);
+      color:#f4e5bf;
+    }
     #mobileScorecardShell { display:block; }
     .mobile-scorecard-bar { display:none; }
     a { color: var(--accent); text-decoration:none; font-weight:700; }
@@ -171,6 +278,16 @@
         font-size: .8rem;
       }
       .card { padding:12px; }
+      .app-bottom-nav {
+        left:10px;
+        right:10px;
+        bottom:10px;
+        gap:4px;
+      }
+      .bottom-nav-link {
+        font-size:.7rem;
+        padding:8px 4px;
+      }
       .hole-nav { gap:8px; }
       .hole-nav-hole { font-size:.95rem; min-width:auto; }
       .hole-chip-row { gap:5px; }
@@ -201,14 +318,47 @@
       </div>
     </div>
 
-    <div class="section-label">Leader Inputs</div>
-    <div class="card">
+    <div class="mode-tabs">
+      <a id="scoreModeLink" class="mode-tab" href="/tin-cup/live-score-entry.html?mode=score">Scorekeeper</a>
+      <a id="adminModeLink" class="mode-tab" href="/tin-cup/live-score-entry.html?mode=admin">Admin / Setup</a>
+      <a id="resultsModeLink" class="mode-tab" href="/tin-cup/leaderboard-2026.html">Results</a>
+    </div>
+
+    <div class="app-status-row">
+      <span id="appModeBadge" class="status-badge">Mode</span>
+      <span id="appDataBadge" class="status-badge">Data</span>
+      <span id="appSyncBadge" class="status-badge">Status</span>
+    </div>
+
+    <div id="scorekeeperHero" class="card scorekeeper-focus">
+      <div class="scorekeeper-hero">
+        <strong>Mobile Scorekeeper</strong>
+        <div class="muted">Use this view during play. Open the correct foursome or scramble team, enter scores hole by hole, and let the saved scorecards drive the live results.</div>
+        <div class="quick-score-actions">
+          <div class="quick-score-card">
+            <strong>1. Pick Day</strong>
+            <div class="muted">Choose the current round or Scramble from the live scorecard area below.</div>
+          </div>
+          <div class="quick-score-card">
+            <strong>2. Open Group</strong>
+            <div class="muted">Select the foursome or team and enter the scorer name to start.</div>
+          </div>
+          <div class="quick-score-card">
+            <strong>3. Save Current Hole</strong>
+            <div class="muted">Keep hole scores and live markers current. Use Full Scorecard only for review.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-label admin-only">Leader Inputs</div>
+    <div class="card admin-only">
       <strong>Leader Input Checklist</strong>
       <div class="muted" style="margin:6px 0 0;">Complete the manual setup items here before Round 1. After that, use live score entry and let actual scorecards drive standings, payouts, skins, and other derived results.</div>
       <div class="muted" style="margin-top:8px;">Manual items in this section: golfer roster and handicap classes, scoring config and payout constants, live access settings, and side games that are not derived from scorecards.</div>
     </div>
 
-    <div class="card" id="golferSetupCard">
+    <div class="card admin-only" id="golferSetupCard">
       <details>
         <summary class="setup-summary">Golfer Roster Setup</summary>
         <div class="muted" style="margin:8px 0 10px;">Create or edit golfers, set handicap, and mark each as Previous Champ (`x1/x2/x3`) or Rookie.</div>
@@ -237,7 +387,7 @@
       </details>
     </div>
 
-    <div class="card" id="workbookSetupCard">
+    <div class="card admin-only" id="workbookSetupCard">
       <details>
         <summary class="setup-summary">Scoring Rules and Payout Config</summary>
         <div class="muted" style="margin:8px 0 10px;">Converted handicaps, point constants, side-game values, and payout settings used by the Tin Cup scoring model.</div>
@@ -261,7 +411,7 @@
       </details>
     </div>
 
-    <div class="card" id="sideGamesCard">
+    <div class="card admin-only" id="sideGamesCard">
       <details>
         <summary class="setup-summary">Manual Side Game Inputs</summary>
         <div class="muted" style="margin-top:4px;">Only keep manual side-game items here. Long Putt is assigned manually. Secret Snowman is still auto-drawn from entered scores.</div>
@@ -325,8 +475,8 @@
       </div>
     </div>
 
-    <div class="section-label">Admin Tools</div>
-    <div class="card" id="adminUtilityCard">
+    <div class="section-label admin-only">Admin Tools</div>
+    <div class="card admin-only" id="adminUtilityCard">
       <details id="adminToolsDetails">
         <summary class="setup-summary">Admin Tools</summary>
         <div class="muted" style="margin-top:4px;">Manage live scoring access and Tin Cup admin actions.</div>
@@ -394,6 +544,14 @@
 
   </div>
 
+  <nav class="app-bottom-nav" aria-label="Tin Cup Navigation">
+    <a id="bottomNavTrip" class="bottom-nav-link" href="/tin-cup/trip-2026.html">Trip</a>
+    <a id="bottomNavScore" class="bottom-nav-link active" href="/tin-cup/live-score-entry.html?mode=score">Score</a>
+    <a id="bottomNavResults" class="bottom-nav-link" href="/tin-cup/leaderboard-2026.html">Results</a>
+    <a id="bottomNavLodging" class="bottom-nav-link" href="/tin-cup/guests-lodging.html">Lodging</a>
+    <a id="bottomNavAdmin" class="bottom-nav-link" href="/tin-cup/live-score-entry.html?mode=admin">Admin</a>
+  </nav>
+
   <script>
     const linkDaySelect = document.getElementById('linkDaySelect');
     const scorecardLinksList = document.getElementById('scorecardLinksList');
@@ -434,6 +592,18 @@
     const scorecardLinksCard = document.getElementById('scorecardLinksCard');
     const adminUtilityCard = document.getElementById('adminUtilityCard');
     const adminToolsDetails = document.getElementById('adminToolsDetails');
+    const scoreModeLink = document.getElementById('scoreModeLink');
+    const adminModeLink = document.getElementById('adminModeLink');
+    const resultsModeLink = document.getElementById('resultsModeLink');
+    const appModeBadge = document.getElementById('appModeBadge');
+    const appDataBadge = document.getElementById('appDataBadge');
+    const appSyncBadge = document.getElementById('appSyncBadge');
+    const scorekeeperHero = document.getElementById('scorekeeperHero');
+    const bottomNavTrip = document.getElementById('bottomNavTrip');
+    const bottomNavScore = document.getElementById('bottomNavScore');
+    const bottomNavResults = document.getElementById('bottomNavResults');
+    const bottomNavLodging = document.getElementById('bottomNavLodging');
+    const bottomNavAdmin = document.getElementById('bottomNavAdmin');
     const golferSetupTableBody = document.getElementById('golferSetupTableBody');
     const addGolferRowBtn = document.getElementById('addGolferRowBtn');
     const importGolfersCsvBtn = document.getElementById('importGolfersCsvBtn');
@@ -508,6 +678,7 @@
     let golferSetupRows = [];
     let allowLocalFallback = false;
     let lastDraftGolferCount = 0;
+    let pageMode = 'score';
 
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
     const norm = (v = '') => String(v || '').trim().replace(/\s+/g, ' ').toLowerCase();
@@ -534,6 +705,10 @@
     (function seedTripContext() {
       const qs = new URLSearchParams(window.location.search);
       allowLocalFallback = String(qs.get('local') || '').trim() === '1';
+      const requestedMode = String(qs.get('mode') || '').trim().toLowerCase();
+      pageMode = requestedMode === 'admin' ? 'admin' : 'score';
+      document.body.classList.toggle('admin-mode', pageMode === 'admin');
+      document.body.classList.toggle('scorekeeper-mode', pageMode !== 'admin');
       const qSecondary = String(qs.get('secondary') || '').trim();
       useSecondaryTripDb = false;
       if (qSecondary === '1' || qSecondary.toLowerCase() === 'true') useSecondaryTripDb = true;
@@ -562,11 +737,30 @@
       return `${path}${sep}tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}`;
     };
 
+    function withExtraQuery(path, queryText = '') {
+      const base = buildTinCupContextHref(path);
+      if (!queryText) return base;
+      const sep = base.includes('?') ? '&' : '?';
+      return `${base}${sep}${queryText}`;
+    }
+
     function syncPageLinks() {
       const guideLink = document.getElementById('adminGuideLink');
       const backLink = document.getElementById('backToTripLink');
       if (guideLink) guideLink.href = buildTinCupContextHref('/tin-cup/admin-guide.html');
       if (backLink) backLink.href = buildTinCupContextHref('/tin-cup/trip-2026.html');
+      if (scoreModeLink) scoreModeLink.href = withExtraQuery('/tin-cup/live-score-entry.html', 'mode=score');
+      if (adminModeLink) adminModeLink.href = withExtraQuery('/tin-cup/live-score-entry.html', 'mode=admin');
+      if (resultsModeLink) resultsModeLink.href = buildTinCupContextHref('/tin-cup/leaderboard-2026.html');
+      if (bottomNavTrip) bottomNavTrip.href = buildTinCupContextHref('/tin-cup/trip-2026.html');
+      if (bottomNavScore) bottomNavScore.href = withExtraQuery('/tin-cup/live-score-entry.html', 'mode=score');
+      if (bottomNavResults) bottomNavResults.href = buildTinCupContextHref('/tin-cup/leaderboard-2026.html');
+      if (bottomNavLodging) bottomNavLodging.href = buildTinCupContextHref('/tin-cup/guests-lodging.html');
+      if (bottomNavAdmin) bottomNavAdmin.href = withExtraQuery('/tin-cup/live-score-entry.html', 'mode=admin');
+      if (scoreModeLink) scoreModeLink.classList.toggle('active', pageMode !== 'admin');
+      if (adminModeLink) adminModeLink.classList.toggle('active', pageMode === 'admin');
+      if (bottomNavScore) bottomNavScore.classList.toggle('active', pageMode !== 'admin');
+      if (bottomNavAdmin) bottomNavAdmin.classList.toggle('active', pageMode === 'admin');
     }
 
     function getDaySlots(dayKey = '') {
@@ -2375,9 +2569,23 @@
       }
       syncGolferSetupRowsFromPersistedState();
       if (localMode) {
-        entryIntro.textContent = 'Local mode active: no Tin Cup trip found in database. Foursome and scramble entries will sync to local leaderboard state.';
+        entryIntro.textContent = pageMode === 'admin'
+          ? 'Local mode active: no Tin Cup trip found in database. Admin setup changes affect local Tin Cup state only.'
+          : 'Local mode active: no Tin Cup trip found in database. Foursome and scramble entries will sync to local leaderboard state.';
       } else {
-        entryIntro.textContent = 'Use the day selector to open a foursome or scramble team and enter scores hole by hole.';
+        entryIntro.textContent = pageMode === 'admin'
+          ? 'Use this admin view to manage roster, rules, side games, access settings, exports, and reset tools.'
+          : 'Use the day selector to open a foursome or scramble team and enter scores hole by hole.';
+      }
+      if (scorekeeperHero) scorekeeperHero.style.display = pageMode === 'admin' ? 'none' : 'block';
+      if (appModeBadge) appModeBadge.textContent = pageMode === 'admin' ? 'Admin / Setup Mode' : 'Scorekeeper Mode';
+      if (appDataBadge) {
+        appDataBadge.textContent = localMode ? 'Local fallback data' : (useSecondaryTripDb ? 'Secondary trip database' : 'Primary trip database');
+        appDataBadge.className = `status-badge${localMode ? ' warn' : ''}`;
+      }
+      if (appSyncBadge) {
+        appSyncBadge.textContent = settings.enableLiveFoursomeScoring ? 'Live scoring enabled' : 'Live scoring paused';
+        appSyncBadge.className = `status-badge${settings.enableLiveFoursomeScoring ? '' : ' warn'}`;
       }
 
       if (!settings.enableLiveFoursomeScoring) {
