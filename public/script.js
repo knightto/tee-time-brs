@@ -137,6 +137,7 @@ if ('serviceWorker' in navigator) {
   const requestClubPreferredTimeInput = $('#requestClubPreferredTime');
   const requestClubRequesterNameInput = $('#requestClubRequesterName');
   const requestClubNameOptions = $('#requestClubNameOptions');
+  const STARTER_EVENT_PREFS_KEY = 'teeTimeStarterEventViews';
 
   // State
   let allEvents = []; // selected-day event cache
@@ -155,6 +156,7 @@ if ('serviceWorker' in navigator) {
   let selectedDateRequestSeq = 0;
   let activeMobileFilter = 'all';
   let starterMode = false;
+  let starterEventViewIds = loadStarterEventViewIds();
   const initialSelectedDateFromUrl = (() => {
     try {
       const dateISO = String(new URLSearchParams(window.location.search).get('date') || '').trim();
@@ -663,6 +665,38 @@ if ('serviceWorker' in navigator) {
     return (events || []).filter(eventMatchesMobileFilter);
   }
 
+  function loadStarterEventViewIds() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(STARTER_EVENT_PREFS_KEY) || '[]');
+      if (!Array.isArray(raw)) return new Set();
+      return new Set(raw.map((value) => String(value || '').trim()).filter(Boolean));
+    } catch (_) {
+      return new Set();
+    }
+  }
+
+  function saveStarterEventViewIds() {
+    try {
+      localStorage.setItem(STARTER_EVENT_PREFS_KEY, JSON.stringify(Array.from(starterEventViewIds)));
+    } catch (_) {}
+  }
+
+  function usesStarterEventView(evOrId) {
+    const eventId = typeof evOrId === 'string'
+      ? String(evOrId || '').trim()
+      : String(evOrId && evOrId._id || '').trim();
+    return !!eventId && starterEventViewIds.has(eventId);
+  }
+
+  function setStarterEventView(eventId, enabled) {
+    const safeEventId = String(eventId || '').trim();
+    if (!safeEventId) return false;
+    if (enabled) starterEventViewIds.add(safeEventId);
+    else starterEventViewIds.delete(safeEventId);
+    saveStarterEventViewIds();
+    return true;
+  }
+
   function slotPlayerCount(teeTime = {}) {
     return ((teeTime && teeTime.players) || []).length;
   }
@@ -705,33 +739,40 @@ if ('serviceWorker' in navigator) {
     </article>`;
   }
 
+  function starterCardMarkup(ev, options = {}) {
+    const capacity = eventCapacitySummary(ev);
+    const checkedInCount = capacity.teeTimes.reduce((sum, teeTime) => sum + slotCheckedInCount(teeTime), 0);
+    const maybeCount = Array.isArray(ev && ev.maybeList) ? ev.maybeList.length : 0;
+    const notes = String(ev && ev.notes || '').trim();
+    const showToggle = !starterMode && options.allowToggle !== false;
+    return `<section class="starter-card${options.inline ? ' starter-card-inline' : ''}" data-event-id="${escapeHtml(String(ev && ev._id || ''))}">
+      <div class="starter-card-header">
+        <div class="starter-card-head-copy">
+          <h3 class="starter-card-title">${courseTitleMarkup(ev)}</h3>
+          <div class="card-date">
+            <span>${fmtDate(ev && ev.date)}</span>
+            ${weatherSummaryMarkup(ev)}
+          </div>
+        </div>
+        ${showToggle ? `<button class="small starter-card-toggle" type="button" data-toggle-starter-event="${escapeHtml(String(ev && ev._id || ''))}" title="Return this event to the full card">Full Card</button>` : ''}
+      </div>
+      <div class="starter-card-summary">
+        <span>${capacity.teeTimes.length} ${capacity.isTeamEvent ? (capacity.teeTimes.length === 1 ? 'team' : 'teams') : (capacity.teeTimes.length === 1 ? 'tee time' : 'tee times')}</span>
+        <span>${capacity.registeredCount} golfer${capacity.registeredCount === 1 ? '' : 's'}</span>
+        <span>${capacity.openCount} open</span>
+        <span>${checkedInCount} checked in</span>
+        ${maybeCount ? `<span>${maybeCount} maybe</span>` : ''}
+      </div>
+      ${notes ? `<div class="starter-card-note">${escapeHtml(notes)}</div>` : ''}
+      <div class="starter-slot-grid">
+        ${capacity.teeTimes.length ? capacity.teeTimes.map((teeTime, idx) => starterSlotMarkup(ev, teeTime, idx)).join('') : '<div class="starter-empty">No tee times set.</div>'}
+      </div>
+    </section>`;
+  }
+
   function renderStarter(list) {
     window.requestAnimationFrame(() => {
-      eventsEl.innerHTML = '';
-      const frag = document.createDocumentFragment();
-      for (const ev of list) {
-        const capacity = eventCapacitySummary(ev);
-        const checkedInCount = capacity.teeTimes.reduce((sum, teeTime) => sum + slotCheckedInCount(teeTime), 0);
-        const starterCard = document.createElement('section');
-        starterCard.className = 'starter-card';
-        starterCard.innerHTML = `
-          <div class="starter-card-header">
-            <div>
-              <h3 class="starter-card-title">${courseTitleMarkup(ev)}</h3>
-              <div class="starter-card-summary">
-                <span>${capacity.teeTimes.length} ${capacity.isTeamEvent ? (capacity.teeTimes.length === 1 ? 'team' : 'teams') : (capacity.teeTimes.length === 1 ? 'tee time' : 'tee times')}</span>
-                <span>${capacity.registeredCount} golfer${capacity.registeredCount === 1 ? '' : 's'}</span>
-                <span>${capacity.openCount} open</span>
-                <span>${checkedInCount} checked in</span>
-              </div>
-            </div>
-          </div>
-          <div class="starter-slot-grid">
-            ${capacity.teeTimes.length ? capacity.teeTimes.map((teeTime, idx) => starterSlotMarkup(ev, teeTime, idx)).join('') : '<div class="starter-empty">No tee times set.</div>'}
-          </div>`;
-        frag.appendChild(starterCard);
-      }
-      eventsEl.appendChild(frag);
+      eventsEl.innerHTML = list.map((ev) => starterCardMarkup(ev, { allowToggle: false })).join('');
     });
   }
 
@@ -1854,6 +1895,12 @@ if ('serviceWorker' in navigator) {
       eventsEl.innerHTML = '';
       const frag = document.createDocumentFragment();
       for(const ev of list){
+        if (usesStarterEventView(ev)) {
+          const starterWrap = document.createElement('div');
+          starterWrap.innerHTML = starterCardMarkup(ev, { allowToggle: true, inline: true });
+          if (starterWrap.firstElementChild) frag.appendChild(starterWrap.firstElementChild);
+          continue;
+        }
         const card=document.createElement('div'); card.className='card';
         const isTeams = !!ev.isTeamEvent;
         let teesArr = ev.teeTimes || [];
@@ -1953,6 +2000,7 @@ if ('serviceWorker' in navigator) {
             <div class="card-actions">
               <button class="small event-actions-toggle" data-toggle-actions title="Show/hide event actions">Actions</button>
               <div class="button-row">
+                <button class="small" data-toggle-starter-event="${ev._id}" title="Switch this event to the compact starter view">Starter View</button>
                 ${isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<div class="time-action-pair"><button class="small" data-add-tee="${ev._id}">Add Existing Time</button><button class="small" data-request-extra-tee="${ev._id}" title="Email Brian Jones to request an additional tee time">Request Club Time</button></div>`}
                 ${isTeams ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Pairings</button>`}
                 <button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button>
@@ -2034,8 +2082,17 @@ if ('serviceWorker' in navigator) {
   }
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-ics]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-ics],[data-toggle-starter-event]')||e.target);
     try{
+      if(t.dataset.toggleStarterEvent){
+        const eventId = String(t.dataset.toggleStarterEvent || '').trim();
+        if (!eventId) return;
+        const enabled = !usesStarterEventView(eventId);
+        if (!setStarterEventView(eventId, enabled)) return;
+        renderEventsForDate();
+        showToast(enabled ? 'Event switched to starter view.' : 'Full event card restored.', 'success');
+        return;
+      }
       if(t.dataset.toggleActions !== undefined){
         const card = t.closest('.card');
         if (!card) return;
