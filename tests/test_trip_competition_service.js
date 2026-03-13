@@ -244,12 +244,41 @@ function run() {
   };
   const freshView = buildTripCompetitionView(freshMyrtleTrip, myrtleParticipants);
   assert.strictEqual(freshView.ryderCup.canEditTeams, true, 'Seeded Ryder Cup teams should be editable before results are entered');
+  const legacySeedTrip = {
+    name: 'Myrtle Beach - Barefoot Group 3/18-3/22/26',
+    location: 'Myrtle Beach, SC',
+    arrivalDate: new Date('2026-03-18'),
+    competition: {
+      scoringMode: 'best4',
+      ryderCup: {
+        rounds: [
+          {
+            matches: [
+              {
+                teamAPlayers: ['Thomas Lasik', 'Chris Manuel'],
+                teamBPlayers: ['Reny Butler', 'Lance Darr'],
+              },
+            ],
+          },
+        ],
+      },
+    },
+    rounds: [
+      makeRound('World Tour', []),
+      makeRound('Wild Wing Avocet', []),
+      makeRound('Kings North', []),
+      makeRound('River Hills', []),
+      makeRound('Long Bay', []),
+    ],
+  };
+  const migratedView = buildTripCompetitionView(legacySeedTrip, myrtleParticipants);
+  assert.deepStrictEqual(migratedView.ryderCup.rounds[0].matches[0].teamAPlayers, ['Joe Gillette', 'Dennis Freeman'], 'Unstarted legacy Myrtle schedules should reseed to the newer balanced opener');
   swapTripRyderCupTeamPlayers(freshMyrtleTrip, 'Tommy Knight', 'Reny Butler');
   const swappedView = buildTripCompetitionView(freshMyrtleTrip, myrtleParticipants);
   assert(swappedView.ryderCup.teams[0].players.some((entry) => entry.name === 'Reny Butler'), 'Swapped Team A should include the incoming player');
   assert(swappedView.ryderCup.teams[1].players.some((entry) => entry.name === 'Tommy Knight'), 'Swapped Team B should include the outgoing player');
-  assert.strictEqual(swappedView.ryderCup.rounds[2].matches[1].teamAPlayers.includes('Reny Butler'), true, 'Round slots should swap with the team move');
-  assert.strictEqual(swappedView.ryderCup.rounds[2].matches[1].teamBPlayers.includes('Tommy Knight'), true, 'Opposite round slots should swap with the team move');
+  assert.strictEqual(swappedView.ryderCup.rounds[1].matches[2].teamAPlayers.includes('Reny Butler'), true, 'Round slots should swap with the team move');
+  assert.strictEqual(swappedView.ryderCup.rounds[1].matches[2].teamBPlayers.includes('Tommy Knight'), true, 'Opposite round slots should swap with the team move');
   assert.strictEqual(freshView.ryderCup.rounds[0].plan.groups.length, 5, 'Each Ryder Cup round should expose five daily plan groups');
   assert.strictEqual(freshView.ryderCup.rounds[0].plan.groups[0].players.length, 4, 'Daily plan groups should cover full foursomes');
   assert.strictEqual(freshView.ryderCup.description, 'Team competition with every player playing their own ball in every round.', 'The Ryder Cup intro should explain the own-ball competition setup');
@@ -270,10 +299,10 @@ function run() {
   assert.strictEqual(myrtleView.ryderCup.totalPointsAvailable, 30, 'Ryder Cup total points should stay fixed at 30');
   const thomasRow = myrtleView.ryderCup.individualLeaderboard.find((entry) => entry.name === 'Thomas Lasik');
   assert(thomasRow, 'Individual Ryder Cup rows should be present');
-  assert.strictEqual(thomasRow.pointsWon, 2.5, 'Own-ball rounds and the team game should both feed the individual leaderboard');
-  const jeremyRow = myrtleView.ryderCup.individualLeaderboard.find((entry) => entry.name === 'Jeremy Bridges');
-  assert(jeremyRow, 'Halved match players should be present');
-  assert.strictEqual(jeremyRow.pointsWon, 1, 'Team-round participation credit should add to individual points without complex attribution');
+  assert.strictEqual(thomasRow.pointsWon, 1.5, 'Own-ball rounds and the team game should both feed the individual leaderboard');
+  const johnQuimbyRow = myrtleView.ryderCup.individualLeaderboard.find((entry) => entry.name === 'John Quimby');
+  assert(johnQuimbyRow, 'Halved match players should be present');
+  assert.strictEqual(johnQuimbyRow.pointsWon, 1, 'Team-round participation credit should add to individual points without complex attribution');
   const hardConstraint = myrtleView.ryderCup.admin.hardConstraints.find((entry) => entry.id === 'neff-not-manuel');
   assert(hardConstraint, 'Hard constraint rows should be exposed');
   assert.strictEqual(hardConstraint.status, 'clear', 'Seeded Ryder Cup schedule should keep Chris Neff away from Manuel Ordonez');

@@ -2,6 +2,7 @@ const {
   MYRTLE_RYDER_CUP_HARD_CONSTRAINTS,
   MYRTLE_RYDER_CUP_PLAYERS,
   MYRTLE_RYDER_CUP_REQUESTED_GROUPINGS,
+  MYRTLE_RYDER_CUP_SCHEDULE_VERSION,
   buildDefaultMyrtleRyderCup,
 } = require('./myrtleRyderCupDefaults');
 
@@ -544,15 +545,21 @@ function normalizeRyderCupPayout(rawPayout = {}, defaultState = {}) {
 function normalizeRyderCupState(rawState = {}, trip = {}) {
   const defaultState = getRyderCupDefaultState(trip);
   const state = clonePlain(rawState || {});
+  const rawScheduleVersion = cleanString(state.scheduleVersion);
+  const shouldReseedRounds = rawScheduleVersion
+    && rawScheduleVersion === MYRTLE_RYDER_CUP_SCHEDULE_VERSION
+      ? false
+      : !hasStartedRyderCup(Array.isArray(state.rounds) ? state.rounds : []);
   const teams = normalizeRyderCupTeams(state.teams, defaultState);
   const rounds = (defaultState.rounds || []).map((defaultRound, index) => normalizeRyderCupRound(
-    Array.isArray(state.rounds) ? state.rounds[index] || {} : {},
+    !shouldReseedRounds && Array.isArray(state.rounds) ? state.rounds[index] || {} : {},
     defaultRound,
     teams,
   ));
   return {
     title: cleanString(state.title) || defaultState.title,
     description: cleanString(state.description) || cleanString(defaultState.description),
+    scheduleVersion: MYRTLE_RYDER_CUP_SCHEDULE_VERSION,
     players: buildRyderCupPlayerRows(),
     teams,
     rounds,
@@ -1937,6 +1944,7 @@ function buildTripCompetitionView(trip = {}, participants = []) {
   const scoringMode = normalizeScoringMode(trip && trip.competition && trip.competition.scoringMode);
   const rounds = Array.isArray(trip && trip.rounds) ? trip.rounds : [];
   const ryderCupState = getTripRyderCupState(trip);
+  const isMyrtleOwnBallTrip = isMyrtleRyderCupTrip(trip);
 
   const roundViews = rounds.map((round, roundIndex) => {
     const roundPlayers = uniqueNames(getRoundPlayerNames(round));
@@ -2033,8 +2041,12 @@ function buildTripCompetitionView(trip = {}, participants = []) {
       scoringModeLabel: getScoringModeLabel(scoringMode),
       playerCount: playerPool.length,
       roundCount: roundViews.length,
-      formatSummary: 'Individual net Stableford across the trip, with daily 2-man net best ball matches inside each foursome.',
-      sideGamesSummary: 'Optional Closest to Pin and skins results are tracked separately from the main competition.',
+      formatSummary: isMyrtleOwnBallTrip
+        ? 'Own-ball gross, net, and Stableford tracking stay available for every Myrtle round, while the Myrtle Ryder Cup section runs the team formats, points, and pairings.'
+        : 'Individual net Stableford across the trip, with daily 2-man net best ball matches inside each foursome.',
+      sideGamesSummary: isMyrtleOwnBallTrip
+        ? 'Use the Myrtle Ryder Cup section for Daily Low Gross, Weekly Low Gross, Closest to Pin, Birdie Pool, MVP, and payout tracking.'
+        : 'Optional Closest to Pin and skins results are tracked separately from the main competition.',
     },
     buckets: buildHandicapBuckets(playerPool, trip && trip.competition && trip.competition.handicapBuckets),
     leaderboard,

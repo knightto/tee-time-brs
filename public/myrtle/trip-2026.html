@@ -1118,11 +1118,11 @@
         date: '2026-03-18',
         time: '13:17',
         teeTimes: buildTripSlots('13:17', [
-          ['Caleb Hart', 'Chris Neff', 'John Hyers', 'Thomas Lasik'],
-          ['Chad Jones', 'Delmar Christian', 'Reny Butler', 'Tommy Knight'],
-          ['Chris Manuel', 'Dennis Freeman', 'Duane Harris', 'Josh Browne'],
-          ['Jeremy Bridges', 'Lance Darr', 'Matt Shannon', 'Tommy Knight Sr'],
-          ['Joe Gillette', 'John Quimby', 'Manuel Ordonez', 'Marcus Ordonez']
+          ['Joe Gillette', 'Dennis Freeman', 'Reny Butler', 'Lance Darr'],
+          ['John Quimby', 'Chris Manuel', 'Josh Browne', 'John Hyers'],
+          ['Tommy Knight', 'Delmar Christian', 'Caleb Hart', 'Chris Neff'],
+          ['Thomas Lasik', 'Duane Harris', 'Marcus Ordonez', 'Chad Jones'],
+          ['Jeremy Bridges', 'Tommy Knight Sr', 'Matt Shannon', 'Manuel Ordonez']
         ])
       },
       {
@@ -1131,11 +1131,11 @@
         date: '2026-03-19',
         time: '09:09',
         teeTimes: buildTripSlots('09:09', [
-          ['Caleb Hart', 'Chris Manuel', 'Delmar Christian', 'Matt Shannon'],
-          ['Chad Jones', 'Josh Browne', 'Manuel Ordonez', 'Tommy Knight Sr'],
-          ['Chris Neff', 'Duane Harris', 'Jeremy Bridges', 'John Quimby'],
-          ['Dennis Freeman', 'John Hyers', 'Marcus Ordonez', 'Tommy Knight'],
-          ['Joe Gillette', 'Lance Darr', 'Reny Butler', 'Thomas Lasik']
+          ['Joe Gillette', 'Dennis Freeman', 'Josh Browne', 'Chris Neff'],
+          ['John Quimby', 'Jeremy Bridges', 'John Hyers', 'Caleb Hart'],
+          ['Tommy Knight', 'Delmar Christian', 'Reny Butler', 'Matt Shannon'],
+          ['Thomas Lasik', 'Duane Harris', 'Marcus Ordonez', 'Chad Jones'],
+          ['Chris Manuel', 'Tommy Knight Sr', 'Lance Darr', 'Manuel Ordonez']
         ])
       },
       {
@@ -1144,11 +1144,11 @@
         date: '2026-03-20',
         time: '08:26',
         teeTimes: buildTripSlots('08:26', [
-          ['Caleb Hart', 'Chad Jones', 'Duane Harris', 'Joe Gillette'],
-          ['Chris Manuel', 'Jeremy Bridges', 'Marcus Ordonez', 'Reny Butler'],
-          ['Chris Neff', 'Josh Browne', 'Lance Darr', 'Tommy Knight'],
-          ['Delmar Christian', 'John Hyers', 'John Quimby', 'Tommy Knight Sr'],
-          ['Dennis Freeman', 'Manuel Ordonez', 'Matt Shannon', 'Thomas Lasik']
+          ['Joe Gillette', 'Thomas Lasik', 'Josh Browne', 'Reny Butler'],
+          ['John Quimby', 'Jeremy Bridges', 'John Hyers', 'Caleb Hart'],
+          ['Tommy Knight', 'Delmar Christian', 'Lance Darr', 'Marcus Ordonez'],
+          ['Chris Manuel', 'Tommy Knight Sr', 'Chris Neff', 'Matt Shannon'],
+          ['Dennis Freeman', 'Duane Harris', 'Chad Jones', 'Manuel Ordonez']
         ])
       },
       {
@@ -1157,11 +1157,11 @@
         date: '2026-03-21',
         time: '09:15',
         teeTimes: buildTripSlots('09:15', [
-          ['Caleb Hart', 'Jeremy Bridges', 'Manuel Ordonez', 'Tommy Knight'],
-          ['Chad Jones', 'Chris Manuel', 'John Quimby', 'Lance Darr'],
-          ['Chris Neff', 'Dennis Freeman', 'Joe Gillette', 'Tommy Knight Sr'],
-          ['Delmar Christian', 'Duane Harris', 'Marcus Ordonez', 'Thomas Lasik'],
-          ['John Hyers', 'Josh Browne', 'Matt Shannon', 'Reny Butler']
+          ['Jeremy Bridges', 'Duane Harris', 'Caleb Hart', 'Chris Neff'],
+          ['Tommy Knight', 'Dennis Freeman', 'Matt Shannon', 'John Hyers'],
+          ['John Quimby', 'Delmar Christian', 'Marcus Ordonez', 'Chad Jones'],
+          ['Thomas Lasik', 'Chris Manuel', 'Reny Butler', 'Lance Darr'],
+          ['Joe Gillette', 'Tommy Knight Sr', 'Josh Browne', 'Manuel Ordonez']
         ])
       },
       {
@@ -1170,11 +1170,11 @@
         date: '2026-03-22',
         time: '08:00',
         teeTimes: buildTripSlots('08:00', [
-          ['Caleb Hart', 'Dennis Freeman', 'John Quimby', 'Reny Butler'],
-          ['Chad Jones', 'Chris Neff', 'Marcus Ordonez', 'Matt Shannon'],
-          ['Chris Manuel', 'Thomas Lasik', 'Tommy Knight', 'Tommy Knight Sr'],
-          ['Delmar Christian', 'Jeremy Bridges', 'Joe Gillette', 'Josh Browne'],
-          ['Duane Harris', 'John Hyers', 'Lance Darr', 'Manuel Ordonez']
+          ['Tommy Knight', 'Marcus Ordonez', 'Tommy Knight Sr', 'Manuel Ordonez'],
+          ['Joe Gillette', 'Josh Browne', 'John Quimby', 'Reny Butler'],
+          ['Thomas Lasik', 'John Hyers', 'Chris Manuel', 'Lance Darr'],
+          ['Dennis Freeman', 'Chris Neff', 'Delmar Christian', 'Matt Shannon'],
+          ['Jeremy Bridges', 'Caleb Hart', 'Duane Harris', 'Chad Jones']
         ])
       }
     ];
@@ -1561,6 +1561,15 @@
       'Own Ball Pod'
     ];
     const getRyderCupData = () => competitionData && competitionData.ryderCup ? competitionData.ryderCup : null;
+    const getRyderCupRounds = () => {
+      const ryderCup = getRyderCupData();
+      return Array.isArray(ryderCup && ryderCup.rounds) ? ryderCup.rounds : [];
+    };
+    const getRyderCupRoundMeta = (roundIndex) => {
+      const index = Number(roundIndex);
+      if (!Number.isInteger(index) || index < 0) return null;
+      return getRyderCupRounds()[index] || null;
+    };
     const getDefaultRyderCupPlayStyle = (format = '') => {
       const normalized = String(format || '').trim().toLowerCase();
       if (normalized.includes('singles')) return 'Singles Match Play';
@@ -1843,14 +1852,14 @@
       return `
         <div class="competition-overview-grid">
           <div class="competition-stat">
-            <span class="competition-note">Main competition</span>
-            <strong>Individual Net Stableford</strong>
-            <span class="competition-note">Hole-by-hole net scoring across the full trip.</span>
+            <span class="competition-note">Trip score tracking</span>
+            <strong>Own-Ball Gross / Net / Stableford</strong>
+            <span class="competition-note">Enter every player’s own-ball round score while the Ryder Cup module handles team formats and points.</span>
           </div>
           <div class="competition-stat">
             <span class="competition-note">Scoring mode</span>
             <div class="competition-stat-value">${escapeHtml(overview.scoringModeLabel || 'Best 4 of 5 rounds')}</div>
-            <span class="competition-note">Counted total drives the main leaderboard.</span>
+            <span class="competition-note">Controls the supplemental trip scoreboard, not the Ryder Cup points race.</span>
           </div>
           <div class="competition-stat">
             <span class="competition-note">Players</span>
@@ -1860,13 +1869,13 @@
           <div class="competition-stat">
             <span class="competition-note">Rounds</span>
             <div class="competition-stat-value">${escapeHtml(String(overview.roundCount || 0))}</div>
-            <span class="competition-note">Daily 2-man net best ball inside each foursome.</span>
+            <span class="competition-note">Five Myrtle rounds tied to the seeded Ryder Cup tee groups.</span>
           </div>
         </div>
         <div class="competition-admin-card">
-          <strong>Format Summary</strong>
+          <strong>How This Myrtle Trip Runs</strong>
           <div class="competition-note">${escapeHtml(overview.formatSummary || 'Individual net Stableford across the trip.')}</div>
-          <div class="competition-note">${escapeHtml(overview.sideGamesSummary || 'Closest to Pin and skins are tracked separately.')}</div>
+          <div class="competition-note">${escapeHtml(overview.sideGamesSummary || 'Use the Myrtle Ryder Cup section for the trip side games and payout tracking.')}</div>
         </div>
       `;
     }
@@ -1875,8 +1884,8 @@
       return `
         <details class="competition-section" open>
           <summary>
-            <span>Main Leaderboard</span>
-            <span class="competition-note">Highlighted rounds count. Asterisks show partial scorecards.</span>
+            <span>Trip Scoreboard</span>
+            <span class="competition-note">Supplemental own-ball tracking. Highlighted rounds count, and asterisks show partial scorecards.</span>
           </summary>
           <div class="competition-section-body">
             <div class="competition-note">Stableford: double bogey or worse = 0, bogey = 1, par = 2, birdie = 3, eagle or better = 4.</div>
@@ -1923,155 +1932,11 @@
     }
 
     function renderCompetitionDailyMatches(dailyMatches = [], dailyPointsLeaderboard = []) {
-      return `
-        <details class="competition-section">
-          <summary>
-            <span>Daily Matches</span>
-            <span class="competition-note">2-man net best ball match points</span>
-          </summary>
-          <div class="competition-section-body">
-            <div class="competition-table-wrap">
-              <table class="competition-table" style="min-width:420px;">
-                <thead>
-                  <tr>
-                    <th>Pos</th>
-                    <th>Player</th>
-                    <th>Match Points</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${dailyPointsLeaderboard.map((entry) => `
-                    <tr>
-                      <td>${escapeHtml(String(entry.position || '—'))}</td>
-                      <td><strong>${escapeHtml(entry.name || 'Unknown')}</strong></td>
-                      <td class="competition-total-cell">${escapeHtml(formatCompetitionPoints(entry.points))}</td>
-                    </tr>
-                  `).join('') || '<tr><td colspan="3" class="competition-empty">No match points yet.</td></tr>'}
-                </tbody>
-              </table>
-            </div>
-            <div class="competition-round-grid">
-              ${dailyMatches.map((round) => `
-                <div class="competition-admin-card">
-                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <strong>${escapeHtml(round.course || `Round ${Number(round.roundIndex) + 1}`)}</strong>
-                    <span class="competition-note">${escapeHtml(formatCompetitionDate(round.date))}</span>
-                  </div>
-                  <div class="competition-match-grid">
-                    ${(round.matches || []).map((match) => {
-                      const displayTeamA = match.teamA && match.teamA.length ? match.teamA : (match.suggestedTeamA || []);
-                      const displayTeamB = match.teamB && match.teamB.length ? match.teamB : (match.suggestedTeamB || []);
-                      return `
-                        <div class="competition-match-card">
-                          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-                            <strong>${escapeHtml(match.label || `TT#${Number(match.slotIndex) + 1}`)}</strong>
-                            <span class="competition-note">${escapeHtml(formatTime12(match.time) || '--')}</span>
-                          </div>
-                          <div class="competition-team-row">
-                            <span class="competition-team-label">Team A</span>
-                            <div class="competition-pill-row">
-                              ${displayTeamA.length ? displayTeamA.map((name) => `<span class="competition-pill">${escapeHtml(name)}</span>`).join('') : '<span class="competition-empty">Not assigned</span>'}
-                            </div>
-                          </div>
-                          <div class="competition-team-row">
-                            <span class="competition-team-label">Team B</span>
-                            <div class="competition-pill-row">
-                              ${displayTeamB.length ? displayTeamB.map((name) => `<span class="competition-pill">${escapeHtml(name)}</span>`).join('') : '<span class="competition-empty">Not assigned</span>'}
-                            </div>
-                          </div>
-                          <div class="competition-note">${escapeHtml(match.result?.summary || 'No result yet.')}</div>
-                          <div class="competition-pill-row">
-                            <span class="competition-pill">${escapeHtml(formatCompetitionStatus(match.result?.status))}</span>
-                            <span class="competition-pill">${escapeHtml(String(match.result?.completedHoles || 0))}/18 holes</span>
-                            <span class="competition-pill">A ${escapeHtml(String(match.result?.teamAHolesWon || 0))}</span>
-                            <span class="competition-pill">B ${escapeHtml(String(match.result?.teamBHolesWon || 0))}</span>
-                            <span class="competition-pill">Halved ${escapeHtml(String(match.result?.halvedHoles || 0))}</span>
-                          </div>
-                          <div class="competition-pill-row">
-                            <span class="competition-pill">Team A ${escapeHtml(formatCompetitionPoints(match.result?.pointsA))}</span>
-                            <span class="competition-pill">Team B ${escapeHtml(formatCompetitionPoints(match.result?.pointsB))}</span>
-                            ${!(match.teamA && match.teamA.length) && displayTeamA.length && displayTeamB.length ? '<span class="competition-pill">Suggested split</span>' : ''}
-                          </div>
-                          ${Array.isArray(match.players) && match.players.length === 4 ? `
-                            <div class="competition-match-editor" data-match-editor="${escapeHtml(`${round.roundIndex}:${match.slotIndex}`)}">
-                              <strong>Admin Team Assignment</strong>
-                              <div class="competition-player-team-grid">
-                                ${match.players.map((playerName) => {
-                                  const selectedTeam = displayTeamA.includes(playerName) ? 'A' : 'B';
-                                  return `
-                                    <label>
-                                      <span>${escapeHtml(playerName)}</span>
-                                      <select data-match-team-player="${quoteAttr(playerName)}">
-                                        <option value="A"${selectedTeam === 'A' ? ' selected' : ''}>Team A</option>
-                                        <option value="B"${selectedTeam === 'B' ? ' selected' : ''}>Team B</option>
-                                      </select>
-                                    </label>
-                                  `;
-                                }).join('')}
-                              </div>
-                              <button class="small" type="button" data-save-match-teams="${escapeHtml(String(round.roundIndex))}:${escapeHtml(String(match.slotIndex))}">Save Teams</button>
-                            </div>
-                          ` : '<div class="competition-note">This tee time needs four players before teams can be assigned.</div>'}
-                        </div>
-                      `;
-                    }).join('')}
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        </details>
-      `;
+      return '';
     }
 
     function renderCompetitionSideGames(sideGames = []) {
-      return `
-        <details class="competition-section">
-          <summary>
-            <span>Side Games</span>
-            <span class="competition-note">CTP and skins stay separate from the main leaderboard</span>
-          </summary>
-          <div class="competition-section-body">
-            <div class="competition-round-grid">
-              ${sideGames.map((round) => `
-                <div class="competition-admin-card">
-                  <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-                    <strong>${escapeHtml(round.course || `Round ${Number(round.roundIndex) + 1}`)}</strong>
-                    <span class="competition-note">${escapeHtml(formatCompetitionDate(round.date))}</span>
-                  </div>
-                  <div class="competition-sidegame-grid">
-                    <div class="competition-sidegame-card">
-                      <strong>Closest to Pin</strong>
-                      ${Array.isArray(round.ctpWinners) && round.ctpWinners.length ? `
-                        <ul class="competition-sidegame-list">
-                          ${round.ctpWinners.map((entry) => `<li>Hole ${escapeHtml(String(entry.hole))}: ${escapeHtml((entry.winners || []).join(', '))}${entry.note ? ` (${escapeHtml(entry.note)})` : ''}</li>`).join('')}
-                        </ul>
-                      ` : '<div class="competition-empty">No CTP winners entered yet.</div>'}
-                      <label>
-                        <span>Admin edit (one line per result)</span>
-                        <textarea data-sidegame-ctp="${escapeHtml(String(round.roundIndex))}" placeholder="Hole 3: Tommy Knight&#10;Hole 7: Chris Neff, Caleb Hart">${escapeHtml(formatCtpText(round.ctpWinners || []))}</textarea>
-                      </label>
-                    </div>
-                    <div class="competition-sidegame-card">
-                      <strong>Skins</strong>
-                      ${Array.isArray(round.skinsResults) && round.skinsResults.length ? `
-                        <ul class="competition-sidegame-list">
-                          ${round.skinsResults.map((entry) => `<li>${escapeHtml(entry.playerName)}${entry.holes && entry.holes.length ? ` · holes ${escapeHtml(entry.holes.join(', '))}` : ''}${Number.isFinite(Number(entry.amount)) ? ` · $${escapeHtml(String(entry.amount))}` : ''}${entry.note ? ` · ${escapeHtml(entry.note)}` : ''}</li>`).join('')}
-                        </ul>
-                      ` : '<div class="competition-empty">No skins results entered yet.</div>'}
-                      <label>
-                        <span>Admin edit (player | holes 3, 7 | $20 | note)</span>
-                        <textarea data-sidegame-skins="${escapeHtml(String(round.roundIndex))}" placeholder="Tommy Knight | holes 3, 11 | $20&#10;Chris Neff | holes 7">${escapeHtml(formatSkinsText(round.skinsResults || []))}</textarea>
-                      </label>
-                    </div>
-                  </div>
-                  <button class="small" type="button" data-save-side-games="${escapeHtml(String(round.roundIndex))}">Save Side Games</button>
-                </div>
-              `).join('')}
-            </div>
-          </div>
-        </details>
-      `;
+      return '';
     }
 
     function renderCompetitionAdmin(overview = {}, rounds = [], admin = {}) {
@@ -2100,9 +1965,9 @@
           <div class="competition-section-body">
             <div class="competition-admin-grid">
               <div class="competition-admin-card">
-                <strong>Scoring Mode</strong>
+                <strong>Trip Scoreboard Mode</strong>
                 <label>
-                  <span>Trip leaderboard mode</span>
+                  <span>Trip scoreboard mode</span>
                   <select id="competitionScoringModeSelect">
                     <option value="best4"${overview.scoringMode === 'best4' ? ' selected' : ''}>Best 4 of 5 rounds</option>
                     <option value="first4of5"${overview.scoringMode === 'first4of5' ? ' selected' : ''}>First 4 of 5 rounds</option>
@@ -2780,18 +2645,16 @@
         <div class="competition-grid">
           <div class="competition-admin-card">
             <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-              <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Trip Competition</h2>
+              <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Trip Scoring and Ryder Cup</h2>
               <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                <span class="competition-note">Stableford, daily best ball, CTP, and skins</span>
-                <a class="cta" href="/myrtle/competition-entry.html" target="_blank" rel="noopener">Competition Entry Page</a>
+                <span class="competition-note">Own-ball score entry, Myrtle Ryder Cup points, and trip side games</span>
+                <a class="cta" href="/myrtle/competition-entry.html" target="_blank" rel="noopener">Own-Ball Score Entry</a>
               </div>
             </div>
             ${renderCompetitionOverview(competitionData.overview || {})}
           </div>
           ${renderRyderCupSection(getRyderCupData())}
           ${renderCompetitionLeaderboard(competitionData.leaderboard || [])}
-          ${renderCompetitionDailyMatches(competitionData.dailyMatches || [], competitionData.dailyPointsLeaderboard || [])}
-          ${renderCompetitionSideGames(competitionData.sideGames || [])}
           ${renderCompetitionAdmin(competitionData.overview || {}, competitionData.rounds || [], competitionData.admin || {})}
         </div>
       `;
@@ -3026,6 +2889,7 @@
         <div class="trip-drag-help">Drag a name to another tee time or the unassigned area, or tap a name then tap a destination.</div>
         <div class="trip-event-list">
           ${dayRounds.map(({ round, roundIndex }) => {
+            const ryderRound = getRyderCupRoundMeta(roundIndex);
             const waze = buildWazeLink(round.course, round.address);
             const googleUrl = buildRoundGoogleCalendarUrl(round);
             const courseLabel = round.course || 'Course TBD';
@@ -3083,6 +2947,7 @@
                   <h3 class="trip-event-course">${courseMarkup}</h3>
                   <span class="trip-event-time">${escapeHtml(firstTime ? `First tee ${formatTime12(firstTime)}` : 'Time TBD')}</span>
                 </div>
+                ${ryderRound ? `<div class="competition-note" style="margin-top:6px;">${escapeHtml(ryderRound.title || `Round ${Number(roundIndex) + 1}`)} · ${escapeHtml(ryderRound.format || 'Myrtle Ryder Cup round')}</div>` : ''}
                 ${round.address ? `<small>${escapeHtml(round.address)}</small>` : ''}
                 ${slotMarkup ? `<div class="trip-slot-grid">${slotMarkup}</div>` : '<div class="trip-empty-state">No tee sheet entered.</div>'}
                 <div class="trip-unassigned-box trip-drop-target" data-trip-target="1" data-target-key="${makeTripTargetKey(unassignedTarget)}" data-container-type="unassigned" data-round-index="${roundIndex}">
@@ -3130,7 +2995,10 @@
     function renderItinerary() {
       $('#itineraryBox').innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-          <h2 style="margin:0;font-size:1.05rem;">Golf Schedule</h2>
+          <div style="display:grid;gap:4px;">
+            <h2 style="margin:0;font-size:1.05rem;">Golf Schedule</h2>
+            <div class="competition-note">Daily tee groups mirror the Myrtle Ryder Cup round formats below.</div>
+          </div>
         </div>
         <div class="trip-schedule-layout">
           <aside class="trip-calendar-sidebar">

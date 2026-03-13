@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Myrtle Competition Entry</title>
+  <title>Myrtle Score Entry</title>
   <style>
     :root {
       --bg: #0d1726;
@@ -197,8 +197,8 @@
   <a class="back-link" href="/myrtle/trip-2026.html">Back to Myrtle Page</a>
   <main class="container">
     <header class="hero">
-      <h1>Myrtle Competition Entry <span>Scores, teams, and side games</span></h1>
-      <div class="copy">This page writes directly into the Myrtle Beach trip competition data. Enter handicaps, hole-by-hole scores, 2-man team assignments, Closest to Pin, and skins here, then refresh the main Myrtle trip page to see the updated results.</div>
+      <h1>Myrtle Score Entry <span>Own-ball scores and handicaps</span></h1>
+      <div class="copy">This page writes directly into the Myrtle Beach trip competition data. Enter handicaps and hole-by-hole own-ball scores here, then use the main Myrtle trip page for Ryder Cup matchups, round results, and side games.</div>
       <div class="chips">
         <span class="chip">Same data as the main Myrtle page</span>
         <span class="chip">Admin code required for saves</span>
@@ -218,7 +218,7 @@
     let competitionData = null;
 
     const uiState = {
-      message: 'Competition entry loads the same Myrtle data shown on the main page.',
+      message: 'Score entry loads the same Myrtle data shown on the main page.',
       tone: 'muted',
       openRounds: new Set(),
       openPlayers: new Set()
@@ -258,6 +258,13 @@
       const num = Number(value);
       if (!Number.isFinite(num)) return '-';
       return Number.isInteger(num) ? String(num) : num.toFixed(1);
+    }
+    function getRyderCupRound(roundIndex) {
+      const rounds = competitionData && competitionData.ryderCup && Array.isArray(competitionData.ryderCup.rounds)
+        ? competitionData.ryderCup.rounds
+        : [];
+      const index = Number(roundIndex);
+      return Number.isInteger(index) && index >= 0 ? rounds[index] || null : null;
     }
 
     function formatCompetitionStatus(value) {
@@ -491,8 +498,8 @@
         <section class="panel">
           <div class="top-row">
             <div>
-              <strong style="font-size:1.1rem;">Competition Control Panel</strong>
-              <div class="note">All saves here write back to the same Myrtle competition data the main page uses.</div>
+              <strong style="font-size:1.1rem;">Score Entry Control Panel</strong>
+              <div class="note">All saves here write back to the same Myrtle trip scoring data the main page uses.</div>
             </div>
             <div class="toolbar">
               <a class="cta" href="/myrtle/trip-2026.html" target="_blank" rel="noopener">Open Main Myrtle Page</a>
@@ -515,7 +522,7 @@
             <div class="card">
               <strong>Rounds</strong>
               <div class="stat-value">${escapeHtml(String(overview.roundCount || rounds.length || 0))}</div>
-              <div class="fine">Five Myrtle rounds with daily 2-man best ball inside each foursome.</div>
+              <div class="fine">Five Myrtle rounds with tee groups that mirror the Myrtle Ryder Cup schedule.</div>
             </div>
             <div class="card">
               <strong>Completed Scorecards</strong>
@@ -544,7 +551,7 @@
           <div class="section-head" style="margin-top:16px;">
             <div>
               <strong>Player Handicaps</strong>
-              <div class="fine">Update handicaps before entering scores so net Stableford and net best ball calculate correctly.</div>
+              <div class="fine">Update handicaps before entering scores so the own-ball net and Stableford tracking stays accurate.</div>
             </div>
             <button class="primary" type="button" data-save-handicaps>Save Handicaps</button>
           </div>
@@ -576,7 +583,7 @@
       const editorKey = `${roundIndex}:${playerName}`;
 
       return `
-        <div class="fine">Enter gross scores only. Net hole scores and Stableford points update automatically after save.</div>
+        <div class="fine">Own-ball only: enter each player’s gross scores and the net / Stableford tracking updates automatically after save.</div>
         <div class="pill-row" style="margin-top:10px;">
           <span class="pill">Handicap ${escapeHtml(formatHandicap(playerEntry.handicapIndex))}</span>
           <span class="pill">Playing ${escapeHtml(String(playingHandicap))}</span>
@@ -669,7 +676,7 @@
       const displayTeamA = Array.isArray(match && match.teamA) && match.teamA.length ? match.teamA : (Array.isArray(match && match.suggestedTeamA) ? match.suggestedTeamA : []);
       const displayTeamB = Array.isArray(match && match.teamB) && match.teamB.length ? match.teamB : (Array.isArray(match && match.suggestedTeamB) ? match.suggestedTeamB : []);
       if (!Array.isArray(match && match.players) || match.players.length !== 4) {
-        return '<div class="fine" style="margin-top:12px;">This tee time needs four golfers before a 2-man best-ball team matchup can be assigned.</div>';
+        return '<div class="fine" style="margin-top:12px;">Use the main Myrtle trip page if you need to change Ryder Cup pairings or team assignments.</div>';
       }
       return `
         <div class="team-grid" data-match-editor="${quoteAttr(`${roundIndex}:${match.slotIndex}`)}">
@@ -687,7 +694,7 @@
           }).join('')}
         </div>
         <div class="save-row" style="margin-top:12px;">
-          <div class="fine">Each foursome needs exactly two golfers on Team A and two golfers on Team B.</div>
+          <div class="fine">Pairing and team edits now belong on the main Myrtle trip page.</div>
           <button class="primary" type="button" data-save-match-teams="${escapeHtml(String(roundIndex))}:${escapeHtml(String(match.slotIndex))}">Save Teams</button>
         </div>
       `;
@@ -696,8 +703,6 @@
     function renderMatchCard(round, match) {
       const contextLabel = `${match.label || `TT#${Number(match.slotIndex) + 1}`} | ${formatTime12(match.time)}`;
       const players = Array.isArray(match && match.players) ? match.players : [];
-      const displayTeamA = Array.isArray(match && match.teamA) && match.teamA.length ? match.teamA : (Array.isArray(match && match.suggestedTeamA) ? match.suggestedTeamA : []);
-      const displayTeamB = Array.isArray(match && match.teamB) && match.teamB.length ? match.teamB : (Array.isArray(match && match.suggestedTeamB) ? match.suggestedTeamB : []);
       return `
         <div class="card">
           <div class="slot-head">
@@ -706,21 +711,14 @@
               <div class="fine">${escapeHtml(formatTime12(match.time))}</div>
             </div>
             <div class="pill-row">
-              <span class="pill">${escapeHtml(formatCompetitionStatus(match.result && match.result.status))}</span>
-              <span class="pill">${escapeHtml(String(match.result && match.result.completedHoles ? match.result.completedHoles : 0))}/18 holes</span>
-              <span class="pill">A ${escapeHtml(formatCompetitionPoints(match.result && match.result.pointsA))}</span>
-              <span class="pill">B ${escapeHtml(formatCompetitionPoints(match.result && match.result.pointsB))}</span>
+              <span class="pill">${escapeHtml(String(players.length || 0))} golfers</span>
+              <span class="pill">${escapeHtml(String(players.filter((playerName) => {
+                const playerEntry = getRoundPlayerEntry(round, playerName);
+                return playerEntry && playerEntry.isComplete;
+              }).length))}/${escapeHtml(String(players.length || 0))} complete</span>
             </div>
           </div>
-          <div class="note" style="margin-top:10px;">${escapeHtml((match.result && match.result.summary) || 'No daily match result yet.')}</div>
-          <div class="pill-row" style="margin-top:10px;">
-            <span class="pill">Team A ${displayTeamA.length ? displayTeamA.map((name) => escapeHtml(name)).join(' / ') : '-'}</span>
-            <span class="pill">Team B ${displayTeamB.length ? displayTeamB.map((name) => escapeHtml(name)).join(' / ') : '-'}</span>
-            <span class="pill">A holes ${escapeHtml(String(match.result && match.result.teamAHolesWon ? match.result.teamAHolesWon : 0))}</span>
-            <span class="pill">B holes ${escapeHtml(String(match.result && match.result.teamBHolesWon ? match.result.teamBHolesWon : 0))}</span>
-            <span class="pill">Halved ${escapeHtml(String(match.result && match.result.halvedHoles ? match.result.halvedHoles : 0))}</span>
-          </div>
-          ${renderTeamEditor(round.roundIndex, match)}
+          <div class="note" style="margin-top:10px;">Use the main Myrtle trip page to manage Ryder Cup pairings, winners, and side games for this tee group.</div>
           <div class="player-list">
             ${players.length
               ? players.map((playerName) => renderPlayerEditor(round, playerName, round.roundIndex, contextLabel)).join('')
@@ -747,49 +745,8 @@
       `;
     }
 
-    function renderSideGamesCard(round) {
-      const ctpWinners = Array.isArray(round && round.ctpWinners) ? round.ctpWinners : [];
-      const skinsResults = Array.isArray(round && round.skinsResults) ? round.skinsResults : [];
-      return `
-        <div class="card">
-          <div class="slot-head">
-            <div>
-              <strong>Side Games</strong>
-              <div class="fine">Closest to Pin and skins stay separate from the main leaderboard and daily matches.</div>
-            </div>
-            <button class="primary" type="button" data-save-side-games="${escapeHtml(String(round.roundIndex))}">Save Side Games</button>
-          </div>
-          <div class="overview-grid" style="margin-top:12px;">
-            <div>
-              <strong style="display:block;margin-bottom:8px;">Closest to Pin</strong>
-              ${ctpWinners.length ? `
-                <ul class="list">
-                  ${ctpWinners.map((entry) => `<li>Hole ${escapeHtml(String(entry.hole))}: ${escapeHtml((entry.winners || []).join(', '))}${entry.note ? ` (${escapeHtml(entry.note)})` : ''}</li>`).join('')}
-                </ul>
-              ` : '<div class="empty" style="margin-top:10px;">No CTP winners saved yet.</div>'}
-              <label style="margin-top:12px;">
-                <span>One line per result</span>
-                <textarea data-sidegame-ctp="${escapeHtml(String(round.roundIndex))}" placeholder="Hole 3: Tommy Knight&#10;Hole 7: Chris Neff, Caleb Hart">${escapeHtml(formatCtpText(ctpWinners))}</textarea>
-              </label>
-            </div>
-            <div>
-              <strong style="display:block;margin-bottom:8px;">Skins</strong>
-              ${skinsResults.length ? `
-                <ul class="list">
-                  ${skinsResults.map((entry) => `<li>${escapeHtml(entry.playerName)}${entry.holes && entry.holes.length ? ` | holes ${escapeHtml(entry.holes.join(', '))}` : ''}${Number.isFinite(Number(entry.amount)) ? ` | $${escapeHtml(String(entry.amount))}` : ''}${entry.note ? ` | ${escapeHtml(entry.note)}` : ''}</li>`).join('')}
-                </ul>
-              ` : '<div class="empty" style="margin-top:10px;">No skins results saved yet.</div>'}
-              <label style="margin-top:12px;">
-                <span>Format: player | holes 3, 11 | $20 | note</span>
-                <textarea data-sidegame-skins="${escapeHtml(String(round.roundIndex))}" placeholder="Tommy Knight | holes 3, 11 | $20&#10;Chris Neff | holes 7">${escapeHtml(formatSkinsText(skinsResults))}</textarea>
-              </label>
-            </div>
-          </div>
-        </div>
-      `;
-    }
-
     function renderRoundSection(round) {
+      const ryderRound = getRyderCupRound(round.roundIndex);
       const matches = Array.isArray(round && round.matches) ? round.matches : [];
       const playerScores = Array.isArray(round && round.playerScores) ? round.playerScores : [];
       const completeCount = playerScores.filter((entry) => entry && entry.isComplete).length;
@@ -810,10 +767,11 @@
             <div>
               <strong>${escapeHtml(`Round ${Number(round.roundIndex) + 1}`)}</strong>
               <div class="note">${escapeHtml(round.course || `Round ${Number(round.roundIndex) + 1}`)} | ${escapeHtml(formatDateLong(round.date))} | ${escapeHtml(formatTime12(round.time))}</div>
+              ${ryderRound ? `<div class="fine">${escapeHtml(ryderRound.title || `Round ${Number(round.roundIndex) + 1}`)} · ${escapeHtml(ryderRound.format || 'Myrtle Ryder Cup round')}</div>` : ''}
             </div>
             <div class="pill-row">
               <span class="pill">${escapeHtml(`${completeCount}/${playerScores.length || 0} complete`)}</span>
-              <span class="pill">${escapeHtml(`${matches.length} tee times`)}</span>
+              <span class="pill">${escapeHtml(`${matches.length} tee groups`)}</span>
               <span class="pill">${escapeHtml(`${unassignedNames.length} unassigned`)}</span>
             </div>
           </summary>
@@ -823,7 +781,10 @@
               : '<div class="empty">No tee times or foursomes are saved for this round yet.</div>'}
             ${renderLoosePlayersCard(round, 'Unassigned Golfers', unassignedNames, 'These golfers are stored in the round but not inside a tee time slot.')}
             ${renderLoosePlayersCard(round, 'Other Round Entries', extraNames, 'These score entries exist on the round but are not tied to a tee time or the round unassigned list.')}
-            ${renderSideGamesCard(round)}
+            <div class="card">
+              <strong>Ryder Cup Admin</strong>
+              <div class="fine" style="margin-top:8px;">Manage Myrtle Ryder Cup results, Daily Low Gross, Weekly Low Gross, Closest to Pin, Birdie Pool, MVP, and payouts from the main Myrtle trip page.</div>
+            </div>
           </div>
         </details>
       `;
