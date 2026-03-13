@@ -519,34 +519,6 @@ main{padding:20px}
   overflow-x:hidden;
 }
 
-.mobile-quick-tools{
-  display:none;
-}
-
-.mobile-quick-bar,
-.mobile-filter-bar{
-  display:flex;
-  gap:8px;
-  overflow-x:auto;
-  scrollbar-width:none;
-}
-
-.mobile-quick-bar::-webkit-scrollbar,
-.mobile-filter-bar::-webkit-scrollbar{
-  display:none;
-}
-
-.mobile-quick-btn,
-.mobile-filter-btn{
-  flex:0 0 auto;
-  white-space:nowrap;
-  border-radius:999px;
-}
-
-.mobile-filter-status{
-  font-size:12px;
-}
-
 .events-header{
   margin-bottom:16px;
   display:flex;
@@ -1071,52 +1043,6 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
 }
 
 @media (max-width:768px) {
-  .mobile-quick-tools{
-    position:sticky;
-    top:8px;
-    z-index:80;
-    display:grid;
-    gap:8px;
-    margin:0 0 14px 0;
-    padding:10px 12px;
-    border:1px solid rgba(255,255,255,.18);
-    border-radius:18px;
-    background:linear-gradient(135deg, rgba(12,42,20,.92) 0%, rgba(26,90,26,.88) 100%);
-    box-shadow:0 14px 32px rgba(0,0,0,.2);
-    backdrop-filter:blur(10px);
-  }
-
-  .mobile-quick-btn,
-  .mobile-filter-btn{
-    min-height:38px;
-    padding:8px 14px;
-    border:1px solid rgba(255,255,255,.16);
-    background:rgba(255,255,255,.12);
-    color:#fff;
-    box-shadow:none;
-    font-size:13px;
-  }
-
-  .mobile-quick-btn:hover,
-  .mobile-filter-btn:hover{
-    transform:none;
-    background:rgba(255,255,255,.2);
-    color:#fff;
-    box-shadow:none;
-  }
-
-  .mobile-filter-btn.is-active{
-    background:linear-gradient(135deg, rgba(236,253,245,.96) 0%, rgba(187,247,208,.92) 100%);
-    color:var(--golf-green-dark);
-    border-color:rgba(187,247,208,.92);
-  }
-
-  .mobile-filter-status{
-    color:rgba(255,255,255,.86);
-    line-height:1.4;
-    min-height:16px;
-  }
-
   #events {
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 12px;
@@ -1230,19 +1156,6 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
 }
 
 @media (max-width:560px){
-  .mobile-quick-tools{
-    top:6px;
-    padding:10px;
-    border-radius:16px;
-  }
-
-  .mobile-quick-btn,
-  .mobile-filter-btn{
-    min-height:36px;
-    padding:7px 12px;
-    font-size:12px;
-  }
-
   header{flex-wrap:wrap;gap:10px}
   header .subscribe{order:3;width:100%}
   header input[type=email]{flex:1;min-width:0}
