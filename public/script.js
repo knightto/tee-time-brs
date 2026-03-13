@@ -227,10 +227,39 @@ if ('serviceWorker' in navigator) {
     </dialog>`;
     document.body.appendChild(wrap.firstElementChild);
   }
+  function ensureActionDialog(){
+    if ($('#actionModal')) return;
+    const wrap = document.createElement('div');
+    wrap.innerHTML = `<dialog id="actionModal" class="action-dialog">
+      <form id="actionForm" method="dialog">
+        <h3 id="actionDialogTitle">Action</h3>
+        <p id="actionDialogMessage" class="dialog-message" hidden></p>
+        <div id="actionDialogBody"></div>
+        <div id="actionDialogFields" class="dialog-fields"></div>
+        <p id="actionDialogHint" class="dialog-hint" hidden></p>
+        <menu>
+          <button type="button" data-cancel id="actionDialogCancelBtn">Cancel</button>
+          <button type="submit" class="primary" id="actionDialogConfirmBtn">Continue</button>
+        </menu>
+      </form>
+    </dialog>`;
+    document.body.appendChild(wrap.firstElementChild);
+  }
+  function ensureToastHost(){
+    if ($('#toastHost')) return;
+    const host = document.createElement('div');
+    host.id = 'toastHost';
+    host.className = 'toast-stack';
+    host.setAttribute('aria-live', 'polite');
+    host.setAttribute('aria-atomic', 'true');
+    document.body.appendChild(host);
+  }
   ensureEditDialog();
   ensureMoveDialog();
   ensureEditTeeDialog();
   ensureAuditDialog();
+  ensureActionDialog();
+  ensureToastHost();
 
   const editModal = $('#editModal');
   const editForm = $('#editForm');
@@ -246,8 +275,19 @@ if ('serviceWorker' in navigator) {
   const editTeeLabel = $('#editTeeLabel');
   const editTeeInput = $('#editTeeInput');
   const editTeeSelect = $('#editTeeSelect');
+  const actionModal = $('#actionModal');
+  const actionForm = $('#actionForm');
+  const actionDialogTitle = $('#actionDialogTitle');
+  const actionDialogMessage = $('#actionDialogMessage');
+  const actionDialogBody = $('#actionDialogBody');
+  const actionDialogFields = $('#actionDialogFields');
+  const actionDialogHint = $('#actionDialogHint');
+  const actionDialogCancelBtn = $('#actionDialogCancelBtn');
+  const actionDialogConfirmBtn = $('#actionDialogConfirmBtn');
+  const toastHost = $('#toastHost');
 
   if (!eventsEl) return;
+  let actionDialogState = null;
 
   function updateLastUpdated(text){
     if (!lastUpdatedEl) return;
@@ -280,6 +320,102 @@ if ('serviceWorker' in navigator) {
   function fmtTime(hhmm){ if(!hhmm) return ''; const m=/^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(hhmm); if(!m) return hhmm; let h=parseInt(m[1],10); const min=m[2]; const ap=h>=12?'PM':'AM'; h=h%12||12; return `${h}:${min} ${ap}`; }
   function escapeHtml(value = '') {
     return String(value).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  }
+  function renderActionField(field = {}) {
+    const label = escapeHtml(field.label || '');
+    const name = escapeHtml(field.name || '');
+    const hint = field.hint ? `<span class="dialog-field-note">${escapeHtml(field.hint)}</span>` : '';
+    if (field.type === 'select') {
+      const options = Array.isArray(field.options) ? field.options : [];
+      const currentValue = String(field.value ?? '');
+      return `<label class="dialog-field">
+        <span>${label}</span>
+        <select name="${name}" ${field.required ? 'required' : ''}>
+          ${options.map((option) => {
+            const value = String(option && option.value != null ? option.value : '');
+            const selected = value === currentValue ? ' selected' : '';
+            return `<option value="${escapeHtml(value)}"${selected}>${escapeHtml(option && option.label != null ? option.label : value)}</option>`;
+          }).join('')}
+        </select>
+        ${hint}
+      </label>`;
+    }
+    if (field.type === 'textarea') {
+      return `<label class="dialog-field">
+        <span>${label}</span>
+        <textarea name="${name}" rows="${Number(field.rows) || 3}" placeholder="${escapeHtml(field.placeholder || '')}" ${field.required ? 'required' : ''}>${escapeHtml(field.value || '')}</textarea>
+        ${hint}
+      </label>`;
+    }
+    const inputType = escapeHtml(field.type || 'text');
+    const inputMode = field.inputMode ? ` inputmode="${escapeHtml(field.inputMode)}"` : '';
+    const autoComplete = field.autocomplete ? ` autocomplete="${escapeHtml(field.autocomplete)}"` : '';
+    return `<label class="dialog-field">
+      <span>${label}</span>
+      <input name="${name}" type="${inputType}" value="${escapeHtml(field.value || '')}" placeholder="${escapeHtml(field.placeholder || '')}" ${field.required ? 'required' : ''}${inputMode}${autoComplete}>
+      ${hint}
+    </label>`;
+  }
+  function collectActionDialogValues(fields = []) {
+    const formData = new FormData(actionForm);
+    return fields.reduce((values, field) => {
+      if (!field || !field.name) return values;
+      const rawValue = formData.get(field.name);
+      values[field.name] = typeof rawValue === 'string' && field.trim !== false ? rawValue.trim() : rawValue;
+      return values;
+    }, {});
+  }
+  function focusFirstActionField() {
+    const firstField = actionForm && actionForm.querySelector('input, textarea, select, button[type="submit"]');
+    if (!firstField) return;
+    firstField.focus();
+    if (typeof firstField.select === 'function' && firstField.tagName === 'INPUT') {
+      firstField.select();
+    }
+  }
+  function resolveActionDialog(result) {
+    if (!actionDialogState) return;
+    const { resolve } = actionDialogState;
+    actionDialogState = null;
+    resolve(result);
+  }
+  function openActionDialog(options = {}) {
+    if (!actionModal || !actionForm) return Promise.resolve(null);
+    if (actionDialogState) {
+      resolveActionDialog(null);
+      if (actionModal.open) actionModal.close();
+    }
+    const fields = Array.isArray(options.fields) ? options.fields.filter(Boolean) : [];
+    actionDialogTitle.textContent = options.title || 'Action';
+    actionDialogMessage.textContent = options.message || '';
+    actionDialogMessage.hidden = !options.message;
+    actionDialogBody.innerHTML = options.bodyHtml || '';
+    actionDialogFields.innerHTML = fields.map(renderActionField).join('');
+    actionDialogHint.textContent = options.hint || '';
+    actionDialogHint.hidden = !options.hint;
+    actionDialogCancelBtn.textContent = options.cancelLabel || 'Cancel';
+    actionDialogConfirmBtn.textContent = options.confirmLabel || 'Continue';
+    actionDialogConfirmBtn.className = options.confirmClass || 'primary';
+    actionDialogState = { fields, resolve: null };
+    const promise = new Promise((resolve) => {
+      actionDialogState.resolve = resolve;
+    });
+    actionModal.showModal();
+    requestAnimationFrame(focusFirstActionField);
+    return promise;
+  }
+  function showToast(message, tone = 'info') {
+    if (!toastHost || !message) return;
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${tone}`;
+    toast.textContent = message;
+    toastHost.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add('toast-visible'));
+    const dismiss = () => {
+      toast.classList.remove('toast-visible');
+      window.setTimeout(() => toast.remove(), 220);
+    };
+    window.setTimeout(dismiss, tone === 'error' ? 4200 : 3000);
   }
   function weatherSummaryMarkup(ev) {
     const weather = ev && ev.weather ? ev.weather : null;
@@ -358,10 +494,22 @@ if ('serviceWorker' in navigator) {
     } catch (_) {}
   }
 
-  function promptForDeleteCode(label = 'this action') {
-    const existing = getStoredDeleteCode();
-    const prompted = window.prompt(`Admin delete code required for ${label}:`, existing || '');
-    const code = String(prompted || '').trim();
+  async function requestDeleteCode(label = 'this action') {
+    const values = await openActionDialog({
+      title: 'Admin Delete Code',
+      message: `Enter the admin delete code for ${label}.`,
+      confirmLabel: 'Continue',
+      fields: [{
+        name: 'deleteCode',
+        label: 'Delete code',
+        type: 'password',
+        value: getStoredDeleteCode(),
+        placeholder: 'Admin delete code',
+        required: true,
+        autocomplete: 'current-password'
+      }]
+    });
+    const code = String(values && values.deleteCode || '').trim();
     if (code) rememberDeleteCode(code);
     return code;
   }
@@ -718,6 +866,16 @@ if ('serviceWorker' in navigator) {
     ev.preventDefault();
     const dlg = btn.closest('dialog');
     dlg?.close?.();
+  });
+  on(actionForm, 'submit', (e) => {
+    e.preventDefault();
+    if (!actionDialogState) return;
+    const values = collectActionDialogValues(actionDialogState.fields);
+    resolveActionDialog(values);
+    actionModal?.close?.('ok');
+  });
+  on(actionModal, 'close', () => {
+    if (actionDialogState) resolveActionDialog(null);
   });
 
   // Create event submit
@@ -1382,7 +1540,19 @@ if ('serviceWorker' in navigator) {
       }
       if(t.dataset.addMaybe){
         const id=t.dataset.addMaybe;
-        const name=prompt('Enter your name to add to the Maybe list:'); 
+        const maybeValues = await openActionDialog({
+          title: 'Add to Maybe List',
+          message: 'Enter the player name to add to the maybe list.',
+          confirmLabel: 'Add Player',
+          fields: [{
+            name: 'name',
+            label: 'Player name',
+            placeholder: 'Golfer name',
+            required: true,
+            autocomplete: 'name'
+          }]
+        });
+        const name = String(maybeValues && maybeValues.name || '').trim();
         if(!name) return;
         try {
           const updatedEvent = await api(`/api/events/${id}/maybe`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
@@ -1391,16 +1561,28 @@ if ('serviceWorker' in navigator) {
         } catch (err) {
           console.error(err);
           if (err.message && err.message.includes('already on maybe list')) {
-            alert('You\'re already on the maybe list for this event!');
+            showToast('You are already on the maybe list for this event.', 'error');
           } else {
-            alert('Failed to add to maybe list: ' + err.message);
+            showToast('Failed to add to maybe list: ' + err.message, 'error');
           }
           return;
         }
       }
       if(t.dataset.fillMaybe){
         const id = t.dataset.fillMaybe;
-        const name = prompt('Optional maybe-list name to confirm now (leave blank for first in list):', '') || '';
+        const maybeFillValues = await openActionDialog({
+          title: 'Confirm Maybe Player',
+          message: 'Leave the name blank to confirm the first player on the maybe list.',
+          confirmLabel: 'Confirm Player',
+          fields: [{
+            name: 'name',
+            label: 'Maybe-list name',
+            placeholder: 'First player in list',
+            value: ''
+          }]
+        });
+        if (maybeFillValues === null) return;
+        const name = String(maybeFillValues.name || '').trim();
         const original = t.textContent;
         t.disabled = true;
         t.textContent = 'Filling...';
@@ -1413,7 +1595,7 @@ if ('serviceWorker' in navigator) {
           await updateEventCard(id, result && result.event ? result.event : null);
         } catch (err) {
           console.error(err);
-          alert('Fill failed: ' + (err.message || 'Unknown error'));
+          showToast('Fill failed: ' + (err.message || 'Unknown error'), 'error');
         } finally {
           t.disabled = false;
           t.textContent = original;
@@ -1422,7 +1604,13 @@ if ('serviceWorker' in navigator) {
       }
       if(t.dataset.removeMaybe){
         const [id, index] = t.dataset.removeMaybe.split(':');
-        if(!confirm('Remove from maybe list?')) return;
+        const confirmed = await openActionDialog({
+          title: 'Remove Maybe Player',
+          message: 'Remove this player from the maybe list?',
+          confirmLabel: 'Remove',
+          confirmClass: 'dialog-danger'
+        });
+        if (confirmed === null) return;
         const updatedEvent = await api(`/api/events/${id}/maybe/${index}`,{ method:'DELETE' });
         await updateEventCard(id, updatedEvent);
         return;
@@ -1434,9 +1622,19 @@ if ('serviceWorker' in navigator) {
       }
       if(t.dataset.requestExtraTee){
         const id = t.dataset.requestExtraTee;
-        const noteInput = prompt('Leave your name so the club knows who requested this:', '');
-        if (noteInput === null) return; // user cancelled
-        const note = String(noteInput).trim();
+        const noteValues = await openActionDialog({
+          title: 'Request Additional Tee Time',
+          message: 'Leave your name so the club knows who requested this.',
+          confirmLabel: 'Send Request',
+          fields: [{
+            name: 'note',
+            label: 'Who is asking',
+            placeholder: 'Requester name',
+            autocomplete: 'name'
+          }]
+        });
+        if (noteValues === null) return;
+        const note = String(noteValues.note || '').trim();
         const orig = t.textContent;
         t.disabled = true;
         t.textContent = 'Sending...';
@@ -1446,10 +1644,10 @@ if ('serviceWorker' in navigator) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ note })
           });
-          alert('Additional tee time request emailed to Brian Jones.');
+          showToast('Additional tee time request emailed to Brian Jones.', 'success');
         } catch (err) {
           console.error(err);
-          alert('Request failed: ' + (err.message || 'Unknown error'));
+          showToast('Request failed: ' + (err.message || 'Unknown error'), 'error');
         } finally {
           t.disabled = false;
           t.textContent = orig;
@@ -1503,18 +1701,22 @@ if ('serviceWorker' in navigator) {
           const suggestion = await api(`/api/events/${id}/pairings/suggest`, { method: 'POST' });
           const groups = Array.isArray(suggestion.groups) ? suggestion.groups : [];
           if (!groups.length) {
-            alert('No players found to pair.');
+            showToast('No players found to pair.', 'error');
             return;
           }
-          const summary = groups.map((g, idx) => {
-            const names = (g.players || []).map((p) => {
-              const h = Number.isFinite(p.handicapIndex) ? ` (${p.handicapIndex})` : '';
-              return `${p.name}${h}`;
-            }).join(', ');
-            return `Group ${idx + 1}: ${names || 'No players'}`;
-          }).join('\n');
-          const applyNow = confirm(`Suggested pairings:\n\n${summary}\n\nApply these pairings?`);
-          if (!applyNow) return;
+          const pairingsChoice = await openActionDialog({
+            title: 'Suggested Pairings',
+            message: 'Review the suggested groups before applying them.',
+            confirmLabel: 'Apply Pairings',
+            bodyHtml: `<div class="dialog-summary-list">${groups.map((g, idx) => {
+              const names = (g.players || []).map((p) => {
+                const handicap = Number.isFinite(p.handicapIndex) ? ` (${escapeHtml(String(p.handicapIndex))})` : '';
+                return `${escapeHtml(String(p && p.name || 'Player'))}${handicap}`;
+              }).join(', ');
+              return `<div class="dialog-summary-item"><strong>Group ${idx + 1}</strong><span>${names || 'No players'}</span></div>`;
+            }).join('')}</div>`
+          });
+          if (pairingsChoice === null) return;
           await api(`/api/events/${id}/pairings/apply`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -1526,10 +1728,10 @@ if ('serviceWorker' in navigator) {
             })
           });
           await updateEventCard(id);
-          alert('Pairings applied.');
+          showToast('Pairings applied.', 'success');
         } catch (err) {
           console.error(err);
-          alert('Pairing action failed: ' + (err.message || 'Unknown error'));
+          showToast('Pairing action failed: ' + (err.message || 'Unknown error'), 'error');
         } finally {
           t.disabled = false;
           t.textContent = original;
@@ -1538,18 +1740,42 @@ if ('serviceWorker' in navigator) {
       }
       if(t.dataset.delTee){
         const [eventId, teeId] = t.dataset.delTee.split(':');
-        if(!confirm('Remove this tee/team?')) return;
-        const adminCode = promptForDeleteCode('removing this tee/team');
-        if(!adminCode) return;
         const ev = await getEventForAction(eventId);
         const isTeamEvent = !!(ev && ev.isTeamEvent);
-        let notifyClub = false;
-        if (!isTeamEvent) {
-          const notifyChoice = String(
-            prompt('Notify the club to remove this tee time from their books? Type "yes" or "no".', 'no') || 'no'
-          ).trim().toLowerCase();
-          notifyClub = notifyChoice === 'yes' || notifyChoice === 'y';
-        }
+        const deleteValues = await openActionDialog({
+          title: isTeamEvent ? 'Remove Team' : 'Remove Tee Time',
+          message: isTeamEvent
+            ? 'Enter the admin delete code to remove this team.'
+            : 'Enter the admin delete code and choose whether to notify the club.',
+          confirmLabel: 'Remove',
+          confirmClass: 'dialog-danger',
+          fields: [
+            {
+              name: 'deleteCode',
+              label: 'Admin delete code',
+              type: 'password',
+              value: getStoredDeleteCode(),
+              placeholder: 'Admin delete code',
+              required: true,
+              autocomplete: 'current-password'
+            },
+            !isTeamEvent ? {
+              name: 'notifyClub',
+              label: 'Club notification',
+              type: 'select',
+              value: 'no',
+              options: [
+                { value: 'no', label: 'Remove only' },
+                { value: 'yes', label: 'Remove and email Brian Jones' }
+              ]
+            } : null
+          ]
+        });
+        if (deleteValues === null) return;
+        const adminCode = String(deleteValues.deleteCode || '').trim();
+        if(!adminCode) return;
+        rememberDeleteCode(adminCode);
+        const notifyClub = !isTeamEvent && String(deleteValues.notifyClub || 'no') === 'yes';
         t.disabled = true;
         t.textContent = notifyClub ? 'Sending...' : 'Removing...';
         try {
@@ -1561,15 +1787,15 @@ if ('serviceWorker' in navigator) {
             headers: { 'x-admin-delete-code': adminCode }
           });
           if (resp && resp.notifyClub) {
-            alert('Club notified and tee time removed.');
+            showToast('Club notified and tee time removed.', 'success');
           } else {
-            alert(isTeamEvent ? 'Team removed.' : 'Tee time removed without club notification.');
+            showToast(isTeamEvent ? 'Team removed.' : 'Tee time removed without club notification.', 'success');
           }
         } catch (err) {
           console.error(err);
           t.disabled = false;
           t.textContent = '×';
-          alert('Delete tee/team failed: ' + (err.message || 'Unknown error'));
+          showToast('Delete tee/team failed: ' + (err.message || 'Unknown error'), 'error');
           return;
         }
         await updateEventCard(eventId);
@@ -1577,9 +1803,25 @@ if ('serviceWorker' in navigator) {
       }
       if(t.dataset.delPlayer){
         const [eventId, teeId, playerId] = t.dataset.delPlayer.split(':');
-        if(!confirm('Remove this player?')) return;
-        const deleteCode = promptForDeleteCode('removing this player');
+        const deleteValues = await openActionDialog({
+          title: 'Remove Player',
+          message: 'Enter the admin delete code to remove this player from the tee time.',
+          confirmLabel: 'Remove Player',
+          confirmClass: 'dialog-danger',
+          fields: [{
+            name: 'deleteCode',
+            label: 'Admin delete code',
+            type: 'password',
+            value: getStoredDeleteCode(),
+            placeholder: 'Admin delete code',
+            required: true,
+            autocomplete: 'current-password'
+          }]
+        });
+        if (deleteValues === null) return;
+        const deleteCode = String(deleteValues.deleteCode || '').trim();
         if(!deleteCode) return;
+        rememberDeleteCode(deleteCode);
         const origText = t.textContent;
         t.disabled = true;
         t.textContent = '...';
@@ -1593,7 +1835,7 @@ if ('serviceWorker' in navigator) {
           console.error(err);
           t.disabled = false;
           t.textContent = origText || 'x';
-          alert('Remove player failed: ' + (err.message || 'Unknown error'));
+          showToast('Remove player failed: ' + (err.message || 'Unknown error'), 'error');
         }
         return;
       }
@@ -1670,7 +1912,7 @@ if ('serviceWorker' in navigator) {
         return;
       }
       if(t.dataset.del){
-        const code = promptForDeleteCode('deleting this event'); if(!code) return;
+        const code = await requestDeleteCode('deleting this event'); if(!code) return;
         t.disabled = true;
         t.textContent = 'Deleting...';
         t.style.background = '#dc2626';
@@ -1687,13 +1929,27 @@ if ('serviceWorker' in navigator) {
           t.textContent = 'Delete';
           t.style.background = '';
           t.style.color = '';
-          alert('Delete failed: ' + (err.message || 'Invalid code or network error'));
+          showToast('Delete failed: ' + (err.message || 'Invalid code or network error'), 'error');
         }
         return;
       }
       if(t.dataset.addPlayer){
         const [id,teeId]=t.dataset.addPlayer.split(':');
-        const name=prompt('Player name'); if(!name) return;
+        const playerValues = await openActionDialog({
+          title: 'Add Player',
+          message: 'Enter the golfer name to add to this tee time.',
+          confirmLabel: 'Add Player',
+          fields: [{
+            name: 'name',
+            label: 'Player name',
+            placeholder: 'Golfer name',
+            required: true,
+            autocomplete: 'name'
+          }]
+        });
+        const name = String(playerValues && playerValues.name || '').trim();
+        if(!name) return;
+        const origText = t.textContent;
         try {
           t.disabled = true;
           t.textContent = 'Adding...';
@@ -1703,11 +1959,11 @@ if ('serviceWorker' in navigator) {
         } catch (err) {
           console.error(err);
           t.disabled = false;
-          t.textContent = '+';
+          t.textContent = origText;
           if (err.message && err.message.includes('duplicate')) {
-            alert('⚠️ Duplicate name detected!\n\nA player with this name already exists on another tee time. Please use a nickname to avoid confusion.\n\nExamples:\n• "John S" or "John 2"\n• "Mike B" or "Big Mike"');
+            showToast('Duplicate name detected. Use a nickname like "John S" or "Big Mike".', 'error');
           } else {
-            alert('Failed to add player: ' + (err.message || 'Unknown error'));
+            showToast('Failed to add player: ' + (err.message || 'Unknown error'), 'error');
           }
           return;
         }
