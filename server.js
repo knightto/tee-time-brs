@@ -2235,6 +2235,41 @@ function nextTeeTimeForEvent(ev, mins = 9, defaultTime = '07:00') {
   return defaultTime;
 }
 
+function buildCalendarSummaryForEvents(events = []) {
+  const summaryByDate = new Map();
+  const now = new Date();
+  const todayUtc = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  for (const ev of (events || [])) {
+    const dateISO = fmt.dateISO(ev && ev.date);
+    if (!dateISO) continue;
+    const [year, month, day] = dateISO.split('-').map(Number);
+    if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) continue;
+    const entry = summaryByDate.get(dateISO) || {
+      date: dateISO,
+      eventCount: 0,
+      teamEventCount: 0,
+      urgentTeeEventCount: 0,
+      nonBlueRidgeTeeEventCount: 0,
+    };
+    entry.eventCount += 1;
+    if (ev && ev.isTeamEvent) {
+      entry.teamEventCount += 1;
+    } else {
+      const courseName = String((ev && ev.course) || '').trim().toLowerCase();
+      const isBlueRidgeShadows = /blue\s*ridge\s*shadows/.test(courseName);
+      if (courseName && !isBlueRidgeShadows) entry.nonBlueRidgeTeeEventCount += 1;
+      const eventDayUtc = Date.UTC(year, month - 1, day);
+      const daysUntil = Math.round((eventDayUtc - todayUtc) / DAY_MS);
+      if (daysUntil >= 0 && daysUntil <= 3) entry.urgentTeeEventCount += 1;
+    }
+    summaryByDate.set(dateISO, entry);
+  }
+
+  return Array.from(summaryByDate.values()).sort((a, b) => String(a.date || '').localeCompare(String(b.date || '')));
+}
+
 function normalizePlayerName(name = '') {
   return String(name).trim().toLowerCase().replace(/\s+/g, ' ');
 }
@@ -2345,6 +2380,34 @@ app.get('/api/events', cacheJson(10 * 1000), async (_req, res) => {
   res.json(items);
 });
 
+app.get('/api/events/calendar/summary', cacheJson(10 * 1000), async (req, res) => {
+  try {
+    const localYmd = ymdInTZ(new Date(), LOCAL_TZ);
+    const [defaultYear, defaultMonth] = localYmd.split('-').map((v) => Number(v));
+    const year = Number(req.query.year || defaultYear);
+    const month = Number(req.query.month || defaultMonth);
+    if (!Number.isInteger(year) || year < 2000 || year > 2100) {
+      return res.status(400).json({ error: 'Invalid year; use YYYY' });
+    }
+    if (!Number.isInteger(month) || month < 1 || month > 12) {
+      return res.status(400).json({ error: 'Invalid month; use 1-12' });
+    }
+    const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
+    const end = new Date(Date.UTC(year, month, 1, 0, 0, 0));
+    const events = await Event.find(
+      { date: { $gte: start, $lt: end } },
+      { date: 1, isTeamEvent: 1, course: 1 }
+    ).lean();
+    res.json({
+      year,
+      month,
+      days: buildCalendarSummaryForEvents(events),
+    });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/api/events/calendar/month.ics', async (req, res) => {
   try {
     const localYmd = ymdInTZ(new Date(), LOCAL_TZ);
@@ -2376,6 +2439,21 @@ app.get('/api/events/calendar/month.ics', async (req, res) => {
     res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename="tee-times-${monthLabel}.ics"`);
     res.send(icsBody);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/events/by-date', cacheJson(10 * 1000), async (req, res) => {
+  try {
+    const dateISO = String(req.query.date || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) {
+      return res.status(400).json({ error: 'Invalid date; use YYYY-MM-DD' });
+    }
+    const start = new Date(`${dateISO}T00:00:00.000Z`);
+    const end = new Date(start.getTime() + (24 * 60 * 60 * 1000));
+    const events = await Event.find({ date: { $gte: start, $lt: end } }).sort({ date: 1, createdAt: 1 }).lean();
+    res.json({ date: dateISO, events });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

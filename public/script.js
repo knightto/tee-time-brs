@@ -133,7 +133,9 @@ if ('serviceWorker' in navigator) {
   const requestClubNameOptions = $('#requestClubNameOptions');
 
   // State
-  let allEvents = [];
+  let allEvents = []; // selected-day event cache
+  let monthEventSummary = new Map();
+  let loadedMonthKey = '';
   let currentDate = new Date();
   let selectedDate = null;
   let isLoading = false;
@@ -141,6 +143,7 @@ if ('serviceWorker' in navigator) {
   let autoRefreshTimer = null;
   let lastUpdatedAt = null;
   let lastResumeRefreshAt = 0;
+  let selectedDateRequestSeq = 0;
 
   // Inject Edit dialog
   function ensureEditDialog(){
@@ -481,6 +484,121 @@ if ('serviceWorker' in navigator) {
     const idx = allEvents.findIndex((item) => String(item && item._id) === String(ev._id));
     if (idx >= 0) allEvents[idx] = ev;
     else allEvents.push(ev);
+    syncSelectedDateSummary();
+  }
+
+  function monthKeyForDate(dateValue = currentDate) {
+    if (dateValue instanceof Date) {
+      return `${dateValue.getFullYear()}-${String(dateValue.getMonth() + 1).padStart(2, '0')}`;
+    }
+    const match = /^(\d{4})-(\d{2})-\d{2}$/.exec(String(dateValue || '').trim());
+    return match ? `${match[1]}-${match[2]}` : '';
+  }
+
+  function buildDaySummary(dateISO = '', events = []) {
+    const summary = {
+      date: dateISO,
+      eventCount: 0,
+      teamEventCount: 0,
+      urgentTeeEventCount: 0,
+      nonBlueRidgeTeeEventCount: 0,
+    };
+    const todayIso = toDateISO(new Date());
+    const todayUtc = todayIso ? Date.parse(`${todayIso}T00:00:00.000Z`) : null;
+    const eventDayUtc = dateISO ? Date.parse(`${dateISO}T00:00:00.000Z`) : null;
+    const daysUntil = Number.isFinite(todayUtc) && Number.isFinite(eventDayUtc)
+      ? Math.round((eventDayUtc - todayUtc) / (24 * 60 * 60 * 1000))
+      : null;
+    for (const ev of (events || [])) {
+      summary.eventCount += 1;
+      if (ev && ev.isTeamEvent) {
+        summary.teamEventCount += 1;
+        continue;
+      }
+      const courseName = String((ev && ev.course) || '').trim().toLowerCase();
+      const isBlueRidgeShadows = /blue\s*ridge\s*shadows/.test(courseName);
+      if (courseName && !isBlueRidgeShadows) summary.nonBlueRidgeTeeEventCount += 1;
+      if (Number.isInteger(daysUntil) && daysUntil >= 0 && daysUntil <= 3) {
+        summary.urgentTeeEventCount += 1;
+      }
+    }
+    return summary;
+  }
+
+  function syncSelectedDateSummary() {
+    if (!selectedDate) return;
+    if (monthKeyForDate(selectedDate) !== loadedMonthKey) return;
+    if (!allEvents.length) monthEventSummary.delete(selectedDate);
+    else monthEventSummary.set(selectedDate, buildDaySummary(selectedDate, allEvents));
+    renderCalendar();
+  }
+
+  function setCurrentMonthFromIso(dateISO = '') {
+    const match = /^(\d{4})-(\d{2})-\d{2}$/.exec(String(dateISO || '').trim());
+    if (!match) return;
+    currentDate = new Date(Number(match[1]), Number(match[2]) - 1, 1);
+  }
+
+  function getMonthSummarySets() {
+    const eventDates = new Set();
+    const teamEventDates = new Set();
+    const urgentTeeEventDates = new Set();
+    const nonBlueRidgeTeeEventDates = new Set();
+    monthEventSummary.forEach((summary, dateISO) => {
+      eventDates.add(dateISO);
+      if (Number(summary && summary.teamEventCount)) teamEventDates.add(dateISO);
+      if (Number(summary && summary.urgentTeeEventCount)) urgentTeeEventDates.add(dateISO);
+      if (Number(summary && summary.nonBlueRidgeTeeEventCount)) nonBlueRidgeTeeEventDates.add(dateISO);
+    });
+    return { eventDates, teamEventDates, urgentTeeEventDates, nonBlueRidgeTeeEventDates };
+  }
+
+  async function loadMonthSummary(force = false) {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth() + 1;
+    const requestMonthKey = `${year}-${String(month).padStart(2, '0')}`;
+    if (!force && loadedMonthKey === requestMonthKey) {
+      renderCalendar();
+      return;
+    }
+    const payload = await api(`/api/events/calendar/summary?year=${encodeURIComponent(year)}&month=${encodeURIComponent(month)}`);
+    if (requestMonthKey !== monthKeyForDate(currentDate)) return;
+    const days = Array.isArray(payload && payload.days) ? payload.days : [];
+    monthEventSummary = new Map(days.map((day) => [String(day && day.date || ''), day]).filter(([dateKey]) => dateKey));
+    loadedMonthKey = requestMonthKey;
+    renderCalendar();
+  }
+
+  async function loadEventsForSelectedDate() {
+    if (!selectedDate) {
+      selectedDateTitle.textContent = '';
+      allEvents = [];
+      eventsEl.innerHTML = '';
+      return;
+    }
+    const requestDate = selectedDate;
+    const requestSeq = ++selectedDateRequestSeq;
+    const date = new Date(`${requestDate}T12:00:00Z`);
+    selectedDateTitle.textContent = date.toLocaleDateString(undefined, {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'UTC'
+    });
+    eventsEl.innerHTML = '<div style="color:#ffffff;padding:20px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.7)">Loading events...</div>';
+    try {
+      const payload = await api(`/api/events/by-date?date=${encodeURIComponent(requestDate)}`);
+      if (requestSeq !== selectedDateRequestSeq || requestDate !== selectedDate) return;
+      allEvents = Array.isArray(payload && payload.events) ? payload.events : [];
+      renderEventsForDate();
+      syncSelectedDateSummary();
+    } catch (err) {
+      if (requestSeq !== selectedDateRequestSeq || requestDate !== selectedDate) return;
+      console.error(err);
+      allEvents = [];
+      eventsEl.innerHTML = '<div class="card">Failed to load events for this date.</div>';
+    }
   }
 
   function normalizeForm(form){
@@ -755,34 +873,7 @@ if ('serviceWorker' in navigator) {
     const daysInPrevMonth = new Date(year, month, 0).getDate();
     
     // Build event date maps (YYYY-MM-DD format)
-    const eventDates = new Set();
-    const teamEventDates = new Set();
-    const urgentTeeEventDates = new Set();
-    const nonBlueRidgeTeeEventDates = new Set();
-    const now = new Date();
-    const todayUtc = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-    const DAY_MS = 24 * 60 * 60 * 1000;
-    allEvents.forEach(ev => {
-      const dateStr = toDateISO(ev && ev.date);
-      if (!dateStr) return;
-      eventDates.add(dateStr);
-      if (ev && ev.isTeamEvent) {
-        teamEventDates.add(dateStr);
-        return;
-      }
-      const courseName = String((ev && ev.course) || '').trim().toLowerCase();
-      const isBlueRidgeShadows = /blue\s*ridge\s*shadows/.test(courseName);
-      if (courseName && !isBlueRidgeShadows) {
-        nonBlueRidgeTeeEventDates.add(dateStr);
-      }
-      const [y, m, d] = dateStr.split('-').map(Number);
-      if (!Number.isInteger(y) || !Number.isInteger(m) || !Number.isInteger(d)) return;
-      const eventDayUtc = Date.UTC(y, m - 1, d);
-      const daysUntil = Math.round((eventDayUtc - todayUtc) / DAY_MS);
-      if (daysUntil >= 0 && daysUntil <= 3) {
-        urgentTeeEventDates.add(dateStr);
-      }
-    });
+    const { eventDates, teamEventDates, urgentTeeEventDates, nonBlueRidgeTeeEventDates } = getMonthSummarySets();
     
     const today = new Date();
     const todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
@@ -852,7 +943,6 @@ if ('serviceWorker' in navigator) {
       if (isOtherMonth) {
         // Navigate to other month when clicking its days
         currentDate = new Date(actualYear, actualMonth, day);
-        renderCalendar();
       }
       selectDate(dateStr);
     }, { passive: true });
@@ -865,10 +955,11 @@ if ('serviceWorker' in navigator) {
   function selectDate(dateStr) {
     if (selectedDate === dateStr) return; // No-op if already selected
     if (selectDateTimeout) clearTimeout(selectDateTimeout);
-    selectDateTimeout = setTimeout(() => {
+    selectDateTimeout = setTimeout(async () => {
       selectedDate = dateStr;
-      renderCalendar();
-      renderEventsForDate();
+      setCurrentMonthFromIso(dateStr);
+      await loadMonthSummary();
+      await loadEventsForSelectedDate();
     }, 60); // 60ms debounce for fast taps
   }
   
@@ -888,16 +979,10 @@ if ('serviceWorker' in navigator) {
       timeZone: 'UTC'
     });
     
-    const filtered = allEvents.filter(ev => {
-      if (!ev.date) return false;
-      const evDateStr = String(ev.date).slice(0, 10);
-      return evDateStr === selectedDate;
-    });
-    
-    if (filtered.length === 0) {
+    if (allEvents.length === 0) {
       eventsEl.innerHTML = '<div style="color:#ffffff;padding:20px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.7)">No events scheduled for this date</div>';
     } else {
-      render(filtered);
+      render(allEvents);
     }
   }
 
@@ -1011,12 +1096,18 @@ if ('serviceWorker' in navigator) {
   // Calendar navigation
   on(prevMonthBtn, 'click', () => {
     currentDate.setMonth(currentDate.getMonth() - 1);
-    renderCalendar();
+    loadMonthSummary().catch((err) => {
+      console.error(err);
+      updateLastUpdated('Month refresh failed');
+    });
   });
 
   on(nextMonthBtn, 'click', () => {
     currentDate.setMonth(currentDate.getMonth() + 1);
-    renderCalendar();
+    loadMonthSummary().catch((err) => {
+      console.error(err);
+      updateLastUpdated('Month refresh failed');
+    });
   });
 
   // No MutationObserver: only call load() after successful actions
@@ -1033,12 +1124,11 @@ if ('serviceWorker' in navigator) {
     isLoading = true;
     setLoading(true);
     try{ 
-      const list = await api('/api/events'); 
-      allEvents = Array.isArray(list) ? list : [];
-      renderCalendar();
+      await loadMonthSummary(force);
       if (selectedDate) {
-        renderEventsForDate();
+        await loadEventsForSelectedDate();
       } else {
+        allEvents = [];
         eventsEl.innerHTML = '';
       }
       stampLastUpdated();
