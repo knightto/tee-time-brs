@@ -1588,6 +1588,16 @@ function isAdminDelete(req) {
   return Boolean(ADMIN_DESTRUCTIVE_CODE && code === ADMIN_DESTRUCTIVE_CODE);
 }
 
+function hasDeleteActionConfirmed(req) {
+  const raw = String(
+    req.headers['x-delete-confirmed']
+      || req.query.confirmed
+      || req.body?.confirmed
+      || ''
+  ).trim().toLowerCase();
+  return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
+}
+
 function hasDestructiveConfirm(req) {
   if (!ADMIN_DESTRUCTIVE_CONFIRM_CODE) return true;
   return getDestructiveConfirmCode(req) === ADMIN_DESTRUCTIVE_CONFIRM_CODE;
@@ -2965,10 +2975,17 @@ app.put('/api/events/:id/tee-times/:teeId', async (req, res) => {
 
 app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
   try {
-    if (!isAdminDelete(req)) return res.status(403).json({ error: 'Delete code required' });
+    const confirmedDelete = hasDeleteActionConfirmed(req);
+    const hasDeleteCode = isAdminDelete(req);
+    if (!hasDeleteCode && !confirmedDelete) return res.status(403).json({ error: 'Removal confirmation required' });
     const notifyClub = String(req.query.notifyClub || '0') === '1';
-    const adminCode = (req.query.code || '').trim();
-    console.log('[tee-time] Remove request', { eventId: req.params.id, teeId: req.params.teeId, notifyClub, hasCode: !!adminCode });
+    console.log('[tee-time] Remove request', {
+      eventId: req.params.id,
+      teeId: req.params.teeId,
+      notifyClub,
+      hasDeleteCode,
+      confirmedDelete,
+    });
 
     const ev = await Event.findById(req.params.id);
     if (!ev) {
@@ -3130,7 +3147,8 @@ app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPla
 });
 app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res) => {
   try {
-    if (!isAdminDelete(req)) return res.status(403).json({ error: 'Delete code required' });
+    const confirmedDelete = hasDeleteActionConfirmed(req);
+    if (!isAdminDelete(req) && !confirmedDelete) return res.status(403).json({ error: 'Removal confirmation required' });
     const ev = await Event.findById(req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     const tt = ev.teeTimes.id(req.params.teeId);

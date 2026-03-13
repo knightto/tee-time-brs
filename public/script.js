@@ -749,6 +749,25 @@ if ('serviceWorker' in navigator) {
       });
   }
 
+  function teeSlotLabel(ev, teeTime = {}, idx = 0) {
+    if (ev && ev.isTeamEvent) {
+      return teeTime && teeTime.name ? String(teeTime.name) : `Team ${idx + 1}`;
+    }
+    return teeTime && teeTime.time ? fmtTime(teeTime.time) : `Tee ${idx + 1}`;
+  }
+
+  function findTeeTimeDetails(ev, teeId) {
+    const teeTimes = Array.isArray(ev && ev.teeTimes) ? ev.teeTimes : [];
+    const teeIndex = teeTimes.findIndex((teeTime) => String(teeTime && teeTime._id) === String(teeId));
+    if (teeIndex === -1) return { teeTime: null, teeIndex: -1, label: ev && ev.isTeamEvent ? 'Team' : 'Tee time' };
+    const teeTime = teeTimes[teeIndex];
+    return {
+      teeTime,
+      teeIndex,
+      label: teeSlotLabel(ev, teeTime, teeIndex)
+    };
+  }
+
   function buildSelectedDateShareUrl(dateISO = selectedDate) {
     const url = new URL(window.location.pathname, window.location.origin);
     if (dateISO) url.searchParams.set('date', dateISO);
@@ -1986,7 +2005,7 @@ if ('serviceWorker' in navigator) {
     }
     const urgentEmpty = !isTeams && count === 0 && Number.isInteger(daysUntil) && daysUntil >= 0 && daysUntil <= 3;
     const allCheckedIn = count > 0 && checkedInCount === count;
-    const left = isTeams ? (tt.name ? tt.name : `Team ${idx+1}`) : (tt.time ? fmtTime(tt.time) : '—');
+    const left = teeSlotLabel(ev, tt, idx);
     const delTitle = isTeams ? 'Remove team' : 'Remove tee time';
     const teeClasses = ['tee'];
     if (full) teeClasses.push('tee-full');
@@ -2241,23 +2260,16 @@ if ('serviceWorker' in navigator) {
         const [eventId, teeId] = t.dataset.delTee.split(':');
         const ev = await getEventForAction(eventId);
         const isTeamEvent = !!(ev && ev.isTeamEvent);
+        const teeDetails = findTeeTimeDetails(ev, teeId);
+        const slotLabel = teeDetails.label || (isTeamEvent ? 'this team' : 'this tee time');
         const deleteValues = await openActionDialog({
           title: isTeamEvent ? 'Remove Team' : 'Remove Tee Time',
           message: isTeamEvent
-            ? 'Enter the admin delete code to remove this team.'
-            : 'Enter the admin delete code and choose whether to notify the club.',
-          confirmLabel: 'Remove',
+            ? `Remove ${slotLabel}? This cannot be undone.`
+            : `Remove ${slotLabel}? Choose whether to only remove it here or also notify Brian Jones.`,
+          confirmLabel: isTeamEvent ? 'Remove Team' : 'Remove Tee Time',
           confirmClass: 'dialog-danger',
           fields: [
-            {
-              name: 'deleteCode',
-              label: 'Admin delete code',
-              type: 'password',
-              value: getStoredDeleteCode(),
-              placeholder: 'Admin delete code',
-              required: true,
-              autocomplete: 'current-password'
-            },
             !isTeamEvent ? {
               name: 'notifyClub',
               label: 'Club notification',
@@ -2271,9 +2283,6 @@ if ('serviceWorker' in navigator) {
           ]
         });
         if (deleteValues === null) return;
-        const adminCode = String(deleteValues.deleteCode || '').trim();
-        if(!adminCode) return;
-        rememberDeleteCode(adminCode);
         const notifyClub = !isTeamEvent && String(deleteValues.notifyClub || 'no') === 'yes';
         t.disabled = true;
         t.textContent = notifyClub ? 'Sending...' : 'Removing...';
@@ -2283,7 +2292,7 @@ if ('serviceWorker' in navigator) {
           const url = `/api/events/${eventId}/tee-times/${teeId}${params.toString() ? `?${params.toString()}` : ''}`;
           const resp = await api(url, {
             method: 'DELETE',
-            headers: { 'x-admin-delete-code': adminCode }
+            headers: { 'x-delete-confirmed': 'true' }
           });
           if (resp && resp.notifyClub) {
             showToast('Club notified and tee time removed.', 'success');
@@ -2302,32 +2311,25 @@ if ('serviceWorker' in navigator) {
       }
       if(t.dataset.delPlayer){
         const [eventId, teeId, playerId] = t.dataset.delPlayer.split(':');
+        const ev = await getEventForAction(eventId);
+        const teeDetails = findTeeTimeDetails(ev, teeId);
+        const player = ((teeDetails.teeTime && teeDetails.teeTime.players) || []).find((entry) => String(entry && entry._id) === String(playerId));
+        const playerName = String((player && player.name) || 'this player').trim() || 'this player';
         const deleteValues = await openActionDialog({
           title: 'Remove Player',
-          message: 'Enter the admin delete code to remove this player from the tee time.',
+          message: `Remove ${playerName} from ${teeDetails.label || 'this tee time'}? This cannot be undone.`,
           confirmLabel: 'Remove Player',
           confirmClass: 'dialog-danger',
-          fields: [{
-            name: 'deleteCode',
-            label: 'Admin delete code',
-            type: 'password',
-            value: getStoredDeleteCode(),
-            placeholder: 'Admin delete code',
-            required: true,
-            autocomplete: 'current-password'
-          }]
+          fields: []
         });
         if (deleteValues === null) return;
-        const deleteCode = String(deleteValues.deleteCode || '').trim();
-        if(!deleteCode) return;
-        rememberDeleteCode(deleteCode);
         const origText = t.textContent;
         t.disabled = true;
         t.textContent = '...';
         try {
           await api(`/api/events/${eventId}/tee-times/${teeId}/players/${playerId}`, {
             method: 'DELETE',
-            headers: { 'x-admin-delete-code': deleteCode }
+            headers: { 'x-delete-confirmed': 'true' }
           });
           await updateEventCard(eventId);
         } catch (err) {
