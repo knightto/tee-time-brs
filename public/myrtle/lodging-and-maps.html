@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Myrtle Lodging and Maps</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/assets/knight-club-icon.png">
+  <style>
+    :root { --bg:#0d1726; --panel:#0f2138; --panel-soft:#132a45; --accent:#e0b457; --accent-2:#6dd3ff; --ink:#e6edf7; --ink-soft:#9fb6d4; --muted:#6b82a3; --border:rgba(255,255,255,0.08); --shadow:0 20px 50px rgba(0,0,0,0.35); --radius:16px; }
+    * { box-sizing:border-box; }
+    body { font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif; background:radial-gradient(circle at 20% 20%, rgba(109,211,255,0.08), transparent 35%), radial-gradient(circle at 80% 0%, rgba(224,180,87,0.10), transparent 30%), #0b1422; margin:0; color:var(--ink); min-height:100vh; }
+    .container { max-width:1100px; margin:18px auto 32px; padding:0 16px 28px; }
+    .hero { background:linear-gradient(135deg, #0f2138 0%, #0b1626 100%); border:1px solid var(--border); border-radius:var(--radius); padding:18px 16px; box-shadow:var(--shadow); position:sticky; top:0; z-index:10; backdrop-filter:blur(8px); }
+    .hero-row, .panel-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+    h1 { margin:0; font-size:clamp(1.4rem, 4vw, 2rem); display:flex; align-items:baseline; gap:10px; letter-spacing:0.4px; }
+    h1 span { color:var(--accent); font-size:0.9rem; letter-spacing:1px; text-transform:uppercase; }
+    .hero-links, .summary-actions, .map-actions, .chips { display:flex; gap:8px; flex-wrap:wrap; }
+    .chips { margin-top:10px; }
+    .chip { padding:6px 10px; border-radius:999px; border:1px solid var(--border); background:rgba(255,255,255,0.04); color:var(--ink-soft); font-size:0.85rem; }
+    .panel { background:linear-gradient(145deg, var(--panel) 0%, #0c1a2c 100%); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; margin-top:16px; }
+    .panel-head h2 { margin:0; font-size:1.08rem; letter-spacing:0.3px; }
+    .summary-card { display:grid; gap:12px; color:var(--ink); line-height:1.6; }
+    .summary-card strong, .map-card strong, .condo-group strong, .participant-card strong, .status-box strong { color:#fff; }
+    .supporting-text, .map-card small, .stacked span { color:var(--ink-soft); line-height:1.45; }
+    .hero-link, .cta { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:9px 12px; border-radius:999px; border:1px solid rgba(109,211,255,0.28); background:rgba(109,211,255,0.10); color:var(--accent-2); text-decoration:none; font-weight:700; font-size:0.88rem; }
+    .hero-link:hover, .cta:hover { background:rgba(109,211,255,0.18); text-decoration:none; }
+    .cards-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; }
+    .map-card, .condo-group, .participant-card { background:var(--panel-soft); border:1px solid var(--border); border-radius:14px; padding:12px; display:grid; gap:8px; }
+    .map-card a { color:var(--accent-2); text-decoration:none; font-weight:700; }
+    .map-card a:hover { text-decoration:underline; }
+    .layout { display:grid; grid-template-columns:minmax(0, 1fr) 320px; gap:14px; margin-top:12px; align-items:start; }
+    .fields-row { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:8px; align-items:center; }
+    .stacked { display:grid; gap:4px; color:var(--ink-soft); font-size:0.9rem; }
+    .actions { display:grid; grid-template-columns:repeat(auto-fit, minmax(120px, 1fr)); gap:8px; }
+    #unassignedSidebar { background:var(--panel-soft); border:1px solid var(--border); border-radius:14px; padding:12px; }
+    #unassignedSidebar ul { margin:0; padding-left:0; list-style:none; display:grid; gap:8px; }
+    #unassignedSidebar li { border:1px solid var(--border); background:rgba(255,255,255,0.03); border-radius:10px; padding:8px; }
+    .status-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(130px, 1fr)); gap:8px; margin-bottom:10px; }
+    .status-pill { display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border-radius:10px; background:rgba(255,255,255,0.04); border:1px solid var(--border); color:var(--ink); font-size:0.9rem; }
+    input, select, button, textarea { width:100%; padding:8px 9px; border-radius:10px; border:1px solid var(--border); background:#0b1728; color:var(--ink); font:inherit; }
+    button { cursor:pointer; font-weight:700; }
+    button:hover { background:#102036; }
+    .subtle-button { background:rgba(255,255,255,0.05); }
+    #allParticipantsList ol { padding-left:20px; }
+    .back-link, .audit-link { position:fixed; padding:8px 12px; border-radius:10px; background:#0c1a2c; color:#f9fafb; text-decoration:none; font-weight:700; box-shadow:0 2px 8px rgba(0,0,0,0.35); z-index:999; }
+    .back-link { top:12px; left:12px; }
+    .audit-link { right:12px; bottom:12px; display:none; }
+    @media (max-width:980px) { .layout { grid-template-columns:1fr; } }
+    @media (max-width:640px) { .container { padding:0 12px 24px; } .panel { padding:14px; } .hero-links, .summary-actions, .map-actions { width:100%; } .hero-link, .cta { flex:1 1 180px; } }
+  </style>
+</head>
+<body>
+  <a class="back-link" href="/myrtle/trip-2026.html">← Myrtle Trip</a>
+  <div class="container">
+    <header class="hero">
+      <div class="hero-row">
+        <h1>Myrtle Lodging and Maps <span>Group 3/18-3/22/26</span></h1>
+        <div class="hero-links">
+          <a class="hero-link" href="/myrtle/trip-2026.html">Trip Page</a>
+          <a class="hero-link" href="/myrtle/competition-entry.html">Competition Entry</a>
+        </div>
+      </div>
+      <div class="chips">
+        <div class="chip">Myrtle Beach, SC</div>
+        <div class="chip">Oyster Catcher condos</div>
+        <div class="chip">Reservation #12972589</div>
+      </div>
+    </header>
+
+    <section class="panel summary-card"><div id="tripSummary">Loading Myrtle trip details...</div></section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div style="display:grid;gap:6px;">
+          <h2>Maps and Condo Links</h2>
+          <div class="supporting-text">Use the shared Myrtle map for courses and trip stops, then jump straight into Waze or each condo guestbook from the cards below.</div>
+        </div>
+        <div class="map-actions">
+          <a class="cta" href="https://www.google.com/maps/d/u/0/viewer?mid=1OLZdG1AzvAQJlBuhYWt5v_8Ta4W6bmY&ehbc=2E312F" target="_blank" rel="noopener">Open Full Map</a>
+        </div>
+      </div>
+      <div id="condoMapLinks" class="cards-grid" style="margin-top:12px;"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div style="display:grid;gap:6px;">
+          <h2>Lodging</h2>
+          <div class="supporting-text">Manage condo assignments, rooms, extra nights, and unassigned golfers here.</div>
+        </div>
+        <button id="addParticipantBtn" type="button" class="subtle-button" style="max-width:180px;">Add Golfer</button>
+      </div>
+      <div id="statusSummaryRow" style="margin-top:12px;"></div>
+      <div class="layout">
+        <div id="condoGroups" class="cards-grid"></div>
+        <div id="unassignedSidebar"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div style="display:grid;gap:6px;">
+          <h2>Roster Status and Payments</h2>
+          <div class="supporting-text">Update golfer status and paid totals without going back to the main trip page.</div>
+        </div>
+      </div>
+      <div id="allParticipantsList" style="margin-top:12px;"></div>
+    </section>
+  </div>
+  <a id="tripAuditLink" class="audit-link" href="/trip-audit.html?myrtleBeach2026=true" aria-label="Trip audit log">Trip Audit</a>
+
+  <script>
+    const STATUS_ORDER = ['in', 'out', 'maybe', 'waitlist', 'invited'];
+    const STATUS_LABELS = { invited: 'Invited', in: 'In', maybe: 'Maybe', out: 'Out', waitlist: 'Waitlist' };
+    const BASE_GROUP_SIZES = [4, 8, 12, 16, 20, 24];
+    const MYRTLE_ARRIVAL_DATE = '2026-03-18';
+    const MYRTLE_DEPARTURE_DATE = '2026-03-22';
+    const MYRTLE_MAP_URL = 'https://www.google.com/maps/d/u/0/viewer?mid=1OLZdG1AzvAQJlBuhYWt5v_8Ta4W6bmY&ehbc=2E312F';
+    const MYRTLE_PACKAGE_URL = 'https://founders.teetimecentralonline.com/golfcentral/guests/Register.aspx?g=8ad2d184-cdb8-4b90-8dc6-55c68c26efe9&ResNum=12972589&arr=3/18/2026';
+    const DEFAULT_TRIP = { name:'tommy knight Group - Barefoot', location:'Myrtle Beach, SC', arrivalDate:MYRTLE_ARRIVAL_DATE, departureDate:MYRTLE_DEPARTURE_DATE, package:'4 Nights / 5 Rounds', groupSize:24, preparedBy:'Myrtle Beach Golf Trips', phone:'(877) 283-2122', reservationNumber:'12972589', accommodations:{ resort:'Barefoot Golf Villas', unitType:'2 Bedroom Golf Course', units:6, confirmations:'90612 90613 90615 90614 90611', arrivalDate:MYRTLE_ARRIVAL_DATE, departureDate:MYRTLE_DEPARTURE_DATE } };
+    const CONDO_ADDRESSES = [
+      { label:'5802 Oyster Catcher Dr', address:'5802 Oyster Catcher Dr, North Myrtle Beach, SC 29582', unit:'Ironwood 1121', guestbook:'https://guide.ruebarue.com/guestbook/7427693178089342', occupants:['Chris Neff', 'Caleb Hart', 'Jeremy Bridges', 'Jay Quimby'] },
+      { label:'5810 Oyster Catcher Dr', address:'5810 Oyster Catcher Dr, North Myrtle Beach, SC 29582', unit:'Ironwood 721', guestbook:'https://guide.ruebarue.com/guestbook/7840614159287489', occupants:['Tommy Knight', 'Tommy Knight Sr', 'Joe Gillette', 'Josh Browne'] },
+      { label:'5801 Oyster Catcher Dr', address:'5801 Oyster Catcher Dr, North Myrtle Beach, SC 29582', unit:'Ironwood 1021', guestbook:'https://guide.ruebarue.com/guestbook/8331472348472874', occupants:['Matt Shannon', 'Duane Harris', 'John Hyers', 'Dennis Freeman'] },
+      { label:'5804 Oyster Catcher Dr', address:'5804 Oyster Catcher Dr, North Myrtle Beach, SC 29582', unit:'Ironwood 1233', guestbook:'https://guide.ruebarue.com/guestbook/6212242310575679', occupants:['Manuel Ordonez', 'Marcus Ordonez', 'Delmar Christian', 'Chad Jones'] },
+      { label:'5805 Oyster Catcher Dr', address:'5805 Oyster Catcher Dr, North Myrtle Beach, SC 29582', unit:'Ironwood 1311', guestbook:'https://guide.ruebarue.com/guestbook/4183582435648033', occupants:['Reny Butler', 'Thomas Lasik', 'Chris Manuel', 'Lance Darr'] }
+    ];
+
+    let tripId = null;
+    let trip = null;
+    let participants = [];
+    let adminCode = null;
+
+    const $ = (sel) => document.querySelector(sel);
+    const formatDate = (d) => {
+      if (!d) return '';
+      if (typeof d === 'string') {
+        const match = d.match(/^(\d{4})-(\d{2})-(\d{2})/);
+        if (match) return `${Number(match[2])}/${Number(match[3])}/${match[1]}`;
+      }
+      const parsed = new Date(d);
+      return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleDateString();
+    };
+    const tripApi = (path) => (path.includes('?') ? `${path}&myrtleBeach2026=true` : `${path}?myrtleBeach2026=true`);
+    const safeNumber = (val) => (val === '' || Number.isNaN(Number(val)) ? 0 : parseFloat(val));
+    const escapeHtml = (value) => String(value || '').replace(/[&<>"]/g, (ch) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[ch]));
+    async function tripFetchJson(url, options = {}) {
+      const res = await fetch(url, options);
+      const contentType = res.headers.get('content-type') || '';
+      const payload = contentType.includes('application/json') ? await res.json() : await res.text();
+      if (!res.ok) {
+        const message = payload && typeof payload === 'object' ? payload.error || payload.message : String(payload || 'Request failed');
+        throw new Error(message || 'Request failed');
+      }
+      return payload;
+    }
+    const getCondoCount = () => {
+      const size = Number(trip && trip.baseGroupSize) || Number(trip && trip.groupSize) || DEFAULT_TRIP.groupSize;
+      return Math.max(1, Math.ceil(size / 4));
+    };
+    const getCondoNumber = (assignment) => {
+      const match = assignment && assignment.match(/^Condo (\d+) - Room ([AB])$/);
+      const condoNum = match ? parseInt(match[1], 10) : null;
+      return Number.isFinite(condoNum) ? condoNum : null;
+    };
+    const buildWazeLink = (label, address) => {
+      const query = address || label;
+      return query ? `https://ul.waze.com/ul?q=${encodeURIComponent(query)}&navigate=yes` : '';
+    };
+
+    function getAdminCode() {
+      if (adminCode) return adminCode;
+      const code = prompt('Enter admin code:');
+      if (!code) {
+        alert('Admin code is required for this action.');
+        return null;
+      }
+      adminCode = code;
+      return adminCode;
+    }
+
+    async function updateTrip(body) {
+      const res = await fetch(tripApi(`/api/trips/${tripId}`), { method:'PUT', headers:{ 'Content-Type':'application/json' }, body:JSON.stringify(body) });
+      const contentType = res.headers.get('content-type') || '';
+      const payload = contentType.includes('application/json') ? await res.json() : await res.text();
+      if (!res.ok) {
+        const message = payload && typeof payload === 'object' ? payload.error || payload.message : String(payload || 'Failed to update trip.');
+        throw new Error(message || 'Failed to update trip.');
+      }
+      trip = payload;
+      return trip;
+    }
+
+    async function updateParticipant(id, body, opts = {}) {
+      const headers = { 'Content-Type':'application/json' };
+      if (opts.requireAdmin === true) {
+        const code = getAdminCode();
+        if (!code) return;
+        headers['x-admin-code'] = code;
+      }
+      const res = await fetch(tripApi(`/api/trips/${tripId}/participants/${id}`), { method:'PUT', headers, body:JSON.stringify(body || {}) });
+      const contentType = res.headers.get('content-type') || '';
+      const payload = contentType.includes('application/json') ? await res.json() : await res.text();
+      if (!res.ok) {
+        const message = payload && typeof payload === 'object' ? payload.error || payload.message : String(payload || 'Failed to update participant.');
+        throw new Error(message || 'Failed to update participant.');
+      }
+      await loadTrip();
+    }
+
+    function renderTripSummary() {
+      const t = trip || DEFAULT_TRIP;
+      const accom = t.accommodations || DEFAULT_TRIP.accommodations;
+      const summary = `
+        <div style="display:grid;gap:6px;">
+          <div><strong>Trip Name:</strong> ${escapeHtml(t.name || 'Myrtle Beach - Barefoot Group 3/18-3/22/26')}</div>
+          <div><strong>Location:</strong> ${escapeHtml(t.location || 'Myrtle Beach, SC')}</div>
+          <div><strong>Package:</strong> ${escapeHtml(t.package || '4 Nights / 5 Rounds')}</div>
+          <div><strong>Reservation #:</strong> ${escapeHtml(t.reservationNumber || '12972589')} &nbsp;|&nbsp; ${escapeHtml(t.preparedBy || 'Myrtle Beach Golf Trips')} (${escapeHtml(t.phone || '(877) 283-2122')})</div>
+          <div><strong>Lodging:</strong> ${escapeHtml(accom.resort || 'Barefoot Golf Villas')} · ${escapeHtml(accom.unitType || '2 Bedroom Golf Course')} · ${escapeHtml(String(accom.units || CONDO_ADDRESSES.length))} units</div>
+          <div><strong>Stay:</strong> ${escapeHtml(formatDate(accom.arrivalDate || MYRTLE_ARRIVAL_DATE) || '3/18/2026')} to ${escapeHtml(formatDate(accom.departureDate || MYRTLE_DEPARTURE_DATE) || '3/22/2026')}</div>
+          <div class="summary-actions">
+            <a class="cta" href="/myrtle/trip-2026.html">Back to Myrtle Trip</a>
+            <a class="cta" href="${MYRTLE_PACKAGE_URL}" target="_blank" rel="noopener">Join Package / Register / Sign In</a>
+            <a class="cta" href="${MYRTLE_MAP_URL}" target="_blank" rel="noopener">Open Full Map</a>
+          </div>
+        </div>
+      `;
+      $('#tripSummary').innerHTML = summary;
+    }
+
+    function renderMapCards() {
+      const container = $('#condoMapLinks');
+      if (!container) return;
+      container.innerHTML = CONDO_ADDRESSES.map((condo) => `
+        <article class="map-card">
+          <strong>${escapeHtml(condo.label)}</strong>
+          <small>${escapeHtml(condo.unit)} · ${escapeHtml(condo.address)}</small>
+          <small><strong>Staying:</strong> ${escapeHtml((condo.occupants || []).join(', '))}</small>
+          <div class="map-actions">
+            <a href="${buildWazeLink(condo.label, condo.address)}" target="_blank" rel="noopener">Open in Waze</a>
+            <a href="${escapeHtml(condo.guestbook)}" target="_blank" rel="noopener">Condo Info</a>
+          </div>
+        </article>
+      `).join('');
+    }
+
+    function renderStatusSummary() {
+      const inCount = participants.filter((p) => p.status === 'in').length;
+      const nextIncrement = Math.ceil(Math.max(inCount, 1) / 4) * 4;
+      const needed = Math.max(nextIncrement - inCount, 0);
+      const statusRow = $('#statusSummaryRow');
+      if (!statusRow) return;
+      statusRow.innerHTML = `
+        <div class="status-box" style="display:grid;gap:6px;background:var(--panel-soft);border:1px solid var(--border);border-radius:12px;padding:12px;">
+          <strong>Confirmed Golfers: <span style="color:var(--accent);">${inCount}</span></strong>
+          <span style="color:var(--muted);font-size:0.95rem;">
+            ${needed > 0
+              ? `Need ${needed} more to reach the next full group of 4.`
+              : `We have a full group of ${inCount}. Next target: ${nextIncrement + 4}.`}
+          </span>
+        </div>
+      `;
+    }
+
+    function renderStatusList() {
+      const listEl = $('#allParticipantsList');
+      if (!listEl) return;
+      if (!Array.isArray(participants) || !participants.length) {
+        listEl.innerHTML = '<div style="color:var(--muted);">No participants yet.</div>';
+        return;
+      }
+
+      const counts = { in: 0, out: 0, maybe: 0, waitlist: 0, invited: 0 };
+      participants.forEach((player) => {
+        if (Object.prototype.hasOwnProperty.call(counts, player.status)) counts[player.status] += 1;
+      });
+
+      const sorted = participants.slice().sort((a, b) => {
+        const left = STATUS_ORDER.indexOf(a.status);
+        const right = STATUS_ORDER.indexOf(b.status);
+        if (left !== right) return left - right;
+        return String(a.name || '').localeCompare(String(b.name || ''));
+      });
+      const perCol = Math.ceil(sorted.length / 2);
+      const cols = [sorted.slice(0, perCol), sorted.slice(perCol)];
+
+      let html = `
+        <div class="status-grid">
+          ${STATUS_ORDER.map((status) => `<div class="status-pill"><span>${STATUS_LABELS[status]}</span><strong>${counts[status]}</strong></div>`).join('')}
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;">
+      `;
+      for (let colIdx = 0; colIdx < cols.length; colIdx += 1) {
+        const col = cols[colIdx];
+        const start = colIdx * perCol + 1;
+        html += `<ol start="${start}" style="margin:0;padding-left:18px;display:grid;gap:6px;">${col.map((player) => `
+          <li style="margin:0;display:grid;gap:6px;">
+            <div style="font-weight:600;color:#fff;">${escapeHtml(player.name || '')}</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;">
+              <select class="golfer-status-dropdown" data-id="${escapeHtml(player._id)}">
+                ${STATUS_ORDER.map((opt) => `<option value="${opt}"${player.status === opt ? ' selected' : ''}>${STATUS_LABELS[opt]}</option>`).join('')}
+              </select>
+              <input type="number" class="golfer-paid-input" data-id="${escapeHtml(player._id)}" value="${Number(player.totalPaidAmount || 0).toFixed(2)}" min="0" step="0.01" placeholder="Paid">
+            </div>
+          </li>
+        `).join('')}</ol>`;
+      }
+      html += '</div>';
+      listEl.innerHTML = html;
+
+      listEl.querySelectorAll('.golfer-status-dropdown').forEach((sel) => {
+        sel.addEventListener('change', async function () {
+          try {
+            await updateParticipant(this.dataset.id, { status: this.value }, { requireAdmin: true });
+          } catch (error) {
+            alert(error && error.message ? error.message : 'Failed to update golfer status.');
+          }
+        });
+      });
+
+      listEl.querySelectorAll('.golfer-paid-input').forEach((input) => {
+        input.addEventListener('change', async function () {
+          try {
+            await updateParticipant(this.dataset.id, { totalPaidAmount: safeNumber(this.value) }, { requireAdmin: true });
+          } catch (error) {
+            alert(error && error.message ? error.message : 'Failed to update payment.');
+          }
+        });
+      });
+    }
+    function renderBaseGroupSizeSelect() {
+      const select = $('#baseGroupSizeSelect');
+      if (!select) return;
+      select.innerHTML = '';
+      BASE_GROUP_SIZES.forEach((n) => {
+        const option = document.createElement('option');
+        option.value = String(n);
+        option.textContent = `${n} players`;
+        if (trip && Number(trip.baseGroupSize) === n) option.selected = true;
+        select.appendChild(option);
+      });
+    }
+
+    function renderParticipants() {
+      const container = $('#condoGroups');
+      if (!container) return;
+      container.innerHTML = '';
+
+      const condoCount = getCondoCount();
+      const condoCounts = Array(condoCount).fill(0);
+      participants.forEach((player) => {
+        const condoNum = getCondoNumber(player.roomAssignment);
+        if (!condoNum) return;
+        const idx = condoNum - 1;
+        if (idx >= 0 && idx < condoCount) condoCounts[idx] += 1;
+      });
+
+      for (let i = 0; i < condoCount; i += 1) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'condo-group';
+        wrapper.innerHTML = '<strong>Condo ' + (i + 1) + '</strong><div class="cards-grid"></div>';
+        const grid = wrapper.querySelector('.cards-grid');
+        const group = participants.filter((player) => getCondoNumber(player.roomAssignment) === i + 1);
+
+        group.forEach((player) => {
+          const match = player.roomAssignment && player.roomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
+          const room = match ? match[2] : '';
+          const currentCondo = getCondoNumber(player.roomAssignment);
+          let moveOptions = '<option value="unassigned">Unassigned</option>';
+          for (let condoNumber = 1; condoNumber <= condoCount; condoNumber += 1) {
+            if (condoNumber !== currentCondo && condoCounts[condoNumber - 1] < 4) {
+              moveOptions += `<option value="${condoNumber}">Condo ${condoNumber}</option>`;
+            }
+          }
+          const card = document.createElement('div');
+          card.className = 'participant-card';
+          card.innerHTML = `
+            <div class="fields-row">
+              <label class="stacked"><span>Name</span><input type="text" value="${escapeHtml(player.name || '')}" data-id="${escapeHtml(player._id)}" class="name-input"></label>
+              <label class="stacked"><span>Room</span><select class="room-select" data-id="${escapeHtml(player._id)}">
+                <option value="A"${room === 'A' ? ' selected' : ''}>A</option>
+                <option value="B"${room === 'B' ? ' selected' : ''}>B</option>
+              </select></label>
+              <label class="stacked"><span>Extra Night</span><input type="checkbox" ${player.wantsExtraNight ? 'checked' : ''} class="extra-night-input" data-id="${escapeHtml(player._id)}"></label>
+            </div>
+            <div class="actions">
+              <button class="remove-condo-btn" data-id="${escapeHtml(player._id)}" type="button">Unassign</button>
+              <select class="move-condo-select" data-id="${escapeHtml(player._id)}">
+                <option value="">Move to...</option>${moveOptions}
+              </select>
+            </div>
+          `;
+          grid.appendChild(card);
+        });
+
+        container.appendChild(wrapper);
+      }
+
+      const unassigned = participants.filter((player) => {
+        const condoNum = getCondoNumber(player.roomAssignment);
+        return !condoNum || condoNum < 1 || condoNum > condoCount;
+      });
+      const unassignedSidebar = $('#unassignedSidebar');
+      if (unassignedSidebar) {
+        unassignedSidebar.innerHTML = `
+          <div style="display:grid;gap:8px;">
+            <div>
+              <label style="color:var(--ink-soft);font-size:0.9rem;">Base Group Size</label>
+              <select id="baseGroupSizeSelect" style="width:100%;"></select>
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+              <strong>Unassigned</strong>
+              <span style="color:var(--muted);font-size:0.9rem;">${unassigned.length}</span>
+            </div>
+            <div style="max-height:420px;overflow-y:auto;">
+              <ul id="unassignedList"></ul>
+            </div>
+          </div>
+        `;
+        renderBaseGroupSizeSelect();
+      }
+
+      const ul = $('#unassignedList');
+      if (ul) {
+        ul.innerHTML = '';
+        if (!unassigned.length) {
+          ul.innerHTML = '<li style="color:var(--muted);">Everyone is assigned.</li>';
+        } else {
+          const condoOptions = Array.from({ length: condoCount }, (_, idx) => `<option value="${idx + 1}">Condo ${idx + 1}</option>`).join('');
+          unassigned.forEach((player) => {
+            const li = document.createElement('li');
+            li.innerHTML = `
+              <div style="margin-bottom:6px;font-weight:600;">${escapeHtml(player.name || '')}</div>
+              <select class="assign-condo-select" data-id="${escapeHtml(player._id)}">
+                <option value="">Assign to condo...</option>
+                ${condoOptions}
+              </select>
+              <button class="remove-golfer-btn" data-id="${escapeHtml(player._id)}" type="button" style="margin-top:8px;background:#c93636;color:#fff;">Delete</button>
+            `;
+            ul.appendChild(li);
+          });
+        }
+      }
+
+      renderStatusSummary();
+    }
+    function bindInteractions() {
+      const addBtn = $('#addParticipantBtn');
+      if (addBtn) {
+        addBtn.addEventListener('click', async () => {
+          if (!tripId) return;
+          const name = prompt('Golfer name:');
+          if (!name) return;
+          try {
+            await fetch(tripApi(`/api/trips/${tripId}/participants`), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name, status: 'invited' })
+            });
+            await loadTrip();
+          } catch (error) {
+            alert(error && error.message ? error.message : 'Failed to add golfer.');
+          }
+        });
+      }
+
+      const condoGroups = $('#condoGroups');
+      if (condoGroups) {
+        condoGroups.addEventListener('click', async (event) => {
+          const removeBtn = event.target.closest('.remove-condo-btn');
+          if (!removeBtn) return;
+          try {
+            await updateParticipant(removeBtn.dataset.id, { roomAssignment: null }, { requireAdmin: true });
+          } catch (error) {
+            alert(error && error.message ? error.message : 'Failed to remove condo assignment.');
+          }
+        });
+
+        condoGroups.addEventListener('change', async (event) => {
+          const target = event.target;
+          try {
+            if (target.classList.contains('move-condo-select')) {
+              const id = target.dataset.id;
+              const value = target.value;
+              if (!value) return;
+              const condoCount = getCondoCount();
+              if (value === 'unassigned') {
+                await updateParticipant(id, { roomAssignment: null }, { requireAdmin: true });
+              } else if (Number(value) >= 1 && Number(value) <= condoCount) {
+                await updateParticipant(id, { roomAssignment: `Condo ${value} - Room A` }, { requireAdmin: true });
+              }
+              return;
+            }
+            if (target.classList.contains('room-select')) {
+              const id = target.dataset.id;
+              const room = target.value;
+              const match = participants.find((player) => player._id === id)?.roomAssignment?.match(/^Condo (\d+) - Room ([AB])$/);
+              const condoNum = match ? match[1] : null;
+              if (condoNum) await updateParticipant(id, { roomAssignment: `Condo ${condoNum} - Room ${room}` }, { requireAdmin: true });
+              return;
+            }
+            if (target.classList.contains('name-input')) {
+              await updateParticipant(target.dataset.id, { name: target.value });
+              return;
+            }
+            if (target.classList.contains('extra-night-input')) {
+              await updateParticipant(target.dataset.id, { wantsExtraNight: target.checked });
+            }
+          } catch (error) {
+            alert(error && error.message ? error.message : 'Failed to update lodging.');
+          }
+        });
+      }
+
+      const unassignedSidebar = $('#unassignedSidebar');
+      if (unassignedSidebar) {
+        unassignedSidebar.addEventListener('change', async (event) => {
+          const target = event.target;
+          try {
+            if (target.classList.contains('assign-condo-select')) {
+              const condoNum = Number(target.value);
+              const id = target.dataset.id;
+              if (!condoNum || condoNum < 1 || condoNum > getCondoCount()) return;
+              await updateParticipant(id, { roomAssignment: `Condo ${condoNum} - Room A` }, { requireAdmin: true });
+              return;
+            }
+            if (target.id === 'baseGroupSizeSelect') {
+              await updateTrip({ baseGroupSize: Number(target.value) || undefined });
+              await loadTrip();
+            }
+          } catch (error) {
+            alert(error && error.message ? error.message : 'Failed to update unassigned golfers.');
+          }
+        });
+
+        unassignedSidebar.addEventListener('click', async (event) => {
+          const removeBtn = event.target.closest('.remove-golfer-btn');
+          if (!removeBtn) return;
+          const code = getAdminCode();
+          if (!code) return;
+          if (!confirm('Remove this golfer from the event?')) return;
+          try {
+            await fetch(tripApi(`/api/trips/${tripId}/participants/${removeBtn.dataset.id}`), {
+              method: 'DELETE',
+              headers: { 'x-admin-code': code }
+            });
+            await loadTrip();
+          } catch (error) {
+            alert(error && error.message ? error.message : 'Failed to remove golfer.');
+          }
+        });
+      }
+    }
+
+    async function loadTrip() {
+      const trips = await tripFetchJson(tripApi('/api/trips'));
+      trip = trips.find((entry) => entry.name && entry.name.includes('Myrtle Beach'));
+      if (!trip) {
+        alert('Trip not found');
+        return;
+      }
+      tripId = trip._id;
+
+      const auditLink = $('#tripAuditLink');
+      if (auditLink) {
+        auditLink.href = `/trip-audit.html?tripId=${encodeURIComponent(String(tripId))}&myrtleBeach2026=true&back=${encodeURIComponent('/myrtle/lodging-and-maps.html')}`;
+        auditLink.style.display = '';
+      }
+
+      participants = await tripFetchJson(tripApi(`/api/trips/${trip._id}/participants`));
+      renderTripSummary();
+      renderMapCards();
+      renderParticipants();
+      renderStatusList();
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      bindInteractions();
+      try {
+        await loadTrip();
+      } catch (error) {
+        alert(error && error.message ? error.message : 'Failed to load Myrtle lodging and maps.');
+      }
+    });
+  </script>
+</body>
+</html>

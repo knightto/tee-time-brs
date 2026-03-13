@@ -113,7 +113,9 @@ if ('serviceWorker' in navigator) {
   const subMsg = $('#subMsg');
   const subscribeModal = $('#subscribeModal');
   const openSubscribeBtn = $('#openSubscribeBtn');
-  const REFRESH_INTERVAL_MS = 15000;
+  const REFRESH_INTERVAL_MS = 60000;
+  const RESUME_REFRESH_MIN_GAP_MS = 45000;
+  const QUICK_RESUME_IGNORE_MS = 12000;
 
   // Calendar elements
   const calendarGrid = $('#calendarGrid');
@@ -147,6 +149,9 @@ if ('serviceWorker' in navigator) {
   let autoRefreshTimer = null;
   let lastUpdatedAt = null;
   let lastResumeRefreshAt = 0;
+  let lastHiddenAt = 0;
+  let monthSummarySignature = '';
+  let selectedDateEventsSignature = '';
   let selectedDateRequestSeq = 0;
   let activeMobileFilter = 'all';
   let starterMode = false;
@@ -324,6 +329,14 @@ if ('serviceWorker' in navigator) {
   function stampLastUpdated(){
     lastUpdatedAt = new Date();
     updateLastUpdated(`Updated ${lastUpdatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+  }
+
+  function buildRefreshSignature(value) {
+    try {
+      return JSON.stringify(value || null);
+    } catch (_) {
+      return '';
+    }
   }
 
   function setLoading(isBusy){
@@ -1039,23 +1052,29 @@ if ('serviceWorker' in navigator) {
     const requestMonthKey = `${year}-${String(month).padStart(2, '0')}`;
     if (!force && loadedMonthKey === requestMonthKey) {
       renderCalendar();
-      return;
+      return false;
     }
     const payload = await api(`/api/events/calendar/summary?year=${encodeURIComponent(year)}&month=${encodeURIComponent(month)}`);
-    if (requestMonthKey !== monthKeyForDate(currentDate)) return;
+    if (requestMonthKey !== monthKeyForDate(currentDate)) return false;
     const days = Array.isArray(payload && payload.days) ? payload.days : [];
+    const nextSignature = buildRefreshSignature(days);
+    const changed = loadedMonthKey !== requestMonthKey || nextSignature !== monthSummarySignature;
     monthEventSummary = new Map(days.map((day) => [String(day && day.date || ''), day]).filter(([dateKey]) => dateKey));
     loadedMonthKey = requestMonthKey;
-    renderCalendar();
+    monthSummarySignature = nextSignature;
+    if (changed) renderCalendar();
+    return changed;
   }
 
-  async function loadEventsForSelectedDate() {
+  async function loadEventsForSelectedDate(options = {}) {
+    const showLoading = options.showLoading !== false;
     if (!selectedDate) {
       selectedDateTitle.textContent = '';
       allEvents = [];
       eventsEl.innerHTML = '';
       updateMobileFilterStatus(0, 0);
-      return;
+      selectedDateEventsSignature = '';
+      return false;
     }
     const requestDate = selectedDate;
     const requestSeq = ++selectedDateRequestSeq;
@@ -1067,18 +1086,29 @@ if ('serviceWorker' in navigator) {
       year: 'numeric',
       timeZone: 'UTC'
     });
-    eventsEl.innerHTML = '<div style="color:#ffffff;padding:20px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.7)">Loading events...</div>';
+    if (showLoading) {
+      eventsEl.innerHTML = '<div style="color:#ffffff;padding:20px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.7)">Loading events...</div>';
+    }
     try {
       const payload = await api(`/api/events/by-date?date=${encodeURIComponent(requestDate)}`);
-      if (requestSeq !== selectedDateRequestSeq || requestDate !== selectedDate) return;
-      allEvents = Array.isArray(payload && payload.events) ? payload.events : [];
-      renderEventsForDate();
-      syncSelectedDateSummary();
+      if (requestSeq !== selectedDateRequestSeq || requestDate !== selectedDate) return false;
+      const nextEvents = Array.isArray(payload && payload.events) ? payload.events : [];
+      const nextSignature = buildRefreshSignature(nextEvents);
+      const changed = nextSignature !== selectedDateEventsSignature;
+      allEvents = nextEvents;
+      selectedDateEventsSignature = nextSignature;
+      if (changed || showLoading) {
+        renderEventsForDate();
+        syncSelectedDateSummary();
+      }
+      return changed;
     } catch (err) {
-      if (requestSeq !== selectedDateRequestSeq || requestDate !== selectedDate) return;
+      if (requestSeq !== selectedDateRequestSeq || requestDate !== selectedDate) return false;
       console.error(err);
       allEvents = [];
       eventsEl.innerHTML = '<div class="card">Failed to load events for this date.</div>';
+      selectedDateEventsSignature = '';
+      return false;
     }
   }
 
@@ -1152,9 +1182,11 @@ if ('serviceWorker' in navigator) {
     if (!lastUpdatedAt) return;
     const now = Date.now();
     if (now - lastResumeRefreshAt < 1500) return;
+    if (now - lastUpdatedAt.getTime() < RESUME_REFRESH_MIN_GAP_MS) return;
+    if (lastHiddenAt && now - lastHiddenAt < QUICK_RESUME_IGNORE_MS) return;
     lastResumeRefreshAt = now;
     debugLog('info', `Resume refresh: ${reason}`);
-    load(true);
+    load(true, { silent: true });
   }
 
   // Create Event: open modal in the requested mode (tees or teams)
@@ -1700,6 +1732,10 @@ if ('serviceWorker' in navigator) {
   });
 
   document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+      lastHiddenAt = Date.now();
+      return;
+    }
     if (!document.hidden) refreshOnResume('visibility');
   });
   window.addEventListener('pageshow', (e) => {
@@ -1728,7 +1764,8 @@ if ('serviceWorker' in navigator) {
 
   // No MutationObserver: only call load() after successful actions
 
-  async function load(force=false){ 
+  async function load(force=false, options = {}){
+    const silent = !!options.silent;
     if (isLoading) { 
       loadPending = true; 
       return; 
@@ -1738,26 +1775,30 @@ if ('serviceWorker' in navigator) {
       return;
     }
     isLoading = true;
-    setLoading(true);
+    if (!silent) setLoading(true);
     try{ 
-      await loadMonthSummary(force);
+      const monthChanged = await loadMonthSummary(force);
+      let eventsChanged = false;
       if (selectedDate) {
-        await loadEventsForSelectedDate();
+        eventsChanged = await loadEventsForSelectedDate({ showLoading: !silent });
       } else {
         allEvents = [];
         eventsEl.innerHTML = '';
+        selectedDateEventsSignature = '';
       }
-      stampLastUpdated();
+      if (!silent || monthChanged || eventsChanged) {
+        stampLastUpdated();
+      }
     } catch(e) { 
       console.error(e); 
       eventsEl.innerHTML='<div class="card">Failed to load events.</div>'; 
       updateLastUpdated('Refresh failed');
     } finally {
       isLoading = false;
-      setLoading(false);
+      if (!silent) setLoading(false);
       if (loadPending) {
         loadPending = false;
-        load(true);
+        load(true, { silent: true });
       }
     } 
   }
@@ -1766,7 +1807,7 @@ if ('serviceWorker' in navigator) {
     if (autoRefreshTimer) clearInterval(autoRefreshTimer);
     autoRefreshTimer = setInterval(() => {
       if (document.hidden) return;
-      load();
+      load(true, { silent: true });
     }, REFRESH_INTERVAL_MS);
   }
 
