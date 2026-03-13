@@ -488,6 +488,9 @@
       const handicapPlayers = competitionData && competitionData.admin && Array.isArray(competitionData.admin.handicapPlayers)
         ? competitionData.admin.handicapPlayers
         : [];
+      const scoringModeNote = overview.scoringMode === 'best4'
+        ? 'Best 4 of 5 still applies across the same five own-ball Myrtle Ryder Cup rounds.'
+        : 'This trip scoreboard mode still applies across the same five own-ball Myrtle Ryder Cup rounds.';
       const completeScorecards = rounds.reduce((sum, round) => {
         const playerScores = Array.isArray(round && round.playerScores) ? round.playerScores : [];
         return sum + playerScores.filter((entry) => entry && entry.isComplete).length;
@@ -512,7 +515,7 @@
             <div class="card">
               <strong>Scoring Mode</strong>
               <div class="stat-value">${escapeHtml(overview.scoringModeLabel || 'Best 4 of 5 rounds')}</div>
-              <div class="fine">Change this here and the main leaderboard updates on the Myrtle page.</div>
+              <div class="fine">${escapeHtml(scoringModeNote)}</div>
             </div>
             <div class="card">
               <strong>Players</strong>

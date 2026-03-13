@@ -297,6 +297,7 @@ function run() {
   assert.strictEqual(myrtleView.ryderCup.standings.teamBPoints, 0.5, 'Completed Ryder Cup results should update Team B points');
   assert.strictEqual(myrtleView.ryderCup.standings.remainingPoints, 21, 'Remaining points should reflect unfinished own-ball matches after the 5-point team round');
   assert.strictEqual(myrtleView.ryderCup.totalPointsAvailable, 30, 'Ryder Cup total points should stay fixed at 30');
+  assert(myrtleView.overview.formatSummary.includes('Best 4 of 5'), 'Myrtle overview should explain that best-4-of-5 still applies across the own-ball Ryder Cup rounds');
   const thomasRow = myrtleView.ryderCup.individualLeaderboard.find((entry) => entry.name === 'Thomas Lasik');
   assert(thomasRow, 'Individual Ryder Cup rows should be present');
   assert.strictEqual(thomasRow.pointsWon, 1.5, 'Own-ball rounds and the team game should both feed the individual leaderboard');

@@ -31,19 +31,31 @@
     }
     .container {
       max-width: 1100px;
-      margin: 18px auto 32px;
+      margin: 14px auto 28px;
       padding: 0 16px;
     }
     header.hero {
       background: linear-gradient(135deg, #0f2138 0%, #0b1626 100%);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 18px 16px;
+      padding: 14px 16px;
       box-shadow: var(--shadow);
       position: sticky;
       top: 0;
       z-index: 10;
       backdrop-filter: blur(8px);
+    }
+    .hero-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+    .hero-copy {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
     }
     h1 {
       margin: 0;
@@ -73,13 +85,41 @@
       color: var(--ink-soft);
       font-size: 0.85rem;
     }
+    .hero-actions,
+    .page-section-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: flex-start;
+    }
+    .hero-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 34px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(109,211,255,0.24);
+      background: rgba(109,211,255,0.08);
+      color: #d7f0ff;
+      text-decoration: none;
+      font-size: 0.8rem;
+      font-weight: 700;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .hero-link:hover {
+      background: rgba(109,211,255,0.16);
+      text-decoration: none;
+    }
     .panel {
       background: linear-gradient(145deg, var(--panel) 0%, #0c1a2c 100%);
       border: 1px solid var(--border);
       border-radius: var(--radius);
       box-shadow: var(--shadow);
-      padding: 16px;
-      margin-top: 16px;
+      padding: 14px;
+      margin-top: 12px;
     }
     .summary-card {
       display: grid;
@@ -118,18 +158,17 @@
     .itinerary-item small { color: var(--muted); }
     .trip-schedule-layout {
       display: grid;
-      grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+      grid-template-columns: minmax(0, 1fr) minmax(250px, 295px);
       gap: 12px;
       margin-top: 10px;
     }
     .trip-calendar-sidebar {
-      background: var(--panel-soft);
-      border: 1px solid var(--border);
-      border-radius: 12px;
-      padding: 12px;
       display: grid;
-      gap: 10px;
+      gap: 8px;
       align-content: start;
+    }
+    .trip-calendar-details .competition-section-body {
+      gap: 10px;
     }
     .trip-calendar-header {
       display: flex;
@@ -164,6 +203,10 @@
     .trip-calendar-nav:hover {
       transform: none;
       background: rgba(255,255,255,0.14);
+    }
+    .trip-calendar-nav:disabled {
+      opacity: 0.4;
+      cursor: default;
     }
     .trip-calendar-month-link {
       display: inline-flex;
@@ -243,15 +286,15 @@
       background: var(--panel-soft);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 12px;
+      padding: 10px;
       display: grid;
-      gap: 10px;
+      gap: 8px;
       align-content: start;
     }
     .trip-events-header {
       display: flex;
       justify-content: space-between;
-      align-items: center;
+      align-items: flex-start;
       gap: 8px;
       flex-wrap: wrap;
     }
@@ -273,9 +316,9 @@
       background: rgba(255,255,255,0.04);
       border: 1px solid var(--border);
       border-radius: 11px;
-      padding: 10px;
+      padding: 9px;
       display: grid;
-      gap: 8px;
+      gap: 7px;
     }
     .trip-event-top {
       display: flex;
@@ -398,7 +441,7 @@
     }
     .trip-event-actions {
       display: flex;
-      justify-content: flex-end;
+      justify-content: flex-start;
       gap: 8px;
       flex-wrap: wrap;
     }
@@ -422,14 +465,14 @@
     }
     .competition-grid {
       display: grid;
-      gap: 12px;
+      gap: 10px;
     }
     .competition-overview-grid,
     .competition-admin-grid,
     .competition-sidegame-grid {
       display: grid;
-      gap: 10px;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(165px, 1fr));
     }
     .competition-stat,
     .competition-admin-card,
@@ -438,9 +481,9 @@
       background: rgba(255,255,255,0.04);
       border: 1px solid var(--border);
       border-radius: 12px;
-      padding: 12px;
+      padding: 10px;
       display: grid;
-      gap: 8px;
+      gap: 7px;
     }
     .competition-stat strong,
     .competition-admin-card strong,
@@ -463,7 +506,7 @@
     .competition-section summary {
       list-style: none;
       cursor: pointer;
-      padding: 12px 14px;
+      padding: 11px 13px;
       display: flex;
       justify-content: space-between;
       gap: 10px;
@@ -486,9 +529,9 @@
       content: '▴';
     }
     .competition-section-body {
-      padding: 14px;
+      padding: 12px;
       display: grid;
-      gap: 12px;
+      gap: 10px;
     }
     .competition-table-wrap {
       overflow-x: auto;
@@ -534,6 +577,59 @@
     .competition-note {
       color: var(--ink-soft);
       font-size: 0.82rem;
+    }
+    .page-section-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .page-section-copy {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+    .section-anchor {
+      scroll-margin-top: 88px;
+    }
+    .trip-date-strip {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      margin-top: 10px;
+      padding-bottom: 2px;
+      scrollbar-width: thin;
+    }
+    .trip-date-chip {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      color: var(--ink);
+      border-radius: 12px;
+      padding: 8px 10px;
+      min-width: 112px;
+      display: grid;
+      gap: 2px;
+      text-align: left;
+      box-shadow: none;
+      font-family: inherit;
+    }
+    .trip-date-chip strong {
+      color: #fff;
+      font-size: 0.86rem;
+      line-height: 1.2;
+    }
+    .trip-date-chip small {
+      color: var(--ink-soft);
+      font-size: 0.72rem;
+      line-height: 1.2;
+    }
+    .trip-date-chip.is-selected {
+      border-color: rgba(109,211,255,0.9);
+      background: rgba(109,211,255,0.16);
+      color: #fff;
+      box-shadow: inset 0 0 0 1px rgba(109,211,255,0.22);
     }
     .competition-pill-row {
       display: flex;
@@ -822,7 +918,7 @@
     .ryder-team-grid,
     .ryder-sidegame-grid,
     .ryder-admin-grid {
-      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(185px, 1fr));
     }
     .ryder-daily-grid {
       grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
@@ -911,7 +1007,7 @@
     }
     .ryder-round-card {
       display: grid;
-      gap: 12px;
+      gap: 10px;
     }
     .ryder-round-intro {
       display: grid;
@@ -1000,22 +1096,93 @@
       background: rgba(109,211,255,0.14);
       box-shadow: inset 0 0 0 1px rgba(109,211,255,0.32);
     }
+    .floating-link {
+      position: fixed;
+      padding: 8px 12px;
+      border-radius: 10px;
+      background: #0c1a2c;
+      color: #f9fafb;
+      text-decoration: none;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+      z-index: 999;
+    }
+    .floating-link-top { top: 12px; left: 12px; }
+    .floating-link-bottom-left { left: 12px; bottom: 12px; }
+    .floating-link-bottom-right { right: 12px; bottom: 12px; }
     /* Mobile-first adjustments */
     @media (max-width: 900px) {
       .layout {
         grid-template-columns: 1fr;
       }
       header.hero { position: static; }
+      .hero-top {
+        flex-direction: column;
+        align-items: stretch;
+      }
       .actions { grid-template-columns: 1fr 1fr; }
       .trip-schedule-layout {
         grid-template-columns: 1fr;
       }
+      .trip-calendar-sidebar {
+        order: 2;
+      }
+      .section-anchor {
+        scroll-margin-top: 20px;
+      }
     }
     @media (max-width: 640px) {
-      .container { padding: 0 12px; }
+      .container {
+        margin: 10px auto 22px;
+        padding: 0 10px;
+      }
+      header.hero,
+      .panel {
+        border-radius: 14px;
+        padding: 12px;
+      }
+      .chips {
+        margin-top: 8px;
+        gap: 6px;
+      }
+      .chip {
+        padding: 4px 8px;
+        font-size: 0.76rem;
+      }
+      .hero-actions,
+      .page-section-actions {
+        gap: 6px;
+      }
+      .hero-link {
+        min-height: 30px;
+        padding: 6px 9px;
+        font-size: 0.76rem;
+      }
       .cards-grid { grid-template-columns: 1fr; }
       .actions { grid-template-columns: 1fr; }
       #allParticipantsList ol { padding-left: 20px; }
+      .trip-date-strip {
+        margin-top: 8px;
+      }
+      .trip-date-chip {
+        min-width: 100px;
+        padding: 7px 9px;
+      }
+      .trip-events-container,
+      .competition-stat,
+      .competition-admin-card,
+      .competition-sidegame-card,
+      .competition-match-card,
+      .ryder-plan-card {
+        padding: 9px;
+      }
+      .competition-section summary {
+        padding: 10px 12px;
+      }
+      .competition-section-body {
+        padding: 10px;
+        gap: 8px;
+      }
       .trip-calendar-day {
         font-size: 0.8rem;
       }
@@ -1025,41 +1192,46 @@
       .ryder-match-editor-grid {
         grid-template-columns: 1fr 1fr;
       }
+      .trip-drag-help,
+      .competition-note {
+        font-size: 0.78rem;
+      }
+      .floating-link {
+        padding: 6px 10px;
+        border-radius: 9px;
+        font-size: 0.76rem;
+      }
     }
   </style>
 </head>
 <body>
-  <a href="/" style="position:fixed;top:12px;left:12px;padding:8px 12px;background:#0c1a2c;color:#f9fafb;text-decoration:none;border-radius:10px;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);z-index:999;">← Main Page</a>
+  <a href="/" class="floating-link floating-link-top">← Main Page</a>
   <div class="container">
     <header class="hero">
-      <h1>Myrtle Beach 2026 Golf Trip <span>Group 3/18-3/22/26</span></h1>
-      <div class="chips">
-        <div class="chip">Myrtle Beach, SC</div>
-        <div class="chip">4 Nights / 5 Rounds</div>
-        <div class="chip">Reservation #12972589</div>
-      </div>
-    </header>
-
-    <div class="panel" style="margin-bottom:12px;">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-        <div style="display:grid;gap:6px;">
-          <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Lodging and Maps</h2>
-          <div style="color:var(--ink-soft);line-height:1.45;">
-            Condo assignments, the shared trip map, guestbook links, and roster logistics now live on one dedicated Myrtle page.
+      <div class="hero-top">
+        <div class="hero-copy">
+          <h1>Myrtle Beach 2026 Golf Trip <span>Group 3/18-3/22/26</span></h1>
+          <div class="chips">
+            <div class="chip">Myrtle Beach, SC</div>
+            <div class="chip">4 Nights / 5 Rounds</div>
+            <div class="chip">Reservation #12972589</div>
           </div>
         </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;">
-          <a class="cta" href="/myrtle/lodging-and-maps.html">Open Lodging and Maps</a>
-          <a class="cta" href="https://founders.teetimecentralonline.com/golfcentral/guests/Register.aspx?g=8ad2d184-cdb8-4b90-8dc6-55c68c26efe9&ResNum=12972589&arr=3/18/2026" target="_blank">Join Package / Register / Sign In</a>
-          <a class="cta" href="https://www.google.com/maps/d/u/0/viewer?mid=1OLZdG1AzvAQJlBuhYWt5v_8Ta4W6bmY&ehbc=2E312F" target="_blank" rel="noopener">Open Full Map</a>
+        <div class="hero-actions">
+          <a class="hero-link" href="#scheduleSection">Schedule</a>
+          <a class="hero-link" href="#competitionSection">Ryder Cup</a>
+          <a class="hero-link" href="/myrtle/lodging-and-maps.html">Lodging + Maps</a>
+          <a class="hero-link" href="/myrtle/competition-entry.html" target="_blank" rel="noopener">Score Entry</a>
+          <a class="hero-link" href="https://founders.teetimecentralonline.com/golfcentral/guests/Register.aspx?g=8ad2d184-cdb8-4b90-8dc6-55c68c26efe9&ResNum=12972589&arr=3/18/2026" target="_blank" rel="noopener">Register</a>
+          <a class="hero-link" href="https://www.google.com/maps/d/u/0/viewer?mid=1OLZdG1AzvAQJlBuhYWt5v_8Ta4W6bmY&ehbc=2E312F" target="_blank" rel="noopener">Full Map</a>
         </div>
       </div>
-    </div>
+    </header>
     <div class="panel" id="itineraryBox" style="margin-bottom:12px;"></div>
     <div class="panel" id="competitionBox" style="margin-bottom:12px;"></div>
   </div>
-  <a href="https://founders.teetimecentralonline.com/golfcentral/guests/login.aspx?user=tommy.knight@gmail.com&pwd=3/18/2026" target="_blank" aria-label="Admin login" style="position:fixed;left:12px;bottom:12px;padding:8px 12px;border-radius:10px;background:#0c1a2c;color:#f9fafb;text-decoration:none;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);">ADMIN</a>
-  <a id="tripAuditLink" href="/trip-audit.html?myrtleBeach2026=true" aria-label="Trip audit log" style="position:fixed;right:12px;bottom:12px;padding:8px 12px;border-radius:10px;background:#0c1a2c;color:#f9fafb;text-decoration:none;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);display:none;">Trip Audit</a>
+  <a href="https://founders.teetimecentralonline.com/golfcentral/guests/login.aspx?user=tommy.knight@gmail.com&pwd=3/18/2026" target="_blank" aria-label="Admin login" class="floating-link floating-link-bottom-left">ADMIN</a>
+  <a id="tripAuditLink" href="/trip-audit.html?myrtleBeach2026=true" aria-label="Trip audit log" class="floating-link floating-link-bottom-right" style="display:none;">Trip Audit</a>
   <script>
     const STATUS_ORDER = ['in', 'out', 'maybe', 'waitlist', 'invited'];
     const STATUS_LABELS = { invited: 'Invited', in: 'In', maybe: 'Maybe', out: 'Out', waitlist: 'Waitlist' };
@@ -1296,6 +1468,14 @@
       if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return '';
       const local = new Date(year, month - 1, day, 12, 0, 0);
       return local.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    };
+    const formatDateCompact = (value) => {
+      const iso = toIsoDate(value);
+      if (!iso) return '';
+      const [year, month, day] = iso.split('-').map(Number);
+      if (!Number.isInteger(year) || !Number.isInteger(month) || !Number.isInteger(day)) return '';
+      const local = new Date(year, month - 1, day, 12, 0, 0);
+      return local.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
     };
     const formatTime12 = (value) => {
       const hhmm = toHHMM(value);
@@ -1849,6 +2029,9 @@
     }
 
     function renderCompetitionOverview(overview = {}) {
+      const scoringModeNote = overview.scoringMode === 'best4'
+        ? 'Best 4 of 5 still applies to the same five Myrtle Ryder Cup rounds because every golfer keeps an own-ball score every day.'
+        : 'This trip scoreboard mode still applies to the same five Myrtle Ryder Cup rounds because every golfer keeps an own-ball score every day.';
       return `
         <div class="competition-overview-grid">
           <div class="competition-stat">
@@ -1859,7 +2042,7 @@
           <div class="competition-stat">
             <span class="competition-note">Scoring mode</span>
             <div class="competition-stat-value">${escapeHtml(overview.scoringModeLabel || 'Best 4 of 5 rounds')}</div>
-            <span class="competition-note">Controls the supplemental trip scoreboard, not the Ryder Cup points race.</span>
+            <span class="competition-note">${escapeHtml(scoringModeNote)}</span>
           </div>
           <div class="competition-stat">
             <span class="competition-note">Players</span>
@@ -1882,7 +2065,7 @@
 
     function renderCompetitionLeaderboard(leaderboard = []) {
       return `
-        <details class="competition-section" open>
+        <details class="competition-section">
           <summary>
             <span>Trip Scoreboard</span>
             <span class="competition-note">Supplemental own-ball tracking. Highlighted rounds count, and asterisks show partial scorecards.</span>
@@ -2164,7 +2347,7 @@
     function renderRyderCupStandings(ryderCup = {}) {
       const rows = Array.isArray(ryderCup.individualLeaderboard) ? ryderCup.individualLeaderboard : [];
       return `
-        <details class="competition-section" open>
+        <details class="competition-section">
           <summary>
             <span>Standings</span>
             <span class="competition-note">Live team score, clinch watch, and individual points</span>
@@ -2643,12 +2826,15 @@
 
       box.innerHTML = `
         <div class="competition-grid">
-          <div class="competition-admin-card">
-            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-              <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Trip Scoring and Ryder Cup</h2>
-              <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
-                <span class="competition-note">Own-ball score entry, Myrtle Ryder Cup points, and trip side games</span>
-                <a class="cta" href="/myrtle/competition-entry.html" target="_blank" rel="noopener">Own-Ball Score Entry</a>
+          <div class="competition-admin-card section-anchor" id="competitionSection">
+            <div class="page-section-head">
+              <div class="page-section-copy">
+                <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Trip Scoring and Ryder Cup</h2>
+                <div class="competition-note">Own-ball score entry, Myrtle Ryder Cup points, and side games in one place.</div>
+              </div>
+              <div class="page-section-actions">
+                <a class="hero-link" href="/myrtle/competition-entry.html" target="_blank" rel="noopener">Own-Ball Score Entry</a>
+                <a class="hero-link" href="#scheduleSection">Back to Schedule</a>
               </div>
             </div>
             ${renderCompetitionOverview(competitionData.overview || {})}
@@ -2813,29 +2999,31 @@
       return dayEl;
     }
 
-    function renderTripCalendar(rounds = []) {
-      const monthEl = document.getElementById('tripCurrentMonth');
-      const gridEl = document.getElementById('tripCalendarGrid');
-      const monthLinkEl = document.getElementById('tripMonthCalendarLink');
-      if (!monthEl || !gridEl || !monthLinkEl) return;
-      const year = tripScheduleState.currentDate.getFullYear();
-      const month = tripScheduleState.currentDate.getMonth();
-      const firstOfMonth = new Date(year, month, 1);
-      const fullMonth = firstOfMonth.toLocaleDateString(undefined, { month: 'long' });
-      monthEl.textContent = firstOfMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
-      monthLinkEl.textContent = `Add tee times to your calendar for ${fullMonth}`;
-      monthLinkEl.setAttribute('title', `Download all ${fullMonth} tee times`);
-      gridEl.innerHTML = '';
-      ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach((name) => {
-        const head = document.createElement('div');
-        head.className = 'trip-calendar-day-header';
-        head.textContent = name;
-        gridEl.appendChild(head);
+    function getTripCalendarMonthKeys(rounds = []) {
+      return Array.from(new Set(
+        rounds
+          .map((round) => toIsoDate(round.date))
+          .filter(Boolean)
+          .map((dateStr) => dateStr.slice(0, 7))
+      )).sort();
+    }
+
+    function getTripCalendarMonthEntries(rounds = []) {
+      return getTripCalendarMonthKeys(rounds).map((key) => {
+        const [year, month] = key.split('-').map(Number);
+        return {
+          key,
+          year,
+          month: month - 1,
+        };
       });
+    }
+
+    function getTripCalendarCells(year, month) {
       const firstDay = new Date(year, month, 1).getDay();
       const daysInMonth = new Date(year, month + 1, 0).getDate();
       const daysInPrevMonth = new Date(year, month, 0).getDate();
-      const eventDates = new Set(rounds.map((round) => toIsoDate(round.date)).filter(Boolean));
+      const cells = [];
       for (let i = firstDay - 1; i >= 0; i--) {
         const prevDay = daysInPrevMonth - i;
         let prevYear = year;
@@ -2844,13 +3032,12 @@
           prevMonth = 11;
           prevYear -= 1;
         }
-        gridEl.appendChild(createTripCalendarDay(prevDay, prevYear, prevMonth, true, eventDates));
+        cells.push({ day: prevDay, year: prevYear, month: prevMonth, isOtherMonth: true });
       }
       for (let day = 1; day <= daysInMonth; day++) {
-        gridEl.appendChild(createTripCalendarDay(day, year, month, false, eventDates));
+        cells.push({ day, year, month, isOtherMonth: false });
       }
-      const usedCells = firstDay + daysInMonth;
-      const trailingCells = usedCells % 7 === 0 ? 0 : 7 - (usedCells % 7);
+      const trailingCells = cells.length % 7 === 0 ? 0 : 7 - (cells.length % 7);
       for (let day = 1; day <= trailingCells; day++) {
         let nextYear = year;
         let nextMonth = month + 1;
@@ -2858,8 +3045,95 @@
           nextMonth = 0;
           nextYear += 1;
         }
-        gridEl.appendChild(createTripCalendarDay(day, nextYear, nextMonth, true, eventDates));
+        cells.push({ day, year: nextYear, month: nextMonth, isOtherMonth: true });
       }
+      return cells;
+    }
+
+    function renderTripCalendar(rounds = []) {
+      const monthEl = document.getElementById('tripCurrentMonth');
+      const gridEl = document.getElementById('tripCalendarGrid');
+      const monthLinkEl = document.getElementById('tripMonthCalendarLink');
+      const prevBtn = document.getElementById('tripPrevMonth');
+      const nextBtn = document.getElementById('tripNextMonth');
+      if (!monthEl || !gridEl || !monthLinkEl) return;
+      const monthEntries = getTripCalendarMonthEntries(rounds);
+      let year = tripScheduleState.currentDate.getFullYear();
+      let month = tripScheduleState.currentDate.getMonth();
+      const currentKey = `${year}-${String(month + 1).padStart(2, '0')}`;
+      let currentMonthIndex = monthEntries.findIndex((entry) => entry.key === currentKey);
+      if (monthEntries.length && currentMonthIndex < 0) {
+        year = monthEntries[0].year;
+        month = monthEntries[0].month;
+        currentMonthIndex = 0;
+        tripScheduleState.currentDate = new Date(year, month, 1);
+      }
+      const firstOfMonth = new Date(year, month, 1);
+      const fullMonth = firstOfMonth.toLocaleDateString(undefined, { month: 'long' });
+      monthEl.textContent = firstOfMonth.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+      monthLinkEl.textContent = `Save ${fullMonth} tee times`;
+      monthLinkEl.setAttribute('title', `Download all ${fullMonth} tee times`);
+      gridEl.innerHTML = '';
+      ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].forEach((name) => {
+        const head = document.createElement('div');
+        head.className = 'trip-calendar-day-header';
+        head.textContent = name;
+        gridEl.appendChild(head);
+      });
+      const eventDates = new Set(rounds.map((round) => toIsoDate(round.date)).filter(Boolean));
+      const cells = getTripCalendarCells(year, month);
+      const weeks = [];
+      for (let index = 0; index < cells.length; index += 7) {
+        weeks.push(cells.slice(index, index + 7));
+      }
+      const activeWeeks = weeks.filter((week) => week.some((cell) => {
+        const dateStr = `${cell.year}-${String(cell.month + 1).padStart(2, '0')}-${String(cell.day).padStart(2, '0')}`;
+        return eventDates.has(dateStr);
+      }));
+      (activeWeeks.length ? activeWeeks : weeks).forEach((week) => {
+        week.forEach((cell) => {
+          gridEl.appendChild(createTripCalendarDay(cell.day, cell.year, cell.month, cell.isOtherMonth, eventDates));
+        });
+      });
+      if (prevBtn) prevBtn.disabled = monthEntries.length <= 1 || currentMonthIndex <= 0;
+      if (nextBtn) nextBtn.disabled = monthEntries.length <= 1 || currentMonthIndex >= (monthEntries.length - 1);
+    }
+
+    function renderTripDateStrip(rounds = []) {
+      const stripEl = document.getElementById('tripDateStrip');
+      if (!stripEl) return;
+      const entries = [];
+      rounds.forEach((round, roundIndex) => {
+        const iso = toIsoDate(round.date);
+        if (!iso) return;
+        let entry = entries.find((item) => item.iso === iso);
+        if (!entry) {
+          const ryderRound = getRyderCupRoundMeta(roundIndex);
+          entry = {
+            iso,
+            label: (ryderRound && ryderRound.title) || `Round ${roundIndex + 1}`,
+            course: round.course || 'Course TBD',
+            roundCount: 0
+          };
+          entries.push(entry);
+        }
+        entry.roundCount += 1;
+      });
+      if (!entries.length) {
+        stripEl.innerHTML = '';
+        return;
+      }
+      stripEl.innerHTML = entries.map((entry) => `
+        <button
+          type="button"
+          class="trip-date-chip${entry.iso === toIsoDate(tripScheduleState.selectedDate) ? ' is-selected' : ''}"
+          data-trip-date-select="${escapeHtml(entry.iso)}"
+        >
+          <small>${escapeHtml(entry.label)}</small>
+          <strong>${escapeHtml(formatDateCompact(entry.iso) || entry.iso)}</strong>
+          <small>${escapeHtml(entry.course)}${entry.roundCount > 1 ? ` · ${entry.roundCount} rounds` : ''}</small>
+        </button>
+      `).join('');
     }
 
     function renderTripEvents(rounds = []) {
@@ -2886,7 +3160,7 @@
         return list;
       }, []);
       eventsEl.innerHTML = `
-        <div class="trip-drag-help">Drag a name to another tee time or the unassigned area, or tap a name then tap a destination.</div>
+        <div class="trip-drag-help">Drag or tap a golfer to move them between tee times or unassigned.</div>
         <div class="trip-event-list">
           ${dayRounds.map(({ round, roundIndex }) => {
             const ryderRound = getRyderCupRoundMeta(roundIndex);
@@ -2974,6 +3248,7 @@
       const availableDates = usableRounds.map((round) => toIsoDate(round.date)).filter(Boolean);
       if (!availableDates.length) {
         tripScheduleState.selectedDate = '';
+        renderTripDateStrip([]);
         renderTripCalendar([]);
         renderTripEvents([]);
         return;
@@ -2988,30 +3263,26 @@
           tripScheduleState.currentDate = new Date(year, month - 1, 1);
         }
       }
+      renderTripDateStrip(usableRounds);
       renderTripCalendar(usableRounds);
       renderTripEvents(usableRounds);
     }
 
     function renderItinerary() {
+      const calendarOpen = !window.matchMedia('(max-width: 900px)').matches;
       $('#itineraryBox').innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-          <div style="display:grid;gap:4px;">
+        <div class="page-section-head section-anchor" id="scheduleSection">
+          <div class="page-section-copy">
             <h2 style="margin:0;font-size:1.05rem;">Golf Schedule</h2>
-            <div class="competition-note">Daily tee groups mirror the Myrtle Ryder Cup round formats below.</div>
+            <div class="competition-note">Daily tee groups mirror the Myrtle Ryder Cup rounds and own-ball score entry below.</div>
+          </div>
+          <div class="page-section-actions">
+            <a class="hero-link" href="#competitionSection">Jump to Ryder Cup</a>
+            <a class="hero-link" href="/myrtle/lodging-and-maps.html">Lodging + Maps</a>
           </div>
         </div>
+        <div id="tripDateStrip" class="trip-date-strip"></div>
         <div class="trip-schedule-layout">
-          <aside class="trip-calendar-sidebar">
-            <div class="trip-calendar-header">
-              <button type="button" id="tripPrevMonth" class="trip-calendar-nav" title="Previous month">‹</button>
-              <div class="trip-calendar-month-controls">
-                <h3 id="tripCurrentMonth" class="trip-calendar-month">Month Year</h3>
-                <a id="tripMonthCalendarLink" class="trip-calendar-month-link" href="#">Add tee times to your calendar for this month</a>
-              </div>
-              <button type="button" id="tripNextMonth" class="trip-calendar-nav" title="Next month">›</button>
-            </div>
-            <div id="tripCalendarGrid" class="trip-calendar-grid"></div>
-          </aside>
           <section class="trip-events-container">
             <div class="trip-events-header">
               <h3 id="tripSelectedDateTitle" class="trip-events-title">Select a date</h3>
@@ -3019,6 +3290,25 @@
             </div>
             <div id="tripEvents"></div>
           </section>
+          <aside class="trip-calendar-sidebar">
+            <details class="competition-section trip-calendar-details"${calendarOpen ? ' open' : ''}>
+              <summary>
+                <span>Trip Calendar</span>
+                <span class="competition-note">Only weeks with Myrtle rounds</span>
+              </summary>
+              <div class="competition-section-body">
+                <div class="trip-calendar-header">
+                  <button type="button" id="tripPrevMonth" class="trip-calendar-nav" title="Previous month">‹</button>
+                  <div class="trip-calendar-month-controls">
+                    <h3 id="tripCurrentMonth" class="trip-calendar-month">Month Year</h3>
+                    <a id="tripMonthCalendarLink" class="trip-calendar-month-link" href="#">Save tee times</a>
+                  </div>
+                  <button type="button" id="tripNextMonth" class="trip-calendar-nav" title="Next month">›</button>
+                </div>
+                <div id="tripCalendarGrid" class="trip-calendar-grid"></div>
+              </div>
+            </details>
+          </aside>
         </div>
       `;
 
@@ -3030,13 +3320,25 @@
       const monthLink = document.getElementById('tripMonthCalendarLink');
       if (prevBtn) {
         prevBtn.addEventListener('click', () => {
-          tripScheduleState.currentDate = new Date(tripScheduleState.currentDate.getFullYear(), tripScheduleState.currentDate.getMonth() - 1, 1);
+          const monthKeys = getTripCalendarMonthKeys(getTripRounds());
+          const currentKey = `${tripScheduleState.currentDate.getFullYear()}-${String(tripScheduleState.currentDate.getMonth() + 1).padStart(2, '0')}`;
+          const currentIndex = monthKeys.findIndex((key) => key === currentKey);
+          const nextKey = currentIndex > 0 ? monthKeys[currentIndex - 1] : '';
+          if (!nextKey) return;
+          const [year, month] = nextKey.split('-').map(Number);
+          tripScheduleState.currentDate = new Date(year, month - 1, 1);
           renderTripCalendar(getTripRounds());
         });
       }
       if (nextBtn) {
         nextBtn.addEventListener('click', () => {
-          tripScheduleState.currentDate = new Date(tripScheduleState.currentDate.getFullYear(), tripScheduleState.currentDate.getMonth() + 1, 1);
+          const monthKeys = getTripCalendarMonthKeys(getTripRounds());
+          const currentKey = `${tripScheduleState.currentDate.getFullYear()}-${String(tripScheduleState.currentDate.getMonth() + 1).padStart(2, '0')}`;
+          const currentIndex = monthKeys.findIndex((key) => key === currentKey);
+          const nextKey = currentIndex >= 0 && currentIndex < (monthKeys.length - 1) ? monthKeys[currentIndex + 1] : '';
+          if (!nextKey) return;
+          const [year, month] = nextKey.split('-').map(Number);
+          tripScheduleState.currentDate = new Date(year, month - 1, 1);
           renderTripCalendar(getTripRounds());
         });
       }
@@ -3535,6 +3837,16 @@
     const itineraryBox = document.getElementById('itineraryBox');
     if (itineraryBox) {
       itineraryBox.addEventListener('click', async function (event) {
+        const dateChip = event.target.closest('[data-trip-date-select]');
+        if (dateChip) {
+          event.preventDefault();
+          const nextDate = String(dateChip.dataset.tripDateSelect || '').trim();
+          if (!nextDate || nextDate === toIsoDate(tripScheduleState.selectedDate)) return;
+          tripScheduleState.selectedDate = nextDate;
+          renderTripSchedule(getTripRounds());
+          return;
+        }
+
         const chip = event.target.closest('.trip-player-chip[data-trip-player]');
         if (chip) {
           event.preventDefault();

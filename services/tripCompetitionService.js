@@ -2042,7 +2042,7 @@ function buildTripCompetitionView(trip = {}, participants = []) {
       playerCount: playerPool.length,
       roundCount: roundViews.length,
       formatSummary: isMyrtleOwnBallTrip
-        ? 'Own-ball gross, net, and Stableford tracking stay available for every Myrtle round, while the Myrtle Ryder Cup section runs the team formats, points, and pairings.'
+        ? 'Own-ball gross, net, and Stableford tracking stay available for every Myrtle round, and the trip scoreboard can still use Best 4 of 5, First 4, Last 4, or All 5 across the same Ryder Cup rounds because every player posts an own-ball score each day.'
         : 'Individual net Stableford across the trip, with daily 2-man net best ball matches inside each foursome.',
       sideGamesSummary: isMyrtleOwnBallTrip
         ? 'Use the Myrtle Ryder Cup section for Daily Low Gross, Weekly Low Gross, Closest to Pin, Birdie Pool, MVP, and payout tracking.'
