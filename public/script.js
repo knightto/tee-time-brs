@@ -122,6 +122,7 @@ if ('serviceWorker' in navigator) {
   const nextMonthBtn = $('#nextMonth');
   const selectedDateTitle = $('#selectedDateTitle');
   const monthCalendarBtn = $('#monthCalendarBtn');
+  const starterModeBtn = $('#starterModeBtn');
   const requestClubTimeBtn = $('#requestClubTimeBtn');
   const refreshBtn = $('#refreshBtn');
   const lastUpdatedEl = $('#lastUpdated');
@@ -148,6 +149,7 @@ if ('serviceWorker' in navigator) {
   let lastResumeRefreshAt = 0;
   let selectedDateRequestSeq = 0;
   let activeMobileFilter = 'all';
+  let starterMode = false;
   const initialSelectedDateFromUrl = (() => {
     try {
       const dateISO = String(new URLSearchParams(window.location.search).get('date') || '').trim();
@@ -648,6 +650,78 @@ if ('serviceWorker' in navigator) {
     return (events || []).filter(eventMatchesMobileFilter);
   }
 
+  function slotPlayerCount(teeTime = {}) {
+    return ((teeTime && teeTime.players) || []).length;
+  }
+
+  function slotCheckedInCount(teeTime = {}) {
+    return ((teeTime && teeTime.players) || []).filter((player) => !!(player && player.checkedIn)).length;
+  }
+
+  function starterSlotMarkup(ev, teeTime = {}, idx = 0) {
+    const slotCap = ev && ev.isTeamEvent ? Number((ev && ev.teamSizeMax) || 4) : 4;
+    const count = slotPlayerCount(teeTime);
+    const checkedInCount = slotCheckedInCount(teeTime);
+    const openCount = Math.max(0, slotCap - count);
+    const allCheckedIn = count > 0 && checkedInCount === count;
+    const urgentEmpty = !Boolean(ev && ev.isTeamEvent) && count === 0 && eventHasUrgentEmpty({ ...ev, teeTimes: [teeTime] });
+    const slotClasses = ['starter-slot'];
+    if (count === 0) slotClasses.push('starter-slot-empty');
+    if (urgentEmpty) slotClasses.push('starter-slot-urgent');
+    if (allCheckedIn) slotClasses.push('starter-slot-ready');
+    const playersMarkup = ((teeTime && teeTime.players) || []).map((player) => {
+      const checkedIn = !!(player && player.checkedIn);
+      const safeName = escapeHtml(String(player && player.name || 'Player'));
+      return `<li class="starter-player ${checkedIn ? 'is-checked' : ''}">
+        <button class="starter-player-check ${checkedIn ? 'is-checked' : ''}" type="button" data-toggle-checkin="${ev._id}:${teeTime._id}:${player._id}:${checkedIn ? '1' : '0'}" aria-label="${checkedIn ? 'Clear check-in for' : 'Mark checked in for'} ${safeName}">${checkedIn ? '✓' : '○'}</button>
+        <span class="starter-player-name">${safeName}</span>
+      </li>`;
+    });
+    for (let i = 0; i < openCount; i += 1) {
+      playersMarkup.push(`<li class="starter-player starter-player-open"><span class="starter-player-check is-open">+</span><span class="starter-player-name">Open</span></li>`);
+    }
+    return `<article class="${slotClasses.join(' ')}">
+      <div class="starter-slot-header">
+        <div>
+          <div class="starter-slot-title">${escapeHtml(teeSlotLabel(ev, teeTime, idx))}</div>
+          <div class="starter-slot-meta">${count}/${slotCap} in · ${openCount} open · ${checkedInCount} checked in</div>
+        </div>
+        <button class="starter-slot-bulk" type="button" data-checkin-all="${ev._id}:${teeTime._id}:${allCheckedIn ? '1' : '0'}" ${count ? '' : 'disabled'}>${allCheckedIn ? 'Clear' : 'Check In All'}</button>
+      </div>
+      <ul class="starter-player-list">${playersMarkup.join('')}</ul>
+    </article>`;
+  }
+
+  function renderStarter(list) {
+    window.requestAnimationFrame(() => {
+      eventsEl.innerHTML = '';
+      const frag = document.createDocumentFragment();
+      for (const ev of list) {
+        const capacity = eventCapacitySummary(ev);
+        const checkedInCount = capacity.teeTimes.reduce((sum, teeTime) => sum + slotCheckedInCount(teeTime), 0);
+        const starterCard = document.createElement('section');
+        starterCard.className = 'starter-card';
+        starterCard.innerHTML = `
+          <div class="starter-card-header">
+            <div>
+              <h3 class="starter-card-title">${courseTitleMarkup(ev)}</h3>
+              <div class="starter-card-summary">
+                <span>${capacity.teeTimes.length} ${capacity.isTeamEvent ? (capacity.teeTimes.length === 1 ? 'team' : 'teams') : (capacity.teeTimes.length === 1 ? 'tee time' : 'tee times')}</span>
+                <span>${capacity.registeredCount} golfer${capacity.registeredCount === 1 ? '' : 's'}</span>
+                <span>${capacity.openCount} open</span>
+                <span>${checkedInCount} checked in</span>
+              </div>
+            </div>
+          </div>
+          <div class="starter-slot-grid">
+            ${capacity.teeTimes.length ? capacity.teeTimes.map((teeTime, idx) => starterSlotMarkup(ev, teeTime, idx)).join('') : '<div class="starter-empty">No tee times set.</div>'}
+          </div>`;
+        frag.appendChild(starterCard);
+      }
+      eventsEl.appendChild(frag);
+    });
+  }
+
   function sortedEventTimes(ev) {
     return ((ev && ev.teeTimes) || [])
       .map((tt) => String(tt && tt.time || '').trim())
@@ -755,6 +829,25 @@ if ('serviceWorker' in navigator) {
       btn.classList.toggle('is-active', isActive);
       btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
+  }
+
+  function updateStarterModeButtons() {
+    document.body.classList.toggle('starter-mode', starterMode);
+    if (!starterModeBtn) return;
+    starterModeBtn.textContent = starterMode ? 'Full View' : 'Starter Mode';
+    starterModeBtn.classList.toggle('is-active', starterMode);
+    starterModeBtn.setAttribute('aria-pressed', starterMode ? 'true' : 'false');
+  }
+
+  async function setStarterMode(nextValue) {
+    starterMode = !!nextValue;
+    updateStarterModeButtons();
+    if (starterMode && !selectedDate) {
+      const targetDate = await findNextEventDate(localDateISO()) || localDateISO();
+      await applySelectedDate(targetDate, { force: true });
+      return;
+    }
+    renderEventsForDate();
   }
 
   function updateMobileFilterStatus(visibleCount = 0, totalCount = 0) {
@@ -1056,6 +1149,7 @@ if ('serviceWorker' in navigator) {
   }
 
   function refreshOnResume(reason) {
+    if (!lastUpdatedAt) return;
     const now = Date.now();
     if (now - lastResumeRefreshAt < 1500) return;
     lastResumeRefreshAt = now;
@@ -1425,7 +1519,8 @@ if ('serviceWorker' in navigator) {
       const filterLabel = MOBILE_FILTER_LABELS[activeMobileFilter] || MOBILE_FILTER_LABELS.all;
       eventsEl.innerHTML = `<div style="color:#ffffff;padding:20px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.7)">No events match the ${escapeHtml(filterLabel.toLowerCase())} filter for this date</div>`;
     } else {
-      render(visibleEvents);
+      if (starterMode) renderStarter(visibleEvents);
+      else render(visibleEvents);
     }
   }
 
@@ -1471,6 +1566,23 @@ if ('serviceWorker' in navigator) {
   on(refreshBtn, 'click', (e) => {
     e.preventDefault();
     load(true);
+  });
+
+  on(starterModeBtn, 'click', async (e) => {
+    e.preventDefault();
+    try {
+      const originalText = starterModeBtn.textContent;
+      starterModeBtn.disabled = true;
+      starterModeBtn.textContent = starterMode ? 'Loading...' : 'Starting...';
+      await setStarterMode(!starterMode);
+      starterModeBtn.textContent = originalText;
+    } catch (err) {
+      console.error(err);
+      showToast('Starter mode failed: ' + (err.message || 'Unknown error'), 'error');
+    } finally {
+      starterModeBtn.disabled = false;
+      updateStarterModeButtons();
+    }
   });
 
   on(requestClubTimeBtn, 'click', (e) => {
@@ -2739,6 +2851,7 @@ if ('serviceWorker' in navigator) {
   }
 
   updateMobileFilterButtons();
+  updateStarterModeButtons();
   updateLastUpdated('Loading…');
   load();
   startAutoRefresh();
