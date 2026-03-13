@@ -54,6 +54,23 @@
   </dialog>
 
   <main class="wrap">
+    <section class="mobile-quick-tools" aria-label="Mobile tee time tools">
+      <div class="mobile-quick-bar" id="mobileQuickBar">
+        <button type="button" class="mobile-quick-btn" data-mobile-action="today">Today</button>
+        <button type="button" class="mobile-quick-btn" data-mobile-action="next-event">Next Event</button>
+        <button type="button" class="mobile-quick-btn" data-mobile-action="refresh">Refresh</button>
+        <button type="button" class="mobile-quick-btn" data-mobile-action="new-tee">New Tee</button>
+        <button type="button" class="mobile-quick-btn" data-mobile-action="request-time">Request Time</button>
+      </div>
+      <div class="mobile-filter-bar" id="mobileFilterBar" aria-label="Selected day filters">
+        <button type="button" class="mobile-filter-btn is-active" data-mobile-filter="all" aria-pressed="true">All</button>
+        <button type="button" class="mobile-filter-btn" data-mobile-filter="open-spots" aria-pressed="false">Open Spots</button>
+        <button type="button" class="mobile-filter-btn" data-mobile-filter="urgent-empty" aria-pressed="false">Urgent Empty</button>
+        <button type="button" class="mobile-filter-btn" data-mobile-filter="blue-ridge" aria-pressed="false">Blue Ridge</button>
+        <button type="button" class="mobile-filter-btn" data-mobile-filter="team-events" aria-pressed="false">Team Events</button>
+      </div>
+      <div id="mobileFilterStatus" class="mobile-filter-status">Pick a date to see tee times and use quick filters.</div>
+    </section>
     <div class="main-layout">
       <!-- Left sidebar: Calendar -->
       <aside class="calendar-sidebar">

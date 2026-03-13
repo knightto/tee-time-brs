@@ -125,6 +125,9 @@ if ('serviceWorker' in navigator) {
   const requestClubTimeBtn = $('#requestClubTimeBtn');
   const refreshBtn = $('#refreshBtn');
   const lastUpdatedEl = $('#lastUpdated');
+  const mobileQuickBar = $('#mobileQuickBar');
+  const mobileFilterBar = $('#mobileFilterBar');
+  const mobileFilterStatus = $('#mobileFilterStatus');
   const requestClubTimeModal = $('#requestClubTimeModal');
   const requestClubTimeForm = $('#requestClubTimeForm');
   const requestClubDateInput = $('#requestClubDate');
@@ -144,6 +147,15 @@ if ('serviceWorker' in navigator) {
   let lastUpdatedAt = null;
   let lastResumeRefreshAt = 0;
   let selectedDateRequestSeq = 0;
+  let activeMobileFilter = 'all';
+
+  const MOBILE_FILTER_LABELS = {
+    all: 'All events',
+    'open-spots': 'Open spots',
+    'urgent-empty': 'Urgent empty',
+    'blue-ridge': 'Blue Ridge only',
+    'team-events': 'Team events',
+  };
 
   // Inject Edit dialog
   function ensureEditDialog(){
@@ -537,6 +549,107 @@ if ('serviceWorker' in navigator) {
     return String(n).padStart(2, '0');
   }
 
+  function localDateISO(date = new Date()) {
+    return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
+  }
+
+  function addDaysToISO(dateISO, days) {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateISO || '').trim());
+    if (!match) return '';
+    const next = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]) + Number(days || 0));
+    return `${next.getFullYear()}-${pad2(next.getMonth() + 1)}-${pad2(next.getDate())}`;
+  }
+
+  function formatSelectedDateShort(dateISO = '') {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateISO || '').trim());
+    if (!match) return 'Pick a date';
+    const date = new Date(`${match[1]}-${match[2]}-${match[3]}T12:00:00Z`);
+    return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+  }
+
+  function isBlueRidgeCourse(courseName = '') {
+    return /blue\s*ridge\s*shadows/.test(String(courseName || '').trim().toLowerCase());
+  }
+
+  function eventCapacitySummary(ev) {
+    const isTeamEvent = !!(ev && ev.isTeamEvent);
+    const teeTimes = Array.isArray(ev && ev.teeTimes) ? ev.teeTimes : [];
+    const slotCap = isTeamEvent ? Number((ev && ev.teamSizeMax) || 4) : 4;
+    const registeredCount = teeTimes.reduce((sum, tt) => sum + ((tt && tt.players || []).length), 0);
+    const totalCapacity = teeTimes.length * slotCap;
+    return {
+      teeTimes,
+      isTeamEvent,
+      registeredCount,
+      totalCapacity,
+      openCount: Math.max(0, totalCapacity - registeredCount),
+    };
+  }
+
+  function eventDaysUntil(dateISO = '') {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateISO || '').trim());
+    if (!match) return null;
+    const eventDay = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+    const now = new Date();
+    const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+    return Math.round((eventDay - today) / (1000 * 60 * 60 * 24));
+  }
+
+  function eventHasUrgentEmpty(ev) {
+    const dateISO = toDateISO(ev && ev.date);
+    const daysUntil = eventDaysUntil(dateISO);
+    if (!!(ev && ev.isTeamEvent) || !Number.isInteger(daysUntil) || daysUntil < 0 || daysUntil > 3) return false;
+    return (ev && ev.teeTimes || []).some((tt) => ((tt && tt.players) || []).length === 0);
+  }
+
+  function eventMatchesMobileFilter(ev) {
+    switch (activeMobileFilter) {
+      case 'open-spots':
+        return eventCapacitySummary(ev).openCount > 0;
+      case 'urgent-empty':
+        return eventHasUrgentEmpty(ev);
+      case 'blue-ridge':
+        return isBlueRidgeCourse(ev && ev.course);
+      case 'team-events':
+        return !!(ev && ev.isTeamEvent);
+      case 'all':
+      default:
+        return true;
+    }
+  }
+
+  function filteredSelectedDateEvents(events = allEvents) {
+    return (events || []).filter(eventMatchesMobileFilter);
+  }
+
+  function updateMobileFilterButtons() {
+    if (!mobileFilterBar) return;
+    mobileFilterBar.querySelectorAll('[data-mobile-filter]').forEach((btn) => {
+      const isActive = btn.dataset.mobileFilter === activeMobileFilter;
+      btn.classList.toggle('is-active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    });
+  }
+
+  function updateMobileFilterStatus(visibleCount = 0, totalCount = 0) {
+    if (!mobileFilterStatus) return;
+    if (!selectedDate) {
+      mobileFilterStatus.textContent = 'Pick a date to see tee times and use quick filters.';
+      return;
+    }
+    const dateLabel = formatSelectedDateShort(selectedDate);
+    if (!totalCount) {
+      mobileFilterStatus.textContent = `${dateLabel} · No events scheduled`;
+      return;
+    }
+    const filterLabel = MOBILE_FILTER_LABELS[activeMobileFilter] || MOBILE_FILTER_LABELS.all;
+    if (activeMobileFilter === 'all') {
+      mobileFilterStatus.textContent = `${dateLabel} · ${totalCount} event${totalCount === 1 ? '' : 's'}`;
+      return;
+    }
+    mobileFilterStatus.textContent = `${dateLabel} · ${visibleCount} of ${totalCount} · ${filterLabel}`;
+  }
+
   function fmtCalendarDate(date) {
     return `${date.getUTCFullYear()}${pad2(date.getUTCMonth() + 1)}${pad2(date.getUTCDate())}`;
   }
@@ -722,6 +835,7 @@ if ('serviceWorker' in navigator) {
       selectedDateTitle.textContent = '';
       allEvents = [];
       eventsEl.innerHTML = '';
+      updateMobileFilterStatus(0, 0);
       return;
     }
     const requestDate = selectedDate;
@@ -1107,6 +1221,42 @@ if ('serviceWorker' in navigator) {
     
     return dayEl;
   }
+
+  async function applySelectedDate(dateStr, options = {}) {
+    if (!dateStr) return;
+    const force = !!options.force;
+    if (!force && selectedDate === dateStr) return;
+    selectedDate = dateStr;
+    setCurrentMonthFromIso(dateStr);
+    await loadMonthSummary(force);
+    await loadEventsForSelectedDate();
+  }
+
+  async function findNextEventDate(startDateISO = localDateISO()) {
+    const searchStart = String(startDateISO || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(searchStart)) return '';
+    const baseDate = new Date(`${searchStart}T12:00:00`);
+    for (let offset = 0; offset < 12; offset += 1) {
+      const monthDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + offset, 1);
+      const year = monthDate.getFullYear();
+      const month = monthDate.getMonth() + 1;
+      const monthKey = `${year}-${pad2(month)}`;
+      let days = [];
+      if (monthKey === loadedMonthKey) {
+        days = Array.from(monthEventSummary.values());
+      } else {
+        const payload = await api(`/api/events/calendar/summary?year=${encodeURIComponent(year)}&month=${encodeURIComponent(month)}`);
+        days = Array.isArray(payload && payload.days) ? payload.days : [];
+      }
+      const candidate = days
+        .map((day) => String(day && day.date || '').trim())
+        .filter((dateISO) => /^\d{4}-\d{2}-\d{2}$/.test(dateISO))
+        .filter((dateISO) => offset > 0 || dateISO >= searchStart)
+        .sort((a, b) => a.localeCompare(b))[0];
+      if (candidate) return candidate;
+    }
+    return '';
+  }
   
   // Debounced selectDate for smoother mobile experience
   let selectDateTimeout = null;
@@ -1114,10 +1264,12 @@ if ('serviceWorker' in navigator) {
     if (selectedDate === dateStr) return; // No-op if already selected
     if (selectDateTimeout) clearTimeout(selectDateTimeout);
     selectDateTimeout = setTimeout(async () => {
-      selectedDate = dateStr;
-      setCurrentMonthFromIso(dateStr);
-      await loadMonthSummary();
-      await loadEventsForSelectedDate();
+      try {
+        await applySelectedDate(dateStr);
+      } catch (err) {
+        console.error(err);
+        updateLastUpdated('Date load failed');
+      }
     }, 60); // 60ms debounce for fast taps
   }
   
@@ -1125,6 +1277,7 @@ if ('serviceWorker' in navigator) {
     if (!selectedDate) {
       selectedDateTitle.textContent = '';
       eventsEl.innerHTML = '';
+      updateMobileFilterStatus(0, 0);
       return;
     }
     
@@ -1137,10 +1290,15 @@ if ('serviceWorker' in navigator) {
       timeZone: 'UTC'
     });
     
+    const visibleEvents = filteredSelectedDateEvents(allEvents);
+    updateMobileFilterStatus(visibleEvents.length, allEvents.length);
     if (allEvents.length === 0) {
       eventsEl.innerHTML = '<div style="color:#ffffff;padding:20px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.7)">No events scheduled for this date</div>';
+    } else if (visibleEvents.length === 0) {
+      const filterLabel = MOBILE_FILTER_LABELS[activeMobileFilter] || MOBILE_FILTER_LABELS.all;
+      eventsEl.innerHTML = `<div style="color:#ffffff;padding:20px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.7)">No events match the ${escapeHtml(filterLabel.toLowerCase())} filter for this date</div>`;
     } else {
-      render(allEvents);
+      render(visibleEvents);
     }
   }
 
@@ -1221,15 +1379,70 @@ if ('serviceWorker' in navigator) {
         body: JSON.stringify(payload),
       });
       requestClubTimeModal.close();
-      alert('Club time request sent.');
+      showToast('Club time request sent.', 'success');
     } catch (err) {
       console.error(err);
-      alert('Request failed: ' + (err.message || 'Unknown error'));
+      showToast('Request failed: ' + (err.message || 'Unknown error'), 'error');
     } finally {
       if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.textContent = originalText;
       }
+    }
+  });
+
+  on(mobileFilterBar, 'click', (e) => {
+    const btn = e.target.closest('[data-mobile-filter]');
+    if (!btn) return;
+    const nextFilter = String(btn.dataset.mobileFilter || 'all');
+    if (nextFilter === activeMobileFilter) return;
+    activeMobileFilter = nextFilter;
+    updateMobileFilterButtons();
+    renderEventsForDate();
+  });
+
+  on(mobileQuickBar, 'click', async (e) => {
+    const btn = e.target.closest('[data-mobile-action]');
+    if (!btn) return;
+    const action = String(btn.dataset.mobileAction || '');
+    const originalText = btn.textContent;
+    try {
+      if (action === 'refresh') {
+        btn.disabled = true;
+        btn.textContent = 'Refreshing...';
+        await load(true);
+        return;
+      }
+      if (action === 'today') {
+        btn.disabled = true;
+        btn.textContent = 'Loading...';
+        await applySelectedDate(localDateISO(), { force: true });
+        return;
+      }
+      if (action === 'next-event') {
+        btn.disabled = true;
+        btn.textContent = 'Finding...';
+        const nextDate = await findNextEventDate(selectedDate ? addDaysToISO(selectedDate, 1) : localDateISO());
+        if (!nextDate) {
+          showToast('No upcoming event dates were found.', 'error');
+          return;
+        }
+        await applySelectedDate(nextDate, { force: true });
+        return;
+      }
+      if (action === 'new-tee') {
+        newTeeBtn?.click();
+        return;
+      }
+      if (action === 'request-time') {
+        openRequestClubTimeModal();
+      }
+    } catch (err) {
+      console.error(err);
+      showToast('Quick action failed: ' + (err.message || 'Unknown error'), 'error');
+    } finally {
+      btn.disabled = false;
+      btn.textContent = originalText;
     }
   });
 
@@ -2385,94 +2598,14 @@ if ('serviceWorker' in navigator) {
       const ev = prefetchedEvent || await fetchEventById(eventId);
       if (!ev) return load(); // fallback
       upsertCachedEvent(ev);
-      // Find the card
-      const card = document.querySelector(`.card [data-edit='${eventId}']`)?.closest('.card');
-      if (!card) return load(); // fallback
-      // Re-render just this card
-      const isTeams = !!ev.isTeamEvent;
-      let teesArr = ev.teeTimes || [];
-      if (!isTeams) {
-        teesArr = teesArr.slice().sort((a, b) => {
-          if (!a.time || !b.time) return 0;
-          const [ah, am] = a.time.split(":").map(Number);
-          const [bh, bm] = b.time.split(":").map(Number);
-          return ah !== bh ? ah - bh : am - bm;
-        });
-      }
-      const slotCap = isTeams ? (ev.teamSizeMax || 4) : 4;
-      const slotCount = teesArr.length;
-      const registeredCount = teesArr.reduce((sum, tt) => sum + ((tt.players || []).length), 0);
-      const checkedInCount = teesArr.reduce((sum, tt) => sum + ((tt.players || []).filter((p) => !!p.checkedIn).length), 0);
-      const totalCapacity = slotCount * slotCap;
-      const openCount = Math.max(0, totalCapacity - registeredCount);
-      const maybeCount = (ev.maybeList || []).length;
-      const summaryRow = `<div class=\"row\" style=\"gap:8px;flex-wrap:wrap;margin:6px 0 10px 0;font-size:12px;color:var(--slate-700)\">\n        <span><strong>${registeredCount}</strong> registered</span>\n        <span><strong>${checkedInCount}</strong> checked in</span>\n        <span><strong>${openCount}</strong> open</span>\n        <span><strong>${maybeCount}</strong> maybe</span>\n        <span><strong>${slotCount}</strong> ${isTeams ? 'teams' : 'tee times'}</span>\n      </div>`;
-      const tees = teesArr.map((tt,idx)=>teeRow(ev,tt,idx,isTeams)).join('');
-      const maybeList = (ev.maybeList || []).map((name, idx) => {
-        const safe = String(name).replace(/"/g, '&quot;');
-        return `<span class=\"maybe-chip\" title=\"${safe}\">\n        <span class=\"maybe-name\">${name}</span>\n        <button class=\"icon small danger\" title=\"Remove\" data-remove-maybe=\"${ev._id}:${idx}\">×</button>\n      </span>`;
-      }).join('');
-      const maybeSection = `\n      <div class=\"maybe-section\">\n        <div class=\"maybe-header\">\n          <h4>🤔 Maybe List</h4>\n          <div class=\"maybe-controls\">\n            <button class=\"small maybe-btn\" data-add-maybe=\"${ev._id}\">+ Interested</button>\n            <button class=\"small maybe-btn\" data-fill-maybe=\"${ev._id}\" title=\"Move someone from maybe list into an open spot\">Fill Spot</button>\n          </div>\n        </div>\n        <div class=\"maybe-list\">\n          ${maybeList || '<em style=\"color:var(--slate-700);font-size:11px;opacity:0.7\">No one yet</em>'}\n        </div>\n      </div>\n    `;
-      const weatherSummary = weatherSummaryMarkup(ev);
-      const courseDetailsBits = [];
-      if (ev.courseInfo && ev.courseInfo.city && ev.courseInfo.state) {
-        courseDetailsBits.push(`<span>📍 ${escapeHtml(ev.courseInfo.city)}, ${escapeHtml(ev.courseInfo.state)}</span>`);
-      }
-      if (ev.courseInfo && ev.courseInfo.phone) {
-        courseDetailsBits.push(`<span>📞 ${escapeHtml(ev.courseInfo.phone)}</span>`);
-      }
-      if (ev.courseInfo && ev.courseInfo.website) {
-        courseDetailsBits.push(`<span><a href="${escapeHtml(ev.courseInfo.website)}" target="_blank" rel="noopener">🔗 Website</a></span>`);
-      }
-      if (ev.courseInfo && ev.courseInfo.holes && ev.courseInfo.par) {
-        courseDetailsBits.push(`<span>⛳ ${escapeHtml(ev.courseInfo.holes)} holes, Par ${escapeHtml(ev.courseInfo.par)}</span>`);
-      }
-      const courseDetails = courseDetailsBits.length
-        ? `<div class="course-details">${courseDetailsBits.join('')}</div>`
-        : '';
-      const eventActionLegend = `\n          <div class=\"event-action-legend\" aria-label=\"Golfer action legend\">\n            <span class=\"event-action-title\">Golfer Controls</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol\">○</span>Individual check-in</span>\n            <span class=\"event-action-item\"><span class=\"event-action-pill\">All</span>Group check-in</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol\">↔</span>Move golfer</span>\n            <span class=\"event-action-item\"><span class=\"event-action-symbol danger\">×</span>Delete golfer</span>\n          </div>\n      `;
-      card.innerHTML = `
-      <div class="card-header">
-        <div class="card-header-left">
-          <div class="card-title-row">
-            <h3 class="card-title">${courseTitleMarkup(ev)}</h3>
-            <div class="event-top-actions">
-              <button class="event-top-btn event-top-edit" data-edit="${ev._id}" title="Edit Event" aria-label="Edit Event">✏</button>
-              <button class="event-top-btn event-top-delete" data-del="${ev._id}" title="Delete Event" aria-label="Delete Event">✕</button>
-            </div>
-          </div>
-          <div class="card-date">
-            <span>${fmtDate(ev.date)}</span>
-            ${weatherSummary}
-          </div>
-          ${courseDetails}
-        </div>
-      </div>
-      <div class="card-content">
-        ${maybeSection}
-        <div class="empty-tee-note"><span>RED</span> = empty tee time</div>
-        <div class="card-actions">
-          <button class="small event-actions-toggle" data-toggle-actions title="Show/hide event actions">Actions</button>
-          <div class="button-row">
-            ${isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<div class="time-action-pair"><button class="small" data-add-tee="${ev._id}">Add Existing Time</button><button class="small" data-request-extra-tee="${ev._id}" title="Email Brian Jones to request an additional tee time">Request Club Time</button></div>`}
-            ${isTeams ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Pairings</button>`}
-            <button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button>
-          </div>
-        </div>
-        ${summaryRow}
-        ${eventActionLegend}
-        <div class="tees">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>
-        ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
-        <div class="event-bottom-actions">
-          <button class="small event-audit-btn event-bottom-audit-btn" data-audit="${ev._id}" title="View Audit Log" aria-label="View Audit Log">View Audit</button>
-        </div>
-      </div>`;
+      renderEventsForDate();
     } catch (e) {
       console.error('Failed to update event card:', e);
       load();
     }
   }
 
+  updateMobileFilterButtons();
   updateLastUpdated('Loading…');
   load();
   startAutoRefresh();
