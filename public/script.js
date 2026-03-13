@@ -148,6 +148,14 @@ if ('serviceWorker' in navigator) {
   let lastResumeRefreshAt = 0;
   let selectedDateRequestSeq = 0;
   let activeMobileFilter = 'all';
+  const initialSelectedDateFromUrl = (() => {
+    try {
+      const dateISO = String(new URLSearchParams(window.location.search).get('date') || '').trim();
+      return /^\d{4}-\d{2}-\d{2}$/.test(dateISO) ? dateISO : '';
+    } catch (_) {
+      return '';
+    }
+  })();
 
   const MOBILE_FILTER_LABELS = {
     all: 'All events',
@@ -156,6 +164,11 @@ if ('serviceWorker' in navigator) {
     'blue-ridge': 'Blue Ridge only',
     'team-events': 'Team events',
   };
+
+  if (initialSelectedDateFromUrl) {
+    selectedDate = initialSelectedDateFromUrl;
+    currentDate = new Date(`${initialSelectedDateFromUrl}T12:00:00`);
+  }
 
   // Inject Edit dialog
   function ensureEditDialog(){
@@ -560,6 +573,19 @@ if ('serviceWorker' in navigator) {
     return `${next.getFullYear()}-${pad2(next.getMonth() + 1)}-${pad2(next.getDate())}`;
   }
 
+  function fullDateLabel(dateISO = '') {
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateISO || '').trim());
+    if (!match) return 'Selected day';
+    const date = new Date(`${match[1]}-${match[2]}-${match[3]}T12:00:00Z`);
+    return date.toLocaleDateString(undefined, {
+      weekday: 'long',
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+      timeZone: 'UTC',
+    });
+  }
+
   function formatSelectedDateShort(dateISO = '') {
     const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(dateISO || '').trim());
     if (!match) return 'Pick a date';
@@ -620,6 +646,106 @@ if ('serviceWorker' in navigator) {
 
   function filteredSelectedDateEvents(events = allEvents) {
     return (events || []).filter(eventMatchesMobileFilter);
+  }
+
+  function sortedEventTimes(ev) {
+    return ((ev && ev.teeTimes) || [])
+      .map((tt) => String(tt && tt.time || '').trim())
+      .filter(Boolean)
+      .sort((a, b) => {
+        const left = parseHHMMToMinutes(a);
+        const right = parseHHMMToMinutes(b);
+        if (left === null && right === null) return a.localeCompare(b);
+        if (left === null) return 1;
+        if (right === null) return -1;
+        return left - right;
+      });
+  }
+
+  function buildSelectedDateShareUrl(dateISO = selectedDate) {
+    const url = new URL(window.location.pathname, window.location.origin);
+    if (dateISO) url.searchParams.set('date', dateISO);
+    return url.toString();
+  }
+
+  function syncSelectedDateUrl(dateISO = '') {
+    try {
+      const url = new URL(window.location.href);
+      if (dateISO) url.searchParams.set('date', dateISO);
+      else url.searchParams.delete('date');
+      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    } catch (_) {}
+  }
+
+  function buildSelectedDateShareSummary(dateISO = selectedDate, events = allEvents) {
+    const dayLabel = fullDateLabel(dateISO);
+    const shareLines = [`Tee Times for ${dayLabel}`];
+    if (!Array.isArray(events) || !events.length) {
+      shareLines.push('- No events scheduled');
+      return shareLines.join('\n');
+    }
+    const sortedEvents = events.slice().sort((left, right) => {
+      const startDiff = (eventStartMinutes(left) ?? Number.MAX_SAFE_INTEGER) - (eventStartMinutes(right) ?? Number.MAX_SAFE_INTEGER);
+      if (startDiff !== 0) return startDiff;
+      return String((left && left.course) || '').localeCompare(String((right && right.course) || ''));
+    });
+    for (const ev of sortedEvents) {
+      const capacity = eventCapacitySummary(ev);
+      const timeLabels = sortedEventTimes(ev).map((time) => fmtTime(time));
+      const detailParts = [];
+      if (capacity.isTeamEvent) {
+        detailParts.push(`${capacity.teeTimes.length} team${capacity.teeTimes.length === 1 ? '' : 's'}`);
+      } else {
+        if (timeLabels.length) detailParts.push(timeLabels.join(', '));
+        detailParts.push(`${capacity.teeTimes.length} tee time${capacity.teeTimes.length === 1 ? '' : 's'}`);
+      }
+      detailParts.push(`${capacity.registeredCount} golfer${capacity.registeredCount === 1 ? '' : 's'}`);
+      if (capacity.openCount > 0) detailParts.push(`${capacity.openCount} open`);
+      const maybeCount = Array.isArray(ev && ev.maybeList) ? ev.maybeList.length : 0;
+      if (maybeCount > 0) detailParts.push(`${maybeCount} maybe`);
+      shareLines.push(`- ${String((ev && ev.course) || 'Golf Event').trim()}: ${detailParts.join(' · ')}`);
+    }
+    return shareLines.join('\n');
+  }
+
+  async function copyTextToClipboard(text = '') {
+    if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+      await navigator.clipboard.writeText(text);
+      return;
+    }
+    const helper = document.createElement('textarea');
+    helper.value = text;
+    helper.setAttribute('readonly', 'readonly');
+    helper.style.position = 'fixed';
+    helper.style.top = '-1000px';
+    helper.style.opacity = '0';
+    document.body.appendChild(helper);
+    helper.select();
+    const copied = document.execCommand('copy');
+    helper.remove();
+    if (!copied) throw new Error('Clipboard unavailable');
+  }
+
+  async function shareSelectedDay() {
+    const dateISO = selectedDate || localDateISO();
+    if (!selectedDate) {
+      await applySelectedDate(dateISO, { force: true });
+    }
+    const shareText = buildSelectedDateShareSummary(dateISO, allEvents);
+    const shareUrl = buildSelectedDateShareUrl(dateISO);
+    const shareTitle = `Tee Times for ${fullDateLabel(dateISO)}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
+        showToast('Day share opened.', 'success');
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        console.error(err);
+      }
+    }
+    await copyTextToClipboard(`${shareText}\n\nOpen the day: ${shareUrl}`);
+    showToast('Day summary and link copied.', 'success');
   }
 
   function updateMobileFilterButtons() {
@@ -1227,6 +1353,7 @@ if ('serviceWorker' in navigator) {
     const force = !!options.force;
     if (!force && selectedDate === dateStr) return;
     selectedDate = dateStr;
+    syncSelectedDateUrl(dateStr);
     setCurrentMonthFromIso(dateStr);
     await loadMonthSummary(force);
     await loadEventsForSelectedDate();
@@ -1428,6 +1555,12 @@ if ('serviceWorker' in navigator) {
           return;
         }
         await applySelectedDate(nextDate, { force: true });
+        return;
+      }
+      if (action === 'share-day') {
+        btn.disabled = true;
+        btn.textContent = 'Sharing...';
+        await shareSelectedDay();
         return;
       }
       if (action === 'new-tee') {
