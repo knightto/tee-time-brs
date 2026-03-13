@@ -275,7 +275,105 @@ function normalizeRyderCupTeams(rawTeams = [], defaultState = {}) {
 }
 
 function isSinglesFormat(format = '') {
-  return cleanString(format).toLowerCase() === 'singles';
+  const normalized = cleanString(format).toLowerCase();
+  return normalized === 'singles' || normalized === 'singles match play';
+}
+
+function getDefaultRyderCupPlanStyle(format = '') {
+  const normalized = cleanString(format).toLowerCase();
+  if (normalized.includes('singles')) return 'Singles Match Play';
+  if (normalized.includes('1-2-3')) return '1-2-3 Team Game';
+  if (normalized.includes('two-man combined')) return 'Two-Man Combined Score';
+  if (normalized.includes('best ball stroke')) return 'Best Ball Stroke Play';
+  if (normalized.includes('four-ball')) return 'Four-Ball Match Play';
+  return 'Own Ball Pod';
+}
+
+function getRyderCupRoundGroupNumbers(matches = []) {
+  return Array.from(new Set((matches || []).map((match, matchIndex) => asPositiveInteger(match && match.groupNumber) || (matchIndex + 1))))
+    .sort((left, right) => left - right);
+}
+
+function normalizeRyderCupScore(value) {
+  const parsed = asPositiveInteger(value);
+  return parsed || null;
+}
+
+function normalizeRyderCupScoreList(values = [], expectedCount = 0) {
+  const source = Array.isArray(values) ? values : [];
+  const normalized = source.slice(0, expectedCount > 0 ? expectedCount : source.length).map((value) => normalizeRyderCupScore(value));
+  if (expectedCount > 0) {
+    while (normalized.length < expectedCount) normalized.push(null);
+  }
+  return normalized;
+}
+
+function isCompleteRyderCupScoreList(values = [], expectedCount = 0) {
+  return normalizeRyderCupScoreList(values, expectedCount).length === expectedCount
+    && normalizeRyderCupScoreList(values, expectedCount).every((value) => Number.isFinite(value));
+}
+
+function sumRyderCupScores(values = []) {
+  const normalized = normalizeRyderCupScoreList(values, values.length);
+  return normalized.every((value) => Number.isFinite(value))
+    ? normalized.reduce((sum, value) => sum + value, 0)
+    : null;
+}
+
+function inferRyderCupWinningResult(teamAScore, teamBScore) {
+  if (!Number.isFinite(teamAScore) || !Number.isFinite(teamBScore)) return '';
+  if (teamAScore === teamBScore) return 'halved';
+  return teamAScore < teamBScore ? 'teamA' : 'teamB';
+}
+
+function isRyderCupTeamRound(round = {}) {
+  return cleanString(round && round.resultMode).toLowerCase() === 'teamround'
+    || cleanString(round && round.resultMode).toLowerCase() === 'team_round'
+    || cleanString(round && round.formatKey).toLowerCase() === 'onetwothree';
+}
+
+function buildRyderCupRoundPlanTemplate(round = {}) {
+  const playStyle = getDefaultRyderCupPlanStyle(round.format);
+  return getRyderCupRoundGroupNumbers(round.matches || []).map((groupNumber) => ({
+    groupNumber,
+    playStyle,
+    notes: '',
+  }));
+}
+
+function normalizeRyderCupRoundPlan(rawPlan = {}, defaultRound = {}, matches = []) {
+  const templateGroups = buildRyderCupRoundPlanTemplate({
+    format: cleanString(defaultRound && defaultRound.format),
+    matches: matches.length ? matches : (defaultRound && defaultRound.matches) || [],
+  });
+  const savedGroups = Array.isArray(rawPlan && rawPlan.groups) ? rawPlan.groups : [];
+  const defaultGroups = Array.isArray(defaultRound && defaultRound.plan && defaultRound.plan.groups)
+    ? defaultRound.plan.groups
+    : [];
+  const savedByGroup = new Map(savedGroups.map((entry) => [asPositiveInteger(entry && entry.groupNumber), entry]));
+  const defaultByGroup = new Map(defaultGroups.map((entry) => [asPositiveInteger(entry && entry.groupNumber), entry]));
+  return {
+    dayNote: cleanString(rawPlan && rawPlan.dayNote) || cleanString(defaultRound && defaultRound.plan && defaultRound.plan.dayNote),
+    groups: templateGroups.map((template) => {
+      const saved = savedByGroup.get(template.groupNumber) || {};
+      const fallback = defaultByGroup.get(template.groupNumber) || template;
+      return {
+        groupNumber: template.groupNumber,
+        playStyle: cleanString(saved && saved.playStyle) || cleanString(fallback && fallback.playStyle) || template.playStyle,
+        notes: cleanString(saved && saved.notes) || cleanString(fallback && fallback.notes),
+      };
+    }),
+  };
+}
+
+function normalizeRyderCupRoundScore(rawRoundScore = {}, defaultRound = {}) {
+  const fallback = defaultRound && defaultRound.roundScore ? defaultRound.roundScore : {};
+  return {
+    teamAScore: normalizeRyderCupScore(rawRoundScore && rawRoundScore.teamAScore),
+    teamBScore: normalizeRyderCupScore(rawRoundScore && rawRoundScore.teamBScore),
+    result: normalizeRyderCupResult(rawRoundScore && rawRoundScore.result),
+    notes: cleanString(rawRoundScore && rawRoundScore.notes) || cleanString(fallback && fallback.notes),
+  };
 }
 
 function buildRyderCupTeamLookup(teams = []) {
@@ -292,7 +390,10 @@ function buildRyderCupTeamLookup(teams = []) {
 }
 
 function normalizeRyderCupRound(rawRound = {}, defaultRound = {}, teams = []) {
-  const expectedCount = isSinglesFormat(defaultRound.format) ? 1 : 2;
+  const roundFormat = cleanString(rawRound.format) || defaultRound.format || 'Four-Ball';
+  const formatKey = cleanString(rawRound.formatKey) || cleanString(defaultRound.formatKey);
+  const resultMode = cleanString(rawRound.resultMode) || cleanString(defaultRound.resultMode) || 'match';
+  const expectedCount = isSinglesFormat(roundFormat) ? 1 : 2;
   const teamA = teams[0] || { players: [] };
   const teamB = teams[1] || { players: [] };
   const rawMatches = Array.isArray(rawRound && rawRound.matches) ? rawRound.matches : [];
@@ -307,22 +408,36 @@ function normalizeRyderCupRound(rawRound = {}, defaultRound = {}, teams = []) {
     }
     return {
       matchNumber: asPositiveInteger(rawMatch.matchNumber) || defaultMatch.matchNumber || (matchIndex + 1),
-      label: cleanString(rawMatch.label) || defaultMatch.label || (isSinglesFormat(defaultRound.format) ? `Singles ${matchIndex + 1}` : `Match ${matchIndex + 1}`),
+      label: cleanString(rawMatch.label) || defaultMatch.label || (isSinglesFormat(roundFormat) ? `Singles ${matchIndex + 1}` : `Match ${matchIndex + 1}`),
       groupNumber: asPositiveInteger(rawMatch.groupNumber) || defaultMatch.groupNumber || (matchIndex + 1),
       teamAPlayers,
       teamBPlayers,
+      teamAPlayerScores: normalizeRyderCupScoreList(rawMatch.teamAPlayerScores, teamAPlayers.length || expectedCount),
+      teamBPlayerScores: normalizeRyderCupScoreList(rawMatch.teamBPlayerScores, teamBPlayers.length || expectedCount),
+      teamAScore: normalizeRyderCupScore(rawMatch.teamAScore),
+      teamBScore: normalizeRyderCupScore(rawMatch.teamBScore),
       result: normalizeRyderCupResult(rawMatch.result),
       notes: cleanString(rawMatch.notes !== undefined ? rawMatch.notes : defaultMatch.notes),
     };
   });
+  const plan = normalizeRyderCupRoundPlan(rawRound && rawRound.plan, {
+    ...defaultRound,
+    format: roundFormat,
+  }, matches);
   return {
     roundNumber: asPositiveInteger(rawRound.roundNumber) || defaultRound.roundNumber,
     title: cleanString(rawRound.title) || defaultRound.title || `Round ${defaultRound.roundNumber || 1}`,
-    format: cleanString(rawRound.format) || defaultRound.format || 'Four-Ball',
+    format: roundFormat,
+    formatKey,
+    resultMode,
+    description: cleanString(rawRound.description) || cleanString(defaultRound.description),
+    entrySummary: cleanString(rawRound.entrySummary) || cleanString(defaultRound.entrySummary),
     pointValue: asFiniteNumber(rawRound.pointValue) || asFiniteNumber(defaultRound.pointValue) || 1,
     course: cleanString(rawRound.course) || defaultRound.course || '',
     date: rawDate ? new Date(rawRound.date).toISOString() : defaultRound.date || null,
     label: cleanString(rawRound.label) || defaultRound.label || '',
+    plan,
+    roundScore: normalizeRyderCupRoundScore(rawRound && rawRound.roundScore, defaultRound),
     matches,
   };
 }
@@ -437,6 +552,7 @@ function normalizeRyderCupState(rawState = {}, trip = {}) {
   ));
   return {
     title: cleanString(state.title) || defaultState.title,
+    description: cleanString(state.description) || cleanString(defaultState.description),
     players: buildRyderCupPlayerRows(),
     teams,
     rounds,
@@ -1035,11 +1151,17 @@ function assertValidRyderCupRound(round = {}, teams = []) {
       throw new Error('Singles groups must contain exactly two matches per foursome.');
     }
   }
+  const planGroups = Array.isArray(round && round.plan && round.plan.groups) ? round.plan.groups : [];
+  const expectedGroups = getRyderCupRoundGroupNumbers(matches);
+  const actualGroups = getRyderCupRoundGroupNumbers(planGroups);
+  if (actualGroups.length !== expectedGroups.length || expectedGroups.some((groupNumber, index) => actualGroups[index] !== groupNumber)) {
+    throw new Error(`Ryder Cup ${round.title || 'round'} must include a daily plan entry for every foursome.`);
+  }
 }
 
 function setTripRyderCupTeams(trip = {}, payload = {}) {
   const current = getTripRyderCupState(trip, { force: true });
-  const hasStarted = current.rounds.some((round) => (round.matches || []).some((match) => Boolean(normalizeRyderCupResult(match && match.result))));
+  const hasStarted = hasStartedRyderCup(current.rounds);
   if (hasStarted) {
     throw new Error('Ryder Cup teams are locked after results are entered.');
   }
@@ -1102,7 +1224,7 @@ function swapTripRyderCupTeamPlayers(trip = {}, playerName = '', targetPlayerNam
   if (!leftName || !rightName || leftName === rightName) {
     throw new Error('Choose one player from each team to swap.');
   }
-  const hasStarted = current.rounds.some((round) => (round.matches || []).some((match) => Boolean(normalizeRyderCupResult(match && match.result))));
+  const hasStarted = hasStartedRyderCup(current.rounds);
   if (hasStarted) {
     throw new Error('Ryder Cup teams are locked after results are entered.');
   }
@@ -1157,6 +1279,74 @@ function getRyderCupMatchPoints(result, pointValue = 1) {
   return { complete: false, pointsA: 0, pointsB: 0, resultKey: '' };
 }
 
+function resolveRyderCupMatchTotals(round = {}, match = {}) {
+  const expectedCount = isSinglesFormat(round.format) ? 1 : 2;
+  const teamAPlayerScores = normalizeRyderCupScoreList(match.teamAPlayerScores, expectedCount);
+  const teamBPlayerScores = normalizeRyderCupScoreList(match.teamBPlayerScores, expectedCount);
+  let teamAScore = normalizeRyderCupScore(match.teamAScore);
+  let teamBScore = normalizeRyderCupScore(match.teamBScore);
+  let scoreSource = '';
+  if (cleanString(round && round.formatKey).toLowerCase() === 'combinedscore') {
+    const combinedA = sumRyderCupScores(teamAPlayerScores);
+    const combinedB = sumRyderCupScores(teamBPlayerScores);
+    if (Number.isFinite(combinedA) && Number.isFinite(combinedB)) {
+      teamAScore = combinedA;
+      teamBScore = combinedB;
+      scoreSource = 'playerScores';
+    } else if (Number.isFinite(teamAScore) && Number.isFinite(teamBScore)) {
+      scoreSource = 'teamTotals';
+    }
+  } else if (cleanString(round && round.formatKey).toLowerCase() === 'bestballstroke') {
+    if (Number.isFinite(teamAScore) && Number.isFinite(teamBScore)) {
+      scoreSource = 'teamTotals';
+    }
+  } else if (Number.isFinite(teamAScore) && Number.isFinite(teamBScore)) {
+    scoreSource = 'teamTotals';
+  }
+  return {
+    teamAPlayerScores,
+    teamBPlayerScores,
+    teamAScore,
+    teamBScore,
+    scoreSource,
+  };
+}
+
+function resolveRyderCupMatchOutcome(round = {}, match = {}) {
+  const scoreState = resolveRyderCupMatchTotals(round, match);
+  const manualResult = normalizeRyderCupResult(match && match.result);
+  const inferredResult = inferRyderCupWinningResult(scoreState.teamAScore, scoreState.teamBScore);
+  return {
+    ...scoreState,
+    resultKey: manualResult || inferredResult,
+    resultSource: manualResult ? 'manual' : (inferredResult ? 'scores' : ''),
+  };
+}
+
+function resolveRyderCupRoundScore(round = {}) {
+  const score = round && round.roundScore ? round.roundScore : {};
+  const teamAScore = normalizeRyderCupScore(score.teamAScore);
+  const teamBScore = normalizeRyderCupScore(score.teamBScore);
+  const manualResult = normalizeRyderCupResult(score.result);
+  const inferredResult = inferRyderCupWinningResult(teamAScore, teamBScore);
+  return {
+    teamAScore,
+    teamBScore,
+    notes: cleanString(score.notes),
+    resultKey: manualResult || inferredResult,
+    resultSource: manualResult ? 'manual' : (inferredResult ? 'scores' : ''),
+  };
+}
+
+function hasStartedRyderCup(rounds = []) {
+  return (rounds || []).some((round) => {
+    if (isRyderCupTeamRound(round)) {
+      return Boolean(resolveRyderCupRoundScore(round).resultKey);
+    }
+    return (round.matches || []).some((match) => Boolean(resolveRyderCupMatchOutcome(round, match).resultKey));
+  });
+}
+
 function buildRyderCupFoursomes(rounds = []) {
   const groups = [];
   rounds.forEach((round) => {
@@ -1193,6 +1383,36 @@ function buildRyderCupFoursomes(rounds = []) {
     });
   });
   return groups;
+}
+
+function buildRyderCupRoundPlanView(round = {}) {
+  const savedGroups = Array.isArray(round && round.plan && round.plan.groups) ? round.plan.groups : [];
+  const savedByGroup = new Map(savedGroups.map((entry) => [asPositiveInteger(entry && entry.groupNumber), entry]));
+  const groups = getRyderCupRoundGroupNumbers(round.matches || []).map((groupNumber) => {
+    const groupMatches = (round.matches || []).filter((match, matchIndex) => (asPositiveInteger(match && match.groupNumber) || (matchIndex + 1)) === groupNumber);
+    const teamAPlayers = uniqueNames(groupMatches.flatMap((match) => match.teamAPlayers || []));
+    const teamBPlayers = uniqueNames(groupMatches.flatMap((match) => match.teamBPlayers || []));
+    const saved = savedByGroup.get(groupNumber) || {};
+    return {
+      groupNumber,
+      label: `Foursome ${groupNumber}`,
+      players: uniqueNames(teamAPlayers.concat(teamBPlayers)),
+      teamAPlayers,
+      teamBPlayers,
+      playStyle: cleanString(saved.playStyle) || getDefaultRyderCupPlanStyle(round.format),
+      notes: cleanString(saved.notes),
+      pairings: groupMatches.map((match, matchIndex) => ({
+        matchNumber: match.matchNumber || (matchIndex + 1),
+        label: cleanString(match.label) || (isSinglesFormat(round.format) ? `Singles ${matchIndex + 1}` : `Match ${matchIndex + 1}`),
+        teamAPlayers: (match.teamAPlayers || []).slice(),
+        teamBPlayers: (match.teamBPlayers || []).slice(),
+      })),
+    };
+  });
+  return {
+    dayNote: cleanString(round && round.plan && round.plan.dayNote),
+    groups,
+  };
 }
 
 function findRyderCupGroupingCoverage(groups = [], players = [], roundNumber = null) {
@@ -1296,9 +1516,16 @@ function buildRyderCupAdminView(rounds = []) {
       locations: coverage.map((group) => group.label),
     };
   });
+  const roundRules = (rounds || []).map((round) => ({
+    roundNumber: round.roundNumber,
+    title: round.title,
+    format: round.format,
+    description: cleanString(round.description),
+  }));
   return {
     hardConstraints,
     requestedGroupings,
+    roundRules,
   };
 }
 
@@ -1313,29 +1540,79 @@ function buildRyderCupRoundAndStandingsView(rounds = [], teams = []) {
     let roundPointsB = 0;
     let completedMatches = 0;
     const matches = (round.matches || []).map((match) => {
-      const points = getRyderCupMatchPoints(match.result, roundPointValue);
-      totalPointsAvailable += roundPointValue;
-      if (points.complete) {
-        roundPointsA += points.pointsA;
-        roundPointsB += points.pointsB;
-        completedMatches += 1;
-      } else {
-        remainingPoints += roundPointValue;
+      const resolved = resolveRyderCupMatchOutcome(round, match);
+      const points = getRyderCupMatchPoints(resolved.resultKey, roundPointValue);
+      if (!isRyderCupTeamRound(round)) {
+        totalPointsAvailable += roundPointValue;
+        if (points.complete) {
+          roundPointsA += points.pointsA;
+          roundPointsB += points.pointsB;
+          completedMatches += 1;
+        } else {
+          remainingPoints += roundPointValue;
+        }
       }
       return {
         ...match,
+        teamAPlayerScores: resolved.teamAPlayerScores,
+        teamBPlayerScores: resolved.teamBPlayerScores,
+        teamAScore: resolved.teamAScore,
+        teamBScore: resolved.teamBScore,
+        scoreSource: resolved.scoreSource,
+        enteredResult: normalizeRyderCupResult(match.result),
         result: points.resultKey,
+        resultSource: resolved.resultSource,
         pointsA: points.pointsA,
         pointsB: points.pointsB,
         isComplete: points.complete,
       };
     });
+    let roundScore = {
+      teamAScore: null,
+      teamBScore: null,
+      notes: cleanString(round && round.roundScore && round.roundScore.notes),
+      result: '',
+      resultSource: '',
+      pointsA: 0,
+      pointsB: 0,
+      isComplete: false,
+    };
+    if (isRyderCupTeamRound(round)) {
+      const resolvedRoundScore = resolveRyderCupRoundScore(round);
+      const roundPoints = getRyderCupMatchPoints(resolvedRoundScore.resultKey, roundPointValue);
+      totalPointsAvailable += roundPointValue;
+      if (roundPoints.complete) {
+        roundPointsA += roundPoints.pointsA;
+        roundPointsB += roundPoints.pointsB;
+        completedMatches = 1;
+      } else {
+        remainingPoints += roundPointValue;
+      }
+      roundScore = {
+        teamAScore: resolvedRoundScore.teamAScore,
+        teamBScore: resolvedRoundScore.teamBScore,
+        notes: resolvedRoundScore.notes,
+        enteredResult: normalizeRyderCupResult(round && round.roundScore && round.roundScore.result),
+        result: roundPoints.resultKey,
+        resultSource: resolvedRoundScore.resultSource,
+        pointsA: roundPoints.pointsA,
+        pointsB: roundPoints.pointsB,
+        isComplete: roundPoints.complete,
+      };
+    }
     teamAPoints += roundPointsA;
     teamBPoints += roundPointsB;
     return {
       ...round,
+      plan: buildRyderCupRoundPlanView({
+        ...round,
+        matches,
+      }),
       matches,
-      pointsAvailable: (round.matches || []).length * roundPointValue,
+      roundScore,
+      pointsAvailable: isRyderCupTeamRound(round)
+        ? roundPointValue
+        : (round.matches || []).length * roundPointValue,
       roundPointsA,
       roundPointsB,
       completedMatches,
@@ -1365,6 +1642,8 @@ function buildRyderCupRoundAndStandingsView(rounds = [], teams = []) {
 
 function buildRyderCupIndividualLeaderboard(rounds = [], teams = []) {
   const teamLookup = buildRyderCupTeamLookup(teams);
+  const teamAPlayers = ((teams[0] && teams[0].players) || []).slice();
+  const teamBPlayers = ((teams[1] && teams[1].players) || []).slice();
   const rowsByName = new Map(buildRyderCupPlayerRows().map((player) => [normalizeNameKey(player.name), {
     name: player.name,
     rank: player.rank,
@@ -1378,8 +1657,35 @@ function buildRyderCupIndividualLeaderboard(rounds = [], teams = []) {
   }]));
   rounds.forEach((round) => {
     const pointValue = asFiniteNumber(round.pointValue) || 1;
+    if (isRyderCupTeamRound(round)) {
+      const resolved = resolveRyderCupRoundScore(round);
+      const points = getRyderCupMatchPoints(resolved.resultKey, pointValue);
+      if (!points.complete) return;
+      const participationShareA = teamAPlayers.length ? points.pointsA / teamAPlayers.length : 0;
+      const participationShareB = teamBPlayers.length ? points.pointsB / teamBPlayers.length : 0;
+      teamAPlayers.forEach((name) => {
+        const entry = rowsByName.get(normalizeNameKey(name));
+        if (!entry) return;
+        entry.matchesPlayed += 1;
+        entry.pointsWon += participationShareA;
+        if (points.resultKey === 'teamA') entry.wins += 1;
+        else if (points.resultKey === 'teamB') entry.losses += 1;
+        else entry.halves += 1;
+      });
+      teamBPlayers.forEach((name) => {
+        const entry = rowsByName.get(normalizeNameKey(name));
+        if (!entry) return;
+        entry.matchesPlayed += 1;
+        entry.pointsWon += participationShareB;
+        if (points.resultKey === 'teamB') entry.wins += 1;
+        else if (points.resultKey === 'teamA') entry.losses += 1;
+        else entry.halves += 1;
+      });
+      return;
+    }
     (round.matches || []).forEach((match) => {
-      const points = getRyderCupMatchPoints(match.result, pointValue);
+      const resolved = resolveRyderCupMatchOutcome(round, match);
+      const points = getRyderCupMatchPoints(resolved.resultKey, pointValue);
       if (!points.complete) return;
       const teamAPlayers = match.teamAPlayers || [];
       const teamBPlayers = match.teamBPlayers || [];
@@ -1576,7 +1882,7 @@ function buildRyderCupView(state = null) {
   const individualLeaderboard = buildRyderCupIndividualLeaderboard(state.rounds || [], state.teams || []);
   const sideGames = buildRyderCupSideGamesView(state.sideGames || {}, individualLeaderboard);
   const payout = buildRyderCupPayoutView(state.payout || {}, roundBundle.standings || {}, sideGames, state.teams || []);
-  const hasStarted = (state.rounds || []).some((round) => (round.matches || []).some((match) => Boolean(normalizeRyderCupResult(match && match.result))));
+  const hasStarted = hasStartedRyderCup(state.rounds || []);
   const fairnessByTeam = new Map((fairness.teams || []).map((team) => [team.teamId, team]));
   const teams = (state.teams || []).map((team) => {
     const summary = fairnessByTeam.get(team.id) || {};
@@ -1603,6 +1909,7 @@ function buildRyderCupView(state = null) {
   const admin = buildRyderCupAdminView(roundBundle.rounds || []);
   return {
     title: state.title,
+    description: cleanString(state.description),
     totalPointsAvailable: roundBundle.standings.totalPointsAvailable,
     hasStarted,
     canEditTeams: !hasStarted,
@@ -1619,6 +1926,7 @@ function buildRyderCupView(state = null) {
     payout,
     admin: {
       ...admin,
+      roundRules: Array.isArray(admin.roundRules) ? admin.roundRules : [],
       notes: Array.isArray(state.adminNotes && state.adminNotes.notes) ? state.adminNotes.notes : [],
     },
   };

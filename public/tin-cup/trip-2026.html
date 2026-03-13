@@ -2896,6 +2896,7 @@
       const daysInMonth = new Date(year, month + 1, 0).getDate();
       const daysInPrevMonth = new Date(year, month, 0).getDate();
       const eventDates = new Set(rounds.map((round) => toIsoDate(round.date)).filter(Boolean));
+      const calendarCells = [];
       for (let i = firstDay - 1; i >= 0; i--) {
         const prevDay = daysInPrevMonth - i;
         let prevYear = year;
@@ -2904,10 +2905,20 @@
           prevMonth = 11;
           prevYear -= 1;
         }
-        gridEl.appendChild(createTripCalendarDay(prevDay, prevYear, prevMonth, true, eventDates));
+        calendarCells.push({
+          day: prevDay,
+          year: prevYear,
+          month: prevMonth,
+          isOtherMonth: true,
+        });
       }
       for (let day = 1; day <= daysInMonth; day++) {
-        gridEl.appendChild(createTripCalendarDay(day, year, month, false, eventDates));
+        calendarCells.push({
+          day,
+          year,
+          month,
+          isOtherMonth: false,
+        });
       }
       const usedCells = firstDay + daysInMonth;
       const trailingCells = usedCells % 7 === 0 ? 0 : 7 - (usedCells % 7);
@@ -2918,8 +2929,26 @@
           nextMonth = 0;
           nextYear += 1;
         }
-        gridEl.appendChild(createTripCalendarDay(day, nextYear, nextMonth, true, eventDates));
+        calendarCells.push({
+          day,
+          year: nextYear,
+          month: nextMonth,
+          isOtherMonth: true,
+        });
       }
+      const rowsWithRounds = [];
+      for (let index = 0; index < calendarCells.length; index += 7) {
+        const week = calendarCells.slice(index, index + 7);
+        const hasRound = week.some((cell) => {
+          const dateStr = `${cell.year}-${String(cell.month + 1).padStart(2, '0')}-${String(cell.day).padStart(2, '0')}`;
+          return eventDates.has(dateStr);
+        });
+        if (hasRound) rowsWithRounds.push(...week);
+      }
+      const visibleCells = rowsWithRounds.length ? rowsWithRounds : calendarCells;
+      visibleCells.forEach((cell) => {
+        gridEl.appendChild(createTripCalendarDay(cell.day, cell.year, cell.month, cell.isOtherMonth, eventDates));
+      });
     }
 
     function renderTripEvents(rounds = []) {

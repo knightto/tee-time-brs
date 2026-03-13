@@ -2,6 +2,16 @@ function copyPlayers(players = []) {
   return players.map((player) => ({ ...player }));
 }
 
+function getDefaultRoundPlayStyle(format = '') {
+  const normalized = String(format || '').trim().toLowerCase();
+  if (normalized.includes('singles')) return 'Singles Match Play';
+  if (normalized.includes('1-2-3')) return '1-2-3 Team Game';
+  if (normalized.includes('two-man combined')) return 'Two-Man Combined Score';
+  if (normalized.includes('best ball stroke')) return 'Best Ball Stroke Play';
+  if (normalized.includes('four-ball')) return 'Four-Ball Match Play';
+  return 'Own Ball Pod';
+}
+
 const MYRTLE_RYDER_CUP_PLAYERS = [
   { name: 'Joe Gillette', rank: 1 },
   { name: 'John Quimby', rank: 2 },
@@ -131,7 +141,12 @@ const MYRTLE_RYDER_CUP_REQUESTED_GROUPINGS = [
 const MYRTLE_RYDER_CUP_ROUND_SEEDS = [
   {
     title: 'Round 1',
-    format: 'Four-Ball',
+    format: 'Four-Ball Match Play',
+    formatKey: 'fourBallMatch',
+    resultMode: 'match',
+    pointValue: 1,
+    description: '2-man teams, both players play their own ball, and the better ball on each hole wins the hole for match play.',
+    entrySummary: 'Select Team A, Team B, or Halved for each match.',
     matches: [
       {
         groupNumber: 1,
@@ -167,7 +182,12 @@ const MYRTLE_RYDER_CUP_ROUND_SEEDS = [
   },
   {
     title: 'Round 2',
-    format: 'Alternate Shot / Foursomes',
+    format: 'Best Ball Stroke Play',
+    formatKey: 'bestBallStroke',
+    resultMode: 'match',
+    pointValue: 1,
+    description: '2-man teams, everyone plays their own ball, and the lower best-ball team total wins the point.',
+    entrySummary: 'Enter optional player totals for reference and the team best-ball total for each side, or select the winner directly.',
     matches: [
       {
         groupNumber: 1,
@@ -203,7 +223,12 @@ const MYRTLE_RYDER_CUP_ROUND_SEEDS = [
   },
   {
     title: 'Round 3',
-    format: 'Four-Ball',
+    format: 'Two-Man Combined Score',
+    formatKey: 'combinedScore',
+    resultMode: 'match',
+    pointValue: 1,
+    description: '2-man teams, everyone plays their own ball, and both player totals count toward the side score.',
+    entrySummary: 'Enter both player totals to auto-build the team score, or enter the combined team totals directly.',
     matches: [
       {
         groupNumber: 1,
@@ -239,33 +264,43 @@ const MYRTLE_RYDER_CUP_ROUND_SEEDS = [
   },
   {
     title: 'Round 4',
-    format: 'Alternate Shot / Foursomes',
+    format: '1-2-3 Team Game',
+    formatKey: 'oneTwoThree',
+    resultMode: 'teamRound',
+    pointValue: 5,
+    description: 'All 20 players keep their own ball. Team scoring rotates 1 best ball, then 2 best balls, then 3 best balls by hole.',
+    entrySummary: 'Use the five foursome pods for the day plan and enter the final Team A and Team B round totals for the 5-point team game.',
     matches: [
       {
+        label: 'Pod 1',
         groupNumber: 1,
         teamAPlayers: ['Dennis Freeman', 'Duane Harris'],
         teamBPlayers: ['Caleb Hart', 'Chris Neff'],
         notes: 'Requested grouping: Dennis Freeman / Duane Harris',
       },
       {
+        label: 'Pod 2',
         groupNumber: 2,
         teamAPlayers: ['Tommy Knight', 'Joe Gillette'],
         teamBPlayers: ['Marcus Ordonez', 'Manuel Ordonez'],
         notes: '',
       },
       {
+        label: 'Pod 3',
         groupNumber: 3,
         teamAPlayers: ['Thomas Lasik', 'Chris Manuel'],
         teamBPlayers: ['Reny Butler', 'Lance Darr'],
         notes: '',
       },
       {
+        label: 'Pod 4',
         groupNumber: 4,
         teamAPlayers: ['John Quimby', 'Jeremy Bridges'],
         teamBPlayers: ['Josh Browne', 'John Hyers'],
         notes: '',
       },
       {
+        label: 'Pod 5',
         groupNumber: 5,
         teamAPlayers: ['Delmar Christian', 'Tommy Knight Sr'],
         teamBPlayers: ['Chad Jones', 'Matt Shannon'],
@@ -275,7 +310,12 @@ const MYRTLE_RYDER_CUP_ROUND_SEEDS = [
   },
   {
     title: 'Round 5',
-    format: 'Singles',
+    format: 'Singles Match Play',
+    formatKey: 'singlesMatch',
+    resultMode: 'match',
+    pointValue: 1,
+    description: 'One player vs one player, with every golfer playing their own ball all the way through the match.',
+    entrySummary: 'Select Team A, Team B, or Halved for each singles match.',
     matches: [
       {
         groupNumber: 1,
@@ -347,9 +387,24 @@ function buildRoundLabel(roundNumber, round = {}) {
   return `Round ${roundNumber} - ${course}`;
 }
 
+function buildRoundPlan(seed = {}) {
+  const groupNumbers = Array.from(new Set((seed.matches || []).map((match, matchIndex) => Number(match.groupNumber) || (matchIndex + 1))))
+    .sort((left, right) => left - right);
+  const playStyle = getDefaultRoundPlayStyle(seed.format);
+  return {
+    dayNote: '',
+    groups: groupNumbers.map((groupNumber) => ({
+      groupNumber,
+      playStyle,
+      notes: '',
+    })),
+  };
+}
+
 function buildDefaultMyrtleRyderCup(rounds = []) {
   return {
     title: 'Myrtle Ryder Cup',
+    description: 'Team competition with every player playing their own ball in every round.',
     players: copyPlayers(MYRTLE_RYDER_CUP_PLAYERS),
     teams: [
       {
@@ -369,16 +424,31 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
         roundNumber: index + 1,
         title: seed.title,
         format: seed.format,
-        pointValue: 1,
+        formatKey: seed.formatKey,
+        resultMode: seed.resultMode,
+        description: seed.description,
+        entrySummary: seed.entrySummary,
+        pointValue: seed.pointValue,
         course: String(tripRound.course || '').trim(),
         date: tripRound.date ? new Date(tripRound.date).toISOString() : null,
         label: buildRoundLabel(index + 1, tripRound),
+        plan: buildRoundPlan(seed),
+        roundScore: {
+          teamAScore: null,
+          teamBScore: null,
+          result: '',
+          notes: '',
+        },
         matches: seed.matches.map((match, matchIndex) => ({
           matchNumber: matchIndex + 1,
-          label: seed.format === 'Singles' ? `Singles ${matchIndex + 1}` : `Match ${matchIndex + 1}`,
+          label: match.label || (seed.formatKey === 'singlesMatch' ? `Singles ${matchIndex + 1}` : `Match ${matchIndex + 1}`),
           groupNumber: Number(match.groupNumber) || matchIndex + 1,
           teamAPlayers: match.teamAPlayers.slice(),
           teamBPlayers: match.teamBPlayers.slice(),
+          teamAPlayerScores: Array.from({ length: match.teamAPlayers.length }, () => null),
+          teamBPlayerScores: Array.from({ length: match.teamBPlayers.length }, () => null),
+          teamAScore: null,
+          teamBScore: null,
           result: '',
           notes: match.notes || '',
         })),
@@ -428,9 +498,15 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
     adminNotes: {
       hardConstraints: MYRTLE_RYDER_CUP_HARD_CONSTRAINTS.map((entry) => ({ ...entry })),
       requestedGroupings: MYRTLE_RYDER_CUP_REQUESTED_GROUPINGS.map((entry) => ({ ...entry })),
+      roundRules: MYRTLE_RYDER_CUP_ROUND_SEEDS.map((seed) => ({
+        title: seed.title,
+        format: seed.format,
+        description: seed.description,
+      })),
       notes: [
         'Seed teams are balanced at 105 rank points per side.',
-        'Four-ball and alternate-shot rounds are seeded to cover the requested foursomes while preserving the hard constraints.',
+        'Every Ryder Cup round is now an own-ball format. No alternate shot, scramble, shamble, or partner pickup formats are used.',
+        'The seeded own-ball pods cover the requested foursomes while preserving the hard constraints.',
         'Final-round singles are grouped into five four-man tee groups so Tommy Knight and Tommy Knight Sr finish in the same group.',
       ],
     },
