@@ -14,6 +14,10 @@ const {
   setRoundMatchTeams,
   setRoundPlayerScores,
   setRoundSideGames,
+  setTripRyderCupRound,
+  setTripRyderCupSettings,
+  setTripRyderCupTeams,
+  swapTripRyderCupTeamPlayers,
   setTripHandicapBuckets,
   setTripScoringMode,
 } = require('../services/tripCompetitionService');
@@ -403,6 +407,83 @@ router.put('/:tripId/competition/rounds/:roundIndex/side-games', async (req, res
       roundIndex: Number(req.params.roundIndex),
       ctpCount: Array.isArray(req.body && req.body.ctpWinners) ? req.body.ctpWinners.length : 0,
       skinsCount: Array.isArray(req.body && req.body.skinsResults) ? req.body.skinsResults.length : 0,
+    });
+    return res.json(buildTripCompetitionView(trip, participants));
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.put('/:tripId/competition/ryder-cup/teams', async (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ error: 'Admin code required' });
+  }
+  try {
+    const { trip, participants, TripAuditLogModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    setTripRyderCupTeams(trip, {
+      teams: req.body && req.body.teams,
+    });
+    await trip.save();
+    await writeTripAudit(req, trip, TripAuditLogModel, 'ryder_cup_teams', 'Ryder Cup teams updated', {
+      teams: req.body && req.body.teams,
+    });
+    return res.json(buildTripCompetitionView(trip, participants));
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.put('/:tripId/competition/ryder-cup/teams/swap', async (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ error: 'Admin code required' });
+  }
+  try {
+    const { trip, participants, TripAuditLogModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    swapTripRyderCupTeamPlayers(trip, req.body && req.body.playerName, req.body && req.body.targetPlayerName);
+    await trip.save();
+    await writeTripAudit(req, trip, TripAuditLogModel, 'ryder_cup_team_swap', 'Ryder Cup players swapped between teams', {
+      playerName: req.body && req.body.playerName,
+      targetPlayerName: req.body && req.body.targetPlayerName,
+    });
+    return res.json(buildTripCompetitionView(trip, participants));
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.put('/:tripId/competition/ryder-cup/rounds/:roundIndex', async (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ error: 'Admin code required' });
+  }
+  try {
+    const { trip, participants, TripAuditLogModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    setTripRyderCupRound(trip, req.params.roundIndex, req.body || {});
+    await trip.save();
+    await writeTripAudit(req, trip, TripAuditLogModel, 'ryder_cup_round', 'Ryder Cup round updated', {
+      roundIndex: Number(req.params.roundIndex),
+      matchCount: Array.isArray(req.body && req.body.matches) ? req.body.matches.length : 0,
+    });
+    return res.json(buildTripCompetitionView(trip, participants));
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.put('/:tripId/competition/ryder-cup/settings', async (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ error: 'Admin code required' });
+  }
+  try {
+    const { trip, participants, TripAuditLogModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    setTripRyderCupSettings(trip, req.body || {});
+    await trip.save();
+    await writeTripAudit(req, trip, TripAuditLogModel, 'ryder_cup_settings', 'Ryder Cup settings updated', {
+      hasSideGames: Boolean(req.body && req.body.sideGames),
+      hasPayout: Boolean(req.body && req.body.payout),
     });
     return res.json(buildTripCompetitionView(trip, participants));
   } catch (error) {

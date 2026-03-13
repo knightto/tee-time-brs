@@ -58,7 +58,8 @@ const TripCompetitionBucketSchema = new mongoose.Schema({
 
 const TripCompetitionSchema = new mongoose.Schema({
   scoringMode: { type: String, enum: ['best4', 'all5', 'first4of5', 'last4of5'], default: 'best4' },
-  handicapBuckets: { type: [TripCompetitionBucketSchema], default: [] }
+  handicapBuckets: { type: [TripCompetitionBucketSchema], default: [] },
+  ryderCup: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
 }, { _id: false });
 
 const TripSchema = new mongoose.Schema({

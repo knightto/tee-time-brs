@@ -85,6 +85,12 @@
       letter-spacing: 1px;
       text-transform: uppercase;
     }
+    .hero-subhead {
+      margin-top: 8px;
+      color: var(--ink-soft);
+      font-size: 0.9rem;
+      line-height: 1.45;
+    }
     .chips {
       display: flex;
       gap: 8px;
@@ -182,6 +188,42 @@
     .today-card {
       display:grid;
       gap:6px;
+    }
+    .dashboard-summary-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));
+      gap:6px;
+    }
+    .dashboard-summary-item {
+      display:grid;
+      gap:2px;
+      padding:8px 10px;
+      border-radius:10px;
+      border:1px solid var(--border);
+      background:rgba(255,255,255,0.03);
+      font-size:.86rem;
+      line-height:1.35;
+    }
+    .dashboard-summary-item strong {
+      font-size:.68rem;
+      letter-spacing:.05em;
+      text-transform:uppercase;
+      color:var(--accent-2);
+    }
+    .secondary-link-row {
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+    .secondary-link-row a {
+      color:var(--ink-soft);
+      text-decoration:none;
+      font-size:.84rem;
+      font-weight:700;
+    }
+    .secondary-link-row a:hover {
+      color:var(--ink);
     }
     .app-bottom-nav {
       position:fixed;
@@ -320,6 +362,59 @@
       align-items: start;
       gap: 12px;
       margin-top: 10px;
+    }
+    .trip-schedule-focus {
+      margin-top: 12px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: linear-gradient(145deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.03) 100%);
+      padding: 12px;
+      display: grid;
+      gap: 10px;
+    }
+    .trip-schedule-focus-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .trip-schedule-focus-head h3 {
+      margin: 0;
+      font-size: 1rem;
+      letter-spacing: 0.2px;
+      color: #fff;
+    }
+    .trip-schedule-focus-head p {
+      margin: 4px 0 0;
+      color: var(--ink-soft);
+      font-size: 0.84rem;
+      line-height: 1.4;
+    }
+    .trip-focus-stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 8px;
+    }
+    .trip-focus-stat {
+      display: grid;
+      gap: 3px;
+      padding: 9px 10px;
+      border-radius: 10px;
+      border: 1px solid rgba(232,255,219,0.12);
+      background: rgba(17,36,23,0.36);
+    }
+    .trip-focus-stat strong {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--accent-2);
+    }
+    .trip-focus-stat span {
+      color: #fff;
+      font-size: 0.88rem;
+      line-height: 1.35;
+      font-weight: 700;
     }
     .trip-calendar-sidebar {
       width: 100%;
@@ -1077,46 +1172,38 @@
       <h1>Tin Cup 2026 <span>Southern Pines, NC | 5/12-5/17/26</span></h1>
       <div class="chips">
         <button id="tripInfoTrigger" class="chip chip-button" type="button">Trip Info</button>
-        <a id="tinCupTodayChip" class="chip cta" href="/tin-cup/today.html">Today</a>
-        <a id="tinCupLiveLeaderboardChip" class="chip cta" href="/tin-cup/leaderboard-2026.html">Results</a>
-        <a id="tinCupGuestsChip" class="chip cta" href="/tin-cup/guests-lodging.html">Lodging</a>
-        <a id="tinCupLiveEntryChip" class="chip cta" href="/tin-cup/scorekeeper.html">Score</a>
-        <a id="tinCupAdminSetupChip" class="chip cta" href="/tin-cup/live-score-entry.html">Admin</a>
-        <a id="tinCupAdminGuideChip" class="chip cta" href="/tin-cup/admin-guide.html">Admin Guide</a>
       </div>
     </header>
 
+    <div class="panel" id="itineraryBox" style="margin-bottom:12px;"></div>
+
     <section class="panel mobile-dashboard">
-      <div class="mobile-status-row">
-        <span id="dashboardDataChip" class="mobile-status-chip">Data</span>
-        <span id="dashboardScoringChip" class="mobile-status-chip">Scoring</span>
-        <span id="dashboardResultsChip" class="mobile-status-chip">Results</span>
+      <div class="today-card">
+        <strong>Scoring Shortcuts</strong>
+        <div class="meta">Quick links for golfers who just need score entry and results once the round starts.</div>
       </div>
       <div class="action-grid">
-        <a id="dashboardTodayLink" class="action-card" href="/tin-cup/today.html">
+        <a id="tripDashboardTodayLink" class="action-card" href="/tin-cup/today.html">
           <strong>Today</strong>
-          <span class="meta">See the current round, first tee time, and the most useful Tin Cup actions in one place.</span>
+          <div id="tripDashboardTodayMeta" class="meta">Current round, tee sheet, and live score links.</div>
         </a>
-        <a id="dashboardScoreLink" class="action-card" href="/tin-cup/scorekeeper.html">
+        <a id="tripDashboardScoreLink" class="action-card" href="/tin-cup/scorekeeper.html">
           <strong>Score</strong>
-          <span class="meta">Open the mobile scorekeeper flow for the active foursome or scramble team.</span>
+          <div id="tripDashboardScoreMeta" class="meta">Open live scorecards and update hole-by-hole scores.</div>
         </a>
-        <a id="dashboardResultsLink" class="action-card" href="/tin-cup/leaderboard-2026.html">
+        <a id="tripDashboardResultsLink" class="action-card" href="/tin-cup/leaderboard-2026.html">
           <strong>Results</strong>
-          <span class="meta">See trip standings, day standings, winners, and final report views.</span>
-        </a>
-        <a id="dashboardLodgingLink" class="action-card" href="/tin-cup/guests-lodging.html">
-          <strong>Lodging</strong>
-          <span class="meta">Review condo assignments, payments, and unassigned golfers.</span>
-        </a>
-        <a id="dashboardAdminLink" class="action-card" href="/tin-cup/live-score-entry.html">
-          <strong>Admin</strong>
-          <span class="meta">Manage roster, rules, side games, exports, and competition reset tools.</span>
+          <div id="tripDashboardResultsMeta" class="meta">Check standings, current leaders, and scoring summaries.</div>
         </a>
       </div>
       <div class="today-card">
         <strong>Today At A Glance</strong>
         <div id="todaySummary" class="meta">Loading current Tin Cup schedule...</div>
+      </div>
+      <div class="secondary-link-row" aria-label="Secondary Tin Cup links">
+        <a id="tripLodgingLink" href="/tin-cup/guests-lodging.html">Lodging</a>
+        <a id="tripAdminLink" href="/tin-cup/live-score-entry.html">Admin</a>
+        <a id="tripAuditLink" href="/trip-audit.html" style="display:none;">Trip Audit</a>
       </div>
     </section>
 
@@ -1131,17 +1218,13 @@
       </div>
     </div>
     <div class="panel" id="topLocationLinks" style="margin-bottom:12px;"></div>
-    <div class="panel" id="itineraryBox" style="margin-bottom:12px;"></div>
   </div>
   <nav class="app-bottom-nav" aria-label="Tin Cup Navigation">
     <a id="bottomNavTrip" class="bottom-nav-link active" href="/tin-cup/trip-2026.html">Trip</a>
+    <a id="bottomNavToday" class="bottom-nav-link" href="/tin-cup/today.html">Today</a>
     <a id="bottomNavScore" class="bottom-nav-link" href="/tin-cup/scorekeeper.html">Score</a>
     <a id="bottomNavResults" class="bottom-nav-link" href="/tin-cup/leaderboard-2026.html">Results</a>
-    <a id="bottomNavLodging" class="bottom-nav-link" href="/tin-cup/guests-lodging.html">Lodging</a>
-    <a id="bottomNavAdmin" class="bottom-nav-link" href="/tin-cup/live-score-entry.html">Admin</a>
   </nav>
-  <a href="/admin.html" target="_blank" aria-label="Admin login" style="position:fixed;left:12px;bottom:12px;padding:8px 12px;border-radius:10px;background:#0c1a2c;color:#f9fafb;text-decoration:none;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);">ADMIN</a>
-  <a id="tripAuditLink" href="/trip-audit.html" aria-label="Trip audit log" style="position:fixed;right:12px;bottom:12px;padding:8px 12px;border-radius:10px;background:#0c1a2c;color:#f9fafb;text-decoration:none;font-weight:700;box-shadow:0 2px 8px rgba(0,0,0,0.35);display:none;">Trip Audit</a>
   <script>
     const STATUS_ORDER = ['in', 'out', 'maybe', 'waitlist', 'invited'];
     const STATUS_LABELS = { invited: 'Invited', in: 'In', maybe: 'Maybe', out: 'Out', waitlist: 'Waitlist' };
@@ -1669,6 +1752,15 @@
       if (dayIndex < 0) return null;
       return TEMPLATE_DAY_ORDER[dayIndex] || null;
     };
+    const pickTripFocusDate = (availableDates = []) => {
+      const dates = availableDates.filter(Boolean);
+      if (!dates.length) return '';
+      const todayIso = toIsoDate(new Date());
+      if (todayIso && dates.includes(todayIso)) return todayIso;
+      const nextUpcoming = todayIso ? dates.find((date) => date >= todayIso) : '';
+      if (nextUpcoming) return nextUpcoming;
+      return dates[dates.length - 1];
+    };
     const getDayCourseLabel = (dayRounds = []) => {
       const courseNames = [];
       dayRounds.forEach((round) => {
@@ -1868,6 +1960,8 @@
       const templateDay = getTemplateDayForDate(rounds, selectedDate);
       if (!templateDay) return '';
       const dayLabel = String(templateDay.label || templateDay.key || '').trim() || 'Day';
+      const todayIso = toIsoDate(new Date());
+      const panelTitle = selectedDate && selectedDate === todayIso ? 'Today\'s Matches' : `${dayLabel} Matches`;
       const matchChips = (templateDay.matchNumbers || []).map((matchNo) => `<span class="trip-match-chip">Match ${matchNo}</span>`);
       const cardChips = (templateDay.cardLabels || []).map((label) => `<span class="trip-match-chip">${escapeHtml(label)}</span>`);
       const courseLabel = getDayCourseLabel(dayRounds);
@@ -1877,7 +1971,7 @@
       return `
         <section class="trip-matchup-panel">
           <div class="trip-matchup-head">
-            <h4>Matches</h4>
+            <h4>${escapeHtml(panelTitle)}</h4>
             <span class="trip-matchup-subtitle">${escapeHtml(`${dayLabel} format · ${courseLabel} · ${playerCount} players / ${dayFoursomes.length} tee times`)}</span>
           </div>
           <div class="trip-match-chip-row">
@@ -2452,80 +2546,73 @@
     }
 
     function renderTinCupLiveNavChips() {
-      const todayChip = document.getElementById('tinCupTodayChip');
-      const guestsChip = document.getElementById('tinCupGuestsChip');
-      const entryChip = document.getElementById('tinCupLiveEntryChip');
-      const adminChip = document.getElementById('tinCupAdminSetupChip');
-      const boardChip = document.getElementById('tinCupLiveLeaderboardChip');
-      const guideChip = document.getElementById('tinCupAdminGuideChip');
-      const dashboardTodayLink = document.getElementById('dashboardTodayLink');
-      const dashboardScoreLink = document.getElementById('dashboardScoreLink');
-      const dashboardResultsLink = document.getElementById('dashboardResultsLink');
-      const dashboardLodgingLink = document.getElementById('dashboardLodgingLink');
-      const dashboardAdminLink = document.getElementById('dashboardAdminLink');
       const bottomNavTrip = document.getElementById('bottomNavTrip');
+      const bottomNavToday = document.getElementById('bottomNavToday');
       const bottomNavScore = document.getElementById('bottomNavScore');
       const bottomNavResults = document.getElementById('bottomNavResults');
-      const bottomNavLodging = document.getElementById('bottomNavLodging');
-      const bottomNavAdmin = document.getElementById('bottomNavAdmin');
-      if (todayChip) {
-        todayChip.href = buildTinCupContextHref('/tin-cup/today.html');
-      }
-      if (guestsChip) {
-        guestsChip.href = buildTinCupContextHref('/tin-cup/guests-lodging.html');
-      }
-      if (entryChip) {
-        entryChip.style.display = tinCupLiveSettings.enableLiveFoursomeScoring ? '' : 'none';
-        entryChip.href = buildTinCupContextHref('/tin-cup/scorekeeper.html');
-      }
-      if (adminChip) {
-        adminChip.href = buildTinCupContextHref('/tin-cup/live-score-entry.html');
-      }
-      if (boardChip) {
-        boardChip.style.display = tinCupLiveSettings.enableLiveLeaderboard ? '' : 'none';
-        boardChip.href = buildTinCupContextHref('/tin-cup/leaderboard-2026.html');
-      }
-      if (guideChip) {
-        guideChip.href = buildTinCupContextHref('/tin-cup/admin-guide.html');
-      }
+      const dashboardTodayLink = document.getElementById('tripDashboardTodayLink');
+      const dashboardScoreLink = document.getElementById('tripDashboardScoreLink');
+      const dashboardResultsLink = document.getElementById('tripDashboardResultsLink');
+      const lodgingLink = document.getElementById('tripLodgingLink');
+      const adminLink = document.getElementById('tripAdminLink');
+      if (bottomNavTrip) bottomNavTrip.href = buildTinCupContextHref('/tin-cup/trip-2026.html');
+      if (bottomNavToday) bottomNavToday.href = buildTinCupContextHref('/tin-cup/today.html');
+      if (bottomNavScore) bottomNavScore.href = buildTinCupContextHref('/tin-cup/scorekeeper.html');
+      if (bottomNavResults) bottomNavResults.href = buildTinCupContextHref('/tin-cup/leaderboard-2026.html');
       if (dashboardTodayLink) dashboardTodayLink.href = buildTinCupContextHref('/tin-cup/today.html');
       if (dashboardScoreLink) dashboardScoreLink.href = buildTinCupContextHref('/tin-cup/scorekeeper.html');
       if (dashboardResultsLink) dashboardResultsLink.href = buildTinCupContextHref('/tin-cup/leaderboard-2026.html');
-      if (dashboardLodgingLink) dashboardLodgingLink.href = buildTinCupContextHref('/tin-cup/guests-lodging.html');
-      if (dashboardAdminLink) dashboardAdminLink.href = buildTinCupContextHref('/tin-cup/live-score-entry.html');
-      if (bottomNavTrip) bottomNavTrip.href = buildTinCupContextHref('/tin-cup/trip-2026.html');
-      if (bottomNavScore) bottomNavScore.href = buildTinCupContextHref('/tin-cup/scorekeeper.html');
-      if (bottomNavResults) bottomNavResults.href = buildTinCupContextHref('/tin-cup/leaderboard-2026.html');
-      if (bottomNavLodging) bottomNavLodging.href = buildTinCupContextHref('/tin-cup/guests-lodging.html');
-      if (bottomNavAdmin) bottomNavAdmin.href = buildTinCupContextHref('/tin-cup/live-score-entry.html');
+      if (lodgingLink) lodgingLink.href = buildTinCupContextHref('/tin-cup/guests-lodging.html');
+      if (adminLink) adminLink.href = buildTinCupContextHref('/tin-cup/live-score-entry.html');
     }
 
     function renderDashboardSummary() {
       const todaySummary = document.getElementById('todaySummary');
-      const dataChip = document.getElementById('dashboardDataChip');
-      const scoringChip = document.getElementById('dashboardScoringChip');
-      const resultsChip = document.getElementById('dashboardResultsChip');
-      if (dataChip) {
-        dataChip.textContent = useSecondaryTripDb ? 'Secondary trip database' : 'Primary trip database';
-        dataChip.className = 'mobile-status-chip';
-      }
-      if (scoringChip) {
-        scoringChip.textContent = tinCupLiveSettings.enableLiveFoursomeScoring ? 'Live round in progress' : 'Score paused';
-        scoringChip.className = `mobile-status-chip${tinCupLiveSettings.enableLiveFoursomeScoring ? ' live' : ' warn'}`;
-      }
-      if (resultsChip) {
-        resultsChip.textContent = tinCupLiveSettings.enableLiveLeaderboard ? 'Report ready when scoring is in' : 'Results hidden';
-        resultsChip.className = `mobile-status-chip${tinCupLiveSettings.enableLiveLeaderboard ? ' ready' : ' warn'}`;
-      }
+      const todayMeta = document.getElementById('tripDashboardTodayMeta');
+      const scoreMeta = document.getElementById('tripDashboardScoreMeta');
+      const resultsMeta = document.getElementById('tripDashboardResultsMeta');
       if (!todaySummary) return;
       const rounds = Array.isArray(trip && trip.rounds) ? trip.rounds : DEFAULT_ROUNDS;
       const nextRound = rounds.find((round) => Array.isArray(round.teeTimes) && round.teeTimes.length) || null;
       if (!nextRound) {
-        todaySummary.textContent = 'No round details are available yet.';
+        todaySummary.innerHTML = `
+          <div class="dashboard-summary-grid">
+            <div class="dashboard-summary-item"><strong>Round</strong><span>No round details are available yet.</span></div>
+            <div class="dashboard-summary-item"><strong>Score</strong><span>Scorecards will show here once groups are posted.</span></div>
+            <div class="dashboard-summary-item"><strong>Results</strong><span>Leaderboard will fill in after scores are entered.</span></div>
+          </div>
+        `;
+        if (todayMeta) todayMeta.textContent = 'Current round details are not loaded yet.';
+        if (scoreMeta) scoreMeta.textContent = tinCupLiveSettings.enableLiveFoursomeScoring ? 'Open score entry when the groups are ready.' : 'Live scoring is currently paused.';
+        if (resultsMeta) resultsMeta.textContent = tinCupLiveSettings.enableLiveLeaderboard ? 'Leaderboard is ready when scoring starts.' : 'Leaderboard is currently hidden.';
         return;
       }
       const firstTee = (nextRound.teeTimes || []).find((slot) => String(slot && slot.time || '').trim()) || {};
-      todaySummary.textContent = `${nextRound.course || 'Upcoming round'}${nextRound.date ? ` | ${formatDate(nextRound.date)}` : ''}${firstTee.time ? ` | First tee ${formatTime(firstTee.time)}` : ''}`;
+      const slotCount = Array.isArray(nextRound.teeTimes) ? nextRound.teeTimes.length : 0;
+      const playerCount = (nextRound.teeTimes || []).reduce((total, slot) => total + (Array.isArray(slot && slot.players) ? slot.players.length : 0), 0);
+      todaySummary.innerHTML = `
+        <div class="dashboard-summary-grid">
+          <div class="dashboard-summary-item">
+            <strong>Round</strong>
+            <span>${escapeHtml(nextRound.course || 'Upcoming round')}</span>
+          </div>
+          <div class="dashboard-summary-item">
+            <strong>Date</strong>
+            <span>${escapeHtml(formatDate(nextRound.date) || 'Date TBD')}</span>
+          </div>
+          <div class="dashboard-summary-item">
+            <strong>First Tee</strong>
+            <span>${escapeHtml(formatTime(firstTee.time) || 'TBD')}</span>
+          </div>
+          <div class="dashboard-summary-item">
+            <strong>Groups</strong>
+            <span>${escapeHtml(slotCount)} groups${playerCount ? ` | ${escapeHtml(playerCount)} golfers` : ''}</span>
+          </div>
+        </div>
+      `;
+      if (todayMeta) todayMeta.textContent = `${formatDate(nextRound.date) || 'Date TBD'}${firstTee.time ? ` | First tee ${formatTime(firstTee.time)}` : ''}`;
+      if (scoreMeta) scoreMeta.textContent = tinCupLiveSettings.enableLiveFoursomeScoring ? `Open live scorecards for ${slotCount || 0} groups.` : 'Live scoring is currently paused.';
+      if (resultsMeta) resultsMeta.textContent = tinCupLiveSettings.enableLiveLeaderboard ? 'Check trip and day leaders as scores post.' : 'Leaderboard is currently hidden.';
     }
 
     async function saveTinCupLiveSettings(nextSettings) {
@@ -2836,12 +2923,14 @@
     }
 
     function renderTripEvents(rounds = []) {
+      const focusEl = document.getElementById('tripScheduleFocus');
       const titleEl = document.getElementById('tripSelectedDateTitle');
       const metaEl = document.getElementById('tripRoundCount');
       const eventsEl = document.getElementById('tripEvents');
       if (!titleEl || !metaEl || !eventsEl) return;
       const selectedDate = toIsoDate(tripScheduleState.selectedDate);
       if (!selectedDate) {
+        if (focusEl) focusEl.innerHTML = '<div class="trip-empty-state">Choose a trip date to see the course, tee sheet, and match setup.</div>';
         titleEl.textContent = 'Select a date';
         metaEl.textContent = '';
         eventsEl.innerHTML = '<div class="trip-empty-state">No date selected.</div>';
@@ -2857,9 +2946,64 @@
       }
       metaEl.textContent = dayPieces.join(' • ');
       if (!dayRounds.length) {
+        if (focusEl) focusEl.innerHTML = '<div class="trip-empty-state">No rounds scheduled for this date.</div>';
         eventsEl.innerHTML = '<div class="trip-empty-state">No rounds scheduled for this date.</div>';
         renderSidebarTeeSheet([]);
         return;
+      }
+      if (focusEl) {
+        const todayIso = toIsoDate(new Date());
+        const heading = selectedDate === todayIso ? 'Today\'s Course And Matches' : (selectedDate > todayIso ? 'Next Round Focus' : 'Selected Round Focus');
+        const focusCourses = getDayCourseLabel(dayRounds);
+        const firstTeeTimes = dayRounds.map((round) => getRoundPrimaryTime(round)).filter(Boolean).sort();
+        const firstTee = firstTeeTimes[0] || '';
+        const focusSlots = dayRounds.flatMap((round) => getRoundSlotsForDisplay(round, templateDay));
+        const totalSlots = focusSlots.length;
+        const totalPlayers = focusSlots.reduce((count, slot) => count + (Array.isArray(slot && slot.players) ? slot.players.length : 0), 0);
+        const matchLabel = templateDay && Array.isArray(templateDay.matchNumbers) && templateDay.matchNumbers.length
+          ? `${templateDay.matchNumbers.length} matches`
+          : (templateDay && Array.isArray(templateDay.cardLabels) && templateDay.cardLabels.length
+            ? `${templateDay.cardLabels.length} match cards`
+            : 'No match cards');
+        const focusChips = [
+          ...(templateDay && Array.isArray(templateDay.matchNumbers) ? templateDay.matchNumbers.map((matchNo) => `<span class="trip-match-chip">Match ${matchNo}</span>`) : []),
+          ...(templateDay && Array.isArray(templateDay.cardLabels) ? templateDay.cardLabels.map((label) => `<span class="trip-match-chip">${escapeHtml(label)}</span>`) : [])
+        ];
+        focusEl.innerHTML = `
+          <div class="trip-schedule-focus-head">
+            <div>
+              <h3>${escapeHtml(heading)}</h3>
+              <p>${escapeHtml(formatDateLong(selectedDate) || 'Selected date')} · ${escapeHtml(focusCourses)}</p>
+            </div>
+          </div>
+          <div class="trip-focus-stat-grid">
+            <div class="trip-focus-stat">
+              <strong>Date</strong>
+              <span>${escapeHtml(formatDateLong(selectedDate) || 'Date TBD')}</span>
+            </div>
+            <div class="trip-focus-stat">
+              <strong>Course</strong>
+              <span>${escapeHtml(focusCourses)}</span>
+            </div>
+            <div class="trip-focus-stat">
+              <strong>First Tee</strong>
+              <span>${escapeHtml(firstTee ? formatTime12(firstTee) : 'TBD')}</span>
+            </div>
+            <div class="trip-focus-stat">
+              <strong>Matches</strong>
+              <span>${escapeHtml(matchLabel)}</span>
+            </div>
+            <div class="trip-focus-stat">
+              <strong>Tee Times</strong>
+              <span>${escapeHtml(String(totalSlots || 0))}</span>
+            </div>
+            <div class="trip-focus-stat">
+              <strong>Golfers</strong>
+              <span>${escapeHtml(String(totalPlayers || 0))}</span>
+            </div>
+          </div>
+          ${focusChips.length ? `<div class="trip-match-chip-row">${focusChips.join('')}</div>` : ''}
+        `;
       }
       renderSidebarTeeSheet(dayRounds, templateDay);
       const templateMatchupMarkup = renderTemplateMatchups(rounds, selectedDate, dayRounds);
@@ -2963,7 +3107,7 @@
         return;
       }
       if (!tripScheduleState.selectedDate || !availableDates.includes(toIsoDate(tripScheduleState.selectedDate))) {
-        tripScheduleState.selectedDate = availableDates[0];
+        tripScheduleState.selectedDate = pickTripFocusDate(availableDates);
       }
       const selected = toIsoDate(tripScheduleState.selectedDate);
       if (selected) {
@@ -2979,7 +3123,13 @@
     function renderItinerary() {
       $('#itineraryBox').innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;">
-          <h2 style="margin:0;font-size:1.05rem;">Golf Schedule</h2>
+          <div style="display:grid;gap:4px;">
+            <h2 style="margin:0;font-size:1.05rem;">Schedule, Course, And Matches</h2>
+            <div style="color:var(--ink-soft);font-size:0.84rem;">Start here for the daily course, tee sheet, and matchup view.</div>
+          </div>
+        </div>
+        <div id="tripScheduleFocus" class="trip-schedule-focus">
+          <div class="trip-empty-state">Loading the current round focus...</div>
         </div>
         <div class="trip-schedule-layout">
           <aside class="trip-calendar-sidebar">

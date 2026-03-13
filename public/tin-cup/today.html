@@ -234,39 +234,31 @@
     <div class="card head">
       <div>
         <h1 class="golf-title">Tin Cup Today</h1>
-        <div id="pageIntro" class="muted">Loading the current Tin Cup round, scorekeeper links, and first-tee details.</div>
-      </div>
-      <div class="row">
-        <a id="fullTripLink" class="quick-link" href="/tin-cup/trip-2026.html">Full Trip Page</a>
-        <a id="adminGuideLink" class="quick-link" href="/tin-cup/admin-guide.html">Admin Guide</a>
       </div>
     </div>
 
-    <div class="status-row">
-      <span id="dataChip" class="status-chip">Data</span>
-      <span id="scoringChip" class="status-chip">Scoring</span>
-      <span id="resultsChip" class="status-chip">Results</span>
-    </div>
-
-    <div class="card quick-grid">
-      <a id="scoreLink" class="quick-action" href="/tin-cup/scorekeeper.html">
-        <strong>Open Score</strong>
-        <span class="muted">Jump straight into active hole-by-hole score entry.</span>
-      </a>
-      <a id="resultsLink" class="quick-action" href="/tin-cup/leaderboard-2026.html">
-        <strong>Open Results</strong>
-        <span class="muted">See current standings, winners, and report views.</span>
-      </a>
-      <a id="adminLink" class="quick-action" href="/tin-cup/live-score-entry.html">
-        <strong>Open Admin</strong>
-        <span class="muted">Handle roster, rules, side games, and export tools.</span>
-      </a>
-    </div>
+    <section class="card today-panel" style="margin-bottom:12px;">
+      <strong>Scoring Shortcuts</strong>
+      <div class="quick-grid">
+        <a id="scoreLink" class="quick-action" href="/tin-cup/scorekeeper.html">
+          <strong>Score</strong>
+          <div class="muted">Open the live scorekeeper view and jump into the current foursome.</div>
+        </a>
+        <a id="resultsLink" class="quick-action" href="/tin-cup/leaderboard-2026.html">
+          <strong>Results</strong>
+          <div class="muted">See the live leaderboard, day leaders, and score-driven results.</div>
+        </a>
+        <a id="fullTripLink" class="quick-action" href="/tin-cup/trip-2026.html">
+          <strong>Trip</strong>
+          <div class="muted">Go back to the trip hub for schedule, info, and secondary links.</div>
+        </a>
+      </div>
+    </section>
 
     <div class="today-grid">
       <section class="card today-panel">
-        <strong>Today At A Glance</strong>
-        <div id="todaySummary" class="summary-list"></div>
+        <strong>Live Score Links</strong>
+        <div id="scoreLinksBoard" class="score-links-list"></div>
       </section>
 
       <section class="card today-panel">
@@ -275,8 +267,8 @@
       </section>
 
       <section class="card today-panel">
-        <strong>Live Score Links</strong>
-        <div id="scoreLinksBoard" class="score-links-list"></div>
+        <strong>Today At A Glance</strong>
+        <div id="todaySummary" class="summary-list"></div>
       </section>
 
       <section class="card today-panel">
@@ -288,10 +280,9 @@
 
   <nav class="app-bottom-nav" aria-label="Tin Cup Navigation">
     <a id="bottomNavTrip" class="bottom-nav-link" href="/tin-cup/trip-2026.html">Trip</a>
+    <a id="bottomNavToday" class="bottom-nav-link active" href="/tin-cup/today.html">Today</a>
     <a id="bottomNavScore" class="bottom-nav-link" href="/tin-cup/scorekeeper.html">Score</a>
     <a id="bottomNavResults" class="bottom-nav-link" href="/tin-cup/leaderboard-2026.html">Results</a>
-    <a id="bottomNavLodging" class="bottom-nav-link" href="/tin-cup/guests-lodging.html">Lodging</a>
-    <a id="bottomNavAdmin" class="bottom-nav-link" href="/tin-cup/live-score-entry.html">Admin</a>
   </nav>
 
   <script>
@@ -301,14 +292,10 @@
 
     const $ = (selector) => document.querySelector(selector);
     const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (ch) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[ch]));
-    const pageIntro = $('#pageIntro');
     const todaySummary = $('#todaySummary');
     const teeSheet = $('#teeSheet');
     const leadersBoard = $('#leadersBoard');
     const scoreLinksBoard = $('#scoreLinksBoard');
-    const dataChip = $('#dataChip');
-    const scoringChip = $('#scoringChip');
-    const resultsChip = $('#resultsChip');
     const DAY_KEYS = ['Practice', 'Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4'];
 
     const tripApi = (path) => useSecondaryTripDb ? (path.includes('?') ? `${path}&myrtleBeach2026=true` : `${path}?myrtleBeach2026=true`) : path;
@@ -349,6 +336,7 @@
         ['lodgingLink', '/tin-cup/guests-lodging.html'],
         ['adminLink', '/tin-cup/live-score-entry.html'],
         ['bottomNavTrip', '/tin-cup/trip-2026.html'],
+        ['bottomNavToday', '/tin-cup/today.html'],
         ['bottomNavScore', '/tin-cup/scorekeeper.html'],
         ['bottomNavResults', '/tin-cup/leaderboard-2026.html'],
         ['bottomNavLodging', '/tin-cup/guests-lodging.html'],
@@ -454,20 +442,6 @@
     }
 
     function renderSummary(round, settings = {}) {
-      if (dataChip) {
-        dataChip.textContent = useSecondaryTripDb ? 'Secondary trip database' : 'Primary trip database';
-        dataChip.className = 'status-chip';
-      }
-      if (scoringChip) {
-        const enabled = settings.enableLiveFoursomeScoring !== false;
-        scoringChip.textContent = enabled ? 'Live round in progress' : 'Score paused';
-        scoringChip.className = `status-chip${enabled ? ' live' : ' warn'}`;
-      }
-      if (resultsChip) {
-        const enabled = settings.enableLiveLeaderboard !== false;
-        resultsChip.textContent = enabled ? 'Report ready when scoring is in' : 'Results hidden';
-        resultsChip.className = `status-chip${enabled ? ' ready' : ' warn'}`;
-      }
       if (!round) {
         todaySummary.innerHTML = '<div class="empty-state">No round details are available yet.</div>';
         teeSheet.innerHTML = '<div class="empty-state">No tee sheet is available yet.</div>';
@@ -500,7 +474,6 @@
     async function loadPage() {
       syncLinks();
       if (!tripId) {
-        pageIntro.textContent = 'No linked Tin Cup trip was found. Open Today from the trip page so the current context is carried over.';
         renderSummary(null, {});
         return;
       }
@@ -517,14 +490,10 @@
         const rounds = Array.isArray(trip && trip.rounds) ? trip.rounds : [];
         const round = pickTodayRound(rounds);
         const dayKey = inferTinCupDayKey(round, rounds);
-        pageIntro.textContent = round
-          ? `Focused mobile view for ${round.course || 'the current round'}${round.date ? ` on ${formatDate(round.date)}` : ''}.`
-          : 'Focused mobile view for the current Tin Cup round and first-tee details.';
         renderSummary(round, metaPayload && metaPayload.settings ? metaPayload.settings : {});
         renderScoreLinks(dayKey, metaPayload || {});
         renderLeaders((leaderboardPayload && leaderboardPayload.totals) || []);
       } catch (error) {
-        pageIntro.textContent = 'Failed to load the current round.';
         todaySummary.innerHTML = `<div class="empty-state">${esc(error && error.message ? error.message : 'Unable to load Tin Cup today view.')}</div>`;
         teeSheet.innerHTML = '<div class="empty-state">Try reloading the page from the trip screen.</div>';
         if (scoreLinksBoard) scoreLinksBoard.innerHTML = '<div class="empty-state">Live links are unavailable right now.</div>';

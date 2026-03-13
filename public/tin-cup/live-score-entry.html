@@ -261,6 +261,9 @@
     body.admin-mode .admin-only {
       display:block;
     }
+    .scorekeeper-focus {
+      display:none;
+    }
     body.scorekeeper-mode .scorekeeper-focus {
       display:block;
     }
@@ -366,15 +369,7 @@
       </div>
       <div class="row" style="justify-content:flex-end;">
         <a id="adminGuideLink" href="/tin-cup/admin-guide.html">Admin Guide</a>
-        <a id="backToTripLink" href="/tin-cup/trip-2026.html">Back to Tin Cup 2026</a>
       </div>
-    </div>
-
-    <div class="mode-tabs">
-      <a id="todayModeLink" class="mode-tab" href="/tin-cup/today.html">Today</a>
-      <a id="scoreModeLink" class="mode-tab" href="/tin-cup/scorekeeper.html">Score</a>
-      <a id="adminModeLink" class="mode-tab active" href="/tin-cup/live-score-entry.html">Admin</a>
-      <a id="resultsModeLink" class="mode-tab" href="/tin-cup/leaderboard-2026.html">Results</a>
     </div>
 
     <div class="app-status-row">
@@ -601,6 +596,7 @@
 
   <nav class="app-bottom-nav" aria-label="Tin Cup Navigation">
     <a id="bottomNavTrip" class="bottom-nav-link" href="/tin-cup/trip-2026.html">Trip</a>
+    <a id="bottomNavToday" class="bottom-nav-link" href="/tin-cup/today.html">Today</a>
     <a id="bottomNavScore" class="bottom-nav-link" href="/tin-cup/scorekeeper.html">Score</a>
     <a id="bottomNavResults" class="bottom-nav-link" href="/tin-cup/leaderboard-2026.html">Results</a>
     <a id="bottomNavLodging" class="bottom-nav-link" href="/tin-cup/guests-lodging.html">Lodging</a>
@@ -658,6 +654,7 @@
     const appSyncBadge = document.getElementById('appSyncBadge');
     const scorekeeperHero = document.getElementById('scorekeeperHero');
     const bottomNavTrip = document.getElementById('bottomNavTrip');
+    const bottomNavToday = document.getElementById('bottomNavToday');
     const bottomNavScore = document.getElementById('bottomNavScore');
     const bottomNavResults = document.getElementById('bottomNavResults');
     const bottomNavLodging = document.getElementById('bottomNavLodging');
@@ -816,6 +813,7 @@
       if (adminModeLink) adminModeLink.href = buildTinCupContextHref('/tin-cup/live-score-entry.html');
       if (resultsModeLink) resultsModeLink.href = buildTinCupContextHref('/tin-cup/leaderboard-2026.html');
       if (bottomNavTrip) bottomNavTrip.href = buildTinCupContextHref('/tin-cup/trip-2026.html');
+      if (bottomNavToday) bottomNavToday.href = buildTinCupContextHref('/tin-cup/today.html');
       if (bottomNavScore) bottomNavScore.href = buildTinCupContextHref('/tin-cup/scorekeeper.html');
       if (bottomNavResults) bottomNavResults.href = buildTinCupContextHref('/tin-cup/leaderboard-2026.html');
       if (bottomNavLodging) bottomNavLodging.href = buildTinCupContextHref('/tin-cup/guests-lodging.html');

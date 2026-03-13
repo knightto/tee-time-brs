@@ -319,46 +319,27 @@
           <h1>Tin Cup Results</h1>
           <div class="muted">Live standings, side games, payouts, and scoring verification from the Tin Cup scoring system.</div>
         </div>
-        <a class="cta" href="/tin-cup/trip-2026.html">Back to Tin Cup 2026</a>
       </div>
-    </div>
-
-    <div class="status-row">
-      <span id="resultsDataChip" class="status-chip">Data</span>
-      <span id="resultsRefreshChip" class="status-chip">Refresh</span>
-      <span id="resultsReportChip" class="status-chip">Report</span>
     </div>
 
     <div class="card mobile-highlight-card">
       <div class="mobile-view-row">
-        <button class="view-btn active" type="button" data-view-target="tripBoardCard">Trip View</button>
-        <button class="view-btn" type="button" data-view-target="dayBoardCard">Today</button>
+        <a id="resultsShortcutScore" class="view-btn" href="/tin-cup/scorekeeper.html">Score</a>
+        <a id="resultsShortcutToday" class="view-btn" href="/tin-cup/today.html">Today</a>
+        <a id="resultsShortcutTrip" class="view-btn" href="/tin-cup/trip-2026.html">Trip</a>
+      </div>
+      <div class="muted">Fast path back to live scoring, current-round links, and the trip hub.</div>
+      <div class="mobile-view-row">
+        <button class="view-btn active" type="button" data-view-target="tripBoardCard">Leaderboard</button>
+        <button class="view-btn" type="button" data-view-target="dayBoardCard">Day Leaders</button>
         <button class="view-btn" type="button" data-view-target="readable-report">Winners</button>
         <button class="view-btn" type="button" data-view-target="workbookAuditCard">Audit</button>
       </div>
-      <div class="muted">Use these quick views on mobile to jump straight to the most relevant results without opening every section.</div>
     </div>
 
-    <div class="section-label">Standings</div>
-    <div class="card" id="readable-report">
-      <details>
-        <summary class="section-summary">Readable Final Report</summary>
-        <div class="toolbar">
-          <strong>Readable Final Report</strong>
-          <span class="muted">A presentation-friendly summary of winners, standings, and scoring proof.</span>
-        </div>
-        <div class="report-toolbar">
-          <button id="generateReportBtn" class="report-btn" type="button">Generate Readable Report</button>
-          <button id="printReportBtn" class="report-btn" type="button">Print / Save As PDF</button>
-          <button id="openWinnersModeBtn" class="report-btn" type="button">Open Winners Mode</button>
-          <button id="shareReportBtn" class="report-btn" type="button">Share Winners Summary</button>
-        </div>
-        <div id="readableReport"></div>
-      </details>
-    </div>
-
+    <div class="section-label">Live Results</div>
     <div class="card" id="tripBoardCard">
-      <details>
+      <details open>
         <summary class="section-summary">Live Tin Cup 2026 Leaderboard</summary>
         <div class="toolbar">
           <strong>Live Tin Cup 2026 Leaderboard</strong>
@@ -369,7 +350,7 @@
     </div>
 
     <div class="card" id="dayBoardCard">
-      <details>
+      <details open>
         <summary class="section-summary">Live Day Leaderboard</summary>
         <div class="toolbar">
           <strong>Live Day Leaderboard</strong>
@@ -401,6 +382,24 @@
           <span class="muted">Auto-derived from live scorecards for scoring confirmation.</span>
         </div>
         <div id="strokeBoard"></div>
+      </details>
+    </div>
+
+    <div class="section-label">Presentation Summary</div>
+    <div class="card" id="readable-report">
+      <details>
+        <summary class="section-summary">Readable Final Report</summary>
+        <div class="toolbar">
+          <strong>Readable Final Report</strong>
+          <span class="muted">A presentation-friendly summary of winners, standings, and scoring proof.</span>
+        </div>
+        <div class="report-toolbar">
+          <button id="generateReportBtn" class="report-btn" type="button">Generate Readable Report</button>
+          <button id="printReportBtn" class="report-btn" type="button">Print / Save As PDF</button>
+          <button id="openWinnersModeBtn" class="report-btn" type="button">Open Winners Mode</button>
+          <button id="shareReportBtn" class="report-btn" type="button">Share Winners Summary</button>
+        </div>
+        <div id="readableReport"></div>
       </details>
     </div>
 
@@ -485,10 +484,9 @@
   </div>
   <nav class="app-bottom-nav" aria-label="Tin Cup Navigation">
     <a id="bottomNavTrip" class="bottom-nav-link" href="/tin-cup/trip-2026.html">Trip</a>
+    <a id="bottomNavToday" class="bottom-nav-link" href="/tin-cup/today.html">Today</a>
     <a id="bottomNavScore" class="bottom-nav-link" href="/tin-cup/scorekeeper.html">Score</a>
     <a id="bottomNavResults" class="bottom-nav-link active" href="/tin-cup/leaderboard-2026.html">Results</a>
-    <a id="bottomNavLodging" class="bottom-nav-link" href="/tin-cup/guests-lodging.html">Lodging</a>
-    <a id="bottomNavAdmin" class="bottom-nav-link" href="/tin-cup/live-score-entry.html">Admin</a>
   </nav>
 
   <script>
@@ -524,14 +522,13 @@
     const printReportBtn = document.getElementById('printReportBtn');
     const openWinnersModeBtn = document.getElementById('openWinnersModeBtn');
     const shareReportBtn = document.getElementById('shareReportBtn');
-    const resultsDataChip = document.getElementById('resultsDataChip');
-    const resultsRefreshChip = document.getElementById('resultsRefreshChip');
-    const resultsReportChip = document.getElementById('resultsReportChip');
+    const resultsShortcutScore = document.getElementById('resultsShortcutScore');
+    const resultsShortcutToday = document.getElementById('resultsShortcutToday');
+    const resultsShortcutTrip = document.getElementById('resultsShortcutTrip');
     const bottomNavTrip = document.getElementById('bottomNavTrip');
+    const bottomNavToday = document.getElementById('bottomNavToday');
     const bottomNavScore = document.getElementById('bottomNavScore');
     const bottomNavResults = document.getElementById('bottomNavResults');
-    const bottomNavLodging = document.getElementById('bottomNavLodging');
-    const bottomNavAdmin = document.getElementById('bottomNavAdmin');
 
     let selectedDay = 'Day 1';
     let selectedMatchDay = 'Day 1';
@@ -561,6 +558,22 @@
         if (parsed && (parsed.secondary === '0' || parsed.secondary === 0 || parsed.secondary === false)) useSecondaryTripDb = false;
         if (parsed && (parsed.secondary === '1' || parsed.secondary === 1 || parsed.secondary === true)) useSecondaryTripDb = true;
       } catch (_err) {}
+    }
+
+    function buildTinCupContextHref(path) {
+      if (!tripId) return path;
+      const sep = path.includes('?') ? '&' : '?';
+      return `${path}${sep}tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}`;
+    }
+
+    function syncContextLinks() {
+      if (resultsShortcutScore) resultsShortcutScore.href = buildTinCupContextHref('/tin-cup/scorekeeper.html');
+      if (resultsShortcutToday) resultsShortcutToday.href = buildTinCupContextHref('/tin-cup/today.html');
+      if (resultsShortcutTrip) resultsShortcutTrip.href = buildTinCupContextHref('/tin-cup/trip-2026.html');
+      if (bottomNavTrip) bottomNavTrip.href = buildTinCupContextHref('/tin-cup/trip-2026.html');
+      if (bottomNavToday) bottomNavToday.href = buildTinCupContextHref('/tin-cup/today.html');
+      if (bottomNavScore) bottomNavScore.href = buildTinCupContextHref('/tin-cup/scorekeeper.html');
+      if (bottomNavResults) bottomNavResults.href = buildTinCupContextHref('/tin-cup/leaderboard-2026.html');
     }
 
     function shouldAutoOpenReadableReport() {
@@ -1094,6 +1107,7 @@
 
     function renderFromPayload(payload) {
       latestPayload = payload;
+      syncContextLinks();
       const dayOptions = Array.isArray(payload.dayOptions) ? payload.dayOptions : DAY_OPTIONS.slice();
       const matchOptions = Array.isArray(payload.matchDayOptions) ? payload.matchDayOptions : MATCH_DAY_OPTIONS.slice();
       if (!dayOptions.includes(selectedDay)) selectedDay = dayOptions[0];
@@ -1119,19 +1133,6 @@
         const reportCard = document.getElementById('readable-report');
         const details = reportCard ? reportCard.querySelector('details') : null;
         if (details) details.open = true;
-      }
-      if (resultsDataChip) {
-        resultsDataChip.textContent = useSecondaryTripDb ? 'Secondary trip database' : 'Primary trip database';
-        resultsDataChip.className = 'status-chip';
-      }
-      if (resultsRefreshChip) {
-        resultsRefreshChip.textContent = contextSource === 'local-fallback' ? 'Using local fallback results' : 'Live round refresh active';
-        resultsRefreshChip.className = `status-chip${contextSource === 'local-fallback' ? ' warn' : ' live'}`;
-      }
-      if (resultsReportChip) {
-        const reportReady = Array.isArray(payload.totals) && payload.totals.length > 0;
-        resultsReportChip.textContent = reportReady ? 'Report ready to present' : 'Report waiting on scores';
-        resultsReportChip.className = `status-chip${reportReady ? ' ready' : ' warn'}`;
       }
       refreshEl.textContent = `Last refresh: ${new Date().toLocaleTimeString()}${contextSource === 'local-fallback' ? ' (local fallback)' : ''}`;
       if (shouldAutoPrintReadableReport() && !autoPrintTriggered) {
@@ -1239,24 +1240,14 @@
       } catch (_err) {}
       try {
         await navigator.clipboard.writeText(text);
-        if (resultsReportChip) {
-          resultsReportChip.textContent = 'Winners summary copied';
-          resultsReportChip.className = 'status-chip';
-        }
+        if (refreshEl) refreshEl.textContent = 'Winners summary copied';
       } catch (_err) {
-        if (resultsReportChip) {
-          resultsReportChip.textContent = 'Share unavailable';
-          resultsReportChip.className = 'status-chip warn';
-        }
+        if (refreshEl) refreshEl.textContent = 'Share unavailable';
       }
     });
 
     loadContext();
-    if (bottomNavTrip) bottomNavTrip.href = tripId ? `/tin-cup/trip-2026.html?tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}` : '/tin-cup/trip-2026.html';
-    if (bottomNavScore) bottomNavScore.href = tripId ? `/tin-cup/scorekeeper.html?tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}` : '/tin-cup/scorekeeper.html';
-    if (bottomNavResults) bottomNavResults.href = tripId ? `/tin-cup/leaderboard-2026.html?tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}` : '/tin-cup/leaderboard-2026.html';
-    if (bottomNavLodging) bottomNavLodging.href = tripId ? `/tin-cup/guests-lodging.html?tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}` : '/tin-cup/guests-lodging.html';
-    if (bottomNavAdmin) bottomNavAdmin.href = tripId ? `/tin-cup/live-score-entry.html?tripId=${encodeURIComponent(String(tripId))}&secondary=${useSecondaryTripDb ? '1' : '0'}` : '/tin-cup/live-score-entry.html';
+    syncContextLinks();
     setInterval(render, 5000);
     render();
   </script>

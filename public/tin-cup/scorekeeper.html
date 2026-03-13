@@ -258,6 +258,9 @@
     .admin-only {
       display:none !important;
     }
+    .scorekeeper-focus {
+      display:none;
+    }
     body.scorekeeper-mode .scorekeeper-focus {
       display:block;
     }
@@ -449,22 +452,14 @@
       </div>
       <div class="row" style="justify-content:flex-end;">
         <a id="adminGuideLink" href="/tin-cup/admin-guide.html">Admin Guide</a>
-        <a id="backToTripLink" href="/tin-cup/trip-2026.html">Back to Tin Cup 2026</a>
       </div>
     </div>
 
-    <div class="mode-tabs">
+    <div class="mode-tabs" aria-label="Tin Cup scorekeeper navigation">
+      <a id="backToTripLink" class="mode-tab" href="/tin-cup/trip-2026.html">Trip</a>
       <a id="todayModeLink" class="mode-tab" href="/tin-cup/today.html">Today</a>
       <a id="scoreModeLink" class="mode-tab active" href="/tin-cup/scorekeeper.html">Score</a>
-      <a id="adminModeLink" class="mode-tab" href="/tin-cup/live-score-entry.html">Admin</a>
       <a id="resultsModeLink" class="mode-tab" href="/tin-cup/leaderboard-2026.html">Results</a>
-    </div>
-
-    <div class="app-status-row">
-      <span id="appModeBadge" class="status-badge">Mode</span>
-      <span id="appDataBadge" class="status-badge">Data</span>
-      <span id="appNetworkBadge" class="status-badge">Network</span>
-      <span id="appSyncBadge" class="status-badge">Status</span>
     </div>
 
     <div id="scorekeeperHero" class="card scorekeeper-focus">
@@ -558,7 +553,7 @@
 
     <div class="section-label">Score-Driven Entry</div>
     <div class="card" id="scorecardLinksCard">
-      <details>
+      <details open>
         <summary class="setup-summary">Live Scorecards</summary>
         <div class="head">
           <strong>Live Scorecards</strong>
@@ -683,10 +678,9 @@
 
   <nav class="app-bottom-nav" aria-label="Tin Cup Navigation">
     <a id="bottomNavTrip" class="bottom-nav-link" href="/tin-cup/trip-2026.html">Trip</a>
+    <a id="bottomNavToday" class="bottom-nav-link" href="/tin-cup/today.html">Today</a>
     <a id="bottomNavScore" class="bottom-nav-link active" href="/tin-cup/scorekeeper.html">Score</a>
     <a id="bottomNavResults" class="bottom-nav-link" href="/tin-cup/leaderboard-2026.html">Results</a>
-    <a id="bottomNavLodging" class="bottom-nav-link" href="/tin-cup/guests-lodging.html">Lodging</a>
-    <a id="bottomNavAdmin" class="bottom-nav-link" href="/tin-cup/live-score-entry.html">Admin</a>
   </nav>
 
   <div id="stickyScoreControls" class="sticky-score-controls" style="display:none;"></div>
@@ -741,6 +735,7 @@
     const appSyncBadge = document.getElementById('appSyncBadge');
     const scorekeeperHero = document.getElementById('scorekeeperHero');
     const bottomNavTrip = document.getElementById('bottomNavTrip');
+    const bottomNavToday = document.getElementById('bottomNavToday');
     const bottomNavScore = document.getElementById('bottomNavScore');
     const bottomNavResults = document.getElementById('bottomNavResults');
     const bottomNavLodging = document.getElementById('bottomNavLodging');
@@ -899,6 +894,7 @@
       if (adminModeLink) adminModeLink.href = buildTinCupContextHref('/tin-cup/live-score-entry.html');
       if (resultsModeLink) resultsModeLink.href = buildTinCupContextHref('/tin-cup/leaderboard-2026.html');
       if (bottomNavTrip) bottomNavTrip.href = buildTinCupContextHref('/tin-cup/trip-2026.html');
+      if (bottomNavToday) bottomNavToday.href = buildTinCupContextHref('/tin-cup/today.html');
       if (bottomNavScore) bottomNavScore.href = buildTinCupContextHref('/tin-cup/scorekeeper.html');
       if (bottomNavResults) bottomNavResults.href = buildTinCupContextHref('/tin-cup/leaderboard-2026.html');
       if (bottomNavLodging) bottomNavLodging.href = buildTinCupContextHref('/tin-cup/guests-lodging.html');
@@ -2929,11 +2925,11 @@
       syncGolferSetupRowsFromPersistedState();
       entryIntro.textContent = localMode
         ? 'Local mode active: no Tin Cup trip found in database. Foursome and scramble entries will sync to local leaderboard state.'
-        : 'Use the day selector to open a foursome or scramble team and enter scores hole by hole.';
+        : 'Use this page during play. Hole-by-hole scoring and live markers should drive every result that can be derived from actual golf scores.';
       if (scorekeeperHero) scorekeeperHero.style.display = 'block';
-      if (appModeBadge) appModeBadge.textContent = 'Score Mode';
+      if (appModeBadge) appModeBadge.textContent = 'Scorekeeper';
       if (appDataBadge) {
-        appDataBadge.textContent = localMode ? 'Local fallback data' : (useSecondaryTripDb ? 'Secondary trip database' : 'Primary trip database');
+        appDataBadge.textContent = localMode ? 'Saved scores mode' : 'Trip data ready';
         appDataBadge.className = `status-badge${localMode ? ' warn' : ''}`;
       }
       renderSyncState();

@@ -1,9 +1,20 @@
+const {
+  MYRTLE_RYDER_CUP_HARD_CONSTRAINTS,
+  MYRTLE_RYDER_CUP_PLAYERS,
+  MYRTLE_RYDER_CUP_REQUESTED_GROUPINGS,
+  buildDefaultMyrtleRyderCup,
+} = require('./myrtleRyderCupDefaults');
+
 const SCORING_MODE_BEST4 = 'best4';
 const SCORING_MODE_ALL5 = 'all5';
 const SCORING_MODE_FIRST4 = 'first4of5';
 const SCORING_MODE_LAST4 = 'last4of5';
 const DEFAULT_SCORING_MODE = SCORING_MODE_BEST4;
 const DEFAULT_HANDICAP_BUCKET_LABELS = ['Bucket A', 'Bucket B', 'Bucket C', 'Bucket D'];
+const RYDER_CUP_TEAM_IDS = ['teamA', 'teamB'];
+const MYRTLE_RYDER_CUP_PLAYER_NAMES = MYRTLE_RYDER_CUP_PLAYERS.map((player) => player.name);
+const MYRTLE_RYDER_CUP_NAME_MAP = new Map(MYRTLE_RYDER_CUP_PLAYER_NAMES.map((name) => [normalizeNameKey(name), name]));
+const MYRTLE_RYDER_CUP_RANK_MAP = new Map(MYRTLE_RYDER_CUP_PLAYERS.map((player) => [player.name, player.rank]));
 
 // Myrtle course scorecards captured from public scorecard pages on 2026-03-09.
 const MYRTLE_SCORECARDS = [
@@ -161,6 +172,284 @@ function asPositiveInteger(value) {
   if (!Number.isFinite(num)) return null;
   const rounded = Math.round(num);
   return rounded > 0 ? rounded : null;
+}
+
+function toIsoDateOnly(value) {
+  if (!value) return '';
+  const parsed = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toISOString().slice(0, 10);
+}
+
+function clonePlain(value) {
+  return JSON.parse(JSON.stringify(value || {}));
+}
+
+function isMyrtleRyderCupTrip(trip = {}) {
+  const raw = trip && trip.competition && trip.competition.ryderCup;
+  if (raw && typeof raw === 'object' && Object.keys(raw).length) return true;
+  const searchable = `${cleanString(trip && trip.name)} ${cleanString(trip && trip.location)}`.toLowerCase();
+  const arrivalIso = toIsoDateOnly(trip && trip.arrivalDate);
+  const roundIso = Array.isArray(trip && trip.rounds) && trip.rounds[0] ? toIsoDateOnly(trip.rounds[0].date) : '';
+  return searchable.includes('myrtle') && (arrivalIso === '2026-03-18' || roundIso === '2026-03-18');
+}
+
+function normalizeRyderCupTeamId(value, fallbackIndex = 0) {
+  const key = cleanString(value).toLowerCase();
+  if (key === 'teama' || key === 'team a' || key === 'a') return 'teamA';
+  if (key === 'teamb' || key === 'team b' || key === 'b') return 'teamB';
+  return RYDER_CUP_TEAM_IDS[fallbackIndex] || 'teamA';
+}
+
+function normalizeRyderCupResult(value) {
+  const key = cleanString(value).toLowerCase();
+  if (key === 'a' || key === 'teama' || key === 'team a' || key === 'winnera' || key === 'winner-a') return 'teamA';
+  if (key === 'b' || key === 'teamb' || key === 'team b' || key === 'winnerb' || key === 'winner-b') return 'teamB';
+  if (key === 'h' || key === 'half' || key === 'halved' || key === 'tie') return 'halved';
+  return '';
+}
+
+function getRyderCupDefaultState(trip = {}) {
+  return buildDefaultMyrtleRyderCup(Array.isArray(trip && trip.rounds) ? trip.rounds : []);
+}
+
+function buildRyderCupPlayerRows() {
+  return MYRTLE_RYDER_CUP_PLAYERS.map((player) => ({ ...player }));
+}
+
+function normalizeRyderCupWinnerList(values = []) {
+  return uniqueNames(Array.isArray(values) ? values : [values]);
+}
+
+function normalizeCurrencyAmount(value) {
+  const parsed = asFiniteNumber(value);
+  if (parsed === null) return null;
+  return Math.round(parsed * 100) / 100;
+}
+
+function normalizeRyderCupPlayerName(value) {
+  const key = normalizeNameKey(value);
+  return MYRTLE_RYDER_CUP_NAME_MAP.get(key) || cleanString(value);
+}
+
+function normalizeRyderCupTeamPlayers(players = [], allowedPlayers = [], expectedCount = 0) {
+  const allowed = new Map(allowedPlayers.map((name) => [normalizeNameKey(name), name]));
+  const output = [];
+  const seen = new Set();
+  for (const rawName of Array.isArray(players) ? players : []) {
+    const normalized = normalizeRyderCupPlayerName(rawName);
+    const key = normalizeNameKey(normalized);
+    if (!key || seen.has(key) || !allowed.has(key)) continue;
+    seen.add(key);
+    output.push(allowed.get(key));
+  }
+  if (expectedCount > 0) return output.slice(0, expectedCount);
+  return output;
+}
+
+function areValidRyderCupTeams(teams = []) {
+  if (!Array.isArray(teams) || teams.length !== 2) return false;
+  const allPlayers = [];
+  for (const team of teams) {
+    if (!team || !Array.isArray(team.players) || team.players.length !== 10) return false;
+    allPlayers.push(...team.players);
+  }
+  const uniqueTeamPlayers = uniqueNames(allPlayers);
+  if (uniqueTeamPlayers.length !== MYRTLE_RYDER_CUP_PLAYER_NAMES.length) return false;
+  return uniqueTeamPlayers.every((name) => MYRTLE_RYDER_CUP_NAME_MAP.has(normalizeNameKey(name)));
+}
+
+function normalizeRyderCupTeams(rawTeams = [], defaultState = {}) {
+  const fallbackTeams = Array.isArray(defaultState.teams) ? clonePlain(defaultState.teams) : [];
+  const sourceTeams = Array.isArray(rawTeams) && rawTeams.length ? rawTeams : fallbackTeams;
+  const normalized = RYDER_CUP_TEAM_IDS.map((teamId, index) => {
+    const fallback = fallbackTeams[index] || { id: teamId, name: `Team ${index === 0 ? 'A' : 'B'}`, players: [] };
+    const source = sourceTeams.find((entry, entryIndex) => normalizeRyderCupTeamId(entry && entry.id, entryIndex) === teamId) || fallback;
+    return {
+      id: teamId,
+      name: cleanString(source && source.name) || fallback.name,
+      players: normalizeRyderCupTeamPlayers(source && source.players, MYRTLE_RYDER_CUP_PLAYER_NAMES, 10),
+    };
+  });
+  return areValidRyderCupTeams(normalized) ? normalized : fallbackTeams;
+}
+
+function isSinglesFormat(format = '') {
+  return cleanString(format).toLowerCase() === 'singles';
+}
+
+function buildRyderCupTeamLookup(teams = []) {
+  const byPlayer = new Map();
+  teams.forEach((team) => {
+    (team.players || []).forEach((name) => {
+      byPlayer.set(normalizeNameKey(name), {
+        teamId: team.id,
+        teamName: team.name,
+      });
+    });
+  });
+  return byPlayer;
+}
+
+function normalizeRyderCupRound(rawRound = {}, defaultRound = {}, teams = []) {
+  const expectedCount = isSinglesFormat(defaultRound.format) ? 1 : 2;
+  const teamA = teams[0] || { players: [] };
+  const teamB = teams[1] || { players: [] };
+  const rawMatches = Array.isArray(rawRound && rawRound.matches) ? rawRound.matches : [];
+  const rawDate = toIsoDateOnly(rawRound && rawRound.date);
+  const matches = (defaultRound.matches || []).map((defaultMatch, matchIndex) => {
+    const rawMatch = rawMatches[matchIndex] || defaultMatch || {};
+    let teamAPlayers = normalizeRyderCupTeamPlayers(rawMatch.teamAPlayers, teamA.players, expectedCount);
+    let teamBPlayers = normalizeRyderCupTeamPlayers(rawMatch.teamBPlayers, teamB.players, expectedCount);
+    if (teamAPlayers.length !== expectedCount || teamBPlayers.length !== expectedCount) {
+      teamAPlayers = (defaultMatch.teamAPlayers || []).slice();
+      teamBPlayers = (defaultMatch.teamBPlayers || []).slice();
+    }
+    return {
+      matchNumber: asPositiveInteger(rawMatch.matchNumber) || defaultMatch.matchNumber || (matchIndex + 1),
+      label: cleanString(rawMatch.label) || defaultMatch.label || (isSinglesFormat(defaultRound.format) ? `Singles ${matchIndex + 1}` : `Match ${matchIndex + 1}`),
+      groupNumber: asPositiveInteger(rawMatch.groupNumber) || defaultMatch.groupNumber || (matchIndex + 1),
+      teamAPlayers,
+      teamBPlayers,
+      result: normalizeRyderCupResult(rawMatch.result),
+      notes: cleanString(rawMatch.notes !== undefined ? rawMatch.notes : defaultMatch.notes),
+    };
+  });
+  return {
+    roundNumber: asPositiveInteger(rawRound.roundNumber) || defaultRound.roundNumber,
+    title: cleanString(rawRound.title) || defaultRound.title || `Round ${defaultRound.roundNumber || 1}`,
+    format: cleanString(rawRound.format) || defaultRound.format || 'Four-Ball',
+    pointValue: asFiniteNumber(rawRound.pointValue) || asFiniteNumber(defaultRound.pointValue) || 1,
+    course: cleanString(rawRound.course) || defaultRound.course || '',
+    date: rawDate ? new Date(rawRound.date).toISOString() : defaultRound.date || null,
+    label: cleanString(rawRound.label) || defaultRound.label || '',
+    matches,
+  };
+}
+
+function remapRyderCupRoundForTeams(round = {}, teams = []) {
+  const teamASet = new Set(((teams[0] && teams[0].players) || []).map((name) => normalizeNameKey(name)));
+  const teamBSet = new Set(((teams[1] && teams[1].players) || []).map((name) => normalizeNameKey(name)));
+  const matches = (round.matches || []).map((match) => {
+    const players = uniqueNames([].concat(match.teamAPlayers || [], match.teamBPlayers || []));
+    return {
+      ...match,
+      teamAPlayers: players.filter((name) => teamASet.has(normalizeNameKey(name))),
+      teamBPlayers: players.filter((name) => teamBSet.has(normalizeNameKey(name))),
+      result: '',
+    };
+  });
+  return {
+    ...round,
+    matches,
+  };
+}
+
+function normalizeRyderCupSideGames(rawSideGames = {}, defaultState = {}) {
+  const defaultSideGames = clonePlain(defaultState.sideGames || {});
+  const rawDailyLowGross = Array.isArray(rawSideGames && rawSideGames.dailyLowGross) ? rawSideGames.dailyLowGross : [];
+  const dailyLowGross = (defaultSideGames.dailyLowGross || []).map((entry, index) => {
+    const rawEntry = rawDailyLowGross[index] || {};
+    return {
+      roundNumber: entry.roundNumber,
+      label: entry.label,
+      winnerName: normalizeRyderCupPlayerName(rawEntry.winnerName || entry.winnerName),
+      amount: normalizeCurrencyAmount(rawEntry.amount),
+      notes: cleanString(rawEntry.notes),
+    };
+  });
+  const weeklySource = rawSideGames && rawSideGames.weeklyLowGross ? rawSideGames.weeklyLowGross : {};
+  const closestSource = rawSideGames && rawSideGames.closestToPin ? rawSideGames.closestToPin : {};
+  const birdieSource = rawSideGames && rawSideGames.birdiePool ? rawSideGames.birdiePool : {};
+  const mvpSource = rawSideGames && rawSideGames.mvp ? rawSideGames.mvp : {};
+  const rawClosestEntries = Array.isArray(closestSource.entries) ? closestSource.entries : [];
+  const closestEntries = rawClosestEntries
+    .map((entry) => ({
+      roundNumber: asPositiveInteger(entry && entry.roundNumber),
+      course: cleanString(entry && entry.course),
+      hole: asPositiveInteger(entry && entry.hole),
+      playerName: normalizeRyderCupPlayerName(entry && entry.playerName),
+      distance: cleanString(entry && entry.distance),
+      amount: normalizeCurrencyAmount(entry && entry.amount),
+      notes: cleanString(entry && entry.notes),
+    }))
+    .filter((entry) => entry.roundNumber && entry.hole && entry.playerName);
+  const birdieCounts = buildRyderCupPlayerRows().map((player) => {
+    const saved = Array.isArray(birdieSource.counts)
+      ? birdieSource.counts.find((entry) => normalizeNameKey(entry && entry.playerName) === normalizeNameKey(player.name))
+      : null;
+    return {
+      playerName: player.name,
+      count: Math.max(0, Math.round(asFiniteNumber(saved && saved.count) || 0)),
+    };
+  });
+  const birdieWinners = normalizeRyderCupWinnerList(birdieSource.winners).map(normalizeRyderCupPlayerName).filter(Boolean);
+  const mvpWinners = normalizeRyderCupWinnerList(mvpSource.overrideWinners || mvpSource.winnerName).map(normalizeRyderCupPlayerName).filter(Boolean);
+  return {
+    dailyLowGross,
+    weeklyLowGross: {
+      winnerName: normalizeRyderCupPlayerName(weeklySource.winnerName),
+      amount: normalizeCurrencyAmount(weeklySource.amount),
+      notes: cleanString(weeklySource.notes),
+    },
+    closestToPin: {
+      entries: closestEntries,
+    },
+    birdiePool: {
+      counts: birdieCounts,
+      winners: birdieWinners,
+      amount: normalizeCurrencyAmount(birdieSource.amount),
+      notes: cleanString(birdieSource.notes),
+    },
+    mvp: {
+      overrideWinners: mvpWinners,
+      amount: normalizeCurrencyAmount(mvpSource.amount),
+      notes: cleanString(mvpSource.notes),
+    },
+  };
+}
+
+function normalizeRyderCupPayout(rawPayout = {}, defaultState = {}) {
+  const fallback = clonePlain(defaultState.payout || {});
+  const rawAllocation = rawPayout && rawPayout.allocationPercentages ? rawPayout.allocationPercentages : {};
+  return {
+    totalPot: normalizeCurrencyAmount(rawPayout && rawPayout.totalPot) !== null
+      ? normalizeCurrencyAmount(rawPayout && rawPayout.totalPot)
+      : normalizeCurrencyAmount(fallback.totalPot) || 0,
+    allocationPercentages: {
+      winningTeam: asFiniteNumber(rawAllocation.winningTeam) || asFiniteNumber(fallback.allocationPercentages && fallback.allocationPercentages.winningTeam) || 50,
+      weeklyLowGross: asFiniteNumber(rawAllocation.weeklyLowGross) || asFiniteNumber(fallback.allocationPercentages && fallback.allocationPercentages.weeklyLowGross) || 20,
+      birdiePool: asFiniteNumber(rawAllocation.birdiePool) || asFiniteNumber(fallback.allocationPercentages && fallback.allocationPercentages.birdiePool) || 10,
+      closestToPin: asFiniteNumber(rawAllocation.closestToPin) || asFiniteNumber(fallback.allocationPercentages && fallback.allocationPercentages.closestToPin) || 10,
+      mvp: asFiniteNumber(rawAllocation.mvp) || asFiniteNumber(fallback.allocationPercentages && fallback.allocationPercentages.mvp) || 10,
+    },
+  };
+}
+
+function normalizeRyderCupState(rawState = {}, trip = {}) {
+  const defaultState = getRyderCupDefaultState(trip);
+  const state = clonePlain(rawState || {});
+  const teams = normalizeRyderCupTeams(state.teams, defaultState);
+  const rounds = (defaultState.rounds || []).map((defaultRound, index) => normalizeRyderCupRound(
+    Array.isArray(state.rounds) ? state.rounds[index] || {} : {},
+    defaultRound,
+    teams,
+  ));
+  return {
+    title: cleanString(state.title) || defaultState.title,
+    players: buildRyderCupPlayerRows(),
+    teams,
+    rounds,
+    sideGames: normalizeRyderCupSideGames(state.sideGames, defaultState),
+    payout: normalizeRyderCupPayout(state.payout, defaultState),
+    adminNotes: {
+      hardConstraints: MYRTLE_RYDER_CUP_HARD_CONSTRAINTS.map((entry) => ({ ...entry })),
+      requestedGroupings: MYRTLE_RYDER_CUP_REQUESTED_GROUPINGS.map((entry) => ({ ...entry })),
+      notes: Array.isArray(state && state.adminNotes && state.adminNotes.notes)
+        ? state.adminNotes.notes.map((note) => cleanString(note)).filter(Boolean)
+        : clonePlain(defaultState.adminNotes && defaultState.adminNotes.notes),
+    },
+  };
 }
 
 function cloneScorecardHoles(holes = []) {
@@ -695,10 +984,651 @@ function buildDailyPointsLeaderboard(roundViews = [], playerPool = []) {
   });
 }
 
+function getTripRyderCupState(trip = {}, options = {}) {
+  if (!options.force && !isMyrtleRyderCupTrip(trip)) return null;
+  const rawState = trip && trip.competition && trip.competition.ryderCup;
+  return normalizeRyderCupState(rawState, trip);
+}
+
+function setTripRyderCupState(trip = {}, nextState = {}) {
+  if (!trip.competition) trip.competition = {};
+  trip.competition.ryderCup = clonePlain(nextState);
+  return trip.competition.ryderCup;
+}
+
+function assertValidRyderCupTeams(teams = []) {
+  if (!areValidRyderCupTeams(teams)) {
+    throw new Error('Ryder Cup teams must have 10 unique ranked players on each side.');
+  }
+}
+
+function assertValidRyderCupRound(round = {}, teams = []) {
+  const teamA = teams[0] || { players: [] };
+  const teamB = teams[1] || { players: [] };
+  const matches = Array.isArray(round.matches) ? round.matches : [];
+  const expectedCount = isSinglesFormat(round.format) ? 1 : 2;
+  const expectedMatchCount = teamA.players.length / expectedCount;
+  if (matches.length !== expectedMatchCount) {
+    throw new Error(`Ryder Cup ${round.title || 'round'} must include ${expectedMatchCount} matches.`);
+  }
+  const usedTeamA = [];
+  const usedTeamB = [];
+  const groupCounts = new Map();
+  matches.forEach((match, index) => {
+    if (!match || !Array.isArray(match.teamAPlayers) || !Array.isArray(match.teamBPlayers)) {
+      throw new Error(`Ryder Cup ${round.title || 'round'} match ${index + 1} is incomplete.`);
+    }
+    if (match.teamAPlayers.length !== expectedCount || match.teamBPlayers.length !== expectedCount) {
+      throw new Error(`Ryder Cup ${round.title || 'round'} match ${index + 1} must use ${expectedCount} player${expectedCount === 1 ? '' : 's'} per side.`);
+    }
+    usedTeamA.push(...match.teamAPlayers);
+    usedTeamB.push(...match.teamBPlayers);
+    const groupNumber = asPositiveInteger(match.groupNumber) || (index + 1);
+    groupCounts.set(groupNumber, (groupCounts.get(groupNumber) || 0) + 1);
+  });
+  if (uniqueNames(usedTeamA).length !== teamA.players.length || uniqueNames(usedTeamB).length !== teamB.players.length) {
+    throw new Error(`Ryder Cup ${round.title || 'round'} must use every player exactly once per team.`);
+  }
+  if (isSinglesFormat(round.format)) {
+    const invalidGroup = Array.from(groupCounts.values()).find((count) => count !== 2);
+    if (invalidGroup) {
+      throw new Error('Singles groups must contain exactly two matches per foursome.');
+    }
+  }
+}
+
+function setTripRyderCupTeams(trip = {}, payload = {}) {
+  const current = getTripRyderCupState(trip, { force: true });
+  const hasStarted = current.rounds.some((round) => (round.matches || []).some((match) => Boolean(normalizeRyderCupResult(match && match.result))));
+  if (hasStarted) {
+    throw new Error('Ryder Cup teams are locked after results are entered.');
+  }
+  const nextTeams = normalizeRyderCupTeams(payload && payload.teams, current);
+  const nextState = {
+    ...current,
+    teams: nextTeams,
+    rounds: current.rounds.map((round) => remapRyderCupRoundForTeams(round, nextTeams)),
+  };
+  assertValidRyderCupTeams(nextState.teams);
+  try {
+    nextState.rounds.forEach((round) => assertValidRyderCupRound(round, nextState.teams));
+  } catch (_error) {
+    throw new Error('Team changes require updated round matchups. Save the teams in a split that still gives each match the correct 2-vs-2 or singles setup.');
+  }
+  return setTripRyderCupState(trip, nextState);
+}
+
+function setTripRyderCupRound(trip = {}, roundIndex, payload = {}) {
+  const current = getTripRyderCupState(trip, { force: true });
+  const index = Number(roundIndex);
+  if (!Number.isInteger(index) || index < 0 || index >= current.rounds.length) {
+    throw new Error('Ryder Cup round not found.');
+  }
+  const nextState = clonePlain(current);
+  nextState.rounds[index] = normalizeRyderCupRound(payload, current.rounds[index], nextState.teams);
+  assertValidRyderCupRound(nextState.rounds[index], nextState.teams);
+  return setTripRyderCupState(trip, nextState);
+}
+
+function setTripRyderCupSettings(trip = {}, payload = {}) {
+  const current = getTripRyderCupState(trip, { force: true });
+  const nextState = {
+    ...current,
+    sideGames: Object.prototype.hasOwnProperty.call(payload || {}, 'sideGames')
+      ? normalizeRyderCupSideGames(payload.sideGames, current)
+      : current.sideGames,
+    payout: Object.prototype.hasOwnProperty.call(payload || {}, 'payout')
+      ? normalizeRyderCupPayout(payload.payout, current)
+      : current.payout,
+  };
+  return setTripRyderCupState(trip, nextState);
+}
+
+function swapPlayerName(values = [], leftName = '', rightName = '') {
+  const leftKey = normalizeNameKey(leftName);
+  const rightKey = normalizeNameKey(rightName);
+  return (values || []).map((value) => {
+    const key = normalizeNameKey(value);
+    if (key === leftKey) return rightName;
+    if (key === rightKey) return leftName;
+    return value;
+  });
+}
+
+function swapTripRyderCupTeamPlayers(trip = {}, playerName = '', targetPlayerName = '') {
+  const current = getTripRyderCupState(trip, { force: true });
+  const leftName = normalizeRyderCupPlayerName(playerName);
+  const rightName = normalizeRyderCupPlayerName(targetPlayerName);
+  if (!leftName || !rightName || leftName === rightName) {
+    throw new Error('Choose one player from each team to swap.');
+  }
+  const hasStarted = current.rounds.some((round) => (round.matches || []).some((match) => Boolean(normalizeRyderCupResult(match && match.result))));
+  if (hasStarted) {
+    throw new Error('Ryder Cup teams are locked after results are entered.');
+  }
+  const sourceTeam = current.teams.find((team) => (team.players || []).some((name) => normalizeNameKey(name) === normalizeNameKey(leftName)));
+  const targetTeam = current.teams.find((team) => (team.players || []).some((name) => normalizeNameKey(name) === normalizeNameKey(rightName)));
+  if (!sourceTeam || !targetTeam || sourceTeam.id === targetTeam.id) {
+    throw new Error('Drag a player onto someone on the opposite team to swap them.');
+  }
+
+  const nextState = clonePlain(current);
+  nextState.teams = nextState.teams.map((team) => {
+    if (team.id === sourceTeam.id) {
+      return {
+        ...team,
+        players: swapPlayerName(team.players, leftName, rightName),
+      };
+    }
+    if (team.id === targetTeam.id) {
+      return {
+        ...team,
+        players: swapPlayerName(team.players, leftName, rightName),
+      };
+    }
+    return team;
+  });
+  nextState.rounds = nextState.rounds.map((round) => ({
+    ...round,
+    matches: (round.matches || []).map((match) => ({
+      ...match,
+      teamAPlayers: swapPlayerName(match.teamAPlayers, leftName, rightName),
+      teamBPlayers: swapPlayerName(match.teamBPlayers, leftName, rightName),
+    })),
+  }));
+
+  assertValidRyderCupTeams(nextState.teams);
+  nextState.rounds.forEach((round) => assertValidRyderCupRound(round, nextState.teams));
+  return setTripRyderCupState(trip, nextState);
+}
+
+function getRyderCupMatchPoints(result, pointValue = 1) {
+  const normalized = normalizeRyderCupResult(result);
+  const parsedPointValue = asFiniteNumber(pointValue) || 1;
+  if (normalized === 'teamA') {
+    return { complete: true, pointsA: parsedPointValue, pointsB: 0, resultKey: normalized };
+  }
+  if (normalized === 'teamB') {
+    return { complete: true, pointsA: 0, pointsB: parsedPointValue, resultKey: normalized };
+  }
+  if (normalized === 'halved') {
+    return { complete: true, pointsA: parsedPointValue / 2, pointsB: parsedPointValue / 2, resultKey: normalized };
+  }
+  return { complete: false, pointsA: 0, pointsB: 0, resultKey: '' };
+}
+
+function buildRyderCupFoursomes(rounds = []) {
+  const groups = [];
+  rounds.forEach((round) => {
+    if (isSinglesFormat(round.format)) {
+      const byGroup = new Map();
+      (round.matches || []).forEach((match) => {
+        const groupNumber = asPositiveInteger(match.groupNumber) || 1;
+        const existing = byGroup.get(groupNumber) || {
+          roundNumber: round.roundNumber,
+          roundTitle: round.title,
+          roundLabel: round.label,
+          format: round.format,
+          groupNumber,
+          label: `${round.title} - Foursome ${groupNumber}`,
+          players: [],
+        };
+        existing.players = uniqueNames(existing.players.concat(match.teamAPlayers || [], match.teamBPlayers || []));
+        byGroup.set(groupNumber, existing);
+      });
+      groups.push(...Array.from(byGroup.values()));
+      return;
+    }
+    (round.matches || []).forEach((match) => {
+      const groupNumber = asPositiveInteger(match.groupNumber) || match.matchNumber || 1;
+      groups.push({
+        roundNumber: round.roundNumber,
+        roundTitle: round.title,
+        roundLabel: round.label,
+        format: round.format,
+        groupNumber,
+        label: `${round.title} - Match ${match.matchNumber || groupNumber}`,
+        players: uniqueNames([].concat(match.teamAPlayers || [], match.teamBPlayers || [])),
+      });
+    });
+  });
+  return groups;
+}
+
+function findRyderCupGroupingCoverage(groups = [], players = [], roundNumber = null) {
+  const targetKeys = players.map((name) => normalizeNameKey(name)).filter(Boolean);
+  return groups.filter((group) => {
+    if (roundNumber !== null && Number(group.roundNumber) !== Number(roundNumber)) return false;
+    const playerKeys = new Set((group.players || []).map((name) => normalizeNameKey(name)));
+    return targetKeys.every((key) => playerKeys.has(key));
+  });
+}
+
+function buildRyderCupFairness(teams = []) {
+  const summary = teams.map((team) => {
+    const ranks = (team.players || []).map((name) => MYRTLE_RYDER_CUP_RANK_MAP.get(name)).filter((value) => Number.isFinite(value));
+    const rankSum = ranks.reduce((sum, value) => sum + value, 0);
+    const averageRank = ranks.length ? rankSum / ranks.length : null;
+    const topFiveCount = ranks.filter((rank) => rank <= 5).length;
+    const bottomFiveCount = ranks.filter((rank) => rank >= 16).length;
+    return {
+      teamId: team.id,
+      teamName: team.name,
+      rankSum,
+      averageRank,
+      topFiveCount,
+      bottomFiveCount,
+    };
+  });
+  const difference = Math.abs((summary[0] && summary[0].rankSum) - (summary[1] && summary[1].rankSum));
+  let status = 'Very balanced';
+  if (difference > 2) {
+    const leadingTeam = summary[0].rankSum < summary[1].rankSum ? summary[0].teamName : summary[1].teamName;
+    status = `Slight edge ${leadingTeam}`;
+  }
+  return {
+    teams: summary,
+    rankDifference: difference,
+    status,
+  };
+}
+
+function buildRyderCupAdminView(rounds = []) {
+  const foursomes = buildRyderCupFoursomes(rounds);
+  const finalRoundNumber = rounds.length;
+  const hardConstraints = MYRTLE_RYDER_CUP_HARD_CONSTRAINTS.map((constraint) => {
+    if (constraint.id === 'final-round-knights') {
+      const coverage = findRyderCupGroupingCoverage(foursomes, ['Tommy Knight', 'Tommy Knight Sr'], finalRoundNumber);
+      return {
+        ...constraint,
+        status: coverage.length ? 'met' : 'missing',
+        locations: coverage.map((group) => group.label),
+      };
+    }
+    if (constraint.id === 'marcus-not-caleb') {
+      const conflicts = findRyderCupGroupingCoverage(foursomes, ['Marcus Ordonez', 'Caleb Hart']);
+      return {
+        ...constraint,
+        status: conflicts.length ? 'violation' : 'clear',
+        locations: conflicts.map((group) => group.label),
+      };
+    }
+    if (constraint.id === 'duane-foursome-limits') {
+      const restricted = ['Tommy Knight', 'Tommy Knight Sr', 'Reny Butler', 'Matt Shannon'];
+      const conflicts = foursomes.filter((group) => {
+        const keys = new Set((group.players || []).map((name) => normalizeNameKey(name)));
+        return keys.has(normalizeNameKey('Duane Harris'))
+          && restricted.some((name) => keys.has(normalizeNameKey(name)));
+      });
+      return {
+        ...constraint,
+        status: conflicts.length ? 'violation' : 'clear',
+        locations: conflicts.map((group) => group.label),
+      };
+    }
+    if (constraint.id === 'neff-with-jeremy-once') {
+      const coverage = findRyderCupGroupingCoverage(foursomes, ['Chris Neff', 'Jeremy Bridges']);
+      return {
+        ...constraint,
+        status: coverage.length ? 'met' : 'missing',
+        locations: coverage.map((group) => group.label),
+      };
+    }
+    if (constraint.id === 'neff-not-manuel') {
+      const conflicts = findRyderCupGroupingCoverage(foursomes, ['Chris Neff', 'Manuel Ordonez']);
+      return {
+        ...constraint,
+        status: conflicts.length ? 'violation' : 'clear',
+        locations: conflicts.map((group) => group.label),
+      };
+    }
+    return {
+      ...constraint,
+      status: 'clear',
+      locations: [],
+    };
+  });
+  const requestedGroupings = MYRTLE_RYDER_CUP_REQUESTED_GROUPINGS.map((grouping) => {
+    const coverage = findRyderCupGroupingCoverage(foursomes, grouping.players);
+    return {
+      ...grouping,
+      status: coverage.length ? 'scheduled' : 'not_scheduled',
+      locations: coverage.map((group) => group.label),
+    };
+  });
+  return {
+    hardConstraints,
+    requestedGroupings,
+  };
+}
+
+function buildRyderCupRoundAndStandingsView(rounds = [], teams = []) {
+  let teamAPoints = 0;
+  let teamBPoints = 0;
+  let remainingPoints = 0;
+  let totalPointsAvailable = 0;
+  const roundViews = rounds.map((round) => {
+    const roundPointValue = asFiniteNumber(round.pointValue) || 1;
+    let roundPointsA = 0;
+    let roundPointsB = 0;
+    let completedMatches = 0;
+    const matches = (round.matches || []).map((match) => {
+      const points = getRyderCupMatchPoints(match.result, roundPointValue);
+      totalPointsAvailable += roundPointValue;
+      if (points.complete) {
+        roundPointsA += points.pointsA;
+        roundPointsB += points.pointsB;
+        completedMatches += 1;
+      } else {
+        remainingPoints += roundPointValue;
+      }
+      return {
+        ...match,
+        result: points.resultKey,
+        pointsA: points.pointsA,
+        pointsB: points.pointsB,
+        isComplete: points.complete,
+      };
+    });
+    teamAPoints += roundPointsA;
+    teamBPoints += roundPointsB;
+    return {
+      ...round,
+      matches,
+      pointsAvailable: (round.matches || []).length * roundPointValue,
+      roundPointsA,
+      roundPointsB,
+      completedMatches,
+      runningPointsA: teamAPoints,
+      runningPointsB: teamBPoints,
+    };
+  });
+  const leaderTeamId = teamAPoints === teamBPoints ? '' : (teamAPoints > teamBPoints ? 'teamA' : 'teamB');
+  const leaderTeam = teams.find((team) => team.id === leaderTeamId) || null;
+  const lead = Math.abs(teamAPoints - teamBPoints);
+  return {
+    rounds: roundViews,
+    standings: {
+      teamAPoints,
+      teamBPoints,
+      remainingPoints,
+      totalPointsAvailable,
+      leaderTeamId,
+      leaderTeamName: leaderTeam ? leaderTeam.name : 'Tied',
+      clinched: Boolean(leaderTeamId) && lead > remainingPoints,
+      status: leaderTeamId
+        ? `${leaderTeam.name} leads by ${lead} point${lead === 1 ? '' : 's'}`
+        : 'Match is tied',
+    },
+  };
+}
+
+function buildRyderCupIndividualLeaderboard(rounds = [], teams = []) {
+  const teamLookup = buildRyderCupTeamLookup(teams);
+  const rowsByName = new Map(buildRyderCupPlayerRows().map((player) => [normalizeNameKey(player.name), {
+    name: player.name,
+    rank: player.rank,
+    teamId: teamLookup.get(normalizeNameKey(player.name)) ? teamLookup.get(normalizeNameKey(player.name)).teamId : '',
+    teamName: teamLookup.get(normalizeNameKey(player.name)) ? teamLookup.get(normalizeNameKey(player.name)).teamName : '',
+    matchesPlayed: 0,
+    pointsWon: 0,
+    wins: 0,
+    losses: 0,
+    halves: 0,
+  }]));
+  rounds.forEach((round) => {
+    const pointValue = asFiniteNumber(round.pointValue) || 1;
+    (round.matches || []).forEach((match) => {
+      const points = getRyderCupMatchPoints(match.result, pointValue);
+      if (!points.complete) return;
+      const teamAPlayers = match.teamAPlayers || [];
+      const teamBPlayers = match.teamBPlayers || [];
+      teamAPlayers.forEach((name) => {
+        const entry = rowsByName.get(normalizeNameKey(name));
+        if (!entry) return;
+        entry.matchesPlayed += 1;
+        entry.pointsWon += points.pointsA;
+        if (points.resultKey === 'teamA') entry.wins += 1;
+        else if (points.resultKey === 'teamB') entry.losses += 1;
+        else entry.halves += 1;
+      });
+      teamBPlayers.forEach((name) => {
+        const entry = rowsByName.get(normalizeNameKey(name));
+        if (!entry) return;
+        entry.matchesPlayed += 1;
+        entry.pointsWon += points.pointsB;
+        if (points.resultKey === 'teamB') entry.wins += 1;
+        else if (points.resultKey === 'teamA') entry.losses += 1;
+        else entry.halves += 1;
+      });
+    });
+  });
+  const sorted = Array.from(rowsByName.values()).sort((left, right) => {
+    if (right.pointsWon !== left.pointsWon) return right.pointsWon - left.pointsWon;
+    if (right.wins !== left.wins) return right.wins - left.wins;
+    if (left.rank !== right.rank) return left.rank - right.rank;
+    return left.name.localeCompare(right.name);
+  });
+  return sorted.map((entry, index, list) => {
+    const previous = list[index - 1];
+    const sameAsPrevious = previous
+      && previous.pointsWon === entry.pointsWon
+      && previous.wins === entry.wins
+      && previous.rank === entry.rank;
+    return {
+      ...entry,
+      position: sameAsPrevious ? previous.position : index + 1,
+      record: `${entry.wins}-${entry.losses}-${entry.halves}`,
+    };
+  });
+}
+
+function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = []) {
+  const closestEntries = sideGames && sideGames.closestToPin && Array.isArray(sideGames.closestToPin.entries)
+    ? sideGames.closestToPin.entries
+    : [];
+  const closestToPinWinners = uniqueNames(closestEntries.map((entry) => entry.playerName).filter(Boolean));
+  const birdieCounts = sideGames && sideGames.birdiePool && Array.isArray(sideGames.birdiePool.counts)
+    ? sideGames.birdiePool.counts
+    : [];
+  const birdieLeaderboard = birdieCounts
+    .map((entry) => ({
+      playerName: normalizeRyderCupPlayerName(entry && entry.playerName),
+      count: Math.max(0, Math.round(asFiniteNumber(entry && entry.count) || 0)),
+    }))
+    .sort((left, right) => {
+      if (right.count !== left.count) return right.count - left.count;
+      return left.playerName.localeCompare(right.playerName);
+    });
+  const highestBirdieCount = birdieLeaderboard.length ? birdieLeaderboard[0].count : 0;
+  const birdieWinners = normalizeRyderCupWinnerList(sideGames && sideGames.birdiePool && sideGames.birdiePool.winners).length
+    ? normalizeRyderCupWinnerList(sideGames && sideGames.birdiePool && sideGames.birdiePool.winners)
+    : (highestBirdieCount > 0
+      ? birdieLeaderboard.filter((entry) => entry.count === highestBirdieCount).map((entry) => entry.playerName)
+      : []);
+  const overrideMvpWinners = normalizeRyderCupWinnerList(sideGames && sideGames.mvp && sideGames.mvp.overrideWinners);
+  const highestPoints = individualLeaderboard.length ? individualLeaderboard[0].pointsWon : 0;
+  const automaticMvpWinners = highestPoints > 0
+    ? individualLeaderboard.filter((entry) => entry.pointsWon === highestPoints).map((entry) => entry.name)
+    : [];
+  return {
+    dailyLowGross: Array.isArray(sideGames && sideGames.dailyLowGross) ? sideGames.dailyLowGross : [],
+    weeklyLowGross: sideGames && sideGames.weeklyLowGross ? sideGames.weeklyLowGross : { winnerName: '', amount: null, notes: '' },
+    closestToPin: {
+      entries: closestEntries,
+      winners: closestToPinWinners,
+    },
+    birdiePool: {
+      counts: birdieLeaderboard,
+      winners: birdieWinners,
+      amount: sideGames && sideGames.birdiePool ? sideGames.birdiePool.amount : null,
+      notes: sideGames && sideGames.birdiePool ? sideGames.birdiePool.notes : '',
+    },
+    mvp: {
+      winners: overrideMvpWinners.length ? overrideMvpWinners : automaticMvpWinners,
+      amount: sideGames && sideGames.mvp ? sideGames.mvp.amount : null,
+      notes: sideGames && sideGames.mvp ? sideGames.mvp.notes : '',
+      manualOverride: overrideMvpWinners.length > 0,
+    },
+  };
+}
+
+function roundCurrency(value) {
+  const parsed = asFiniteNumber(value);
+  if (parsed === null) return 0;
+  return Math.round(parsed * 100) / 100;
+}
+
+function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, teams = []) {
+  const totalPot = roundCurrency(payout.totalPot);
+  const allocation = payout.allocationPercentages || {};
+  const teamAmount = roundCurrency(totalPot * ((asFiniteNumber(allocation.winningTeam) || 0) / 100));
+  const weeklyAmount = roundCurrency(totalPot * ((asFiniteNumber(allocation.weeklyLowGross) || 0) / 100));
+  const birdieAmount = roundCurrency(totalPot * ((asFiniteNumber(allocation.birdiePool) || 0) / 100));
+  const closestAmount = roundCurrency(totalPot * ((asFiniteNumber(allocation.closestToPin) || 0) / 100));
+  const mvpAmount = roundCurrency(totalPot * ((asFiniteNumber(allocation.mvp) || 0) / 100));
+
+  const teamRows = [];
+  if (standings.remainingPoints > 0 && standings.teamAPoints === standings.teamBPoints) {
+    teamRows.push({
+      key: 'winningTeam',
+      label: 'Winning Team',
+      amount: teamAmount,
+      winners: [],
+      winnerLabel: 'Pending Ryder Cup result',
+      perPerson: null,
+    });
+  } else if (standings.teamAPoints === standings.teamBPoints) {
+    const allWinners = uniqueNames([].concat(teams[0] && teams[0].players ? teams[0].players : [], teams[1] && teams[1].players ? teams[1].players : []));
+    teamRows.push({
+      key: 'winningTeam',
+      label: 'Winning Team',
+      amount: teamAmount,
+      winners: allWinners,
+      winnerLabel: `${teams[0] ? teams[0].name : 'Team A'} and ${teams[1] ? teams[1].name : 'Team B'} split the tie`,
+      perPerson: allWinners.length ? roundCurrency(teamAmount / allWinners.length) : null,
+    });
+  } else {
+    const winningTeam = standings.teamAPoints > standings.teamBPoints ? teams[0] : teams[1];
+    const winners = winningTeam && Array.isArray(winningTeam.players) ? winningTeam.players.slice() : [];
+    teamRows.push({
+      key: 'winningTeam',
+      label: 'Winning Team',
+      amount: teamAmount,
+      winners,
+      winnerLabel: winningTeam ? winningTeam.name : 'Winning Team',
+      perPerson: winners.length ? roundCurrency(teamAmount / winners.length) : null,
+    });
+  }
+
+  const categoryRows = teamRows.concat([
+    {
+      key: 'weeklyLowGross',
+      label: 'Weekly Low Gross',
+      amount: weeklyAmount,
+      winners: sideGames.weeklyLowGross && sideGames.weeklyLowGross.winnerName ? [sideGames.weeklyLowGross.winnerName] : [],
+      winnerLabel: sideGames.weeklyLowGross && sideGames.weeklyLowGross.winnerName ? sideGames.weeklyLowGross.winnerName : 'Pending',
+      perPerson: sideGames.weeklyLowGross && sideGames.weeklyLowGross.winnerName ? weeklyAmount : null,
+    },
+    {
+      key: 'birdiePool',
+      label: 'Birdie Pool',
+      amount: birdieAmount,
+      winners: sideGames.birdiePool && Array.isArray(sideGames.birdiePool.winners) ? sideGames.birdiePool.winners : [],
+      winnerLabel: sideGames.birdiePool && sideGames.birdiePool.winners && sideGames.birdiePool.winners.length ? sideGames.birdiePool.winners.join(', ') : 'Pending',
+      perPerson: sideGames.birdiePool && sideGames.birdiePool.winners && sideGames.birdiePool.winners.length
+        ? roundCurrency(birdieAmount / sideGames.birdiePool.winners.length)
+        : null,
+    },
+    {
+      key: 'closestToPin',
+      label: 'Closest to Pin',
+      amount: closestAmount,
+      winners: sideGames.closestToPin && Array.isArray(sideGames.closestToPin.winners) ? sideGames.closestToPin.winners : [],
+      winnerLabel: sideGames.closestToPin && sideGames.closestToPin.winners && sideGames.closestToPin.winners.length ? sideGames.closestToPin.winners.join(', ') : 'Pending',
+      perPerson: sideGames.closestToPin && sideGames.closestToPin.winners && sideGames.closestToPin.winners.length
+        ? roundCurrency(closestAmount / sideGames.closestToPin.winners.length)
+        : null,
+    },
+    {
+      key: 'mvp',
+      label: 'Ryder Cup MVP',
+      amount: mvpAmount,
+      winners: sideGames.mvp && Array.isArray(sideGames.mvp.winners) ? sideGames.mvp.winners : [],
+      winnerLabel: sideGames.mvp && sideGames.mvp.winners && sideGames.mvp.winners.length ? sideGames.mvp.winners.join(', ') : 'Pending',
+      perPerson: sideGames.mvp && sideGames.mvp.winners && sideGames.mvp.winners.length
+        ? roundCurrency(mvpAmount / sideGames.mvp.winners.length)
+        : null,
+    },
+  ]);
+
+  return {
+    totalPot,
+    allocationPercentages: allocation,
+    rows: categoryRows,
+  };
+}
+
+function buildRyderCupView(state = null) {
+  if (!state) return null;
+  const fairness = buildRyderCupFairness(state.teams || []);
+  const roundBundle = buildRyderCupRoundAndStandingsView(state.rounds || [], state.teams || []);
+  const individualLeaderboard = buildRyderCupIndividualLeaderboard(state.rounds || [], state.teams || []);
+  const sideGames = buildRyderCupSideGamesView(state.sideGames || {}, individualLeaderboard);
+  const payout = buildRyderCupPayoutView(state.payout || {}, roundBundle.standings || {}, sideGames, state.teams || []);
+  const hasStarted = (state.rounds || []).some((round) => (round.matches || []).some((match) => Boolean(normalizeRyderCupResult(match && match.result))));
+  const fairnessByTeam = new Map((fairness.teams || []).map((team) => [team.teamId, team]));
+  const teams = (state.teams || []).map((team) => {
+    const summary = fairnessByTeam.get(team.id) || {};
+    return {
+      id: team.id,
+      name: team.name,
+      players: (team.players || [])
+        .map((name) => ({
+          name,
+          rank: MYRTLE_RYDER_CUP_RANK_MAP.get(name) || null,
+        }))
+        .sort((left, right) => {
+          if (left.rank !== right.rank) return left.rank - right.rank;
+          return left.name.localeCompare(right.name);
+        }),
+      rankSum: summary.rankSum || 0,
+      averageRank: summary.averageRank || null,
+      topFiveCount: summary.topFiveCount || 0,
+      bottomFiveCount: summary.bottomFiveCount || 0,
+      currentPoints: team.id === 'teamA' ? roundBundle.standings.teamAPoints : roundBundle.standings.teamBPoints,
+      balanceNote: fairness.status,
+    };
+  });
+  const admin = buildRyderCupAdminView(roundBundle.rounds || []);
+  return {
+    title: state.title,
+    totalPointsAvailable: roundBundle.standings.totalPointsAvailable,
+    hasStarted,
+    canEditTeams: !hasStarted,
+    teams,
+    fairness: {
+      ...fairness,
+      teamA: fairnessByTeam.get('teamA') || null,
+      teamB: fairnessByTeam.get('teamB') || null,
+    },
+    rounds: roundBundle.rounds,
+    standings: roundBundle.standings,
+    individualLeaderboard,
+    sideGames,
+    payout,
+    admin: {
+      ...admin,
+      notes: Array.isArray(state.adminNotes && state.adminNotes.notes) ? state.adminNotes.notes : [],
+    },
+  };
+}
+
 function buildTripCompetitionView(trip = {}, participants = []) {
   const playerPool = getCompetitionPlayerPool(trip, participants);
   const scoringMode = normalizeScoringMode(trip && trip.competition && trip.competition.scoringMode);
   const rounds = Array.isArray(trip && trip.rounds) ? trip.rounds : [];
+  const ryderCupState = getTripRyderCupState(trip);
 
   const roundViews = rounds.map((round, roundIndex) => {
     const roundPlayers = uniqueNames(getRoundPlayerNames(round));
@@ -787,6 +1717,8 @@ function buildTripCompetitionView(trip = {}, participants = []) {
       };
     });
 
+  const ryderCup = buildRyderCupView(ryderCupState);
+
   return {
     overview: {
       scoringMode,
@@ -836,6 +1768,7 @@ function buildTripCompetitionView(trip = {}, participants = []) {
         }))
         .sort((left, right) => left.name.localeCompare(right.name)),
     },
+    ryderCup,
   };
 }
 
@@ -965,6 +1898,10 @@ module.exports = {
   setRoundMatchTeams,
   setRoundPlayerScores,
   setRoundSideGames,
+  setTripRyderCupRound,
+  setTripRyderCupSettings,
+  setTripRyderCupTeams,
+  swapTripRyderCupTeamPlayers,
   setTripHandicapBuckets,
   setTripScoringMode,
   stablefordPointsForNetDiff,

@@ -3,6 +3,7 @@ const {
   buildTripCompetitionView,
   computeCountedRounds,
   getDefaultScorecard,
+  swapTripRyderCupTeamPlayers,
 } = require('../services/tripCompetitionService');
 
 function makeScorecard() {
@@ -155,6 +156,104 @@ function run() {
   assert.strictEqual(bucketView.buckets[0].players.length, 6, 'Bucket assignments should not enforce a max size');
   assert.deepStrictEqual(bucketView.buckets[0].players.map((player) => player.name), ['Alice', 'Bob', 'Charlie', 'Dan', 'Evan', 'Frank'], 'Saved bucket player order should be preserved');
   assert.deepStrictEqual(bucketView.buckets[1].players.map((player) => player.name), ['Gary'], 'Saved bucket placements should be respected');
+
+  const myrtlePlayers = [
+    'Joe Gillette',
+    'John Quimby',
+    'Josh Browne',
+    'Tommy Knight',
+    'Reny Butler',
+    'Thomas Lasik',
+    'John Hyers',
+    'Chris Manuel',
+    'Lance Darr',
+    'Caleb Hart',
+    'Chris Neff',
+    'Marcus Ordonez',
+    'Dennis Freeman',
+    'Chad Jones',
+    'Jeremy Bridges',
+    'Matt Shannon',
+    'Delmar Christian',
+    'Manuel Ordonez',
+    'Tommy Knight Sr',
+    'Duane Harris',
+  ];
+  const myrtleTrip = {
+    name: 'Myrtle Beach - Barefoot Group 3/18-3/22/26',
+    location: 'Myrtle Beach, SC',
+    arrivalDate: new Date('2026-03-18'),
+    competition: {
+      scoringMode: 'best4',
+      ryderCup: {
+        rounds: [
+          {
+            matches: [
+              { result: 'teamA', notes: 'Team A took the opener.' },
+              { result: 'halved' },
+            ],
+          },
+        ],
+      },
+    },
+    rounds: [
+      makeRound('World Tour', []),
+      makeRound('Wild Wing Avocet', []),
+      makeRound('Kings North', []),
+      makeRound('River Hills', []),
+      makeRound('Long Bay', []),
+    ],
+  };
+  const myrtleParticipants = myrtlePlayers.map((name, index) => ({
+    _id: `myrtle-${index + 1}`,
+    name,
+    status: 'in',
+    handicapIndex: 10 + index,
+  }));
+  const freshMyrtleTrip = {
+    name: 'Myrtle Beach - Barefoot Group 3/18-3/22/26',
+    location: 'Myrtle Beach, SC',
+    arrivalDate: new Date('2026-03-18'),
+    competition: { scoringMode: 'best4' },
+    rounds: [
+      makeRound('World Tour', []),
+      makeRound('Wild Wing Avocet', []),
+      makeRound('Kings North', []),
+      makeRound('River Hills', []),
+      makeRound('Long Bay', []),
+    ],
+  };
+  const freshView = buildTripCompetitionView(freshMyrtleTrip, myrtleParticipants);
+  assert.strictEqual(freshView.ryderCup.canEditTeams, true, 'Seeded Ryder Cup teams should be editable before results are entered');
+  swapTripRyderCupTeamPlayers(freshMyrtleTrip, 'Tommy Knight', 'Reny Butler');
+  const swappedView = buildTripCompetitionView(freshMyrtleTrip, myrtleParticipants);
+  assert(swappedView.ryderCup.teams[0].players.some((entry) => entry.name === 'Reny Butler'), 'Swapped Team A should include the incoming player');
+  assert(swappedView.ryderCup.teams[1].players.some((entry) => entry.name === 'Tommy Knight'), 'Swapped Team B should include the outgoing player');
+  assert.strictEqual(swappedView.ryderCup.rounds[2].matches[1].teamAPlayers.includes('Reny Butler'), true, 'Round slots should swap with the team move');
+  assert.strictEqual(swappedView.ryderCup.rounds[2].matches[1].teamBPlayers.includes('Tommy Knight'), true, 'Opposite round slots should swap with the team move');
+  const myrtleView = buildTripCompetitionView(myrtleTrip, myrtleParticipants);
+  assert(myrtleView.ryderCup, 'Myrtle trips should expose a Ryder Cup view');
+  assert.strictEqual(myrtleView.ryderCup.canEditTeams, false, 'Ryder Cup teams should lock once results have been entered');
+  assert.strictEqual(myrtleView.ryderCup.teams[0].rankSum, 105, 'Team A rank sum should be seeded to 105');
+  assert.strictEqual(myrtleView.ryderCup.teams[1].rankSum, 105, 'Team B rank sum should be seeded to 105');
+  assert.strictEqual(myrtleView.ryderCup.fairness.status, 'Very balanced', 'Balanced seed should report a very balanced fairness note');
+  assert.strictEqual(myrtleView.ryderCup.standings.teamAPoints, 1.5, 'Completed Ryder Cup results should update Team A points');
+  assert.strictEqual(myrtleView.ryderCup.standings.teamBPoints, 0.5, 'Completed Ryder Cup results should update Team B points');
+  assert.strictEqual(myrtleView.ryderCup.standings.remainingPoints, 28, 'Remaining points should reflect unfinished matches');
+  assert.strictEqual(myrtleView.ryderCup.totalPointsAvailable, 30, 'Ryder Cup total points should stay fixed at 30');
+  const thomasRow = myrtleView.ryderCup.individualLeaderboard.find((entry) => entry.name === 'Thomas Lasik');
+  assert(thomasRow, 'Individual Ryder Cup rows should be present');
+  assert.strictEqual(thomasRow.pointsWon, 1, 'Winning team players should receive a point for a completed team match');
+  const jeremyRow = myrtleView.ryderCup.individualLeaderboard.find((entry) => entry.name === 'Jeremy Bridges');
+  assert(jeremyRow, 'Halved match players should be present');
+  assert.strictEqual(jeremyRow.pointsWon, 0.5, 'Halved matches should award a half point');
+  const hardConstraint = myrtleView.ryderCup.admin.hardConstraints.find((entry) => entry.id === 'neff-not-manuel');
+  assert(hardConstraint, 'Hard constraint rows should be exposed');
+  assert.strictEqual(hardConstraint.status, 'clear', 'Seeded Ryder Cup schedule should keep Chris Neff away from Manuel Ordonez');
+  const requestedGrouping = myrtleView.ryderCup.admin.requestedGroupings.find((entry) => entry.id === 'lance-chris-reny-thomas');
+  assert(requestedGrouping, 'Requested grouping coverage should be exposed');
+  assert.strictEqual(requestedGrouping.status, 'scheduled', 'Requested grouping coverage should be tracked');
+  assert.throws(() => swapTripRyderCupTeamPlayers(myrtleTrip, 'Tommy Knight', 'Reny Butler'), /locked/i, 'Team swaps should be rejected after Ryder Cup results exist');
 
   console.log('test_trip_competition_service.js passed');
 }
