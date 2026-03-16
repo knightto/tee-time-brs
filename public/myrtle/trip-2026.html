@@ -368,6 +368,62 @@
       color: var(--ink-soft);
       font-weight: 700;
     }
+    .trip-slot-ryder {
+      display: grid;
+      gap: 6px;
+      padding: 7px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+    }
+    .trip-slot-ryder-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      font-size: 0.75rem;
+      color: var(--ink-soft);
+    }
+    .trip-slot-ryder-title {
+      color: #fff;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+    .trip-slot-ryder-lines {
+      display: grid;
+      gap: 6px;
+    }
+    .trip-slot-ryder-line {
+      display: grid;
+      gap: 2px;
+      padding: 6px 8px;
+      border-radius: 9px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(11,23,40,0.55);
+    }
+    .trip-slot-ryder-line strong {
+      color: #fff;
+      font-size: 0.74rem;
+      letter-spacing: 0.02em;
+    }
+    .trip-slot-ryder-line span {
+      color: var(--ink-soft);
+      font-size: 0.74rem;
+      line-height: 1.3;
+    }
+    .trip-slot-ryder-line.team-a {
+      border-color: rgba(109,211,255,0.4);
+      background: rgba(109,211,255,0.10);
+    }
+    .trip-slot-ryder-line.team-b {
+      border-color: rgba(224,180,87,0.38);
+      background: rgba(224,180,87,0.10);
+    }
+    .trip-slot-ryder-line.matchup {
+      border-color: rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.04);
+    }
     .trip-slot-players {
       display: flex;
       flex-wrap: wrap;
@@ -398,6 +454,7 @@
     .trip-player-chip {
       display: inline-flex;
       align-items: center;
+      gap: 6px;
       border: 1px solid rgba(255,255,255,0.16);
       border-radius: 999px;
       padding: 3px 8px;
@@ -420,6 +477,36 @@
       color: #f8fbff;
       border-color: rgba(109,211,255,0.36);
       box-shadow: none;
+    }
+    .trip-player-chip.team-a {
+      border-color: rgba(109,211,255,0.42);
+      background: rgba(109,211,255,0.13);
+      color: #e8f8ff;
+    }
+    .trip-player-chip.team-b {
+      border-color: rgba(224,180,87,0.42);
+      background: rgba(224,180,87,0.13);
+      color: #fff0cf;
+    }
+    .trip-player-chip-side {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 18px;
+      height: 18px;
+      border-radius: 999px;
+      font-size: 0.67rem;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      line-height: 1;
+    }
+    .trip-player-chip-side.team-a {
+      background: rgba(109,211,255,0.2);
+      color: #bdefff;
+    }
+    .trip-player-chip-side.team-b {
+      background: rgba(224,180,87,0.2);
+      color: #ffd88a;
     }
     .trip-player-chip.is-dragging {
       opacity: 0.42;
@@ -1667,29 +1754,29 @@
       const formatKey = String(round && round.formatKey || '').trim().toLowerCase();
       return resultMode === 'teamround' || resultMode === 'team_round' || formatKey === 'onetwothree';
     };
-    const isRyderCupNetTotalFormat = (round = {}) => {
+    const isRyderCupGrossTotalFormat = (round = {}) => {
       const key = String(round && round.formatKey || '').trim().toLowerCase();
-      return key === 'netteammatch' || key === 'netsinglesmatch';
+      return key === 'grossteammatch' || key === 'grosssinglesmatch' || key === 'netteammatch' || key === 'netsinglesmatch';
     };
     const usesRyderCupTeamTotals = (round = {}) => {
       const key = String(round && round.formatKey || '').trim().toLowerCase();
-      return key === 'netteammatch' || key === 'netsinglesmatch' || key === 'bestballstroke' || key === 'combinedscore';
+      return key === 'grossteammatch' || key === 'grosssinglesmatch' || key === 'netteammatch' || key === 'netsinglesmatch' || key === 'bestballstroke' || key === 'combinedscore';
     };
     const usesRyderCupPlayerTotals = (round = {}) => {
       const key = String(round && round.formatKey || '').trim().toLowerCase();
-      return key === 'netteammatch' || key === 'netsinglesmatch' || key === 'bestballstroke' || key === 'combinedscore';
+      return key === 'grossteammatch' || key === 'grosssinglesmatch' || key === 'netteammatch' || key === 'netsinglesmatch' || key === 'bestballstroke' || key === 'combinedscore';
     };
     const getRyderCupPlayerScoreHint = (round = {}) => {
       const key = String(round && round.formatKey || '').trim().toLowerCase();
-      if (key === 'netteammatch' || key === 'netsinglesmatch') return 'Gross total';
+      if (isRyderCupGrossTotalFormat(round)) return 'Gross total';
       if (key === 'bestballstroke') return 'Optional player gross total';
       if (key === 'combinedscore') return 'Player gross total';
       return 'Player total';
     };
     const getRyderCupTeamTotalHint = (round = {}) => {
       const key = String(round && round.formatKey || '').trim().toLowerCase();
-      if (key === 'netteammatch') return 'Net team total';
-      if (key === 'netsinglesmatch') return 'Net score';
+      if (key === 'grossteammatch' || key === 'netteammatch') return 'Gross team total';
+      if (key === 'grosssinglesmatch' || key === 'netsinglesmatch') return 'Gross score';
       if (key === 'bestballstroke') return 'Best-ball team total';
       if (key === 'combinedscore') return 'Combined team total';
       if (isRyderCupTeamRound(round)) return 'Team round total';
@@ -1789,13 +1876,8 @@
         .filter(Boolean);
     };
     const RYDER_CUP_PLAY_STYLE_OPTIONS = [
-      'Two-Man Net Total Match',
-      'Singles Net Total Match',
-      'Four-Ball Match Play',
-      'Best Ball Stroke Play',
-      'Two-Man Combined Score',
-      '1-2-3 Team Game',
-      'Own Ball Pod'
+      'Two-Man Gross Total Match',
+      'Singles Gross Total Match'
     ];
     const getRyderCupData = () => competitionData && competitionData.ryderCup ? competitionData.ryderCup : null;
     const getRyderCupRounds = () => {
@@ -1807,15 +1889,93 @@
       if (!Number.isInteger(index) || index < 0) return null;
       return getRyderCupRounds()[index] || null;
     };
+    const getRyderCupTeamMeta = () => {
+      const teams = Array.isArray(getRyderCupData()?.teams) ? getRyderCupData().teams : [];
+      return {
+        teamA: teams.find((team) => String(team && team.id || '').trim().toLowerCase() === 'teama') || teams[0] || { id: 'teamA', name: 'Team A' },
+        teamB: teams.find((team) => String(team && team.id || '').trim().toLowerCase() === 'teamb') || teams[1] || { id: 'teamB', name: 'Team B' },
+      };
+    };
+    const getTripSlotGroupNumber = (slot = {}, slotIndex = 0) => {
+      const label = String(slot && slot.label || '').trim();
+      const match = label.match(/(\d+)/);
+      const parsed = match ? Number(match[1]) : NaN;
+      return Number.isInteger(parsed) && parsed > 0 ? parsed : (slotIndex + 1);
+    };
+    function buildTripRyderCupSlotGuide(roundIndex, slot = {}, slotIndex = 0) {
+      const ryderRound = getRyderCupRoundMeta(roundIndex);
+      if (!ryderRound) return null;
+      const groupNumber = getTripSlotGroupNumber(slot, slotIndex);
+      const groups = Array.isArray(ryderRound?.plan?.groups) ? ryderRound.plan.groups : [];
+      const group = groups.find((entry) => Number(entry && entry.groupNumber) === groupNumber);
+      if (!group) return null;
+      const { teamA, teamB } = getRyderCupTeamMeta();
+      const playerMetaByName = new Map();
+      const addPlayers = (players = [], sideKey = 'teamA', teamName = 'Team A') => {
+        players.forEach((name) => {
+          const key = normalizeNameKey(name);
+          if (!key) return;
+          playerMetaByName.set(key, {
+            sideKey,
+            sideClass: sideKey === 'teamA' ? 'team-a' : 'team-b',
+            sideBadge: sideKey === 'teamA' ? 'A' : 'B',
+            sideName: teamName,
+          });
+        });
+      };
+      addPlayers(group.teamAPlayers || [], 'teamA', teamA.name || 'Team A');
+      addPlayers(group.teamBPlayers || [], 'teamB', teamB.name || 'Team B');
+      const matchupLines = Array.isArray(group.pairings) && group.pairings.length > 1
+        ? group.pairings.map((pairing, pairingIndex) => ({
+            type: 'matchup',
+            label: pairing.label || `Match ${pairingIndex + 1}`,
+            players: `${(pairing.teamAPlayers || []).join(' / ') || 'TBD'} vs ${(pairing.teamBPlayers || []).join(' / ') || 'TBD'}`,
+          }))
+        : [];
+      return {
+        groupNumber,
+        groupLabel: group.label || `Foursome ${groupNumber}`,
+        playStyle: group.playStyle || ryderRound.format || '',
+        teamLines: [
+          { type: 'team-a', label: teamA.name || 'Team A', players: (group.teamAPlayers || []).join(', ') || 'Not assigned' },
+          { type: 'team-b', label: teamB.name || 'Team B', players: (group.teamBPlayers || []).join(', ') || 'Not assigned' },
+        ],
+        matchupLines,
+        playerMetaByName,
+      };
+    }
+    function renderTripRyderCupSlotGuide(guide = null) {
+      if (!guide) return '';
+      const lines = guide.teamLines.concat(guide.matchupLines);
+      return `
+        <div class="trip-slot-ryder">
+          <div class="trip-slot-ryder-head">
+            <span class="trip-slot-ryder-title">Ryder Cup teams</span>
+            <span>${escapeHtml(guide.playStyle || guide.groupLabel || '')}</span>
+          </div>
+          <div class="trip-slot-ryder-lines">
+            ${lines.map((line) => `
+              <div class="trip-slot-ryder-line ${escapeHtml(line.type || '')}">
+                <strong>${escapeHtml(line.label || '')}</strong>
+                <span>${escapeHtml(line.players || '')}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
     const getDefaultRyderCupPlayStyle = (format = '') => {
       const normalized = String(format || '').trim().toLowerCase();
-      if (normalized.includes('singles')) return 'Singles Net Total Match';
-      if (normalized.includes('net total')) return 'Two-Man Net Total Match';
-      if (normalized.includes('1-2-3')) return '1-2-3 Team Game';
-      if (normalized.includes('two-man combined')) return 'Two-Man Combined Score';
-      if (normalized.includes('best ball stroke')) return 'Best Ball Stroke Play';
-      if (normalized.includes('four-ball')) return 'Four-Ball Match Play';
-      return 'Own Ball Pod';
+      if (normalized.includes('singles')) return 'Singles Gross Total Match';
+      if (normalized.includes('gross total') || normalized.includes('net total')) return 'Two-Man Gross Total Match';
+      return 'Two-Man Gross Total Match';
+    };
+    const coerceRyderCupPlayStyle = (value = '', format = '') => {
+      const normalized = String(value || '').trim();
+      if (RYDER_CUP_PLAY_STYLE_OPTIONS.includes(normalized)) return normalized;
+      if (normalized.toLowerCase() === 'two-man net total match') return 'Two-Man Gross Total Match';
+      if (normalized.toLowerCase() === 'singles net total match') return 'Singles Gross Total Match';
+      return getDefaultRyderCupPlayStyle(format);
     };
     const normalizeRoundSlot = (slot = {}, index = 0) => ({
       label: String(slot.label || `TT#${index + 1}`).trim() || `TT#${index + 1}`,
@@ -2484,7 +2644,7 @@
                 <label>
                   <span>Play style</span>
                   <select data-ryder-plan-style>
-                    ${RYDER_CUP_PLAY_STYLE_OPTIONS.map((option) => `<option value="${quoteAttr(option)}"${(group.playStyle || getDefaultRyderCupPlayStyle(round.format)) === option ? ' selected' : ''}>${escapeHtml(option)}</option>`).join('')}
+                    ${RYDER_CUP_PLAY_STYLE_OPTIONS.map((option) => `<option value="${quoteAttr(option)}"${coerceRyderCupPlayStyle(group.playStyle, round.format) === option ? ' selected' : ''}>${escapeHtml(option)}</option>`).join('')}
                   </select>
                 </label>
                 <label>
@@ -2500,24 +2660,16 @@
 
     function renderRyderCupMatchScoreFields(round = {}, match = {}, teamA = {}, teamB = {}, singles = false) {
       if (!usesRyderCupTeamTotals(round) && !usesRyderCupPlayerTotals(round)) return '';
-      if (isRyderCupNetTotalFormat(round)) {
+      if (isRyderCupGrossTotalFormat(round)) {
         const teamAPlayerScores = Array.isArray(match.teamAPlayerScores) ? match.teamAPlayerScores : [];
         const teamBPlayerScores = Array.isArray(match.teamBPlayerScores) ? match.teamBPlayerScores : [];
-        const teamAPlayerNetScores = Array.isArray(match.teamAPlayerNetScores) ? match.teamAPlayerNetScores : [];
-        const teamBPlayerNetScores = Array.isArray(match.teamBPlayerNetScores) ? match.teamBPlayerNetScores : [];
-        const renderNetTotalField = (sideKey, team, scoreValues, netValues, slotIndex) => {
+        const renderGrossTotalField = (sideKey, team, scoreValues, slotIndex) => {
           const players = sideKey === 'teamA' ? (match.teamAPlayers || []) : (match.teamBPlayers || []);
           const playerName = players[slotIndex] || `${team.name || (sideKey === 'teamA' ? 'Team A' : 'Team B')} ${slotIndex + 1}`;
           const playerMeta = getRyderCupTeamPlayerMeta(team, playerName) || {};
           const metaParts = [];
-          if (playerMeta.handicapIndex !== null && playerMeta.handicapIndex !== undefined && playerMeta.handicapIndex !== '') {
-            metaParts.push(`HI ${formatHandicap(playerMeta.handicapIndex)}`);
-          }
-          if (Number.isFinite(playerMeta.playingHandicap)) {
-            metaParts.push(`Playing ${playerMeta.playingHandicap}`);
-          }
-          if (Number.isFinite(netValues[slotIndex])) {
-            metaParts.push(`Net ${netValues[slotIndex]}`);
+          if (Number.isFinite(playerMeta.rank)) {
+            metaParts.push(`Rank #${playerMeta.rank}`);
           }
           return `
             <label>
@@ -2529,10 +2681,10 @@
         return `
           <div class="competition-admin-card" style="grid-column:1/-1;">
             <strong>${escapeHtml(singles ? 'Daily gross totals' : 'Daily gross totals for both teams')}</strong>
-            <div class="competition-note">${escapeHtml(singles ? 'Enter gross totals only. Net scores are computed from handicaps and the lower net wins the point.' : 'Enter gross totals only. Net team totals are computed from handicaps and the lower combined net wins the point.')}</div>
+            <div class="competition-note">${escapeHtml(singles ? 'Enter gross totals only. Singles are rank-seeded and the lower gross score wins the point.' : 'Enter gross totals only. Matchups are rank-seeded and the lower combined gross side wins the point.')}</div>
             <div class="ryder-match-editor-grid" style="margin-top:8px;">
-              ${Array.from({ length: singles ? 1 : 2 }, (_, slotIndex) => renderNetTotalField('teamA', teamA, teamAPlayerScores, teamAPlayerNetScores, slotIndex)).join('')}
-              ${Array.from({ length: singles ? 1 : 2 }, (_, slotIndex) => renderNetTotalField('teamB', teamB, teamBPlayerScores, teamBPlayerNetScores, slotIndex)).join('')}
+              ${Array.from({ length: singles ? 1 : 2 }, (_, slotIndex) => renderGrossTotalField('teamA', teamA, teamAPlayerScores, slotIndex)).join('')}
+              ${Array.from({ length: singles ? 1 : 2 }, (_, slotIndex) => renderGrossTotalField('teamB', teamB, teamBPlayerScores, slotIndex)).join('')}
             </div>
           </div>
         `;
@@ -2625,14 +2777,14 @@
         <details class="competition-section">
           <summary>
             <span>Rounds</span>
-            <span class="competition-note">Five seeded rounds with one daily gross total per golfer</span>
+            <span class="competition-note">Five rank-seeded rounds with one daily gross total per golfer</span>
           </summary>
           <div class="competition-section-body">
             <div class="competition-round-grid">
               ${rounds.map((round, roundIndex) => {
                 const singles = String(round.format || '').toLowerCase().includes('singles');
                 const teamRound = isRyderCupTeamRound(round);
-                const netTotalFormat = isRyderCupNetTotalFormat(round);
+                const grossTotalFormat = isRyderCupGrossTotalFormat(round);
                 return `
                   <details class="competition-section"${roundIndex === 0 ? ' open' : ''}>
                     <summary>
@@ -2651,7 +2803,7 @@
                       <div class="ryder-round-intro">
                         <strong>${escapeHtml(round.description || 'Own-ball team competition round.')}</strong>
                         <div class="competition-note">${escapeHtml(round.entrySummary || 'Enter the matchup result for the round.')}</div>
-                        ${netTotalFormat ? `<div class="competition-note">Use this round card as the daily scorer: enter each golfer's gross total once, save the round, and the match winners will resolve from net scores.</div>` : ''}
+                        ${grossTotalFormat ? `<div class="competition-note">Use this round card as the daily scorer: enter each golfer's gross total once, save the round, and the rank-seeded match winners will resolve automatically.</div>` : ''}
                       </div>
                       ${renderRyderCupRoundPlan(round, teamA, teamB)}
                       ${teamRound ? renderRyderCupTeamRoundScore(round, teamA, teamB) : `
@@ -2680,7 +2832,7 @@
                                 </label>
                               `).join('')}
                               ${renderRyderCupMatchScoreFields(round, match, teamA, teamB, singles)}
-                              ${netTotalFormat ? '' : `
+                              ${grossTotalFormat ? '' : `
                               <label>
                                 <span>Winner</span>
                                 <select data-ryder-result>
@@ -2698,7 +2850,7 @@
                             </div>
                             <div class="ryder-inline-meta">
                               <span class="competition-pill">Result ${escapeHtml(formatRyderCupWinnerLabel(match.result, teamA.name || 'Team A', teamB.name || 'Team B'))}</span>
-                              ${usesRyderCupTeamTotals(round) ? `<span class="competition-pill">${escapeHtml(teamA.name)} ${escapeHtml(netTotalFormat ? 'net' : 'score')} ${match.teamAScore ?? '—'}</span><span class="competition-pill">${escapeHtml(teamB.name)} ${escapeHtml(netTotalFormat ? 'net' : 'score')} ${match.teamBScore ?? '—'}</span>` : ''}
+                              ${usesRyderCupTeamTotals(round) ? `<span class="competition-pill">${escapeHtml(teamA.name)} score ${match.teamAScore ?? '—'}</span><span class="competition-pill">${escapeHtml(teamB.name)} score ${match.teamBScore ?? '—'}</span>` : ''}
                               <span class="competition-pill">${escapeHtml(teamA.name)} ${escapeHtml(formatCompetitionPoints(match.pointsA || 0))}</span>
                               <span class="competition-pill">${escapeHtml(teamB.name)} ${escapeHtml(formatCompetitionPoints(match.pointsB || 0))}</span>
                             </div>
@@ -2724,14 +2876,14 @@
         <details class="competition-section">
           <summary>
             <span>Side Games And Payout</span>
-            <span class="competition-note">Daily net / Stableford, net birdies, CTP, MVP, and the trip pot</span>
+            <span class="competition-note">Daily low gross, birdies, CTP, MVP, and the trip pot</span>
           </summary>
           <div class="competition-section-body">
             <div class="ryder-sidegame-grid">
               <div class="competition-sidegame-card" style="grid-column:1/-1;">
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-                  <strong>Daily Net / Stableford Winner</strong>
-                  <span class="competition-note">One winner block per round. Use net or Stableford, not gross only.</span>
+                  <strong>Daily Low Gross</strong>
+                  <span class="competition-note">One winner block per round.</span>
                 </div>
                 <div class="ryder-daily-grid">
                   ${(sideGames.dailyLowGross || []).map((entry, index) => `
@@ -2754,7 +2906,7 @@
                 </div>
               </div>
               <div class="competition-sidegame-card">
-                <strong>Trip Net / Stableford Winner</strong>
+                <strong>Weekly Low Gross</strong>
                 <label>
                   <span>Winner</span>
                   <input id="ryderWeeklyWinner" type="text" value="${quoteAttr((sideGames.weeklyLowGross && sideGames.weeklyLowGross.winnerName) || '')}" placeholder="Winner name">
@@ -2778,10 +2930,10 @@
                 <div class="competition-note">Winners: ${escapeHtml((sideGames.closestToPin && sideGames.closestToPin.winners && sideGames.closestToPin.winners.join(', ')) || 'Pending')}</div>
               </div>
               <div class="competition-sidegame-card">
-                <strong>Net Birdie Pool</strong>
-                <div class="competition-note">One line per player: Player | count. Count only net birdies or better.</div>
+                <strong>Birdie Pool</strong>
+                <div class="competition-note">One line per player: Player | count. Count gross birdies or better.</div>
                 <label>
-                  <span>Net birdie counts</span>
+                  <span>Birdie counts</span>
                   <textarea id="ryderBirdieCountsField" placeholder="Joe Gillette | 4&#10;John Quimby | 2">${escapeHtml(formatRyderCupBirdieCounts(sideGames.birdiePool && sideGames.birdiePool.counts))}</textarea>
                 </label>
                 <label>
@@ -2819,7 +2971,7 @@
                   <span>Total pot</span>
                   <input id="ryderTotalPotField" type="number" step="0.01" value="${payout.totalPot !== null && payout.totalPot !== undefined ? escapeHtml(String(payout.totalPot)) : ''}" placeholder="1000">
                 </label>
-                <div class="competition-note">50% winning team, 20% trip net / Stableford, 10% net birdie pool, 10% closest to pin, 10% MVP.</div>
+                <div class="competition-note">50% winning team, 20% weekly low gross, 10% birdie pool, 10% closest to pin, 10% MVP.</div>
                 <ul class="ryder-payout-list">
                   ${(payout.rows || []).map((row) => `
                     <li>
@@ -3253,20 +3405,32 @@
               const label = slot.label || `TT#${slotIndex + 1}`;
               const slotTarget = { roundIndex, containerType: 'slot', slotIndex };
               const slotKey = makeTripTargetKey(slotTarget);
+              const slotGuide = buildTripRyderCupSlotGuide(roundIndex, slot, slotIndex);
               const playersMarkup = (slot.players || []).length
-                ? slot.players.map((name, playerIndex) => `
+                ? slot.players.map((name, playerIndex) => {
+                    const playerMeta = slotGuide?.playerMetaByName?.get(normalizeNameKey(name)) || null;
+                    const teamClass = playerMeta ? ` ${playerMeta.sideClass}` : '';
+                    const teamBadge = playerMeta
+                      ? `<span class="trip-player-chip-side ${escapeHtml(playerMeta.sideClass)}" title="${quoteAttr(playerMeta.sideName || '')}">${escapeHtml(playerMeta.sideBadge || '')}</span>`
+                      : '';
+                    const title = playerMeta
+                      ? `${playerMeta.sideName} · ${slotGuide.groupLabel || label}`
+                      : name;
+                    return `
                     <button
                       type="button"
-                      class="trip-player-chip"
+                      class="trip-player-chip${teamClass}"
                       draggable="true"
+                      title="${quoteAttr(title)}"
                       data-trip-player="1"
                       data-player-key="${makeTripPlayerKey({ ...slotTarget, playerIndex })}"
                       data-container-type="slot"
                       data-round-index="${roundIndex}"
                       data-slot-index="${slotIndex}"
                       data-player-index="${playerIndex}"
-                    >${escapeHtml(name)}</button>
-                  `).join('')
+                    >${teamBadge}<span>${escapeHtml(name)}</span></button>
+                  `;
+                  }).join('')
                 : '<span class="trip-player-chip trip-player-chip-open">Open</span>';
               return `
                 <div class="trip-slot trip-drop-target" data-trip-target="1" data-target-key="${slotKey}" data-container-type="slot" data-round-index="${roundIndex}" data-slot-index="${slotIndex}">
@@ -3274,6 +3438,7 @@
                     <span>${escapeHtml(label)}</span>
                     <span>${escapeHtml(formatTime12(slot.time) || '--')}</span>
                   </div>
+                  ${renderTripRyderCupSlotGuide(slotGuide)}
                   <div class="trip-slot-players">${playersMarkup}</div>
                 </div>
               `;
@@ -3794,7 +3959,7 @@
         dayNote: String((container.querySelector('[data-ryder-plan-day-note]') || {}).value || '').trim(),
         groups: Array.from(container.querySelectorAll('[data-ryder-plan-group]')).map((card, groupIndex) => ({
           groupNumber: Number(card.dataset.ryderPlanGroup) || (groupIndex + 1),
-          playStyle: String((card.querySelector('[data-ryder-plan-style]') || {}).value || getDefaultRyderCupPlayStyle(round.format)).trim(),
+          playStyle: coerceRyderCupPlayStyle((card.querySelector('[data-ryder-plan-style]') || {}).value, round.format),
           notes: String((card.querySelector('[data-ryder-plan-note]') || {}).value || '').trim(),
         })),
       };
