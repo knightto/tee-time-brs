@@ -390,6 +390,44 @@ const MYRTLE_RYDER_CUP_ROUND_SEEDS = [
   },
 ];
 
+const MYRTLE_LEGACY_TEE_SHEET_GROUPS = [
+  [
+    ['Joe Gillette', 'Duane Harris', 'Josh Browne', 'Manuel Ordonez'],
+    ['John Quimby', 'Tommy Knight Sr', 'Lance Darr', 'Marcus Ordonez'],
+    ['Tommy Knight', 'Jeremy Bridges', 'Reny Butler', 'Chad Jones'],
+    ['Thomas Lasik', 'Delmar Christian', 'John Hyers', 'Matt Shannon'],
+    ['Chris Manuel', 'Dennis Freeman', 'Caleb Hart', 'Chris Neff'],
+  ],
+  [
+    ['Joe Gillette', 'Tommy Knight Sr', 'Chris Neff', 'Lance Darr'],
+    ['John Quimby', 'Delmar Christian', 'Josh Browne', 'Matt Shannon'],
+    ['Tommy Knight', 'Dennis Freeman', 'Reny Butler', 'Marcus Ordonez'],
+    ['Thomas Lasik', 'Jeremy Bridges', 'John Hyers', 'Chad Jones'],
+    ['Chris Manuel', 'Duane Harris', 'Caleb Hart', 'Manuel Ordonez'],
+  ],
+  [
+    ['Joe Gillette', 'Delmar Christian', 'Reny Butler', 'Matt Shannon'],
+    ['John Quimby', 'Jeremy Bridges', 'Caleb Hart', 'John Hyers'],
+    ['Tommy Knight', 'Tommy Knight Sr', 'Lance Darr', 'Chad Jones'],
+    ['Thomas Lasik', 'Chris Manuel', 'Josh Browne', 'Chris Neff'],
+    ['Dennis Freeman', 'Duane Harris', 'Marcus Ordonez', 'Manuel Ordonez'],
+  ],
+  [
+    ['Jeremy Bridges', 'Duane Harris', 'Caleb Hart', 'Chris Neff'],
+    ['Tommy Knight', 'Dennis Freeman', 'Matt Shannon', 'John Hyers'],
+    ['John Quimby', 'Delmar Christian', 'Marcus Ordonez', 'Chad Jones'],
+    ['Thomas Lasik', 'Chris Manuel', 'Reny Butler', 'Lance Darr'],
+    ['Joe Gillette', 'Tommy Knight Sr', 'Josh Browne', 'Manuel Ordonez'],
+  ],
+  [
+    ['Tommy Knight', 'Marcus Ordonez', 'Tommy Knight Sr', 'Manuel Ordonez'],
+    ['Joe Gillette', 'Josh Browne', 'John Quimby', 'Reny Butler'],
+    ['Thomas Lasik', 'John Hyers', 'Chris Manuel', 'Lance Darr'],
+    ['Dennis Freeman', 'Caleb Hart', 'Jeremy Bridges', 'Matt Shannon'],
+    ['Delmar Christian', 'Chris Neff', 'Duane Harris', 'Chad Jones'],
+  ],
+];
+
 function buildRoundLabel(roundNumber, round = {}) {
   const course = String(round.course || '').trim();
   if (!course) return `Round ${roundNumber}`;
@@ -529,10 +567,33 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
   };
 }
 
+function buildMyrtleRyderCupTeeSheetGroups(roundSeeds = MYRTLE_RYDER_CUP_ROUND_SEEDS) {
+  return (roundSeeds || []).map((seed = {}) => {
+    const groupNumbers = Array.from(new Set((seed.matches || []).map((match, matchIndex) => Number(match.groupNumber) || (matchIndex + 1))))
+      .sort((left, right) => left - right);
+    return groupNumbers.map((groupNumber) => {
+      const players = [];
+      (seed.matches || []).forEach((match, matchIndex) => {
+        const matchGroupNumber = Number(match && match.groupNumber) || (matchIndex + 1);
+        if (matchGroupNumber !== groupNumber) return;
+        (match.teamAPlayers || []).forEach((name) => {
+          if (!players.includes(name)) players.push(name);
+        });
+        (match.teamBPlayers || []).forEach((name) => {
+          if (!players.includes(name)) players.push(name);
+        });
+      });
+      return players;
+    });
+  });
+}
+
 module.exports = {
+  MYRTLE_LEGACY_TEE_SHEET_GROUPS,
   MYRTLE_RYDER_CUP_HARD_CONSTRAINTS,
   MYRTLE_RYDER_CUP_PLAYERS,
   MYRTLE_RYDER_CUP_REQUESTED_GROUPINGS,
   MYRTLE_RYDER_CUP_SCHEDULE_VERSION,
+  buildMyrtleRyderCupTeeSheetGroups,
   buildDefaultMyrtleRyderCup,
 };

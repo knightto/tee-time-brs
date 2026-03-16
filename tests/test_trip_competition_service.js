@@ -3,6 +3,7 @@ const {
   buildTripCompetitionView,
   computeCountedRounds,
   getDefaultScorecard,
+  normalizeLegacyMyrtleTripTeeSheet,
   swapTripRyderCupTeamPlayers,
 } = require('../services/tripCompetitionService');
 
@@ -27,6 +28,14 @@ function makeRound(course, playerScores, teeTimes = []) {
     skinsResults: [],
     unassignedPlayers: [],
   };
+}
+
+function makeTeeTimes(groups = []) {
+  return groups.map((players, index) => ({
+    label: `TT#${index + 1}`,
+    time: `${String(8 + Math.floor((index * 9) / 60)).padStart(2, '0')}:${String((index * 9) % 60).padStart(2, '0')}`,
+    players: players.slice(),
+  }));
 }
 
 function repeatScore(value, count = 18) {
@@ -331,6 +340,54 @@ function run() {
   assert.strictEqual(myrtleView.ryderCup.rounds[3].matches[0].pointsB, 1, 'Round 4 pod matches should now award one point to the lower gross side');
   assert.strictEqual(myrtleView.ryderCup.admin.roundRules.length, 5, 'Admin rules should explain each own-ball round format');
   assert.throws(() => swapTripRyderCupTeamPlayers(myrtleTrip, 'Tommy Knight', 'Reny Butler'), /locked/i, 'Team swaps should be rejected after Ryder Cup results exist');
+
+  const legacyTeeSheetTrip = {
+    name: 'Myrtle Beach - Barefoot Group 3/18-3/22/26',
+    location: 'Myrtle Beach, SC',
+    arrivalDate: new Date('2026-03-18'),
+    competition: { scoringMode: 'best4' },
+    rounds: [
+      makeRound('World Tour', [], makeTeeTimes([
+        ['Joe Gillette', 'Duane Harris', 'Josh Browne', 'Manuel Ordonez'],
+        ['John Quimby', 'Tommy Knight Sr', 'Lance Darr', 'Marcus Ordonez'],
+        ['Tommy Knight', 'Jeremy Bridges', 'Reny Butler', 'Chad Jones'],
+        ['Thomas Lasik', 'Delmar Christian', 'John Hyers', 'Matt Shannon'],
+        ['Chris Manuel', 'Dennis Freeman', 'Caleb Hart', 'Chris Neff'],
+      ])),
+      makeRound('Wild Wing Avocet', [], makeTeeTimes([
+        ['Joe Gillette', 'Tommy Knight Sr', 'Chris Neff', 'Lance Darr'],
+        ['John Quimby', 'Delmar Christian', 'Josh Browne', 'Matt Shannon'],
+        ['Tommy Knight', 'Dennis Freeman', 'Reny Butler', 'Marcus Ordonez'],
+        ['Thomas Lasik', 'Jeremy Bridges', 'John Hyers', 'Chad Jones'],
+        ['Chris Manuel', 'Duane Harris', 'Caleb Hart', 'Manuel Ordonez'],
+      ])),
+      makeRound('Kings North', [], makeTeeTimes([
+        ['Joe Gillette', 'Delmar Christian', 'Reny Butler', 'Matt Shannon'],
+        ['John Quimby', 'Jeremy Bridges', 'Caleb Hart', 'John Hyers'],
+        ['Tommy Knight', 'Tommy Knight Sr', 'Lance Darr', 'Chad Jones'],
+        ['Thomas Lasik', 'Chris Manuel', 'Josh Browne', 'Chris Neff'],
+        ['Dennis Freeman', 'Duane Harris', 'Marcus Ordonez', 'Manuel Ordonez'],
+      ])),
+      makeRound('River Hills', [], makeTeeTimes([
+        ['Jeremy Bridges', 'Duane Harris', 'Caleb Hart', 'Chris Neff'],
+        ['Tommy Knight', 'Dennis Freeman', 'Matt Shannon', 'John Hyers'],
+        ['John Quimby', 'Delmar Christian', 'Marcus Ordonez', 'Chad Jones'],
+        ['Thomas Lasik', 'Chris Manuel', 'Reny Butler', 'Lance Darr'],
+        ['Joe Gillette', 'Tommy Knight Sr', 'Josh Browne', 'Manuel Ordonez'],
+      ])),
+      makeRound('Long Bay', [], makeTeeTimes([
+        ['Tommy Knight', 'Marcus Ordonez', 'Tommy Knight Sr', 'Manuel Ordonez'],
+        ['Joe Gillette', 'Josh Browne', 'John Quimby', 'Reny Butler'],
+        ['Thomas Lasik', 'John Hyers', 'Chris Manuel', 'Lance Darr'],
+        ['Dennis Freeman', 'Caleb Hart', 'Jeremy Bridges', 'Matt Shannon'],
+        ['Delmar Christian', 'Chris Neff', 'Duane Harris', 'Chad Jones'],
+      ])),
+    ],
+  };
+  const normalizedTeeSheetTrip = normalizeLegacyMyrtleTripTeeSheet(legacyTeeSheetTrip);
+  assert.deepStrictEqual(normalizedTeeSheetTrip.rounds[0].teeTimes[0].players, ['Chris Manuel', 'Tommy Knight Sr', 'Caleb Hart', 'Matt Shannon'], 'Legacy Myrtle tee sheets should migrate to the seeded round-one opener');
+  assert.deepStrictEqual(normalizedTeeSheetTrip.rounds[1].teeTimes[1].players, ['Delmar Christian', 'Thomas Lasik', 'Chad Jones', 'John Hyers'], 'Legacy Myrtle tee sheets should stop grouping Josh Browne and Matt Shannon together');
+  assert.deepStrictEqual(normalizedTeeSheetTrip.rounds[2].teeTimes[4].players, ['Thomas Lasik', 'Tommy Knight Sr', 'Chris Neff', 'Marcus Ordonez'], 'Legacy Myrtle tee sheets should align later rounds with the seeded foursomes');
 
   console.log('test_trip_competition_service.js passed');
 }

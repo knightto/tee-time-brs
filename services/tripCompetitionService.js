@@ -1,8 +1,10 @@
 const {
+  MYRTLE_LEGACY_TEE_SHEET_GROUPS,
   MYRTLE_RYDER_CUP_HARD_CONSTRAINTS,
   MYRTLE_RYDER_CUP_PLAYERS,
   MYRTLE_RYDER_CUP_REQUESTED_GROUPINGS,
   MYRTLE_RYDER_CUP_SCHEDULE_VERSION,
+  buildMyrtleRyderCupTeeSheetGroups,
   buildDefaultMyrtleRyderCup,
 } = require('./myrtleRyderCupDefaults');
 
@@ -20,6 +22,7 @@ const ALLOWED_RYDER_CUP_PLAN_STYLES = new Set([
   'Two-Man Gross Total Match',
   'Singles Gross Total Match',
 ]);
+const MYRTLE_CANONICAL_TEE_SHEET_GROUPS = buildMyrtleRyderCupTeeSheetGroups();
 
 // Myrtle course scorecards captured from public scorecard pages on 2026-03-09.
 const MYRTLE_SCORECARDS = [
@@ -2030,7 +2033,62 @@ function buildRyderCupView(state = null, _playerPool = []) {
   };
 }
 
+function buildTeeSheetGroupKeys(groups = []) {
+  return (groups || []).map((players = []) => uniqueNames(players)
+    .map((name) => normalizeNameKey(name))
+    .filter(Boolean)
+    .sort()
+    .join('::'));
+}
+
+function roundMatchesTeeSheetGroups(round = {}, expectedGroups = []) {
+  const teeTimes = Array.isArray(round && round.teeTimes) ? round.teeTimes : [];
+  const actualKeys = teeTimes.map((slot = {}) => uniqueNames(slot.players || [])
+    .map((name) => normalizeNameKey(name))
+    .filter(Boolean)
+    .sort()
+    .join('::'));
+  const expectedKeys = buildTeeSheetGroupKeys(expectedGroups);
+  if (actualKeys.length !== expectedKeys.length) return false;
+  return expectedKeys.every((groupKey, index) => actualKeys[index] === groupKey);
+}
+
+function buildCanonicalMyrtleTripRound(round = {}, expectedGroups = []) {
+  const teeTimes = (expectedGroups || []).map((players = [], slotIndex) => {
+    const existing = Array.isArray(round.teeTimes) ? round.teeTimes[slotIndex] || {} : {};
+    return {
+      ...clonePlain(existing),
+      label: cleanString(existing.label) || `TT#${slotIndex + 1}`,
+      time: cleanString(existing.time),
+      players: uniqueNames(players),
+    };
+  });
+  return {
+    ...clonePlain(round),
+    teeTimes,
+  };
+}
+
+function normalizeLegacyMyrtleTripTeeSheet(trip = {}) {
+  if (!isMyrtleRyderCupTrip(trip)) return trip;
+  const rounds = Array.isArray(trip && trip.rounds) ? trip.rounds : [];
+  if (rounds.length !== MYRTLE_LEGACY_TEE_SHEET_GROUPS.length) return trip;
+  const ryderCupState = getTripRyderCupState(trip, { force: true });
+  if (ryderCupState && hasStartedRyderCup(ryderCupState.rounds || [])) return trip;
+  const matchesLegacySchedule = MYRTLE_LEGACY_TEE_SHEET_GROUPS.every((expectedGroups, roundIndex) =>
+    roundMatchesTeeSheetGroups(rounds[roundIndex] || {}, expectedGroups)
+  );
+  if (!matchesLegacySchedule) return trip;
+  const nextTrip = clonePlain(trip);
+  nextTrip.rounds = rounds.map((round, roundIndex) => {
+    const expectedGroups = MYRTLE_CANONICAL_TEE_SHEET_GROUPS[roundIndex] || [];
+    return buildCanonicalMyrtleTripRound(round, expectedGroups);
+  });
+  return nextTrip;
+}
+
 function buildTripCompetitionView(trip = {}, participants = []) {
+  trip = normalizeLegacyMyrtleTripTeeSheet(trip);
   const playerPool = getCompetitionPlayerPool(trip, participants);
   const scoringMode = normalizeScoringMode(trip && trip.competition && trip.competition.scoringMode);
   const rounds = Array.isArray(trip && trip.rounds) ? trip.rounds : [];
@@ -2305,6 +2363,7 @@ module.exports = {
   computeCountedRounds,
   getDefaultScorecard,
   getHoleStrokeAdjustment,
+  normalizeLegacyMyrtleTripTeeSheet,
   normalizeScoringMode,
   setRoundMatchTeams,
   setRoundPlayerScores,

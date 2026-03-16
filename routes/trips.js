@@ -20,6 +20,7 @@ const {
   swapTripRyderCupTeamPlayers,
   setTripHandicapBuckets,
   setTripScoringMode,
+  normalizeLegacyMyrtleTripTeeSheet,
 } = require('../services/tripCompetitionService');
 const {
   ensureTinCupLiveState,
@@ -245,11 +246,11 @@ router.get('/', async (req, res) => {
     const { TripSecondary } = getSecondaryModels();
     if (TripSecondary) {
       const trips = await TripSecondary.find();
-      return res.json(trips);
+      return res.json(trips.map((trip) => normalizeLegacyMyrtleTripTeeSheet(trip)));
     }
   }
   const trips = await TripPrimary.find();
-  res.json(trips);
+  res.json(trips.map((trip) => normalizeLegacyMyrtleTripTeeSheet(trip)));
 });
 
 // Create a reusable default template trip
@@ -280,13 +281,13 @@ router.get('/:tripId', async (req, res) => {
       const trip = await TripSecondary.findById(req.params.tripId);
       if (!trip) return res.status(404).json({ error: 'Trip not found' });
       const participants = await TripParticipantSecondary.find({ trip: trip._id });
-      return res.json({ trip, participants });
+      return res.json({ trip: normalizeLegacyMyrtleTripTeeSheet(trip), participants });
     }
   }
   const trip = await TripPrimary.findById(req.params.tripId);
   if (!trip) return res.status(404).json({ error: 'Trip not found' });
   const participants = await TripParticipantPrimary.find({ trip: trip._id });
-  res.json({ trip, participants });
+  res.json({ trip: normalizeLegacyMyrtleTripTeeSheet(trip), participants });
 });
 
 // Update trip details
@@ -298,7 +299,7 @@ router.put('/:tripId', async (req, res) => {
     await writeTripAudit(req, trip, TripAuditLogModel, 'update_trip', 'Trip details updated', {
       updates: req.body || {},
     });
-    return res.json(trip);
+    return res.json(normalizeLegacyMyrtleTripTeeSheet(trip));
   } catch (error) {
     return sendTripRouteError(res, error);
   }
@@ -308,7 +309,7 @@ router.get('/:tripId/competition', async (req, res) => {
   try {
     const { trip, participants } = await loadTripBundle(req);
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
-    return res.json(buildTripCompetitionView(trip, participants));
+    return res.json(buildTripCompetitionView(normalizeLegacyMyrtleTripTeeSheet(trip), participants));
   } catch (error) {
     return sendTripRouteError(res, error);
   }

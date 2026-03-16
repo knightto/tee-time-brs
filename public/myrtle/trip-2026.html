@@ -338,6 +338,44 @@
       font-size: 0.84rem;
       font-weight: 600;
     }
+    .trip-event-meta-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .trip-event-location {
+      color: var(--ink-soft);
+      font-size: 0.79rem;
+      line-height: 1.3;
+    }
+    .trip-weather-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.1);
+      background: rgba(255,255,255,0.04);
+      color: #eff8ff;
+      font-size: 0.74rem;
+      font-weight: 700;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+    .trip-weather-pill.is-muted {
+      color: var(--ink-soft);
+      background: rgba(255,255,255,0.02);
+    }
+    .trip-weather-icon {
+      font-size: 0.94rem;
+      line-height: 1;
+    }
+    .trip-weather-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
     .trip-slot-grid {
       display: grid;
       gap: 6px;
@@ -577,6 +615,14 @@
     .competition-sidegame-card strong,
     .competition-match-card strong {
       color: #fff;
+    }
+    .ryder-team-card {
+      transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+    }
+    .ryder-team-card.is-drop-target {
+      border-color: rgba(109,211,255,0.68);
+      background: rgba(109,211,255,0.08);
+      box-shadow: inset 0 0 0 1px rgba(109,211,255,0.22);
     }
     .competition-stat-value {
       font-size: 1.45rem;
@@ -1178,6 +1224,11 @@
       opacity: 0.42;
       cursor: grabbing;
     }
+    .ryder-player-chip.is-selected {
+      border-color: rgba(255,214,102,0.92);
+      background: rgba(255,214,102,0.14);
+      box-shadow: inset 0 0 0 1px rgba(255,214,102,0.28);
+    }
     .ryder-player-chip.is-drop-target {
       border-color: rgba(109,211,255,0.92);
       background: rgba(109,211,255,0.14);
@@ -1389,11 +1440,11 @@
         date: '2026-03-18',
         time: '13:17',
         teeTimes: buildTripSlots('13:17', [
-          ['Joe Gillette', 'Duane Harris', 'Josh Browne', 'Manuel Ordonez'],
-          ['John Quimby', 'Tommy Knight Sr', 'Lance Darr', 'Marcus Ordonez'],
-          ['Tommy Knight', 'Jeremy Bridges', 'Reny Butler', 'Chad Jones'],
-          ['Thomas Lasik', 'Delmar Christian', 'John Hyers', 'Matt Shannon'],
-          ['Chris Manuel', 'Dennis Freeman', 'Caleb Hart', 'Chris Neff']
+          ['Chris Manuel', 'Tommy Knight Sr', 'Caleb Hart', 'Matt Shannon'],
+          ['Delmar Christian', 'Jeremy Bridges', 'Marcus Ordonez', 'Manuel Ordonez'],
+          ['Dennis Freeman', 'Thomas Lasik', 'Chris Neff', 'John Hyers'],
+          ['Duane Harris', 'John Quimby', 'Chad Jones', 'Lance Darr'],
+          ['Joe Gillette', 'Tommy Knight', 'Josh Browne', 'Reny Butler']
         ])
       },
       {
@@ -1402,11 +1453,11 @@
         date: '2026-03-19',
         time: '09:09',
         teeTimes: buildTripSlots('09:09', [
-          ['Joe Gillette', 'Tommy Knight Sr', 'Chris Neff', 'Lance Darr'],
-          ['John Quimby', 'Delmar Christian', 'Josh Browne', 'Matt Shannon'],
-          ['Tommy Knight', 'Dennis Freeman', 'Reny Butler', 'Marcus Ordonez'],
-          ['Thomas Lasik', 'Jeremy Bridges', 'John Hyers', 'Chad Jones'],
-          ['Chris Manuel', 'Duane Harris', 'Caleb Hart', 'Manuel Ordonez']
+          ['Chris Manuel', 'Duane Harris', 'Lance Darr', 'Manuel Ordonez'],
+          ['Delmar Christian', 'Thomas Lasik', 'Chad Jones', 'John Hyers'],
+          ['Dennis Freeman', 'John Quimby', 'Marcus Ordonez', 'Reny Butler'],
+          ['Jeremy Bridges', 'Joe Gillette', 'Caleb Hart', 'Josh Browne'],
+          ['Tommy Knight', 'Tommy Knight Sr', 'Chris Neff', 'Matt Shannon']
         ])
       },
       {
@@ -1415,11 +1466,11 @@
         date: '2026-03-20',
         time: '08:26',
         teeTimes: buildTripSlots('08:26', [
-          ['Joe Gillette', 'Delmar Christian', 'Reny Butler', 'Matt Shannon'],
-          ['John Quimby', 'Jeremy Bridges', 'Caleb Hart', 'John Hyers'],
-          ['Tommy Knight', 'Tommy Knight Sr', 'Lance Darr', 'Chad Jones'],
-          ['Thomas Lasik', 'Chris Manuel', 'Josh Browne', 'Chris Neff'],
-          ['Dennis Freeman', 'Duane Harris', 'Marcus Ordonez', 'Manuel Ordonez']
+          ['Chris Manuel', 'Joe Gillette', 'Josh Browne', 'Lance Darr'],
+          ['Delmar Christian', 'Tommy Knight', 'Matt Shannon', 'Reny Butler'],
+          ['Dennis Freeman', 'Duane Harris', 'Chad Jones', 'Manuel Ordonez'],
+          ['Jeremy Bridges', 'John Quimby', 'Caleb Hart', 'John Hyers'],
+          ['Thomas Lasik', 'Tommy Knight Sr', 'Chris Neff', 'Marcus Ordonez']
         ])
       },
       {
@@ -1495,8 +1546,10 @@
     const competitionUiState = {
       scoreRoundIndex: 0,
       scorePlayerName: '',
+      selectedRyderPlayer: null,
       draggedRyderPlayer: null,
-      activeRyderDropKey: ''
+      activeRyderDropKey: '',
+      activeRyderDropTeamId: ''
     };
 
     const $ = (sel) => document.querySelector(sel);
@@ -1892,54 +1945,85 @@
     const getRyderCupTeamMeta = () => {
       const teams = Array.isArray(getRyderCupData()?.teams) ? getRyderCupData().teams : [];
       return {
-        teamA: teams.find((team) => String(team && team.id || '').trim().toLowerCase() === 'teama') || teams[0] || { id: 'teamA', name: 'Team A' },
-        teamB: teams.find((team) => String(team && team.id || '').trim().toLowerCase() === 'teamb') || teams[1] || { id: 'teamB', name: 'Team B' },
+        teamA: teams.find((team) => String(team && team.id || '').trim().toLowerCase() === 'teama') || teams[0] || { id: 'teamA', name: 'Team A', players: [] },
+        teamB: teams.find((team) => String(team && team.id || '').trim().toLowerCase() === 'teamb') || teams[1] || { id: 'teamB', name: 'Team B', players: [] },
       };
     };
-    const getTripSlotGroupNumber = (slot = {}, slotIndex = 0) => {
-      const label = String(slot && slot.label || '').trim();
-      const match = label.match(/(\d+)/);
-      const parsed = match ? Number(match[1]) : NaN;
-      return Number.isInteger(parsed) && parsed > 0 ? parsed : (slotIndex + 1);
-    };
+    const getRyderCupTeamPlayerNames = (team = {}) => (
+      Array.isArray(team.players)
+        ? team.players
+          .map((entry) => (typeof entry === 'string' ? entry : String(entry && entry.name || '').trim()))
+          .filter(Boolean)
+        : []
+    );
     function buildTripRyderCupSlotGuide(roundIndex, slot = {}, slotIndex = 0) {
       const ryderRound = getRyderCupRoundMeta(roundIndex);
-      if (!ryderRound) return null;
-      const groupNumber = getTripSlotGroupNumber(slot, slotIndex);
+      const slotPlayers = Array.isArray(slot.players) ? slot.players.map((name) => String(name || '').trim()).filter(Boolean) : [];
+      if (!ryderRound || !slotPlayers.length) return null;
       const groups = Array.isArray(ryderRound?.plan?.groups) ? ryderRound.plan.groups : [];
-      const group = groups.find((entry) => Number(entry && entry.groupNumber) === groupNumber);
-      if (!group) return null;
+      const slotPlayerKeys = slotPlayers.map((name) => normalizeNameKey(name)).filter(Boolean).sort();
+      const group = groups.find((entry) => {
+        const groupKeys = Array.isArray(entry && entry.players)
+          ? entry.players.map((name) => normalizeNameKey(name)).filter(Boolean).sort()
+          : [];
+        return groupKeys.length === slotPlayerKeys.length && groupKeys.every((key, index) => key === slotPlayerKeys[index]);
+      }) || null;
       const { teamA, teamB } = getRyderCupTeamMeta();
+      const teamAKeySet = new Set(getRyderCupTeamPlayerNames(teamA).map((name) => normalizeNameKey(name)).filter(Boolean));
+      const teamBKeySet = new Set(getRyderCupTeamPlayerNames(teamB).map((name) => normalizeNameKey(name)).filter(Boolean));
       const playerMetaByName = new Map();
-      const addPlayers = (players = [], sideKey = 'teamA', teamName = 'Team A') => {
-        players.forEach((name) => {
-          const key = normalizeNameKey(name);
-          if (!key) return;
+      const teamAPlayersInSlot = [];
+      const teamBPlayersInSlot = [];
+      const unassignedPlayersInSlot = [];
+      slotPlayers.forEach((name) => {
+        const key = normalizeNameKey(name);
+        if (!key) return;
+        if (teamAKeySet.has(key)) {
+          teamAPlayersInSlot.push(name);
           playerMetaByName.set(key, {
-            sideKey,
-            sideClass: sideKey === 'teamA' ? 'team-a' : 'team-b',
-            sideBadge: sideKey === 'teamA' ? 'A' : 'B',
-            sideName: teamName,
+            sideKey: 'teamA',
+            sideClass: 'team-a',
+            sideBadge: 'A',
+            sideName: teamA.name || 'Team A',
           });
-        });
-      };
-      addPlayers(group.teamAPlayers || [], 'teamA', teamA.name || 'Team A');
-      addPlayers(group.teamBPlayers || [], 'teamB', teamB.name || 'Team B');
-      const matchupLines = Array.isArray(group.pairings) && group.pairings.length > 1
+          return;
+        }
+        if (teamBKeySet.has(key)) {
+          teamBPlayersInSlot.push(name);
+          playerMetaByName.set(key, {
+            sideKey: 'teamB',
+            sideClass: 'team-b',
+            sideBadge: 'B',
+            sideName: teamB.name || 'Team B',
+          });
+          return;
+        }
+        unassignedPlayersInSlot.push(name);
+      });
+      const matchupLines = group && Array.isArray(group.pairings) && group.pairings.length > 0
         ? group.pairings.map((pairing, pairingIndex) => ({
             type: 'matchup',
             label: pairing.label || `Match ${pairingIndex + 1}`,
             players: `${(pairing.teamAPlayers || []).join(' / ') || 'TBD'} vs ${(pairing.teamBPlayers || []).join(' / ') || 'TBD'}`,
           }))
         : [];
+      const teamLines = [
+        { type: 'team-a', label: teamA.name || 'Team A', players: teamAPlayersInSlot.join(', ') || 'Nobody in this tee time' },
+        { type: 'team-b', label: teamB.name || 'Team B', players: teamBPlayersInSlot.join(', ') || 'Nobody in this tee time' },
+      ];
+      if (unassignedPlayersInSlot.length) {
+        teamLines.push({
+          type: 'matchup',
+          label: 'Unmapped',
+          players: unassignedPlayersInSlot.join(', '),
+        });
+      }
       return {
-        groupNumber,
-        groupLabel: group.label || `Foursome ${groupNumber}`,
-        playStyle: group.playStyle || ryderRound.format || '',
-        teamLines: [
-          { type: 'team-a', label: teamA.name || 'Team A', players: (group.teamAPlayers || []).join(', ') || 'Not assigned' },
-          { type: 'team-b', label: teamB.name || 'Team B', players: (group.teamBPlayers || []).join(', ') || 'Not assigned' },
-        ],
+        groupNumber: group ? Number(group.groupNumber) || (slotIndex + 1) : (slotIndex + 1),
+        groupLabel: group ? (group.label || `Foursome ${group.groupNumber || slotIndex + 1}`) : (String(slot.label || `TT#${slotIndex + 1}`).trim() || `TT#${slotIndex + 1}`),
+        playStyle: (group && group.playStyle) || ryderRound.format || '',
+        title: group ? 'Ryder Cup matchup' : 'Ryder Cup sides',
+        teamLines,
         matchupLines,
         playerMetaByName,
       };
@@ -1950,7 +2034,7 @@
       return `
         <div class="trip-slot-ryder">
           <div class="trip-slot-ryder-head">
-            <span class="trip-slot-ryder-title">Ryder Cup teams</span>
+            <span class="trip-slot-ryder-title">${escapeHtml(guide.title || 'Ryder Cup sides')}</span>
             <span>${escapeHtml(guide.playStyle || guide.groupLabel || '')}</span>
           </div>
           <div class="trip-slot-ryder-lines">
@@ -1977,6 +2061,217 @@
       if (normalized.toLowerCase() === 'singles net total match') return 'Singles Gross Total Match';
       return getDefaultRyderCupPlayStyle(format);
     };
+    const normalizeRoundWeather = (weather = null) => {
+      if (!weather || typeof weather !== 'object') return null;
+      return {
+        condition: String(weather.condition || '').trim(),
+        icon: String(weather.icon || '').trim(),
+        temp: Number.isFinite(Number(weather.temp)) ? Math.round(Number(weather.temp)) : null,
+        tempLow: Number.isFinite(Number(weather.tempLow)) ? Math.round(Number(weather.tempLow)) : null,
+        tempHigh: Number.isFinite(Number(weather.tempHigh)) ? Math.round(Number(weather.tempHigh)) : null,
+        rainChance: Number.isFinite(Number(weather.rainChance)) ? Math.round(Number(weather.rainChance)) : null,
+        description: String(weather.description || '').trim(),
+      };
+    };
+    const getTripWeatherIcon = (weatherCode = null) => {
+      const code = Number(weatherCode);
+      if (code === 0) return { icon: '☀️', description: 'Clear sky' };
+      if (code === 1) return { icon: '🌤️', description: 'Mainly clear' };
+      if (code === 2) return { icon: '⛅', description: 'Partly cloudy' };
+      if (code === 3) return { icon: '☁️', description: 'Overcast' };
+      if (code >= 45 && code <= 48) return { icon: '🌫️', description: 'Foggy' };
+      if (code >= 51 && code <= 67) return { icon: '🌧️', description: 'Rainy' };
+      if (code >= 71 && code <= 77) return { icon: '🌨️', description: 'Snow' };
+      if (code >= 80 && code <= 82) return { icon: '🌦️', description: 'Rain showers' };
+      if (code >= 95) return { icon: '⛈️', description: 'Thunderstorm' };
+      return { icon: '🌤️', description: 'Forecast unavailable' };
+    };
+    const uniqueTripWeatherQueries = (queries = []) => {
+      const seen = new Set();
+      return queries.reduce((list, query) => {
+        const normalized = String(query || '').trim().replace(/\s+/g, ' ');
+        if (!normalized) return list;
+        const key = normalized.toLowerCase();
+        if (seen.has(key)) return list;
+        seen.add(key);
+        list.push(normalized);
+        return list;
+      }, []);
+    };
+    const getTripRoundWeatherCacheKey = (round = {}) => {
+      const dateKey = toIsoDate(round && round.date);
+      const locationKey = String((round && (round.address || round.course)) || '').trim().toLowerCase();
+      if (!dateKey || !locationKey) return '';
+      return `${dateKey}::${locationKey}`;
+    };
+    const getTripRoundWeatherSnapshot = (round = {}) => {
+      const cacheKey = getTripRoundWeatherCacheKey(round);
+      if (cacheKey && tripRoundWeatherState.cache.has(cacheKey)) {
+        return tripRoundWeatherState.cache.get(cacheKey);
+      }
+      return normalizeRoundWeather(round && round.weather);
+    };
+    async function geocodeTripRoundWeather(query = '') {
+      const normalized = String(query || '').trim().replace(/\s+/g, ' ');
+      if (!normalized) return null;
+      const cacheKey = normalized.toLowerCase();
+      if (tripRoundWeatherState.geocodeCache.has(cacheKey)) {
+        return tripRoundWeatherState.geocodeCache.get(cacheKey);
+      }
+      try {
+        const response = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(normalized)}&count=5&language=en&format=json`);
+        if (!response.ok) throw new Error(`Geocoding HTTP ${response.status}`);
+        const payload = await response.json();
+        const results = Array.isArray(payload && payload.results) ? payload.results : [];
+        const usMatch = results.find((entry) => String(entry.country_code || '').toUpperCase() === 'US' && Number.isFinite(Number(entry.latitude)) && Number.isFinite(Number(entry.longitude)));
+        const fallbackMatch = results.find((entry) => Number.isFinite(Number(entry.latitude)) && Number.isFinite(Number(entry.longitude)));
+        const best = usMatch || fallbackMatch || null;
+        const coords = best ? {
+          lat: Number(best.latitude),
+          lon: Number(best.longitude),
+        } : null;
+        tripRoundWeatherState.geocodeCache.set(cacheKey, coords);
+        return coords;
+      } catch (_error) {
+        tripRoundWeatherState.geocodeCache.set(cacheKey, null);
+        return null;
+      }
+    }
+    async function resolveTripRoundWeatherCoordinates(round = {}) {
+      const queries = uniqueTripWeatherQueries([
+        round && round.address,
+        [round && round.course, round && round.address].filter(Boolean).join(', '),
+        round && round.course ? `${round.course}, Myrtle Beach, SC` : '',
+        round && round.course ? `${round.course}, South Carolina` : '',
+      ]);
+      for (let index = 0; index < queries.length; index += 1) {
+        const coords = await geocodeTripRoundWeather(queries[index]);
+        if (coords) return coords;
+      }
+      return null;
+    }
+    async function fetchTripRoundWeather(round = {}) {
+      const dateKey = toIsoDate(round && round.date);
+      if (!dateKey) {
+        return {
+          icon: '⛅',
+          description: 'Forecast unavailable',
+          condition: 'unknown',
+          temp: null,
+          tempLow: null,
+          tempHigh: null,
+          rainChance: null,
+        };
+      }
+      const roundDate = new Date(`${dateKey}T12:00:00`);
+      const today = new Date();
+      const daysAhead = Math.ceil((roundDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+      if (daysAhead > 16) {
+        return {
+          icon: '⛅',
+          description: 'Forecast closer to date',
+          condition: 'future',
+          temp: null,
+          tempLow: null,
+          tempHigh: null,
+          rainChance: null,
+        };
+      }
+      const coords = await resolveTripRoundWeatherCoordinates(round);
+      if (!coords) {
+        return {
+          icon: '⛅',
+          description: 'Weather unavailable',
+          condition: 'unknown',
+          temp: null,
+          tempLow: null,
+          tempHigh: null,
+          rainChance: null,
+        };
+      }
+      try {
+        const response = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${coords.lat}&longitude=${coords.lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&timezone=auto&start_date=${dateKey}&end_date=${dateKey}`);
+        if (!response.ok) throw new Error(`Forecast HTTP ${response.status}`);
+        const payload = await response.json();
+        const weatherCode = Array.isArray(payload && payload.daily && payload.daily.weather_code) ? payload.daily.weather_code[0] : null;
+        const tempHigh = Array.isArray(payload && payload.daily && payload.daily.temperature_2m_max) ? payload.daily.temperature_2m_max[0] : null;
+        const tempLow = Array.isArray(payload && payload.daily && payload.daily.temperature_2m_min) ? payload.daily.temperature_2m_min[0] : null;
+        const rainChance = Array.isArray(payload && payload.daily && payload.daily.precipitation_probability_max) ? payload.daily.precipitation_probability_max[0] : null;
+        const weatherIcon = getTripWeatherIcon(weatherCode);
+        return {
+          icon: weatherIcon.icon,
+          description: weatherIcon.description,
+          condition: String(weatherIcon.description || '').toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          temp: Number.isFinite(Number(tempHigh)) && Number.isFinite(Number(tempLow)) ? Math.round((Number(tempHigh) + Number(tempLow)) / 2) : null,
+          tempLow: Number.isFinite(Number(tempLow)) ? Math.round(Number(tempLow)) : null,
+          tempHigh: Number.isFinite(Number(tempHigh)) ? Math.round(Number(tempHigh)) : null,
+          rainChance: Number.isFinite(Number(rainChance)) ? Math.round(Number(rainChance)) : null,
+        };
+      } catch (_error) {
+        return {
+          icon: '⛅',
+          description: 'Weather unavailable',
+          condition: 'error',
+          temp: null,
+          tempLow: null,
+          tempHigh: null,
+          rainChance: null,
+        };
+      }
+    }
+    function ensureTripRoundWeather(round = {}) {
+      const cacheKey = getTripRoundWeatherCacheKey(round);
+      if (!cacheKey) return null;
+      const existingWeather = getTripRoundWeatherSnapshot(round);
+      if (existingWeather) {
+        tripRoundWeatherState.cache.set(cacheKey, existingWeather);
+        return Promise.resolve(existingWeather);
+      }
+      if (tripRoundWeatherState.inFlight.has(cacheKey)) {
+        return tripRoundWeatherState.inFlight.get(cacheKey);
+      }
+      const request = fetchTripRoundWeather(round)
+        .then((weather) => {
+          if (weather) tripRoundWeatherState.cache.set(cacheKey, weather);
+          return weather;
+        })
+        .finally(() => {
+          tripRoundWeatherState.inFlight.delete(cacheKey);
+        });
+      tripRoundWeatherState.inFlight.set(cacheKey, request);
+      return request;
+    }
+    async function loadTripRoundWeather(rounds = []) {
+      const requests = (rounds || []).map((round) => ensureTripRoundWeather(round)).filter(Boolean);
+      if (!requests.length) return;
+      await Promise.allSettled(requests);
+      renderTripSchedule(getTripRounds());
+    }
+    function renderTripRoundWeatherMarkup(round = {}) {
+      const weather = getTripRoundWeatherSnapshot(round);
+      const cacheKey = getTripRoundWeatherCacheKey(round);
+      const isLoading = cacheKey && tripRoundWeatherState.inFlight.has(cacheKey);
+      if (!weather && !isLoading) return '';
+      const icon = weather && weather.icon ? weather.icon : '⛅';
+      const details = [];
+      if (weather && Number.isFinite(Number(weather.tempLow)) && Number.isFinite(Number(weather.tempHigh))) {
+        details.push(`L${Math.round(Number(weather.tempLow))}\u00b0 / H${Math.round(Number(weather.tempHigh))}\u00b0`);
+      } else if (weather && Number.isFinite(Number(weather.temp))) {
+        details.push(`${Math.round(Number(weather.temp))}\u00b0F`);
+      }
+      if (weather && Number.isFinite(Number(weather.rainChance)) && Number(weather.rainChance) > 15) {
+        details.push(`Rain ${Math.round(Number(weather.rainChance))}%`);
+      }
+      const description = weather ? String(weather.description || weather.condition || '').trim() : '';
+      if (description) details.push(description);
+      const label = details.join(' • ') || (isLoading ? 'Forecast loading' : 'Forecast unavailable');
+      return `
+        <span class="trip-weather-pill${details.length ? '' : ' is-muted'}" title="${quoteAttr(label)}">
+          <span class="trip-weather-icon" aria-hidden="true">${escapeHtml(icon)}</span>
+          <span class="trip-weather-text">${escapeHtml(label)}</span>
+        </span>
+      `;
+    }
     const normalizeRoundSlot = (slot = {}, index = 0) => ({
       label: String(slot.label || `TT#${index + 1}`).trim() || `TT#${index + 1}`,
       time: toHHMM(slot.time),
@@ -2002,6 +2297,7 @@
         date: toIsoDate(raw.date),
         time: roundTime,
         confirmation: String(raw.confirmation || '').trim(),
+        weather: normalizeRoundWeather(raw.weather),
         teeTimes: normalizedSlots,
         unassignedPlayers
       };
@@ -2022,12 +2318,72 @@
       selectedDate: ''
     };
     const TRIP_TEE_SLOT_CAPACITY = 4;
+    const tripRoundWeatherState = {
+      cache: new Map(),
+      geocodeCache: new Map(),
+      inFlight: new Map()
+    };
     const tripTeeSheetState = {
       draggedPlayer: null,
       selectedPlayer: null,
       activeDropTarget: null,
       isSaving: false
     };
+    const DRAG_AUTO_SCROLL_EDGE_PX = 96;
+    const DRAG_AUTO_SCROLL_MAX_SPEED = 22;
+    const dragAutoScrollState = {
+      frameId: 0,
+      velocityX: 0,
+      velocityY: 0
+    };
+    const getDragAutoScrollVelocity = (position, viewportSize) => {
+      if (!Number.isFinite(position) || !Number.isFinite(viewportSize) || viewportSize <= 0) return 0;
+      const edgeDistance = Math.max(48, Math.min(DRAG_AUTO_SCROLL_EDGE_PX, Math.floor(viewportSize / 4)));
+      if (position < edgeDistance) {
+        const ratio = Math.min(1, (edgeDistance - position) / edgeDistance);
+        return -Math.max(6, Math.round(DRAG_AUTO_SCROLL_MAX_SPEED * ratio));
+      }
+      if (position > viewportSize - edgeDistance) {
+        const ratio = Math.min(1, (position - (viewportSize - edgeDistance)) / edgeDistance);
+        return Math.max(6, Math.round(DRAG_AUTO_SCROLL_MAX_SPEED * ratio));
+      }
+      return 0;
+    };
+    function stopDragAutoScroll() {
+      dragAutoScrollState.velocityX = 0;
+      dragAutoScrollState.velocityY = 0;
+      if (dragAutoScrollState.frameId) {
+        window.cancelAnimationFrame(dragAutoScrollState.frameId);
+        dragAutoScrollState.frameId = 0;
+      }
+    }
+    function runDragAutoScroll() {
+      if (!dragAutoScrollState.velocityX && !dragAutoScrollState.velocityY) {
+        dragAutoScrollState.frameId = 0;
+        return;
+      }
+      window.scrollBy(dragAutoScrollState.velocityX, dragAutoScrollState.velocityY);
+      dragAutoScrollState.frameId = window.requestAnimationFrame(runDragAutoScroll);
+    }
+    function updateDragAutoScroll(clientX, clientY) {
+      const nextVelocityX = getDragAutoScrollVelocity(
+        clientX,
+        window.innerWidth || document.documentElement.clientWidth || 0
+      );
+      const nextVelocityY = getDragAutoScrollVelocity(
+        clientY,
+        window.innerHeight || document.documentElement.clientHeight || 0
+      );
+      dragAutoScrollState.velocityX = nextVelocityX;
+      dragAutoScrollState.velocityY = nextVelocityY;
+      if (nextVelocityX || nextVelocityY) {
+        if (!dragAutoScrollState.frameId) {
+          dragAutoScrollState.frameId = window.requestAnimationFrame(runDragAutoScroll);
+        }
+        return;
+      }
+      stopDragAutoScroll();
+    }
     const getTripRounds = () => {
       const source = Array.isArray(trip?.rounds) && trip.rounds.length ? trip.rounds : DEFAULT_ROUNDS;
       return sortRounds(source.map(normalizeRound));
@@ -2098,6 +2454,7 @@
       }
     }
     function clearTripPointerState() {
+      stopDragAutoScroll();
       tripTeeSheetState.draggedPlayer = null;
       tripTeeSheetState.selectedPlayer = null;
       tripTeeSheetState.activeDropTarget = null;
@@ -2217,6 +2574,7 @@
       ]);
       participants = nextParticipants;
       competitionData = nextCompetition;
+      void loadTripRoundWeather(getTripRounds());
       renderAll();
     }
 
@@ -2514,7 +2872,12 @@
       return `
         <div class="ryder-team-grid">
           ${teams.map((team) => `
-            <div class="competition-admin-card">
+            <div
+              class="competition-admin-card ryder-team-card"
+              data-ryder-team-card="1"
+              data-ryder-team-id="${quoteAttr(team.id || '')}"
+              data-ryder-team-name="${quoteAttr(team.name || 'Team')}"
+            >
               <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
                 <strong>${escapeHtml(team.name || 'Team')}</strong>
                 <span class="competition-pill">${escapeHtml(formatCompetitionPoints(team.currentPoints || 0))} pts</span>
@@ -2544,7 +2907,7 @@
               </ul>
               <div class="competition-note">
                 Team balance note: ${escapeHtml(team.balanceNote || fairness.status || 'Very balanced')}
-                ${canEditTeams ? ' Drag a player onto someone on the other team to swap them before the first result is entered.' : ' Team rosters are locked because Ryder Cup results have already been entered.'}
+                ${canEditTeams ? ' Drag onto a player for a direct swap, or drag or tap on the other team card to choose the swap target, before the first result is entered.' : ' Team rosters are locked because Ryder Cup results have already been entered.'}
               </div>
             </div>
           `).join('')}
@@ -3074,6 +3437,7 @@
           ${renderCompetitionAdmin(competitionData.overview || {}, competitionData.rounds || [], competitionData.admin || {})}
         </div>
       `;
+      applyRyderCupTeamState();
     }
 
     const TRIP_ICS_DURATION_MINUTES = 270;
@@ -3401,6 +3765,15 @@
               ? `<a class="waze-link" href="${waze}" target="_blank" rel="noopener">${escapeHtml(courseLabel)}</a>`
               : escapeHtml(courseLabel);
             const firstTime = getRoundPrimaryTime(round);
+            const weatherMarkup = renderTripRoundWeatherMarkup(round);
+            const metaRowMarkup = (round.address || weatherMarkup)
+              ? `
+                <div class="trip-event-meta-row">
+                  ${round.address ? `<small class="trip-event-location">${escapeHtml(round.address)}</small>` : ''}
+                  ${weatherMarkup}
+                </div>
+              `
+              : '';
             const slotMarkup = (round.teeTimes || []).map((slot, slotIndex) => {
               const label = slot.label || `TT#${slotIndex + 1}`;
               const slotTarget = { roundIndex, containerType: 'slot', slotIndex };
@@ -3465,7 +3838,7 @@
                   <span class="trip-event-time">${escapeHtml(firstTime ? `First tee ${formatTime12(firstTime)}` : 'Time TBD')}</span>
                 </div>
                 ${ryderRound ? `<div class="competition-note" style="margin-top:6px;">${escapeHtml(ryderRound.title || `Round ${Number(roundIndex) + 1}`)} · ${escapeHtml(ryderRound.format || 'Myrtle Ryder Cup round')}</div>` : ''}
-                ${round.address ? `<small>${escapeHtml(round.address)}</small>` : ''}
+                ${metaRowMarkup}
                 ${slotMarkup ? `<div class="trip-slot-grid">${slotMarkup}</div>` : '<div class="trip-empty-state">No tee sheet entered.</div>'}
                 <div class="trip-unassigned-box trip-drop-target" data-trip-target="1" data-target-key="${makeTripTargetKey(unassignedTarget)}" data-container-type="unassigned" data-round-index="${roundIndex}">
                   <div class="trip-unassigned-head">
@@ -4063,11 +4436,113 @@
       await loadTrip();
     }
 
-    function clearRyderCupTeamDragState() {
-      competitionUiState.draggedRyderPlayer = null;
-      competitionUiState.activeRyderDropKey = '';
+    const sameRyderPlayer = (left, right) => Boolean(
+      left && right &&
+      left.playerName === right.playerName &&
+      left.teamId === right.teamId
+    );
+    const readRyderCupTeamPlayer = (element) => {
+      if (!element) return null;
+      const playerName = String(element.dataset.ryderPlayerName || '').trim();
+      const teamId = String(element.dataset.ryderTeamId || '').trim();
+      const dropKey = String(element.dataset.ryderDropKey || '').trim();
+      if (!playerName || !teamId || !dropKey) return null;
+      return { playerName, teamId, dropKey };
+    };
+    const readRyderCupTeamCard = (element) => {
+      const card = element && element.closest ? element.closest('[data-ryder-team-card]') : null;
+      if (!card) return null;
+      const teamId = String(card.dataset.ryderTeamId || '').trim();
+      const teamName = String(card.dataset.ryderTeamName || '').trim();
+      if (!teamId) return null;
+      return { teamId, teamName };
+    };
+    const findRyderCupTeamPlayerChip = (predicate) => {
+      const chips = Array.from(document.querySelectorAll('.ryder-player-chip[data-ryder-player-name]'));
+      return chips.find(predicate) || null;
+    };
+    const findRyderCupTeamCard = (predicate) => {
+      const cards = Array.from(document.querySelectorAll('.ryder-team-card[data-ryder-team-id]'));
+      return cards.find(predicate) || null;
+    };
+    const getRyderCupTeamById = (teamId = '') => {
+      const targetId = String(teamId || '').trim();
+      if (!targetId) return null;
+      const teams = Array.isArray(getRyderCupData()?.teams) ? getRyderCupData().teams : [];
+      return teams.find((team) => String((team && team.id) || '').trim() === targetId) || null;
+    };
+    function promptForRyderCupSwapTarget(sourcePlayer = null, targetTeamId = '') {
+      const sourceName = String((sourcePlayer && sourcePlayer.playerName) || '').trim();
+      const sourceTeamId = String((sourcePlayer && sourcePlayer.teamId) || '').trim();
+      const team = getRyderCupTeamById(targetTeamId);
+      if (!sourceName || !team) return null;
+      const teamId = String(team.id || '').trim();
+      if (!teamId || teamId === sourceTeamId) return null;
+      const candidates = (team.players || []).map((player) => ({
+        name: String((player && player.name) || '').trim(),
+        rank: String((player && player.rank) || '').trim()
+      })).filter((player) => player.name);
+      if (!candidates.length) return null;
+      const promptLines = [
+        `Swap ${sourceName} with who on ${team.name || 'that team'}?`,
+        '',
+        ...candidates.map((player, index) => `${index + 1}. ${player.name}${player.rank ? ` (#${player.rank})` : ''}`),
+        '',
+        'Enter the number or player name.'
+      ];
+      while (true) {
+        const answer = window.prompt(promptLines.join('\n'), '1');
+        if (answer === null) return null;
+        const value = String(answer || '').trim();
+        if (!value) return null;
+        const optionIndex = Number(value);
+        if (Number.isInteger(optionIndex) && optionIndex >= 1 && optionIndex <= candidates.length) {
+          return candidates[optionIndex - 1].name;
+        }
+        const normalizedValue = normalizeNameKey(value);
+        const matchedPlayer = candidates.find((player) => normalizeNameKey(player.name) === normalizedValue);
+        if (matchedPlayer) return matchedPlayer.name;
+        alert(`Enter 1-${candidates.length} or one of these names: ${candidates.map((player) => player.name).join(', ')}`);
+      }
+    }
+    function applyRyderCupTeamState() {
+      document.querySelectorAll('.ryder-team-card.is-drop-target').forEach((node) => node.classList.remove('is-drop-target'));
+      document.querySelectorAll('.ryder-player-chip.is-selected').forEach((node) => node.classList.remove('is-selected'));
       document.querySelectorAll('.ryder-player-chip.is-dragging').forEach((node) => node.classList.remove('is-dragging'));
       document.querySelectorAll('.ryder-player-chip.is-drop-target').forEach((node) => node.classList.remove('is-drop-target'));
+
+      if (competitionUiState.selectedRyderPlayer) {
+        const selectedChip = findRyderCupTeamPlayerChip((node) =>
+          sameRyderPlayer(readRyderCupTeamPlayer(node), competitionUiState.selectedRyderPlayer)
+        );
+        if (selectedChip) selectedChip.classList.add('is-selected');
+      }
+      if (competitionUiState.draggedRyderPlayer) {
+        const draggedChip = findRyderCupTeamPlayerChip((node) =>
+          sameRyderPlayer(readRyderCupTeamPlayer(node), competitionUiState.draggedRyderPlayer)
+        );
+        if (draggedChip) draggedChip.classList.add('is-dragging');
+      }
+      if (competitionUiState.activeRyderDropTeamId) {
+        const dropTargetCard = findRyderCupTeamCard((node) =>
+          String(node.dataset.ryderTeamId || '').trim() === competitionUiState.activeRyderDropTeamId
+        );
+        if (dropTargetCard) dropTargetCard.classList.add('is-drop-target');
+      }
+      if (competitionUiState.activeRyderDropKey) {
+        const dropTargetChip = findRyderCupTeamPlayerChip((node) =>
+          String(node.dataset.ryderDropKey || '').trim() === competitionUiState.activeRyderDropKey
+        );
+        if (dropTargetChip) dropTargetChip.classList.add('is-drop-target');
+      }
+    }
+    function clearRyderCupTeamDragState() {
+      stopDragAutoScroll();
+      competitionUiState.selectedRyderPlayer = null;
+      competitionUiState.draggedRyderPlayer = null;
+      competitionUiState.activeRyderDropKey = '';
+      competitionUiState.activeRyderDropTeamId = '';
+      applyRyderCupTeamState();
     }
 
     async function saveRyderCupTeamSwap(playerName, targetPlayerName) {
@@ -4175,9 +4650,22 @@
       });
     }
 
+    document.addEventListener('dragover', function (event) {
+      if (!tripTeeSheetState.draggedPlayer && !competitionUiState.draggedRyderPlayer) return;
+      updateDragAutoScroll(event.clientX, event.clientY);
+    });
+
+    document.addEventListener('drop', function () {
+      stopDragAutoScroll();
+    });
+
     document.addEventListener('keydown', function (event) {
-      if (event.key === 'Escape' && (tripTeeSheetState.selectedPlayer || tripTeeSheetState.draggedPlayer || tripTeeSheetState.activeDropTarget)) {
+      if (event.key !== 'Escape') return;
+      if (tripTeeSheetState.selectedPlayer || tripTeeSheetState.draggedPlayer || tripTeeSheetState.activeDropTarget) {
         clearTripPointerState();
+      }
+      if (competitionUiState.selectedRyderPlayer || competitionUiState.draggedRyderPlayer || competitionUiState.activeRyderDropKey || competitionUiState.activeRyderDropTeamId) {
+        clearRyderCupTeamDragState();
       }
     });
 
@@ -4188,15 +4676,16 @@
         if (ryderPlayerChip) {
           const ryderCup = getRyderCupData();
           if (!ryderCup || !ryderCup.canEditTeams) return;
-          const playerName = String(ryderPlayerChip.dataset.ryderPlayerName || '').trim();
-          const teamId = String(ryderPlayerChip.dataset.ryderTeamId || '').trim();
-          const dropKey = String(ryderPlayerChip.dataset.ryderDropKey || '').trim();
-          if (!playerName || !teamId || !dropKey) return;
-          competitionUiState.draggedRyderPlayer = { playerName, teamId, dropKey };
-          ryderPlayerChip.classList.add('is-dragging');
+          const selectedPlayer = readRyderCupTeamPlayer(ryderPlayerChip);
+          if (!selectedPlayer) return;
+          competitionUiState.selectedRyderPlayer = null;
+          competitionUiState.draggedRyderPlayer = selectedPlayer;
+          competitionUiState.activeRyderDropKey = '';
+          competitionUiState.activeRyderDropTeamId = '';
+          applyRyderCupTeamState();
           if (event.dataTransfer) {
             event.dataTransfer.effectAllowed = 'move';
-            event.dataTransfer.setData('text/plain', playerName);
+            event.dataTransfer.setData('text/plain', selectedPlayer.playerName);
           }
           return;
         }
@@ -4205,17 +4694,26 @@
       competitionBox.addEventListener('dragover', function (event) {
         if (competitionUiState.draggedRyderPlayer) {
           const targetPlayer = event.target.closest('[data-ryder-player-name]');
-          if (!targetPlayer) return;
-          const targetTeamId = String(targetPlayer.dataset.ryderTeamId || '').trim();
-          const targetName = String(targetPlayer.dataset.ryderPlayerName || '').trim();
-          const targetKey = String(targetPlayer.dataset.ryderDropKey || '').trim();
-          if (!targetName || !targetTeamId || !targetKey) return;
-          if (targetTeamId === competitionUiState.draggedRyderPlayer.teamId || targetKey === competitionUiState.draggedRyderPlayer.dropKey) return;
+          if (targetPlayer) {
+            const targetData = readRyderCupTeamPlayer(targetPlayer);
+            if (!targetData) return;
+            const { teamId: targetTeamId, dropKey: targetKey } = targetData;
+            if (targetTeamId === competitionUiState.draggedRyderPlayer.teamId || targetKey === competitionUiState.draggedRyderPlayer.dropKey) return;
+            event.preventDefault();
+            if (competitionUiState.activeRyderDropKey !== targetKey || competitionUiState.activeRyderDropTeamId !== targetTeamId) {
+              competitionUiState.activeRyderDropKey = targetKey;
+              competitionUiState.activeRyderDropTeamId = targetTeamId;
+              applyRyderCupTeamState();
+            }
+            return;
+          }
+          const targetTeamCard = readRyderCupTeamCard(event.target);
+          if (!targetTeamCard || targetTeamCard.teamId === competitionUiState.draggedRyderPlayer.teamId) return;
           event.preventDefault();
-          if (competitionUiState.activeRyderDropKey !== targetKey) {
-            competitionUiState.activeRyderDropKey = targetKey;
-            document.querySelectorAll('.ryder-player-chip.is-drop-target').forEach((node) => node.classList.remove('is-drop-target'));
-            targetPlayer.classList.add('is-drop-target');
+          if (competitionUiState.activeRyderDropTeamId !== targetTeamCard.teamId || competitionUiState.activeRyderDropKey) {
+            competitionUiState.activeRyderDropKey = '';
+            competitionUiState.activeRyderDropTeamId = targetTeamCard.teamId;
+            applyRyderCupTeamState();
           }
           return;
         }
@@ -4228,24 +4726,62 @@
             ? event.relatedTarget.closest('[data-ryder-player-name]')
             : null;
           if (relatedTarget === targetPlayer) return;
-          targetPlayer.classList.remove('is-drop-target');
+          const targetTeamCard = targetPlayer.closest('[data-ryder-team-card]');
+          const relatedTeamCard = event.relatedTarget && event.relatedTarget.closest
+            ? event.relatedTarget.closest('[data-ryder-team-card]')
+            : null;
+          if (relatedTeamCard === targetTeamCard) return;
           if (competitionUiState.activeRyderDropKey === String(targetPlayer.dataset.ryderDropKey || '')) {
             competitionUiState.activeRyderDropKey = '';
+            competitionUiState.activeRyderDropTeamId = '';
+            applyRyderCupTeamState();
           }
           return;
+        }
+        const targetTeamCard = event.target.closest('[data-ryder-team-card]');
+        if (!targetTeamCard) return;
+        const targetTeam = readRyderCupTeamCard(targetTeamCard);
+        if (!targetTeam) return;
+        const relatedTeamCard = event.relatedTarget && event.relatedTarget.closest
+          ? event.relatedTarget.closest('[data-ryder-team-card]')
+          : null;
+        if (relatedTeamCard === targetTeamCard) return;
+        if (competitionUiState.activeRyderDropTeamId === targetTeam.teamId) {
+          competitionUiState.activeRyderDropKey = '';
+          competitionUiState.activeRyderDropTeamId = '';
+          applyRyderCupTeamState();
         }
       });
 
       competitionBox.addEventListener('drop', async function (event) {
         if (competitionUiState.draggedRyderPlayer) {
           const targetPlayer = event.target.closest('[data-ryder-player-name]');
-          if (!targetPlayer) return;
-          event.preventDefault();
-          const targetName = String(targetPlayer.dataset.ryderPlayerName || '').trim();
-          const targetTeamId = String(targetPlayer.dataset.ryderTeamId || '').trim();
           const dragged = competitionUiState.draggedRyderPlayer;
+          if (targetPlayer) {
+            event.preventDefault();
+            const targetData = readRyderCupTeamPlayer(targetPlayer);
+            if (!targetData) {
+              clearRyderCupTeamDragState();
+              return;
+            }
+            const { playerName: targetName, teamId: targetTeamId } = targetData;
+            clearRyderCupTeamDragState();
+            if (!targetName || !targetTeamId || targetTeamId === dragged.teamId) return;
+            try {
+              await saveRyderCupTeamSwap(dragged.playerName, targetName);
+            } catch (error) {
+              console.error(error);
+              alert(`Competition save failed: ${error.message || 'Unknown error'}`);
+            }
+            return;
+          }
+          const targetTeamCard = readRyderCupTeamCard(event.target);
+          if (!targetTeamCard) return;
+          event.preventDefault();
           clearRyderCupTeamDragState();
-          if (!targetName || !targetTeamId || targetTeamId === dragged.teamId) return;
+          if (!targetTeamCard.teamId || targetTeamCard.teamId === dragged.teamId) return;
+          const targetName = promptForRyderCupSwapTarget(dragged, targetTeamCard.teamId);
+          if (!targetName) return;
           try {
             await saveRyderCupTeamSwap(dragged.playerName, targetName);
           } catch (error) {
@@ -4274,6 +4810,8 @@
       });
 
       competitionBox.addEventListener('click', async function (event) {
+        const ryderPlayerChip = event.target.closest('[data-ryder-player-name]');
+        const ryderTeamCard = !ryderPlayerChip ? readRyderCupTeamCard(event.target) : null;
         const modeButton = event.target.closest('[data-save-competition-mode]');
         const handicapButton = event.target.closest('[data-save-handicaps]');
         const scoreButton = event.target.closest('[data-save-round-scores]');
@@ -4283,6 +4821,37 @@
         const ryderSettingsButton = event.target.closest('[data-save-ryder-settings]');
 
         try {
+          if (ryderPlayerChip) {
+            const ryderCup = getRyderCupData();
+            if (!ryderCup || !ryderCup.canEditTeams) return;
+            const targetPlayer = readRyderCupTeamPlayer(ryderPlayerChip);
+            if (!targetPlayer) return;
+            if (sameRyderPlayer(competitionUiState.selectedRyderPlayer, targetPlayer)) {
+              clearRyderCupTeamDragState();
+              return;
+            }
+            if (!competitionUiState.selectedRyderPlayer || competitionUiState.selectedRyderPlayer.teamId === targetPlayer.teamId) {
+              competitionUiState.selectedRyderPlayer = targetPlayer;
+              competitionUiState.draggedRyderPlayer = null;
+              competitionUiState.activeRyderDropKey = '';
+              competitionUiState.activeRyderDropTeamId = '';
+              applyRyderCupTeamState();
+              return;
+            }
+            const sourcePlayer = competitionUiState.selectedRyderPlayer;
+            clearRyderCupTeamDragState();
+            await saveRyderCupTeamSwap(sourcePlayer.playerName, targetPlayer.playerName);
+            return;
+          }
+          if (ryderTeamCard && competitionUiState.selectedRyderPlayer) {
+            const sourcePlayer = competitionUiState.selectedRyderPlayer;
+            if (!sourcePlayer || ryderTeamCard.teamId === sourcePlayer.teamId) return;
+            const targetName = promptForRyderCupSwapTarget(sourcePlayer, ryderTeamCard.teamId);
+            clearRyderCupTeamDragState();
+            if (!targetName) return;
+            await saveRyderCupTeamSwap(sourcePlayer.playerName, targetName);
+            return;
+          }
           if (modeButton) {
             await saveCompetitionMode();
             return;
