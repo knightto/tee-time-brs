@@ -2,15 +2,12 @@ function copyPlayers(players = []) {
   return players.map((player) => ({ ...player }));
 }
 
-const MYRTLE_RYDER_CUP_SCHEDULE_VERSION = '2026-03-13-even-match-seed';
+const MYRTLE_RYDER_CUP_SCHEDULE_VERSION = '2026-03-16-net-total-ryder-card-v3';
 
 function getDefaultRoundPlayStyle(format = '') {
   const normalized = String(format || '').trim().toLowerCase();
-  if (normalized.includes('singles')) return 'Singles Match Play';
-  if (normalized.includes('1-2-3')) return '1-2-3 Team Game';
-  if (normalized.includes('two-man combined')) return 'Two-Man Combined Score';
-  if (normalized.includes('best ball stroke')) return 'Best Ball Stroke Play';
-  if (normalized.includes('four-ball')) return 'Four-Ball Match Play';
+  if (normalized.includes('singles')) return 'Singles Net Total Match';
+  if (normalized.includes('net total')) return 'Two-Man Net Total Match';
   return 'Own Ball Pod';
 }
 
@@ -143,135 +140,135 @@ const MYRTLE_RYDER_CUP_REQUESTED_GROUPINGS = [
 const MYRTLE_RYDER_CUP_ROUND_SEEDS = [
   {
     title: 'Round 1',
-    format: 'Four-Ball Match Play',
-    formatKey: 'fourBallMatch',
+    format: 'Two-Man Net Total Match',
+    formatKey: 'netTeamMatch',
     resultMode: 'match',
     pointValue: 1,
-    description: '2-man teams, both players play their own ball, and the better ball on each hole wins the hole for match play.',
-    entrySummary: 'Select Team A, Team B, or Halved for each match.',
+    description: '2-man teams, every golfer posts one gross total for the day, net totals are calculated from handicaps, and the lower combined net side wins the point.',
+    entrySummary: 'Enter one gross 18-hole total for every golfer. Net team totals and match winners are calculated automatically.',
     matches: [
       {
         groupNumber: 1,
-        teamAPlayers: ['Joe Gillette', 'Dennis Freeman'],
-        teamBPlayers: ['Reny Butler', 'Lance Darr'],
-        notes: 'Requested grouping: Dennis Freeman / Reny Butler.',
+        teamAPlayers: ['Joe Gillette', 'Duane Harris'],
+        teamBPlayers: ['Josh Browne', 'Manuel Ordonez'],
+        notes: '',
       },
       {
         groupNumber: 2,
-        teamAPlayers: ['John Quimby', 'Chris Manuel'],
-        teamBPlayers: ['Josh Browne', 'John Hyers'],
+        teamAPlayers: ['John Quimby', 'Tommy Knight Sr'],
+        teamBPlayers: ['Lance Darr', 'Marcus Ordonez'],
         notes: '',
       },
       {
         groupNumber: 3,
-        teamAPlayers: ['Tommy Knight', 'Delmar Christian'],
-        teamBPlayers: ['Caleb Hart', 'Chris Neff'],
-        notes: '',
+        teamAPlayers: ['Tommy Knight', 'Jeremy Bridges'],
+        teamBPlayers: ['Reny Butler', 'Chad Jones'],
+        notes: 'Requested grouping: Tommy Knight Jr / Reny Butler.',
       },
       {
         groupNumber: 4,
-        teamAPlayers: ['Thomas Lasik', 'Duane Harris'],
-        teamBPlayers: ['Marcus Ordonez', 'Chad Jones'],
+        teamAPlayers: ['Thomas Lasik', 'Delmar Christian'],
+        teamBPlayers: ['John Hyers', 'Matt Shannon'],
         notes: '',
       },
       {
         groupNumber: 5,
-        teamAPlayers: ['Jeremy Bridges', 'Tommy Knight Sr'],
-        teamBPlayers: ['Matt Shannon', 'Manuel Ordonez'],
+        teamAPlayers: ['Chris Manuel', 'Dennis Freeman'],
+        teamBPlayers: ['Caleb Hart', 'Chris Neff'],
         notes: '',
       },
     ],
   },
   {
     title: 'Round 2',
-    format: 'Best Ball Stroke Play',
-    formatKey: 'bestBallStroke',
+    format: 'Two-Man Net Total Match',
+    formatKey: 'netTeamMatch',
     resultMode: 'match',
     pointValue: 1,
-    description: '2-man teams, everyone plays their own ball, and the lower best-ball team total wins the point.',
-    entrySummary: 'Enter optional player totals for reference and the team best-ball total for each side, or select the winner directly.',
+    description: '2-man teams, every golfer posts one gross total for the day, net totals are calculated from handicaps, and the lower combined net side wins the point.',
+    entrySummary: 'Enter one gross 18-hole total for every golfer. Net team totals and match winners are calculated automatically.',
     matches: [
       {
         groupNumber: 1,
-        teamAPlayers: ['Joe Gillette', 'Dennis Freeman'],
-        teamBPlayers: ['Josh Browne', 'Chris Neff'],
+        teamAPlayers: ['Joe Gillette', 'Tommy Knight Sr'],
+        teamBPlayers: ['Chris Neff', 'Lance Darr'],
         notes: '',
       },
       {
         groupNumber: 2,
-        teamAPlayers: ['John Quimby', 'Jeremy Bridges'],
-        teamBPlayers: ['John Hyers', 'Caleb Hart'],
+        teamAPlayers: ['John Quimby', 'Delmar Christian'],
+        teamBPlayers: ['Josh Browne', 'Matt Shannon'],
         notes: '',
       },
       {
         groupNumber: 3,
-        teamAPlayers: ['Tommy Knight', 'Delmar Christian'],
-        teamBPlayers: ['Reny Butler', 'Matt Shannon'],
-        notes: 'Requested grouping: Tommy Knight Jr / Reny Butler.',
+        teamAPlayers: ['Tommy Knight', 'Dennis Freeman'],
+        teamBPlayers: ['Reny Butler', 'Marcus Ordonez'],
+        notes: 'Requested grouping: Dennis Freeman / Reny Butler.',
       },
       {
         groupNumber: 4,
-        teamAPlayers: ['Thomas Lasik', 'Duane Harris'],
-        teamBPlayers: ['Marcus Ordonez', 'Chad Jones'],
+        teamAPlayers: ['Thomas Lasik', 'Jeremy Bridges'],
+        teamBPlayers: ['John Hyers', 'Chad Jones'],
         notes: '',
       },
       {
         groupNumber: 5,
-        teamAPlayers: ['Chris Manuel', 'Tommy Knight Sr'],
-        teamBPlayers: ['Lance Darr', 'Manuel Ordonez'],
+        teamAPlayers: ['Chris Manuel', 'Duane Harris'],
+        teamBPlayers: ['Caleb Hart', 'Manuel Ordonez'],
         notes: '',
       },
     ],
   },
   {
     title: 'Round 3',
-    format: 'Two-Man Combined Score',
-    formatKey: 'combinedScore',
+    format: 'Two-Man Net Total Match',
+    formatKey: 'netTeamMatch',
     resultMode: 'match',
     pointValue: 1,
-    description: '2-man teams, everyone plays their own ball, and both player totals count toward the side score.',
-    entrySummary: 'Enter both player totals to auto-build the team score, or enter the combined team totals directly.',
+    description: '2-man teams, every golfer posts one gross total for the day, net totals are calculated from handicaps, and the lower combined net side wins the point.',
+    entrySummary: 'Enter one gross 18-hole total for every golfer. Net team totals and match winners are calculated automatically.',
     matches: [
       {
         groupNumber: 1,
-        teamAPlayers: ['Joe Gillette', 'Thomas Lasik'],
-        teamBPlayers: ['Josh Browne', 'Reny Butler'],
+        teamAPlayers: ['Joe Gillette', 'Delmar Christian'],
+        teamBPlayers: ['Reny Butler', 'Matt Shannon'],
         notes: '',
       },
       {
         groupNumber: 2,
         teamAPlayers: ['John Quimby', 'Jeremy Bridges'],
-        teamBPlayers: ['John Hyers', 'Caleb Hart'],
+        teamBPlayers: ['Caleb Hart', 'John Hyers'],
         notes: '',
       },
       {
         groupNumber: 3,
-        teamAPlayers: ['Tommy Knight', 'Delmar Christian'],
-        teamBPlayers: ['Lance Darr', 'Marcus Ordonez'],
+        teamAPlayers: ['Tommy Knight', 'Tommy Knight Sr'],
+        teamBPlayers: ['Lance Darr', 'Chad Jones'],
         notes: '',
       },
       {
         groupNumber: 4,
-        teamAPlayers: ['Chris Manuel', 'Tommy Knight Sr'],
-        teamBPlayers: ['Chris Neff', 'Matt Shannon'],
+        teamAPlayers: ['Thomas Lasik', 'Chris Manuel'],
+        teamBPlayers: ['Josh Browne', 'Chris Neff'],
         notes: '',
       },
       {
         groupNumber: 5,
         teamAPlayers: ['Dennis Freeman', 'Duane Harris'],
-        teamBPlayers: ['Chad Jones', 'Manuel Ordonez'],
+        teamBPlayers: ['Marcus Ordonez', 'Manuel Ordonez'],
         notes: 'Requested grouping: Dennis Freeman / Duane Harris.',
       },
     ],
   },
   {
     title: 'Round 4',
-    format: '1-2-3 Team Game',
-    formatKey: 'oneTwoThree',
-    resultMode: 'teamRound',
-    pointValue: 5,
-    description: 'All 20 players keep their own ball. Team scoring rotates 1 best ball, then 2 best balls, then 3 best balls by hole.',
-    entrySummary: 'Use the five foursome pods for the day plan and enter the final Team A and Team B round totals for the 5-point team game.',
+    format: 'Two-Man Net Total Match',
+    formatKey: 'netTeamMatch',
+    resultMode: 'match',
+    pointValue: 1,
+    description: '2-man teams, every golfer posts one gross total for the day, net totals are calculated from handicaps, and the lower combined net side wins the point.',
+    entrySummary: 'Enter one gross 18-hole total for every golfer. Net team totals and match winners are calculated automatically.',
     matches: [
       {
         label: 'Pod 1',
@@ -312,12 +309,12 @@ const MYRTLE_RYDER_CUP_ROUND_SEEDS = [
   },
   {
     title: 'Round 5',
-    format: 'Singles Match Play',
-    formatKey: 'singlesMatch',
+    format: 'Singles Net Total Match',
+    formatKey: 'netSinglesMatch',
     resultMode: 'match',
     pointValue: 1,
-    description: 'One player vs one player, with every golfer playing their own ball all the way through the match.',
-    entrySummary: 'Select Team A, Team B, or Halved for each singles match.',
+    description: 'One player vs one player, with each golfer posting one gross total for the day and net scores deciding the point.',
+    entrySummary: 'Enter one gross 18-hole total for each player. Net scores and winners are calculated automatically.',
     matches: [
       {
         groupNumber: 1,
@@ -358,19 +355,19 @@ const MYRTLE_RYDER_CUP_ROUND_SEEDS = [
       {
         groupNumber: 4,
         teamAPlayers: ['Dennis Freeman'],
-        teamBPlayers: ['Chris Neff'],
+        teamBPlayers: ['Caleb Hart'],
         notes: '',
       },
       {
         groupNumber: 4,
-        teamAPlayers: ['Delmar Christian'],
+        teamAPlayers: ['Jeremy Bridges'],
         teamBPlayers: ['Matt Shannon'],
         notes: '',
       },
       {
         groupNumber: 5,
-        teamAPlayers: ['Jeremy Bridges'],
-        teamBPlayers: ['Caleb Hart'],
+        teamAPlayers: ['Delmar Christian'],
+        teamBPlayers: ['Chris Neff'],
         notes: '',
       },
       {
@@ -460,15 +457,15 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
     sideGames: {
       dailyLowGross: MYRTLE_RYDER_CUP_ROUND_SEEDS.map((seed, index) => ({
         roundNumber: index + 1,
-        label: buildRoundLabel(index + 1, Array.isArray(rounds) ? rounds[index] || {} : {}),
+        label: `${buildRoundLabel(index + 1, Array.isArray(rounds) ? rounds[index] || {} : {})} Net / Stableford`,
         winnerName: '',
         amount: null,
-        notes: '',
+        notes: 'Use the best net or Stableford round so higher-handicap players stay live.',
       })),
       weeklyLowGross: {
         winnerName: '',
         amount: null,
-        notes: '',
+        notes: 'Use the trip net / Stableford winner instead of gross.',
       },
       closestToPin: {
         entries: [],
@@ -480,12 +477,12 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
         })),
         winners: [],
         amount: null,
-        notes: '',
+        notes: 'Track net birdies or better, not gross birdies only.',
       },
       mvp: {
         overrideWinners: [],
         amount: null,
-        notes: '',
+        notes: 'Match points stay balanced by the seeded rank-based pairings.',
       },
     },
     payout: {
@@ -508,9 +505,13 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
       })),
       notes: [
         'Seed teams are balanced at 105 rank points per side.',
+        'This 10-vs-10 split is the only 105-vs-105 team setup that also satisfies the requested Myrtle foursome relationships cleanly.',
         'Every Ryder Cup round is now an own-ball format. No alternate shot, scramble, shamble, or partner pickup formats are used.',
-        'The seeded tee sheets now mirror the Ryder Cup foursomes so the day-of trip tee times match the competition board.',
-        'The seeded own-ball pods keep the pair matches as even as possible while still covering the key requested foursomes and hard constraints.',
+        'Every Ryder Cup match now uses the same daily net-total scoring model so the trip admin only enters one gross score per golfer each day.',
+        'The seeded tee sheets mirror Ryder Cup-style pods so the day-of tee times match the competition board.',
+        'The seeded own-ball pods keep the pair matches as even as possible by rank while still covering the key requested foursomes and hard constraints.',
+        'Singles stay close to a Ryder Cup ladder: top-vs-top where possible, with the final requested Tommy / Tommy Sr / Marcus / Manuel pod preserved.',
+        'Side games lean net or Stableford wherever possible so the highest handicaps are still live all week.',
         'Final-round singles stay grouped into five four-man tee groups so Tommy Knight and Tommy Knight Sr finish in the same group.',
       ],
     },

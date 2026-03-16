@@ -17,7 +17,7 @@ self.__SW_ASSETS = [
   "/icons/icon-512.png",
   "/index.html",
   "/manifest.json",
-  "/myrtle/competition-entry.html",
+  "/myrtle/lodging-and-maps.html",
   "/myrtle/trip-2026.html",
   "/pwa-shell.css",
   "/pwa-shell.js",

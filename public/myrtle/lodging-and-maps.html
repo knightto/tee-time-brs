@@ -22,6 +22,9 @@
     .summary-card { display:grid; gap:12px; color:var(--ink); line-height:1.6; }
     .summary-card strong, .map-card strong, .condo-group strong, .participant-card strong, .status-box strong { color:#fff; }
     .supporting-text, .map-card small, .stacked span { color:var(--ink-soft); line-height:1.45; }
+    .map-input-stack { display:grid; gap:4px; }
+    .map-input-stack span { color:var(--ink-soft); font-size:0.82rem; font-weight:700; letter-spacing:0.02em; text-transform:uppercase; }
+    .map-input-note { color:var(--muted); line-height:1.35; }
     .hero-link, .cta { display:inline-flex; align-items:center; justify-content:center; gap:6px; padding:9px 12px; border-radius:999px; border:1px solid rgba(109,211,255,0.28); background:rgba(109,211,255,0.10); color:var(--accent-2); text-decoration:none; font-weight:700; font-size:0.88rem; }
     .hero-link:hover, .cta:hover { background:rgba(109,211,255,0.18); text-decoration:none; }
     .cards-grid { display:grid; grid-template-columns:repeat(auto-fit, minmax(240px, 1fr)); gap:12px; }
@@ -57,7 +60,6 @@
         <h1>Myrtle Lodging and Maps <span>Group 3/18-3/22/26</span></h1>
         <div class="hero-links">
           <a class="hero-link" href="/myrtle/trip-2026.html">Trip Page</a>
-          <a class="hero-link" href="/myrtle/competition-entry.html">Competition Entry</a>
         </div>
       </div>
       <div class="chips">
@@ -73,7 +75,7 @@
       <div class="panel-head">
         <div style="display:grid;gap:6px;">
           <h2>Maps and Condo Links</h2>
-          <div class="supporting-text">Use the shared Myrtle map for courses and trip stops, then jump straight into Waze or each condo guestbook from the cards below.</div>
+          <div class="supporting-text">Use the shared Myrtle map for courses and trip stops, then jump straight into Waze or each condo guestbook from the cards below. Door key codes can be entered per condo and saved to this trip.</div>
         </div>
         <div class="map-actions">
           <a class="cta" href="https://www.google.com/maps/d/u/0/viewer?mid=1OLZdG1AzvAQJlBuhYWt5v_8Ta4W6bmY&ehbc=2E312F" target="_blank" rel="noopener">Open Full Map</a>
@@ -82,7 +84,7 @@
       <div id="condoMapLinks" class="cards-grid" style="margin-top:12px;"></div>
     </section>
 
-    <section class="panel">
+    <section class="panel" hidden>
       <div class="panel-head">
         <div style="display:grid;gap:6px;">
           <h2>Lodging</h2>
@@ -113,17 +115,29 @@
     const STATUS_ORDER = ['in', 'out', 'maybe', 'waitlist', 'invited'];
     const STATUS_LABELS = { invited: 'Invited', in: 'In', maybe: 'Maybe', out: 'Out', waitlist: 'Waitlist' };
     const BASE_GROUP_SIZES = [4, 8, 12, 16, 20, 24];
+    const NAME_ALIASES = {
+      jayquimby: ['johnquimby'],
+      johnquimby: ['jayquimby'],
+      mannyordonez: ['manuelordonez'],
+      manuelordonez: ['mannyordonez'],
+      tomlasik: ['thomaslasik'],
+      thomaslasik: ['tomlasik'],
+      lancedar: ['lancedarr'],
+      lancedarr: ['lancedar'],
+      tommyknight: ['tommyknightjr'],
+      tommyknightjr: ['tommyknight']
+    };
     const MYRTLE_ARRIVAL_DATE = '2026-03-18';
     const MYRTLE_DEPARTURE_DATE = '2026-03-22';
     const MYRTLE_MAP_URL = 'https://www.google.com/maps/d/u/0/viewer?mid=1OLZdG1AzvAQJlBuhYWt5v_8Ta4W6bmY&ehbc=2E312F';
     const MYRTLE_PACKAGE_URL = 'https://founders.teetimecentralonline.com/golfcentral/guests/Register.aspx?g=8ad2d184-cdb8-4b90-8dc6-55c68c26efe9&ResNum=12972589&arr=3/18/2026';
-    const DEFAULT_TRIP = { name:'tommy knight Group - Barefoot', location:'Myrtle Beach, SC', arrivalDate:MYRTLE_ARRIVAL_DATE, departureDate:MYRTLE_DEPARTURE_DATE, package:'4 Nights / 5 Rounds', groupSize:24, preparedBy:'Myrtle Beach Golf Trips', phone:'(877) 283-2122', reservationNumber:'12972589', accommodations:{ resort:'Barefoot Golf Villas', unitType:'2 Bedroom Golf Course', units:6, confirmations:'90612 90613 90615 90614 90611', arrivalDate:MYRTLE_ARRIVAL_DATE, departureDate:MYRTLE_DEPARTURE_DATE } };
+    const DEFAULT_TRIP = { name:'tommy knight Group - Barefoot', location:'Myrtle Beach, SC', arrivalDate:MYRTLE_ARRIVAL_DATE, departureDate:MYRTLE_DEPARTURE_DATE, package:'4 Nights / 5 Rounds', groupSize:24, preparedBy:'Myrtle Beach Golf Trips', phone:'(877) 283-2122', reservationNumber:'12972589', accommodations:{ resort:'Barefoot Golf Villas', unitType:'2 Bedroom Golf Course', units:5, confirmations:'90612 90613 90615 90614 90611', arrivalDate:MYRTLE_ARRIVAL_DATE, departureDate:MYRTLE_DEPARTURE_DATE, doorKeyCodes:{} } };
     const CONDO_ADDRESSES = [
-      { label:'5802 Oyster Catcher Dr', address:'5802 Oyster Catcher Dr, North Myrtle Beach, SC 29582', unit:'Ironwood 1121', guestbook:'https://guide.ruebarue.com/guestbook/7427693178089342', occupants:['Chris Neff', 'Caleb Hart', 'Jeremy Bridges', 'Jay Quimby'] },
-      { label:'5810 Oyster Catcher Dr', address:'5810 Oyster Catcher Dr, North Myrtle Beach, SC 29582', unit:'Ironwood 721', guestbook:'https://guide.ruebarue.com/guestbook/7840614159287489', occupants:['Tommy Knight', 'Tommy Knight Sr', 'Joe Gillette', 'Josh Browne'] },
-      { label:'5801 Oyster Catcher Dr', address:'5801 Oyster Catcher Dr, North Myrtle Beach, SC 29582', unit:'Ironwood 1021', guestbook:'https://guide.ruebarue.com/guestbook/8331472348472874', occupants:['Matt Shannon', 'Duane Harris', 'John Hyers', 'Dennis Freeman'] },
-      { label:'5804 Oyster Catcher Dr', address:'5804 Oyster Catcher Dr, North Myrtle Beach, SC 29582', unit:'Ironwood 1233', guestbook:'https://guide.ruebarue.com/guestbook/6212242310575679', occupants:['Manuel Ordonez', 'Marcus Ordonez', 'Delmar Christian', 'Chad Jones'] },
-      { label:'5805 Oyster Catcher Dr', address:'5805 Oyster Catcher Dr, North Myrtle Beach, SC 29582', unit:'Ironwood 1311', guestbook:'https://guide.ruebarue.com/guestbook/4183582435648033', occupants:['Reny Butler', 'Thomas Lasik', 'Chris Manuel', 'Lance Darr'] }
+      { label:'5805 Oyster Catcher Dr', address:'5805 Oyster Catcher Dr, North Myrtle Beach, SC 29582', unit:'Ironwood 1311', guestbook:'https://guide.ruebarue.com/guestbook/4183582435648033', occupants:['Matt Shannon', 'Duane Harris', 'John Hyers', 'Dennis Freeman'] },
+      { label:'5804 Oyster Catcher Dr', address:'5804 Oyster Catcher Dr, North Myrtle Beach, SC 29582', unit:'Ironwood 1233', guestbook:'https://guide.ruebarue.com/guestbook/6212242310575679', occupants:['Tommy Knight', 'Tommy Knight Sr', 'Joe Gillette', 'Jay Quimby'] },
+      { label:'5802 Oyster Catcher Dr', address:'5802 Oyster Catcher Dr, North Myrtle Beach, SC 29582', unit:'Ironwood 1121', guestbook:'https://guide.ruebarue.com/guestbook/7427693178089342', occupants:['Manuel Ordonez', 'Marcus Ordonez', 'Delmar Christian', 'Chad Jones'] },
+      { label:'5801 Oyster Catcher Dr', address:'5801 Oyster Catcher Dr, North Myrtle Beach, SC 29582', unit:'Ironwood 1021', guestbook:'https://guide.ruebarue.com/guestbook/8331472348472874', occupants:['Reny Butler', 'Thomas Lasik', 'Chris Manuel', 'Lance Darr'] },
+      { label:'5810 Oyster Catcher Dr', address:'5810 Oyster Catcher Dr, North Myrtle Beach, SC 29582', unit:'Ironwood 721', guestbook:'https://guide.ruebarue.com/guestbook/7840614159287489', occupants:['Chris Neff', 'Caleb Hart', 'Jeremy Bridges', 'Josh Browne'] }
     ];
 
     let tripId = null;
@@ -163,9 +177,57 @@
       const condoNum = match ? parseInt(match[1], 10) : null;
       return Number.isFinite(condoNum) ? condoNum : null;
     };
+    const normalizeNameKey = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const DEFAULT_CONDO_ASSIGNMENTS = CONDO_ADDRESSES.reduce((map, condo, index) => {
+      (condo.occupants || []).forEach((name) => {
+        const key = normalizeNameKey(name);
+        if (key) map[key] = index + 1;
+      });
+      return map;
+    }, {});
+    const getDefaultCondoNumberForName = (name) => {
+      const primaryKey = normalizeNameKey(name);
+      const candidateKeys = [primaryKey, ...((NAME_ALIASES[primaryKey] || []).map((alias) => normalizeNameKey(alias)))].filter(Boolean);
+      for (let i = 0; i < candidateKeys.length; i += 1) {
+        const condoNum = DEFAULT_CONDO_ASSIGNMENTS[candidateKeys[i]];
+        if (Number.isFinite(condoNum)) return condoNum;
+      }
+      return null;
+    };
+    const getParticipantRoomAssignment = (player) => {
+      if (player && player.roomAssignment) return player.roomAssignment;
+      const condoNum = getDefaultCondoNumberForName(player && player.name);
+      return condoNum ? `Condo ${condoNum} - Room A` : '';
+    };
     const buildWazeLink = (label, address) => {
       const query = address || label;
       return query ? `https://ul.waze.com/ul?q=${encodeURIComponent(query)}&navigate=yes` : '';
+    };
+    const getCondoByIndex = (index) => CONDO_ADDRESSES[index] || null;
+    const getCondoTitle = (index) => {
+      const condo = getCondoByIndex(index);
+      return condo && condo.label ? `Condo ${index + 1} · ${condo.label}` : `Condo ${index + 1}`;
+    };
+    const getCondoOptionLabel = (condoNumber) => {
+      const condo = getCondoByIndex(Number(condoNumber) - 1);
+      return condo && condo.label ? `Condo ${condoNumber} - ${condo.label}` : `Condo ${condoNumber}`;
+    };
+    const getCondoStorageKey = (condo) => String((condo && (condo.address || condo.label || condo.unit)) || '').trim();
+    const getTripAccommodations = () => {
+      const savedAccommodations = trip && trip.accommodations && typeof trip.accommodations === 'object' ? trip.accommodations : {};
+      const savedDoorKeyCodes = savedAccommodations && savedAccommodations.doorKeyCodes && typeof savedAccommodations.doorKeyCodes === 'object'
+        ? savedAccommodations.doorKeyCodes
+        : {};
+      return {
+        ...DEFAULT_TRIP.accommodations,
+        ...savedAccommodations,
+        doorKeyCodes: { ...savedDoorKeyCodes }
+      };
+    };
+    const getCondoDoorKeyCode = (condo) => {
+      const condoKey = getCondoStorageKey(condo);
+      const codes = getTripAccommodations().doorKeyCodes || {};
+      return condoKey ? String(codes[condoKey] || '') : '';
     };
 
     function getAdminCode() {
@@ -189,6 +251,23 @@
       }
       trip = payload;
       return trip;
+    }
+
+    async function updateCondoDoorCode(condoKey, value) {
+      const normalizedKey = String(condoKey || '').trim();
+      if (!normalizedKey) return;
+      const accommodations = getTripAccommodations();
+      const nextDoorKeyCodes = { ...(accommodations.doorKeyCodes || {}) };
+      if (value) nextDoorKeyCodes[normalizedKey] = value;
+      else delete nextDoorKeyCodes[normalizedKey];
+      await updateTrip({
+        accommodations: {
+          ...accommodations,
+          doorKeyCodes: nextDoorKeyCodes
+        }
+      });
+      renderTripSummary();
+      renderMapCards();
     }
 
     async function updateParticipant(id, body, opts = {}) {
@@ -232,17 +311,26 @@
     function renderMapCards() {
       const container = $('#condoMapLinks');
       if (!container) return;
-      container.innerHTML = CONDO_ADDRESSES.map((condo) => `
+      container.innerHTML = CONDO_ADDRESSES.map((condo, index) => {
+        const condoKey = getCondoStorageKey(condo);
+        const doorKeyCode = getCondoDoorKeyCode(condo);
+        return `
         <article class="map-card">
-          <strong>${escapeHtml(condo.label)}</strong>
+          <strong>${escapeHtml(getCondoTitle(index))}</strong>
           <small>${escapeHtml(condo.unit)} · ${escapeHtml(condo.address)}</small>
           <small><strong>Staying:</strong> ${escapeHtml((condo.occupants || []).join(', '))}</small>
+          <label class="map-input-stack">
+            <span>Door Key Code</span>
+            <input type="text" class="door-code-input" data-condo-key="${escapeHtml(condoKey)}" value="${escapeHtml(doorKeyCode)}" placeholder="Enter manually">
+          </label>
+          <small class="map-input-note">${doorKeyCode ? 'Saved on this trip.' : 'Enter when the condo door code is confirmed.'}</small>
           <div class="map-actions">
             <a href="${buildWazeLink(condo.label, condo.address)}" target="_blank" rel="noopener">Open in Waze</a>
             <a href="${escapeHtml(condo.guestbook)}" target="_blank" rel="noopener">Condo Info</a>
           </div>
         </article>
-      `).join('');
+      `;
+      }).join('');
     }
 
     function renderStatusSummary() {
@@ -350,27 +438,35 @@
       const condoCount = getCondoCount();
       const condoCounts = Array(condoCount).fill(0);
       participants.forEach((player) => {
-        const condoNum = getCondoNumber(player.roomAssignment);
+        const condoNum = getCondoNumber(getParticipantRoomAssignment(player));
         if (!condoNum) return;
         const idx = condoNum - 1;
         if (idx >= 0 && idx < condoCount) condoCounts[idx] += 1;
       });
 
       for (let i = 0; i < condoCount; i += 1) {
+        const condo = getCondoByIndex(i);
         const wrapper = document.createElement('div');
         wrapper.className = 'condo-group';
-        wrapper.innerHTML = '<strong>Condo ' + (i + 1) + '</strong><div class="cards-grid"></div>';
+        wrapper.innerHTML = `
+          <div style="display:grid;gap:4px;">
+            <strong>${escapeHtml(getCondoTitle(i))}</strong>
+            ${condo ? `<div class="supporting-text">${escapeHtml(condo.unit)} · ${escapeHtml(condo.address)}</div>` : ''}
+          </div>
+          <div class="cards-grid"></div>
+        `;
         const grid = wrapper.querySelector('.cards-grid');
-        const group = participants.filter((player) => getCondoNumber(player.roomAssignment) === i + 1);
+        const group = participants.filter((player) => getCondoNumber(getParticipantRoomAssignment(player)) === i + 1);
 
         group.forEach((player) => {
-          const match = player.roomAssignment && player.roomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
+          const effectiveRoomAssignment = getParticipantRoomAssignment(player);
+          const match = effectiveRoomAssignment && effectiveRoomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
           const room = match ? match[2] : '';
-          const currentCondo = getCondoNumber(player.roomAssignment);
+          const currentCondo = getCondoNumber(effectiveRoomAssignment);
           let moveOptions = '<option value="unassigned">Unassigned</option>';
           for (let condoNumber = 1; condoNumber <= condoCount; condoNumber += 1) {
             if (condoNumber !== currentCondo && condoCounts[condoNumber - 1] < 4) {
-              moveOptions += `<option value="${condoNumber}">Condo ${condoNumber}</option>`;
+              moveOptions += `<option value="${condoNumber}">${escapeHtml(getCondoOptionLabel(condoNumber))}</option>`;
             }
           }
           const card = document.createElement('div');
@@ -398,7 +494,7 @@
       }
 
       const unassigned = participants.filter((player) => {
-        const condoNum = getCondoNumber(player.roomAssignment);
+        const condoNum = getCondoNumber(getParticipantRoomAssignment(player));
         return !condoNum || condoNum < 1 || condoNum > condoCount;
       });
       const unassignedSidebar = $('#unassignedSidebar');
@@ -427,7 +523,7 @@
         if (!unassigned.length) {
           ul.innerHTML = '<li style="color:var(--muted);">Everyone is assigned.</li>';
         } else {
-          const condoOptions = Array.from({ length: condoCount }, (_, idx) => `<option value="${idx + 1}">Condo ${idx + 1}</option>`).join('');
+          const condoOptions = Array.from({ length: condoCount }, (_, idx) => `<option value="${idx + 1}">${escapeHtml(getCondoOptionLabel(idx + 1))}</option>`).join('');
           unassigned.forEach((player) => {
             const li = document.createElement('li');
             li.innerHTML = `
@@ -446,6 +542,23 @@
       renderStatusSummary();
     }
     function bindInteractions() {
+      const condoMapLinks = $('#condoMapLinks');
+      if (condoMapLinks) {
+        condoMapLinks.addEventListener('change', async (event) => {
+          const target = event.target;
+          if (!target.classList.contains('door-code-input')) return;
+          const nextValue = String(target.value || '').trim();
+          if (target.value !== nextValue) target.value = nextValue;
+          try {
+            target.disabled = true;
+            await updateCondoDoorCode(target.dataset.condoKey, nextValue);
+          } catch (error) {
+            target.disabled = false;
+            alert(error && error.message ? error.message : 'Failed to update condo door key code.');
+          }
+        });
+      }
+
       const addBtn = $('#addParticipantBtn');
       if (addBtn) {
         addBtn.addEventListener('click', async () => {
@@ -495,7 +608,7 @@
             if (target.classList.contains('room-select')) {
               const id = target.dataset.id;
               const room = target.value;
-              const match = participants.find((player) => player._id === id)?.roomAssignment?.match(/^Condo (\d+) - Room ([AB])$/);
+              const match = getParticipantRoomAssignment(participants.find((player) => player._id === id)).match(/^Condo (\d+) - Room ([AB])$/);
               const condoNum = match ? match[1] : null;
               if (condoNum) await updateParticipant(id, { roomAssignment: `Condo ${condoNum} - Room ${room}` }, { requireAdmin: true });
               return;

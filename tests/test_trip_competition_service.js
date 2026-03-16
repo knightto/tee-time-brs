@@ -191,26 +191,28 @@ function run() {
             plan: {
               dayNote: 'Warm up at the range before the opener.',
               groups: [
-                { groupNumber: 1, playStyle: 'Four-Ball Match Play', notes: 'Opening match stays own-ball.' },
+                { groupNumber: 1, playStyle: 'Two-Man Net Total Match', notes: 'Opening match uses the new daily net-total setup.' },
               ],
             },
             matches: [
-              { result: 'teamA', notes: 'Team A took the opener.' },
-              { result: 'halved' },
+              { teamAPlayerScores: [82, 84], teamBPlayerScores: [90, 91], notes: 'Team A took the opener on net totals.' },
+              { teamAPlayerScores: [83, 84], teamBPlayerScores: [85, 82] },
             ],
           },
           {
             matches: [
-              { teamAScore: 64, teamBScore: 66 },
+              { teamAPlayerScores: [82, 84], teamBPlayerScores: [86, 85] },
             ],
           },
           {
             matches: [
-              { teamAPlayerScores: [72, 74], teamBPlayerScores: [73, 76] },
+              { teamAPlayerScores: [82, 90], teamBPlayerScores: [86, 88] },
             ],
           },
           {
-            roundScore: { teamAScore: 332, teamBScore: 335, notes: 'Used the 1-2-3 rotation all day.' },
+            matches: [
+              { teamAPlayerScores: [90, 90], teamBPlayerScores: [87, 88], notes: 'Round 4 still uses the seeded pods, but now scores as a net-total match.' },
+            ],
           },
         ],
       },
@@ -272,7 +274,7 @@ function run() {
     ],
   };
   const migratedView = buildTripCompetitionView(legacySeedTrip, myrtleParticipants);
-  assert.deepStrictEqual(migratedView.ryderCup.rounds[0].matches[0].teamAPlayers, ['Joe Gillette', 'Dennis Freeman'], 'Unstarted legacy Myrtle schedules should reseed to the newer balanced opener');
+  assert.deepStrictEqual(migratedView.ryderCup.rounds[0].matches[0].teamAPlayers, ['Joe Gillette', 'Duane Harris'], 'Unstarted legacy Myrtle schedules should reseed to the newer balanced opener');
   swapTripRyderCupTeamPlayers(freshMyrtleTrip, 'Tommy Knight', 'Reny Butler');
   const swappedView = buildTripCompetitionView(freshMyrtleTrip, myrtleParticipants);
   assert(swappedView.ryderCup.teams[0].players.some((entry) => entry.name === 'Reny Butler'), 'Swapped Team A should include the incoming player');
@@ -282,28 +284,28 @@ function run() {
   assert.strictEqual(freshView.ryderCup.rounds[0].plan.groups.length, 5, 'Each Ryder Cup round should expose five daily plan groups');
   assert.strictEqual(freshView.ryderCup.rounds[0].plan.groups[0].players.length, 4, 'Daily plan groups should cover full foursomes');
   assert.strictEqual(freshView.ryderCup.description, 'Team competition with every player playing their own ball in every round.', 'The Ryder Cup intro should explain the own-ball competition setup');
-  assert.strictEqual(freshView.ryderCup.rounds[1].format, 'Best Ball Stroke Play', 'Round 2 should now be seeded as Best Ball Stroke Play');
-  assert.strictEqual(freshView.ryderCup.rounds[1].plan.groups[0].playStyle, 'Best Ball Stroke Play', 'Best-ball rounds should seed with the matching play style');
-  assert.strictEqual(freshView.ryderCup.rounds[3].format, '1-2-3 Team Game', 'Round 4 should now be seeded as the 1-2-3 team game');
-  assert.strictEqual(freshView.ryderCup.rounds[3].pointValue, 5, 'The 1-2-3 team game should be worth five points');
-  assert.strictEqual(freshView.ryderCup.rounds[4].plan.groups[0].playStyle, 'Singles Match Play', 'Singles rounds should seed with a singles match play style');
+  assert.strictEqual(freshView.ryderCup.rounds[1].format, 'Two-Man Net Total Match', 'Round 2 should now be seeded as the shared net-total team format');
+  assert.strictEqual(freshView.ryderCup.rounds[1].plan.groups[0].playStyle, 'Two-Man Net Total Match', 'Team rounds should seed with the shared net-total play style');
+  assert.strictEqual(freshView.ryderCup.rounds[3].format, 'Two-Man Net Total Match', 'Round 4 should now use the same net-total scoring format as the other team rounds');
+  assert.strictEqual(freshView.ryderCup.rounds[3].pointValue, 1, 'Each Round 4 pod should now be worth one point');
+  assert.strictEqual(freshView.ryderCup.rounds[4].plan.groups[0].playStyle, 'Singles Net Total Match', 'Singles rounds should seed with the net-total singles play style');
   const myrtleView = buildTripCompetitionView(myrtleTrip, myrtleParticipants);
   assert(myrtleView.ryderCup, 'Myrtle trips should expose a Ryder Cup view');
   assert.strictEqual(myrtleView.ryderCup.canEditTeams, false, 'Ryder Cup teams should lock once results have been entered');
   assert.strictEqual(myrtleView.ryderCup.teams[0].rankSum, 105, 'Team A rank sum should be seeded to 105');
   assert.strictEqual(myrtleView.ryderCup.teams[1].rankSum, 105, 'Team B rank sum should be seeded to 105');
   assert.strictEqual(myrtleView.ryderCup.fairness.status, 'Very balanced', 'Balanced seed should report a very balanced fairness note');
-  assert.strictEqual(myrtleView.ryderCup.standings.teamAPoints, 8.5, 'Own-ball Ryder Cup rounds should roll up manual results, stroke totals, and the 1-2-3 team round');
-  assert.strictEqual(myrtleView.ryderCup.standings.teamBPoints, 0.5, 'Completed Ryder Cup results should update Team B points');
-  assert.strictEqual(myrtleView.ryderCup.standings.remainingPoints, 21, 'Remaining points should reflect unfinished own-ball matches after the 5-point team round');
+  assert.strictEqual(myrtleView.ryderCup.standings.teamAPoints, 3.5, 'Net-total Ryder Cup rounds should roll up completed daily matches correctly');
+  assert.strictEqual(myrtleView.ryderCup.standings.teamBPoints, 1.5, 'Completed net-total Ryder Cup matches should update Team B points');
+  assert.strictEqual(myrtleView.ryderCup.standings.remainingPoints, 25, 'Remaining points should reflect unfinished matches after five scored matches');
   assert.strictEqual(myrtleView.ryderCup.totalPointsAvailable, 30, 'Ryder Cup total points should stay fixed at 30');
-  assert(myrtleView.overview.formatSummary.includes('Best 4 of 5'), 'Myrtle overview should explain that best-4-of-5 still applies across the own-ball Ryder Cup rounds');
-  const thomasRow = myrtleView.ryderCup.individualLeaderboard.find((entry) => entry.name === 'Thomas Lasik');
-  assert(thomasRow, 'Individual Ryder Cup rows should be present');
-  assert.strictEqual(thomasRow.pointsWon, 1.5, 'Own-ball rounds and the team game should both feed the individual leaderboard');
+  assert(myrtleView.overview.formatSummary.includes('gross total per golfer'), 'Myrtle overview should explain the new daily gross-total entry flow');
+  const joeRow = myrtleView.ryderCup.individualLeaderboard.find((entry) => entry.name === 'Joe Gillette');
+  assert(joeRow, 'Individual Ryder Cup rows should be present');
+  assert.strictEqual(joeRow.pointsWon, 2, 'Completed net-total matches should feed the individual leaderboard');
   const johnQuimbyRow = myrtleView.ryderCup.individualLeaderboard.find((entry) => entry.name === 'John Quimby');
   assert(johnQuimbyRow, 'Halved match players should be present');
-  assert.strictEqual(johnQuimbyRow.pointsWon, 1, 'Team-round participation credit should add to individual points without complex attribution');
+  assert.strictEqual(johnQuimbyRow.pointsWon, 0.5, 'Halved net-total matches should award a half point to each player');
   const hardConstraint = myrtleView.ryderCup.admin.hardConstraints.find((entry) => entry.id === 'neff-not-manuel');
   assert(hardConstraint, 'Hard constraint rows should be exposed');
   assert.strictEqual(hardConstraint.status, 'clear', 'Seeded Ryder Cup schedule should keep Chris Neff away from Manuel Ordonez');
@@ -311,12 +313,12 @@ function run() {
   assert(requestedGrouping, 'Requested grouping coverage should be exposed');
   assert.strictEqual(requestedGrouping.status, 'scheduled', 'Requested grouping coverage should be tracked');
   assert.strictEqual(myrtleView.ryderCup.rounds[0].plan.dayNote, 'Warm up at the range before the opener.', 'Round-level planning notes should be exposed');
-  assert.strictEqual(myrtleView.ryderCup.rounds[0].plan.groups[0].playStyle, 'Four-Ball Match Play', 'Saved own-ball plan styles should survive normalization');
-  assert.strictEqual(myrtleView.ryderCup.rounds[0].plan.groups[0].notes, 'Opening match stays own-ball.', 'Saved daily plan group notes should survive normalization');
-  assert.strictEqual(myrtleView.ryderCup.rounds[1].matches[0].teamAScore, 64, 'Best-ball stroke rounds should expose saved team totals');
-  assert.strictEqual(myrtleView.ryderCup.rounds[2].matches[0].teamAScore, 146, 'Two-man combined score rounds should derive team totals from the saved player scores');
-  assert.strictEqual(myrtleView.ryderCup.rounds[3].roundScore.teamAScore, 332, 'The 1-2-3 team round should expose saved team totals');
-  assert.strictEqual(myrtleView.ryderCup.rounds[3].roundScore.pointsA, 5, 'The 1-2-3 team round should award all five points to the winning team');
+  assert.strictEqual(myrtleView.ryderCup.rounds[0].plan.groups[0].playStyle, 'Two-Man Net Total Match', 'Saved net-total plan styles should survive normalization');
+  assert.strictEqual(myrtleView.ryderCup.rounds[0].plan.groups[0].notes, 'Opening match uses the new daily net-total setup.', 'Saved daily plan group notes should survive normalization');
+  assert.strictEqual(myrtleView.ryderCup.rounds[1].matches[0].teamAScore, 128, 'Net-total rounds should expose calculated team net totals');
+  assert.strictEqual(myrtleView.ryderCup.rounds[2].matches[0].teamAScore, 136, 'Net-total rounds should derive team net totals from saved gross scores and handicaps');
+  assert.strictEqual(myrtleView.ryderCup.rounds[3].matches[0].teamAScore, 127, 'Round 4 should now expose the pod net total on the match itself');
+  assert.strictEqual(myrtleView.ryderCup.rounds[3].matches[0].pointsA, 1, 'Round 4 pod matches should now award one point each');
   assert.strictEqual(myrtleView.ryderCup.admin.roundRules.length, 5, 'Admin rules should explain each own-ball round format');
   assert.throws(() => swapTripRyderCupTeamPlayers(myrtleTrip, 'Tommy Knight', 'Reny Butler'), /locked/i, 'Team swaps should be rejected after Ryder Cup results exist');
 

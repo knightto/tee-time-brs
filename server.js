@@ -635,7 +635,6 @@ app.post('/webhooks/resend', async (req, res) => {
 
 const LEGACY_STATIC_REDIRECTS = new Map([
   ['/myrtle-trip-2026.html', '/myrtle/trip-2026.html'],
-  ['/myrtle-trip-competition-entry.html', '/myrtle/competition-entry.html'],
   ['/tin-cup-trip-2026.html', '/tin-cup/trip-2026.html'],
   ['/tin-cup-live-score-entry.html', '/tin-cup/live-score-entry.html'],
   ['/tin-cup-leaderboard-2026.html', '/tin-cup/leaderboard-2026.html'],

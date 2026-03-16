@@ -1221,7 +1221,6 @@
           <a class="hero-link" href="#scheduleSection">Schedule</a>
           <a class="hero-link" href="#competitionSection">Ryder Cup</a>
           <a class="hero-link" href="/myrtle/lodging-and-maps.html">Lodging + Maps</a>
-          <a class="hero-link" href="/myrtle/competition-entry.html" target="_blank" rel="noopener">Score Entry</a>
           <a class="hero-link" href="https://founders.teetimecentralonline.com/golfcentral/guests/Register.aspx?g=8ad2d184-cdb8-4b90-8dc6-55c68c26efe9&ResNum=12972589&arr=3/18/2026" target="_blank" rel="noopener">Register</a>
           <a class="hero-link" href="https://www.google.com/maps/d/u/0/viewer?mid=1OLZdG1AzvAQJlBuhYWt5v_8Ta4W6bmY&ehbc=2E312F" target="_blank" rel="noopener">Full Map</a>
         </div>
@@ -1238,6 +1237,18 @@
     const BASE_GROUP_SIZES = [4, 8, 12, 16, 20, 24];
     const MYRTLE_ARRIVAL_DATE = '2026-03-18';
     const MYRTLE_DEPARTURE_DATE = '2026-03-22';
+    const NAME_ALIASES = {
+      jayquimby: ['johnquimby'],
+      johnquimby: ['jayquimby'],
+      mannyordonez: ['manuelordonez'],
+      manuelordonez: ['mannyordonez'],
+      tomlasik: ['thomaslasik'],
+      thomaslasik: ['tomlasik'],
+      lancedar: ['lancedarr'],
+      lancedarr: ['lancedar'],
+      tommyknight: ['tommyknightjr'],
+      tommyknightjr: ['tommyknight']
+    };
     const DEFAULT_TRIP = {
       name: 'tommy knight Group - Barefoot',
       location: 'Myrtle Beach, SC',
@@ -1251,10 +1262,11 @@
       accommodations: {
         resort: 'Barefoot Golf Villas',
         unitType: '2 Bedroom Golf Course',
-        units: 6,
+        units: 5,
         confirmations: '90612 90613 90615 90614 90611',
         arrivalDate: MYRTLE_ARRIVAL_DATE,
-        departureDate: MYRTLE_DEPARTURE_DATE
+        departureDate: MYRTLE_DEPARTURE_DATE,
+        doorKeyCodes: {}
       }
     };
     const parseTimeMinutes = (value) => {
@@ -1290,11 +1302,11 @@
         date: '2026-03-18',
         time: '13:17',
         teeTimes: buildTripSlots('13:17', [
-          ['Joe Gillette', 'Dennis Freeman', 'Reny Butler', 'Lance Darr'],
-          ['John Quimby', 'Chris Manuel', 'Josh Browne', 'John Hyers'],
-          ['Tommy Knight', 'Delmar Christian', 'Caleb Hart', 'Chris Neff'],
-          ['Thomas Lasik', 'Duane Harris', 'Marcus Ordonez', 'Chad Jones'],
-          ['Jeremy Bridges', 'Tommy Knight Sr', 'Matt Shannon', 'Manuel Ordonez']
+          ['Joe Gillette', 'Duane Harris', 'Josh Browne', 'Manuel Ordonez'],
+          ['John Quimby', 'Tommy Knight Sr', 'Lance Darr', 'Marcus Ordonez'],
+          ['Tommy Knight', 'Jeremy Bridges', 'Reny Butler', 'Chad Jones'],
+          ['Thomas Lasik', 'Delmar Christian', 'John Hyers', 'Matt Shannon'],
+          ['Chris Manuel', 'Dennis Freeman', 'Caleb Hart', 'Chris Neff']
         ])
       },
       {
@@ -1303,11 +1315,11 @@
         date: '2026-03-19',
         time: '09:09',
         teeTimes: buildTripSlots('09:09', [
-          ['Joe Gillette', 'Dennis Freeman', 'Josh Browne', 'Chris Neff'],
-          ['John Quimby', 'Jeremy Bridges', 'John Hyers', 'Caleb Hart'],
-          ['Tommy Knight', 'Delmar Christian', 'Reny Butler', 'Matt Shannon'],
-          ['Thomas Lasik', 'Duane Harris', 'Marcus Ordonez', 'Chad Jones'],
-          ['Chris Manuel', 'Tommy Knight Sr', 'Lance Darr', 'Manuel Ordonez']
+          ['Joe Gillette', 'Tommy Knight Sr', 'Chris Neff', 'Lance Darr'],
+          ['John Quimby', 'Delmar Christian', 'Josh Browne', 'Matt Shannon'],
+          ['Tommy Knight', 'Dennis Freeman', 'Reny Butler', 'Marcus Ordonez'],
+          ['Thomas Lasik', 'Jeremy Bridges', 'John Hyers', 'Chad Jones'],
+          ['Chris Manuel', 'Duane Harris', 'Caleb Hart', 'Manuel Ordonez']
         ])
       },
       {
@@ -1316,11 +1328,11 @@
         date: '2026-03-20',
         time: '08:26',
         teeTimes: buildTripSlots('08:26', [
-          ['Joe Gillette', 'Thomas Lasik', 'Josh Browne', 'Reny Butler'],
-          ['John Quimby', 'Jeremy Bridges', 'John Hyers', 'Caleb Hart'],
-          ['Tommy Knight', 'Delmar Christian', 'Lance Darr', 'Marcus Ordonez'],
-          ['Chris Manuel', 'Tommy Knight Sr', 'Chris Neff', 'Matt Shannon'],
-          ['Dennis Freeman', 'Duane Harris', 'Chad Jones', 'Manuel Ordonez']
+          ['Joe Gillette', 'Delmar Christian', 'Reny Butler', 'Matt Shannon'],
+          ['John Quimby', 'Jeremy Bridges', 'Caleb Hart', 'John Hyers'],
+          ['Tommy Knight', 'Tommy Knight Sr', 'Lance Darr', 'Chad Jones'],
+          ['Thomas Lasik', 'Chris Manuel', 'Josh Browne', 'Chris Neff'],
+          ['Dennis Freeman', 'Duane Harris', 'Marcus Ordonez', 'Manuel Ordonez']
         ])
       },
       {
@@ -1345,31 +1357,17 @@
           ['Tommy Knight', 'Marcus Ordonez', 'Tommy Knight Sr', 'Manuel Ordonez'],
           ['Joe Gillette', 'Josh Browne', 'John Quimby', 'Reny Butler'],
           ['Thomas Lasik', 'John Hyers', 'Chris Manuel', 'Lance Darr'],
-          ['Dennis Freeman', 'Chris Neff', 'Delmar Christian', 'Matt Shannon'],
-          ['Jeremy Bridges', 'Caleb Hart', 'Duane Harris', 'Chad Jones']
+          ['Dennis Freeman', 'Caleb Hart', 'Jeremy Bridges', 'Matt Shannon'],
+          ['Delmar Christian', 'Chris Neff', 'Duane Harris', 'Chad Jones']
         ])
       }
     ];
     const CONDO_ADDRESSES = [
       {
-        label: '5802 Oyster Catcher Dr',
-        address: '5802 Oyster Catcher Dr, North Myrtle Beach, SC 29582',
-        unit: 'Ironwood 1121',
-        guestbook: 'https://guide.ruebarue.com/guestbook/7427693178089342',
-        occupants: ['Chris Neff', 'Caleb Hart', 'Jeremy Bridges', 'Jay Quimby']
-      },
-      {
-        label: '5810 Oyster Catcher Dr',
-        address: '5810 Oyster Catcher Dr, North Myrtle Beach, SC 29582',
-        unit: 'Ironwood 721',
-        guestbook: 'https://guide.ruebarue.com/guestbook/7840614159287489',
-        occupants: ['Tommy Knight', 'Tommy Knight Sr', 'Joe Gillette', 'Josh Browne']
-      },
-      {
-        label: '5801 Oyster Catcher Dr',
-        address: '5801 Oyster Catcher Dr, North Myrtle Beach, SC 29582',
-        unit: 'Ironwood 1021',
-        guestbook: 'https://guide.ruebarue.com/guestbook/8331472348472874',
+        label: '5805 Oyster Catcher Dr',
+        address: '5805 Oyster Catcher Dr, North Myrtle Beach, SC 29582',
+        unit: 'Ironwood 1311',
+        guestbook: 'https://guide.ruebarue.com/guestbook/4183582435648033',
         occupants: ['Matt Shannon', 'Duane Harris', 'John Hyers', 'Dennis Freeman']
       },
       {
@@ -1377,14 +1375,28 @@
         address: '5804 Oyster Catcher Dr, North Myrtle Beach, SC 29582',
         unit: 'Ironwood 1233',
         guestbook: 'https://guide.ruebarue.com/guestbook/6212242310575679',
+        occupants: ['Tommy Knight', 'Tommy Knight Sr', 'Joe Gillette', 'Jay Quimby']
+      },
+      {
+        label: '5802 Oyster Catcher Dr',
+        address: '5802 Oyster Catcher Dr, North Myrtle Beach, SC 29582',
+        unit: 'Ironwood 1121',
+        guestbook: 'https://guide.ruebarue.com/guestbook/7427693178089342',
         occupants: ['Manuel Ordonez', 'Marcus Ordonez', 'Delmar Christian', 'Chad Jones']
       },
       {
-        label: '5805 Oyster Catcher Dr',
-        address: '5805 Oyster Catcher Dr, North Myrtle Beach, SC 29582',
-        unit: 'Ironwood 1311',
-        guestbook: 'https://guide.ruebarue.com/guestbook/4183582435648033',
+        label: '5801 Oyster Catcher Dr',
+        address: '5801 Oyster Catcher Dr, North Myrtle Beach, SC 29582',
+        unit: 'Ironwood 1021',
+        guestbook: 'https://guide.ruebarue.com/guestbook/8331472348472874',
         occupants: ['Reny Butler', 'Thomas Lasik', 'Chris Manuel', 'Lance Darr']
+      },
+      {
+        label: '5810 Oyster Catcher Dr',
+        address: '5810 Oyster Catcher Dr, North Myrtle Beach, SC 29582',
+        unit: 'Ironwood 721',
+        guestbook: 'https://guide.ruebarue.com/guestbook/7840614159287489',
+        occupants: ['Chris Neff', 'Caleb Hart', 'Jeremy Bridges', 'Josh Browne']
       }
     ];
 
@@ -1435,6 +1447,37 @@
       const match = assignment && assignment.match(/^Condo (\d+) - Room ([AB])$/);
       const condoNum = match ? parseInt(match[1], 10) : null;
       return Number.isFinite(condoNum) ? condoNum : null;
+    };
+    const normalizeNameKey = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const DEFAULT_CONDO_ASSIGNMENTS = CONDO_ADDRESSES.reduce((map, condo, index) => {
+      (condo.occupants || []).forEach((name) => {
+        const key = normalizeNameKey(name);
+        if (key) map[key] = index + 1;
+      });
+      return map;
+    }, {});
+    const getDefaultCondoNumberForName = (name) => {
+      const primaryKey = normalizeNameKey(name);
+      const candidateKeys = [primaryKey, ...((NAME_ALIASES[primaryKey] || []).map((alias) => normalizeNameKey(alias)))].filter(Boolean);
+      for (let i = 0; i < candidateKeys.length; i += 1) {
+        const condoNum = DEFAULT_CONDO_ASSIGNMENTS[candidateKeys[i]];
+        if (Number.isFinite(condoNum)) return condoNum;
+      }
+      return null;
+    };
+    const getParticipantRoomAssignment = (player) => {
+      if (player && player.roomAssignment) return player.roomAssignment;
+      const condoNum = getDefaultCondoNumberForName(player && player.name);
+      return condoNum ? `Condo ${condoNum} - Room A` : '';
+    };
+    const getCondoByIndex = (index) => CONDO_ADDRESSES[index] || null;
+    const getCondoTitle = (index) => {
+      const condo = getCondoByIndex(index);
+      return condo && condo.label ? `Condo ${index + 1} · ${condo.label}` : `Condo ${index + 1}`;
+    };
+    const getCondoOptionLabel = (condoNumber) => {
+      const condo = getCondoByIndex(Number(condoNumber) - 1);
+      return condo && condo.label ? `Condo ${condoNumber} - ${condo.label}` : `Condo ${condoNumber}`;
     };
     const buildWazeLink = (course, address) => {
       const query = address || course;
@@ -1624,26 +1667,39 @@
       const formatKey = String(round && round.formatKey || '').trim().toLowerCase();
       return resultMode === 'teamround' || resultMode === 'team_round' || formatKey === 'onetwothree';
     };
+    const isRyderCupNetTotalFormat = (round = {}) => {
+      const key = String(round && round.formatKey || '').trim().toLowerCase();
+      return key === 'netteammatch' || key === 'netsinglesmatch';
+    };
     const usesRyderCupTeamTotals = (round = {}) => {
       const key = String(round && round.formatKey || '').trim().toLowerCase();
-      return key === 'bestballstroke' || key === 'combinedscore';
+      return key === 'netteammatch' || key === 'netsinglesmatch' || key === 'bestballstroke' || key === 'combinedscore';
     };
     const usesRyderCupPlayerTotals = (round = {}) => {
       const key = String(round && round.formatKey || '').trim().toLowerCase();
-      return key === 'bestballstroke' || key === 'combinedscore';
+      return key === 'netteammatch' || key === 'netsinglesmatch' || key === 'bestballstroke' || key === 'combinedscore';
     };
     const getRyderCupPlayerScoreHint = (round = {}) => {
       const key = String(round && round.formatKey || '').trim().toLowerCase();
+      if (key === 'netteammatch' || key === 'netsinglesmatch') return 'Gross total';
       if (key === 'bestballstroke') return 'Optional player gross total';
       if (key === 'combinedscore') return 'Player gross total';
       return 'Player total';
     };
     const getRyderCupTeamTotalHint = (round = {}) => {
       const key = String(round && round.formatKey || '').trim().toLowerCase();
+      if (key === 'netteammatch') return 'Net team total';
+      if (key === 'netsinglesmatch') return 'Net score';
       if (key === 'bestballstroke') return 'Best-ball team total';
       if (key === 'combinedscore') return 'Combined team total';
       if (isRyderCupTeamRound(round)) return 'Team round total';
       return 'Team total';
+    };
+    const getRyderCupTeamPlayerMeta = (team = {}, playerName = '') => {
+      const target = String(playerName || '').trim().toLowerCase();
+      return Array.isArray(team && team.players)
+        ? team.players.find((player) => String(player && player.name || '').trim().toLowerCase() === target) || null
+        : null;
     };
     const formatRyderCupWinnerLabel = (result, teamAName, teamBName) => {
       const key = String(result || '').trim().toLowerCase();
@@ -1733,11 +1789,12 @@
         .filter(Boolean);
     };
     const RYDER_CUP_PLAY_STYLE_OPTIONS = [
+      'Two-Man Net Total Match',
+      'Singles Net Total Match',
       'Four-Ball Match Play',
       'Best Ball Stroke Play',
       'Two-Man Combined Score',
       '1-2-3 Team Game',
-      'Singles Match Play',
       'Own Ball Pod'
     ];
     const getRyderCupData = () => competitionData && competitionData.ryderCup ? competitionData.ryderCup : null;
@@ -1752,7 +1809,8 @@
     };
     const getDefaultRyderCupPlayStyle = (format = '') => {
       const normalized = String(format || '').trim().toLowerCase();
-      if (normalized.includes('singles')) return 'Singles Match Play';
+      if (normalized.includes('singles')) return 'Singles Net Total Match';
+      if (normalized.includes('net total')) return 'Two-Man Net Total Match';
       if (normalized.includes('1-2-3')) return '1-2-3 Team Game';
       if (normalized.includes('two-man combined')) return 'Two-Man Combined Score';
       if (normalized.includes('best ball stroke')) return 'Best Ball Stroke Play';
@@ -2123,6 +2181,7 @@
     }
 
     function renderCompetitionAdmin(overview = {}, rounds = [], admin = {}) {
+      const hasRyderCup = Boolean(getRyderCupData());
       const selectedRound = getSelectedCompetitionRound();
       const scorePlayers = Array.isArray(selectedRound?.playerScores) ? selectedRound.playerScores : [];
       const selectedPlayer = scorePlayers.find((entry) => entry.playerName === competitionUiState.scorePlayerName) || scorePlayers[0] || null;
@@ -2175,9 +2234,10 @@
                 </div>
               </div>
               <div class="competition-admin-card" style="grid-column:1/-1;">
-                <strong>Score Entry</strong>
+                <strong>${hasRyderCup ? 'Hole-By-Hole Trip Score Entry' : 'Score Entry'}</strong>
                 ${selectedRound ? `
                   <div id="competitionScoreEditor">
+                    ${hasRyderCup ? `<div class="competition-note" style="margin-bottom:10px;">Use the Ryder Cup round cards below for the fast daily match workflow. This section is optional and only needed if you also want hole-by-hole net / Stableford tracking for the trip scoreboard.</div>` : ''}
                     <div class="competition-score-toolbar">
                       <label>
                         <span>Round</span>
@@ -2440,6 +2500,43 @@
 
     function renderRyderCupMatchScoreFields(round = {}, match = {}, teamA = {}, teamB = {}, singles = false) {
       if (!usesRyderCupTeamTotals(round) && !usesRyderCupPlayerTotals(round)) return '';
+      if (isRyderCupNetTotalFormat(round)) {
+        const teamAPlayerScores = Array.isArray(match.teamAPlayerScores) ? match.teamAPlayerScores : [];
+        const teamBPlayerScores = Array.isArray(match.teamBPlayerScores) ? match.teamBPlayerScores : [];
+        const teamAPlayerNetScores = Array.isArray(match.teamAPlayerNetScores) ? match.teamAPlayerNetScores : [];
+        const teamBPlayerNetScores = Array.isArray(match.teamBPlayerNetScores) ? match.teamBPlayerNetScores : [];
+        const renderNetTotalField = (sideKey, team, scoreValues, netValues, slotIndex) => {
+          const players = sideKey === 'teamA' ? (match.teamAPlayers || []) : (match.teamBPlayers || []);
+          const playerName = players[slotIndex] || `${team.name || (sideKey === 'teamA' ? 'Team A' : 'Team B')} ${slotIndex + 1}`;
+          const playerMeta = getRyderCupTeamPlayerMeta(team, playerName) || {};
+          const metaParts = [];
+          if (playerMeta.handicapIndex !== null && playerMeta.handicapIndex !== undefined && playerMeta.handicapIndex !== '') {
+            metaParts.push(`HI ${formatHandicap(playerMeta.handicapIndex)}`);
+          }
+          if (Number.isFinite(playerMeta.playingHandicap)) {
+            metaParts.push(`Playing ${playerMeta.playingHandicap}`);
+          }
+          if (Number.isFinite(netValues[slotIndex])) {
+            metaParts.push(`Net ${netValues[slotIndex]}`);
+          }
+          return `
+            <label>
+              <span>${escapeHtml(playerName)} · Gross total${metaParts.length ? ` · ${escapeHtml(metaParts.join(' · '))}` : ''}</span>
+              <input type="number" min="1" step="1" inputmode="numeric" data-ryder-player-score="${escapeHtml(sideKey)}" data-score-slot="${escapeHtml(String(slotIndex))}" value="${scoreValues[slotIndex] ?? ''}" placeholder="84">
+            </label>
+          `;
+        };
+        return `
+          <div class="competition-admin-card" style="grid-column:1/-1;">
+            <strong>${escapeHtml(singles ? 'Daily gross totals' : 'Daily gross totals for both teams')}</strong>
+            <div class="competition-note">${escapeHtml(singles ? 'Enter gross totals only. Net scores are computed from handicaps and the lower net wins the point.' : 'Enter gross totals only. Net team totals are computed from handicaps and the lower combined net wins the point.')}</div>
+            <div class="ryder-match-editor-grid" style="margin-top:8px;">
+              ${Array.from({ length: singles ? 1 : 2 }, (_, slotIndex) => renderNetTotalField('teamA', teamA, teamAPlayerScores, teamAPlayerNetScores, slotIndex)).join('')}
+              ${Array.from({ length: singles ? 1 : 2 }, (_, slotIndex) => renderNetTotalField('teamB', teamB, teamBPlayerScores, teamBPlayerNetScores, slotIndex)).join('')}
+            </div>
+          </div>
+        `;
+      }
       const scoreHint = getRyderCupPlayerScoreHint(round);
       const totalHint = getRyderCupTeamTotalHint(round);
       const teamAPlayerScores = Array.isArray(match.teamAPlayerScores) ? match.teamAPlayerScores : [];
@@ -2528,13 +2625,14 @@
         <details class="competition-section">
           <summary>
             <span>Rounds</span>
-            <span class="competition-note">Five seeded own-ball rounds with compact score entry</span>
+            <span class="competition-note">Five seeded rounds with one daily gross total per golfer</span>
           </summary>
           <div class="competition-section-body">
             <div class="competition-round-grid">
               ${rounds.map((round, roundIndex) => {
                 const singles = String(round.format || '').toLowerCase().includes('singles');
                 const teamRound = isRyderCupTeamRound(round);
+                const netTotalFormat = isRyderCupNetTotalFormat(round);
                 return `
                   <details class="competition-section"${roundIndex === 0 ? ' open' : ''}>
                     <summary>
@@ -2553,6 +2651,7 @@
                       <div class="ryder-round-intro">
                         <strong>${escapeHtml(round.description || 'Own-ball team competition round.')}</strong>
                         <div class="competition-note">${escapeHtml(round.entrySummary || 'Enter the matchup result for the round.')}</div>
+                        ${netTotalFormat ? `<div class="competition-note">Use this round card as the daily scorer: enter each golfer's gross total once, save the round, and the match winners will resolve from net scores.</div>` : ''}
                       </div>
                       ${renderRyderCupRoundPlan(round, teamA, teamB)}
                       ${teamRound ? renderRyderCupTeamRoundScore(round, teamA, teamB) : `
@@ -2581,6 +2680,7 @@
                                 </label>
                               `).join('')}
                               ${renderRyderCupMatchScoreFields(round, match, teamA, teamB, singles)}
+                              ${netTotalFormat ? '' : `
                               <label>
                                 <span>Winner</span>
                                 <select data-ryder-result>
@@ -2590,6 +2690,7 @@
                                   <option value="halved"${match.enteredResult === 'halved' ? ' selected' : ''}>Halved</option>
                                 </select>
                               </label>
+                              `}
                               <label style="grid-column:1/-1;">
                                 <span>Notes</span>
                                 <textarea data-ryder-note placeholder="Optional admin note">${escapeHtml(match.notes || '')}</textarea>
@@ -2597,7 +2698,7 @@
                             </div>
                             <div class="ryder-inline-meta">
                               <span class="competition-pill">Result ${escapeHtml(formatRyderCupWinnerLabel(match.result, teamA.name || 'Team A', teamB.name || 'Team B'))}</span>
-                              ${usesRyderCupTeamTotals(round) ? `<span class="competition-pill">${escapeHtml(teamA.name)} score ${match.teamAScore ?? '—'}</span><span class="competition-pill">${escapeHtml(teamB.name)} score ${match.teamBScore ?? '—'}</span>` : ''}
+                              ${usesRyderCupTeamTotals(round) ? `<span class="competition-pill">${escapeHtml(teamA.name)} ${escapeHtml(netTotalFormat ? 'net' : 'score')} ${match.teamAScore ?? '—'}</span><span class="competition-pill">${escapeHtml(teamB.name)} ${escapeHtml(netTotalFormat ? 'net' : 'score')} ${match.teamBScore ?? '—'}</span>` : ''}
                               <span class="competition-pill">${escapeHtml(teamA.name)} ${escapeHtml(formatCompetitionPoints(match.pointsA || 0))}</span>
                               <span class="competition-pill">${escapeHtml(teamB.name)} ${escapeHtml(formatCompetitionPoints(match.pointsB || 0))}</span>
                             </div>
@@ -2623,14 +2724,14 @@
         <details class="competition-section">
           <summary>
             <span>Side Games And Payout</span>
-            <span class="competition-note">Daily low gross, birdies, CTP, MVP, and the trip pot</span>
+            <span class="competition-note">Daily net / Stableford, net birdies, CTP, MVP, and the trip pot</span>
           </summary>
           <div class="competition-section-body">
             <div class="ryder-sidegame-grid">
               <div class="competition-sidegame-card" style="grid-column:1/-1;">
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-                  <strong>Daily Low Gross</strong>
-                  <span class="competition-note">One winner block per round</span>
+                  <strong>Daily Net / Stableford Winner</strong>
+                  <span class="competition-note">One winner block per round. Use net or Stableford, not gross only.</span>
                 </div>
                 <div class="ryder-daily-grid">
                   ${(sideGames.dailyLowGross || []).map((entry, index) => `
@@ -2653,7 +2754,7 @@
                 </div>
               </div>
               <div class="competition-sidegame-card">
-                <strong>Weekly Low Gross</strong>
+                <strong>Trip Net / Stableford Winner</strong>
                 <label>
                   <span>Winner</span>
                   <input id="ryderWeeklyWinner" type="text" value="${quoteAttr((sideGames.weeklyLowGross && sideGames.weeklyLowGross.winnerName) || '')}" placeholder="Winner name">
@@ -2677,10 +2778,10 @@
                 <div class="competition-note">Winners: ${escapeHtml((sideGames.closestToPin && sideGames.closestToPin.winners && sideGames.closestToPin.winners.join(', ')) || 'Pending')}</div>
               </div>
               <div class="competition-sidegame-card">
-                <strong>Birdie Pool</strong>
-                <div class="competition-note">One line per player: Player | count</div>
+                <strong>Net Birdie Pool</strong>
+                <div class="competition-note">One line per player: Player | count. Count only net birdies or better.</div>
                 <label>
-                  <span>Birdie counts</span>
+                  <span>Net birdie counts</span>
                   <textarea id="ryderBirdieCountsField" placeholder="Joe Gillette | 4&#10;John Quimby | 2">${escapeHtml(formatRyderCupBirdieCounts(sideGames.birdiePool && sideGames.birdiePool.counts))}</textarea>
                 </label>
                 <label>
@@ -2718,7 +2819,7 @@
                   <span>Total pot</span>
                   <input id="ryderTotalPotField" type="number" step="0.01" value="${payout.totalPot !== null && payout.totalPot !== undefined ? escapeHtml(String(payout.totalPot)) : ''}" placeholder="1000">
                 </label>
-                <div class="competition-note">50% winning team, 20% weekly low gross, 10% birdie pool, 10% closest to pin, 10% MVP.</div>
+                <div class="competition-note">50% winning team, 20% trip net / Stableford, 10% net birdie pool, 10% closest to pin, 10% MVP.</div>
                 <ul class="ryder-payout-list">
                   ${(payout.rows || []).map((row) => `
                     <li>
@@ -2741,8 +2842,8 @@
       return `
         <details class="competition-section">
           <summary>
-            <span>Admin Notes And Constraints</span>
-            <span class="competition-note">Own-ball rules, hard constraints, and requested foursome coverage</span>
+            <span>Admin Notes</span>
+            <span class="competition-note">Own-ball rules and seed notes</span>
           </summary>
           <div class="competition-section-body">
             <div class="ryder-admin-grid">
@@ -2753,28 +2854,6 @@
                     <li>
                       <span>${escapeHtml(`${entry.title || 'Round'} · ${entry.format || ''}`)}<br><span class="competition-note">${escapeHtml(entry.description || '')}</span></span>
                       <span>Own ball</span>
-                    </li>
-                  `).join('')}
-                </ul>
-              </div>
-              <div class="competition-admin-card">
-                <strong>Hard Constraints</strong>
-                <ul class="ryder-admin-list">
-                  ${(admin.hardConstraints || []).map((entry) => `
-                    <li>
-                      <span>${escapeHtml(entry.text || '')}<br><span class="ryder-status ${escapeHtml(entry.status || '')}">${escapeHtml(formatRyderCupStatusLabel(entry.status))}</span></span>
-                      <span>${entry.locations && entry.locations.length ? escapeHtml(entry.locations[0]) : '—'}</span>
-                    </li>
-                  `).join('')}
-                </ul>
-              </div>
-              <div class="competition-admin-card">
-                <strong>Requested Groupings</strong>
-                <ul class="ryder-admin-list">
-                  ${(admin.requestedGroupings || []).map((entry) => `
-                    <li>
-                      <span>${escapeHtml(entry.label || '')}<br><span class="ryder-status ${escapeHtml(entry.status || '')}">${escapeHtml(formatRyderCupStatusLabel(entry.status))}</span></span>
-                      <span>${entry.locations && entry.locations.length ? escapeHtml(entry.locations[0]) : '—'}</span>
                     </li>
                   `).join('')}
                 </ul>
@@ -2830,10 +2909,9 @@
             <div class="page-section-head">
               <div class="page-section-copy">
                 <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Trip Scoring and Ryder Cup</h2>
-                <div class="competition-note">Own-ball score entry, Myrtle Ryder Cup points, and side games in one place.</div>
+                <div class="competition-note">Trip scoreboard, Myrtle Ryder Cup points, and side games in one place.</div>
               </div>
               <div class="page-section-actions">
-                <a class="hero-link" href="/myrtle/competition-entry.html" target="_blank" rel="noopener">Own-Ball Score Entry</a>
                 <a class="hero-link" href="#scheduleSection">Back to Schedule</a>
               </div>
             </div>
@@ -3274,7 +3352,7 @@
         <div class="page-section-head section-anchor" id="scheduleSection">
           <div class="page-section-copy">
             <h2 style="margin:0;font-size:1.05rem;">Golf Schedule</h2>
-            <div class="competition-note">Daily tee groups mirror the Myrtle Ryder Cup rounds and own-ball score entry below.</div>
+            <div class="competition-note">Daily tee groups mirror the Myrtle Ryder Cup rounds and trip scoring below.</div>
           </div>
           <div class="page-section-actions">
             <a class="hero-link" href="#competitionSection">Jump to Ryder Cup</a>
@@ -3428,27 +3506,35 @@
       const condoCount = getCondoCount();
       const condoCounts = Array(condoCount).fill(0);
       participants.forEach((g) => {
-        const condoNum = getCondoNumber(g.roomAssignment);
+        const condoNum = getCondoNumber(getParticipantRoomAssignment(g));
         if (!condoNum) return;
         const idx = condoNum - 1;
         if (idx >= 0 && idx < condoCount) condoCounts[idx]++;
       });
 
       for (let i = 0; i < condoCount; i++) {
+        const condo = getCondoByIndex(i);
         const div = document.createElement('div');
         div.className = 'condo-group';
-        div.innerHTML = `<strong>Condo ${i + 1}</strong><div class="cards-grid"></div>`;
+        div.innerHTML = `
+          <div style="display:grid;gap:4px;">
+            <strong>${escapeHtml(getCondoTitle(i))}</strong>
+            ${condo ? `<div class="competition-note">${escapeHtml(condo.unit)} · ${escapeHtml(condo.address)}</div>` : ''}
+          </div>
+          <div class="cards-grid"></div>
+        `;
         const grid = div.querySelector('.cards-grid');
         const group = participants.filter((p) => {
-          return getCondoNumber(p.roomAssignment) === i + 1;
+          return getCondoNumber(getParticipantRoomAssignment(p)) === i + 1;
         });
         for (const p of group) {
-          const match = p.roomAssignment && p.roomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
+          const effectiveRoomAssignment = getParticipantRoomAssignment(p);
+          const match = effectiveRoomAssignment && effectiveRoomAssignment.match(/^Condo (\d+) - Room ([AB])$/);
           const room = match ? match[2] : '';
-          const currentCondo = getCondoNumber(p.roomAssignment);
+          const currentCondo = getCondoNumber(effectiveRoomAssignment);
           let moveOptions = `<option value="unassigned">Unassigned</option>`;
           for (let c = 1; c <= condoCount; c++) {
-            if (c !== currentCondo && condoCounts[c - 1] < 4) moveOptions += `<option value="${c}">Condo ${c}</option>`;
+            if (c !== currentCondo && condoCounts[c - 1] < 4) moveOptions += `<option value="${c}">${escapeHtml(getCondoOptionLabel(c))}</option>`;
           }
           const card = document.createElement('div');
           card.className = 'participant-card';
@@ -3472,7 +3558,7 @@
       }
 
       const unassigned = participants.filter((p) => {
-        const condoNum = getCondoNumber(p.roomAssignment);
+        const condoNum = getCondoNumber(getParticipantRoomAssignment(p));
         return !condoNum || condoNum < 1 || condoNum > condoCount;
       });
       const unassignedSidebar = document.getElementById('unassignedSidebar');
@@ -3501,7 +3587,7 @@
       if (!unassigned.length) {
         ul.innerHTML = `<li style="color:var(--muted);">Everyone is assigned.</li>`;
       } else {
-        const condoOptions = Array.from({ length: condoCount }, (_, idx) => `<option value="${idx + 1}">Condo ${idx + 1}</option>`).join('');
+        const condoOptions = Array.from({ length: condoCount }, (_, idx) => `<option value="${idx + 1}">${escapeHtml(getCondoOptionLabel(idx + 1))}</option>`).join('');
         unassigned.forEach((p) => {
           const li = document.createElement('li');
           li.innerHTML = `
@@ -3571,7 +3657,7 @@
         if (e.target.classList.contains('room-select')) {
           const id = e.target.dataset.id;
           const room = e.target.value;
-          const match = participants.find((p) => p._id === id)?.roomAssignment?.match(/^Condo (\d+) - Room ([AB])$/);
+          const match = getParticipantRoomAssignment(participants.find((p) => p._id === id)).match(/^Condo (\d+) - Room ([AB])$/);
           const condoNum = match ? match[1] : null;
           if (condoNum) {
             await updateParticipant(id, { roomAssignment: `Condo ${condoNum} - Room ${room}` }, { requireAdmin: true });

@@ -77,6 +77,7 @@ const TripSchema = new mongoose.Schema({
   competition: { type: TripCompetitionSchema, default: () => ({}) },
   tinCupLive: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
   rounds: { type: [TripRoundSchema], default: [] },
+  accommodations: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
   notes: { type: String }
 }, { timestamps: true });
 const TripModel = mongoose.model('Trip', TripSchema);
