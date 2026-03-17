@@ -74,6 +74,7 @@ async function main() {
       '/blue-ridge-outings.html',
       '/blue-ridge-outings-admin.html',
       '/myrtle/trip-2026.html',
+      '/myrtle/lodging-and-maps.html',
       '/rules.html',
       '/handicaps.html',
       '/user-guide.html',

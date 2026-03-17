@@ -1589,7 +1589,7 @@
       tommyknightjr: ['tommyknight']
     };
     const DEFAULT_TRIP = {
-      name: 'tommy knight Group - Barefoot',
+      name: 'Myrtle Beach - Barefoot Group 3/18-3/22/26',
       location: 'Myrtle Beach, SC',
       arrivalDate: MYRTLE_ARRIVAL_DATE,
       departureDate: MYRTLE_DEPARTURE_DATE,
@@ -1608,6 +1608,7 @@
         doorKeyCodes: {}
       }
     };
+    const MYRTLE_PRIMARY_TRIP_NAME = 'Myrtle Beach - Barefoot Group 3/18-3/22/26';
     const parseTimeMinutes = (value) => {
       const match = /^(\d{1,2}):(\d{2})$/.exec(String(value || '').trim());
       if (!match) return null;
@@ -1714,7 +1715,7 @@
         address: '5804 Oyster Catcher Dr, North Myrtle Beach, SC 29582',
         unit: 'Ironwood 1233',
         guestbook: 'https://guide.ruebarue.com/guestbook/6212242310575679',
-        occupants: ['Tommy Knight', 'Tommy Knight Sr', 'Joe Gillette', 'Jay Quimby']
+        occupants: ['Tommy Knight', 'Tommy Knight Sr', 'Joe Gillette', 'John Quimby']
       },
       {
         label: '5802 Oyster Catcher Dr',
@@ -1778,6 +1779,35 @@
       return Number.isNaN(parsed.getTime()) ? '' : parsed.toLocaleDateString();
     };
     const tripApi = (path) => (path.includes('?') ? `${path}&myrtleBeach2026=true` : `${path}?myrtleBeach2026=true`);
+    const getRequestedTripId = () => {
+      try {
+        return String(new URLSearchParams(window.location.search).get('tripId') || '').trim();
+      } catch (_error) {
+        return '';
+      }
+    };
+    const getIsoDateOnly = (value) => {
+      if (!value) return '';
+      const parsed = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+      return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10);
+    };
+    const isMyrtleTripCandidate = (entry = {}) => {
+      const name = String(entry && entry.name || '').trim();
+      const location = String(entry && entry.location || '').trim();
+      return /myrtle/i.test(name) || /myrtle/i.test(location);
+    };
+    const findPreferredMyrtleTrip = (trips = []) => {
+      const requestedTripId = getRequestedTripId();
+      const list = Array.isArray(trips) ? trips : [];
+      if (requestedTripId) {
+        const requested = list.find((entry) => String(entry && entry._id || '').trim() === requestedTripId);
+        if (requested) return requested;
+      }
+      return list.find((entry) => String(entry && entry.name || '').trim() === MYRTLE_PRIMARY_TRIP_NAME)
+        || list.find((entry) => isMyrtleTripCandidate(entry) && getIsoDateOnly(entry && entry.arrivalDate) === MYRTLE_ARRIVAL_DATE)
+        || list.find((entry) => isMyrtleTripCandidate(entry))
+        || null;
+    };
     const safeNumber = (val) => (val === '' || isNaN(val) ? 0 : parseFloat(val));
     async function tripFetchJson(url, options = {}) {
       const res = await fetch(url, options);
@@ -2048,27 +2078,10 @@
       const key = String(round && round.formatKey || '').trim().toLowerCase();
       return key === 'grossteammatch' || key === 'grosssinglesmatch' || key === 'netteammatch' || key === 'netsinglesmatch';
     };
-    const usesRyderCupTeamTotals = (round = {}) => {
-      const key = String(round && round.formatKey || '').trim().toLowerCase();
-      return key === 'grossteammatch' || key === 'grosssinglesmatch' || key === 'netteammatch' || key === 'netsinglesmatch' || key === 'bestballstroke' || key === 'combinedscore';
-    };
-    const usesRyderCupPlayerTotals = (round = {}) => {
-      const key = String(round && round.formatKey || '').trim().toLowerCase();
-      return key === 'grossteammatch' || key === 'grosssinglesmatch' || key === 'netteammatch' || key === 'netsinglesmatch' || key === 'bestballstroke' || key === 'combinedscore';
-    };
-    const getRyderCupPlayerScoreHint = (round = {}) => {
-      const key = String(round && round.formatKey || '').trim().toLowerCase();
-      if (isRyderCupGrossTotalFormat(round)) return 'Gross total';
-      if (key === 'bestballstroke') return 'Optional player gross total';
-      if (key === 'combinedscore') return 'Player gross total';
-      return 'Player total';
-    };
     const getRyderCupTeamTotalHint = (round = {}) => {
       const key = String(round && round.formatKey || '').trim().toLowerCase();
       if (key === 'grossteammatch' || key === 'netteammatch') return 'Gross team total';
       if (key === 'grosssinglesmatch' || key === 'netsinglesmatch') return 'Gross score';
-      if (key === 'bestballstroke') return 'Best-ball team total';
-      if (key === 'combinedscore') return 'Combined team total';
       if (isRyderCupTeamRound(round)) return 'Team round total';
       return 'Team total';
     };
@@ -3263,8 +3276,11 @@
       competitionLoadError = '';
       tripRyderCupLoadError = '';
       const trips = await tripFetchJson(tripApi('/api/trips'));
-      trip = trips.find((t) => t.name && t.name.includes('Myrtle Beach'));
-      if (!trip) return alert('Trip not found');
+      trip = findPreferredMyrtleTrip(trips);
+      if (!trip) {
+        const requestedTripId = getRequestedTripId();
+        return alert(requestedTripId ? 'Requested Myrtle trip not found.' : 'Myrtle trip not found.');
+      }
       tripId = trip._id;
       window.tripId = trip._id;
       const auditLink = document.getElementById('tripAuditLink');
@@ -3425,65 +3441,28 @@
     }
 
     function renderRyderCupMatchScoreFields(round = {}, match = {}, teamA = {}, teamB = {}, singles = false) {
-      if (!usesRyderCupTeamTotals(round) && !usesRyderCupPlayerTotals(round)) return '';
-      if (isRyderCupGrossTotalFormat(round)) {
-        const teamAPlayerScores = Array.isArray(match.teamAPlayerScores) ? match.teamAPlayerScores : [];
-        const teamBPlayerScores = Array.isArray(match.teamBPlayerScores) ? match.teamBPlayerScores : [];
-        const renderGrossTotalField = (sideKey, team, scoreValues, slotIndex) => {
-          const players = sideKey === 'teamA' ? (match.teamAPlayers || []) : (match.teamBPlayers || []);
-          const playerName = players[slotIndex] || `${team.name || (sideKey === 'teamA' ? 'Team A' : 'Team B')} ${slotIndex + 1}`;
-          const playerMeta = getRyderCupTeamPlayerMeta(team, playerName) || {};
-          const metaParts = getRyderCupPlayerMetaParts(playerMeta);
-          return `
-            <label>
-              <span>${escapeHtml(playerName)} · Gross total${metaParts.length ? ` · ${escapeHtml(metaParts.join(' · '))}` : ''}</span>
-              <input type="number" min="1" step="1" inputmode="numeric" data-ryder-player-score="${escapeHtml(sideKey)}" data-score-slot="${escapeHtml(String(slotIndex))}" value="${scoreValues[slotIndex] ?? ''}" placeholder="84">
-            </label>
-          `;
-        };
-        return `
-          <div class="competition-admin-card" style="grid-column:1/-1;">
-            <strong>${escapeHtml('Daily gross totals with 75% handicap')}</strong>
-            <div class="competition-note">${escapeHtml(singles ? 'Enter gross totals only. Net = gross - fixed 75% handicap allowance, and the lower net score wins the point.' : 'Enter gross totals only. Net = gross - fixed 75% handicap allowance, and the lower net side wins the point.')}</div>
-            <div class="ryder-match-editor-grid" style="margin-top:8px;">
-              ${Array.from({ length: singles ? 1 : 2 }, (_, slotIndex) => renderGrossTotalField('teamA', teamA, teamAPlayerScores, slotIndex)).join('')}
-              ${Array.from({ length: singles ? 1 : 2 }, (_, slotIndex) => renderGrossTotalField('teamB', teamB, teamBPlayerScores, slotIndex)).join('')}
-            </div>
-          </div>
-        `;
-      }
-      const scoreHint = getRyderCupPlayerScoreHint(round);
-      const totalHint = getRyderCupTeamTotalHint(round);
+      if (!isRyderCupGrossTotalFormat(round)) return '';
       const teamAPlayerScores = Array.isArray(match.teamAPlayerScores) ? match.teamAPlayerScores : [];
       const teamBPlayerScores = Array.isArray(match.teamBPlayerScores) ? match.teamBPlayerScores : [];
-      const helperNote = String(round.formatKey || '').trim().toLowerCase() === 'bestballstroke'
-        ? 'Enter the team best-ball total manually. Optional player totals are reference only.'
-        : 'If both player totals are entered, the combined team total can be derived on save.';
+      const renderGrossTotalField = (sideKey, team, scoreValues, slotIndex) => {
+        const players = sideKey === 'teamA' ? (match.teamAPlayers || []) : (match.teamBPlayers || []);
+        const playerName = players[slotIndex] || `${team.name || (sideKey === 'teamA' ? 'Team A' : 'Team B')} ${slotIndex + 1}`;
+        const playerMeta = getRyderCupTeamPlayerMeta(team, playerName) || {};
+        const metaParts = getRyderCupPlayerMetaParts(playerMeta);
+        return `
+          <label>
+            <span>${escapeHtml(playerName)} · Gross total${metaParts.length ? ` · ${escapeHtml(metaParts.join(' · '))}` : ''}</span>
+            <input type="number" min="1" step="1" inputmode="numeric" data-ryder-player-score="${escapeHtml(sideKey)}" data-score-slot="${escapeHtml(String(slotIndex))}" value="${scoreValues[slotIndex] ?? ''}" placeholder="84">
+          </label>
+        `;
+      };
       return `
         <div class="competition-admin-card" style="grid-column:1/-1;">
-          <strong>${escapeHtml(totalHint)}</strong>
-          <div class="competition-note">${escapeHtml(helperNote)}</div>
+          <strong>${escapeHtml('Daily gross totals with 75% handicap')}</strong>
+          <div class="competition-note">${escapeHtml(singles ? 'Enter gross totals only. Net = gross - fixed 75% handicap allowance, and the lower net score wins the point.' : 'Enter gross totals only. Net = gross - fixed 75% handicap allowance, and the lower net side wins the point.')}</div>
           <div class="ryder-match-editor-grid" style="margin-top:8px;">
-            ${usesRyderCupPlayerTotals(round) ? Array.from({ length: singles ? 1 : 2 }, (_, slotIndex) => `
-              <label>
-                <span>${escapeHtml((match.teamAPlayers || [])[slotIndex] || `${teamA.name || 'Team A'} ${slotIndex + 1}`)} · ${escapeHtml(scoreHint)}</span>
-                <input type="number" min="1" step="1" inputmode="numeric" data-ryder-player-score="teamA" data-score-slot="${escapeHtml(String(slotIndex))}" value="${teamAPlayerScores[slotIndex] ?? ''}" placeholder="72">
-              </label>
-            `).join('') : ''}
-            ${usesRyderCupPlayerTotals(round) ? Array.from({ length: singles ? 1 : 2 }, (_, slotIndex) => `
-              <label>
-                <span>${escapeHtml((match.teamBPlayers || [])[slotIndex] || `${teamB.name || 'Team B'} ${slotIndex + 1}`)} · ${escapeHtml(scoreHint)}</span>
-                <input type="number" min="1" step="1" inputmode="numeric" data-ryder-player-score="teamB" data-score-slot="${escapeHtml(String(slotIndex))}" value="${teamBPlayerScores[slotIndex] ?? ''}" placeholder="72">
-              </label>
-            `).join('') : ''}
-            <label>
-              <span>${escapeHtml(teamA.name || 'Team A')} ${escapeHtml(totalHint)}</span>
-              <input type="number" min="1" step="1" inputmode="numeric" data-ryder-team-score="teamA" value="${match.teamAGrossScore ?? match.teamAScore ?? ''}" placeholder="68">
-            </label>
-            <label>
-              <span>${escapeHtml(teamB.name || 'Team B')} ${escapeHtml(totalHint)}</span>
-              <input type="number" min="1" step="1" inputmode="numeric" data-ryder-team-score="teamB" value="${match.teamBGrossScore ?? match.teamBScore ?? ''}" placeholder="69">
-            </label>
+            ${Array.from({ length: singles ? 1 : 2 }, (_, slotIndex) => renderGrossTotalField('teamA', teamA, teamAPlayerScores, slotIndex)).join('')}
+            ${Array.from({ length: singles ? 1 : 2 }, (_, slotIndex) => renderGrossTotalField('teamB', teamB, teamBPlayerScores, slotIndex)).join('')}
           </div>
         </div>
       `;
@@ -3612,7 +3591,7 @@
                             </div>
                             <div class="ryder-inline-meta">
                               <span class="competition-pill">Result ${escapeHtml(formatRyderCupWinnerLabel(match.result, teamA.name || 'Team A', teamB.name || 'Team B'))}</span>
-                              ${usesRyderCupTeamTotals(round) ? `<span class="competition-pill">${escapeHtml(teamA.name)} gross ${match.teamAGrossScore ?? '—'}</span><span class="competition-pill">${escapeHtml(teamA.name)} 75% hcp ${match.teamAHandicapAllowance ?? 0}</span><span class="competition-pill">${escapeHtml(teamA.name)} net ${match.teamAScore ?? '—'}</span><span class="competition-pill">${escapeHtml(teamB.name)} gross ${match.teamBGrossScore ?? '—'}</span><span class="competition-pill">${escapeHtml(teamB.name)} 75% hcp ${match.teamBHandicapAllowance ?? 0}</span><span class="competition-pill">${escapeHtml(teamB.name)} net ${match.teamBScore ?? '—'}</span>` : ''}
+                              ${grossTotalFormat ? `<span class="competition-pill">${escapeHtml(teamA.name)} gross ${match.teamAGrossScore ?? '—'}</span><span class="competition-pill">${escapeHtml(teamA.name)} 75% hcp ${match.teamAHandicapAllowance ?? 0}</span><span class="competition-pill">${escapeHtml(teamA.name)} net ${match.teamAScore ?? '—'}</span><span class="competition-pill">${escapeHtml(teamB.name)} gross ${match.teamBGrossScore ?? '—'}</span><span class="competition-pill">${escapeHtml(teamB.name)} 75% hcp ${match.teamBHandicapAllowance ?? 0}</span><span class="competition-pill">${escapeHtml(teamB.name)} net ${match.teamBScore ?? '—'}</span>` : ''}
                               <span class="competition-pill">${escapeHtml(teamA.name)} ${escapeHtml(formatCompetitionPoints(match.pointsA || 0))}</span>
                               <span class="competition-pill">${escapeHtml(teamB.name)} ${escapeHtml(formatCompetitionPoints(match.pointsB || 0))}</span>
                             </div>
