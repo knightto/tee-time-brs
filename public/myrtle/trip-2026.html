@@ -1255,6 +1255,125 @@
       display: grid;
       gap: 10px;
     }
+    .ryder-round-live-strip {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .ryder-score-entry-card {
+      display: grid;
+      gap: 10px;
+    }
+    .ryder-score-entry-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .ryder-score-entry-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .ryder-score-field {
+      display: grid;
+      gap: 6px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+    }
+    .ryder-score-field-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .ryder-score-field-name {
+      color: #fff;
+      font-weight: 700;
+    }
+    .ryder-score-field-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .ryder-score-field-badges .competition-pill {
+      background: rgba(255,255,255,0.05);
+      border-color: rgba(255,255,255,0.14);
+      color: var(--ink);
+    }
+    .ryder-match-live-grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .ryder-match-live-side,
+    .ryder-live-result {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(255,255,255,0.03);
+    }
+    .ryder-match-live-side.team-a {
+      border-color: rgba(109,211,255,0.22);
+      background: rgba(109,211,255,0.08);
+    }
+    .ryder-match-live-side.team-b {
+      border-color: rgba(224,180,87,0.24);
+      background: rgba(224,180,87,0.08);
+    }
+    .ryder-match-live-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .ryder-live-player-list {
+      display: grid;
+      gap: 6px;
+    }
+    .ryder-live-player-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.8rem;
+      color: var(--ink-soft);
+    }
+    .ryder-live-player-line strong {
+      color: #fff;
+      font-size: 0.82rem;
+    }
+    .ryder-live-result {
+      grid-column: 1 / -1;
+      align-items: center;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    }
+    .ryder-live-result.is-team-a {
+      border-color: rgba(109,211,255,0.28);
+      background: rgba(109,211,255,0.10);
+    }
+    .ryder-live-result.is-team-b {
+      border-color: rgba(224,180,87,0.3);
+      background: rgba(224,180,87,0.10);
+    }
+    .ryder-live-result.is-halved {
+      border-color: rgba(124,224,170,0.28);
+      background: rgba(124,224,170,0.08);
+    }
+    .ryder-live-result-copy {
+      display: grid;
+      gap: 4px;
+    }
+    .ryder-live-result strong {
+      color: #fff;
+    }
     .ryder-sidegame-grid .competition-sidegame-card {
       align-content: start;
     }
@@ -1435,6 +1554,87 @@
       cursor: default;
       transform: none;
     }
+    .all-foursomes-section {
+      margin-top: 12px;
+      display: grid;
+      gap: 12px;
+    }
+    .all-foursomes-repeat-grid,
+    .all-foursomes-round-grid {
+      display: grid;
+      gap: 10px;
+    }
+    .all-foursomes-repeat-grid {
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+    .all-foursomes-repeat-card,
+    .all-foursomes-round-card,
+    .all-foursomes-slot-card {
+      border-radius: 12px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(11,23,40,0.4);
+    }
+    .all-foursomes-repeat-card,
+    .all-foursomes-round-card {
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .all-foursomes-slot-list {
+      display: grid;
+      gap: 8px;
+    }
+    .all-foursomes-slot-card {
+      padding: 9px;
+      display: grid;
+      gap: 8px;
+    }
+    .all-foursomes-repeat-card.is-heavy,
+    .all-foursomes-repeat-pill.is-heavy {
+      border-color: rgba(255,156,143,0.42);
+      background: rgba(127,36,36,0.18);
+    }
+    .all-foursomes-round-head,
+    .all-foursomes-slot-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .all-foursomes-round-head strong,
+    .all-foursomes-slot-head strong {
+      color: #fff;
+    }
+    .all-foursomes-repeat-list {
+      margin: 0;
+      padding-left: 18px;
+      display: grid;
+      gap: 4px;
+      color: var(--ink-soft);
+      font-size: 0.82rem;
+    }
+    .all-foursomes-repeat-pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .all-foursomes-repeat-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.05);
+      color: #ffd9d2;
+      font-size: 0.76rem;
+      line-height: 1.2;
+    }
+    .all-foursomes-repeat-pill strong {
+      color: #fff;
+      font-size: 0.74rem;
+    }
     .floating-link {
       position: fixed;
       padding: 8px 12px;
@@ -1558,6 +1758,7 @@
         </div>
         <div class="hero-actions">
           <a class="hero-link" href="#scheduleSection">Schedule</a>
+          <a class="hero-link" data-all-foursomes-link href="/myrtle/all-foursomes.html">All Foursomes</a>
           <a class="hero-link" href="#ryderTeamsSection">Ryder Cup</a>
           <a class="hero-link" href="/myrtle/lodging-and-maps.html">Lodging + Maps</a>
           <a class="hero-link" href="https://founders.teetimecentralonline.com/golfcentral/guests/Register.aspx?g=8ad2d184-cdb8-4b90-8dc6-55c68c26efe9&ResNum=12972589&arr=3/18/2026" target="_blank" rel="noopener">Register</a>
@@ -1668,10 +1869,10 @@
         date: '2026-03-20',
         time: '08:26',
         teeTimes: buildTripSlots('08:26', [
-          ['Chris Manuel', 'Joe Gillette', 'Josh Browne', 'Lance Darr'],
-          ['Delmar Christian', 'Tommy Knight', 'Matt Shannon', 'Reny Butler'],
+          ['Tommy Knight', 'Jeremy Bridges', 'Joe Gillette', 'Chris Manuel'],
+          ['Delmar Christian', 'Lance Darr', 'Matt Shannon', 'Reny Butler'],
           ['Dennis Freeman', 'Duane Harris', 'Chad Jones', 'Manuel Ordonez'],
-          ['Jeremy Bridges', 'John Quimby', 'Caleb Hart', 'John Hyers'],
+          ['Caleb Hart', 'John Quimby', 'Josh Browne', 'John Hyers'],
           ['Thomas Lasik', 'Tommy Knight Sr', 'Chris Neff', 'Marcus Ordonez']
         ])
       },
@@ -1684,8 +1885,8 @@
           ['Jeremy Bridges', 'Duane Harris', 'Caleb Hart', 'Chris Neff'],
           ['Tommy Knight', 'Dennis Freeman', 'Matt Shannon', 'John Hyers'],
           ['John Quimby', 'Delmar Christian', 'Marcus Ordonez', 'Chad Jones'],
-          ['Thomas Lasik', 'Chris Manuel', 'Reny Butler', 'Lance Darr'],
-          ['Joe Gillette', 'Tommy Knight Sr', 'Josh Browne', 'Manuel Ordonez']
+          ['Thomas Lasik', 'Josh Browne', 'Reny Butler', 'Chris Manuel'],
+          ['Joe Gillette', 'Tommy Knight Sr', 'Lance Darr', 'Manuel Ordonez']
         ])
       },
       {
@@ -1695,10 +1896,10 @@
         time: '08:00',
         teeTimes: buildTripSlots('08:00', [
           ['Tommy Knight', 'Marcus Ordonez', 'Tommy Knight Sr', 'Manuel Ordonez'],
-          ['Joe Gillette', 'Josh Browne', 'John Quimby', 'Reny Butler'],
-          ['Thomas Lasik', 'John Hyers', 'Chris Manuel', 'Lance Darr'],
-          ['Dennis Freeman', 'Caleb Hart', 'Jeremy Bridges', 'Matt Shannon'],
-          ['Delmar Christian', 'Chris Neff', 'Duane Harris', 'Chad Jones']
+          ['Thomas Lasik', 'Joe Gillette', 'John Quimby', 'Reny Butler'],
+          ['Jeremy Bridges', 'John Hyers', 'Chris Manuel', 'Lance Darr'],
+          ['Dennis Freeman', 'Caleb Hart', 'Chad Jones', 'Matt Shannon'],
+          ['Duane Harris', 'Josh Browne', 'Chris Neff', 'Delmar Christian']
         ])
       }
     ];
@@ -1785,6 +1986,17 @@
       } catch (_error) {
         return '';
       }
+    };
+    const buildMyrtlePageHref = (path = '') => {
+      const currentTripId = String(tripId || getRequestedTripId() || '').trim();
+      if (!currentTripId) return path;
+      return `${path}${path.includes('?') ? '&' : '?'}tripId=${encodeURIComponent(currentTripId)}`;
+    };
+    const getAllFoursomesPageHref = () => buildMyrtlePageHref('/myrtle/all-foursomes.html');
+    const syncAllFoursomesLinks = () => {
+      document.querySelectorAll('[data-all-foursomes-link]').forEach((link) => {
+        link.href = getAllFoursomesPageHref();
+      });
     };
     const getIsoDateOnly = (value) => {
       if (!value) return '';
@@ -2251,6 +2463,295 @@
           .filter(Boolean)
         : []
     );
+    const getRyderCupPlayerMetaByName = (playerName = '') => {
+      const { teamA, teamB } = getRyderCupTeamMeta();
+      const teamAMeta = getRyderCupTeamPlayerMeta(teamA, playerName);
+      if (teamAMeta) return { ...teamAMeta, teamId: 'teamA', teamName: teamA.name || 'Team A' };
+      const teamBMeta = getRyderCupTeamPlayerMeta(teamB, playerName);
+      if (teamBMeta) return { ...teamBMeta, teamId: 'teamB', teamName: teamB.name || 'Team B' };
+      return null;
+    };
+    const getRyderCupMatchAllowanceValue = (playerMeta = {}) => {
+      const value = Number(playerMeta && playerMeta.matchHandicap);
+      return Number.isFinite(value) ? Math.round(value) : 0;
+    };
+    const formatRyderCupScoreNote = (grossScore, matchAllowance) => {
+      const gross = parseOptionalWholeNumber(grossScore);
+      const allowance = getRyderCupMatchAllowanceValue({ matchHandicap: matchAllowance });
+      if (!Number.isFinite(gross)) {
+        return allowance ? `Enter gross total. Gets ${allowance} strokes.` : 'Enter gross total. No strokes applied.';
+      }
+      return `Gross ${gross} - ${allowance} = Net ${gross - allowance}`;
+    };
+    const formatRyderCupNameList = (values = [], limit = 4) => {
+      const names = Array.isArray(values) ? values.filter(Boolean) : [];
+      if (!names.length) return '';
+      const visible = names.slice(0, limit);
+      const suffix = names.length > limit ? `, +${names.length - limit} more` : '';
+      return `${visible.join(', ')}${suffix}`;
+    };
+    const getRyderCupRoundContainer = (roundIndex) => document.querySelector(`[data-ryder-round-index="${String(roundIndex)}"]`);
+    const getRyderCupScoreMapValue = (scoreMap, playerName = '') => {
+      const keys = getAliasKeys(playerName);
+      for (let index = 0; index < keys.length; index += 1) {
+        if (scoreMap.has(keys[index])) return scoreMap.get(keys[index]);
+      }
+      return null;
+    };
+    const buildRyderCupRoundScoreMap = (roundContainer) => {
+      const scoreMap = new Map();
+      if (!roundContainer) return scoreMap;
+      Array.from(roundContainer.querySelectorAll('[data-ryder-player-score]')).forEach((input) => {
+        const playerName = String(input.dataset.ryderPlayerName || '').trim();
+        const grossScore = parseOptionalWholeNumber(input.value);
+        if (!playerName || !Number.isFinite(grossScore)) return;
+        getAliasKeys(playerName).forEach((key) => scoreMap.set(key, grossScore));
+      });
+      return scoreMap;
+    };
+    const buildRyderCupLiveMatchState = (card) => {
+      const { teamA, teamB } = getRyderCupTeamMeta();
+      const buildSide = (sideKey, fallbackTeam) => {
+        const fields = Array.from(card.querySelectorAll(`[data-ryder-score-field="${sideKey}"]`))
+          .sort((left, right) => Number(left.dataset.scoreSlot || 0) - Number(right.dataset.scoreSlot || 0));
+        const rows = fields.map((field) => {
+          const input = field.querySelector('[data-ryder-player-score]');
+          const playerName = String((input && input.dataset.ryderPlayerName) || '').trim();
+          const playerMeta = getRyderCupPlayerMetaByName(playerName) || {};
+          const grossScore = parseOptionalWholeNumber(input && input.value);
+          const matchAllowance = getRyderCupMatchAllowanceValue(playerMeta);
+          return {
+            playerName,
+            handicapIndex: Number.isFinite(Number(playerMeta.handicapIndex)) ? Math.round(Number(playerMeta.handicapIndex)) : null,
+            matchAllowance,
+            grossScore,
+            netScore: Number.isFinite(grossScore) ? grossScore - matchAllowance : null,
+          };
+        });
+        const enteredCount = rows.filter((row) => Number.isFinite(row.grossScore)).length;
+        const expectedCount = rows.length;
+        const complete = expectedCount > 0 && enteredCount === expectedCount && rows.every((row) => row.playerName);
+        const grossTotal = complete ? rows.reduce((sum, row) => sum + row.grossScore, 0) : null;
+        const allowanceTotal = rows.reduce((sum, row) => sum + row.matchAllowance, 0);
+        const netTotal = complete ? grossTotal - allowanceTotal : null;
+        return {
+          sideKey,
+          teamName: fallbackTeam.name || (sideKey === 'teamA' ? 'Team A' : 'Team B'),
+          rows,
+          enteredCount,
+          expectedCount,
+          complete,
+          grossTotal,
+          allowanceTotal,
+          netTotal,
+        };
+      };
+      const sideA = buildSide('teamA', teamA);
+      const sideB = buildSide('teamB', teamB);
+      let resultKey = '';
+      let margin = null;
+      if (sideA.complete && sideB.complete && Number.isFinite(sideA.netTotal) && Number.isFinite(sideB.netTotal)) {
+        if (sideA.netTotal < sideB.netTotal) {
+          resultKey = 'teamA';
+          margin = sideB.netTotal - sideA.netTotal;
+        } else if (sideB.netTotal < sideA.netTotal) {
+          resultKey = 'teamB';
+          margin = sideA.netTotal - sideB.netTotal;
+        } else {
+          resultKey = 'halved';
+          margin = 0;
+        }
+      }
+      return {
+        teamA: sideA,
+        teamB: sideB,
+        pendingScores: Math.max(0, (sideA.expectedCount - sideA.enteredCount) + (sideB.expectedCount - sideB.enteredCount)),
+        complete: sideA.complete && sideB.complete,
+        resultKey,
+        margin,
+      };
+    };
+    function syncRyderCupMatchCard(card) {
+      if (!card) return null;
+      const roundContainer = card.closest('[data-ryder-round-index]');
+      const roundIndex = Number(roundContainer && roundContainer.dataset.ryderRoundIndex);
+      const round = getRyderCupRoundMeta(roundIndex) || {};
+      const pointValue = Number.isFinite(Number(round.pointValue)) ? Number(round.pointValue) : 1;
+      const scoreMap = roundContainer ? buildRyderCupRoundScoreMap(roundContainer) : new Map();
+      ['teamA', 'teamB'].forEach((sideKey) => {
+        const playerSelects = Array.from(card.querySelectorAll(`[data-ryder-team-player="${sideKey}"]`))
+          .sort((left, right) => Number(left.dataset.playerSlot || 0) - Number(right.dataset.playerSlot || 0));
+        playerSelects.forEach((select, slotIndex) => {
+          const field = card.querySelector(`[data-ryder-score-field="${sideKey}"][data-score-slot="${slotIndex}"]`);
+          const input = field ? field.querySelector('[data-ryder-player-score]') : null;
+          if (!field || !input) return;
+          const playerName = String(select.value || '').trim();
+          const playerMeta = getRyderCupPlayerMetaByName(playerName) || {};
+          const currentPlayerName = String(input.dataset.ryderPlayerName || '').trim();
+          if (!namesMatch(currentPlayerName, playerName)) {
+            const mappedScore = getRyderCupScoreMapValue(scoreMap, playerName);
+            input.value = Number.isFinite(mappedScore) ? String(mappedScore) : '';
+          }
+          input.dataset.ryderPlayerName = playerName;
+          const nameEl = field.querySelector('[data-ryder-score-player-name]');
+          const hcpEl = field.querySelector('[data-ryder-score-hcp]');
+          const allowanceEl = field.querySelector('[data-ryder-score-allowance]');
+          const strokesEl = field.querySelector('[data-ryder-score-strokes]');
+          const noteEl = field.querySelector('[data-ryder-score-note]');
+          const allowance = getRyderCupMatchAllowanceValue(playerMeta);
+          if (nameEl) nameEl.textContent = playerName || 'Open slot';
+          if (hcpEl) hcpEl.textContent = `Hcp ${Number.isFinite(Number(playerMeta.handicapIndex)) ? Math.round(Number(playerMeta.handicapIndex)) : '—'}`;
+          if (allowanceEl) allowanceEl.textContent = `75% ${allowance}`;
+          if (strokesEl) strokesEl.textContent = allowance ? `Gets ${allowance} strokes` : 'Gets 0 strokes';
+          if (noteEl) noteEl.textContent = formatRyderCupScoreNote(input.value, allowance);
+        });
+      });
+      const liveState = buildRyderCupLiveMatchState(card);
+      const renderSide = (side) => `
+        <div class="ryder-match-live-side ${escapeHtml(side.sideKey === 'teamA' ? 'team-a' : 'team-b')}" data-ryder-live-side="${escapeHtml(side.sideKey)}">
+          <div class="ryder-match-live-head">
+            <strong>${escapeHtml(side.teamName || '')}</strong>
+            <span class="competition-note">${escapeHtml(side.complete ? 'All scores entered' : `${side.enteredCount}/${side.expectedCount} scores entered`)}</span>
+          </div>
+          <div class="competition-pill-row">
+            <span class="competition-pill">Strokes ${escapeHtml(String(side.allowanceTotal || 0))}</span>
+            ${Number.isFinite(side.grossTotal) ? `<span class="competition-pill">Gross ${escapeHtml(String(side.grossTotal))}</span><span class="competition-pill">Net ${escapeHtml(String(side.netTotal))}</span>` : ''}
+          </div>
+          <div class="ryder-live-player-list">
+            ${side.rows.map((row) => `
+              <div class="ryder-live-player-line">
+                <strong>${escapeHtml(row.playerName || 'Open slot')}</strong>
+                <span>${escapeHtml(Number.isFinite(row.grossScore) ? `${row.grossScore} - ${row.matchAllowance} = ${row.netScore}` : `Gets ${row.matchAllowance} strokes`)}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+      const teamABox = card.querySelector('[data-ryder-live-side="teamA"]');
+      const teamBBox = card.querySelector('[data-ryder-live-side="teamB"]');
+      if (teamABox) teamABox.outerHTML = renderSide(liveState.teamA);
+      if (teamBBox) teamBBox.outerHTML = renderSide(liveState.teamB);
+      const resultBox = card.querySelector('[data-ryder-live-result]');
+      const resultPill = card.querySelector('[data-ryder-live-result-pill]');
+      const scorePill = card.querySelector('[data-ryder-live-score-pill]');
+      const pointsPill = card.querySelector('[data-ryder-live-points-pill]');
+      let resultTitle = 'Live winner pending';
+      let resultDetail = liveState.pendingScores
+        ? `Waiting for ${liveState.pendingScores} more gross ${liveState.pendingScores === 1 ? 'score' : 'scores'}.`
+        : 'Enter gross totals to resolve the match.';
+      let resultClass = '';
+      let pointsA = 0;
+      let pointsB = 0;
+      const { teamA, teamB } = getRyderCupTeamMeta();
+      if (liveState.complete) {
+        if (liveState.resultKey === 'teamA') {
+          resultTitle = `${teamA.name || 'Team A'} wins`;
+          resultDetail = `Lower net by ${liveState.margin}. ${liveState.teamA.netTotal} beats ${liveState.teamB.netTotal}.`;
+          resultClass = 'is-team-a';
+          pointsA = pointValue;
+        } else if (liveState.resultKey === 'teamB') {
+          resultTitle = `${teamB.name || 'Team B'} wins`;
+          resultDetail = `Lower net by ${liveState.margin}. ${liveState.teamB.netTotal} beats ${liveState.teamA.netTotal}.`;
+          resultClass = 'is-team-b';
+          pointsB = pointValue;
+        } else if (liveState.resultKey === 'halved') {
+          resultTitle = 'Match halved';
+          resultDetail = `Net totals tie at ${liveState.teamA.netTotal}.`;
+          resultClass = 'is-halved';
+          pointsA = pointValue / 2;
+          pointsB = pointValue / 2;
+        }
+      }
+      if (resultBox) {
+        resultBox.classList.remove('is-team-a', 'is-team-b', 'is-halved');
+        if (resultClass) resultBox.classList.add(resultClass);
+        resultBox.innerHTML = `
+          <div class="ryder-live-result-copy">
+            <strong>${escapeHtml(resultTitle)}</strong>
+            <span class="competition-note">${escapeHtml(resultDetail)}</span>
+          </div>
+          <div class="competition-pill-row">
+            <span class="competition-pill">${escapeHtml(liveState.teamA.teamName)} ${escapeHtml(formatCompetitionPoints(pointsA))}</span>
+            <span class="competition-pill">${escapeHtml(liveState.teamB.teamName)} ${escapeHtml(formatCompetitionPoints(pointsB))}</span>
+          </div>
+        `;
+      }
+      if (resultPill) resultPill.textContent = `Live winner ${formatRyderCupWinnerLabel(liveState.resultKey, teamA.name || 'Team A', teamB.name || 'Team B')}`;
+      if (scorePill) {
+        scorePill.textContent = liveState.complete
+          ? `${teamA.name || 'Team A'} net ${liveState.teamA.netTotal} · ${teamB.name || 'Team B'} net ${liveState.teamB.netTotal}`
+          : (liveState.pendingScores ? `Waiting for ${liveState.pendingScores} scores` : 'Enter gross totals');
+      }
+      if (pointsPill) pointsPill.textContent = `${teamA.name || 'Team A'} ${formatCompetitionPoints(pointsA)} · ${teamB.name || 'Team B'} ${formatCompetitionPoints(pointsB)}`;
+      return liveState;
+    }
+    function syncRyderCupRoundEditor(roundIndex) {
+      const round = getRyderCupRoundMeta(roundIndex);
+      const roundContainer = getRyderCupRoundContainer(roundIndex);
+      if (!round || !roundContainer || !isRyderCupGrossTotalFormat(round)) return;
+      const pointValue = Number.isFinite(Number(round.pointValue)) ? Number(round.pointValue) : 1;
+      const liveStates = Array.from(roundContainer.querySelectorAll('[data-ryder-match-index]')).map((card) => syncRyderCupMatchCard(card)).filter(Boolean);
+      const progressEl = roundContainer.querySelector('[data-ryder-round-progress]');
+      const assignmentEl = roundContainer.querySelector('[data-ryder-round-assignment]');
+      const resultEl = roundContainer.querySelector('[data-ryder-round-result]');
+      const scoreInputs = Array.from(roundContainer.querySelectorAll('[data-ryder-player-score]'));
+      const enteredCount = scoreInputs.filter((input) => Number.isFinite(parseOptionalWholeNumber(input.value))).length;
+      const totalCount = scoreInputs.length;
+      if (progressEl) progressEl.textContent = `${enteredCount}/${totalCount} gross scores entered`;
+      const { teamA, teamB } = getRyderCupTeamMeta();
+      const allPlayers = getRyderCupTeamPlayerNames(teamA).concat(getRyderCupTeamPlayerNames(teamB));
+      const countsByKey = new Map();
+      const nameByKey = new Map();
+      Array.from(roundContainer.querySelectorAll('[data-ryder-team-player]')).forEach((select) => {
+        const playerName = String(select.value || '').trim();
+        const comparableKey = getComparableNameKey(playerName) || normalizeNameKey(playerName);
+        if (!comparableKey) return;
+        countsByKey.set(comparableKey, (countsByKey.get(comparableKey) || 0) + 1);
+        if (!nameByKey.has(comparableKey)) nameByKey.set(comparableKey, playerName);
+      });
+      const duplicateNames = Array.from(countsByKey.entries())
+        .filter(([, count]) => count > 1)
+        .map(([key]) => nameByKey.get(key) || key);
+      const missingNames = allPlayers.filter((playerName) => {
+        const comparableKey = getComparableNameKey(playerName) || normalizeNameKey(playerName);
+        return comparableKey && !countsByKey.has(comparableKey);
+      });
+      if (assignmentEl) {
+        if (!duplicateNames.length && !missingNames.length) {
+          assignmentEl.textContent = `Assignments good: all ${allPlayers.length} golfers used once`;
+        } else {
+          const issues = [];
+          if (duplicateNames.length) issues.push(`duplicate ${formatRyderCupNameList(duplicateNames)}`);
+          if (missingNames.length) issues.push(`missing ${formatRyderCupNameList(missingNames)}`);
+          assignmentEl.textContent = `Check assignments: ${issues.join(' · ')}`;
+        }
+      }
+      let roundPointsA = 0;
+      let roundPointsB = 0;
+      let pendingMatches = 0;
+      liveStates.forEach((state) => {
+        if (!state || !state.complete) {
+          pendingMatches += 1;
+          return;
+        }
+        if (state.resultKey === 'teamA') roundPointsA += pointValue;
+        else if (state.resultKey === 'teamB') roundPointsB += pointValue;
+        else if (state.resultKey === 'halved') {
+          roundPointsA += pointValue / 2;
+          roundPointsB += pointValue / 2;
+        }
+      });
+      if (resultEl) {
+        resultEl.textContent = liveStates.length
+          ? `Live round ${teamA.name || 'Team A'} ${formatCompetitionPoints(roundPointsA)} / ${teamB.name || 'Team B'} ${formatCompetitionPoints(roundPointsB)}${pendingMatches ? ` · ${pendingMatches} pending` : ' · complete'}`
+          : 'Live round pending';
+      }
+    }
+    function syncAllRyderCupRoundEditors() {
+      getRyderCupRounds().forEach((round, roundIndex) => {
+        if (isRyderCupGrossTotalFormat(round)) syncRyderCupRoundEditor(roundIndex);
+      });
+    }
     function buildTripRyderCupSlotGuide(roundIndex, slot = {}, slotIndex = 0) {
       const ryderRound = getRyderCupRoundMeta(roundIndex);
       const slotPlayers = Array.isArray(slot.players) ? slot.players.map((name) => String(name || '').trim()).filter(Boolean) : [];
@@ -3318,6 +3819,7 @@
     function renderAll() {
       renderCompetition();
       renderItinerary();
+      syncAllFoursomesLinks();
     }
 
     function getSelectedCompetitionRound() {
@@ -3448,21 +3950,37 @@
         const players = sideKey === 'teamA' ? (match.teamAPlayers || []) : (match.teamBPlayers || []);
         const playerName = players[slotIndex] || `${team.name || (sideKey === 'teamA' ? 'Team A' : 'Team B')} ${slotIndex + 1}`;
         const playerMeta = getRyderCupTeamPlayerMeta(team, playerName) || {};
-        const metaParts = getRyderCupPlayerMetaParts(playerMeta);
+        const allowance = getRyderCupMatchAllowanceValue(playerMeta);
         return `
-          <label>
-            <span>${escapeHtml(playerName)} · Gross total${metaParts.length ? ` · ${escapeHtml(metaParts.join(' · '))}` : ''}</span>
-            <input type="number" min="1" step="1" inputmode="numeric" data-ryder-player-score="${escapeHtml(sideKey)}" data-score-slot="${escapeHtml(String(slotIndex))}" value="${scoreValues[slotIndex] ?? ''}" placeholder="84">
+          <label class="ryder-score-field" data-ryder-score-field="${escapeHtml(sideKey)}" data-score-slot="${escapeHtml(String(slotIndex))}">
+            <span class="ryder-score-field-head">
+              <span class="ryder-score-field-name" data-ryder-score-player-name>${escapeHtml(playerName)}</span>
+              <span class="ryder-score-field-badges">
+                <span class="competition-pill" data-ryder-score-hcp>Hcp ${Number.isFinite(Number(playerMeta.handicapIndex)) ? escapeHtml(String(Math.round(Number(playerMeta.handicapIndex)))) : '—'}</span>
+                <span class="competition-pill" data-ryder-score-allowance>75% ${escapeHtml(String(allowance))}</span>
+                <span class="competition-pill" data-ryder-score-strokes>${escapeHtml(`Gets ${allowance} strokes`)}</span>
+              </span>
+            </span>
+            <span class="competition-note" data-ryder-score-note>${escapeHtml(formatRyderCupScoreNote(scoreValues[slotIndex], allowance))}</span>
+            <input type="number" min="1" step="1" inputmode="numeric" data-ryder-player-score="${escapeHtml(sideKey)}" data-score-slot="${escapeHtml(String(slotIndex))}" data-ryder-player-name="${quoteAttr(playerName)}" value="${scoreValues[slotIndex] ?? ''}" placeholder="84">
           </label>
         `;
       };
       return `
-        <div class="competition-admin-card" style="grid-column:1/-1;">
-          <strong>${escapeHtml('Daily gross totals with 75% handicap')}</strong>
-          <div class="competition-note">${escapeHtml(singles ? 'Enter gross totals only. Net = gross - fixed 75% handicap allowance, and the lower net score wins the point.' : 'Enter gross totals only. Net = gross - fixed 75% handicap allowance, and the lower net side wins the point.')}</div>
-          <div class="ryder-match-editor-grid" style="margin-top:8px;">
+        <div class="competition-admin-card ryder-score-entry-card" style="grid-column:1/-1;">
+          <div class="ryder-score-entry-head">
+            <strong>${escapeHtml('Daily gross totals with 75% handicap')}</strong>
+            <span class="competition-note">${escapeHtml('Scores stay attached to the golfer if you move players between matches.')}</span>
+          </div>
+          <div class="competition-note">${escapeHtml(singles ? 'Enter gross totals only. Each player gets his own fixed 75% handicap strokes, and the lower net score wins the point.' : 'Enter gross totals only. Each player gets his own fixed 75% handicap strokes, and the lower combined net side wins the point.')}</div>
+          <div class="ryder-score-entry-grid">
             ${Array.from({ length: singles ? 1 : 2 }, (_, slotIndex) => renderGrossTotalField('teamA', teamA, teamAPlayerScores, slotIndex)).join('')}
             ${Array.from({ length: singles ? 1 : 2 }, (_, slotIndex) => renderGrossTotalField('teamB', teamB, teamBPlayerScores, slotIndex)).join('')}
+          </div>
+          <div class="ryder-match-live-grid">
+            <div class="ryder-match-live-side team-a" data-ryder-live-side="teamA"></div>
+            <div class="ryder-match-live-side team-b" data-ryder-live-side="teamB"></div>
+            <div class="ryder-live-result" data-ryder-live-result></div>
           </div>
         </div>
       `;
@@ -3546,6 +4064,13 @@
                         <div class="competition-note">${escapeHtml(round.entrySummary || 'Enter the matchup result for the round.')}</div>
                         ${grossTotalFormat ? `<div class="competition-note">Use this round card as the daily scorer: enter each golfer's gross total once, save the round, and the 75% handicap net match winners will resolve automatically.</div>` : ''}
                       </div>
+                      ${grossTotalFormat ? `
+                        <div class="ryder-round-live-strip">
+                          <span class="competition-pill" data-ryder-round-progress>0/0 gross scores entered</span>
+                          <span class="competition-pill" data-ryder-round-assignment>Assignments loading</span>
+                          <span class="competition-pill" data-ryder-round-result>Live round pending</span>
+                        </div>
+                      ` : ''}
                       ${renderRyderCupRoundPlan(round, teamA, teamB)}
                       ${teamRound ? renderRyderCupTeamRoundScore(round, teamA, teamB) : `
                       <div class="competition-match-grid">
@@ -3590,10 +4115,13 @@
                               </label>
                             </div>
                             <div class="ryder-inline-meta">
-                              <span class="competition-pill">Result ${escapeHtml(formatRyderCupWinnerLabel(match.result, teamA.name || 'Team A', teamB.name || 'Team B'))}</span>
-                              ${grossTotalFormat ? `<span class="competition-pill">${escapeHtml(teamA.name)} gross ${match.teamAGrossScore ?? '—'}</span><span class="competition-pill">${escapeHtml(teamA.name)} 75% hcp ${match.teamAHandicapAllowance ?? 0}</span><span class="competition-pill">${escapeHtml(teamA.name)} net ${match.teamAScore ?? '—'}</span><span class="competition-pill">${escapeHtml(teamB.name)} gross ${match.teamBGrossScore ?? '—'}</span><span class="competition-pill">${escapeHtml(teamB.name)} 75% hcp ${match.teamBHandicapAllowance ?? 0}</span><span class="competition-pill">${escapeHtml(teamB.name)} net ${match.teamBScore ?? '—'}</span>` : ''}
-                              <span class="competition-pill">${escapeHtml(teamA.name)} ${escapeHtml(formatCompetitionPoints(match.pointsA || 0))}</span>
-                              <span class="competition-pill">${escapeHtml(teamB.name)} ${escapeHtml(formatCompetitionPoints(match.pointsB || 0))}</span>
+                              ${grossTotalFormat
+                                ? `<span class="competition-pill" data-ryder-live-result-pill>Live winner ${escapeHtml(formatRyderCupWinnerLabel(match.result, teamA.name || 'Team A', teamB.name || 'Team B'))}</span>
+                                   <span class="competition-pill" data-ryder-live-score-pill>${escapeHtml(teamA.name)} net ${match.teamAScore ?? '—'} · ${escapeHtml(teamB.name)} net ${match.teamBScore ?? '—'}</span>
+                                   <span class="competition-pill" data-ryder-live-points-pill>${escapeHtml(teamA.name)} ${escapeHtml(formatCompetitionPoints(match.pointsA || 0))} · ${escapeHtml(teamB.name)} ${escapeHtml(formatCompetitionPoints(match.pointsB || 0))}</span>`
+                                : `<span class="competition-pill">Result ${escapeHtml(formatRyderCupWinnerLabel(match.result, teamA.name || 'Team A', teamB.name || 'Team B'))}</span>
+                                   <span class="competition-pill">${escapeHtml(teamA.name)} ${escapeHtml(formatCompetitionPoints(match.pointsA || 0))}</span>
+                                   <span class="competition-pill">${escapeHtml(teamB.name)} ${escapeHtml(formatCompetitionPoints(match.pointsB || 0))}</span>`}
                             </div>
                           </div>
                         `).join('')}
@@ -3617,49 +4145,76 @@
         <details class="competition-section">
           <summary>
             <span>Side Games And Payout</span>
-            <span class="competition-note">Daily low gross, birdies, CTP, MVP, and the trip pot</span>
+            <span class="competition-note">Daily net, Secret Snowman, birdies, CTP, MVP, and the trip pot</span>
           </summary>
           <div class="competition-section-body">
             <div class="ryder-sidegame-grid">
               <div class="competition-sidegame-card" style="grid-column:1/-1;">
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-                  <strong>Daily Low Gross</strong>
-                  <span class="competition-note">One winner block per round.</span>
+                  <strong>Daily Net</strong>
+                  <span class="competition-note">Auto from saved gross totals and the 75% allowance.</span>
                 </div>
                 <div class="ryder-daily-grid">
-                  ${(sideGames.dailyLowGross || []).map((entry, index) => `
-                    <div class="competition-admin-card" data-ryder-daily-index="${escapeHtml(String(index))}">
+                  ${(sideGames.dailyNet || []).map((entry, index) => `
+                    <div class="competition-admin-card" data-ryder-daily-net-index="${escapeHtml(String(index))}">
                       <strong>${escapeHtml(entry.label || `Round ${index + 1}`)}</strong>
+                      <div class="competition-note">Auto winner: ${escapeHtml(entry.isComplete ? ((entry.automaticWinners || []).join(', ') || 'Pending') : 'Pending full round scores')}${entry.lowestNet !== null && entry.lowestNet !== undefined ? ` · Net ${escapeHtml(String(entry.lowestNet))}` : ''}</div>
                       <label>
-                        <span>Winner</span>
-                        <input type="text" data-ryder-daily-winner value="${quoteAttr(entry.winnerName || '')}" placeholder="Winner name">
+                        <span>Manual override</span>
+                        <input type="text" data-ryder-daily-net-winners value="${quoteAttr(formatWinnerList(entry.manualOverride ? entry.winnerNames : []))}" placeholder="Comma-separated winners">
                       </label>
                       <label>
                         <span>Amount</span>
-                        <input type="number" step="0.01" data-ryder-daily-amount value="${entry.amount === null || entry.amount === undefined ? '' : escapeHtml(String(entry.amount))}" placeholder="0">
+                        <input type="number" step="0.01" data-ryder-daily-net-amount value="${entry.amount === null || entry.amount === undefined ? '' : escapeHtml(String(entry.amount))}" placeholder="0">
                       </label>
                       <label>
                         <span>Notes</span>
-                        <input type="text" data-ryder-daily-notes value="${quoteAttr(entry.notes || '')}" placeholder="Optional note">
+                        <input type="text" data-ryder-daily-net-notes value="${quoteAttr(entry.notes || '')}" placeholder="Optional note">
                       </label>
                     </div>
                   `).join('')}
                 </div>
               </div>
               <div class="competition-sidegame-card">
-                <strong>Weekly Low Gross</strong>
+                <strong>Weekly Net Champion</strong>
+                <div class="competition-note">Auto winner: ${escapeHtml(sideGames.weeklyNet && sideGames.weeklyNet.isComplete ? ((sideGames.weeklyNet.automaticWinners || []).join(', ') || 'Pending') : 'Pending full trip scores')}${sideGames.weeklyNet && sideGames.weeklyNet.lowestNet !== null && sideGames.weeklyNet.lowestNet !== undefined ? ` · Net ${escapeHtml(String(sideGames.weeklyNet.lowestNet))}` : ''}</div>
                 <label>
-                  <span>Winner</span>
-                  <input id="ryderWeeklyWinner" type="text" value="${quoteAttr((sideGames.weeklyLowGross && sideGames.weeklyLowGross.winnerName) || '')}" placeholder="Winner name">
+                  <span>Manual override</span>
+                  <input id="ryderWeeklyNetWinners" type="text" value="${quoteAttr(formatWinnerList(sideGames.weeklyNet && sideGames.weeklyNet.manualOverride ? sideGames.weeklyNet.winnerNames : []))}" placeholder="Comma-separated winners">
                 </label>
                 <label>
                   <span>Amount</span>
-                  <input id="ryderWeeklyAmount" type="number" step="0.01" value="${sideGames.weeklyLowGross && sideGames.weeklyLowGross.amount !== null && sideGames.weeklyLowGross.amount !== undefined ? escapeHtml(String(sideGames.weeklyLowGross.amount)) : ''}" placeholder="0">
+                  <input id="ryderWeeklyNetAmount" type="number" step="0.01" value="${sideGames.weeklyNet && sideGames.weeklyNet.amount !== null && sideGames.weeklyNet.amount !== undefined ? escapeHtml(String(sideGames.weeklyNet.amount)) : ''}" placeholder="0">
                 </label>
                 <label>
                   <span>Notes</span>
-                  <input id="ryderWeeklyNotes" type="text" value="${quoteAttr((sideGames.weeklyLowGross && sideGames.weeklyLowGross.notes) || '')}" placeholder="Optional note">
+                  <input id="ryderWeeklyNetNotes" type="text" value="${quoteAttr((sideGames.weeklyNet && sideGames.weeklyNet.notes) || '')}" placeholder="Optional note">
                 </label>
+              </div>
+              <div class="competition-sidegame-card" style="grid-column:1/-1;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <strong>Daily Secret Snowman</strong>
+                  <span class="competition-note">One winner block per round.</span>
+                </div>
+                <div class="ryder-daily-grid">
+                  ${(sideGames.secretSnowman || []).map((entry, index) => `
+                    <div class="competition-admin-card" data-ryder-snowman-index="${escapeHtml(String(index))}">
+                      <strong>${escapeHtml(entry.label || `Round ${index + 1} Secret Snowman`)}</strong>
+                      <label>
+                        <span>Winners</span>
+                        <input type="text" data-ryder-snowman-winners value="${quoteAttr(formatWinnerList(entry.winnerNames || []))}" placeholder="Comma-separated winners">
+                      </label>
+                      <label>
+                        <span>Amount</span>
+                        <input type="number" step="0.01" data-ryder-snowman-amount value="${entry.amount === null || entry.amount === undefined ? '' : escapeHtml(String(entry.amount))}" placeholder="0">
+                      </label>
+                      <label>
+                        <span>Notes</span>
+                        <input type="text" data-ryder-snowman-notes value="${quoteAttr(entry.notes || '')}" placeholder="Optional note">
+                      </label>
+                    </div>
+                  `).join('')}
+                </div>
               </div>
               <div class="competition-sidegame-card">
                 <strong>Closest to Pin</strong>
@@ -3712,7 +4267,7 @@
                   <span>Total pot</span>
                   <input id="ryderTotalPotField" type="number" step="0.01" value="${payout.totalPot !== null && payout.totalPot !== undefined ? escapeHtml(String(payout.totalPot)) : ''}" placeholder="1000">
                 </label>
-                <div class="competition-note">50% winning team, 20% weekly low gross, 10% birdie pool, 10% closest to pin, 10% MVP.</div>
+                <div class="competition-note">50% winning team, 20% weekly net champion, 10% birdie pool, 10% closest to pin, 10% MVP.</div>
                 <ul class="ryder-payout-list">
                   ${(payout.rows || []).map((row) => `
                     <li>
@@ -3948,6 +4503,7 @@
       `;
       applyRyderCupTeamState();
       applyTripRyderCupOverlayState();
+      syncAllRyderCupRoundEditors();
     }
 
     const TRIP_ICS_DURATION_MINUTES = 270;
@@ -4428,8 +4984,218 @@
       renderTripEvents(usableRounds);
     }
 
+    function buildTripFoursomeSummary(rounds = []) {
+      const usableRounds = sortRounds((rounds || []).map(normalizeRound));
+      const pairOccurrences = new Map();
+      const playersByKey = new Map();
+      const roundSummaries = usableRounds.map((round, roundIndex) => {
+        const ryderRound = getRyderCupRoundMeta(roundIndex);
+        const roundLabel = String((ryderRound && ryderRound.title) || round.course || `Round ${roundIndex + 1}`).trim() || `Round ${roundIndex + 1}`;
+        (round.unassignedPlayers || []).forEach((name) => {
+          const playerName = String(name || '').trim();
+          const playerKey = getComparableNameKey(playerName) || normalizeNameKey(playerName);
+          if (playerName && playerKey && !playersByKey.has(playerKey)) playersByKey.set(playerKey, playerName);
+        });
+        const slotSummaries = (round.teeTimes || []).map((slot, slotIndex) => {
+          const uniquePlayers = [];
+          const seenPlayers = new Set();
+          (slot.players || []).forEach((name) => {
+            const playerName = String(name || '').trim();
+            if (!playerName) return;
+            const playerKey = getComparableNameKey(playerName) || normalizeNameKey(playerName);
+            if (!playerKey || seenPlayers.has(playerKey)) return;
+            seenPlayers.add(playerKey);
+            if (!playersByKey.has(playerKey)) playersByKey.set(playerKey, playerName);
+            uniquePlayers.push({ key: playerKey, name: playerName });
+          });
+          const slotLabel = String(slot.label || `TT#${slotIndex + 1}`).trim() || `TT#${slotIndex + 1}`;
+          const pairKeys = [];
+          for (let leftIndex = 0; leftIndex < uniquePlayers.length; leftIndex++) {
+            for (let rightIndex = leftIndex + 1; rightIndex < uniquePlayers.length; rightIndex++) {
+              const pairPlayers = [uniquePlayers[leftIndex], uniquePlayers[rightIndex]]
+                .sort((left, right) => left.name.localeCompare(right.name));
+              const pairKey = pairPlayers.map((entry) => entry.key).join('::');
+              if (!pairKey) continue;
+              pairKeys.push(pairKey);
+              const existing = pairOccurrences.get(pairKey) || {
+                key: pairKey,
+                players: pairPlayers.map((entry) => entry.name),
+                locations: [],
+              };
+              existing.locations.push(`${round.course || roundLabel} - ${slotLabel}`);
+              pairOccurrences.set(pairKey, existing);
+            }
+          }
+          return {
+            slotIndex,
+            label: slotLabel,
+            time: toHHMM(slot.time),
+            players: uniquePlayers.map((entry) => entry.name),
+            pairKeys,
+            repeatPairs: [],
+          };
+        });
+        return {
+          roundIndex,
+          title: roundLabel,
+          course: String(round.course || '').trim() || 'Course TBD',
+          date: toIsoDate(round.date),
+          format: String((ryderRound && ryderRound.format) || '').trim(),
+          slots: slotSummaries,
+        };
+      }).filter((round) => round.slots.length);
+      const playerPool = Array.from(playersByKey.entries())
+        .map(([key, name]) => ({ key, name }))
+        .sort((left, right) => left.name.localeCompare(right.name));
+      const allPairs = [];
+      for (let leftIndex = 0; leftIndex < playerPool.length; leftIndex++) {
+        for (let rightIndex = leftIndex + 1; rightIndex < playerPool.length; rightIndex++) {
+          const leftPlayer = playerPool[leftIndex];
+          const rightPlayer = playerPool[rightIndex];
+          const pairKey = `${leftPlayer.key}::${rightPlayer.key}`;
+          const existing = pairOccurrences.get(pairKey);
+          allPairs.push({
+            key: pairKey,
+            players: [leftPlayer.name, rightPlayer.name],
+            locations: existing ? existing.locations.slice() : [],
+            count: existing ? existing.locations.length : 0,
+          });
+        }
+      }
+      const repeatedPairs = Array.from(pairOccurrences.values())
+        .filter((entry) => entry.locations.length > 1)
+        .map((entry) => ({
+          ...entry,
+          count: entry.locations.length,
+        }))
+        .sort((left, right) => {
+          if (right.count !== left.count) return right.count - left.count;
+          return left.players.join(' / ').localeCompare(right.players.join(' / '));
+        });
+      const singlePairs = allPairs
+        .filter((entry) => entry.count === 1)
+        .sort((left, right) => left.players.join(' / ').localeCompare(right.players.join(' / ')));
+      const neverPairs = allPairs
+        .filter((entry) => entry.count === 0)
+        .sort((left, right) => left.players.join(' / ').localeCompare(right.players.join(' / ')));
+      const repeatedByKey = new Map(repeatedPairs.map((entry) => [entry.key, entry]));
+      roundSummaries.forEach((round) => {
+        round.slots.forEach((slot) => {
+          slot.repeatPairs = slot.pairKeys
+            .map((pairKey) => repeatedByKey.get(pairKey))
+            .filter(Boolean)
+            .sort((left, right) => {
+              if (right.count !== left.count) return right.count - left.count;
+              return left.players.join(' / ').localeCompare(right.players.join(' / '));
+            });
+        });
+      });
+      return {
+        rounds: roundSummaries,
+        playerCount: playerPool.length,
+        totalPairs: allPairs.length,
+        repeatedPairs,
+        singlePairs,
+        neverPairs,
+        totalSlots: roundSummaries.reduce((sum, round) => sum + round.slots.length, 0),
+        maxRepeatCount: repeatedPairs.length ? repeatedPairs[0].count : 0,
+      };
+    }
+
+    function renderTripFoursomeSummary(rounds = []) {
+      const summary = buildTripFoursomeSummary(rounds);
+      const renderPairBucket = (title, entries = [], emptyText = '', options = {}) => `
+        <details class="competition-section"${options.open ? ' open' : ''}>
+          <summary>
+            <span>${escapeHtml(title)}</span>
+            <span class="competition-note">${escapeHtml(entries.length ? `${entries.length} pair${entries.length === 1 ? '' : 's'}` : emptyText)}</span>
+          </summary>
+          <div class="competition-section-body">
+            ${entries.length ? `
+              <div class="all-foursomes-repeat-grid">
+                ${entries.map((entry) => `
+                  <div class="all-foursomes-repeat-card${options.markHeavy && entry.count >= 3 ? ' is-heavy' : ''}">
+                    <div class="all-foursomes-round-head">
+                      <strong>${escapeHtml(entry.players.join(' / '))}</strong>
+                      <span class="competition-pill">${escapeHtml(`${entry.count}x together`)}</span>
+                    </div>
+                    ${entry.locations.length
+                      ? `<ol class="all-foursomes-repeat-list">${entry.locations.map((location) => `<li>${escapeHtml(location)}</li>`).join('')}</ol>`
+                      : `<div class="competition-note">${escapeHtml(options.entryEmptyText || emptyText)}</div>`}
+                  </div>
+                `).join('')}
+              </div>
+            ` : `<div class="competition-note">${escapeHtml(emptyText)}</div>`}
+          </div>
+        </details>
+      `;
+      return `
+        <section class="competition-admin-card section-anchor all-foursomes-section" id="allFoursomesSection">
+          <div class="page-section-head">
+            <div class="page-section-copy">
+              <h2 style="margin:0;font-size:1.05rem;">All Foursomes</h2>
+              <div class="competition-note">Week view of every tee group, top to bottom, plus pair buckets for golfers who played together more than once, exactly once, or never.</div>
+            </div>
+            <div class="page-section-actions">
+              <a class="hero-link" href="#scheduleSection">Back to Schedule</a>
+            </div>
+          </div>
+          <div class="competition-pill-row">
+            <span class="competition-pill">${escapeHtml(String(summary.playerCount))} golfers</span>
+            <span class="competition-pill">${escapeHtml(String(summary.rounds.length))} rounds</span>
+            <span class="competition-pill">${escapeHtml(String(summary.totalSlots))} foursomes</span>
+            <span class="competition-pill">${escapeHtml(String(summary.totalPairs))} pairings checked</span>
+            <span class="competition-pill">${escapeHtml(String(summary.repeatedPairs.length))} repeated</span>
+            <span class="competition-pill">${escapeHtml(String(summary.singlePairs.length))} once</span>
+            <span class="competition-pill">${escapeHtml(String(summary.neverPairs.length))} never</span>
+            ${summary.maxRepeatCount > 1 ? `<span class="competition-pill">Highest repeat ${escapeHtml(String(summary.maxRepeatCount))}x</span>` : ''}
+          </div>
+          ${renderPairBucket('Together More Than Once', summary.repeatedPairs, 'No player pairs repeat across the current tee sheet.', { open: true, markHeavy: true })}
+          ${renderPairBucket('Together Once', summary.singlePairs, 'No one is only together once.')}
+          ${renderPairBucket('Never Together', summary.neverPairs, 'Everybody has shared a foursome at least once.', { entryEmptyText: 'Never together in the current tee sheet.' })}
+          <div class="all-foursomes-round-grid">
+            ${summary.rounds.map((round) => `
+              <div class="all-foursomes-round-card">
+                <div class="all-foursomes-round-head">
+                  <div class="page-section-copy">
+                    <strong>${escapeHtml(round.title)}</strong>
+                    <span class="competition-note">${escapeHtml([round.course, round.date ? formatDateLong(round.date) : '', round.format].filter(Boolean).join(' · '))}</span>
+                  </div>
+                  <span class="competition-pill">${escapeHtml(String(round.slots.length))} tee times</span>
+                </div>
+                <div class="all-foursomes-slot-list">
+                  ${round.slots.map((slot) => `
+                    <div class="all-foursomes-slot-card">
+                      <div class="all-foursomes-slot-head">
+                        <strong>${escapeHtml(slot.label)}</strong>
+                        <span class="competition-note">${escapeHtml(formatTime12(slot.time) || 'Time TBD')}</span>
+                      </div>
+                      <div class="competition-pill-row">
+                        ${slot.players.map((player) => `<span class="competition-pill">${escapeHtml(player)}</span>`).join('') || '<span class="competition-empty">No golfers in this tee time yet.</span>'}
+                      </div>
+                      ${slot.repeatPairs.length ? `
+                        <div class="all-foursomes-repeat-pill-row">
+                          ${slot.repeatPairs.map((entry) => `
+                            <span class="all-foursomes-repeat-pill${entry.count >= 3 ? ' is-heavy' : ''}">
+                              <strong>${escapeHtml(`${entry.count}x`)}</strong>
+                              <span>${escapeHtml(entry.players.join(' / '))}</span>
+                            </span>
+                          `).join('')}
+                        </div>
+                      ` : '<div class="competition-note">No repeated pairs inside this foursome.</div>'}
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </section>
+      `;
+    }
+
     function renderItinerary() {
       const calendarOpen = !window.matchMedia('(max-width: 900px)').matches;
+      const rounds = getTripRounds();
       $('#itineraryBox').innerHTML = `
         <div class="page-section-head section-anchor" id="scheduleSection">
           <div class="page-section-copy">
@@ -4437,6 +5203,7 @@
             <div class="competition-note">Daily tee groups mirror the Myrtle Ryder Cup rounds below.</div>
           </div>
           <div class="page-section-actions">
+            <a class="hero-link" data-all-foursomes-link href="${quoteAttr(getAllFoursomesPageHref())}">All Foursomes</a>
             <a class="hero-link" href="#ryderTeamsSection">Jump to Ryder Cup</a>
             <a class="hero-link" href="/myrtle/lodging-and-maps.html">Lodging + Maps</a>
           </div>
@@ -4472,7 +5239,6 @@
         </div>
       `;
 
-      const rounds = getTripRounds();
       renderTripSchedule(rounds);
 
       const prevBtn = document.getElementById('tripPrevMonth');
@@ -4931,6 +5697,7 @@
     }
 
     async function saveRyderCupRound(roundIndex) {
+      syncRyderCupRoundEditor(roundIndex);
       const payload = collectRyderCupRoundPayload(roundIndex);
       await tripAdminPut(`/api/trips/${tripId}/competition/ryder-cup/rounds/${roundIndex}`, payload);
       await loadTrip();
@@ -4938,21 +5705,29 @@
 
     function collectRyderCupSettingsPayload() {
       const ryderCup = getRyderCupData();
-      const dailyLowGross = Array.from(document.querySelectorAll('[data-ryder-daily-index]')).map((card, index) => ({
+      const dailyNet = Array.from(document.querySelectorAll('[data-ryder-daily-net-index]')).map((card, index) => ({
         roundNumber: index + 1,
-        label: (ryderCup?.sideGames?.dailyLowGross && ryderCup.sideGames.dailyLowGross[index] && ryderCup.sideGames.dailyLowGross[index].label) || `Round ${index + 1}`,
-        winnerName: String((card.querySelector('[data-ryder-daily-winner]') || {}).value || '').trim(),
-        amount: parseHandicapValue((card.querySelector('[data-ryder-daily-amount]') || {}).value),
-        notes: String((card.querySelector('[data-ryder-daily-notes]') || {}).value || '').trim(),
+        label: (ryderCup?.sideGames?.dailyNet && ryderCup.sideGames.dailyNet[index] && ryderCup.sideGames.dailyNet[index].label) || `Round ${index + 1} Net`,
+        winnerNames: parseWinnerList((card.querySelector('[data-ryder-daily-net-winners]') || {}).value || ''),
+        amount: parseHandicapValue((card.querySelector('[data-ryder-daily-net-amount]') || {}).value),
+        notes: String((card.querySelector('[data-ryder-daily-net-notes]') || {}).value || '').trim(),
+      }));
+      const secretSnowman = Array.from(document.querySelectorAll('[data-ryder-snowman-index]')).map((card, index) => ({
+        roundNumber: index + 1,
+        label: (ryderCup?.sideGames?.secretSnowman && ryderCup.sideGames.secretSnowman[index] && ryderCup.sideGames.secretSnowman[index].label) || `Round ${index + 1} Secret Snowman`,
+        winnerNames: parseWinnerList((card.querySelector('[data-ryder-snowman-winners]') || {}).value || ''),
+        amount: parseHandicapValue((card.querySelector('[data-ryder-snowman-amount]') || {}).value),
+        notes: String((card.querySelector('[data-ryder-snowman-notes]') || {}).value || '').trim(),
       }));
       return {
         sideGames: {
-          dailyLowGross,
-          weeklyLowGross: {
-            winnerName: String((document.getElementById('ryderWeeklyWinner') || {}).value || '').trim(),
-            amount: parseHandicapValue((document.getElementById('ryderWeeklyAmount') || {}).value),
-            notes: String((document.getElementById('ryderWeeklyNotes') || {}).value || '').trim(),
+          dailyNet,
+          weeklyNet: {
+            winnerNames: parseWinnerList((document.getElementById('ryderWeeklyNetWinners') || {}).value || ''),
+            amount: parseHandicapValue((document.getElementById('ryderWeeklyNetAmount') || {}).value),
+            notes: String((document.getElementById('ryderWeeklyNetNotes') || {}).value || '').trim(),
           },
+          secretSnowman,
           closestToPin: {
             entries: parseRyderCupClosestToPin((document.getElementById('ryderClosestToPinField') || {}).value || ''),
           },
@@ -5471,6 +6246,12 @@
       });
 
       competitionBox.addEventListener('input', function (event) {
+        const ryderScoreInput = event.target.closest('[data-ryder-player-score]');
+        if (ryderScoreInput) {
+          const roundContainer = ryderScoreInput.closest('[data-ryder-round-index]');
+          if (roundContainer) syncRyderCupRoundEditor(Number(roundContainer.dataset.ryderRoundIndex));
+          return;
+        }
         if (!tripRyderCupUiState.isEditing || !tripRyderCupUiState.draft) return;
         const teamNameField = event.target.closest('[data-trip-ryder-team-name]');
         if (teamNameField) {
@@ -5484,6 +6265,12 @@
       });
 
       competitionBox.addEventListener('change', function (event) {
+        const ryderTeamPlayerSelect = event.target.closest('[data-ryder-team-player]');
+        if (ryderTeamPlayerSelect) {
+          const roundContainer = ryderTeamPlayerSelect.closest('[data-ryder-round-index]');
+          if (roundContainer) syncRyderCupRoundEditor(Number(roundContainer.dataset.ryderRoundIndex));
+          return;
+        }
         const enabledToggle = event.target.closest('[data-trip-ryder-enabled]');
         if (enabledToggle) {
           updateTripRyderCupDraftField('enabled', enabledToggle.checked);

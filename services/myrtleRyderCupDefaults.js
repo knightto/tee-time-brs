@@ -634,18 +634,25 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
       };
     }),
     sideGames: {
-      dailyLowGross: MYRTLE_RYDER_CUP_ROUND_SEEDS.map((seed, index) => ({
+      dailyNet: MYRTLE_RYDER_CUP_ROUND_SEEDS.map((seed, index) => ({
         roundNumber: index + 1,
-        label: `${buildRoundLabel(index + 1, Array.isArray(rounds) ? rounds[index] || {} : {})} Low Gross`,
-        winnerName: '',
+        label: `${buildRoundLabel(index + 1, Array.isArray(rounds) ? rounds[index] || {} : {})} Net`,
+        winnerNames: [],
         amount: null,
-        notes: 'Use the best gross round from the day.',
+        notes: 'Auto winner uses the best net round from the saved gross totals and 75% allowance.',
       })),
-      weeklyLowGross: {
-        winnerName: '',
+      weeklyNet: {
+        winnerNames: [],
         amount: null,
-        notes: 'Use the best gross trip total or the gross scoring method you want to pay out.',
+        notes: 'Auto winner uses the best trip-long net total from the saved Ryder Cup scores.',
       },
+      secretSnowman: MYRTLE_RYDER_CUP_ROUND_SEEDS.map((seed, index) => ({
+        roundNumber: index + 1,
+        label: `${buildRoundLabel(index + 1, Array.isArray(rounds) ? rounds[index] || {} : {})} Secret Snowman`,
+        winnerNames: [],
+        amount: null,
+        notes: 'Pick the daily snowman winner after the round.',
+      })),
       closestToPin: {
         entries: [],
       },
@@ -668,7 +675,7 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
       totalPot: 1000,
       allocationPercentages: {
         winningTeam: 50,
-        weeklyLowGross: 20,
+        weeklyNet: 20,
         birdiePool: 10,
         closestToPin: 10,
         mvp: 10,
@@ -691,7 +698,7 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
         'The pairings were rebuilt around the current hard do-not-play list first, then tuned to improve preferred pair coverage and overall variety.',
         'No 2-man teammate pair is repeated across the four team-match rounds, and Josh Browne / Matt Shannon are kept off the same 2-man side entirely.',
         'Final-round singles keep Tommy Knight Jr and Tommy Knight Sr in the same foursome while still following the fixed-team setup.',
-        'The Ryder Cup now uses fixed 75% handicap allowances for fairness, while the side games can still stay gross all week.',
+        'The Ryder Cup now uses fixed 75% handicap allowances for fairness, and the trip payout now uses daily net, weekly net, and MVP-friendly side games instead of gross-only prizes.',
         'The new seed increases foursome variety across the week and sharply cuts down repeat same-group pairings.',
       ],
     },

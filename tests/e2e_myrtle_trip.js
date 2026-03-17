@@ -371,17 +371,22 @@ async function runApiFlow(results, tripId) {
 
   const currentSettings = clone(currentCompetition.body?.ryderCup || {});
   currentSettings.sideGames = currentSettings.sideGames || {};
-  currentSettings.sideGames.dailyLowGross = (currentSettings.sideGames.dailyLowGross || []).map((entry, index) => (
+  currentSettings.sideGames.dailyNet = (currentSettings.sideGames.dailyNet || []).map((entry, index) => (
     index === 0
-      ? { ...entry, winnerName: firstSlotPlayers[0], amount: 25, notes: 'API daily low gross' }
+      ? { ...entry, winnerNames: [firstSlotPlayers[0]], amount: 25, notes: 'API daily net' }
       : entry
   ));
-  currentSettings.sideGames.weeklyLowGross = {
-    ...(currentSettings.sideGames.weeklyLowGross || {}),
-    winnerName: firstSlotPlayers[1],
+  currentSettings.sideGames.weeklyNet = {
+    ...(currentSettings.sideGames.weeklyNet || {}),
+    winnerNames: [firstSlotPlayers[1]],
     amount: 50,
-    notes: 'API weekly low gross',
+    notes: 'API weekly net',
   };
+  currentSettings.sideGames.secretSnowman = (currentSettings.sideGames.secretSnowman || []).map((entry, index) => (
+    index === 0
+      ? { ...entry, winnerNames: [firstSlotPlayers[2]], amount: 15, notes: 'API secret snowman' }
+      : entry
+  ));
   currentSettings.payout = {
     ...(currentSettings.payout || {}),
     totalPot: 1200,
@@ -395,7 +400,9 @@ async function runApiFlow(results, tripId) {
     }),
   });
   expect(results, settingsSave.status === 200, 'Ryder Cup settings PUT', `status=${settingsSave.status}`);
-  expect(results, settingsSave.body?.ryderCup?.sideGames?.dailyLowGross?.[0]?.winnerName === firstSlotPlayers[0], 'Ryder daily low gross saved', settingsSave.body?.ryderCup?.sideGames?.dailyLowGross?.[0]?.winnerName || 'missing');
+  expect(results, settingsSave.body?.ryderCup?.sideGames?.dailyNet?.[0]?.winnerNames?.[0] === firstSlotPlayers[0], 'Ryder daily net saved', settingsSave.body?.ryderCup?.sideGames?.dailyNet?.[0]?.winnerNames?.join(', ') || 'missing');
+  expect(results, settingsSave.body?.ryderCup?.sideGames?.weeklyNet?.winnerNames?.[0] === firstSlotPlayers[1], 'Ryder weekly net saved', settingsSave.body?.ryderCup?.sideGames?.weeklyNet?.winnerNames?.join(', ') || 'missing');
+  expect(results, settingsSave.body?.ryderCup?.sideGames?.secretSnowman?.[0]?.winnerNames?.[0] === firstSlotPlayers[2], 'Ryder secret snowman saved', settingsSave.body?.ryderCup?.sideGames?.secretSnowman?.[0]?.winnerNames?.join(', ') || 'missing');
   expect(results, settingsSave.body?.ryderCup?.payout?.totalPot === 1200, 'Ryder payout total pot saved', `pot=${settingsSave.body?.ryderCup?.payout?.totalPot}`);
 }
 

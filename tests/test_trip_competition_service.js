@@ -451,6 +451,44 @@ function run() {
   assert.strictEqual(grossOnlyRoundTripMatch.teamAScore, 134, 'Round payload round-trips should preserve Team A net totals');
   assert.strictEqual(grossOnlyRoundTripMatch.teamBScore, 138, 'Round payload round-trips should preserve Team B net totals');
 
+  const movedPlayersTrip = makeEditableMyrtleTrip();
+  const movedPlayersRound = clone(movedPlayersTrip.competition.ryderCup.rounds[0]);
+  const originalMatchZero = clone(movedPlayersRound.matches[0]);
+  const originalMatchOne = clone(movedPlayersRound.matches[1]);
+  movedPlayersRound.matches = movedPlayersRound.matches.map((match, index) => {
+    if (index === 0) {
+      return {
+        ...match,
+        teamAPlayers: originalMatchOne.teamAPlayers.slice(),
+        teamBPlayers: originalMatchOne.teamBPlayers.slice(),
+        teamAPlayerScores: [74, 76],
+        teamBPlayerScores: [84, 86],
+        result: '',
+      };
+    }
+    if (index === 1) {
+      return {
+        ...match,
+        teamAPlayers: originalMatchZero.teamAPlayers.slice(),
+        teamBPlayers: originalMatchZero.teamBPlayers.slice(),
+        teamAPlayerScores: [null, null],
+        teamBPlayerScores: [null, null],
+        result: '',
+      };
+    }
+    return match;
+  });
+  setTripRyderCupRound(movedPlayersTrip, 0, movedPlayersRound);
+  const movedPlayersView = buildTripCompetitionView(movedPlayersTrip, myrtleParticipants);
+  const movedPlayersMatch = movedPlayersView.ryderCup.rounds[0].matches[0];
+  const movedPlayerHandicaps = new Map(movedPlayersView.ryderCup.teams.flatMap((team) => team.players.map((player) => [player.name, player.matchHandicap])));
+  const expectedMovedTeamAAllowance = movedPlayersMatch.teamAPlayers.reduce((sum, name) => sum + (movedPlayerHandicaps.get(name) || 0), 0);
+  const expectedMovedTeamBAllowance = movedPlayersMatch.teamBPlayers.reduce((sum, name) => sum + (movedPlayerHandicaps.get(name) || 0), 0);
+  assert.strictEqual(movedPlayersMatch.teamAHandicapAllowance, expectedMovedTeamAAllowance, 'Moved Team A golfers should carry their own 75% allowances into the new match');
+  assert.strictEqual(movedPlayersMatch.teamBHandicapAllowance, expectedMovedTeamBAllowance, 'Moved Team B golfers should carry their own 75% allowances into the new match');
+  assert.strictEqual(movedPlayersMatch.teamAScore, 150 - expectedMovedTeamAAllowance, 'Moved Team A golfers should use the new player allowance total');
+  assert.strictEqual(movedPlayersMatch.teamBScore, 170 - expectedMovedTeamBAllowance, 'Moved Team B golfers should use the new player allowance total');
+
   const singlesTieTrip = makeEditableMyrtleTrip();
   const singlesTieRound = clone(singlesTieTrip.competition.ryderCup.rounds[4]);
   singlesTieRound.matches = singlesTieRound.matches.map((match, index) => (index === 0
