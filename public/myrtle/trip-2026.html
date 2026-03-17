@@ -2078,6 +2078,20 @@
         ? team.players.find((player) => namesMatch(player && player.name, target)) || null
         : null;
     };
+    const getRyderCupPlayerMetaParts = (playerMeta = {}, options = {}) => {
+      const includeRank = options.includeRank !== false;
+      const parts = [];
+      if (includeRank && Number.isFinite(Number(playerMeta && playerMeta.rank))) {
+        parts.push(`Rank #${Math.round(Number(playerMeta.rank))}`);
+      }
+      if (Number.isFinite(Number(playerMeta && playerMeta.handicapIndex))) {
+        parts.push(`Hcp ${Math.round(Number(playerMeta.handicapIndex))}`);
+      }
+      if (Number.isFinite(Number(playerMeta && playerMeta.matchHandicap))) {
+        parts.push(`75% ${Math.round(Number(playerMeta.matchHandicap))}`);
+      }
+      return parts;
+    };
     const formatRyderCupWinnerLabel = (result, teamAName, teamBName) => {
       const key = String(result || '').trim().toLowerCase();
       if (key === 'teama') return teamAName || 'Team A';
@@ -2166,8 +2180,8 @@
         .filter(Boolean);
     };
     const RYDER_CUP_PLAY_STYLE_OPTIONS = [
-      'Two-Man Gross Total Match',
-      'Singles Gross Total Match'
+      'Two-Man Net Total Match (75%)',
+      'Singles Net Total Match (75%)'
     ];
     const getRyderCupData = () => competitionData && competitionData.ryderCup ? competitionData.ryderCup : null;
     const getRyderCupRounds = () => {
@@ -2320,15 +2334,15 @@
     }
     const getDefaultRyderCupPlayStyle = (format = '') => {
       const normalized = String(format || '').trim().toLowerCase();
-      if (normalized.includes('singles')) return 'Singles Gross Total Match';
-      if (normalized.includes('gross total') || normalized.includes('net total')) return 'Two-Man Gross Total Match';
-      return 'Two-Man Gross Total Match';
+      if (normalized.includes('singles')) return 'Singles Net Total Match (75%)';
+      if (normalized.includes('gross total') || normalized.includes('net total')) return 'Two-Man Net Total Match (75%)';
+      return 'Two-Man Net Total Match (75%)';
     };
     const coerceRyderCupPlayStyle = (value = '', format = '') => {
       const normalized = String(value || '').trim();
       if (RYDER_CUP_PLAY_STYLE_OPTIONS.includes(normalized)) return normalized;
-      if (normalized.toLowerCase() === 'two-man net total match') return 'Two-Man Gross Total Match';
-      if (normalized.toLowerCase() === 'singles net total match') return 'Singles Gross Total Match';
+      if (normalized.toLowerCase() === 'two-man gross total match' || normalized.toLowerCase() === 'two-man net total match') return 'Two-Man Net Total Match (75%)';
+      if (normalized.toLowerCase() === 'singles gross total match' || normalized.toLowerCase() === 'singles net total match') return 'Singles Net Total Match (75%)';
       return getDefaultRyderCupPlayStyle(format);
     };
     const normalizeTripWeatherLookupKey = (value = '') => String(value || '')
@@ -2843,6 +2857,15 @@
         alert('Copy failed. Please try again.');
       }
     }
+    async function refreshCompetitionDataAfterTripRyderCupSave() {
+      try {
+        const nextCompetition = await tripFetchJson(tripApi(`/api/trips/${tripId}/competition`));
+        competitionLoadError = '';
+        competitionData = nextCompetition;
+      } catch (error) {
+        competitionLoadError = error && error.message ? error.message : 'Competition data failed to load.';
+      }
+    }
     async function saveTripRyderCupOverlay() {
       if (!tripRyderCupUiState.draft || tripRyderCupUiState.isSaving) return;
       tripRyderCupUiState.isSaving = true;
@@ -2868,6 +2891,7 @@
         if (!response) return;
         tripRyderCupData = normalizeTripRyderCupOverlay(response);
         if (trip && typeof trip === 'object') trip.ryderCup = tripRyderCupData;
+        await refreshCompetitionDataAfterTripRyderCupSave();
         tripRyderCupUiState.isEditing = false;
         tripRyderCupUiState.draft = null;
         tripRyderCupUiState.copyStatus = '';
@@ -3306,8 +3330,8 @@
         <div class="competition-overview-grid">
           <div class="competition-stat">
             <span class="competition-note">Match scoring</span>
-            <strong>Own-Ball Gross Totals</strong>
-            <span class="competition-note">Every golfer keeps his own score. Two-man rounds use combined gross totals, and singles rounds use head-to-head gross totals.</span>
+            <strong>Own-Ball 75% Handicap</strong>
+            <span class="competition-note">Every golfer keeps his own score. Enter gross totals once, then 75% handicaps resolve the two-man and singles matches on net.</span>
           </div>
           <div class="competition-stat">
             <span class="competition-note">Allowed formats</span>
@@ -3327,7 +3351,7 @@
         </div>
         <div class="competition-admin-card">
           <strong>How This Myrtle Trip Runs</strong>
-          <div class="competition-note">${escapeHtml(overview.formatSummary || 'Daily Myrtle Ryder Cup matches are rank-seeded, use one gross total per golfer, and the lower gross side wins each match.')}</div>
+          <div class="competition-note">${escapeHtml(overview.formatSummary || 'Daily Myrtle Ryder Cup matches use one gross total per golfer, then apply a fixed 75% handicap allowance and award each match to the lower net side.')}</div>
           <div class="competition-note">${escapeHtml(overview.sideGamesSummary || 'Use the Myrtle Ryder Cup section for the trip side games and payout tracking.')}</div>
         </div>
       `;
@@ -3409,10 +3433,7 @@
           const players = sideKey === 'teamA' ? (match.teamAPlayers || []) : (match.teamBPlayers || []);
           const playerName = players[slotIndex] || `${team.name || (sideKey === 'teamA' ? 'Team A' : 'Team B')} ${slotIndex + 1}`;
           const playerMeta = getRyderCupTeamPlayerMeta(team, playerName) || {};
-          const metaParts = [];
-          if (Number.isFinite(playerMeta.rank)) {
-            metaParts.push(`Rank #${playerMeta.rank}`);
-          }
+          const metaParts = getRyderCupPlayerMetaParts(playerMeta);
           return `
             <label>
               <span>${escapeHtml(playerName)} · Gross total${metaParts.length ? ` · ${escapeHtml(metaParts.join(' · '))}` : ''}</span>
@@ -3422,8 +3443,8 @@
         };
         return `
           <div class="competition-admin-card" style="grid-column:1/-1;">
-            <strong>${escapeHtml(singles ? 'Daily gross totals' : 'Daily gross totals for both teams')}</strong>
-            <div class="competition-note">${escapeHtml(singles ? 'Enter gross totals only. Singles are rank-seeded and the lower gross score wins the point.' : 'Enter gross totals only. Matchups are rank-seeded and the lower combined gross side wins the point.')}</div>
+            <strong>${escapeHtml('Daily gross totals with 75% handicap')}</strong>
+            <div class="competition-note">${escapeHtml(singles ? 'Enter gross totals only. Net = gross - fixed 75% handicap allowance, and the lower net score wins the point.' : 'Enter gross totals only. Net = gross - fixed 75% handicap allowance, and the lower net side wins the point.')}</div>
             <div class="ryder-match-editor-grid" style="margin-top:8px;">
               ${Array.from({ length: singles ? 1 : 2 }, (_, slotIndex) => renderGrossTotalField('teamA', teamA, teamAPlayerScores, slotIndex)).join('')}
               ${Array.from({ length: singles ? 1 : 2 }, (_, slotIndex) => renderGrossTotalField('teamB', teamB, teamBPlayerScores, slotIndex)).join('')}
@@ -3457,11 +3478,11 @@
             `).join('') : ''}
             <label>
               <span>${escapeHtml(teamA.name || 'Team A')} ${escapeHtml(totalHint)}</span>
-              <input type="number" min="1" step="1" inputmode="numeric" data-ryder-team-score="teamA" value="${match.teamAScore ?? ''}" placeholder="68">
+              <input type="number" min="1" step="1" inputmode="numeric" data-ryder-team-score="teamA" value="${match.teamAGrossScore ?? match.teamAScore ?? ''}" placeholder="68">
             </label>
             <label>
               <span>${escapeHtml(teamB.name || 'Team B')} ${escapeHtml(totalHint)}</span>
-              <input type="number" min="1" step="1" inputmode="numeric" data-ryder-team-score="teamB" value="${match.teamBScore ?? ''}" placeholder="69">
+              <input type="number" min="1" step="1" inputmode="numeric" data-ryder-team-score="teamB" value="${match.teamBGrossScore ?? match.teamBScore ?? ''}" placeholder="69">
             </label>
           </div>
         </div>
@@ -3518,7 +3539,7 @@
         <details class="competition-section">
           <summary>
             <span>Rounds</span>
-            <span class="competition-note">Five rank-seeded rounds with one daily gross total per golfer</span>
+            <span class="competition-note">Five rounds. Enter gross scores once and 75% handicaps resolve the net matches.</span>
           </summary>
           <div class="competition-section-body">
             <div class="competition-round-grid">
@@ -3544,7 +3565,7 @@
                       <div class="ryder-round-intro">
                         <strong>${escapeHtml(round.description || 'Own-ball team competition round.')}</strong>
                         <div class="competition-note">${escapeHtml(round.entrySummary || 'Enter the matchup result for the round.')}</div>
-                        ${grossTotalFormat ? `<div class="competition-note">Use this round card as the daily scorer: enter each golfer's gross total once, save the round, and the rank-seeded match winners will resolve automatically.</div>` : ''}
+                        ${grossTotalFormat ? `<div class="competition-note">Use this round card as the daily scorer: enter each golfer's gross total once, save the round, and the 75% handicap net match winners will resolve automatically.</div>` : ''}
                       </div>
                       ${renderRyderCupRoundPlan(round, teamA, teamB)}
                       ${teamRound ? renderRyderCupTeamRoundScore(round, teamA, teamB) : `
@@ -3560,7 +3581,7 @@
                                 <label>
                                   <span>${escapeHtml(teamA.name)} ${singles ? 'Player' : `Player ${slotIndex + 1}`}</span>
                                   <select data-ryder-team-player="teamA" data-player-slot="${escapeHtml(String(slotIndex))}">
-                                    ${teamA.players.map((player) => `<option value="${quoteAttr(player.name)}"${(match.teamAPlayers || [])[slotIndex] === player.name ? ' selected' : ''}>${escapeHtml(player.name)}${player.rank ? ` (#${player.rank})` : ''}</option>`).join('')}
+                                    ${teamA.players.map((player) => `<option value="${quoteAttr(player.name)}"${(match.teamAPlayers || [])[slotIndex] === player.name ? ' selected' : ''}>${escapeHtml(player.name)}${getRyderCupPlayerMetaParts(player).length ? ` (${escapeHtml(getRyderCupPlayerMetaParts(player).join(' · '))})` : ''}</option>`).join('')}
                                   </select>
                                 </label>
                               `).join('')}
@@ -3568,7 +3589,7 @@
                                 <label>
                                   <span>${escapeHtml(teamB.name)} ${singles ? 'Player' : `Player ${slotIndex + 1}`}</span>
                                   <select data-ryder-team-player="teamB" data-player-slot="${escapeHtml(String(slotIndex))}">
-                                    ${teamB.players.map((player) => `<option value="${quoteAttr(player.name)}"${(match.teamBPlayers || [])[slotIndex] === player.name ? ' selected' : ''}>${escapeHtml(player.name)}${player.rank ? ` (#${player.rank})` : ''}</option>`).join('')}
+                                    ${teamB.players.map((player) => `<option value="${quoteAttr(player.name)}"${(match.teamBPlayers || [])[slotIndex] === player.name ? ' selected' : ''}>${escapeHtml(player.name)}${getRyderCupPlayerMetaParts(player).length ? ` (${escapeHtml(getRyderCupPlayerMetaParts(player).join(' · '))})` : ''}</option>`).join('')}
                                   </select>
                                 </label>
                               `).join('')}
@@ -3591,7 +3612,7 @@
                             </div>
                             <div class="ryder-inline-meta">
                               <span class="competition-pill">Result ${escapeHtml(formatRyderCupWinnerLabel(match.result, teamA.name || 'Team A', teamB.name || 'Team B'))}</span>
-                              ${usesRyderCupTeamTotals(round) ? `<span class="competition-pill">${escapeHtml(teamA.name)} score ${match.teamAScore ?? '—'}</span><span class="competition-pill">${escapeHtml(teamB.name)} score ${match.teamBScore ?? '—'}</span>` : ''}
+                              ${usesRyderCupTeamTotals(round) ? `<span class="competition-pill">${escapeHtml(teamA.name)} gross ${match.teamAGrossScore ?? '—'}</span><span class="competition-pill">${escapeHtml(teamA.name)} 75% hcp ${match.teamAHandicapAllowance ?? 0}</span><span class="competition-pill">${escapeHtml(teamA.name)} net ${match.teamAScore ?? '—'}</span><span class="competition-pill">${escapeHtml(teamB.name)} gross ${match.teamBGrossScore ?? '—'}</span><span class="competition-pill">${escapeHtml(teamB.name)} 75% hcp ${match.teamBHandicapAllowance ?? 0}</span><span class="competition-pill">${escapeHtml(teamB.name)} net ${match.teamBScore ?? '—'}</span>` : ''}
                               <span class="competition-pill">${escapeHtml(teamA.name)} ${escapeHtml(formatCompetitionPoints(match.pointsA || 0))}</span>
                               <span class="competition-pill">${escapeHtml(teamB.name)} ${escapeHtml(formatCompetitionPoints(match.pointsB || 0))}</span>
                             </div>
@@ -3769,7 +3790,7 @@
         <details class="competition-section" open>
           <summary>
             <span>${escapeHtml(ryderCup.title || 'Myrtle Ryder Cup')}</span>
-            <span class="competition-note">5 rounds · own-ball gross scoring</span>
+            <span class="competition-note">5 rounds · own-ball · fixed 75% handicap</span>
           </summary>
           <div class="competition-section-body">
             <div class="competition-note" style="margin-bottom:12px;">Use the Ryder Cup Teams card above for roster sharing. This section uses the saved Ryder Cup match board for round scoring, side games, and own-ball admin notes.</div>
@@ -3806,6 +3827,7 @@
       const teamBCount = Array.isArray(state.teamBPlayers) ? state.teamBPlayers.length : 0;
       const countsValid = teamACount === 10 && teamBCount === 10;
       const renderTeam = (teamKey, teamName, players) => {
+        const savedTeamMeta = teamKey === 'teamA' ? getRyderCupTeamMeta().teamA : getRyderCupTeamMeta().teamB;
         const options = `
           <option value="teamA"${teamKey === 'teamA' ? ' selected' : ''}>${escapeHtml(state.teamAName || 'Team A')}</option>
           <option value="teamB"${teamKey === 'teamB' ? ' selected' : ''}>${escapeHtml(state.teamBName || 'Team B')}</option>
@@ -3822,11 +3844,16 @@
               <span class="competition-pill">${escapeHtml(String((players || []).length))} players</span>
             </div>
             <ul class="ryder-overlay-roster">
-              ${(players || []).map((player) => `
+              ${(players || []).map((player) => {
+                const playerMeta = getRyderCupTeamPlayerMeta(savedTeamMeta, player && player.name) || {};
+                const detailParts = [`Seed ${String((player && player.seedRank) ?? '—')}`];
+                if (Number.isFinite(Number(playerMeta.handicapIndex))) detailParts.push(`Hcp ${Math.round(Number(playerMeta.handicapIndex))}`);
+                if (Number.isFinite(Number(playerMeta.matchHandicap))) detailParts.push(`75% ${Math.round(Number(playerMeta.matchHandicap))}`);
+                return `
                 <li class="ryder-overlay-row">
                   <div class="ryder-overlay-player-copy">
                     <span>${escapeHtml(player.name || 'Player')}</span>
-                    <span class="ryder-overlay-seed">Seed ${escapeHtml(String(player.seedRank ?? '—'))}</span>
+                    <span class="ryder-overlay-seed">${escapeHtml(detailParts.join(' · '))}</span>
                   </div>
                   ${isEditing ? `
                     <div class="ryder-overlay-edit-tools">
@@ -3842,7 +3869,8 @@
                     </div>
                   ` : `<span class="ryder-overlay-seed">#${escapeHtml(String(player.seedRank ?? '—'))}</span>`}
                 </li>
-              `).join('')}
+              `;
+              }).join('')}
             </ul>
           </div>
         `;
@@ -3853,7 +3881,7 @@
             <div class="ryder-overlay-head">
               <div class="page-section-copy">
                 <strong>Ryder Cup Teams</strong>
-                <div class="competition-note">Roster overlay only. It does not remap the saved Myrtle match board or tee sheet. Current matches stay own-ball, gross-total formats with no alternate shot and no shared-ball formats.</div>
+                <div class="competition-note">Own-ball only. Team changes sync to the saved Myrtle match board before scoring locks, and every match uses the fixed 75% handicap allowance shown in the round cards.</div>
               </div>
               <div class="ryder-overlay-actions">
                 <button type="button" class="secondary" data-trip-ryder-copy="teamA">Copy Team A</button>
@@ -4894,8 +4922,8 @@
         teamBPlayers: Array.isArray(match.teamBPlayers) ? match.teamBPlayers.slice() : [],
         teamAPlayerScores: Array.isArray(match.teamAPlayerScores) ? match.teamAPlayerScores.slice() : [],
         teamBPlayerScores: Array.isArray(match.teamBPlayerScores) ? match.teamBPlayerScores.slice() : [],
-        teamAScore: parseOptionalWholeNumber(match.teamAScore),
-        teamBScore: parseOptionalWholeNumber(match.teamBScore),
+        teamAScore: parseOptionalWholeNumber(match.teamAGrossScore ?? match.teamAScore),
+        teamBScore: parseOptionalWholeNumber(match.teamBGrossScore ?? match.teamBScore),
         result: String(match.enteredResult || '').trim(),
         notes: String(match.notes || '').trim(),
       }));

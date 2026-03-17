@@ -17,6 +17,7 @@ const {
   setTripRyderCupRound,
   setTripRyderCupSettings,
   setTripRyderCupTeams,
+  syncTripRyderCupOverlayToCompetition,
   swapTripRyderCupTeamPlayers,
   setTripHandicapBuckets,
   setTripScoringMode,
@@ -336,6 +337,7 @@ router.put('/:tripId/rydercup', async (req, res) => {
       ...(req.body || {}),
     };
     const state = setTripRyderCupState(trip, participants, payload);
+    syncTripRyderCupOverlayToCompetition(trip, state);
     await trip.save();
     await writeTripAudit(req, trip, TripAuditLogModel, 'trip_ryder_cup', 'Trip Ryder Cup rosters updated', {
       enabled: state.enabled,

@@ -295,6 +295,11 @@ async function runApiFlow(results, tripId) {
   const competition = await api(`/api/trips/${tripId}/competition?myrtleBeach2026=true`);
   expect(results, competition.status === 200, 'Myrtle competition GET', `status=${competition.status}`);
   expect(results, (competition.body?.ryderCup?.rounds?.length || 0) === 5, 'Myrtle Ryder Cup rounds available', `rounds=${competition.body?.ryderCup?.rounds?.length || 0}`);
+  expect(results, competition.body?.ryderCup?.teams?.[0]?.name === 'API Team A', 'Overlay Team A name syncs to competition board', competition.body?.ryderCup?.teams?.[0]?.name || 'missing');
+  expect(results, competition.body?.ryderCup?.teams?.[1]?.name === 'API Team B', 'Overlay Team B name syncs to competition board', competition.body?.ryderCup?.teams?.[1]?.name || 'missing');
+  expect(results, competition.body?.ryderCup?.teams?.[0]?.players?.some((player) => player.name === movedB.name), 'Overlay Team A roster syncs to competition board', movedB.name);
+  expect(results, competition.body?.ryderCup?.teams?.[1]?.players?.some((player) => player.name === movedA.name), 'Overlay Team B roster syncs to competition board', movedA.name);
+  expect(results, competition.body?.ryderCup?.rounds?.[0]?.matches?.[0]?.teamAPlayers?.includes(movedB.name), 'Overlay roster swap updates saved round pairings', JSON.stringify(competition.body?.ryderCup?.rounds?.[0]?.matches?.[0]?.teamAPlayers || []));
 
   const tripBundle = await fetchTripBundle(tripId);
   const firstSlotPlayers = tripBundle.trip.rounds[0].teeTimes[0].players || [];
@@ -343,10 +348,10 @@ async function runApiFlow(results, tripId) {
     if (index !== 0) return match;
     return {
       ...match,
-      teamAPlayerScores: [80, 82],
-      teamBPlayerScores: [81, 83],
-      teamAScore: 162,
-      teamBScore: 164,
+      teamAPlayerScores: [74, 76],
+      teamBPlayerScores: [84, 86],
+      teamAScore: 150,
+      teamBScore: 170,
       enteredResult: '',
       notes: 'E2E round scoring',
     };
@@ -358,8 +363,10 @@ async function runApiFlow(results, tripId) {
   });
   const savedRyderMatch = ryderRoundSave.body?.ryderCup?.rounds?.[0]?.matches?.[0];
   expect(results, ryderRoundSave.status === 200, 'Ryder Cup round scoring PUT', `status=${ryderRoundSave.status}`);
-  expect(results, savedRyderMatch?.teamAScore === 162, 'Ryder Cup team A score saved', `score=${savedRyderMatch?.teamAScore}`);
-  expect(results, savedRyderMatch?.teamBScore === 164, 'Ryder Cup team B score saved', `score=${savedRyderMatch?.teamBScore}`);
+  expect(results, savedRyderMatch?.teamAGrossScore === 150, 'Ryder Cup team A gross score saved', `gross=${savedRyderMatch?.teamAGrossScore}`);
+  expect(results, savedRyderMatch?.teamBGrossScore === 170, 'Ryder Cup team B gross score saved', `gross=${savedRyderMatch?.teamBGrossScore}`);
+  expect(results, savedRyderMatch?.teamAScore === (savedRyderMatch?.teamAGrossScore - savedRyderMatch?.teamAHandicapAllowance), 'Ryder Cup team A net score resolved', `net=${savedRyderMatch?.teamAScore}`);
+  expect(results, savedRyderMatch?.teamBScore === (savedRyderMatch?.teamBGrossScore - savedRyderMatch?.teamBHandicapAllowance), 'Ryder Cup team B net score resolved', `net=${savedRyderMatch?.teamBScore}`);
   expect(results, savedRyderMatch?.result === 'teamA', 'Ryder Cup round winner resolved', `result=${savedRyderMatch?.result}`);
 
   const currentSettings = clone(currentCompetition.body?.ryderCup || {});
@@ -396,6 +403,8 @@ async function runBrowserFlow(results, tempTripSummary, tripId) {
   const browserPath = resolveBrowserPath();
   expect(results, Boolean(browserPath), 'Browser available', browserPath || 'No Edge/Chrome binary found');
   if (!browserPath) return;
+  const competitionSnapshot = await api(`/api/trips/${tripId}/competition?myrtleBeach2026=true`);
+  const expectedRyderMatch = competitionSnapshot.body?.ryderCup?.rounds?.[0]?.matches?.[0] || null;
   const initialRoundZero = tempTripSummary?.rounds?.[0] || {};
   const initialSlotZeroPlayers = clone(initialRoundZero?.teeTimes?.[0]?.players || []);
   const initialSlotOnePlayers = clone(initialRoundZero?.teeTimes?.[1]?.players || []);
@@ -481,6 +490,43 @@ async function runBrowserFlow(results, tempTripSummary, tripId) {
         expect(results, pageReady, 'Myrtle page bound to temp trip', pageReady ? tripId : 'page did not bind to temp trip');
         if (!pageReady) return;
 
+        const overviewExplainsHandicap = await waitFor(send, `(() => {
+          const text = document.body.textContent || '';
+          return text.includes('Own-Ball 75% Handicap')
+            && text.includes('5 rounds · own-ball · fixed 75% handicap');
+        })()`, 15000);
+        expect(results, overviewExplainsHandicap, 'Myrtle page explains 75% handicap scoring', overviewExplainsHandicap ? 'overview and section summary are clear' : '75% handicap overview text missing');
+
+        if (expectedRyderMatch) {
+          const firstMatchExplainsMath = await waitFor(send, `(() => {
+            const matchCard = document.querySelector('[data-ryder-round-index="0"] [data-ryder-match-index="0"]');
+            if (!matchCard) return false;
+            const text = matchCard.textContent || '';
+            const inputA0 = matchCard.querySelector('[data-ryder-player-score="teamA"][data-score-slot="0"]');
+            const inputA1 = matchCard.querySelector('[data-ryder-player-score="teamA"][data-score-slot="1"]');
+            const inputB0 = matchCard.querySelector('[data-ryder-player-score="teamB"][data-score-slot="0"]');
+            const inputB1 = matchCard.querySelector('[data-ryder-player-score="teamB"][data-score-slot="1"]');
+            const firstField = matchCard.querySelector('[data-ryder-player-score="teamA"][data-score-slot="0"]');
+            const label = firstField ? firstField.closest('label') : null;
+            const labelText = label ? (label.textContent || '') : '';
+            return text.includes('Net = gross - fixed 75% handicap allowance')
+              && text.includes(${JSON.stringify(`gross ${expectedRyderMatch.teamAGrossScore}`)})
+              && text.includes(${JSON.stringify(`75% hcp ${expectedRyderMatch.teamAHandicapAllowance}`)})
+              && text.includes(${JSON.stringify(`net ${expectedRyderMatch.teamAScore}`)})
+              && text.includes(${JSON.stringify(`gross ${expectedRyderMatch.teamBGrossScore}`)})
+              && text.includes(${JSON.stringify(`75% hcp ${expectedRyderMatch.teamBHandicapAllowance}`)})
+              && text.includes(${JSON.stringify(`net ${expectedRyderMatch.teamBScore}`)})
+              && inputA0 && String(inputA0.value || '') === ${JSON.stringify(String((expectedRyderMatch.teamAPlayerScores || [])[0] ?? ''))}
+              && inputA1 && String(inputA1.value || '') === ${JSON.stringify(String((expectedRyderMatch.teamAPlayerScores || [])[1] ?? ''))}
+              && inputB0 && String(inputB0.value || '') === ${JSON.stringify(String((expectedRyderMatch.teamBPlayerScores || [])[0] ?? ''))}
+              && inputB1 && String(inputB1.value || '') === ${JSON.stringify(String((expectedRyderMatch.teamBPlayerScores || [])[1] ?? ''))}
+              && labelText.includes('Gross total')
+              && labelText.includes('Hcp')
+              && labelText.includes('75%');
+          })()`, 15000);
+          expect(results, firstMatchExplainsMath, 'Ryder Cup match cards explain gross, handicap, and net clearly', firstMatchExplainsMath ? 'formula text, labels, pills, and gross inputs are all visible' : 'gross / handicap / net display is incomplete');
+        }
+
         const teeSheetReady = await waitFor(send, `(() => {
           const slotA = document.querySelector('.trip-slot-drag-handle[data-round-index="0"][data-slot-index="0"]');
           const slotB = document.querySelector('.trip-slot[data-round-index="0"][data-slot-index="1"]');
@@ -561,6 +607,10 @@ async function runBrowserFlow(results, tempTripSummary, tripId) {
         expect(results, editOpen, 'Overlay edit mode opens', editOpen ? 'drag handles visible' : 'handles missing');
         if (!editOpen) return;
 
+        const overlayDraggedSeed = await evalValue(send, `(() => {
+          const handle = document.querySelector('[data-trip-ryder-team="teamA"] [data-trip-ryder-drag-seed]');
+          return handle ? String(handle.dataset.tripRyderDragSeed || '') : '';
+        })()`);
         await evalValue(send, `(() => {
           const handle = document.querySelector('[data-trip-ryder-team="teamA"] [data-trip-ryder-drag-seed]');
           const target = document.querySelector('[data-trip-ryder-team="teamB"]');
@@ -580,7 +630,7 @@ async function runBrowserFlow(results, tempTripSummary, tripId) {
         expect(results, invalidCounts, 'Overlay drag changes team counts', invalidCounts ? '9/10 and 11/10 shown' : 'drag did not change counts');
 
         await evalValue(send, `(() => {
-          const handle = document.querySelector('[data-trip-ryder-team="teamB"] [data-trip-ryder-drag-seed]');
+          const handle = document.querySelector('[data-trip-ryder-team="teamB"] [data-trip-ryder-drag-seed="${String(overlayDraggedSeed || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]');
           const target = document.querySelector('[data-trip-ryder-team="teamA"]');
           if (!handle || !target || typeof DataTransfer !== 'function') return false;
           const dataTransfer = new DataTransfer();
