@@ -26,28 +26,11 @@ const MYRTLE_RYDER_CUP_PLAYER_NAMES = MYRTLE_RYDER_CUP_PLAYERS.map((player) => p
 const MYRTLE_RYDER_CUP_NAME_MAP = new Map(MYRTLE_RYDER_CUP_PLAYER_NAMES.map((name) => [normalizeNameKey(name), name]));
 const MYRTLE_RYDER_CUP_RANK_MAP = new Map(MYRTLE_RYDER_CUP_PLAYERS.map((player) => [player.name, player.rank]));
 const MYRTLE_RYDER_CUP_NAME_BY_RANK = new Map(MYRTLE_RYDER_CUP_PLAYERS.map((player) => [player.rank, player.name]));
-const MYRTLE_RYDER_CUP_HANDICAP_MAP = new Map([
-  ['Joe Gillette', 2],
-  ['John Quimby', 5],
-  ['Josh Browne', 6],
-  ['Tommy Knight', 9],
-  ['Reny Butler', 10],
-  ['Thomas Lasik', 10],
-  ['John Hyers', 11],
-  ['Chris Manuel', 12],
-  ['Lance Darr', 13],
-  ['Caleb Hart', 16],
-  ['Chris Neff', 16],
-  ['Marcus Ordonez', 15],
-  ['Dennis Freeman', 16],
-  ['Chad Jones', 16],
-  ['Jeremy Bridges', 18],
-  ['Matt Shannon', 18],
-  ['Delmar Christian', 20],
-  ['Manuel Ordonez', 20],
-  ['Tommy Knight Sr', 22],
-  ['Duane Harris', 22],
-].map(([name, handicap]) => [normalizeNameKey(name), handicap]));
+const MYRTLE_RYDER_CUP_HANDICAP_MAP = new Map(
+  MYRTLE_RYDER_CUP_PLAYERS
+    .filter((player) => asFiniteNumber(player && player.handicapIndex) !== null)
+    .map((player) => [normalizeNameKey(player.name), asFiniteNumber(player.handicapIndex)])
+);
 const ALLOWED_RYDER_CUP_PLAN_STYLES = new Set([
   MYRTLE_RYDER_CUP_TEAM_MATCH_FORMAT,
   MYRTLE_RYDER_CUP_SINGLES_MATCH_FORMAT,
@@ -270,6 +253,39 @@ function normalizeRyderCupPlayerName(value) {
   return MYRTLE_RYDER_CUP_NAME_MAP.get(key) || cleanString(value);
 }
 
+function buildPlayerHandicapLookup(players = []) {
+  const lookup = new Map();
+  (players || []).forEach((player) => {
+    const name = normalizeRyderCupPlayerName(player && player.name);
+    const handicapIndex = asFiniteNumber(player && player.handicapIndex);
+    if (!name || handicapIndex === null) return;
+    lookup.set(normalizeNameKey(name), handicapIndex);
+  });
+  return lookup;
+}
+
+function resolveOverlayPlayerName(player = {}) {
+  const rank = asPositiveInteger(player && player.seedRank);
+  if (rank && MYRTLE_RYDER_CUP_NAME_BY_RANK.has(rank)) return MYRTLE_RYDER_CUP_NAME_BY_RANK.get(rank);
+  return normalizeRyderCupPlayerName(typeof player === 'string' ? player : (player && player.name));
+}
+
+function buildTripRyderCupHandicapLookup(trip = {}) {
+  const overlay = trip && trip.ryderCup && typeof trip.ryderCup === 'object' ? trip.ryderCup : {};
+  const players = [].concat(overlay.teamAPlayers || [], overlay.teamBPlayers || []);
+  return buildPlayerHandicapLookup(players.map((player) => ({
+    name: resolveOverlayPlayerName(player),
+    handicapIndex: player && player.handicapIndex,
+  })));
+}
+
+function getHandicapFromLookup(playerName = '', handicapLookup = null) {
+  if (!(handicapLookup instanceof Map) || !handicapLookup.size) return null;
+  const canonicalName = normalizeRyderCupPlayerName(playerName);
+  const handicapIndex = handicapLookup.get(normalizeNameKey(canonicalName));
+  return handicapIndex === undefined ? null : asFiniteNumber(handicapIndex);
+}
+
 function getMyrtleRyderCupHandicapIndex(playerName = '', fallbackHandicap = null) {
   const normalizedFallback = asFiniteNumber(fallbackHandicap);
   const canonicalName = normalizeRyderCupPlayerName(playerName);
@@ -277,8 +293,20 @@ function getMyrtleRyderCupHandicapIndex(playerName = '', fallbackHandicap = null
   return mappedHandicap !== undefined ? mappedHandicap : normalizedFallback;
 }
 
+function resolveMyrtleRyderCupHandicapIndex(playerName = '', handicapLookup = null, fallbackHandicap = null) {
+  const overriddenHandicap = getHandicapFromLookup(playerName, handicapLookup);
+  if (overriddenHandicap !== null) return overriddenHandicap;
+  return getMyrtleRyderCupHandicapIndex(playerName, fallbackHandicap);
+}
+
 function getMyrtleRyderCupMatchAllowance(playerName = '', fallbackHandicap = null) {
   const handicapIndex = getMyrtleRyderCupHandicapIndex(playerName, fallbackHandicap);
+  if (!Number.isFinite(handicapIndex)) return 0;
+  return Math.round(handicapIndex * 0.75);
+}
+
+function resolveMyrtleRyderCupMatchAllowance(playerName = '', handicapLookup = null, fallbackHandicap = null) {
+  const handicapIndex = resolveMyrtleRyderCupHandicapIndex(playerName, handicapLookup, fallbackHandicap);
   if (!Number.isFinite(handicapIndex)) return 0;
   return Math.round(handicapIndex * 0.75);
 }
@@ -905,6 +933,7 @@ function getRoundPlayerNames(round = {}) {
 }
 
 function getCompetitionPlayerPool(trip = {}, participants = []) {
+  const tripRyderCupHandicapLookup = buildTripRyderCupHandicapLookup(trip);
   const roundNames = [];
   for (const round of trip.rounds || []) {
     roundNames.push(...getRoundPlayerNames(round));
@@ -921,7 +950,7 @@ function getCompetitionPlayerPool(trip = {}, participants = []) {
     const key = normalizeNameKey(name);
     if (!name || seen.has(key)) continue;
     seen.add(key);
-    const handicapIndex = getMyrtleRyderCupHandicapIndex(name, participant && participant.handicapIndex);
+    const handicapIndex = resolveMyrtleRyderCupHandicapIndex(name, tripRyderCupHandicapLookup, participant && participant.handicapIndex);
     output.push({
       participantId: participant && participant._id ? String(participant._id) : null,
       name,
@@ -937,7 +966,7 @@ function getCompetitionPlayerPool(trip = {}, participants = []) {
     output.push({
       participantId: null,
       name,
-      handicapIndex: getMyrtleRyderCupHandicapIndex(name, null),
+      handicapIndex: resolveMyrtleRyderCupHandicapIndex(name, tripRyderCupHandicapLookup, null),
       status: roundNameSet.has(key) ? 'in' : '',
     });
   }
@@ -948,7 +977,7 @@ function getCompetitionPlayerPool(trip = {}, participants = []) {
       const key = normalizeNameKey(name);
       if (!name || seen.has(key)) continue;
       seen.add(key);
-      const handicapIndex = getMyrtleRyderCupHandicapIndex(name, participant && participant.handicapIndex);
+      const handicapIndex = resolveMyrtleRyderCupHandicapIndex(name, tripRyderCupHandicapLookup, participant && participant.handicapIndex);
       output.push({
         participantId: participant && participant._id ? String(participant._id) : null,
         name,
@@ -1387,11 +1416,6 @@ function buildRyderCupTeamsFromOverlayState(overlayState = {}, currentState = {}
   const currentTeams = Array.isArray(currentState.teams) ? currentState.teams : [];
   const currentTeamA = currentTeams.find((team, index) => normalizeRyderCupTeamId(team && team.id, index) === 'teamA') || currentTeams[0] || { name: 'Team A' };
   const currentTeamB = currentTeams.find((team, index) => normalizeRyderCupTeamId(team && team.id, index) === 'teamB') || currentTeams[1] || { name: 'Team B' };
-  const resolveOverlayPlayerName = (player) => {
-    const rank = asPositiveInteger(player && player.seedRank);
-    if (rank && MYRTLE_RYDER_CUP_NAME_BY_RANK.has(rank)) return MYRTLE_RYDER_CUP_NAME_BY_RANK.get(rank);
-    return typeof player === 'string' ? player : (player && player.name);
-  };
   const teamAPlayers = normalizeRyderCupTeamPlayers(
     Array.isArray(overlayState && overlayState.teamAPlayers)
       ? overlayState.teamAPlayers.map((player) => resolveOverlayPlayerName(player))
@@ -1591,13 +1615,13 @@ function getRyderCupMatchPoints(result, pointValue = 1) {
   return { complete: false, pointsA: 0, pointsB: 0, resultKey: '' };
 }
 
-function resolveRyderCupMatchTotals(round = {}, match = {}) {
+function resolveRyderCupMatchTotals(round = {}, match = {}, handicapLookup = null) {
   const expectedCount = isSinglesFormat(round.format) ? 1 : 2;
   const formatKey = cleanString(round && round.formatKey).toLowerCase();
   const teamAPlayerScores = normalizeRyderCupScoreList(match.teamAPlayerScores, expectedCount);
   const teamBPlayerScores = normalizeRyderCupScoreList(match.teamBPlayerScores, expectedCount);
-  const teamAHandicapAllowance = (match.teamAPlayers || []).reduce((sum, playerName) => sum + getMyrtleRyderCupMatchAllowance(playerName), 0);
-  const teamBHandicapAllowance = (match.teamBPlayers || []).reduce((sum, playerName) => sum + getMyrtleRyderCupMatchAllowance(playerName), 0);
+  const teamAHandicapAllowance = (match.teamAPlayers || []).reduce((sum, playerName) => sum + resolveMyrtleRyderCupMatchAllowance(playerName, handicapLookup), 0);
+  const teamBHandicapAllowance = (match.teamBPlayers || []).reduce((sum, playerName) => sum + resolveMyrtleRyderCupMatchAllowance(playerName, handicapLookup), 0);
   let teamAScore = normalizeRyderCupScore(match.teamAScore);
   let teamBScore = normalizeRyderCupScore(match.teamBScore);
   let teamAGrossScore = teamAScore;
@@ -1643,8 +1667,8 @@ function resolveRyderCupMatchTotals(round = {}, match = {}) {
   };
 }
 
-function resolveRyderCupMatchOutcome(round = {}, match = {}) {
-  const scoreState = resolveRyderCupMatchTotals(round, match);
+function resolveRyderCupMatchOutcome(round = {}, match = {}, handicapLookup = null) {
+  const scoreState = resolveRyderCupMatchTotals(round, match, handicapLookup);
   const manualResult = normalizeRyderCupResult(match && match.result);
   const inferredResult = inferRyderCupWinningResult(scoreState.teamAScore, scoreState.teamBScore);
   return {
@@ -1882,7 +1906,7 @@ function buildRyderCupAdminView(rounds = []) {
   };
 }
 
-function buildRyderCupRoundAndStandingsView(rounds = [], teams = []) {
+function buildRyderCupRoundAndStandingsView(rounds = [], teams = [], handicapLookup = null) {
   let teamAPoints = 0;
   let teamBPoints = 0;
   let remainingPoints = 0;
@@ -1893,7 +1917,7 @@ function buildRyderCupRoundAndStandingsView(rounds = [], teams = []) {
     let roundPointsB = 0;
     let completedMatches = 0;
     const matches = (round.matches || []).map((match) => {
-      const resolved = resolveRyderCupMatchOutcome(round, match);
+      const resolved = resolveRyderCupMatchOutcome(round, match, handicapLookup);
       const points = getRyderCupMatchPoints(resolved.resultKey, roundPointValue);
       if (!isRyderCupTeamRound(round)) {
         totalPointsAvailable += roundPointValue;
@@ -1997,7 +2021,7 @@ function buildRyderCupRoundAndStandingsView(rounds = [], teams = []) {
   };
 }
 
-function buildRyderCupIndividualLeaderboard(rounds = [], teams = []) {
+function buildRyderCupIndividualLeaderboard(rounds = [], teams = [], handicapLookup = null) {
   const teamLookup = buildRyderCupTeamLookup(teams);
   const teamAPlayers = ((teams[0] && teams[0].players) || []).slice();
   const teamBPlayers = ((teams[1] && teams[1].players) || []).slice();
@@ -2041,7 +2065,7 @@ function buildRyderCupIndividualLeaderboard(rounds = [], teams = []) {
       return;
     }
     (round.matches || []).forEach((match) => {
-      const resolved = resolveRyderCupMatchOutcome(round, match);
+      const resolved = resolveRyderCupMatchOutcome(round, match, handicapLookup);
       const points = getRyderCupMatchPoints(resolved.resultKey, pointValue);
       if (!points.complete) return;
       const teamAPlayers = match.teamAPlayers || [];
@@ -2086,7 +2110,7 @@ function buildRyderCupIndividualLeaderboard(rounds = [], teams = []) {
   });
 }
 
-function buildRyderCupNetScoreSummary(rounds = []) {
+function buildRyderCupNetScoreSummary(rounds = [], handicapLookup = null) {
   const players = buildRyderCupPlayerRows();
   const totalsByName = new Map(players.map((player) => [normalizeNameKey(player.name), {
     name: player.name,
@@ -2105,7 +2129,7 @@ function buildRyderCupNetScoreSummary(rounds = []) {
       const cleanName = normalizeRyderCupPlayerName(playerName);
       const playerKey = normalizeNameKey(cleanName);
       if (!cleanName || !playerKey || rowsByName.has(playerKey)) return;
-      const matchHandicap = getMyrtleRyderCupMatchAllowance(cleanName, null);
+      const matchHandicap = resolveMyrtleRyderCupMatchAllowance(cleanName, handicapLookup, null);
       rowsByName.set(playerKey, {
         playerName: cleanName,
         grossTotal: normalizedGross,
@@ -2115,7 +2139,7 @@ function buildRyderCupNetScoreSummary(rounds = []) {
     };
     if (eligible) {
       (round.matches || []).forEach((match) => {
-        const resolved = resolveRyderCupMatchOutcome(round, match);
+        const resolved = resolveRyderCupMatchOutcome(round, match, handicapLookup);
         (match.teamAPlayers || []).forEach((playerName, playerIndex) => pushScore(playerName, resolved.teamAPlayerScores[playerIndex]));
         (match.teamBPlayers || []).forEach((playerName, playerIndex) => pushScore(playerName, resolved.teamBPlayerScores[playerIndex]));
       });
@@ -2167,8 +2191,8 @@ function buildRyderCupNetScoreSummary(rounds = []) {
   };
 }
 
-function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], rounds = []) {
-  const netSummary = buildRyderCupNetScoreSummary(rounds);
+function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], rounds = [], handicapLookup = null) {
+  const netSummary = buildRyderCupNetScoreSummary(rounds, handicapLookup);
   const closestEntries = sideGames && sideGames.closestToPin && Array.isArray(sideGames.closestToPin.entries)
     ? sideGames.closestToPin.entries
     : [];
@@ -2361,12 +2385,13 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
   };
 }
 
-function buildRyderCupView(state = null, _playerPool = []) {
+function buildRyderCupView(state = null, playerPool = []) {
   if (!state) return null;
+  const playerHandicapLookup = buildPlayerHandicapLookup(playerPool);
   const fairness = buildRyderCupFairness(state.teams || []);
-  const roundBundle = buildRyderCupRoundAndStandingsView(state.rounds || [], state.teams || []);
-  const individualLeaderboard = buildRyderCupIndividualLeaderboard(state.rounds || [], state.teams || []);
-  const sideGames = buildRyderCupSideGamesView(state.sideGames || {}, individualLeaderboard, state.rounds || []);
+  const roundBundle = buildRyderCupRoundAndStandingsView(state.rounds || [], state.teams || [], playerHandicapLookup);
+  const individualLeaderboard = buildRyderCupIndividualLeaderboard(state.rounds || [], state.teams || [], playerHandicapLookup);
+  const sideGames = buildRyderCupSideGamesView(state.sideGames || {}, individualLeaderboard, state.rounds || [], playerHandicapLookup);
   const payout = buildRyderCupPayoutView(state.payout || {}, roundBundle.standings || {}, sideGames, state.teams || []);
   const hasStarted = hasStartedRyderCup(state.rounds || []);
   const fairnessByTeam = new Map((fairness.teams || []).map((team) => [team.teamId, team]));
@@ -2379,8 +2404,8 @@ function buildRyderCupView(state = null, _playerPool = []) {
         .map((name) => ({
           name,
           rank: MYRTLE_RYDER_CUP_RANK_MAP.get(name) || null,
-          handicapIndex: getMyrtleRyderCupHandicapIndex(name, null),
-          matchHandicap: getMyrtleRyderCupMatchAllowance(name, null),
+          handicapIndex: resolveMyrtleRyderCupHandicapIndex(name, playerHandicapLookup, null),
+          matchHandicap: resolveMyrtleRyderCupMatchAllowance(name, playerHandicapLookup, null),
         }))
         .sort((left, right) => {
           if (left.rank !== right.rank) return left.rank - right.rank;

@@ -1,3 +1,5 @@
+const { MYRTLE_RYDER_CUP_PLAYERS } = require('./myrtleRyderCupDefaults');
+
 const TEAM_A_DEFAULTS = [
   { name: 'Joe Gillette', seedRank: 1 },
   { name: 'Josh Browne', seedRank: 3 },
@@ -41,12 +43,25 @@ const DEFAULT_TEAM_A_NAME = 'Team A';
 const DEFAULT_TEAM_B_NAME = 'Team B';
 const DEFAULT_PLAYERS = TEAM_A_DEFAULTS.concat(TEAM_B_DEFAULTS);
 const DEFAULT_PLAYER_BY_KEY = buildDefaultPlayerKeyLookup();
+const DEFAULT_HANDICAP_BY_KEY = buildDefaultHandicapKeyLookup();
 
 function buildDefaultPlayerKeyLookup() {
   const map = new Map();
   DEFAULT_PLAYERS.forEach((player) => {
     getAliasKeys(normalizeNameKey(player.name)).forEach((key) => {
       if (!map.has(key)) map.set(key, player);
+    });
+  });
+  return map;
+}
+
+function buildDefaultHandicapKeyLookup() {
+  const map = new Map();
+  MYRTLE_RYDER_CUP_PLAYERS.forEach((player) => {
+    const handicapIndex = normalizeHandicapIndex(player && player.handicapIndex);
+    if (handicapIndex === null) return;
+    getAliasKeys(normalizeNameKey(player && player.name)).forEach((key) => {
+      if (!map.has(key)) map.set(key, handicapIndex);
     });
   });
   return map;
@@ -79,11 +94,19 @@ function normalizeSeedRank(value) {
   return rounded > 0 ? rounded : null;
 }
 
+function normalizeHandicapIndex(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const num = Number(value);
+  if (!Number.isFinite(num)) return null;
+  return Math.round(num * 10) / 10;
+}
+
 function clonePlayer(player = {}) {
   return {
     playerId: player.playerId ? String(player.playerId) : null,
     name: cleanString(player.name),
     seedRank: normalizeSeedRank(player.seedRank),
+    handicapIndex: normalizeHandicapIndex(player.handicapIndex),
   };
 }
 
@@ -119,15 +142,44 @@ function resolveParticipantId(name = '', participants = []) {
   return null;
 }
 
+function resolveParticipant(name = '', participants = []) {
+  const keys = getAliasKeys(normalizeNameKey(name));
+  if (!keys.length) return null;
+  for (let index = 0; index < participants.length; index += 1) {
+    const participant = participants[index] || {};
+    const participantKeys = getAliasKeys(normalizeNameKey(participant.name));
+    const matches = participantKeys.some((key) => keys.includes(key));
+    if (matches) return participant;
+  }
+  return null;
+}
+
+function getDefaultHandicapForName(name = '') {
+  const keys = getAliasKeys(normalizeNameKey(name));
+  for (let index = 0; index < keys.length; index += 1) {
+    const handicapIndex = DEFAULT_HANDICAP_BY_KEY.get(keys[index]);
+    if (handicapIndex !== undefined) return handicapIndex;
+  }
+  return null;
+}
+
 function normalizePlayer(rawPlayer = {}, participants = []) {
   const fallback = getDefaultPlayerForName(rawPlayer && rawPlayer.name);
   const name = cleanString(rawPlayer && rawPlayer.name) || cleanString(fallback && fallback.name);
   const seedRank = normalizeSeedRank(rawPlayer && rawPlayer.seedRank) || normalizeSeedRank(fallback && fallback.seedRank);
-  const playerId = cleanString(rawPlayer && rawPlayer.playerId) || resolveParticipantId(name, participants) || null;
+  const participant = resolveParticipant(name, participants);
+  const playerId = cleanString(rawPlayer && rawPlayer.playerId) || (participant && participant._id ? String(participant._id) : null) || resolveParticipantId(name, participants) || null;
+  const handicapIndex = normalizeHandicapIndex(rawPlayer && rawPlayer.handicapIndex);
   return {
     playerId,
     name,
     seedRank,
+    handicapIndex: handicapIndex !== null
+      ? handicapIndex
+      : (
+        getDefaultHandicapForName(name)
+        ?? normalizeHandicapIndex(participant && participant.handicapIndex)
+      ),
   };
 }
 

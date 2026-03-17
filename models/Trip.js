@@ -65,7 +65,8 @@ const TripCompetitionSchema = new mongoose.Schema({
 const TripRyderCupPlayerSchema = new mongoose.Schema({
   playerId: { type: mongoose.Schema.Types.ObjectId, ref: 'TripParticipant', default: null },
   name: { type: String, default: '' },
-  seedRank: { type: Number, default: null }
+  seedRank: { type: Number, default: null },
+  handicapIndex: { type: Number, default: null }
 }, { _id: false });
 
 const TripRyderCupSchema = new mongoose.Schema({

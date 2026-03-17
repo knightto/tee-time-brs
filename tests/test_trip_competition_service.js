@@ -9,6 +9,7 @@ const {
   swapTripRyderCupTeamPlayers,
 } = require('../services/tripCompetitionService');
 const { buildDefaultMyrtleRyderCup } = require('../services/myrtleRyderCupDefaults');
+const { getDefaultTripRyderCupState } = require('../services/tripRyderCupService');
 
 function makeScorecard() {
   return Array.from({ length: 18 }, (_, index) => ({
@@ -419,6 +420,20 @@ function run() {
       makeRound('Long Bay', []),
     ],
   });
+
+  const overlayHandicapTrip = makeEditableMyrtleTrip();
+  overlayHandicapTrip.ryderCup = getDefaultTripRyderCupState(myrtleParticipants);
+  overlayHandicapTrip.ryderCup.teamAPlayers = overlayHandicapTrip.ryderCup.teamAPlayers.map((player) => (
+    player.name === 'Joe Gillette'
+      ? { ...player, handicapIndex: 4.5 }
+      : player
+  ));
+  const overlayHandicapView = buildTripCompetitionView(overlayHandicapTrip, myrtleParticipants);
+  const overlayHandicapJoe = overlayHandicapView.ryderCup.teams[0].players.find((entry) => entry.name === 'Joe Gillette');
+  assert(overlayHandicapJoe, 'Overlay handicap override player should be present');
+  assert.strictEqual(overlayHandicapJoe.handicapIndex, 4.5, 'Saved Ryder Cup overlay handicaps should override the seeded Myrtle handicap');
+  assert.strictEqual(overlayHandicapJoe.matchHandicap, 3, 'Saved Ryder Cup overlay handicaps should drive the 75% allowance');
+  assert.strictEqual(overlayHandicapView.ryderCup.rounds[0].matches[0].teamAHandicapAllowance, 17, 'Match allowances should recalculate from saved Ryder Cup overlay handicap edits');
 
   const grossOnlyTrip = makeEditableMyrtleTrip();
   const grossOnlyRound = clone(grossOnlyTrip.competition.ryderCup.rounds[0]);

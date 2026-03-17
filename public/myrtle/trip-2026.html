@@ -1491,6 +1491,29 @@
       flex-wrap: wrap;
       justify-content: flex-end;
     }
+    .ryder-overlay-handicap-field {
+      display: grid;
+      gap: 2px;
+      min-width: 86px;
+    }
+    .ryder-overlay-handicap-field span {
+      color: var(--ink-soft);
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .ryder-overlay-handicap-field input {
+      width: 100%;
+      min-width: 0;
+      padding: 6px 8px;
+    }
+    .ryder-overlay-allowance {
+      color: var(--ink-soft);
+      font-size: 0.74rem;
+      font-weight: 700;
+      white-space: nowrap;
+    }
     .ryder-overlay-drag-handle {
       display: inline-flex;
       align-items: center;
@@ -2163,6 +2186,16 @@
       const num = parseHandicapValue(value);
       return num === null ? '—' : num.toFixed(1);
     };
+    const formatHandicapDisplay = (value) => {
+      const num = parseHandicapValue(value);
+      if (num === null) return '—';
+      return Number.isInteger(num) ? String(num) : num.toFixed(1);
+    };
+    const getTripRyderCupMatchAllowance = (value) => {
+      const handicapIndex = parseHandicapValue(value);
+      if (handicapIndex === null) return 0;
+      return Math.round(handicapIndex * 0.75);
+    };
     const formatCompetitionPoints = (value) => {
       const num = Number(value);
       if (!Number.isFinite(num)) return '—';
@@ -2310,7 +2343,7 @@
         parts.push(`Rank #${Math.round(Number(playerMeta.rank))}`);
       }
       if (Number.isFinite(Number(playerMeta && playerMeta.handicapIndex))) {
-        parts.push(`Hcp ${Math.round(Number(playerMeta.handicapIndex))}`);
+        parts.push(`Hcp ${formatHandicapDisplay(playerMeta.handicapIndex)}`);
       }
       if (Number.isFinite(Number(playerMeta && playerMeta.matchHandicap))) {
         parts.push(`75% ${Math.round(Number(playerMeta.matchHandicap))}`);
@@ -2436,6 +2469,8 @@
               ? overlay.teamAPlayers.map((player) => ({
                   name: String(player && player.name || '').trim(),
                   rank: Number.isFinite(Number(player && player.seedRank)) ? Math.round(Number(player.seedRank)) : null,
+                  handicapIndex: parseHandicapValue(player && player.handicapIndex),
+                  matchHandicap: getTripRyderCupMatchAllowance(player && player.handicapIndex),
                 })).filter((player) => player.name)
               : [],
           },
@@ -2446,6 +2481,8 @@
               ? overlay.teamBPlayers.map((player) => ({
                   name: String(player && player.name || '').trim(),
                   rank: Number.isFinite(Number(player && player.seedRank)) ? Math.round(Number(player.seedRank)) : null,
+                  handicapIndex: parseHandicapValue(player && player.handicapIndex),
+                  matchHandicap: getTripRyderCupMatchAllowance(player && player.handicapIndex),
                 })).filter((player) => player.name)
               : [],
           },
@@ -2522,7 +2559,7 @@
           const matchAllowance = getRyderCupMatchAllowanceValue(playerMeta);
           return {
             playerName,
-            handicapIndex: Number.isFinite(Number(playerMeta.handicapIndex)) ? Math.round(Number(playerMeta.handicapIndex)) : null,
+            handicapIndex: parseHandicapValue(playerMeta.handicapIndex),
             matchAllowance,
             grossScore,
             netScore: Number.isFinite(grossScore) ? grossScore - matchAllowance : null,
@@ -2600,7 +2637,7 @@
           const noteEl = field.querySelector('[data-ryder-score-note]');
           const allowance = getRyderCupMatchAllowanceValue(playerMeta);
           if (nameEl) nameEl.textContent = playerName || 'Open slot';
-          if (hcpEl) hcpEl.textContent = `Hcp ${Number.isFinite(Number(playerMeta.handicapIndex)) ? Math.round(Number(playerMeta.handicapIndex)) : '—'}`;
+          if (hcpEl) hcpEl.textContent = `Hcp ${formatHandicapDisplay(playerMeta.handicapIndex)}`;
           if (allowanceEl) allowanceEl.textContent = `75% ${allowance}`;
           if (strokesEl) strokesEl.textContent = allowance ? `Gets ${allowance} strokes` : 'Gets 0 strokes';
           if (noteEl) noteEl.textContent = formatRyderCupScoreNote(input.value, allowance);
@@ -3192,7 +3229,8 @@
     const normalizeTripRyderCupPlayer = (raw = {}) => ({
       playerId: String(raw && raw.playerId || '').trim(),
       name: String(raw && raw.name || '').trim(),
-      seedRank: Number.isFinite(Number(raw && raw.seedRank)) ? Math.round(Number(raw.seedRank)) : null
+      seedRank: Number.isFinite(Number(raw && raw.seedRank)) ? Math.round(Number(raw.seedRank)) : null,
+      handicapIndex: parseHandicapValue(raw && raw.handicapIndex)
     });
     const sortTripRyderCupPlayers = (players = []) => {
       return players.slice().sort((left, right) => {
@@ -3301,6 +3339,22 @@
       }
       tripRyderCupUiState.draft = normalizeTripRyderCupOverlay(tripRyderCupUiState.draft);
     }
+    function updateTripRyderCupDraftPlayerField(seedRank, field, value) {
+      const draft = tripRyderCupUiState.draft;
+      if (!draft || field !== 'handicapIndex') return;
+      const seed = Number(seedRank);
+      if (!Number.isFinite(seed)) return;
+      ['teamAPlayers', 'teamBPlayers'].forEach((teamKey) => {
+        draft[teamKey] = (draft[teamKey] || []).map((player) => {
+          if (Number(player && player.seedRank) !== seed) return player;
+          return {
+            ...player,
+            handicapIndex: parseHandicapValue(value)
+          };
+        });
+      });
+      tripRyderCupUiState.draft = normalizeTripRyderCupOverlay(draft);
+    }
     function moveTripRyderCupDraftPlayer(seedRank, nextTeamKey = '') {
       const draft = tripRyderCupUiState.draft;
       if (!draft) return;
@@ -3393,12 +3447,14 @@
           teamAPlayers: Array.isArray(draft && draft.teamAPlayers) ? draft.teamAPlayers.map((player) => ({
             playerId: String(player && player.playerId || '').trim(),
             name: String(player && player.name || '').trim(),
-            seedRank: Number.isFinite(Number(player && player.seedRank)) ? Math.round(Number(player.seedRank)) : null
+            seedRank: Number.isFinite(Number(player && player.seedRank)) ? Math.round(Number(player.seedRank)) : null,
+            handicapIndex: parseHandicapValue(player && player.handicapIndex)
           })) : [],
           teamBPlayers: Array.isArray(draft && draft.teamBPlayers) ? draft.teamBPlayers.map((player) => ({
             playerId: String(player && player.playerId || '').trim(),
             name: String(player && player.name || '').trim(),
-            seedRank: Number.isFinite(Number(player && player.seedRank)) ? Math.round(Number(player.seedRank)) : null
+            seedRank: Number.isFinite(Number(player && player.seedRank)) ? Math.round(Number(player.seedRank)) : null,
+            handicapIndex: parseHandicapValue(player && player.handicapIndex)
           })) : [],
           notes: String(draft && draft.notes || '').trim()
         });
@@ -3956,7 +4012,7 @@
             <span class="ryder-score-field-head">
               <span class="ryder-score-field-name" data-ryder-score-player-name>${escapeHtml(playerName)}</span>
               <span class="ryder-score-field-badges">
-                <span class="competition-pill" data-ryder-score-hcp>Hcp ${Number.isFinite(Number(playerMeta.handicapIndex)) ? escapeHtml(String(Math.round(Number(playerMeta.handicapIndex)))) : '—'}</span>
+                <span class="competition-pill" data-ryder-score-hcp>Hcp ${escapeHtml(formatHandicapDisplay(playerMeta.handicapIndex))}</span>
                 <span class="competition-pill" data-ryder-score-allowance>75% ${escapeHtml(String(allowance))}</span>
                 <span class="competition-pill" data-ryder-score-strokes>${escapeHtml(`Gets ${allowance} strokes`)}</span>
               </span>
@@ -4380,9 +4436,14 @@
             <ul class="ryder-overlay-roster">
               ${(players || []).map((player) => {
                 const playerMeta = getRyderCupTeamPlayerMeta(savedTeamMeta, player && player.name) || {};
+                const handicapIndex = parseHandicapValue(player && player.handicapIndex);
+                const matchAllowance = handicapIndex === null
+                  ? Number.isFinite(Number(playerMeta.matchHandicap)) ? Math.round(Number(playerMeta.matchHandicap)) : 0
+                  : getTripRyderCupMatchAllowance(handicapIndex);
                 const detailParts = [`Seed ${String((player && player.seedRank) ?? '—')}`];
-                if (Number.isFinite(Number(playerMeta.handicapIndex))) detailParts.push(`Hcp ${Math.round(Number(playerMeta.handicapIndex))}`);
-                if (Number.isFinite(Number(playerMeta.matchHandicap))) detailParts.push(`75% ${Math.round(Number(playerMeta.matchHandicap))}`);
+                if (handicapIndex !== null) detailParts.push(`Hcp ${formatHandicapDisplay(handicapIndex)}`);
+                else if (Number.isFinite(Number(playerMeta.handicapIndex))) detailParts.push(`Hcp ${formatHandicapDisplay(playerMeta.handicapIndex)}`);
+                detailParts.push(`75% ${matchAllowance}`);
                 return `
                 <li class="ryder-overlay-row">
                   <div class="ryder-overlay-player-copy">
@@ -4391,6 +4452,11 @@
                   </div>
                   ${isEditing ? `
                     <div class="ryder-overlay-edit-tools">
+                      <label class="ryder-overlay-handicap-field">
+                        <span>Hcp</span>
+                        <input type="number" min="0" step="0.1" inputmode="decimal" data-trip-ryder-player-handicap="${escapeHtml(String(player.seedRank ?? ''))}" value="${handicapIndex === null ? '' : quoteAttr(String(handicapIndex))}" placeholder="0.0">
+                      </label>
+                      <span class="ryder-overlay-allowance">75% ${escapeHtml(String(matchAllowance))}</span>
                       <span
                         class="ryder-overlay-drag-handle"
                         draggable="true"
@@ -4441,7 +4507,7 @@
                   <input type="checkbox" data-trip-ryder-enabled="1"${state.enabled ? ' checked' : ''}>
                   <span>Show Ryder Cup teams on this trip</span>
                 </label>
-                <span class="competition-note">Drag a player onto the other team card, or use the team selector on each row.</span>
+                <span class="competition-note">Drag a player onto the other team card, use the team selector, and edit the handicap beside each golfer before saving.</span>
               </div>
             ` : ''}
             <div class="ryder-overlay-grid">
@@ -6258,6 +6324,11 @@
           updateTripRyderCupDraftField(String(teamNameField.dataset.tripRyderTeamName || '').trim(), teamNameField.value);
           return;
         }
+        const handicapField = event.target.closest('[data-trip-ryder-player-handicap]');
+        if (handicapField) {
+          updateTripRyderCupDraftPlayerField(String(handicapField.dataset.tripRyderPlayerHandicap || '').trim(), 'handicapIndex', handicapField.value);
+          return;
+        }
         const notesField = event.target.closest('[data-trip-ryder-notes]');
         if (notesField) {
           updateTripRyderCupDraftField('notes', notesField.value);
@@ -6274,6 +6345,12 @@
         const enabledToggle = event.target.closest('[data-trip-ryder-enabled]');
         if (enabledToggle) {
           updateTripRyderCupDraftField('enabled', enabledToggle.checked);
+          renderCompetition();
+          return;
+        }
+        const handicapField = event.target.closest('[data-trip-ryder-player-handicap]');
+        if (handicapField) {
+          updateTripRyderCupDraftPlayerField(String(handicapField.dataset.tripRyderPlayerHandicap || '').trim(), 'handicapIndex', handicapField.value);
           renderCompetition();
           return;
         }
