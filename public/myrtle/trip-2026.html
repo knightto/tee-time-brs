@@ -832,6 +832,7 @@
     .competition-player-team-grid select,
     .competition-admin-card input,
     .competition-admin-card select,
+    .competition-admin-card textarea,
     .competition-sidegame-card textarea,
     .competition-sidegame-card input,
     .competition-score-toolbar select,
@@ -842,6 +843,11 @@
       border: 1px solid var(--border);
       background: #0b1728;
       color: var(--ink);
+    }
+    .competition-admin-card textarea {
+      min-height: 78px;
+      resize: vertical;
+      font-family: inherit;
     }
     .competition-sidegame-card textarea {
       min-height: 92px;
@@ -1234,6 +1240,141 @@
       background: rgba(109,211,255,0.14);
       box-shadow: inset 0 0 0 1px rgba(109,211,255,0.32);
     }
+    .ryder-overlay-card {
+      display: grid;
+      gap: 12px;
+    }
+    .ryder-overlay-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .ryder-overlay-grid {
+      display: grid;
+      gap: 10px;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    }
+    .ryder-overlay-team {
+      display: grid;
+      gap: 8px;
+      padding: 10px;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.04);
+      align-content: start;
+    }
+    .ryder-overlay-team.is-disabled {
+      opacity: 0.76;
+    }
+    .ryder-overlay-team-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .ryder-overlay-roster {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 6px;
+    }
+    .ryder-overlay-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 8px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
+      background: rgba(11,23,40,0.55);
+    }
+    .ryder-overlay-row.is-dragging {
+      opacity: 0.44;
+    }
+    .ryder-overlay-team.is-drop-target {
+      border-color: rgba(109,211,255,0.92);
+      background: rgba(109,211,255,0.1);
+      box-shadow: inset 0 0 0 1px rgba(109,211,255,0.32);
+    }
+    .ryder-overlay-player-copy {
+      display: grid;
+      gap: 2px;
+      min-width: 0;
+    }
+    .ryder-overlay-edit-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .ryder-overlay-drag-handle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 40px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px dashed rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.04);
+      color: var(--ink-soft);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      cursor: grab;
+      user-select: none;
+    }
+    .ryder-overlay-drag-handle:active {
+      cursor: grabbing;
+    }
+    .ryder-overlay-seed {
+      color: var(--ink-soft);
+      font-size: 0.76rem;
+      white-space: nowrap;
+    }
+    .ryder-overlay-actions,
+    .ryder-overlay-balance {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+    .ryder-overlay-balance {
+      color: var(--ink-soft);
+      font-size: 0.82rem;
+    }
+    .ryder-overlay-note {
+      color: var(--ink-soft);
+      font-size: 0.8rem;
+      line-height: 1.45;
+    }
+    .ryder-overlay-copy-status {
+      color: #bce8ff;
+      font-size: 0.78rem;
+      font-weight: 700;
+    }
+    .ryder-overlay-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--ink-soft);
+      font-size: 0.82rem;
+      font-weight: 600;
+    }
+    .ryder-overlay-toggle input {
+      width: auto;
+      margin: 0;
+    }
+    .ryder-overlay-actions button:disabled {
+      opacity: 0.58;
+      cursor: default;
+      transform: none;
+    }
     .floating-link {
       position: fixed;
       padding: 8px 12px;
@@ -1357,7 +1498,7 @@
         </div>
         <div class="hero-actions">
           <a class="hero-link" href="#scheduleSection">Schedule</a>
-          <a class="hero-link" href="#competitionSection">Ryder Cup</a>
+          <a class="hero-link" href="#ryderTeamsSection">Ryder Cup</a>
           <a class="hero-link" href="/myrtle/lodging-and-maps.html">Lodging + Maps</a>
           <a class="hero-link" href="https://founders.teetimecentralonline.com/golfcentral/guests/Register.aspx?g=8ad2d184-cdb8-4b90-8dc6-55c68c26efe9&ResNum=12972589&arr=3/18/2026" target="_blank" rel="noopener">Register</a>
           <a class="hero-link" href="https://www.google.com/maps/d/u/0/viewer?mid=1OLZdG1AzvAQJlBuhYWt5v_8Ta4W6bmY&ehbc=2E312F" target="_blank" rel="noopener">Full Map</a>
@@ -1543,6 +1684,8 @@
     let participants = [];
     let competitionData = null;
     let competitionLoadError = '';
+    let tripRyderCupData = null;
+    let tripRyderCupLoadError = '';
     const competitionUiState = {
       scoreRoundIndex: 0,
       scorePlayerName: '',
@@ -1550,6 +1693,15 @@
       draggedRyderPlayer: null,
       activeRyderDropKey: '',
       activeRyderDropTeamId: ''
+    };
+    const tripRyderCupUiState = {
+      isEditing: false,
+      isSaving: false,
+      draft: null,
+      copyStatus: '',
+      copyStatusTimer: 0,
+      draggedPlayerSeed: '',
+      activeDropTeamKey: ''
     };
 
     const $ = (sel) => document.querySelector(sel);
@@ -1589,6 +1741,32 @@
       return Number.isFinite(condoNum) ? condoNum : null;
     };
     const normalizeNameKey = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const getAliasKeys = (value) => {
+      const primaryKey = normalizeNameKey(value);
+      if (!primaryKey) return [];
+      const seen = new Set([primaryKey]);
+      (NAME_ALIASES[primaryKey] || []).forEach((alias) => {
+        const aliasKey = normalizeNameKey(alias);
+        if (aliasKey) seen.add(aliasKey);
+      });
+      return Array.from(seen);
+    };
+    const getComparableNameKey = (value) => {
+      const keys = getAliasKeys(value).sort();
+      return keys[0] || '';
+    };
+    const namesMatch = (left, right) => {
+      const leftKeys = new Set(getAliasKeys(left));
+      if (!leftKeys.size) return false;
+      return getAliasKeys(right).some((key) => leftKeys.has(key));
+    };
+    const buildAliasKeySet = (values = []) => {
+      const keys = new Set();
+      (values || []).forEach((value) => {
+        getAliasKeys(value).forEach((key) => keys.add(key));
+      });
+      return keys;
+    };
     const DEFAULT_CONDO_ASSIGNMENTS = CONDO_ADDRESSES.reduce((map, condo, index) => {
       (condo.occupants || []).forEach((name) => {
         const key = normalizeNameKey(name);
@@ -1597,8 +1775,7 @@
       return map;
     }, {});
     const getDefaultCondoNumberForName = (name) => {
-      const primaryKey = normalizeNameKey(name);
-      const candidateKeys = [primaryKey, ...((NAME_ALIASES[primaryKey] || []).map((alias) => normalizeNameKey(alias)))].filter(Boolean);
+      const candidateKeys = getAliasKeys(name);
       for (let i = 0; i < candidateKeys.length; i += 1) {
         const condoNum = DEFAULT_CONDO_ASSIGNMENTS[candidateKeys[i]];
         if (Number.isFinite(condoNum)) return condoNum;
@@ -1836,9 +2013,9 @@
       return 'Team total';
     };
     const getRyderCupTeamPlayerMeta = (team = {}, playerName = '') => {
-      const target = String(playerName || '').trim().toLowerCase();
+      const target = String(playerName || '').trim();
       return Array.isArray(team && team.players)
-        ? team.players.find((player) => String(player && player.name || '').trim().toLowerCase() === target) || null
+        ? team.players.find((player) => namesMatch(player && player.name, target)) || null
         : null;
     };
     const formatRyderCupWinnerLabel = (result, teamAName, teamBName) => {
@@ -1944,9 +2121,40 @@
     };
     const getRyderCupTeamMeta = () => {
       const teams = Array.isArray(getRyderCupData()?.teams) ? getRyderCupData().teams : [];
+      if (teams.length) {
+        return {
+          teamA: teams.find((team) => String(team && team.id || '').trim().toLowerCase() === 'teama') || teams[0] || { id: 'teamA', name: 'Team A', players: [] },
+          teamB: teams.find((team) => String(team && team.id || '').trim().toLowerCase() === 'teamb') || teams[1] || { id: 'teamB', name: 'Team B', players: [] },
+        };
+      }
+      const overlay = getTripRyderCupData();
+      if (overlay) {
+        return {
+          teamA: {
+            id: 'teamA',
+            name: String(overlay.teamAName || 'Team A').trim() || 'Team A',
+            players: Array.isArray(overlay.teamAPlayers)
+              ? overlay.teamAPlayers.map((player) => ({
+                  name: String(player && player.name || '').trim(),
+                  rank: Number.isFinite(Number(player && player.seedRank)) ? Math.round(Number(player.seedRank)) : null,
+                })).filter((player) => player.name)
+              : [],
+          },
+          teamB: {
+            id: 'teamB',
+            name: String(overlay.teamBName || 'Team B').trim() || 'Team B',
+            players: Array.isArray(overlay.teamBPlayers)
+              ? overlay.teamBPlayers.map((player) => ({
+                  name: String(player && player.name || '').trim(),
+                  rank: Number.isFinite(Number(player && player.seedRank)) ? Math.round(Number(player.seedRank)) : null,
+                })).filter((player) => player.name)
+              : [],
+          },
+        };
+      }
       return {
-        teamA: teams.find((team) => String(team && team.id || '').trim().toLowerCase() === 'teama') || teams[0] || { id: 'teamA', name: 'Team A', players: [] },
-        teamB: teams.find((team) => String(team && team.id || '').trim().toLowerCase() === 'teamb') || teams[1] || { id: 'teamB', name: 'Team B', players: [] },
+        teamA: { id: 'teamA', name: 'Team A', players: [] },
+        teamB: { id: 'teamB', name: 'Team B', players: [] },
       };
     };
     const getRyderCupTeamPlayerNames = (team = {}) => (
@@ -1961,41 +2169,43 @@
       const slotPlayers = Array.isArray(slot.players) ? slot.players.map((name) => String(name || '').trim()).filter(Boolean) : [];
       if (!ryderRound || !slotPlayers.length) return null;
       const groups = Array.isArray(ryderRound?.plan?.groups) ? ryderRound.plan.groups : [];
-      const slotPlayerKeys = slotPlayers.map((name) => normalizeNameKey(name)).filter(Boolean).sort();
+      const slotPlayerKeys = slotPlayers.map((name) => getComparableNameKey(name)).filter(Boolean).sort();
       const group = groups.find((entry) => {
         const groupKeys = Array.isArray(entry && entry.players)
-          ? entry.players.map((name) => normalizeNameKey(name)).filter(Boolean).sort()
+          ? entry.players.map((name) => getComparableNameKey(name)).filter(Boolean).sort()
           : [];
         return groupKeys.length === slotPlayerKeys.length && groupKeys.every((key, index) => key === slotPlayerKeys[index]);
       }) || null;
       const { teamA, teamB } = getRyderCupTeamMeta();
-      const teamAKeySet = new Set(getRyderCupTeamPlayerNames(teamA).map((name) => normalizeNameKey(name)).filter(Boolean));
-      const teamBKeySet = new Set(getRyderCupTeamPlayerNames(teamB).map((name) => normalizeNameKey(name)).filter(Boolean));
+      const teamAKeySet = buildAliasKeySet(getRyderCupTeamPlayerNames(teamA));
+      const teamBKeySet = buildAliasKeySet(getRyderCupTeamPlayerNames(teamB));
       const playerMetaByName = new Map();
       const teamAPlayersInSlot = [];
       const teamBPlayersInSlot = [];
       const unassignedPlayersInSlot = [];
       slotPlayers.forEach((name) => {
-        const key = normalizeNameKey(name);
-        if (!key) return;
-        if (teamAKeySet.has(key)) {
+        const keys = getAliasKeys(name);
+        if (!keys.length) return;
+        if (keys.some((key) => teamAKeySet.has(key))) {
           teamAPlayersInSlot.push(name);
-          playerMetaByName.set(key, {
+          const meta = {
             sideKey: 'teamA',
             sideClass: 'team-a',
             sideBadge: 'A',
             sideName: teamA.name || 'Team A',
-          });
+          };
+          keys.forEach((key) => playerMetaByName.set(key, meta));
           return;
         }
-        if (teamBKeySet.has(key)) {
+        if (keys.some((key) => teamBKeySet.has(key))) {
           teamBPlayersInSlot.push(name);
-          playerMetaByName.set(key, {
+          const meta = {
             sideKey: 'teamB',
             sideClass: 'team-b',
             sideBadge: 'B',
             sideName: teamB.name || 'Team B',
-          });
+          };
+          keys.forEach((key) => playerMetaByName.set(key, meta));
           return;
         }
         unassignedPlayersInSlot.push(name);
@@ -2061,6 +2271,23 @@
       if (normalized.toLowerCase() === 'singles net total match') return 'Singles Gross Total Match';
       return getDefaultRyderCupPlayStyle(format);
     };
+    const normalizeTripWeatherLookupKey = (value = '') => String(value || '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .trim();
+    // Open-Meteo geocoding misses these Myrtle courses, so pin the known course locations.
+    const TRIP_WEATHER_COORDINATE_OVERRIDES = new Map([
+      ['world tour', { lat: 33.7352921, lon: -78.9089942 }],
+      ['2000 world tour blvd myrtle beach sc 29579', { lat: 33.7352921, lon: -78.9089942 }],
+      ['wild wing avocet', { lat: 33.7992298, lon: -78.9814721 }],
+      ['1000 wild wing blvd conway sc 29526', { lat: 33.7992298, lon: -78.9814721 }],
+      ['king s north', { lat: 33.7919358, lon: -78.9661569 }],
+      ['4900 national dr myrtle beach sc 29579', { lat: 33.7919358, lon: -78.9661569 }],
+      ['river hills', { lat: 33.8801287, lon: -78.6381396 }],
+      ['3670 cedar creek run little river sc 29566', { lat: 33.8801287, lon: -78.6381396 }],
+      ['long bay', { lat: 33.955228, lon: -78.74027 }],
+      ['350 fox tail dr longs sc 29568', { lat: 33.955228, lon: -78.74027 }],
+    ]);
     const normalizeRoundWeather = (weather = null) => {
       if (!weather || typeof weather !== 'object') return null;
       return {
@@ -2097,6 +2324,23 @@
         list.push(normalized);
         return list;
       }, []);
+    };
+    const getTripRoundWeatherCoordinateOverride = (round = {}) => {
+      const keys = [
+        round && round.course,
+        round && round.address,
+        [round && round.course, round && round.address].filter(Boolean).join(' ')
+      ].map(normalizeTripWeatherLookupKey).filter(Boolean);
+      for (let index = 0; index < keys.length; index += 1) {
+        const override = TRIP_WEATHER_COORDINATE_OVERRIDES.get(keys[index]);
+        if (override && Number.isFinite(Number(override.lat)) && Number.isFinite(Number(override.lon))) {
+          return {
+            lat: Number(override.lat),
+            lon: Number(override.lon),
+          };
+        }
+      }
+      return null;
     };
     const getTripRoundWeatherCacheKey = (round = {}) => {
       const dateKey = toIsoDate(round && round.date);
@@ -2138,6 +2382,8 @@
       }
     }
     async function resolveTripRoundWeatherCoordinates(round = {}) {
+      const override = getTripRoundWeatherCoordinateOverride(round);
+      if (override) return override;
       const queries = uniqueTripWeatherQueries([
         round && round.address,
         [round && round.course, round && round.address].filter(Boolean).join(', '),
@@ -2313,6 +2559,226 @@
         return String((a && a.course) || '').localeCompare(String((b && b.course) || ''));
       });
     };
+    const normalizeTripRyderCupPlayer = (raw = {}) => ({
+      playerId: String(raw && raw.playerId || '').trim(),
+      name: String(raw && raw.name || '').trim(),
+      seedRank: Number.isFinite(Number(raw && raw.seedRank)) ? Math.round(Number(raw.seedRank)) : null
+    });
+    const sortTripRyderCupPlayers = (players = []) => {
+      return players.slice().sort((left, right) => {
+        const leftSeed = Number.isFinite(Number(left && left.seedRank)) ? Math.round(Number(left.seedRank)) : null;
+        const rightSeed = Number.isFinite(Number(right && right.seedRank)) ? Math.round(Number(right.seedRank)) : null;
+        if (leftSeed !== null && rightSeed !== null && leftSeed !== rightSeed) return leftSeed - rightSeed;
+        if (leftSeed !== null && rightSeed === null) return -1;
+        if (leftSeed === null && rightSeed !== null) return 1;
+        return String(left && left.name || '').localeCompare(String(right && right.name || ''));
+      });
+    };
+    const buildTripRyderCupBalance = (state = {}) => {
+      const teamASum = (state.teamAPlayers || []).reduce((total, player) => total + (Number.isFinite(Number(player && player.seedRank)) ? Math.round(Number(player.seedRank)) : 0), 0);
+      const teamBSum = (state.teamBPlayers || []).reduce((total, player) => total + (Number.isFinite(Number(player && player.seedRank)) ? Math.round(Number(player.seedRank)) : 0), 0);
+      return {
+        teamASum,
+        teamBSum,
+        difference: Math.abs(teamASum - teamBSum)
+      };
+    };
+    const normalizeTripRyderCupOverlay = (raw = null) => {
+      if (!raw || typeof raw !== 'object') return null;
+      const teamAPlayers = sortTripRyderCupPlayers(Array.isArray(raw.teamAPlayers) ? raw.teamAPlayers.map(normalizeTripRyderCupPlayer).filter((player) => player.name) : []);
+      const teamBPlayers = sortTripRyderCupPlayers(Array.isArray(raw.teamBPlayers) ? raw.teamBPlayers.map(normalizeTripRyderCupPlayer).filter((player) => player.name) : []);
+      const state = {
+        enabled: raw.enabled !== false,
+        teamAName: String(raw.teamAName || 'Team A').trim() || 'Team A',
+        teamBName: String(raw.teamBName || 'Team B').trim() || 'Team B',
+        teamAPlayers,
+        teamBPlayers,
+        notes: String(raw.notes || '').trim()
+      };
+      state.balance = buildTripRyderCupBalance(state);
+      return state;
+    };
+    const cloneTripRyderCupOverlay = (raw = null) => {
+      const normalized = normalizeTripRyderCupOverlay(raw);
+      return normalized ? JSON.parse(JSON.stringify(normalized)) : null;
+    };
+    const getTripRyderCupData = () => normalizeTripRyderCupOverlay(tripRyderCupData);
+    const getActiveTripRyderCupData = () => (
+      tripRyderCupUiState.isEditing && tripRyderCupUiState.draft
+        ? normalizeTripRyderCupOverlay(tripRyderCupUiState.draft)
+        : getTripRyderCupData()
+    );
+    function setTripRyderCupCopyStatus(message = '') {
+      if (tripRyderCupUiState.copyStatusTimer) {
+        window.clearTimeout(tripRyderCupUiState.copyStatusTimer);
+        tripRyderCupUiState.copyStatusTimer = 0;
+      }
+      tripRyderCupUiState.copyStatus = String(message || '').trim();
+      if (tripRyderCupUiState.copyStatus) {
+        tripRyderCupUiState.copyStatusTimer = window.setTimeout(() => {
+          tripRyderCupUiState.copyStatus = '';
+          tripRyderCupUiState.copyStatusTimer = 0;
+          renderCompetition();
+        }, 1800);
+      }
+      renderCompetition();
+    }
+    async function copyTextToClipboard(text = '') {
+      const value = String(text || '');
+      if (!value) return false;
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(value);
+        return true;
+      }
+      const helper = document.createElement('textarea');
+      helper.value = value;
+      helper.setAttribute('readonly', 'readonly');
+      helper.style.position = 'fixed';
+      helper.style.top = '-9999px';
+      document.body.appendChild(helper);
+      helper.select();
+      const copied = document.execCommand('copy');
+      document.body.removeChild(helper);
+      return copied;
+    }
+    function formatTripRyderCupCopyTeam(teamName = '', players = []) {
+      const heading = String(teamName || 'Team').trim().toUpperCase();
+      const lines = [heading];
+      (players || []).forEach((player) => {
+        const seedRank = Number.isFinite(Number(player && player.seedRank)) ? Math.round(Number(player.seedRank)) : '';
+        const name = String(player && player.name || '').trim();
+        if (!name) return;
+        lines.push(`${seedRank} ${name}`.trim());
+      });
+      return lines.join('\n');
+    }
+    function formatTripRyderCupCopyPayload(kind = '') {
+      const state = getActiveTripRyderCupData();
+      if (!state) return '';
+      if (kind === 'teamA') return formatTripRyderCupCopyTeam(state.teamAName, state.teamAPlayers);
+      if (kind === 'teamB') return formatTripRyderCupCopyTeam(state.teamBName, state.teamBPlayers);
+      return [
+        formatTripRyderCupCopyTeam(state.teamAName, state.teamAPlayers),
+        formatTripRyderCupCopyTeam(state.teamBName, state.teamBPlayers)
+      ].join('\n\n');
+    }
+    function updateTripRyderCupDraftField(field, value) {
+      if (!tripRyderCupUiState.draft) return;
+      if (field === 'enabled') {
+        tripRyderCupUiState.draft.enabled = Boolean(value);
+      } else if (field === 'teamAName' || field === 'teamBName' || field === 'notes') {
+        tripRyderCupUiState.draft[field] = String(value || '');
+      }
+      tripRyderCupUiState.draft = normalizeTripRyderCupOverlay(tripRyderCupUiState.draft);
+    }
+    function moveTripRyderCupDraftPlayer(seedRank, nextTeamKey = '') {
+      const draft = tripRyderCupUiState.draft;
+      if (!draft) return;
+      const seed = Number(seedRank);
+      if (!Number.isFinite(seed)) return;
+      const sourceTeamKey = (draft.teamAPlayers || []).some((player) => Number(player && player.seedRank) === seed) ? 'teamAPlayers' : 'teamBPlayers';
+      const targetTeamKey = nextTeamKey === 'teamA' ? 'teamAPlayers' : (nextTeamKey === 'teamB' ? 'teamBPlayers' : '');
+      if (!targetTeamKey || sourceTeamKey === targetTeamKey) return;
+      const sourcePlayers = Array.isArray(draft[sourceTeamKey]) ? draft[sourceTeamKey].slice() : [];
+      const targetPlayers = Array.isArray(draft[targetTeamKey]) ? draft[targetTeamKey].slice() : [];
+      const playerIndex = sourcePlayers.findIndex((player) => Number(player && player.seedRank) === seed);
+      if (playerIndex < 0) return;
+      const [player] = sourcePlayers.splice(playerIndex, 1);
+      targetPlayers.push(player);
+      draft[sourceTeamKey] = sortTripRyderCupPlayers(sourcePlayers);
+      draft[targetTeamKey] = sortTripRyderCupPlayers(targetPlayers);
+      tripRyderCupUiState.draft = normalizeTripRyderCupOverlay(draft);
+    }
+    function getTripRyderCupDraftTeamKey(seedRank, draft = tripRyderCupUiState.draft) {
+      if (!draft) return '';
+      const seed = Number(seedRank);
+      if (!Number.isFinite(seed)) return '';
+      if ((draft.teamAPlayers || []).some((player) => Number(player && player.seedRank) === seed)) return 'teamA';
+      if ((draft.teamBPlayers || []).some((player) => Number(player && player.seedRank) === seed)) return 'teamB';
+      return '';
+    }
+    function applyTripRyderCupOverlayState() {
+      document.querySelectorAll('[data-trip-ryder-team].is-drop-target').forEach((node) => node.classList.remove('is-drop-target'));
+      document.querySelectorAll('[data-trip-ryder-drag-seed].is-dragging').forEach((node) => node.classList.remove('is-dragging'));
+      if (tripRyderCupUiState.draggedPlayerSeed) {
+        const dragNode = document.querySelector(`[data-trip-ryder-drag-seed="${CSS.escape(String(tripRyderCupUiState.draggedPlayerSeed))}"]`);
+        if (dragNode) dragNode.classList.add('is-dragging');
+      }
+      if (tripRyderCupUiState.activeDropTeamKey) {
+        const dropNode = document.querySelector(`[data-trip-ryder-team="${CSS.escape(String(tripRyderCupUiState.activeDropTeamKey))}"]`);
+        if (dropNode) dropNode.classList.add('is-drop-target');
+      }
+    }
+    function clearTripRyderCupOverlayDragState() {
+      tripRyderCupUiState.draggedPlayerSeed = '';
+      tripRyderCupUiState.activeDropTeamKey = '';
+      applyTripRyderCupOverlayState();
+    }
+    function startTripRyderCupEdit() {
+      const state = getTripRyderCupData();
+      if (!state) return;
+      tripRyderCupUiState.isEditing = true;
+      tripRyderCupUiState.draft = cloneTripRyderCupOverlay(state);
+      tripRyderCupUiState.copyStatus = '';
+      tripRyderCupUiState.draggedPlayerSeed = '';
+      tripRyderCupUiState.activeDropTeamKey = '';
+    }
+    function cancelTripRyderCupEdit() {
+      tripRyderCupUiState.isEditing = false;
+      tripRyderCupUiState.isSaving = false;
+      tripRyderCupUiState.draft = null;
+      tripRyderCupUiState.copyStatus = '';
+      tripRyderCupUiState.draggedPlayerSeed = '';
+      tripRyderCupUiState.activeDropTeamKey = '';
+    }
+    async function copyTripRyderCupRoster(kind = '') {
+      const payload = formatTripRyderCupCopyPayload(kind);
+      if (!payload) return;
+      try {
+        await copyTextToClipboard(payload);
+        setTripRyderCupCopyStatus(kind === 'teamA' ? 'Copied Team A' : (kind === 'teamB' ? 'Copied Team B' : 'Copied both teams'));
+      } catch (_error) {
+        alert('Copy failed. Please try again.');
+      }
+    }
+    async function saveTripRyderCupOverlay() {
+      if (!tripRyderCupUiState.draft || tripRyderCupUiState.isSaving) return;
+      tripRyderCupUiState.isSaving = true;
+      renderCompetition();
+      try {
+        const draft = normalizeTripRyderCupOverlay(tripRyderCupUiState.draft);
+        const response = await tripAdminPut(`/api/trips/${tripId}/rydercup`, {
+          enabled: Boolean(draft && draft.enabled),
+          teamAName: String(draft && draft.teamAName || '').trim(),
+          teamBName: String(draft && draft.teamBName || '').trim(),
+          teamAPlayers: Array.isArray(draft && draft.teamAPlayers) ? draft.teamAPlayers.map((player) => ({
+            playerId: String(player && player.playerId || '').trim(),
+            name: String(player && player.name || '').trim(),
+            seedRank: Number.isFinite(Number(player && player.seedRank)) ? Math.round(Number(player.seedRank)) : null
+          })) : [],
+          teamBPlayers: Array.isArray(draft && draft.teamBPlayers) ? draft.teamBPlayers.map((player) => ({
+            playerId: String(player && player.playerId || '').trim(),
+            name: String(player && player.name || '').trim(),
+            seedRank: Number.isFinite(Number(player && player.seedRank)) ? Math.round(Number(player.seedRank)) : null
+          })) : [],
+          notes: String(draft && draft.notes || '').trim()
+        });
+        if (!response) return;
+        tripRyderCupData = normalizeTripRyderCupOverlay(response);
+        if (trip && typeof trip === 'object') trip.ryderCup = tripRyderCupData;
+        tripRyderCupUiState.isEditing = false;
+        tripRyderCupUiState.draft = null;
+        tripRyderCupUiState.copyStatus = '';
+        tripRyderCupUiState.draggedPlayerSeed = '';
+        tripRyderCupUiState.activeDropTeamKey = '';
+      } catch (error) {
+        console.error(error);
+        alert(`Ryder Cup save failed: ${error.message || 'Unknown error'}`);
+      } finally {
+        tripRyderCupUiState.isSaving = false;
+        renderCompetition();
+      }
+    }
     const tripScheduleState = {
       currentDate: new Date(Number(MYRTLE_ARRIVAL_DATE.slice(0, 4)), Number(MYRTLE_ARRIVAL_DATE.slice(5, 7)) - 1, 1),
       selectedDate: ''
@@ -2555,6 +3021,7 @@
 
     async function loadTrip() {
       competitionLoadError = '';
+      tripRyderCupLoadError = '';
       const trips = await tripFetchJson(tripApi('/api/trips'));
       trip = trips.find((t) => t.name && t.name.includes('Myrtle Beach'));
       if (!trip) return alert('Trip not found');
@@ -2565,15 +3032,29 @@
         auditLink.href = `/trip-audit.html?tripId=${encodeURIComponent(String(tripId))}&myrtleBeach2026=true&back=${encodeURIComponent('/myrtle/trip-2026.html')}`;
         auditLink.style.display = '';
       }
-      const [nextParticipants, nextCompetition] = await Promise.all([
+      const [nextParticipants, nextCompetition, nextTripRyderCup] = await Promise.all([
         tripFetchJson(tripApi(`/api/trips/${trip._id}/participants`)),
         tripFetchJson(tripApi(`/api/trips/${trip._id}/competition`)).catch((error) => {
           competitionLoadError = error && error.message ? error.message : 'Competition data failed to load.';
+          return null;
+        }),
+        tripFetchJson(tripApi(`/api/trips/${trip._id}/rydercup`)).catch((error) => {
+          tripRyderCupLoadError = error && error.message ? error.message : 'Ryder Cup teams failed to load.';
           return null;
         })
       ]);
       participants = nextParticipants;
       competitionData = nextCompetition;
+      tripRyderCupData = normalizeTripRyderCupOverlay(nextTripRyderCup);
+      if (trip && typeof trip === 'object') trip.ryderCup = tripRyderCupData;
+      if (tripRyderCupUiState.copyStatusTimer) {
+        window.clearTimeout(tripRyderCupUiState.copyStatusTimer);
+        tripRyderCupUiState.copyStatusTimer = 0;
+      }
+      tripRyderCupUiState.isEditing = false;
+      tripRyderCupUiState.isSaving = false;
+      tripRyderCupUiState.draft = null;
+      tripRyderCupUiState.copyStatus = '';
       void loadTripRoundWeather(getTripRounds());
       renderAll();
     }
@@ -2605,89 +3086,39 @@
     }
 
     function renderCompetitionOverview(overview = {}) {
-      const scoringModeNote = overview.scoringMode === 'best4'
-        ? 'Best 4 of 5 still applies to the same five Myrtle Ryder Cup rounds because every golfer keeps an own-ball score every day.'
-        : 'This trip scoreboard mode still applies to the same five Myrtle Ryder Cup rounds because every golfer keeps an own-ball score every day.';
       return `
         <div class="competition-overview-grid">
           <div class="competition-stat">
-            <span class="competition-note">Trip score tracking</span>
-            <strong>Own-Ball Gross / Net / Stableford</strong>
-            <span class="competition-note">Enter every player’s own-ball round score while the Ryder Cup module handles team formats and points.</span>
+            <span class="competition-note">Match scoring</span>
+            <strong>Own-Ball Gross Totals</strong>
+            <span class="competition-note">Every golfer keeps his own score. Two-man rounds use combined gross totals, and singles rounds use head-to-head gross totals.</span>
           </div>
           <div class="competition-stat">
-            <span class="competition-note">Scoring mode</span>
-            <div class="competition-stat-value">${escapeHtml(overview.scoringModeLabel || 'Best 4 of 5 rounds')}</div>
-            <span class="competition-note">${escapeHtml(scoringModeNote)}</span>
+            <span class="competition-note">Allowed formats</span>
+            <div class="competition-stat-value">Two-Man / Singles</div>
+            <span class="competition-note">Only the simple fair formats stay in play. No alternate shot, scramble, or shared-ball scoring.</span>
           </div>
           <div class="competition-stat">
             <span class="competition-note">Players</span>
             <div class="competition-stat-value">${escapeHtml(String(overview.playerCount || 0))}</div>
-            <span class="competition-note">Competition field on the Myrtle page.</span>
+            <span class="competition-note">Full Myrtle Ryder Cup field.</span>
           </div>
           <div class="competition-stat">
             <span class="competition-note">Rounds</span>
             <div class="competition-stat-value">${escapeHtml(String(overview.roundCount || 0))}</div>
-            <span class="competition-note">Five Myrtle rounds tied to the seeded Ryder Cup tee groups.</span>
+            <span class="competition-note">Five seeded Myrtle Ryder Cup rounds.</span>
           </div>
         </div>
         <div class="competition-admin-card">
           <strong>How This Myrtle Trip Runs</strong>
-          <div class="competition-note">${escapeHtml(overview.formatSummary || 'Individual net Stableford across the trip.')}</div>
+          <div class="competition-note">${escapeHtml(overview.formatSummary || 'Daily Myrtle Ryder Cup matches are rank-seeded, use one gross total per golfer, and the lower gross side wins each match.')}</div>
           <div class="competition-note">${escapeHtml(overview.sideGamesSummary || 'Use the Myrtle Ryder Cup section for the trip side games and payout tracking.')}</div>
         </div>
       `;
     }
 
     function renderCompetitionLeaderboard(leaderboard = []) {
-      return `
-        <details class="competition-section">
-          <summary>
-            <span>Trip Scoreboard</span>
-            <span class="competition-note">Supplemental own-ball tracking. Highlighted rounds count, and asterisks show partial scorecards.</span>
-          </summary>
-          <div class="competition-section-body">
-            <div class="competition-note">Stableford: double bogey or worse = 0, bogey = 1, par = 2, birdie = 3, eagle or better = 4.</div>
-            <div class="competition-table-wrap">
-              <table class="competition-table">
-                <thead>
-                  <tr>
-                    <th>Pos</th>
-                    <th>Player</th>
-                    <th>Handicap</th>
-                    <th>Round 1</th>
-                    <th>Round 2</th>
-                    <th>Round 3</th>
-                    <th>Round 4</th>
-                    <th>Round 5</th>
-                    <th>Counted Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${leaderboard.map((entry) => `
-                    <tr>
-                      <td>${escapeHtml(String(entry.position || '—'))}</td>
-                      <td><strong>${escapeHtml(entry.name || 'Unknown')}</strong></td>
-                      <td>${escapeHtml(formatHandicap(entry.handicapIndex))}</td>
-                      ${(entry.roundStablefordTotals || []).map((value, index) => {
-                        const counted = Array.isArray(entry.countedFlags) && entry.countedFlags[index];
-                        const complete = Array.isArray(entry.roundIsComplete) && entry.roundIsComplete[index];
-                        const cellClass = [
-                          counted ? 'competition-cell-counted' : '',
-                          !complete && Number.isFinite(value) ? 'competition-cell-partial' : ''
-                        ].filter(Boolean).join(' ');
-                        const display = Number.isFinite(value) ? `${value}${complete ? '' : '*'}` : '—';
-                        return `<td class="${cellClass}">${escapeHtml(display)}</td>`;
-                      }).join('')}
-                      <td class="competition-total-cell">${Number.isFinite(entry.countedTotal) ? escapeHtml(String(entry.countedTotal)) : '—'}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </details>
-      `;
+      return '';
     }
 
     function renderCompetitionDailyMatches(dailyMatches = [], dailyPointsLeaderboard = []) {
@@ -2699,275 +3130,7 @@
     }
 
     function renderCompetitionAdmin(overview = {}, rounds = [], admin = {}) {
-      const hasRyderCup = Boolean(getRyderCupData());
-      const selectedRound = getSelectedCompetitionRound();
-      const scorePlayers = Array.isArray(selectedRound?.playerScores) ? selectedRound.playerScores : [];
-      const selectedPlayer = scorePlayers.find((entry) => entry.playerName === competitionUiState.scorePlayerName) || scorePlayers[0] || null;
-      const scorecard = Array.isArray(selectedRound?.scorecard) ? selectedRound.scorecard : [];
-      const grossHoles = Array.isArray(selectedPlayer?.holes) ? selectedPlayer.holes : [];
-      const strokeAdjustments = Array.isArray(selectedPlayer?.strokeAdjustments) ? selectedPlayer.strokeAdjustments : [];
-      const netHoles = Array.isArray(selectedPlayer?.netHoles) ? selectedPlayer.netHoles : [];
-      const stablefordPointsByHole = Array.isArray(selectedPlayer?.stablefordPointsByHole) ? selectedPlayer.stablefordPointsByHole : [];
-      const handicapDisplay = formatHandicap(selectedPlayer?.handicapIndex);
-      const playingHandicap = Number.isFinite(selectedPlayer?.playingHandicap) ? selectedPlayer.playingHandicap : '—';
-      const grossTotal = Number.isFinite(selectedPlayer?.grossTotal) ? selectedPlayer.grossTotal : '—';
-      const netTotal = Number.isFinite(selectedPlayer?.netTotal) ? selectedPlayer.netTotal : '—';
-      const stablefordTotal = Number.isFinite(selectedPlayer?.stablefordTotal) ? selectedPlayer.stablefordTotal : '—';
-      const completedHoles = Number.isFinite(selectedPlayer?.completedHoles) ? selectedPlayer.completedHoles : 0;
-      const parTotal = scorecard.reduce((sum, hole) => sum + (Number(hole.par) || 0), 0);
-
-      return `
-        <details class="competition-section">
-          <summary>
-            <span>Admin Controls</span>
-            <span class="competition-note">Admin code required for saves</span>
-          </summary>
-          <div class="competition-section-body">
-            <div class="competition-admin-grid">
-              <div class="competition-admin-card">
-                <strong>Trip Scoreboard Mode</strong>
-                <label>
-                  <span>Trip scoreboard mode</span>
-                  <select id="competitionScoringModeSelect">
-                    <option value="best4"${overview.scoringMode === 'best4' ? ' selected' : ''}>Best 4 of 5 rounds</option>
-                    <option value="first4of5"${overview.scoringMode === 'first4of5' ? ' selected' : ''}>First 4 of 5 rounds</option>
-                    <option value="last4of5"${overview.scoringMode === 'last4of5' ? ' selected' : ''}>Last 4 of 5 rounds</option>
-                    <option value="all5"${overview.scoringMode === 'all5' ? ' selected' : ''}>All 5 rounds count</option>
-                  </select>
-                </label>
-                <button class="small" type="button" data-save-competition-mode>Save Scoring Mode</button>
-              </div>
-              <div class="competition-admin-card" style="grid-column:1/-1;">
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-                  <strong>Player Handicaps</strong>
-                  <button class="small" type="button" data-save-handicaps>Save Handicaps</button>
-                </div>
-                <div class="competition-admin-grid">
-                  ${(admin.handicapPlayers || []).map((player) => `
-                    <label class="competition-admin-card">
-                      <span>${escapeHtml(player.name)}</span>
-                      <input type="number" step="0.1" data-handicap-player="${escapeHtml(player.participantId)}" value="${parseHandicapValue(player.handicapIndex) === null ? '' : escapeHtml(parseHandicapValue(player.handicapIndex).toFixed(1))}" placeholder="Handicap">
-                    </label>
-                  `).join('')}
-                </div>
-              </div>
-              <div class="competition-admin-card" style="grid-column:1/-1;">
-                <strong>${hasRyderCup ? 'Hole-By-Hole Trip Score Entry' : 'Score Entry'}</strong>
-                ${selectedRound ? `
-                  <div id="competitionScoreEditor">
-                    ${hasRyderCup ? `<div class="competition-note" style="margin-bottom:10px;">Use the Ryder Cup round cards below for the fast daily match workflow. This section is optional and only needed if you also want hole-by-hole net / Stableford tracking for the trip scoreboard.</div>` : ''}
-                    <div class="competition-score-toolbar">
-                      <label>
-                        <span>Round</span>
-                        <select id="competitionScoreRoundSelect">
-                          ${rounds.map((round) => `<option value="${escapeHtml(String(round.roundIndex))}"${round.roundIndex === competitionUiState.scoreRoundIndex ? ' selected' : ''}>${escapeHtml(round.course)} · ${escapeHtml(formatCompetitionDate(round.date))}</option>`).join('')}
-                        </select>
-                      </label>
-                      <label>
-                        <span>Player</span>
-                        <select id="competitionScorePlayerSelect">
-                          ${scorePlayers.map((player) => `<option value="${quoteAttr(player.playerName)}"${player.playerName === competitionUiState.scorePlayerName ? ' selected' : ''}>${escapeHtml(player.playerName)}</option>`).join('')}
-                        </select>
-                      </label>
-                    </div>
-                    <div class="competition-score-summary" style="margin-top:10px;">
-                      <span>Handicap: ${escapeHtml(String(handicapDisplay))}</span>
-                      <span>Playing Handicap: ${escapeHtml(String(playingHandicap))}</span>
-                      <span>Gross Total: ${escapeHtml(String(grossTotal))}</span>
-                      <span>Net Total: ${escapeHtml(String(netTotal))}</span>
-                      <span>Stableford: ${escapeHtml(String(stablefordTotal))}</span>
-                      <span>Completed Holes: ${escapeHtml(String(completedHoles))}/18</span>
-                    </div>
-                    <div class="competition-note" style="margin-top:10px;">Enter gross scores only. Net scores and Stableford points are calculated automatically from the player handicap and hole stroke index.</div>
-                    <div class="competition-table-wrap" style="margin-top:10px;">
-                      <table class="competition-table competition-score-table" style="min-width:1200px;">
-                        <thead>
-                          <tr>
-                            <th>Row</th>
-                            ${scorecard.map((hole) => `<th>${escapeHtml(String(hole.hole))}</th>`).join('')}
-                            <th>Total</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <th>Par</th>
-                            ${scorecard.map((hole) => `<td>${escapeHtml(String(hole.par))}</td>`).join('')}
-                            <td>${escapeHtml(String(parTotal))}</td>
-                          </tr>
-                          <tr>
-                            <th>HCP</th>
-                            ${scorecard.map((hole) => `<td>${escapeHtml(String(hole.handicap))}</td>`).join('')}
-                            <td>—</td>
-                          </tr>
-                          <tr>
-                            <th>Strokes</th>
-                            ${scorecard.map((hole, index) => `<td>${escapeHtml(String(strokeAdjustments[index] || 0))}</td>`).join('')}
-                            <td>${escapeHtml(String(playingHandicap))}</td>
-                          </tr>
-                          <tr>
-                            <th>Gross</th>
-                            ${scorecard.map((hole, index) => {
-                              const value = grossHoles[index];
-                              return `<td><input class="competition-score-input" type="number" min="1" max="15" step="1" inputmode="numeric" value="${value || ''}" data-score-hole="${escapeHtml(String(index))}"></td>`;
-                            }).join('')}
-                            <td>${escapeHtml(String(grossTotal))}</td>
-                          </tr>
-                          <tr>
-                            <th>Net</th>
-                            ${scorecard.map((hole, index) => `<td>${Number.isFinite(netHoles[index]) ? escapeHtml(String(netHoles[index])) : '—'}</td>`).join('')}
-                            <td>${escapeHtml(String(netTotal))}</td>
-                          </tr>
-                          <tr>
-                            <th>Pts</th>
-                            ${scorecard.map((hole, index) => `<td>${Number.isFinite(stablefordPointsByHole[index]) ? escapeHtml(String(stablefordPointsByHole[index])) : '—'}</td>`).join('')}
-                            <td>${escapeHtml(String(stablefordTotal))}</td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                    <button class="small" type="button" style="margin-top:10px;" data-save-round-scores="${escapeHtml(String(selectedRound.roundIndex))}">Save Scores</button>
-                  </div>
-                ` : '<div class="competition-empty">Competition rounds are not available yet.</div>'}
-              </div>
-            </div>
-          </div>
-        </details>
-      `;
-    }
-
-    function renderRyderCupHeader(ryderCup = {}) {
-      const standings = ryderCup.standings || {};
-      const teamA = (ryderCup.teams || []).find((team) => team.id === 'teamA') || { name: 'Team A' };
-      const teamB = (ryderCup.teams || []).find((team) => team.id === 'teamB') || { name: 'Team B' };
-      return `
-        <div class="ryder-summary-grid">
-          <div class="competition-stat">
-            <span class="competition-note">${escapeHtml(teamA.name)}</span>
-            <div class="competition-stat-value">${escapeHtml(formatCompetitionPoints(standings.teamAPoints || 0))}</div>
-            <span class="competition-note">Ryder Cup points</span>
-          </div>
-          <div class="competition-stat">
-            <span class="competition-note">${escapeHtml(teamB.name)}</span>
-            <div class="competition-stat-value">${escapeHtml(formatCompetitionPoints(standings.teamBPoints || 0))}</div>
-            <span class="competition-note">Ryder Cup points</span>
-          </div>
-          <div class="competition-stat">
-            <span class="competition-note">Remaining</span>
-            <div class="competition-stat-value">${escapeHtml(formatCompetitionPoints(standings.remainingPoints || 0))}</div>
-            <span class="competition-note">${escapeHtml(String(ryderCup.totalPointsAvailable || 30))} total points available</span>
-          </div>
-          <div class="competition-stat">
-            <span class="competition-note">Match status</span>
-            <div class="competition-stat-value" style="font-size:1rem;line-height:1.2;">${escapeHtml(standings.leaderTeamName || 'Tied')}</div>
-            <span class="competition-note">${escapeHtml(standings.clinched ? `${standings.leaderTeamName} has clinched.` : standings.status || 'No team has clinched yet.')}</span>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderRyderCupTeams(ryderCup = {}) {
-      const teams = Array.isArray(ryderCup.teams) ? ryderCup.teams : [];
-      const fairness = ryderCup.fairness || {};
-      const canEditTeams = Boolean(ryderCup.canEditTeams);
-      return `
-        <div class="ryder-team-grid">
-          ${teams.map((team) => `
-            <div
-              class="competition-admin-card ryder-team-card"
-              data-ryder-team-card="1"
-              data-ryder-team-id="${quoteAttr(team.id || '')}"
-              data-ryder-team-name="${quoteAttr(team.name || 'Team')}"
-            >
-              <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-                <strong>${escapeHtml(team.name || 'Team')}</strong>
-                <span class="competition-pill">${escapeHtml(formatCompetitionPoints(team.currentPoints || 0))} pts</span>
-              </div>
-              <div class="ryder-team-meta">
-                <span class="competition-pill">Rank sum ${escapeHtml(String(team.rankSum || 0))}</span>
-                <span class="competition-pill">Avg ${escapeHtml(formatAverageRank(team.averageRank))}</span>
-                <span class="competition-pill">Top 5 ${escapeHtml(String(team.topFiveCount || 0))}</span>
-                <span class="competition-pill">Bottom 5 ${escapeHtml(String(team.bottomFiveCount || 0))}</span>
-              </div>
-              <ul class="ryder-team-list">
-                ${(team.players || []).map((player) => `
-                  <li>
-                    <button
-                      type="button"
-                      class="ryder-player-chip${canEditTeams ? ' is-draggable' : ''}"
-                      ${canEditTeams ? 'draggable="true"' : ''}
-                      data-ryder-player-name="${quoteAttr(player.name || '')}"
-                      data-ryder-team-id="${quoteAttr(team.id || '')}"
-                      data-ryder-drop-key="${quoteAttr(`${team.id}:${player.name || ''}`)}"
-                    >
-                      <span><strong>#${escapeHtml(String(player.rank || '—'))}</strong> ${escapeHtml(player.name || 'Player')}</span>
-                      <span>Rank ${escapeHtml(String(player.rank || '—'))}</span>
-                    </button>
-                  </li>
-                `).join('')}
-              </ul>
-              <div class="competition-note">
-                Team balance note: ${escapeHtml(team.balanceNote || fairness.status || 'Very balanced')}
-                ${canEditTeams ? ' Drag onto a player for a direct swap, or drag or tap on the other team card to choose the swap target, before the first result is entered.' : ' Team rosters are locked because Ryder Cup results have already been entered.'}
-              </div>
-            </div>
-          `).join('')}
-          <div class="competition-admin-card">
-            <strong>Team Strength Summary</strong>
-            <ul class="ryder-admin-list">
-              <li><span>Total rank sum difference</span><span>${escapeHtml(String(fairness.rankDifference || 0))}</span></li>
-              <li><span>${escapeHtml((fairness.teamA && fairness.teamA.teamName) || 'Team A')} top-5 count</span><span>${escapeHtml(String((fairness.teamA && fairness.teamA.topFiveCount) || 0))}</span></li>
-              <li><span>${escapeHtml((fairness.teamB && fairness.teamB.teamName) || 'Team B')} top-5 count</span><span>${escapeHtml(String((fairness.teamB && fairness.teamB.topFiveCount) || 0))}</span></li>
-              <li><span>${escapeHtml((fairness.teamA && fairness.teamA.teamName) || 'Team A')} bottom-5 count</span><span>${escapeHtml(String((fairness.teamA && fairness.teamA.bottomFiveCount) || 0))}</span></li>
-              <li><span>${escapeHtml((fairness.teamB && fairness.teamB.teamName) || 'Team B')} bottom-5 count</span><span>${escapeHtml(String((fairness.teamB && fairness.teamB.bottomFiveCount) || 0))}</span></li>
-              <li><span>Status</span><span>${escapeHtml(fairness.status || 'Very balanced')}</span></li>
-            </ul>
-            <div class="competition-note">Lower rank totals indicate the stronger side based on the supplied ranking list. This split starts dead even at 105 vs 105.</div>
-          </div>
-        </div>
-      `;
-    }
-
-    function renderRyderCupStandings(ryderCup = {}) {
-      const rows = Array.isArray(ryderCup.individualLeaderboard) ? ryderCup.individualLeaderboard : [];
-      return `
-        <details class="competition-section">
-          <summary>
-            <span>Standings</span>
-            <span class="competition-note">Live team score, clinch watch, and individual points</span>
-          </summary>
-          <div class="competition-section-body">
-            <div class="competition-note">${escapeHtml((ryderCup.standings && ryderCup.standings.status) || 'No team has separated yet.')}</div>
-            <div class="competition-table-wrap">
-              <table class="competition-table" style="min-width:620px;">
-                <thead>
-                  <tr>
-                    <th>Pos</th>
-                    <th>Player</th>
-                    <th>Team</th>
-                    <th>Rank</th>
-                    <th>MP/Rd</th>
-                    <th>Points</th>
-                    <th>Record</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  ${rows.map((entry) => `
-                    <tr>
-                      <td>${escapeHtml(String(entry.position || '—'))}</td>
-                      <td><strong>${escapeHtml(entry.name || 'Unknown')}</strong></td>
-                      <td>${escapeHtml(entry.teamName || '—')}</td>
-                      <td>${escapeHtml(String(entry.rank || '—'))}</td>
-                      <td>${escapeHtml(String(entry.matchesPlayed || 0))}</td>
-                      <td class="competition-total-cell">${escapeHtml(formatCompetitionPoints(entry.pointsWon || 0))}</td>
-                      <td>${escapeHtml(entry.record || '0-0-0')}</td>
-                    </tr>
-                  `).join('')}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </details>
-      `;
+      return '';
     }
 
     function renderRyderCupRoundPlan(round = {}, teamA = {}, teamB = {}) {
@@ -3134,8 +3297,7 @@
 
     function renderRyderCupRounds(ryderCup = {}) {
       const rounds = Array.isArray(ryderCup.rounds) ? ryderCup.rounds : [];
-      const teamA = (ryderCup.teams || [])[0] || { id: 'teamA', name: 'Team A', players: [] };
-      const teamB = (ryderCup.teams || [])[1] || { id: 'teamB', name: 'Team B', players: [] };
+      const { teamA, teamB } = getRyderCupTeamMeta();
       return `
         <details class="competition-section">
           <summary>
@@ -3391,13 +3553,10 @@
         <details class="competition-section" open>
           <summary>
             <span>${escapeHtml(ryderCup.title || 'Myrtle Ryder Cup')}</span>
-            <span class="competition-note">10 vs 10, 5 rounds, 30 points</span>
+            <span class="competition-note">5 rounds · own-ball gross scoring</span>
           </summary>
           <div class="competition-section-body">
-            <div class="competition-note" style="margin-bottom:12px;">${escapeHtml(ryderCup.description || 'Team competition with every player playing their own ball in every round.')}</div>
-            ${renderRyderCupHeader(ryderCup)}
-            ${renderRyderCupTeams(ryderCup)}
-            ${renderRyderCupStandings(ryderCup)}
+            <div class="competition-note" style="margin-bottom:12px;">Use the Ryder Cup Teams card above for roster sharing. This section uses the saved Ryder Cup match board for round scoring, side games, and own-ball admin notes.</div>
             ${renderRyderCupRounds(ryderCup)}
             ${renderRyderCupSideGamesPanel(ryderCup)}
             ${renderRyderCupAdminNotes(ryderCup)}
@@ -3406,25 +3565,154 @@
       `;
     }
 
+    function renderTripRyderCupOverlayCard() {
+      const loadError = String(tripRyderCupLoadError || '').trim();
+      const state = getActiveTripRyderCupData();
+      const isEditing = Boolean(tripRyderCupUiState.isEditing && tripRyderCupUiState.draft);
+      if (loadError) {
+        return `
+          <div class="competition-admin-card section-anchor" id="ryderTeamsSection">
+            <strong>Ryder Cup Teams</strong>
+            <div class="competition-empty">Ryder Cup teams failed to load: ${escapeHtml(loadError)}</div>
+          </div>
+        `;
+      }
+      if (!state) {
+        return `
+          <div class="competition-admin-card section-anchor" id="ryderTeamsSection">
+            <strong>Ryder Cup Teams</strong>
+            <div class="competition-empty">Ryder Cup rosters are loading.</div>
+          </div>
+        `;
+      }
+      const balance = state.balance || buildTripRyderCupBalance(state);
+      const teamACount = Array.isArray(state.teamAPlayers) ? state.teamAPlayers.length : 0;
+      const teamBCount = Array.isArray(state.teamBPlayers) ? state.teamBPlayers.length : 0;
+      const countsValid = teamACount === 10 && teamBCount === 10;
+      const renderTeam = (teamKey, teamName, players) => {
+        const options = `
+          <option value="teamA"${teamKey === 'teamA' ? ' selected' : ''}>${escapeHtml(state.teamAName || 'Team A')}</option>
+          <option value="teamB"${teamKey === 'teamB' ? ' selected' : ''}>${escapeHtml(state.teamBName || 'Team B')}</option>
+        `;
+        return `
+          <div class="ryder-overlay-team competition-admin-card${state.enabled ? '' : ' is-disabled'}" data-trip-ryder-team="${escapeHtml(teamKey)}">
+            <div class="ryder-overlay-team-head">
+              ${isEditing ? `
+                <label style="flex:1;min-width:160px;">
+                  <span>${escapeHtml(teamKey === 'teamA' ? 'Team A name' : 'Team B name')}</span>
+                  <input type="text" value="${quoteAttr(teamName || '')}" data-trip-ryder-team-name="${escapeHtml(teamKey === 'teamA' ? 'teamAName' : 'teamBName')}">
+                </label>
+              ` : `<strong>${escapeHtml(teamName || 'Team')}</strong>`}
+              <span class="competition-pill">${escapeHtml(String((players || []).length))} players</span>
+            </div>
+            <ul class="ryder-overlay-roster">
+              ${(players || []).map((player) => `
+                <li class="ryder-overlay-row">
+                  <div class="ryder-overlay-player-copy">
+                    <span>${escapeHtml(player.name || 'Player')}</span>
+                    <span class="ryder-overlay-seed">Seed ${escapeHtml(String(player.seedRank ?? '—'))}</span>
+                  </div>
+                  ${isEditing ? `
+                    <div class="ryder-overlay-edit-tools">
+                      <span
+                        class="ryder-overlay-drag-handle"
+                        draggable="true"
+                        title="Drag onto the other team card"
+                        data-trip-ryder-drag-seed="${escapeHtml(String(player.seedRank ?? ''))}"
+                      >Drag</span>
+                      <select data-trip-ryder-player-seed="${escapeHtml(String(player.seedRank ?? ''))}" style="max-width:160px;">
+                        ${options}
+                      </select>
+                    </div>
+                  ` : `<span class="ryder-overlay-seed">#${escapeHtml(String(player.seedRank ?? '—'))}</span>`}
+                </li>
+              `).join('')}
+            </ul>
+          </div>
+        `;
+      };
+      return `
+        <div class="competition-admin-card section-anchor" id="ryderTeamsSection">
+          <div class="ryder-overlay-card">
+            <div class="ryder-overlay-head">
+              <div class="page-section-copy">
+                <strong>Ryder Cup Teams</strong>
+                <div class="competition-note">Roster overlay only. It does not remap the saved Myrtle match board or tee sheet. Current matches stay own-ball, gross-total formats with no alternate shot and no shared-ball formats.</div>
+              </div>
+              <div class="ryder-overlay-actions">
+                <button type="button" class="secondary" data-trip-ryder-copy="teamA">Copy Team A</button>
+                <button type="button" class="secondary" data-trip-ryder-copy="teamB">Copy Team B</button>
+                <button type="button" class="secondary" data-trip-ryder-copy="both">Copy Both</button>
+                ${isEditing
+                  ? `<button type="button" class="secondary" data-trip-ryder-cancel>Edit Cancel</button><button type="button" data-trip-ryder-save${countsValid && !tripRyderCupUiState.isSaving ? '' : ' disabled'}>${tripRyderCupUiState.isSaving ? 'Saving...' : 'Save'}</button>`
+                  : '<button type="button" class="secondary" data-trip-ryder-edit>Edit</button>'}
+              </div>
+            </div>
+            <div class="ryder-overlay-balance">
+              <span>Balance</span>
+              <span class="competition-pill">${escapeHtml(state.teamAName)} ${escapeHtml(String(balance.teamASum || 0))}</span>
+              <span class="competition-pill">${escapeHtml(state.teamBName)} ${escapeHtml(String(balance.teamBSum || 0))}</span>
+              <span class="competition-note">${escapeHtml(balance.difference === 0 ? 'Even seed split' : `Difference ${balance.difference}`)}</span>
+              <span class="competition-note">${escapeHtml(`${teamACount}/10 on ${state.teamAName} · ${teamBCount}/10 on ${state.teamBName}`)}</span>
+              ${state.enabled ? '<span class="competition-pill">Enabled</span>' : '<span class="competition-pill">Disabled</span>'}
+              ${tripRyderCupUiState.copyStatus ? `<span class="ryder-overlay-copy-status">${escapeHtml(tripRyderCupUiState.copyStatus)}</span>` : ''}
+            </div>
+            ${isEditing ? `
+              <div class="ryder-overlay-actions">
+                <label class="ryder-overlay-toggle">
+                  <input type="checkbox" data-trip-ryder-enabled="1"${state.enabled ? ' checked' : ''}>
+                  <span>Show Ryder Cup teams on this trip</span>
+                </label>
+                <span class="competition-note">Drag a player onto the other team card, or use the team selector on each row.</span>
+              </div>
+            ` : ''}
+            <div class="ryder-overlay-grid">
+              ${renderTeam('teamA', state.teamAName, state.teamAPlayers)}
+              ${renderTeam('teamB', state.teamBName, state.teamBPlayers)}
+            </div>
+            ${isEditing ? `
+              <label>
+                <span>Notes</span>
+                <textarea data-trip-ryder-notes rows="3" placeholder="Optional roster note for admins or copy context.">${escapeHtml(state.notes || '')}</textarea>
+              </label>
+            ` : (state.notes ? `<div class="ryder-overlay-note">${escapeHtml(state.notes)}</div>` : '')}
+            ${isEditing && !countsValid ? '<div class="competition-empty">Save is disabled until both teams are back to 10 players.</div>' : ''}
+          </div>
+        </div>
+      `;
+    }
+
     function renderCompetition() {
       const box = document.getElementById('competitionBox');
       if (!box) return;
+      const tripRyderCupCard = renderTripRyderCupOverlayCard();
       if (competitionLoadError) {
-        box.innerHTML = `<div class="competition-empty">Competition data failed to load: ${escapeHtml(competitionLoadError)}</div>`;
+        box.innerHTML = `
+          <div class="competition-grid">
+            ${tripRyderCupCard}
+            <div class="competition-admin-card"><div class="competition-empty">Competition data failed to load: ${escapeHtml(competitionLoadError)}</div></div>
+          </div>
+        `;
         return;
       }
       if (!competitionData) {
-        box.innerHTML = '<div class="competition-empty">Competition data is loading.</div>';
+        box.innerHTML = `
+          <div class="competition-grid">
+            ${tripRyderCupCard}
+            <div class="competition-admin-card"><div class="competition-empty">Competition data is loading.</div></div>
+          </div>
+        `;
         return;
       }
 
       box.innerHTML = `
         <div class="competition-grid">
+          ${tripRyderCupCard}
           <div class="competition-admin-card section-anchor" id="competitionSection">
             <div class="page-section-head">
               <div class="page-section-copy">
-                <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Trip Scoring and Ryder Cup</h2>
-                <div class="competition-note">Trip scoreboard, Myrtle Ryder Cup points, and side games in one place.</div>
+                <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Myrtle Ryder Cup</h2>
+                <div class="competition-note">Roster overlay above, saved match board and side games below.</div>
               </div>
               <div class="page-section-actions">
                 <a class="hero-link" href="#scheduleSection">Back to Schedule</a>
@@ -3433,11 +3721,10 @@
             ${renderCompetitionOverview(competitionData.overview || {})}
           </div>
           ${renderRyderCupSection(getRyderCupData())}
-          ${renderCompetitionLeaderboard(competitionData.leaderboard || [])}
-          ${renderCompetitionAdmin(competitionData.overview || {}, competitionData.rounds || [], competitionData.admin || {})}
         </div>
       `;
       applyRyderCupTeamState();
+      applyTripRyderCupOverlayState();
     }
 
     const TRIP_ICS_DURATION_MINUTES = 270;
@@ -3890,10 +4177,10 @@
         <div class="page-section-head section-anchor" id="scheduleSection">
           <div class="page-section-copy">
             <h2 style="margin:0;font-size:1.05rem;">Golf Schedule</h2>
-            <div class="competition-note">Daily tee groups mirror the Myrtle Ryder Cup rounds and trip scoring below.</div>
+            <div class="competition-note">Daily tee groups mirror the Myrtle Ryder Cup rounds below.</div>
           </div>
           <div class="page-section-actions">
-            <a class="hero-link" href="#competitionSection">Jump to Ryder Cup</a>
+            <a class="hero-link" href="#ryderTeamsSection">Jump to Ryder Cup</a>
             <a class="hero-link" href="/myrtle/lodging-and-maps.html">Lodging + Maps</a>
           </div>
         </div>
@@ -4651,7 +4938,7 @@
     }
 
     document.addEventListener('dragover', function (event) {
-      if (!tripTeeSheetState.draggedPlayer && !competitionUiState.draggedRyderPlayer) return;
+      if (!tripTeeSheetState.draggedPlayer && !competitionUiState.draggedRyderPlayer && !tripRyderCupUiState.draggedPlayerSeed) return;
       updateDragAutoScroll(event.clientX, event.clientY);
     });
 
@@ -4667,11 +4954,29 @@
       if (competitionUiState.selectedRyderPlayer || competitionUiState.draggedRyderPlayer || competitionUiState.activeRyderDropKey || competitionUiState.activeRyderDropTeamId) {
         clearRyderCupTeamDragState();
       }
+      if (tripRyderCupUiState.draggedPlayerSeed || tripRyderCupUiState.activeDropTeamKey) {
+        clearTripRyderCupOverlayDragState();
+      }
     });
 
     const competitionBox = document.getElementById('competitionBox');
     if (competitionBox) {
       competitionBox.addEventListener('dragstart', function (event) {
+        const tripRyderHandle = event.target.closest('[data-trip-ryder-drag-seed]');
+        if (tripRyderHandle) {
+          if (!tripRyderCupUiState.isEditing || !tripRyderCupUiState.draft) return;
+          const seed = String(tripRyderHandle.dataset.tripRyderDragSeed || '').trim();
+          const sourceTeamKey = getTripRyderCupDraftTeamKey(seed);
+          if (!seed || !sourceTeamKey) return;
+          tripRyderCupUiState.draggedPlayerSeed = seed;
+          tripRyderCupUiState.activeDropTeamKey = '';
+          applyTripRyderCupOverlayState();
+          if (event.dataTransfer) {
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', seed);
+          }
+          return;
+        }
         const ryderPlayerChip = event.target.closest('[data-ryder-player-name]');
         if (ryderPlayerChip) {
           const ryderCup = getRyderCupData();
@@ -4692,6 +4997,19 @@
       });
 
       competitionBox.addEventListener('dragover', function (event) {
+        if (tripRyderCupUiState.draggedPlayerSeed) {
+          const targetTeamCard = event.target.closest('[data-trip-ryder-team]');
+          if (!targetTeamCard) return;
+          const targetTeamKey = String(targetTeamCard.dataset.tripRyderTeam || '').trim();
+          const sourceTeamKey = getTripRyderCupDraftTeamKey(tripRyderCupUiState.draggedPlayerSeed);
+          if (!targetTeamKey || !sourceTeamKey || targetTeamKey === sourceTeamKey) return;
+          event.preventDefault();
+          if (tripRyderCupUiState.activeDropTeamKey !== targetTeamKey) {
+            tripRyderCupUiState.activeDropTeamKey = targetTeamKey;
+            applyTripRyderCupOverlayState();
+          }
+          return;
+        }
         if (competitionUiState.draggedRyderPlayer) {
           const targetPlayer = event.target.closest('[data-ryder-player-name]');
           if (targetPlayer) {
@@ -4720,6 +5038,18 @@
       });
 
       competitionBox.addEventListener('dragleave', function (event) {
+        const tripRyderTeamCard = event.target.closest('[data-trip-ryder-team]');
+        if (tripRyderTeamCard && tripRyderCupUiState.activeDropTeamKey) {
+          const relatedTeamCard = event.relatedTarget && event.relatedTarget.closest
+            ? event.relatedTarget.closest('[data-trip-ryder-team]')
+            : null;
+          if (relatedTeamCard === tripRyderTeamCard) return;
+          if (tripRyderCupUiState.activeDropTeamKey === String(tripRyderTeamCard.dataset.tripRyderTeam || '').trim()) {
+            tripRyderCupUiState.activeDropTeamKey = '';
+            applyTripRyderCupOverlayState();
+          }
+          return;
+        }
         const targetPlayer = event.target.closest('[data-ryder-player-name]');
         if (targetPlayer) {
           const relatedTarget = event.relatedTarget && event.relatedTarget.closest
@@ -4754,6 +5084,18 @@
       });
 
       competitionBox.addEventListener('drop', async function (event) {
+        if (tripRyderCupUiState.draggedPlayerSeed) {
+          const targetTeamCard = event.target.closest('[data-trip-ryder-team]');
+          event.preventDefault();
+          const draggedSeed = tripRyderCupUiState.draggedPlayerSeed;
+          const targetTeamKey = targetTeamCard ? String(targetTeamCard.dataset.tripRyderTeam || '').trim() : '';
+          const sourceTeamKey = getTripRyderCupDraftTeamKey(draggedSeed);
+          clearTripRyderCupOverlayDragState();
+          if (!targetTeamKey || !sourceTeamKey || targetTeamKey === sourceTeamKey) return;
+          moveTripRyderCupDraftPlayer(draggedSeed, targetTeamKey);
+          renderCompetition();
+          return;
+        }
         if (competitionUiState.draggedRyderPlayer) {
           const targetPlayer = event.target.closest('[data-ryder-player-name]');
           const dragged = competitionUiState.draggedRyderPlayer;
@@ -4793,10 +5135,36 @@
       });
 
       competitionBox.addEventListener('dragend', function () {
+        clearTripRyderCupOverlayDragState();
         clearRyderCupTeamDragState();
       });
 
+      competitionBox.addEventListener('input', function (event) {
+        if (!tripRyderCupUiState.isEditing || !tripRyderCupUiState.draft) return;
+        const teamNameField = event.target.closest('[data-trip-ryder-team-name]');
+        if (teamNameField) {
+          updateTripRyderCupDraftField(String(teamNameField.dataset.tripRyderTeamName || '').trim(), teamNameField.value);
+          return;
+        }
+        const notesField = event.target.closest('[data-trip-ryder-notes]');
+        if (notesField) {
+          updateTripRyderCupDraftField('notes', notesField.value);
+        }
+      });
+
       competitionBox.addEventListener('change', function (event) {
+        const enabledToggle = event.target.closest('[data-trip-ryder-enabled]');
+        if (enabledToggle) {
+          updateTripRyderCupDraftField('enabled', enabledToggle.checked);
+          renderCompetition();
+          return;
+        }
+        const teamSelect = event.target.closest('[data-trip-ryder-player-seed]');
+        if (teamSelect) {
+          moveTripRyderCupDraftPlayer(teamSelect.dataset.tripRyderPlayerSeed, teamSelect.value);
+          renderCompetition();
+          return;
+        }
         if (event.target.id === 'competitionScoreRoundSelect') {
           competitionUiState.scoreRoundIndex = Number(event.target.value) || 0;
           competitionUiState.scorePlayerName = '';
@@ -4812,6 +5180,10 @@
       competitionBox.addEventListener('click', async function (event) {
         const ryderPlayerChip = event.target.closest('[data-ryder-player-name]');
         const ryderTeamCard = !ryderPlayerChip ? readRyderCupTeamCard(event.target) : null;
+        const tripRyderCopyButton = event.target.closest('[data-trip-ryder-copy]');
+        const tripRyderEditButton = event.target.closest('[data-trip-ryder-edit]');
+        const tripRyderCancelButton = event.target.closest('[data-trip-ryder-cancel]');
+        const tripRyderSaveButton = event.target.closest('[data-trip-ryder-save]');
         const modeButton = event.target.closest('[data-save-competition-mode]');
         const handicapButton = event.target.closest('[data-save-handicaps]');
         const scoreButton = event.target.closest('[data-save-round-scores]');
@@ -4821,6 +5193,24 @@
         const ryderSettingsButton = event.target.closest('[data-save-ryder-settings]');
 
         try {
+          if (tripRyderCopyButton) {
+            await copyTripRyderCupRoster(String(tripRyderCopyButton.dataset.tripRyderCopy || '').trim());
+            return;
+          }
+          if (tripRyderEditButton) {
+            startTripRyderCupEdit();
+            renderCompetition();
+            return;
+          }
+          if (tripRyderCancelButton) {
+            cancelTripRyderCupEdit();
+            renderCompetition();
+            return;
+          }
+          if (tripRyderSaveButton) {
+            await saveTripRyderCupOverlay();
+            return;
+          }
           if (ryderPlayerChip) {
             const ryderCup = getRyderCupData();
             if (!ryderCup || !ryderCup.canEditTeams) return;

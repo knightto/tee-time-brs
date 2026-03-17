@@ -2191,7 +2191,7 @@ function buildTripCompetitionView(trip = {}, participants = []) {
       playerCount: playerPool.length,
       roundCount: roundViews.length,
       formatSummary: isMyrtleOwnBallTrip
-        ? 'Daily Myrtle Ryder Cup matches are rank-seeded, use one gross total per golfer, and the lower gross side wins each match while the trip scoreboard can still use Best 4 of 5, First 4, Last 4, or All 5 across the same rounds.'
+        ? 'Daily Myrtle Ryder Cup matches are rank-seeded, use one gross total per golfer, and the lower gross side wins each match.'
         : 'Individual net Stableford across the trip, with daily 2-man net best ball matches inside each foursome.',
       sideGamesSummary: isMyrtleOwnBallTrip
         ? 'Use the Myrtle Ryder Cup section for daily low gross, weekly low gross, closest to pin, birdie pool, MVP, and payout tracking.'

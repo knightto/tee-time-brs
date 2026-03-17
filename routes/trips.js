@@ -23,6 +23,10 @@ const {
   normalizeLegacyMyrtleTripTeeSheet,
 } = require('../services/tripCompetitionService');
 const {
+  ensureTripRyderCupState,
+  setTripRyderCupState,
+} = require('../services/tripRyderCupService');
+const {
   ensureTinCupLiveState,
   getLiveMeta,
   updateSettings,
@@ -115,7 +119,7 @@ function sendTripRouteError(res, error) {
   const message = error && error.message ? error.message : 'Request failed';
   if (error && Number.isInteger(error.status)) return res.status(error.status).json({ error: message });
   if (/not found/i.test(message)) return res.status(404).json({ error: message });
-  if (/required|select exactly|four-player/i.test(message)) return res.status(400).json({ error: message });
+  if (/required|select exactly|four-player|10 players|20 unique|seed rank/i.test(message)) return res.status(400).json({ error: message });
   return res.status(500).json({ error: message });
 }
 
@@ -290,6 +294,18 @@ router.get('/:tripId', async (req, res) => {
   res.json({ trip: normalizeLegacyMyrtleTripTeeSheet(trip), participants });
 });
 
+router.get('/:tripId/rydercup', async (req, res) => {
+  try {
+    const { trip, participants } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const { state, changed } = ensureTripRyderCupState(trip, participants);
+    if (changed) await trip.save();
+    return res.json(state);
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
 // Update trip details
 router.put('/:tripId', async (req, res) => {
   try {
@@ -300,6 +316,35 @@ router.put('/:tripId', async (req, res) => {
       updates: req.body || {},
     });
     return res.json(normalizeLegacyMyrtleTripTeeSheet(trip));
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.put('/:tripId/rydercup', async (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ error: 'Admin code required' });
+  }
+  try {
+    const { trip, participants, TripAuditLogModel } = await loadTripBundle(req);
+    if (!trip) return res.status(404).json({ error: 'Trip not found' });
+    const currentState = trip && trip.ryderCup && typeof trip.ryderCup.toObject === 'function'
+      ? trip.ryderCup.toObject()
+      : (trip.ryderCup || {});
+    const payload = {
+      ...currentState,
+      ...(req.body || {}),
+    };
+    const state = setTripRyderCupState(trip, participants, payload);
+    await trip.save();
+    await writeTripAudit(req, trip, TripAuditLogModel, 'trip_ryder_cup', 'Trip Ryder Cup rosters updated', {
+      enabled: state.enabled,
+      teamAName: state.teamAName,
+      teamBName: state.teamBName,
+      teamACount: Array.isArray(state.teamAPlayers) ? state.teamAPlayers.length : 0,
+      teamBCount: Array.isArray(state.teamBPlayers) ? state.teamBPlayers.length : 0,
+    });
+    return res.json(state);
   } catch (error) {
     return sendTripRouteError(res, error);
   }

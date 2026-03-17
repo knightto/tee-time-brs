@@ -62,6 +62,21 @@ const TripCompetitionSchema = new mongoose.Schema({
   ryderCup: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
 }, { _id: false });
 
+const TripRyderCupPlayerSchema = new mongoose.Schema({
+  playerId: { type: mongoose.Schema.Types.ObjectId, ref: 'TripParticipant', default: null },
+  name: { type: String, default: '' },
+  seedRank: { type: Number, default: null }
+}, { _id: false });
+
+const TripRyderCupSchema = new mongoose.Schema({
+  enabled: { type: Boolean, default: true },
+  teamAName: { type: String, default: 'Team A' },
+  teamBName: { type: String, default: 'Team B' },
+  teamAPlayers: { type: [TripRyderCupPlayerSchema], default: [] },
+  teamBPlayers: { type: [TripRyderCupPlayerSchema], default: [] },
+  notes: { type: String, default: '' }
+}, { _id: false });
+
 const TripSchema = new mongoose.Schema({
   name: { type: String, required: true },
   groupName: { type: String, required: true },
@@ -75,6 +90,7 @@ const TripSchema = new mongoose.Schema({
   baseGroupSize: { type: Number, default: 16 },
   extraNightPricePerCondo: { type: Number, default: 130 },
   competition: { type: TripCompetitionSchema, default: () => ({}) },
+  ryderCup: { type: TripRyderCupSchema, default: () => ({ enabled: true }) },
   tinCupLive: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
   rounds: { type: [TripRoundSchema], default: [] },
   accommodations: { type: mongoose.Schema.Types.Mixed, default: () => ({}) },
