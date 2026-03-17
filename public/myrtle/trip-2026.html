@@ -392,6 +392,11 @@
     .trip-slot {
       min-width: 0;
     }
+    .trip-slot.is-slot-drop-target {
+      border-color: rgba(224,180,87,0.92);
+      background: rgba(224,180,87,0.14);
+      box-shadow: inset 0 0 0 1px rgba(224,180,87,0.26);
+    }
     .trip-drop-target.is-drop-target {
       border-color: rgba(109,211,255,0.9);
       background: rgba(109,211,255,0.14);
@@ -402,9 +407,64 @@
       justify-content: space-between;
       gap: 8px;
       align-items: center;
+      flex-wrap: wrap;
       font-size: 0.81rem;
       color: var(--ink-soft);
       font-weight: 700;
+    }
+    .trip-slot-head-meta {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+    .trip-slot-head-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+    .trip-slot-reorder-button,
+    .trip-slot-drag-handle {
+      appearance: none;
+      border: 1px solid rgba(255,255,255,0.16);
+      border-radius: 999px;
+      padding: 3px 8px;
+      background: rgba(255,255,255,0.06);
+      color: #dce7f7;
+      font: inherit;
+      font-size: 0.7rem;
+      font-weight: 700;
+      line-height: 1.2;
+      box-shadow: none;
+      transition: border-color 0.15s ease, background 0.15s ease, opacity 0.15s ease;
+    }
+    .trip-slot-reorder-button {
+      cursor: pointer;
+    }
+    .trip-slot-drag-handle {
+      cursor: grab;
+    }
+    .trip-slot-reorder-button:hover:not(:disabled),
+    .trip-slot-drag-handle:hover {
+      transform: none;
+      border-color: rgba(109,211,255,0.36);
+      background: rgba(255,255,255,0.12);
+      color: #f8fbff;
+      box-shadow: none;
+    }
+    .trip-slot-reorder-button:disabled {
+      opacity: 0.45;
+      cursor: default;
+    }
+    .trip-slot-drag-handle.is-dragging {
+      opacity: 0.42;
+      cursor: grabbing;
+      border-color: rgba(224,180,87,0.5);
+      background: rgba(224,180,87,0.16);
+      color: #fff1ca;
     }
     .trip-slot-ryder {
       display: grid;
@@ -2523,6 +2583,38 @@
       time: toHHMM(slot.time),
       players: Array.isArray(slot.players) ? slot.players.map((name) => String(name || '').trim()).filter(Boolean) : []
     });
+    const normalizeRoundScorecardHole = (hole = {}) => ({
+      hole: Number.isFinite(Number(hole.hole)) ? Number(hole.hole) : 0,
+      par: Number.isFinite(Number(hole.par)) ? Number(hole.par) : 4,
+      handicap: Number.isFinite(Number(hole.handicap)) ? Number(hole.handicap) : 0
+    });
+    const cloneRoundMixedValues = (values = []) => values.map((value) => {
+      if (Array.isArray(value)) return value.slice();
+      if (value && typeof value === 'object') return { ...value };
+      return value;
+    });
+    const normalizeRoundPlayerScore = (entry = {}) => ({
+      playerName: String(entry.playerName || '').trim(),
+      holes: Array.isArray(entry.holes) ? cloneRoundMixedValues(entry.holes) : []
+    });
+    const normalizeRoundTeamMatch = (entry = {}, index = 0) => ({
+      slotIndex: isValidTripIndex(Number.parseInt(entry.slotIndex, 10)) ? Number.parseInt(entry.slotIndex, 10) : index,
+      teamA: Array.isArray(entry.teamA) ? entry.teamA.map((name) => String(name || '').trim()).filter(Boolean) : [],
+      teamB: Array.isArray(entry.teamB) ? entry.teamB.map((name) => String(name || '').trim()).filter(Boolean) : []
+    });
+    const normalizeRoundCtpWinner = (entry = {}) => ({
+      hole: Number.isFinite(Number(entry.hole)) ? Number(entry.hole) : 0,
+      winners: Array.isArray(entry.winners) ? entry.winners.map((name) => String(name || '').trim()).filter(Boolean) : [],
+      note: String(entry.note || '').trim()
+    });
+    const normalizeRoundSkinResult = (entry = {}) => ({
+      playerName: String(entry.playerName || '').trim(),
+      holes: Array.isArray(entry.holes)
+        ? entry.holes.map((value) => Number(value)).filter((value) => Number.isFinite(value))
+        : [],
+      amount: Number.isFinite(Number(entry.amount)) ? Number(entry.amount) : null,
+      note: String(entry.note || '').trim()
+    });
     const normalizeRound = (raw = {}) => {
       const normalizedSlots = Array.isArray(raw.teeTimes)
         ? raw.teeTimes.map((slot, index) => normalizeRoundSlot(slot, index)).filter((slot) => slot.time || slot.players.length || slot.label)
@@ -2530,6 +2622,11 @@
       const unassignedPlayers = Array.isArray(raw.unassignedPlayers)
         ? raw.unassignedPlayers.map((name) => String(name || '').trim()).filter(Boolean)
         : [];
+      const scorecard = Array.isArray(raw.scorecard) ? raw.scorecard.map((hole) => normalizeRoundScorecardHole(hole)) : [];
+      const playerScores = Array.isArray(raw.playerScores) ? raw.playerScores.map((entry) => normalizeRoundPlayerScore(entry)).filter((entry) => entry.playerName) : [];
+      const teamMatches = Array.isArray(raw.teamMatches) ? raw.teamMatches.map((entry, index) => normalizeRoundTeamMatch(entry, index)) : [];
+      const ctpWinners = Array.isArray(raw.ctpWinners) ? raw.ctpWinners.map((entry) => normalizeRoundCtpWinner(entry)) : [];
+      const skinsResults = Array.isArray(raw.skinsResults) ? raw.skinsResults.map((entry) => normalizeRoundSkinResult(entry)).filter((entry) => entry.playerName) : [];
       const roundTime = toHHMM(raw.time || normalizedSlots[0]?.time || '');
       if (!normalizedSlots.length && roundTime) {
         normalizedSlots.push(normalizeRoundSlot({ label: 'TT#1', time: roundTime, players: [] }, 0));
@@ -2545,7 +2642,12 @@
         confirmation: String(raw.confirmation || '').trim(),
         weather: normalizeRoundWeather(raw.weather),
         teeTimes: normalizedSlots,
-        unassignedPlayers
+        unassignedPlayers,
+        scorecard,
+        playerScores,
+        teamMatches,
+        ctpWinners,
+        skinsResults
       };
     };
     const sortRounds = (rounds = []) => {
@@ -2791,8 +2893,10 @@
     };
     const tripTeeSheetState = {
       draggedPlayer: null,
+      draggedSlot: null,
       selectedPlayer: null,
       activeDropTarget: null,
+      activeSlotDropTarget: null,
       isSaving: false
     };
     const DRAG_AUTO_SCROLL_EDGE_PX = 96;
@@ -2877,6 +2981,12 @@
       if (!isValidTripIndex(playerIndex)) return null;
       return { ...target, playerIndex };
     };
+    const readTripSlotPosition = (element) => {
+      if (!element) return null;
+      const slotEl = element.closest ? element.closest('.trip-slot[data-trip-target][data-container-type="slot"]') : element;
+      const target = readTripTargetPosition(slotEl);
+      return target && target.containerType === 'slot' ? target : null;
+    };
     const sameTripTarget = (left, right) => Boolean(
       left && right &&
       left.roundIndex === right.roundIndex &&
@@ -2888,9 +2998,44 @@
       sameTripTarget(left, right) &&
       left.playerIndex === right.playerIndex
     );
+    const sameTripSlot = (left, right) => Boolean(
+      left && right &&
+      left.containerType === 'slot' &&
+      right.containerType === 'slot' &&
+      left.roundIndex === right.roundIndex &&
+      left.slotIndex === right.slotIndex
+    );
     const cloneTripRounds = (rounds = []) => rounds.map((round) => ({
       ...round,
       unassignedPlayers: Array.isArray(round.unassignedPlayers) ? round.unassignedPlayers.slice() : [],
+      scorecard: Array.isArray(round.scorecard)
+        ? round.scorecard.map((hole) => ({ ...hole }))
+        : [],
+      playerScores: Array.isArray(round.playerScores)
+        ? round.playerScores.map((entry) => ({
+            ...entry,
+            holes: Array.isArray(entry && entry.holes) ? cloneRoundMixedValues(entry.holes) : []
+          }))
+        : [],
+      teamMatches: Array.isArray(round.teamMatches)
+        ? round.teamMatches.map((entry) => ({
+            ...entry,
+            teamA: Array.isArray(entry && entry.teamA) ? entry.teamA.slice() : [],
+            teamB: Array.isArray(entry && entry.teamB) ? entry.teamB.slice() : []
+          }))
+        : [],
+      ctpWinners: Array.isArray(round.ctpWinners)
+        ? round.ctpWinners.map((entry) => ({
+            ...entry,
+            winners: Array.isArray(entry && entry.winners) ? entry.winners.slice() : []
+          }))
+        : [],
+      skinsResults: Array.isArray(round.skinsResults)
+        ? round.skinsResults.map((entry) => ({
+            ...entry,
+            holes: Array.isArray(entry && entry.holes) ? entry.holes.slice() : []
+          }))
+        : [],
       teeTimes: Array.isArray(round.teeTimes)
         ? round.teeTimes.map((slot) => ({
             ...slot,
@@ -2898,15 +3043,32 @@
           }))
         : []
     }));
+    function swapTripRoundTeamMatches(round, sourceSlotIndex, targetSlotIndex) {
+      if (!round || !Array.isArray(round.teamMatches) || sourceSlotIndex === targetSlotIndex) return;
+      round.teamMatches = round.teamMatches.map((entry) => {
+        const slotIndex = Number(entry && entry.slotIndex);
+        if (!Number.isInteger(slotIndex)) return entry;
+        if (slotIndex === sourceSlotIndex) return { ...entry, slotIndex: targetSlotIndex };
+        if (slotIndex === targetSlotIndex) return { ...entry, slotIndex: sourceSlotIndex };
+        return entry;
+      }).sort((left, right) => Number(left && left.slotIndex) - Number(right && right.slotIndex));
+    }
     function applyTripTeeSheetState() {
       document.querySelectorAll('.trip-drop-target.is-drop-target').forEach((node) => node.classList.remove('is-drop-target'));
+      document.querySelectorAll('.trip-slot.is-slot-drop-target').forEach((node) => node.classList.remove('is-slot-drop-target'));
       document.querySelectorAll('.trip-player-chip.is-selected').forEach((node) => node.classList.remove('is-selected'));
       document.querySelectorAll('.trip-player-chip.is-dragging').forEach((node) => node.classList.remove('is-dragging'));
+      document.querySelectorAll('.trip-slot-drag-handle.is-dragging').forEach((node) => node.classList.remove('is-dragging'));
 
       if (tripTeeSheetState.activeDropTarget) {
         const targetKey = makeTripTargetKey(tripTeeSheetState.activeDropTarget);
         const dropTarget = document.querySelector(`.trip-drop-target[data-target-key="${targetKey}"]`);
         if (dropTarget) dropTarget.classList.add('is-drop-target');
+      }
+      if (tripTeeSheetState.activeSlotDropTarget) {
+        const targetKey = makeTripTargetKey(tripTeeSheetState.activeSlotDropTarget);
+        const dropTarget = document.querySelector(`.trip-slot[data-target-key="${targetKey}"]`);
+        if (dropTarget) dropTarget.classList.add('is-slot-drop-target');
       }
       if (tripTeeSheetState.selectedPlayer) {
         const playerKey = makeTripPlayerKey(tripTeeSheetState.selectedPlayer);
@@ -2918,12 +3080,19 @@
         const draggedChip = document.querySelector(`.trip-player-chip[data-player-key="${playerKey}"]`);
         if (draggedChip) draggedChip.classList.add('is-dragging');
       }
+      if (tripTeeSheetState.draggedSlot) {
+        const targetKey = makeTripTargetKey(tripTeeSheetState.draggedSlot);
+        const draggedHandle = document.querySelector(`.trip-slot-drag-handle[data-target-key="${targetKey}"]`);
+        if (draggedHandle) draggedHandle.classList.add('is-dragging');
+      }
     }
     function clearTripPointerState() {
       stopDragAutoScroll();
       tripTeeSheetState.draggedPlayer = null;
+      tripTeeSheetState.draggedSlot = null;
       tripTeeSheetState.selectedPlayer = null;
       tripTeeSheetState.activeDropTarget = null;
+      tripTeeSheetState.activeSlotDropTarget = null;
       applyTripTeeSheetState();
     }
     async function updateTrip(body) {
@@ -2971,6 +3140,28 @@
       else toRound.unassignedPlayers = toPlayers;
       return { moved: true, rounds: nextRounds, playerName };
     }
+    function swapTripFoursomeSlots(rounds, source, target) {
+      if (sameTripSlot(source, target)) return { moved: false, rounds };
+      if (!source || !target || source.containerType !== 'slot' || target.containerType !== 'slot') {
+        throw new Error('Foursome reordering requires two tee times.');
+      }
+      if (source.roundIndex !== target.roundIndex) {
+        throw new Error('Foursomes can only swap tee times within the same round.');
+      }
+      const nextRounds = cloneTripRounds(rounds);
+      const round = nextRounds[source.roundIndex];
+      if (!round) throw new Error('Round not found.');
+      const teeTimes = Array.isArray(round.teeTimes) ? round.teeTimes : [];
+      const sourceSlot = teeTimes[source.slotIndex];
+      const targetSlot = teeTimes[target.slotIndex];
+      if (!sourceSlot || !targetSlot) throw new Error('Tee time not found.');
+      const sourcePlayers = Array.isArray(sourceSlot.players) ? sourceSlot.players.slice() : [];
+      const targetPlayers = Array.isArray(targetSlot.players) ? targetSlot.players.slice() : [];
+      sourceSlot.players = targetPlayers;
+      targetSlot.players = sourcePlayers;
+      swapTripRoundTeamMatches(round, source.slotIndex, target.slotIndex);
+      return { moved: true, rounds: nextRounds };
+    }
     async function persistTripTeeMove(source, target) {
       if (!tripId || tripTeeSheetState.isSaving) return;
       try {
@@ -2989,6 +3180,31 @@
         tripTeeSheetState.isSaving = false;
         clearTripPointerState();
       }
+    }
+    async function persistTripFoursomeSwap(source, target) {
+      if (!tripId || tripTeeSheetState.isSaving) return;
+      try {
+        const currentRounds = getTripRounds();
+        const result = swapTripFoursomeSlots(currentRounds, source, target);
+        if (!result.moved) {
+          clearTripPointerState();
+          return;
+        }
+        tripTeeSheetState.isSaving = true;
+        await updateTrip({ rounds: result.rounds });
+        renderItinerary();
+      } catch (error) {
+        alert(error && error.message ? error.message : 'Failed to move foursome.');
+      } finally {
+        tripTeeSheetState.isSaving = false;
+        clearTripPointerState();
+      }
+    }
+    async function persistTripFoursomeShift(roundIndex, slotIndex, delta) {
+      const source = { roundIndex, containerType: 'slot', slotIndex };
+      const target = { roundIndex, containerType: 'slot', slotIndex: slotIndex + delta };
+      if (!isValidTripIndex(target.slotIndex)) return;
+      await persistTripFoursomeSwap(source, target);
     }
 
     let adminCode = null;
@@ -4041,7 +4257,7 @@
         return list;
       }, []);
       eventsEl.innerHTML = `
-        <div class="trip-drag-help">Drag or tap a golfer to move them between tee times or unassigned.</div>
+        <div class="trip-drag-help">Drag or tap a golfer to move them between tee times or unassigned. Use Up, Down, or Drag on a tee time to swap whole foursomes within that round.</div>
         <div class="trip-event-list">
           ${dayRounds.map(({ round, roundIndex }) => {
             const ryderRound = getRyderCupRoundMeta(roundIndex);
@@ -4066,6 +4282,8 @@
               const slotTarget = { roundIndex, containerType: 'slot', slotIndex };
               const slotKey = makeTripTargetKey(slotTarget);
               const slotGuide = buildTripRyderCupSlotGuide(roundIndex, slot, slotIndex);
+              const canMoveEarlier = slotIndex > 0;
+              const canMoveLater = slotIndex < ((round.teeTimes || []).length - 1);
               const playersMarkup = (slot.players || []).length
                 ? slot.players.map((name, playerIndex) => {
                     const playerMeta = slotGuide?.playerMetaByName?.get(normalizeNameKey(name)) || null;
@@ -4095,8 +4313,40 @@
               return `
                 <div class="trip-slot trip-drop-target" data-trip-target="1" data-target-key="${slotKey}" data-container-type="slot" data-round-index="${roundIndex}" data-slot-index="${slotIndex}">
                   <div class="trip-slot-head">
-                    <span>${escapeHtml(label)}</span>
-                    <span>${escapeHtml(formatTime12(slot.time) || '--')}</span>
+                    <div class="trip-slot-head-meta">
+                      <span>${escapeHtml(label)}</span>
+                      <span>${escapeHtml(formatTime12(slot.time) || '--')}</span>
+                    </div>
+                    <div class="trip-slot-head-actions">
+                      <button
+                        type="button"
+                        class="trip-slot-reorder-button"
+                        data-trip-slot-shift="-1"
+                        data-round-index="${roundIndex}"
+                        data-slot-index="${slotIndex}"
+                        title="Move this foursome to the earlier tee time"
+                        ${canMoveEarlier ? '' : 'disabled'}
+                      >Up</button>
+                      <button
+                        type="button"
+                        class="trip-slot-reorder-button"
+                        data-trip-slot-shift="1"
+                        data-round-index="${roundIndex}"
+                        data-slot-index="${slotIndex}"
+                        title="Move this foursome to the later tee time"
+                        ${canMoveLater ? '' : 'disabled'}
+                      >Down</button>
+                      <button
+                        type="button"
+                        class="trip-slot-drag-handle"
+                        draggable="true"
+                        data-trip-slot-drag="1"
+                        data-target-key="${slotKey}"
+                        data-round-index="${roundIndex}"
+                        data-slot-index="${slotIndex}"
+                        title="Drag this foursome onto another tee time to swap them"
+                      >Drag</button>
+                    </div>
                   </div>
                   ${renderTripRyderCupSlotGuide(slotGuide)}
                   <div class="trip-slot-players">${playersMarkup}</div>
@@ -4854,9 +5104,27 @@
         if (dateChip) {
           event.preventDefault();
           const nextDate = String(dateChip.dataset.tripDateSelect || '').trim();
-          if (!nextDate || nextDate === toIsoDate(tripScheduleState.selectedDate)) return;
+        if (!nextDate || nextDate === toIsoDate(tripScheduleState.selectedDate)) return;
           tripScheduleState.selectedDate = nextDate;
           renderTripSchedule(getTripRounds());
+          return;
+        }
+
+        const slotShiftButton = event.target.closest('[data-trip-slot-shift]');
+        if (slotShiftButton) {
+          event.preventDefault();
+          if (tripTeeSheetState.isSaving || slotShiftButton.disabled) return;
+          const roundIndex = Number.parseInt(slotShiftButton.dataset.roundIndex, 10);
+          const slotIndex = Number.parseInt(slotShiftButton.dataset.slotIndex, 10);
+          const delta = Number.parseInt(slotShiftButton.dataset.tripSlotShift, 10);
+          if (!isValidTripIndex(roundIndex) || !isValidTripIndex(slotIndex) || !Number.isInteger(delta) || !delta) return;
+          await persistTripFoursomeShift(roundIndex, slotIndex, delta);
+          return;
+        }
+
+        const slotDragHandle = event.target.closest('[data-trip-slot-drag]');
+        if (slotDragHandle) {
+          event.preventDefault();
           return;
         }
 
@@ -4868,6 +5136,7 @@
           if (!source) return;
           tripTeeSheetState.selectedPlayer = sameTripPlayer(tripTeeSheetState.selectedPlayer, source) ? null : source;
           tripTeeSheetState.activeDropTarget = null;
+          tripTeeSheetState.activeSlotDropTarget = null;
           applyTripTeeSheetState();
           return;
         }
@@ -4880,13 +5149,32 @@
       });
 
       itineraryBox.addEventListener('dragstart', function (event) {
+        const slotHandle = event.target.closest('[data-trip-slot-drag]');
+        if (slotHandle) {
+          if (tripTeeSheetState.isSaving) return;
+          const source = readTripSlotPosition(slotHandle);
+          if (!source) return;
+          tripTeeSheetState.draggedSlot = source;
+          tripTeeSheetState.draggedPlayer = null;
+          tripTeeSheetState.selectedPlayer = null;
+          tripTeeSheetState.activeDropTarget = null;
+          tripTeeSheetState.activeSlotDropTarget = null;
+          applyTripTeeSheetState();
+          if (event.dataTransfer) {
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', makeTripTargetKey(source));
+          }
+          return;
+        }
         const chip = event.target.closest('.trip-player-chip[data-trip-player]');
         if (!chip || tripTeeSheetState.isSaving) return;
         const source = readTripPlayerPosition(chip);
         if (!source) return;
         tripTeeSheetState.draggedPlayer = source;
+        tripTeeSheetState.draggedSlot = null;
         tripTeeSheetState.selectedPlayer = null;
         tripTeeSheetState.activeDropTarget = null;
+        tripTeeSheetState.activeSlotDropTarget = null;
         applyTripTeeSheetState();
         if (event.dataTransfer) {
           event.dataTransfer.effectAllowed = 'move';
@@ -4895,6 +5183,18 @@
       });
 
       itineraryBox.addEventListener('dragover', function (event) {
+        if (tripTeeSheetState.draggedSlot && !tripTeeSheetState.isSaving) {
+          const targetEl = event.target.closest('.trip-slot[data-trip-target][data-container-type="slot"]');
+          if (!targetEl) return;
+          const target = readTripSlotPosition(targetEl);
+          if (!target || sameTripSlot(tripTeeSheetState.draggedSlot, target) || target.roundIndex !== tripTeeSheetState.draggedSlot.roundIndex) return;
+          event.preventDefault();
+          if (!tripTeeSheetState.activeSlotDropTarget || !sameTripSlot(tripTeeSheetState.activeSlotDropTarget, target)) {
+            tripTeeSheetState.activeSlotDropTarget = target;
+            applyTripTeeSheetState();
+          }
+          return;
+        }
         if (!tripTeeSheetState.draggedPlayer || tripTeeSheetState.isSaving) return;
         const targetEl = event.target.closest('.trip-drop-target[data-trip-target]');
         if (!targetEl) return;
@@ -4908,6 +5208,18 @@
       });
 
       itineraryBox.addEventListener('dragleave', function (event) {
+        const slotTargetEl = event.target.closest('.trip-slot[data-trip-target][data-container-type="slot"]');
+        if (slotTargetEl && tripTeeSheetState.activeSlotDropTarget) {
+          const related = event.relatedTarget && event.relatedTarget.closest ? event.relatedTarget.closest('.trip-slot[data-trip-target][data-container-type="slot"]') : null;
+          if (related !== slotTargetEl) {
+            const target = readTripSlotPosition(slotTargetEl);
+            if (sameTripSlot(target, tripTeeSheetState.activeSlotDropTarget)) {
+              tripTeeSheetState.activeSlotDropTarget = null;
+              applyTripTeeSheetState();
+            }
+          }
+          return;
+        }
         const targetEl = event.target.closest('.trip-drop-target[data-trip-target]');
         if (!targetEl || !tripTeeSheetState.activeDropTarget) return;
         const related = event.relatedTarget && event.relatedTarget.closest ? event.relatedTarget.closest('.trip-drop-target[data-trip-target]') : null;
@@ -4920,6 +5232,18 @@
       });
 
       itineraryBox.addEventListener('drop', async function (event) {
+        if (tripTeeSheetState.draggedSlot && !tripTeeSheetState.isSaving) {
+          const targetEl = event.target.closest('.trip-slot[data-trip-target][data-container-type="slot"]');
+          if (!targetEl) return;
+          event.preventDefault();
+          const target = readTripSlotPosition(targetEl);
+          if (!target || sameTripSlot(tripTeeSheetState.draggedSlot, target) || target.roundIndex !== tripTeeSheetState.draggedSlot.roundIndex) {
+            clearTripPointerState();
+            return;
+          }
+          await persistTripFoursomeSwap(tripTeeSheetState.draggedSlot, target);
+          return;
+        }
         if (!tripTeeSheetState.draggedPlayer || tripTeeSheetState.isSaving) return;
         const targetEl = event.target.closest('.trip-drop-target[data-trip-target]');
         if (!targetEl) return;
@@ -4938,7 +5262,7 @@
     }
 
     document.addEventListener('dragover', function (event) {
-      if (!tripTeeSheetState.draggedPlayer && !competitionUiState.draggedRyderPlayer && !tripRyderCupUiState.draggedPlayerSeed) return;
+      if (!tripTeeSheetState.draggedPlayer && !tripTeeSheetState.draggedSlot && !competitionUiState.draggedRyderPlayer && !tripRyderCupUiState.draggedPlayerSeed) return;
       updateDragAutoScroll(event.clientX, event.clientY);
     });
 
@@ -4948,7 +5272,7 @@
 
     document.addEventListener('keydown', function (event) {
       if (event.key !== 'Escape') return;
-      if (tripTeeSheetState.selectedPlayer || tripTeeSheetState.draggedPlayer || tripTeeSheetState.activeDropTarget) {
+      if (tripTeeSheetState.selectedPlayer || tripTeeSheetState.draggedPlayer || tripTeeSheetState.draggedSlot || tripTeeSheetState.activeDropTarget || tripTeeSheetState.activeSlotDropTarget) {
         clearTripPointerState();
       }
       if (competitionUiState.selectedRyderPlayer || competitionUiState.draggedRyderPlayer || competitionUiState.activeRyderDropKey || competitionUiState.activeRyderDropTeamId) {

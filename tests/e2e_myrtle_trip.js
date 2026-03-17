@@ -396,6 +396,11 @@ async function runBrowserFlow(results, tempTripSummary, tripId) {
   const browserPath = resolveBrowserPath();
   expect(results, Boolean(browserPath), 'Browser available', browserPath || 'No Edge/Chrome binary found');
   if (!browserPath) return;
+  const initialRoundZero = tempTripSummary?.rounds?.[0] || {};
+  const initialSlotZeroPlayers = clone(initialRoundZero?.teeTimes?.[0]?.players || []);
+  const initialSlotOnePlayers = clone(initialRoundZero?.teeTimes?.[1]?.players || []);
+  const initialRoundZeroMatch = clone((initialRoundZero?.teamMatches || []).find((entry) => Number(entry?.slotIndex) === 0) || null);
+  let teeSheetSwapTested = false;
 
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tee-time-myrtle-browser-'));
   const browser = spawn(browserPath, [
@@ -475,6 +480,81 @@ async function runBrowserFlow(results, tempTripSummary, tripId) {
         })()`, 15000);
         expect(results, pageReady, 'Myrtle page bound to temp trip', pageReady ? tripId : 'page did not bind to temp trip');
         if (!pageReady) return;
+
+        const teeSheetReady = await waitFor(send, `(() => {
+          const slotA = document.querySelector('.trip-slot-drag-handle[data-round-index="0"][data-slot-index="0"]');
+          const slotB = document.querySelector('.trip-slot[data-round-index="0"][data-slot-index="1"]');
+          const moveUp = document.querySelector('.trip-slot-reorder-button[data-round-index="0"][data-slot-index="1"][data-trip-slot-shift="-1"]');
+          return !!slotA && !!slotB && !!moveUp;
+        })()`, 15000);
+        expect(results, teeSheetReady, 'Tee sheet slot reorder controls visible', teeSheetReady ? 'round 0 slot controls loaded' : 'slot controls missing');
+
+        if (teeSheetReady && initialSlotZeroPlayers.length && initialSlotOnePlayers.length) {
+          await evalValue(send, `(() => {
+            const handle = document.querySelector('.trip-slot-drag-handle[data-round-index="0"][data-slot-index="0"]');
+            const target = document.querySelector('.trip-slot[data-round-index="0"][data-slot-index="1"]');
+            if (!handle || !target || typeof DataTransfer !== 'function') return false;
+            const dataTransfer = new DataTransfer();
+            handle.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer }));
+            target.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer }));
+            target.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer }));
+            handle.dispatchEvent(new DragEvent('dragend', { bubbles: true, cancelable: true, dataTransfer }));
+            return true;
+          })()`);
+          const dragSwapVisible = await waitFor(send, `(() => {
+            const readPlayers = (slotIndex) => Array.from(document.querySelectorAll('.trip-slot[data-round-index="0"][data-slot-index="' + slotIndex + '"] .trip-player-chip[data-trip-player]'))
+              .map((chip) => {
+                const label = chip.querySelector('span:last-child');
+                return String(label ? label.textContent : chip.textContent || '').trim();
+              });
+            return JSON.stringify(readPlayers(0)) === ${JSON.stringify(JSON.stringify(initialSlotOnePlayers))}
+              && JSON.stringify(readPlayers(1)) === ${JSON.stringify(JSON.stringify(initialSlotZeroPlayers))};
+          })()`, 15000);
+          expect(results, dragSwapVisible, 'Tee sheet drag-drop swaps whole foursomes', dragSwapVisible ? 'slot 0 and slot 1 players swapped' : 'drag swap did not update the DOM');
+          if (dragSwapVisible) {
+            teeSheetSwapTested = true;
+            const bundleAfterDragSwap = await fetchTripBundle(tripId);
+            const savedRoundAfterDrag = bundleAfterDragSwap.trip?.rounds?.[0] || {};
+            expect(
+              results,
+              JSON.stringify(savedRoundAfterDrag?.teeTimes?.[0]?.players || []) === JSON.stringify(initialSlotOnePlayers),
+              'Tee sheet drag-drop persisted slot 0 players',
+              JSON.stringify(savedRoundAfterDrag?.teeTimes?.[0]?.players || [])
+            );
+            expect(
+              results,
+              JSON.stringify(savedRoundAfterDrag?.teeTimes?.[1]?.players || []) === JSON.stringify(initialSlotZeroPlayers),
+              'Tee sheet drag-drop persisted slot 1 players',
+              JSON.stringify(savedRoundAfterDrag?.teeTimes?.[1]?.players || [])
+            );
+            if (initialRoundZeroMatch) {
+              const movedMatch = (savedRoundAfterDrag?.teamMatches || []).find((entry) => Number(entry?.slotIndex) === 1) || null;
+              expect(
+                results,
+                JSON.stringify(movedMatch?.teamA || []) === JSON.stringify(initialRoundZeroMatch.teamA || [])
+                  && JSON.stringify(movedMatch?.teamB || []) === JSON.stringify(initialRoundZeroMatch.teamB || []),
+                'Tee sheet drag-drop remaps round match slot index',
+                JSON.stringify(movedMatch || {})
+              );
+            }
+            await evalValue(send, `(() => {
+              const button = document.querySelector('.trip-slot-reorder-button[data-round-index="0"][data-slot-index="1"][data-trip-slot-shift="-1"]');
+              if (!button) return false;
+              button.click();
+              return true;
+            })()`);
+            const buttonRestoreVisible = await waitFor(send, `(() => {
+              const readPlayers = (slotIndex) => Array.from(document.querySelectorAll('.trip-slot[data-round-index="0"][data-slot-index="' + slotIndex + '"] .trip-player-chip[data-trip-player]'))
+                .map((chip) => {
+                  const label = chip.querySelector('span:last-child');
+                  return String(label ? label.textContent : chip.textContent || '').trim();
+                });
+              return JSON.stringify(readPlayers(0)) === ${JSON.stringify(JSON.stringify(initialSlotZeroPlayers))}
+                && JSON.stringify(readPlayers(1)) === ${JSON.stringify(JSON.stringify(initialSlotOnePlayers))};
+            })()`, 15000);
+            expect(results, buttonRestoreVisible, 'Tee sheet reorder button restores whole foursomes', buttonRestoreVisible ? 'slot order restored with Up button' : 'button reorder did not restore the DOM');
+          }
+        }
 
         await evalValue(send, `(() => { document.querySelector('[data-trip-ryder-edit]')?.click(); return true; })()`);
         const editOpen = await waitFor(send, `(() => !!document.querySelector('[data-trip-ryder-drag-seed]'))()`);
@@ -557,6 +637,32 @@ async function runBrowserFlow(results, tempTripSummary, tripId) {
     expect(results, overlayAfterBrowserSave.body?.teamAName === 'Browser Team A', 'Overlay browser save persisted Team A name', overlayAfterBrowserSave.body?.teamAName || 'missing');
     expect(results, overlayAfterBrowserSave.body?.teamBName === 'Browser Team B', 'Overlay browser save persisted Team B name', overlayAfterBrowserSave.body?.teamBName || 'missing');
     expect(results, overlayAfterBrowserSave.body?.notes === 'Browser drag-drop save', 'Overlay browser save persisted notes', overlayAfterBrowserSave.body?.notes || 'missing');
+    if (teeSheetSwapTested) {
+      const restoredBundle = await fetchTripBundle(tripId);
+      const restoredRoundZero = restoredBundle.trip?.rounds?.[0] || {};
+      expect(
+        results,
+        JSON.stringify(restoredRoundZero?.teeTimes?.[0]?.players || []) === JSON.stringify(initialSlotZeroPlayers),
+        'Tee sheet reorder button restores slot 0 players',
+        JSON.stringify(restoredRoundZero?.teeTimes?.[0]?.players || [])
+      );
+      expect(
+        results,
+        JSON.stringify(restoredRoundZero?.teeTimes?.[1]?.players || []) === JSON.stringify(initialSlotOnePlayers),
+        'Tee sheet reorder button restores slot 1 players',
+        JSON.stringify(restoredRoundZero?.teeTimes?.[1]?.players || [])
+      );
+      if (initialRoundZeroMatch) {
+        const restoredMatch = (restoredRoundZero?.teamMatches || []).find((entry) => Number(entry?.slotIndex) === 0) || null;
+        expect(
+          results,
+          JSON.stringify(restoredMatch?.teamA || []) === JSON.stringify(initialRoundZeroMatch.teamA || [])
+            && JSON.stringify(restoredMatch?.teamB || []) === JSON.stringify(initialRoundZeroMatch.teamB || []),
+          'Tee sheet reorder button restores round match slot index',
+          JSON.stringify(restoredMatch || {})
+        );
+      }
+    }
     expect(results, errors.length === 0, 'Myrtle page console clean during e2e', errors.join(' | ') || 'no errors');
   } finally {
     browser.kill('SIGTERM');
