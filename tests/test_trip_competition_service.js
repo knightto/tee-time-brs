@@ -398,28 +398,75 @@ function run() {
   assert.strictEqual(myrtleView.ryderCup.rounds[0].matches[0].teamAGrossScore, 166, '75% handicap rounds should still expose calculated team gross totals');
   assert.strictEqual(myrtleView.ryderCup.rounds[0].matches[0].teamAHandicapAllowance, 16, '75% handicap rounds should expose the applied team allowance');
   assert.strictEqual(myrtleView.ryderCup.rounds[1].matches[0].teamAScore, 147, '75% handicap rounds should expose the adjusted team net score');
+  assert.strictEqual(myrtleView.ryderCup.sideGames.dailyLongestPuttLastHole.length, 5, 'Myrtle Ryder Cup should seed a daily last-hole longest-putt prize for each round');
+  assert.strictEqual(myrtleView.ryderCup.sideGames.dailyBirdiePot.length, 5, 'Myrtle Ryder Cup should seed a daily gross birdie pot for each round');
+  assert.strictEqual(myrtleView.ryderCup.sideGames.dailyNetBirdiePot.length, 5, 'Myrtle Ryder Cup should seed a daily net birdie pot for each round');
+  assert.match(myrtleView.overview.sideGamesSummary, /longest made putt on the last hole/i, 'Myrtle overview should mention the daily last-hole putt prize');
+  assert.match(myrtleView.overview.sideGamesSummary, /daily birdie pot/i, 'Myrtle overview should mention the daily birdie pots');
   assert.strictEqual(myrtleView.ryderCup.rounds[2].matches[0].teamAScore, 163, '75% handicap rounds should derive later net totals from saved gross scores');
   assert.strictEqual(myrtleView.ryderCup.rounds[3].matches[0].teamAGrossScore, 180, 'Round 4 should still expose the pod gross total on the match itself');
   assert.strictEqual(myrtleView.ryderCup.rounds[3].matches[0].pointsB, 1, 'Round 4 pod matches should award one point to the lower net side');
   assert.strictEqual(myrtleView.ryderCup.admin.roundRules.length, 5, 'Admin rules should explain each own-ball round format');
   assert.throws(() => swapTripRyderCupTeamPlayers(myrtleTrip, 'Tommy Knight', 'Reny Butler'), /locked/i, 'Team swaps should be rejected after Ryder Cup results exist');
 
-  const makeEditableMyrtleTrip = () => ({
-    name: 'Myrtle Beach - Barefoot Group 3/18-3/22/26',
-    location: 'Myrtle Beach, SC',
-    arrivalDate: new Date('2026-03-18'),
-    competition: {
-      scoringMode: 'best4',
-      ryderCup: buildDefaultMyrtleRyderCup(),
-    },
-    rounds: [
+  const makeEditableMyrtleTrip = () => {
+    const defaultRyderCup = buildDefaultMyrtleRyderCup();
+    const rounds = [
       makeRound('World Tour', []),
       makeRound('Wild Wing Avocet', []),
       makeRound('Kings North', []),
       makeRound('River Hills', []),
       makeRound('Long Bay', []),
-    ],
-  });
+    ];
+    rounds.forEach((round, roundIndex) => {
+      const matches = defaultRyderCup.rounds?.[roundIndex]?.matches || [];
+      const groups = new Map();
+      matches.forEach((match, matchIndex) => {
+        const groupNumber = Number(match && match.groupNumber) || (matchIndex + 1);
+        const existing = groups.get(groupNumber) || [];
+        const players = []
+          .concat(match && match.teamAPlayers ? match.teamAPlayers : [])
+          .concat(match && match.teamBPlayers ? match.teamBPlayers : []);
+        groups.set(groupNumber, Array.from(new Set(existing.concat(players))));
+      });
+      round.teeTimes = makeTeeTimes(Array.from(groups.values()));
+    });
+    return {
+      name: 'Myrtle Beach - Barefoot Group 3/18-3/22/26',
+      location: 'Myrtle Beach, SC',
+      arrivalDate: new Date('2026-03-18'),
+      competition: {
+        scoringMode: 'best4',
+        ryderCup: defaultRyderCup,
+      },
+      rounds,
+    };
+  };
+  const assignUniqueRyderCupScores = (round) => {
+    let nextScore = 70;
+    const scoreByName = new Map();
+    return {
+      scoreByName,
+      round: {
+        ...round,
+        matches: (round.matches || []).map((match) => {
+          const assignScore = (playerName) => {
+            if (!scoreByName.has(playerName)) {
+              scoreByName.set(playerName, nextScore);
+              nextScore += 1;
+            }
+            return scoreByName.get(playerName);
+          };
+          return {
+            ...match,
+            teamAPlayerScores: (match.teamAPlayers || []).map(assignScore),
+            teamBPlayerScores: (match.teamBPlayers || []).map(assignScore),
+            result: '',
+          };
+        }),
+      },
+    };
+  };
 
   const overlayHandicapTrip = makeEditableMyrtleTrip();
   overlayHandicapTrip.ryderCup = getDefaultTripRyderCupState(myrtleParticipants);
@@ -434,6 +481,65 @@ function run() {
   assert.strictEqual(overlayHandicapJoe.handicapIndex, 4.5, 'Saved Ryder Cup overlay handicaps should override the seeded Myrtle handicap');
   assert.strictEqual(overlayHandicapJoe.matchHandicap, 3, 'Saved Ryder Cup overlay handicaps should drive the 75% allowance');
   assert.strictEqual(overlayHandicapView.ryderCup.rounds[0].matches[0].teamAHandicapAllowance, 17, 'Match allowances should recalculate from saved Ryder Cup overlay handicap edits');
+
+  const allRoundsHandicapTrip = makeEditableMyrtleTrip();
+  allRoundsHandicapTrip.ryderCup = getDefaultTripRyderCupState(myrtleParticipants);
+  const { round: handicapRoundOne } = assignUniqueRyderCupScores(clone(allRoundsHandicapTrip.competition.ryderCup.rounds[0]));
+  const { round: handicapRoundTwo } = assignUniqueRyderCupScores(clone(allRoundsHandicapTrip.competition.ryderCup.rounds[1]));
+  setTripRyderCupRound(allRoundsHandicapTrip, 0, handicapRoundOne);
+  setTripRyderCupRound(allRoundsHandicapTrip, 1, handicapRoundTwo);
+  const beforeAllRoundsHandicapView = buildTripCompetitionView(allRoundsHandicapTrip, myrtleParticipants);
+  const findMatchForPlayer = (round, playerName) => (round.matches || []).find((match) => (match.teamAPlayers || []).includes(playerName) || (match.teamBPlayers || []).includes(playerName));
+  const beforeJoeRoundOne = findMatchForPlayer(beforeAllRoundsHandicapView.ryderCup.rounds[0], 'Joe Gillette');
+  const beforeJoeRoundTwo = findMatchForPlayer(beforeAllRoundsHandicapView.ryderCup.rounds[1], 'Joe Gillette');
+  const beforeJoeRoundThree = findMatchForPlayer(beforeAllRoundsHandicapView.ryderCup.rounds[2], 'Joe Gillette');
+  allRoundsHandicapTrip.ryderCup = {
+    ...allRoundsHandicapTrip.ryderCup,
+    teamAPlayers: (allRoundsHandicapTrip.ryderCup.teamAPlayers || []).map((player) => (
+      player.name === 'Joe Gillette'
+        ? { ...player, handicapIndex: 20 }
+        : player
+    )),
+  };
+  syncTripRyderCupOverlayToCompetition(allRoundsHandicapTrip, allRoundsHandicapTrip.ryderCup);
+  const afterAllRoundsHandicapView = buildTripCompetitionView(allRoundsHandicapTrip, myrtleParticipants);
+  const beforeJoeAllowance = beforeAllRoundsHandicapView.ryderCup.teams[0].players.find((entry) => entry.name === 'Joe Gillette').matchHandicap;
+  const afterJoeAllowance = afterAllRoundsHandicapView.ryderCup.teams[0].players.find((entry) => entry.name === 'Joe Gillette').matchHandicap;
+  const joeAllowanceDelta = afterJoeAllowance - beforeJoeAllowance;
+  const afterJoeRoundOne = findMatchForPlayer(afterAllRoundsHandicapView.ryderCup.rounds[0], 'Joe Gillette');
+  const afterJoeRoundTwo = findMatchForPlayer(afterAllRoundsHandicapView.ryderCup.rounds[1], 'Joe Gillette');
+  const afterJoeRoundThree = findMatchForPlayer(afterAllRoundsHandicapView.ryderCup.rounds[2], 'Joe Gillette');
+  assert.strictEqual(afterJoeAllowance, 15, 'Overlay handicap edits should update Joe\'s current 75% allowance');
+  assert.strictEqual(afterJoeRoundOne.teamAHandicapAllowance, beforeJoeRoundOne.teamAHandicapAllowance + joeAllowanceDelta, 'Completed Round 1 allowances should recalculate after a handicap edit');
+  assert.strictEqual(afterJoeRoundOne.teamAScore, beforeJoeRoundOne.teamAScore - joeAllowanceDelta, 'Completed Round 1 net totals should recalculate after a handicap edit');
+  assert.strictEqual(afterJoeRoundTwo.teamAHandicapAllowance, beforeJoeRoundTwo.teamAHandicapAllowance + joeAllowanceDelta, 'Completed Round 2 allowances should recalculate after a handicap edit');
+  assert.strictEqual(afterJoeRoundTwo.teamAScore, beforeJoeRoundTwo.teamAScore - joeAllowanceDelta, 'Completed Round 2 net totals should recalculate after a handicap edit');
+  assert.strictEqual(afterJoeRoundThree.teamAHandicapAllowance, beforeJoeRoundThree.teamAHandicapAllowance + joeAllowanceDelta, 'Future rounds should also pick up the edited handicap allowance');
+
+  const dailyBirdieTrip = makeEditableMyrtleTrip();
+  dailyBirdieTrip.competition.ryderCup.sideGames.dailyBirdiePot[0] = {
+    ...dailyBirdieTrip.competition.ryderCup.sideGames.dailyBirdiePot[0],
+    counts: [
+      { playerName: 'Joe Gillette', count: 2 },
+      { playerName: 'John Quimby', count: 1 },
+    ],
+    amount: 20,
+    notes: 'Gross birdies',
+  };
+  dailyBirdieTrip.competition.ryderCup.sideGames.dailyNetBirdiePot[0] = {
+    ...dailyBirdieTrip.competition.ryderCup.sideGames.dailyNetBirdiePot[0],
+    counts: [
+      { playerName: 'Josh Browne', count: 3 },
+      { playerName: 'Reny Butler', count: 1 },
+    ],
+    amount: 20,
+    notes: 'Net birdies',
+  };
+  const dailyBirdieView = buildTripCompetitionView(dailyBirdieTrip, myrtleParticipants);
+  assert.strictEqual(dailyBirdieView.ryderCup.sideGames.dailyBirdiePot[0].automaticWinners[0], 'Joe Gillette', 'Daily gross birdie pot should auto-pick the highest gross birdie count');
+  assert.strictEqual(dailyBirdieView.ryderCup.sideGames.dailyBirdiePot[0].highestCount, 2, 'Daily gross birdie pot should expose the leading gross birdie count');
+  assert.strictEqual(dailyBirdieView.ryderCup.sideGames.dailyNetBirdiePot[0].automaticWinners[0], 'Josh Browne', 'Daily net birdie pot should auto-pick the highest net birdie count');
+  assert.strictEqual(dailyBirdieView.ryderCup.sideGames.dailyNetBirdiePot[0].highestCount, 3, 'Daily net birdie pot should expose the leading net birdie count');
 
   const grossOnlyTrip = makeEditableMyrtleTrip();
   const grossOnlyRound = clone(grossOnlyTrip.competition.ryderCup.rounds[0]);
@@ -496,13 +602,75 @@ function run() {
   setTripRyderCupRound(movedPlayersTrip, 0, movedPlayersRound);
   const movedPlayersView = buildTripCompetitionView(movedPlayersTrip, myrtleParticipants);
   const movedPlayersMatch = movedPlayersView.ryderCup.rounds[0].matches[0];
+  const movedPlayersMatchOne = movedPlayersView.ryderCup.rounds[0].matches[1];
   const movedPlayerHandicaps = new Map(movedPlayersView.ryderCup.teams.flatMap((team) => team.players.map((player) => [player.name, player.matchHandicap])));
-  const expectedMovedTeamAAllowance = movedPlayersMatch.teamAPlayers.reduce((sum, name) => sum + (movedPlayerHandicaps.get(name) || 0), 0);
-  const expectedMovedTeamBAllowance = movedPlayersMatch.teamBPlayers.reduce((sum, name) => sum + (movedPlayerHandicaps.get(name) || 0), 0);
-  assert.strictEqual(movedPlayersMatch.teamAHandicapAllowance, expectedMovedTeamAAllowance, 'Moved Team A golfers should carry their own 75% allowances into the new match');
-  assert.strictEqual(movedPlayersMatch.teamBHandicapAllowance, expectedMovedTeamBAllowance, 'Moved Team B golfers should carry their own 75% allowances into the new match');
-  assert.strictEqual(movedPlayersMatch.teamAScore, 150 - expectedMovedTeamAAllowance, 'Moved Team A golfers should use the new player allowance total');
-  assert.strictEqual(movedPlayersMatch.teamBScore, 170 - expectedMovedTeamBAllowance, 'Moved Team B golfers should use the new player allowance total');
+  const expectedMovedTeamAAllowance = movedPlayersMatchOne.teamAPlayers.reduce((sum, name) => sum + (movedPlayerHandicaps.get(name) || 0), 0);
+  const expectedMovedTeamBAllowance = movedPlayersMatchOne.teamBPlayers.reduce((sum, name) => sum + (movedPlayerHandicaps.get(name) || 0), 0);
+  assert.deepStrictEqual(movedPlayersMatch.teamAPlayers, originalMatchZero.teamAPlayers, 'Manual matchup edits should be ignored when the tee sheet still has the original foursome');
+  assert.deepStrictEqual(movedPlayersMatch.teamBPlayers, originalMatchZero.teamBPlayers, 'The saved Ryder Cup view should stay aligned to the tee sheet, not the posted payload order');
+  assert.strictEqual(movedPlayersMatch.teamAScore, null, 'Scores should not stay attached to a manually swapped match that is no longer on the tee sheet');
+  assert.strictEqual(movedPlayersMatch.teamBScore, null, 'Opponent scores should not stay attached to a manually swapped match that is no longer on the tee sheet');
+  assert.deepStrictEqual(movedPlayersMatchOne.teamAPlayers, originalMatchOne.teamAPlayers, 'Scores should land back on the tee-sheet-aligned Team A pairing');
+  assert.deepStrictEqual(movedPlayersMatchOne.teamBPlayers, originalMatchOne.teamBPlayers, 'Scores should land back on the tee-sheet-aligned Team B pairing');
+  assert.strictEqual(movedPlayersMatchOne.teamAHandicapAllowance, expectedMovedTeamAAllowance, 'Tee-sheet-aligned Team A golfers should still carry their 75% allowances');
+  assert.strictEqual(movedPlayersMatchOne.teamBHandicapAllowance, expectedMovedTeamBAllowance, 'Tee-sheet-aligned Team B golfers should still carry their 75% allowances');
+  assert.strictEqual(movedPlayersMatchOne.teamAScore, 150 - expectedMovedTeamAAllowance, 'Gross scores should reattach to the correct tee-sheet Team A pairing');
+  assert.strictEqual(movedPlayersMatchOne.teamBScore, 170 - expectedMovedTeamBAllowance, 'Gross scores should reattach to the correct tee-sheet Team B pairing');
+
+  const teeSheetSyncedTrip = makeEditableMyrtleTrip();
+  teeSheetSyncedTrip.rounds[0].teeTimes = makeTeeTimes([
+    ['Joe Gillette', 'Tommy Knight Sr', 'Chris Manuel', 'Marcus Ordonez'],
+    ['Josh Browne', 'Jeremy Bridges', 'John Quimby', 'Thomas Lasik'],
+    ['Matt Shannon', 'Tommy Knight', 'Caleb Hart', 'Manuel Ordonez'],
+    ['Dennis Freeman', 'Lance Darr', 'Delmar Christian', 'Duane Harris'],
+    ['Chad Jones', 'Chris Neff', 'John Hyers', 'Reny Butler'],
+  ]);
+  const { round: teeSheetSyncedRound, scoreByName: teeSheetRoundScores } = assignUniqueRyderCupScores(clone(teeSheetSyncedTrip.competition.ryderCup.rounds[0]));
+  setTripRyderCupRound(teeSheetSyncedTrip, 0, teeSheetSyncedRound);
+  const teeSheetSyncedView = buildTripCompetitionView(teeSheetSyncedTrip, myrtleParticipants);
+  const syncedTeamMatch = teeSheetSyncedView.ryderCup.rounds[0].matches[0];
+  assert.deepStrictEqual(syncedTeamMatch.teamAPlayers, ['Joe Gillette', 'Tommy Knight Sr'], 'Team-match pairings should follow the live tee sheet instead of stale saved matchups');
+  assert.deepStrictEqual(syncedTeamMatch.teamBPlayers, ['Chris Manuel', 'Marcus Ordonez'], 'Opponent sides should be rebuilt from the live tee sheet');
+  assert.deepStrictEqual(syncedTeamMatch.teamAPlayerScores, [teeSheetRoundScores.get('Joe Gillette'), teeSheetRoundScores.get('Tommy Knight Sr')], 'Saved gross scores should stay attached to the golfer after a tee-sheet move');
+  assert.deepStrictEqual(syncedTeamMatch.teamBPlayerScores, [teeSheetRoundScores.get('Chris Manuel'), teeSheetRoundScores.get('Marcus Ordonez')], 'Opponent gross scores should stay attached to the golfer after a tee-sheet move');
+
+  const teeSheetSinglesTrip = makeEditableMyrtleTrip();
+  teeSheetSinglesTrip.rounds[4].teeTimes = makeTeeTimes([
+    ['Joe Gillette', 'Duane Harris', 'Josh Browne', 'John Quimby'],
+    ['Jeremy Bridges', 'Manuel Ordonez', 'Tommy Knight', 'Reny Butler'],
+    ['Lance Darr', 'Caleb Hart', 'Tommy Knight Sr', 'Delmar Christian'],
+    ['Chris Neff', 'Marcus Ordonez', 'Dennis Freeman', 'Thomas Lasik'],
+    ['Chad Jones', 'Chris Manuel', 'Matt Shannon', 'John Hyers'],
+  ]);
+  const { round: teeSheetSinglesRound, scoreByName: teeSheetSinglesScores } = assignUniqueRyderCupScores(clone(teeSheetSinglesTrip.competition.ryderCup.rounds[4]));
+  setTripRyderCupRound(teeSheetSinglesTrip, 4, teeSheetSinglesRound);
+  const teeSheetSinglesView = buildTripCompetitionView(teeSheetSinglesTrip, myrtleParticipants);
+  const syncedSinglesMatchA = teeSheetSinglesView.ryderCup.rounds[4].matches[0];
+  const syncedSinglesMatchB = teeSheetSinglesView.ryderCup.rounds[4].matches[1];
+  assert.deepStrictEqual(syncedSinglesMatchA.teamAPlayers, ['Joe Gillette'], 'Singles should use the first Team A golfer in the scheduled foursome');
+  assert.deepStrictEqual(syncedSinglesMatchA.teamBPlayers, ['Duane Harris'], 'Singles should use the first Team B golfer in the scheduled foursome');
+  assert.deepStrictEqual(syncedSinglesMatchB.teamAPlayers, ['Josh Browne'], 'Singles should use the second Team A golfer in the scheduled foursome');
+  assert.deepStrictEqual(syncedSinglesMatchB.teamBPlayers, ['John Quimby'], 'Singles should use the second Team B golfer in the scheduled foursome');
+  assert.deepStrictEqual(syncedSinglesMatchA.teamAPlayerScores, [teeSheetSinglesScores.get('Joe Gillette')], 'Singles gross scores should stay tied to the golfer after the tee sheet changes');
+  assert.deepStrictEqual(syncedSinglesMatchB.teamBPlayerScores, [teeSheetSinglesScores.get('John Quimby')], 'Singles opponent gross scores should stay tied to the golfer after the tee sheet changes');
+
+  const invalidScheduleTrip = makeEditableMyrtleTrip();
+  invalidScheduleTrip.rounds[0].teeTimes = makeTeeTimes([
+    ['Joe Gillette', 'Jeremy Bridges', 'Duane Harris'],
+    ['Josh Browne', 'Chris Neff', 'Chris Manuel', 'Delmar Christian', 'John Quimby'],
+    ['Lance Darr', 'Tommy Knight', 'John Hyers', 'Marcus Ordonez'],
+    ['Dennis Freeman', 'Chad Jones', 'Caleb Hart', 'Thomas Lasik'],
+    ['Matt Shannon', 'Tommy Knight Sr', 'Reny Butler', 'Manuel Ordonez'],
+  ]);
+  const invalidScheduleRound = clone(invalidScheduleTrip.competition.ryderCup.rounds[0]);
+  assert.throws(
+    () => setTripRyderCupRound(invalidScheduleTrip, 0, invalidScheduleRound),
+    /Fix the scheduled foursomes before saving Ryder Cup scores/i,
+    'Invalid tee-sheet group sizes should block Ryder Cup score saves instead of falling back to stale pairings',
+  );
+  const invalidScheduleView = buildTripCompetitionView(invalidScheduleTrip, myrtleParticipants);
+  assert.strictEqual(invalidScheduleView.ryderCup.rounds[0].scheduleSync.status, 'invalid', 'Invalid tee sheets should be flagged in the Ryder Cup round view');
+  assert.match(invalidScheduleView.ryderCup.rounds[0].scheduleSync.issues[0], /should have 4 golfers|should have 2/i, 'Invalid tee sheets should explain the schedule-sync problem');
 
   const singlesTieTrip = makeEditableMyrtleTrip();
   const singlesTieRound = clone(singlesTieTrip.competition.ryderCup.rounds[4]);

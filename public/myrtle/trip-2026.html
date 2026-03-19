@@ -2437,6 +2437,30 @@
         })
         .filter(Boolean);
     };
+    const buildRyderCupBirdieCountSummary = (entries = []) => {
+      const rows = (Array.isArray(entries) ? entries : [])
+        .map((entry) => ({
+          playerName: String(entry && entry.playerName || '').trim(),
+          count: Math.max(0, Math.round(Number(entry && entry.count) || 0)),
+        }))
+        .filter((entry) => entry.playerName && entry.count > 0)
+        .sort((left, right) => {
+          if (right.count !== left.count) return right.count - left.count;
+          return left.playerName.localeCompare(right.playerName);
+        });
+      const highestCount = rows.length ? rows[0].count : 0;
+      const leaders = highestCount > 0
+        ? rows.filter((entry) => entry.count === highestCount).map((entry) => entry.playerName)
+        : [];
+      return {
+        rows,
+        highestCount: highestCount || null,
+        leaders,
+        label: leaders.length
+          ? `${leaders.join(', ')} · ${highestCount} ${highestCount === 1 ? 'birdie' : 'birdies'}`
+          : 'Pending',
+      };
+    };
     const RYDER_CUP_PLAY_STYLE_OPTIONS = [
       'Two-Man Net Total Match (75%)',
       'Singles Net Total Match (75%)'
@@ -2451,41 +2475,44 @@
       if (!Number.isInteger(index) || index < 0) return null;
       return getRyderCupRounds()[index] || null;
     };
+    const buildRyderCupTeamMetaFromOverlay = (overlay = null) => {
+      if (!overlay) return null;
+      return {
+        teamA: {
+          id: 'teamA',
+          name: String(overlay.teamAName || 'Team A').trim() || 'Team A',
+          players: Array.isArray(overlay.teamAPlayers)
+            ? overlay.teamAPlayers.map((player) => ({
+                name: String(player && player.name || '').trim(),
+                rank: Number.isFinite(Number(player && player.seedRank)) ? Math.round(Number(player && player.seedRank)) : null,
+                handicapIndex: parseHandicapValue(player && player.handicapIndex),
+                matchHandicap: getTripRyderCupMatchAllowance(player && player.handicapIndex),
+              })).filter((player) => player.name)
+            : [],
+        },
+        teamB: {
+          id: 'teamB',
+          name: String(overlay.teamBName || 'Team B').trim() || 'Team B',
+          players: Array.isArray(overlay.teamBPlayers)
+            ? overlay.teamBPlayers.map((player) => ({
+                name: String(player && player.name || '').trim(),
+                rank: Number.isFinite(Number(player && player.seedRank)) ? Math.round(Number(player && player.seedRank)) : null,
+                handicapIndex: parseHandicapValue(player && player.handicapIndex),
+                matchHandicap: getTripRyderCupMatchAllowance(player && player.handicapIndex),
+              })).filter((player) => player.name)
+            : [],
+        },
+      };
+    };
     const getRyderCupTeamMeta = () => {
+      const activeOverlay = getActiveTripRyderCupData();
+      const activeOverlayMeta = buildRyderCupTeamMetaFromOverlay(activeOverlay);
+      if (activeOverlayMeta) return activeOverlayMeta;
       const teams = Array.isArray(getRyderCupData()?.teams) ? getRyderCupData().teams : [];
       if (teams.length) {
         return {
           teamA: teams.find((team) => String(team && team.id || '').trim().toLowerCase() === 'teama') || teams[0] || { id: 'teamA', name: 'Team A', players: [] },
           teamB: teams.find((team) => String(team && team.id || '').trim().toLowerCase() === 'teamb') || teams[1] || { id: 'teamB', name: 'Team B', players: [] },
-        };
-      }
-      const overlay = getTripRyderCupData();
-      if (overlay) {
-        return {
-          teamA: {
-            id: 'teamA',
-            name: String(overlay.teamAName || 'Team A').trim() || 'Team A',
-            players: Array.isArray(overlay.teamAPlayers)
-              ? overlay.teamAPlayers.map((player) => ({
-                  name: String(player && player.name || '').trim(),
-                  rank: Number.isFinite(Number(player && player.seedRank)) ? Math.round(Number(player.seedRank)) : null,
-                  handicapIndex: parseHandicapValue(player && player.handicapIndex),
-                  matchHandicap: getTripRyderCupMatchAllowance(player && player.handicapIndex),
-                })).filter((player) => player.name)
-              : [],
-          },
-          teamB: {
-            id: 'teamB',
-            name: String(overlay.teamBName || 'Team B').trim() || 'Team B',
-            players: Array.isArray(overlay.teamBPlayers)
-              ? overlay.teamBPlayers.map((player) => ({
-                  name: String(player && player.name || '').trim(),
-                  rank: Number.isFinite(Number(player && player.seedRank)) ? Math.round(Number(player.seedRank)) : null,
-                  handicapIndex: parseHandicapValue(player && player.handicapIndex),
-                  matchHandicap: getTripRyderCupMatchAllowance(player && player.handicapIndex),
-                })).filter((player) => player.name)
-              : [],
-          },
         };
       }
       return {
@@ -2614,22 +2641,14 @@
       const roundIndex = Number(roundContainer && roundContainer.dataset.ryderRoundIndex);
       const round = getRyderCupRoundMeta(roundIndex) || {};
       const pointValue = Number.isFinite(Number(round.pointValue)) ? Number(round.pointValue) : 1;
-      const scoreMap = roundContainer ? buildRyderCupRoundScoreMap(roundContainer) : new Map();
       ['teamA', 'teamB'].forEach((sideKey) => {
-        const playerSelects = Array.from(card.querySelectorAll(`[data-ryder-team-player="${sideKey}"]`))
-          .sort((left, right) => Number(left.dataset.playerSlot || 0) - Number(right.dataset.playerSlot || 0));
-        playerSelects.forEach((select, slotIndex) => {
-          const field = card.querySelector(`[data-ryder-score-field="${sideKey}"][data-score-slot="${slotIndex}"]`);
-          const input = field ? field.querySelector('[data-ryder-player-score]') : null;
+        const fields = Array.from(card.querySelectorAll(`[data-ryder-score-field="${sideKey}"]`))
+          .sort((left, right) => Number(left.dataset.scoreSlot || 0) - Number(right.dataset.scoreSlot || 0));
+        fields.forEach((field) => {
+          const input = field.querySelector('[data-ryder-player-score]');
           if (!field || !input) return;
-          const playerName = String(select.value || '').trim();
+          const playerName = String(input.dataset.ryderPlayerName || '').trim();
           const playerMeta = getRyderCupPlayerMetaByName(playerName) || {};
-          const currentPlayerName = String(input.dataset.ryderPlayerName || '').trim();
-          if (!namesMatch(currentPlayerName, playerName)) {
-            const mappedScore = getRyderCupScoreMapValue(scoreMap, playerName);
-            input.value = Number.isFinite(mappedScore) ? String(mappedScore) : '';
-          }
-          input.dataset.ryderPlayerName = playerName;
           const nameEl = field.querySelector('[data-ryder-score-player-name]');
           const hcpEl = field.querySelector('[data-ryder-score-hcp]');
           const allowanceEl = field.querySelector('[data-ryder-score-allowance]');
@@ -2726,6 +2745,9 @@
       const round = getRyderCupRoundMeta(roundIndex);
       const roundContainer = getRyderCupRoundContainer(roundIndex);
       if (!round || !roundContainer || !isRyderCupGrossTotalFormat(round)) return;
+      const scheduleSync = round && round.scheduleSync && typeof round.scheduleSync === 'object' ? round.scheduleSync : null;
+      const scheduleSyncIssues = scheduleSync && Array.isArray(scheduleSync.issues) ? scheduleSync.issues.filter(Boolean) : [];
+      const scheduleSyncInvalid = Boolean(scheduleSync && String(scheduleSync.status || '').toLowerCase() === 'invalid');
       const pointValue = Number.isFinite(Number(round.pointValue)) ? Number(round.pointValue) : 1;
       const liveStates = Array.from(roundContainer.querySelectorAll('[data-ryder-match-index]')).map((card) => syncRyderCupMatchCard(card)).filter(Boolean);
       const progressEl = roundContainer.querySelector('[data-ryder-round-progress]');
@@ -2739,8 +2761,8 @@
       const allPlayers = getRyderCupTeamPlayerNames(teamA).concat(getRyderCupTeamPlayerNames(teamB));
       const countsByKey = new Map();
       const nameByKey = new Map();
-      Array.from(roundContainer.querySelectorAll('[data-ryder-team-player]')).forEach((select) => {
-        const playerName = String(select.value || '').trim();
+      Array.from(roundContainer.querySelectorAll('[data-ryder-player-score]')).forEach((input) => {
+        const playerName = String(input.dataset.ryderPlayerName || '').trim();
         const comparableKey = getComparableNameKey(playerName) || normalizeNameKey(playerName);
         if (!comparableKey) return;
         countsByKey.set(comparableKey, (countsByKey.get(comparableKey) || 0) + 1);
@@ -2754,19 +2776,22 @@
         return comparableKey && !countsByKey.has(comparableKey);
       });
       if (assignmentEl) {
-        if (!duplicateNames.length && !missingNames.length) {
-          assignmentEl.textContent = `Assignments good: all ${allPlayers.length} golfers used once`;
+        if (scheduleSyncInvalid) {
+          assignmentEl.textContent = `Fix schedule sync: ${scheduleSyncIssues[0] || 'The tee sheet does not match the Ryder Cup format.'}`;
+        } else if (!duplicateNames.length && !missingNames.length) {
+          assignmentEl.textContent = `Schedule sync good: all ${allPlayers.length} golfers used once`;
         } else {
           const issues = [];
           if (duplicateNames.length) issues.push(`duplicate ${formatRyderCupNameList(duplicateNames)}`);
           if (missingNames.length) issues.push(`missing ${formatRyderCupNameList(missingNames)}`);
-          assignmentEl.textContent = `Check assignments: ${issues.join(' · ')}`;
+          assignmentEl.textContent = `Check schedule sync: ${issues.join(' · ')}`;
         }
       }
       let roundPointsA = 0;
       let roundPointsB = 0;
       let pendingMatches = 0;
       liveStates.forEach((state) => {
+        if (scheduleSyncInvalid) return;
         if (!state || !state.complete) {
           pendingMatches += 1;
           return;
@@ -2779,15 +2804,90 @@
         }
       });
       if (resultEl) {
-        resultEl.textContent = liveStates.length
+        resultEl.textContent = scheduleSyncInvalid
+          ? 'Scoring blocked until the scheduled foursomes match the Ryder Cup format'
+          : liveStates.length
           ? `Live round ${teamA.name || 'Team A'} ${formatCompetitionPoints(roundPointsA)} / ${teamB.name || 'Team B'} ${formatCompetitionPoints(roundPointsB)}${pendingMatches ? ` · ${pendingMatches} pending` : ' · complete'}`
           : 'Live round pending';
       }
+      const pointsAvailable = ((Array.isArray(round.matches) ? round.matches.length : liveStates.length) || 0) * pointValue;
+      return {
+        roundIndex,
+        roundPointsA,
+        roundPointsB,
+        pointsAvailable,
+        remainingPoints: scheduleSyncInvalid ? pointsAvailable : (pendingMatches * pointValue),
+      };
+    }
+    function buildSavedRyderCupRoundState(round = {}, roundIndex = 0) {
+      const pointValue = Number.isFinite(Number(round && round.pointValue)) ? Number(round.pointValue) : 1;
+      if (isRyderCupTeamRound(round)) {
+        const resultKey = String(round?.roundScore?.result || '').trim().toLowerCase();
+        const roundPointsA = resultKey === 'teama' ? pointValue : (resultKey === 'halved' ? pointValue / 2 : 0);
+        const roundPointsB = resultKey === 'teamb' ? pointValue : (resultKey === 'halved' ? pointValue / 2 : 0);
+        return {
+          roundIndex,
+          roundPointsA,
+          roundPointsB,
+          pointsAvailable: pointValue,
+          remainingPoints: resultKey ? 0 : pointValue,
+        };
+      }
+      const roundPointsA = Number.isFinite(Number(round && round.roundPointsA)) ? Number(round.roundPointsA) : 0;
+      const roundPointsB = Number.isFinite(Number(round && round.roundPointsB)) ? Number(round.roundPointsB) : 0;
+      const pointsAvailable = ((Array.isArray(round && round.matches) ? round.matches.length : 0) || 0) * pointValue;
+      return {
+        roundIndex,
+        roundPointsA,
+        roundPointsB,
+        pointsAvailable,
+        remainingPoints: Math.max(0, pointsAvailable - roundPointsA - roundPointsB),
+      };
+    }
+    function formatRyderCupStandingsStatus(teamA = {}, teamB = {}, teamAPoints = 0, teamBPoints = 0, remainingPoints = 0) {
+      if (teamAPoints === teamBPoints) return 'Match is tied';
+      const lead = Math.abs(teamAPoints - teamBPoints);
+      const leaderName = teamAPoints > teamBPoints ? (teamA.name || 'Team A') : (teamB.name || 'Team B');
+      return lead > remainingPoints
+        ? `${leaderName} leads by ${lead} point${lead === 1 ? '' : 's'} and has clinched`
+        : `${leaderName} leads by ${lead} point${lead === 1 ? '' : 's'}`;
+    }
+    function syncRyderCupRoundRunningDisplay(roundIndex, summary = {}, runningPointsA = 0, runningPointsB = 0) {
+      const roundContainer = getRyderCupRoundContainer(roundIndex);
+      if (!roundContainer) return;
+      const { teamA, teamB } = getRyderCupTeamMeta();
+      const roundAEl = roundContainer.querySelector('[data-ryder-round-points="teamA"]');
+      const roundBEl = roundContainer.querySelector('[data-ryder-round-points="teamB"]');
+      const runningEl = roundContainer.querySelector('[data-ryder-round-running-total]');
+      if (roundAEl) roundAEl.textContent = `${teamA.name || 'Team A'} ${formatCompetitionPoints(summary.roundPointsA || 0)}`;
+      if (roundBEl) roundBEl.textContent = `${teamB.name || 'Team B'} ${formatCompetitionPoints(summary.roundPointsB || 0)}`;
+      if (runningEl) runningEl.textContent = `Running ${teamA.name || 'Team A'} ${formatCompetitionPoints(runningPointsA)} / ${teamB.name || 'Team B'} ${formatCompetitionPoints(runningPointsB)}`;
+    }
+    function syncRyderCupQuickStatusDisplay(teamAPoints = 0, teamBPoints = 0, remainingPoints = 0) {
+      const { teamA, teamB } = getRyderCupTeamMeta();
+      const teamAEl = document.querySelector('[data-ryder-quick-points="teamA"]');
+      const teamBEl = document.querySelector('[data-ryder-quick-points="teamB"]');
+      const remainingEl = document.querySelector('[data-ryder-quick-remaining]');
+      const statusEl = document.querySelector('[data-ryder-quick-status]');
+      if (teamAEl) teamAEl.textContent = `${teamA.name || 'Team A'} ${formatCompetitionPoints(teamAPoints)}`;
+      if (teamBEl) teamBEl.textContent = `${teamB.name || 'Team B'} ${formatCompetitionPoints(teamBPoints)}`;
+      if (remainingEl) remainingEl.textContent = `${formatCompetitionPoints(remainingPoints)} points left`;
+      if (statusEl) statusEl.textContent = formatRyderCupStandingsStatus(teamA, teamB, teamAPoints, teamBPoints, remainingPoints);
     }
     function syncAllRyderCupRoundEditors() {
+      let runningPointsA = 0;
+      let runningPointsB = 0;
+      let remainingPoints = 0;
       getRyderCupRounds().forEach((round, roundIndex) => {
-        if (isRyderCupGrossTotalFormat(round)) syncRyderCupRoundEditor(roundIndex);
+        const summary = isRyderCupGrossTotalFormat(round)
+          ? (syncRyderCupRoundEditor(roundIndex) || buildSavedRyderCupRoundState(round, roundIndex))
+          : buildSavedRyderCupRoundState(round, roundIndex);
+        runningPointsA += summary.roundPointsA || 0;
+        runningPointsB += summary.roundPointsB || 0;
+        remainingPoints += summary.remainingPoints || 0;
+        syncRyderCupRoundRunningDisplay(roundIndex, summary, runningPointsA, runningPointsB);
       });
+      syncRyderCupQuickStatusDisplay(runningPointsA, runningPointsB, remainingPoints);
     }
     function buildTripRyderCupSlotGuide(roundIndex, slot = {}, slotIndex = 0) {
       const ryderRound = getRyderCupRoundMeta(roundIndex);
@@ -3767,7 +3867,7 @@
         }
         tripTeeSheetState.isSaving = true;
         await updateTrip({ rounds: result.rounds });
-        renderItinerary();
+        await loadTrip();
       } catch (error) {
         alert(error && error.message ? error.message : 'Failed to move golfer.');
       } finally {
@@ -3786,7 +3886,7 @@
         }
         tripTeeSheetState.isSaving = true;
         await updateTrip({ rounds: result.rounds });
-        renderItinerary();
+        await loadTrip();
       } catch (error) {
         alert(error && error.message ? error.message : 'Failed to move foursome.');
       } finally {
@@ -3899,38 +3999,6 @@
       return round;
     }
 
-    function renderCompetitionOverview(overview = {}) {
-      return `
-        <div class="competition-overview-grid">
-          <div class="competition-stat">
-            <span class="competition-note">Match scoring</span>
-            <strong>Own-Ball 75% Handicap</strong>
-            <span class="competition-note">Every golfer keeps his own score. Enter gross totals once, then 75% handicaps resolve the two-man and singles matches on net.</span>
-          </div>
-          <div class="competition-stat">
-            <span class="competition-note">Allowed formats</span>
-            <div class="competition-stat-value">Two-Man / Singles</div>
-            <span class="competition-note">Only the simple fair formats stay in play. No alternate shot, scramble, or shared-ball scoring.</span>
-          </div>
-          <div class="competition-stat">
-            <span class="competition-note">Players</span>
-            <div class="competition-stat-value">${escapeHtml(String(overview.playerCount || 0))}</div>
-            <span class="competition-note">Full Myrtle Ryder Cup field.</span>
-          </div>
-          <div class="competition-stat">
-            <span class="competition-note">Rounds</span>
-            <div class="competition-stat-value">${escapeHtml(String(overview.roundCount || 0))}</div>
-            <span class="competition-note">Five seeded Myrtle Ryder Cup rounds.</span>
-          </div>
-        </div>
-        <div class="competition-admin-card">
-          <strong>How This Myrtle Trip Runs</strong>
-          <div class="competition-note">${escapeHtml(overview.formatSummary || 'Daily Myrtle Ryder Cup matches use one gross total per golfer, then apply a fixed 75% handicap allowance and award each match to the lower net side.')}</div>
-          <div class="competition-note">${escapeHtml(overview.sideGamesSummary || 'Use the Myrtle Ryder Cup section for the trip side games and payout tracking.')}</div>
-        </div>
-      `;
-    }
-
     function renderCompetitionLeaderboard(leaderboard = []) {
       return '';
     }
@@ -3953,19 +4021,16 @@
       return `
         <div class="competition-admin-card">
           <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-            <strong>Daily Round Plan</strong>
-            <span class="competition-note">Full foursome plan for all 20 players. Use the matchup controls below when the round needs pair edits.</span>
+            <strong>Scheduled Foursomes</strong>
+            <span class="competition-note">These matchups stay synced to the live schedule above. This page is only for score entry.</span>
           </div>
-          <label>
-            <span>Day note</span>
-            <input type="text" data-ryder-plan-day-note value="${quoteAttr(plan.dayNote || '')}" placeholder="Optional round note">
-          </label>
+          ${plan.dayNote ? `<div class="competition-note">${escapeHtml(plan.dayNote)}</div>` : ''}
           <div class="ryder-plan-grid">
             ${groups.map((group) => `
-              <div class="ryder-plan-card" data-ryder-plan-group="${escapeHtml(String(group.groupNumber || ''))}">
+              <div class="ryder-plan-card">
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
                   <strong>${escapeHtml(group.label || `Foursome ${group.groupNumber || ''}`)}</strong>
-                  <span class="competition-pill">${escapeHtml(String((group.players || []).length || 0))} golfers</span>
+                  <span class="competition-pill">${escapeHtml(group.playStyle || round.format || 'Ryder Cup')}</span>
                 </div>
                 <div class="competition-pill-row">
                   ${(group.players || []).map((name) => `<span class="competition-pill">${escapeHtml(name)}</span>`).join('') || '<span class="competition-empty">No golfers in this foursome yet.</span>'}
@@ -3981,16 +4046,7 @@
                     : `<div class="ryder-plan-line"><strong>${escapeHtml(teamA.name || 'Team A')}</strong><span>${escapeHtml((group.teamAPlayers || []).join(', ') || 'Not assigned')}</span></div>
                        <div class="ryder-plan-line"><strong>${escapeHtml(teamB.name || 'Team B')}</strong><span>${escapeHtml((group.teamBPlayers || []).join(', ') || 'Not assigned')}</span></div>`}
                 </div>
-                <label>
-                  <span>Play style</span>
-                  <select data-ryder-plan-style>
-                    ${RYDER_CUP_PLAY_STYLE_OPTIONS.map((option) => `<option value="${quoteAttr(option)}"${coerceRyderCupPlayStyle(group.playStyle, round.format) === option ? ' selected' : ''}>${escapeHtml(option)}</option>`).join('')}
-                  </select>
-                </label>
-                <label>
-                  <span>Group note</span>
-                  <input type="text" data-ryder-plan-note value="${quoteAttr(group.notes || '')}" placeholder="Own-ball pod note, cart note, side game note">
-                </label>
+                ${group.notes ? `<div class="competition-note">${escapeHtml(group.notes)}</div>` : ''}
               </div>
             `).join('')}
           </div>
@@ -4013,7 +4069,6 @@
               <span class="ryder-score-field-name" data-ryder-score-player-name>${escapeHtml(playerName)}</span>
               <span class="ryder-score-field-badges">
                 <span class="competition-pill" data-ryder-score-hcp>Hcp ${escapeHtml(formatHandicapDisplay(playerMeta.handicapIndex))}</span>
-                <span class="competition-pill" data-ryder-score-allowance>75% ${escapeHtml(String(allowance))}</span>
                 <span class="competition-pill" data-ryder-score-strokes>${escapeHtml(`Gets ${allowance} strokes`)}</span>
               </span>
             </span>
@@ -4025,10 +4080,9 @@
       return `
         <div class="competition-admin-card ryder-score-entry-card" style="grid-column:1/-1;">
           <div class="ryder-score-entry-head">
-            <strong>${escapeHtml('Daily gross totals with 75% handicap')}</strong>
-            <span class="competition-note">${escapeHtml('Scores stay attached to the golfer if you move players between matches.')}</span>
+            <strong>${escapeHtml('Enter Gross Scores')}</strong>
+            <span class="competition-note">${escapeHtml('Net scores and points update automatically.')}</span>
           </div>
-          <div class="competition-note">${escapeHtml(singles ? 'Enter gross totals only. Each player gets his own fixed 75% handicap strokes, and the lower net score wins the point.' : 'Enter gross totals only. Each player gets his own fixed 75% handicap strokes, and the lower combined net side wins the point.')}</div>
           <div class="ryder-score-entry-grid">
             ${Array.from({ length: singles ? 1 : 2 }, (_, slotIndex) => renderGrossTotalField('teamA', teamA, teamAPlayerScores, slotIndex)).join('')}
             ${Array.from({ length: singles ? 1 : 2 }, (_, slotIndex) => renderGrossTotalField('teamB', teamB, teamBPlayerScores, slotIndex)).join('')}
@@ -4089,10 +4143,10 @@
       const rounds = Array.isArray(ryderCup.rounds) ? ryderCup.rounds : [];
       const { teamA, teamB } = getRyderCupTeamMeta();
       return `
-        <details class="competition-section">
+        <details class="competition-section" open>
           <summary>
-            <span>Rounds</span>
-            <span class="competition-note">Five rounds. Enter gross scores once and 75% handicaps resolve the net matches.</span>
+            <span>Round Scores</span>
+            <span class="competition-note">Enter gross scores and save each round.</span>
           </summary>
           <div class="competition-section-body">
             <div class="competition-round-grid">
@@ -4100,6 +4154,9 @@
                 const singles = String(round.format || '').toLowerCase().includes('singles');
                 const teamRound = isRyderCupTeamRound(round);
                 const grossTotalFormat = isRyderCupGrossTotalFormat(round);
+                const scheduleSync = round && round.scheduleSync && typeof round.scheduleSync === 'object' ? round.scheduleSync : null;
+                const roundSyncIssues = scheduleSync && Array.isArray(scheduleSync.issues) ? scheduleSync.issues.filter(Boolean) : [];
+                const roundSyncInvalid = grossTotalFormat && Boolean(scheduleSync && String(scheduleSync.status || '').toLowerCase() === 'invalid');
                 return `
                   <details class="competition-section"${roundIndex === 0 ? ' open' : ''}>
                     <summary>
@@ -4109,25 +4166,23 @@
                     <div class="competition-section-body ryder-round-card" data-ryder-round-index="${escapeHtml(String(roundIndex))}">
                       <div class="ryder-round-head">
                         <div class="ryder-round-running">
-                          <span>${escapeHtml(teamA.name)} ${escapeHtml(formatCompetitionPoints(round.roundPointsA || 0))}</span>
-                          <span>${escapeHtml(teamB.name)} ${escapeHtml(formatCompetitionPoints(round.roundPointsB || 0))}</span>
-                          <span>Running ${escapeHtml(teamA.name)} ${escapeHtml(formatCompetitionPoints(round.runningPointsA || 0))} / ${escapeHtml(teamB.name)} ${escapeHtml(formatCompetitionPoints(round.runningPointsB || 0))}</span>
+                          <span data-ryder-round-points="teamA">${escapeHtml(teamA.name)} ${escapeHtml(formatCompetitionPoints(round.roundPointsA || 0))}</span>
+                          <span data-ryder-round-points="teamB">${escapeHtml(teamB.name)} ${escapeHtml(formatCompetitionPoints(round.roundPointsB || 0))}</span>
+                          <span data-ryder-round-running-total>Running ${escapeHtml(teamA.name)} ${escapeHtml(formatCompetitionPoints(round.runningPointsA || 0))} / ${escapeHtml(teamB.name)} ${escapeHtml(formatCompetitionPoints(round.runningPointsB || 0))}</span>
                         </div>
-                        <button class="small" type="button" data-save-ryder-round="${escapeHtml(String(roundIndex))}">Save ${escapeHtml(round.title || `Round ${roundIndex + 1}`)}</button>
+                        <button class="small" type="button" data-save-ryder-round="${escapeHtml(String(roundIndex))}"${roundSyncInvalid ? ' disabled' : ''}${roundSyncInvalid && roundSyncIssues[0] ? ` title="${quoteAttr(roundSyncIssues[0])}"` : ''}>Save ${escapeHtml(round.title || `Round ${roundIndex + 1}`)}</button>
                       </div>
                       <div class="ryder-round-intro">
-                        <strong>${escapeHtml(round.description || 'Own-ball team competition round.')}</strong>
-                        <div class="competition-note">${escapeHtml(round.entrySummary || 'Enter the matchup result for the round.')}</div>
-                        ${grossTotalFormat ? `<div class="competition-note">Use this round card as the daily scorer: enter each golfer's gross total once, save the round, and the 75% handicap net match winners will resolve automatically.</div>` : ''}
+                        <div class="competition-note">${escapeHtml(grossTotalFormat ? 'Enter every golfer’s gross score, then save the round.' : 'Update the round result and save.')}</div>
+                        ${roundSyncInvalid ? `<div class="competition-empty">Scoring is blocked until the tee sheet matches the Ryder Cup format. ${escapeHtml(roundSyncIssues[0] || 'Fix the scheduled foursomes first.')}</div>` : ''}
                       </div>
                       ${grossTotalFormat ? `
                         <div class="ryder-round-live-strip">
                           <span class="competition-pill" data-ryder-round-progress>0/0 gross scores entered</span>
-                          <span class="competition-pill" data-ryder-round-assignment>Assignments loading</span>
+                          <span class="competition-pill" data-ryder-round-assignment>Schedule sync loading</span>
                           <span class="competition-pill" data-ryder-round-result>Live round pending</span>
                         </div>
                       ` : ''}
-                      ${renderRyderCupRoundPlan(round, teamA, teamB)}
                       ${teamRound ? renderRyderCupTeamRoundScore(round, teamA, teamB) : `
                       <div class="competition-match-grid">
                         ${(round.matches || []).map((match, matchIndex) => `
@@ -4137,7 +4192,11 @@
                               <span class="competition-note">${singles ? `Foursome ${escapeHtml(String(match.groupNumber || matchIndex + 1))}` : `${escapeHtml(formatCompetitionPoints(round.pointValue || 1))} point match`}</span>
                             </div>
                             <div class="ryder-match-editor-grid">
-                              ${Array.from({ length: singles ? 1 : 2 }, (_, slotIndex) => `
+                              ${grossTotalFormat ? `
+                                <div class="competition-admin-card" style="grid-column:1/-1;">
+                                  <strong>${escapeHtml(`${(match.teamAPlayers || []).join(', ') || teamA.name || 'Team A'} vs ${(match.teamBPlayers || []).join(', ') || teamB.name || 'Team B'}`)}</strong>
+                                </div>
+                              ` : `${Array.from({ length: singles ? 1 : 2 }, (_, slotIndex) => `
                                 <label>
                                   <span>${escapeHtml(teamA.name)} ${singles ? 'Player' : `Player ${slotIndex + 1}`}</span>
                                   <select data-ryder-team-player="teamA" data-player-slot="${escapeHtml(String(slotIndex))}">
@@ -4152,7 +4211,7 @@
                                     ${teamB.players.map((player) => `<option value="${quoteAttr(player.name)}"${(match.teamBPlayers || [])[slotIndex] === player.name ? ' selected' : ''}>${escapeHtml(player.name)}${getRyderCupPlayerMetaParts(player).length ? ` (${escapeHtml(getRyderCupPlayerMetaParts(player).join(' · '))})` : ''}</option>`).join('')}
                                   </select>
                                 </label>
-                              `).join('')}
+                              `).join('')}`}
                               ${renderRyderCupMatchScoreFields(round, match, teamA, teamB, singles)}
                               ${grossTotalFormat ? '' : `
                               <label>
@@ -4164,11 +4223,11 @@
                                   <option value="halved"${match.enteredResult === 'halved' ? ' selected' : ''}>Halved</option>
                                 </select>
                               </label>
-                              `}
                               <label style="grid-column:1/-1;">
                                 <span>Notes</span>
                                 <textarea data-ryder-note placeholder="Optional admin note">${escapeHtml(match.notes || '')}</textarea>
                               </label>
+                              `}
                             </div>
                             <div class="ryder-inline-meta">
                               ${grossTotalFormat
@@ -4197,11 +4256,52 @@
       const sideGames = ryderCup.sideGames || {};
       const payout = ryderCup.payout || {};
       const standings = ryderCup.standings || {};
+      const renderDailyBirdiePotCards = (entries = [], options = {}) => {
+        const fieldKey = String(options.fieldKey || '').trim();
+        const title = String(options.title || 'Daily Birdie Pot').trim();
+        const note = String(options.note || 'Enter one line per player: Player | count.').trim();
+        const placeholder = String(options.placeholder || 'Joe Gillette | 2').trim();
+        return `
+          <div class="competition-sidegame-card" style="grid-column:1/-1;">
+            <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+              <strong>${escapeHtml(title)}</strong>
+              <span class="competition-note">${escapeHtml(note)}</span>
+            </div>
+            <div class="ryder-daily-grid">
+              ${(entries || []).map((entry, index) => {
+                const summary = buildRyderCupBirdieCountSummary(entry.counts || []);
+                return `
+                  <div class="competition-admin-card" data-ryder-daily-birdie-pot-index="${escapeHtml(String(index))}" data-ryder-daily-birdie-pot-kind="${escapeHtml(fieldKey)}">
+                    <strong>${escapeHtml(entry.label || `Round ${index + 1} ${title}`)}</strong>
+                    <div class="competition-note">Leaders: ${escapeHtml(summary.label)}</div>
+                    <label>
+                      <span>Birdies</span>
+                      <textarea data-ryder-daily-birdie-pot-counts placeholder="${quoteAttr(placeholder)}">${escapeHtml(formatRyderCupBirdieCounts(entry.counts || []))}</textarea>
+                    </label>
+                    <label>
+                      <span>Manual winners override</span>
+                      <input type="text" data-ryder-daily-birdie-pot-winners value="${quoteAttr(formatWinnerList(entry.manualOverride ? entry.winnerNames : []))}" placeholder="Comma-separated winners">
+                    </label>
+                    <label>
+                      <span>Amount</span>
+                      <input type="number" step="0.01" data-ryder-daily-birdie-pot-amount value="${entry.amount === null || entry.amount === undefined ? '' : escapeHtml(String(entry.amount))}" placeholder="0">
+                    </label>
+                    <label>
+                      <span>Notes</span>
+                      <input type="text" data-ryder-daily-birdie-pot-notes value="${quoteAttr(entry.notes || '')}" placeholder="Optional note">
+                    </label>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
+        `;
+      };
       return `
         <details class="competition-section">
           <summary>
-            <span>Side Games And Payout</span>
-            <span class="competition-note">Daily net, Secret Snowman, birdies, CTP, MVP, and the trip pot</span>
+            <span>Prizes And Payout</span>
+            <span class="competition-note">Daily net, birdies, net birdies, last-hole putt, CTP, MVP, and the trip pot</span>
           </summary>
           <div class="competition-section-body">
             <div class="ryder-sidegame-grid">
@@ -4231,6 +4331,47 @@
                   `).join('')}
                 </div>
               </div>
+              ${renderDailyBirdiePotCards(sideGames.dailyBirdiePot || [], {
+                fieldKey: 'dailyBirdiePot',
+                title: 'Daily Birdie Pot',
+                note: 'One round card per day. Enter gross birdies by player as Player | count.',
+                placeholder: 'Joe Gillette | 2&#10;John Quimby | 1',
+              })}
+              ${renderDailyBirdiePotCards(sideGames.dailyNetBirdiePot || [], {
+                fieldKey: 'dailyNetBirdiePot',
+                title: 'Daily Net Birdie Pot',
+                note: 'One round card per day. Enter net birdies by player as Player | count.',
+                placeholder: 'Joe Gillette | 3&#10;John Quimby | 1',
+              })}
+              <div class="competition-sidegame-card" style="grid-column:1/-1;">
+                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+                  <strong>Longest Made Putt On Last Hole</strong>
+                  <span class="competition-note">Manual daily side prize, one winner block per round.</span>
+                </div>
+                <div class="ryder-daily-grid">
+                  ${(sideGames.dailyLongestPuttLastHole || []).map((entry, index) => `
+                    <div class="competition-admin-card" data-ryder-last-hole-putt-index="${escapeHtml(String(index))}">
+                      <strong>${escapeHtml(entry.label || `Round ${index + 1} Longest Made Putt on Last Hole`)}</strong>
+                      <label>
+                        <span>Winners</span>
+                        <input type="text" data-ryder-last-hole-putt-winners value="${quoteAttr(formatWinnerList(entry.winnerNames || []))}" placeholder="Comma-separated winners">
+                      </label>
+                      <label>
+                        <span>Made putt</span>
+                        <input type="text" data-ryder-last-hole-putt-distance value="${quoteAttr(entry.distance || '')}" placeholder="18 ft 4 in">
+                      </label>
+                      <label>
+                        <span>Amount</span>
+                        <input type="number" step="0.01" data-ryder-last-hole-putt-amount value="${entry.amount === null || entry.amount === undefined ? '' : escapeHtml(String(entry.amount))}" placeholder="0">
+                      </label>
+                      <label>
+                        <span>Notes</span>
+                        <input type="text" data-ryder-last-hole-putt-notes value="${quoteAttr(entry.notes || '')}" placeholder="Optional note">
+                      </label>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
               <div class="competition-sidegame-card">
                 <strong>Weekly Net Champion</strong>
                 <div class="competition-note">Auto winner: ${escapeHtml(sideGames.weeklyNet && sideGames.weeklyNet.isComplete ? ((sideGames.weeklyNet.automaticWinners || []).join(', ') || 'Pending') : 'Pending full trip scores')}${sideGames.weeklyNet && sideGames.weeklyNet.lowestNet !== null && sideGames.weeklyNet.lowestNet !== undefined ? ` · Net ${escapeHtml(String(sideGames.weeklyNet.lowestNet))}` : ''}</div>
@@ -4247,31 +4388,6 @@
                   <input id="ryderWeeklyNetNotes" type="text" value="${quoteAttr((sideGames.weeklyNet && sideGames.weeklyNet.notes) || '')}" placeholder="Optional note">
                 </label>
               </div>
-              <div class="competition-sidegame-card" style="grid-column:1/-1;">
-                <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
-                  <strong>Daily Secret Snowman</strong>
-                  <span class="competition-note">One winner block per round.</span>
-                </div>
-                <div class="ryder-daily-grid">
-                  ${(sideGames.secretSnowman || []).map((entry, index) => `
-                    <div class="competition-admin-card" data-ryder-snowman-index="${escapeHtml(String(index))}">
-                      <strong>${escapeHtml(entry.label || `Round ${index + 1} Secret Snowman`)}</strong>
-                      <label>
-                        <span>Winners</span>
-                        <input type="text" data-ryder-snowman-winners value="${quoteAttr(formatWinnerList(entry.winnerNames || []))}" placeholder="Comma-separated winners">
-                      </label>
-                      <label>
-                        <span>Amount</span>
-                        <input type="number" step="0.01" data-ryder-snowman-amount value="${entry.amount === null || entry.amount === undefined ? '' : escapeHtml(String(entry.amount))}" placeholder="0">
-                      </label>
-                      <label>
-                        <span>Notes</span>
-                        <input type="text" data-ryder-snowman-notes value="${quoteAttr(entry.notes || '')}" placeholder="Optional note">
-                      </label>
-                    </div>
-                  `).join('')}
-                </div>
-              </div>
               <div class="competition-sidegame-card">
                 <strong>Closest to Pin</strong>
                 <div class="competition-note">Format: Round 1 | Hole 7 | Chris Neff | 6 ft 2 in | $20 | Optional note</div>
@@ -4282,8 +4398,8 @@
                 <div class="competition-note">Winners: ${escapeHtml((sideGames.closestToPin && sideGames.closestToPin.winners && sideGames.closestToPin.winners.join(', ')) || 'Pending')}</div>
               </div>
               <div class="competition-sidegame-card">
-                <strong>Birdie Pool</strong>
-                <div class="competition-note">One line per player: Player | count. Count gross birdies or better.</div>
+                <strong>Trip Birdie Pool</strong>
+                <div class="competition-note">Trip-long total. One line per player: Player | count. Count gross birdies or better.</div>
                 <label>
                   <span>Birdie counts</span>
                   <textarea id="ryderBirdieCountsField" placeholder="Joe Gillette | 4&#10;John Quimby | 2">${escapeHtml(formatRyderCupBirdieCounts(sideGames.birdiePool && sideGames.birdiePool.counts))}</textarea>
@@ -4374,19 +4490,36 @@
       `;
     }
 
+    function renderRyderCupQuickStatus(ryderCup = {}) {
+      const standings = ryderCup.standings || {};
+      const teams = Array.isArray(ryderCup.teams) ? ryderCup.teams : [];
+      const teamA = teams.find((team) => team && team.id === 'teamA') || teams[0] || { name: 'Team A' };
+      const teamB = teams.find((team) => team && team.id === 'teamB') || teams[1] || { name: 'Team B' };
+      return `
+        <div class="competition-admin-card">
+          <strong>Current Ryder Cup</strong>
+          <div class="competition-pill-row">
+            <span class="competition-pill" data-ryder-quick-points="teamA">${escapeHtml(teamA.name || 'Team A')} ${escapeHtml(formatCompetitionPoints(standings.teamAPoints || 0))}</span>
+            <span class="competition-pill" data-ryder-quick-points="teamB">${escapeHtml(teamB.name || 'Team B')} ${escapeHtml(formatCompetitionPoints(standings.teamBPoints || 0))}</span>
+            <span class="competition-pill" data-ryder-quick-remaining>${escapeHtml(formatCompetitionPoints(standings.remainingPoints || 0))} points left</span>
+          </div>
+          <div class="competition-note" data-ryder-quick-status>${escapeHtml(standings.status || 'Enter gross scores below and save each round.')}</div>
+        </div>
+      `;
+    }
+
     function renderRyderCupSection(ryderCup = null) {
       if (!ryderCup) return '';
       return `
-        <details class="competition-section" open>
+        <details class="competition-section section-anchor" id="competitionSection" open>
           <summary>
             <span>${escapeHtml(ryderCup.title || 'Myrtle Ryder Cup')}</span>
-            <span class="competition-note">5 rounds · own-ball · fixed 75% handicap</span>
+            <span class="competition-note">Enter scores and update the standings</span>
           </summary>
           <div class="competition-section-body">
-            <div class="competition-note" style="margin-bottom:12px;">Use the Ryder Cup Teams card above for roster sharing. This section uses the saved Ryder Cup match board for round scoring, side games, and own-ball admin notes.</div>
+            ${renderRyderCupQuickStatus(ryderCup)}
             ${renderRyderCupRounds(ryderCup)}
             ${renderRyderCupSideGamesPanel(ryderCup)}
-            ${renderRyderCupAdminNotes(ryderCup)}
           </div>
         </details>
       `;
@@ -4481,12 +4614,9 @@
             <div class="ryder-overlay-head">
               <div class="page-section-copy">
                 <strong>Ryder Cup Teams</strong>
-                <div class="competition-note">Own-ball only. Team changes sync to the saved Myrtle match board before scoring locks, and every match uses the fixed 75% handicap allowance shown in the round cards.</div>
+                <div class="competition-note">Edit teams only if needed. Score entry is below.</div>
               </div>
               <div class="ryder-overlay-actions">
-                <button type="button" class="secondary" data-trip-ryder-copy="teamA">Copy Team A</button>
-                <button type="button" class="secondary" data-trip-ryder-copy="teamB">Copy Team B</button>
-                <button type="button" class="secondary" data-trip-ryder-copy="both">Copy Both</button>
                 ${isEditing
                   ? `<button type="button" class="secondary" data-trip-ryder-cancel>Edit Cancel</button><button type="button" data-trip-ryder-save${countsValid && !tripRyderCupUiState.isSaving ? '' : ' disabled'}>${tripRyderCupUiState.isSaving ? 'Saving...' : 'Save'}</button>`
                   : '<button type="button" class="secondary" data-trip-ryder-edit>Edit</button>'}
@@ -4507,19 +4637,13 @@
                   <input type="checkbox" data-trip-ryder-enabled="1"${state.enabled ? ' checked' : ''}>
                   <span>Show Ryder Cup teams on this trip</span>
                 </label>
-                <span class="competition-note">Drag a player onto the other team card, use the team selector, and edit the handicap beside each golfer before saving.</span>
+                <span class="competition-note">Drag golfers across teams or edit handicaps, then save.</span>
               </div>
             ` : ''}
             <div class="ryder-overlay-grid">
               ${renderTeam('teamA', state.teamAName, state.teamAPlayers)}
               ${renderTeam('teamB', state.teamBName, state.teamBPlayers)}
             </div>
-            ${isEditing ? `
-              <label>
-                <span>Notes</span>
-                <textarea data-trip-ryder-notes rows="3" placeholder="Optional roster note for admins or copy context.">${escapeHtml(state.notes || '')}</textarea>
-              </label>
-            ` : (state.notes ? `<div class="ryder-overlay-note">${escapeHtml(state.notes)}</div>` : '')}
             ${isEditing && !countsValid ? '<div class="competition-empty">Save is disabled until both teams are back to 10 players.</div>' : ''}
           </div>
         </div>
@@ -4552,18 +4676,6 @@
       box.innerHTML = `
         <div class="competition-grid">
           ${tripRyderCupCard}
-          <div class="competition-admin-card section-anchor" id="competitionSection">
-            <div class="page-section-head">
-              <div class="page-section-copy">
-                <h2 style="margin:0;font-size:1.1rem;letter-spacing:0.3px;">Myrtle Ryder Cup</h2>
-                <div class="competition-note">Roster overlay above, saved match board and side games below.</div>
-              </div>
-              <div class="page-section-actions">
-                <a class="hero-link" href="#scheduleSection">Back to Schedule</a>
-              </div>
-            </div>
-            ${renderCompetitionOverview(competitionData.overview || {})}
-          </div>
           ${renderRyderCupSection(getRyderCupData())}
         </div>
       `;
@@ -5705,26 +5817,32 @@
       const container = document.querySelector(`[data-ryder-round-index="${roundIndex}"]`);
       if (!round || !container) throw new Error('Ryder Cup round not found.');
       const plan = {
-        dayNote: String((container.querySelector('[data-ryder-plan-day-note]') || {}).value || '').trim(),
-        groups: Array.from(container.querySelectorAll('[data-ryder-plan-group]')).map((card, groupIndex) => ({
-          groupNumber: Number(card.dataset.ryderPlanGroup) || (groupIndex + 1),
-          playStyle: coerceRyderCupPlayStyle((card.querySelector('[data-ryder-plan-style]') || {}).value, round.format),
-          notes: String((card.querySelector('[data-ryder-plan-note]') || {}).value || '').trim(),
-        })),
+        dayNote: String(round?.plan?.dayNote || '').trim(),
+        groups: Array.isArray(round?.plan?.groups) ? round.plan.groups.map((group, groupIndex) => ({
+          groupNumber: Number(group.groupNumber) || (groupIndex + 1),
+          playStyle: coerceRyderCupPlayStyle(group.playStyle, round.format),
+          notes: String(group.notes || '').trim(),
+        })) : [],
       };
       const matchCards = Array.from(container.querySelectorAll('[data-ryder-match-index]'));
       const matches = matchCards.length ? matchCards.map((card, matchIndex) => ({
         matchNumber: (round.matches && round.matches[matchIndex] && round.matches[matchIndex].matchNumber) || (matchIndex + 1),
         label: (round.matches && round.matches[matchIndex] && round.matches[matchIndex].label) || `Match ${matchIndex + 1}`,
         groupNumber: (round.matches && round.matches[matchIndex] && round.matches[matchIndex].groupNumber) || (matchIndex + 1),
-        teamAPlayers: Array.from(card.querySelectorAll('[data-ryder-team-player="teamA"]')).map((field) => String(field.value || '').trim()).filter(Boolean),
-        teamBPlayers: Array.from(card.querySelectorAll('[data-ryder-team-player="teamB"]')).map((field) => String(field.value || '').trim()).filter(Boolean),
+        teamAPlayers: Array.from(card.querySelectorAll('[data-ryder-player-score="teamA"]'))
+          .sort((left, right) => Number(left.dataset.scoreSlot || 0) - Number(right.dataset.scoreSlot || 0))
+          .map((field) => String(field.dataset.ryderPlayerName || '').trim())
+          .filter(Boolean),
+        teamBPlayers: Array.from(card.querySelectorAll('[data-ryder-player-score="teamB"]'))
+          .sort((left, right) => Number(left.dataset.scoreSlot || 0) - Number(right.dataset.scoreSlot || 0))
+          .map((field) => String(field.dataset.ryderPlayerName || '').trim())
+          .filter(Boolean),
         teamAPlayerScores: Array.from(card.querySelectorAll('[data-ryder-player-score="teamA"]')).map((field) => parseOptionalWholeNumber(field.value)),
         teamBPlayerScores: Array.from(card.querySelectorAll('[data-ryder-player-score="teamB"]')).map((field) => parseOptionalWholeNumber(field.value)),
         teamAScore: parseOptionalWholeNumber((card.querySelector('[data-ryder-team-score="teamA"]') || {}).value),
         teamBScore: parseOptionalWholeNumber((card.querySelector('[data-ryder-team-score="teamB"]') || {}).value),
-        result: String((card.querySelector('[data-ryder-result]') || {}).value || '').trim(),
-        notes: String((card.querySelector('[data-ryder-note]') || {}).value || '').trim(),
+        result: String((card.querySelector('[data-ryder-result]') || {}).value || (round.matches && round.matches[matchIndex] && round.matches[matchIndex].enteredResult) || '').trim(),
+        notes: String((card.querySelector('[data-ryder-note]') || {}).value || (round.matches && round.matches[matchIndex] && round.matches[matchIndex].notes) || '').trim(),
       })) : (round.matches || []).map((match) => ({
         matchNumber: match.matchNumber,
         label: match.label,
@@ -5763,6 +5881,11 @@
     }
 
     async function saveRyderCupRound(roundIndex) {
+      const round = getRyderCupRoundMeta(roundIndex) || {};
+      if (round && round.scheduleSync && String(round.scheduleSync.status || '').toLowerCase() === 'invalid') {
+        const firstIssue = Array.isArray(round.scheduleSync.issues) && round.scheduleSync.issues.length ? round.scheduleSync.issues[0] : 'Fix the scheduled foursomes before saving Ryder Cup scores.';
+        throw new Error(firstIssue);
+      }
       syncRyderCupRoundEditor(roundIndex);
       const payload = collectRyderCupRoundPayload(roundIndex);
       await tripAdminPut(`/api/trips/${tripId}/competition/ryder-cup/rounds/${roundIndex}`, payload);
@@ -5771,6 +5894,14 @@
 
     function collectRyderCupSettingsPayload() {
       const ryderCup = getRyderCupData();
+      const collectDailyBirdiePotPayload = (fieldKey = '', fallbackSuffix = 'Birdie Pot') => Array.from(document.querySelectorAll(`[data-ryder-daily-birdie-pot-kind="${fieldKey}"]`)).map((card, index) => ({
+        roundNumber: index + 1,
+        label: (ryderCup?.sideGames?.[fieldKey] && ryderCup.sideGames[fieldKey][index] && ryderCup.sideGames[fieldKey][index].label) || `Round ${index + 1} ${fallbackSuffix}`,
+        counts: parseRyderCupBirdieCounts((card.querySelector('[data-ryder-daily-birdie-pot-counts]') || {}).value || ''),
+        winnerNames: parseWinnerList((card.querySelector('[data-ryder-daily-birdie-pot-winners]') || {}).value || ''),
+        amount: parseHandicapValue((card.querySelector('[data-ryder-daily-birdie-pot-amount]') || {}).value),
+        notes: String((card.querySelector('[data-ryder-daily-birdie-pot-notes]') || {}).value || '').trim(),
+      }));
       const dailyNet = Array.from(document.querySelectorAll('[data-ryder-daily-net-index]')).map((card, index) => ({
         roundNumber: index + 1,
         label: (ryderCup?.sideGames?.dailyNet && ryderCup.sideGames.dailyNet[index] && ryderCup.sideGames.dailyNet[index].label) || `Round ${index + 1} Net`,
@@ -5778,22 +5909,27 @@
         amount: parseHandicapValue((card.querySelector('[data-ryder-daily-net-amount]') || {}).value),
         notes: String((card.querySelector('[data-ryder-daily-net-notes]') || {}).value || '').trim(),
       }));
-      const secretSnowman = Array.from(document.querySelectorAll('[data-ryder-snowman-index]')).map((card, index) => ({
+      const dailyBirdiePot = collectDailyBirdiePotPayload('dailyBirdiePot', 'Birdie Pot');
+      const dailyNetBirdiePot = collectDailyBirdiePotPayload('dailyNetBirdiePot', 'Net Birdie Pot');
+      const dailyLongestPuttLastHole = Array.from(document.querySelectorAll('[data-ryder-last-hole-putt-index]')).map((card, index) => ({
         roundNumber: index + 1,
-        label: (ryderCup?.sideGames?.secretSnowman && ryderCup.sideGames.secretSnowman[index] && ryderCup.sideGames.secretSnowman[index].label) || `Round ${index + 1} Secret Snowman`,
-        winnerNames: parseWinnerList((card.querySelector('[data-ryder-snowman-winners]') || {}).value || ''),
-        amount: parseHandicapValue((card.querySelector('[data-ryder-snowman-amount]') || {}).value),
-        notes: String((card.querySelector('[data-ryder-snowman-notes]') || {}).value || '').trim(),
+        label: (ryderCup?.sideGames?.dailyLongestPuttLastHole && ryderCup.sideGames.dailyLongestPuttLastHole[index] && ryderCup.sideGames.dailyLongestPuttLastHole[index].label) || `Round ${index + 1} Longest Made Putt on Last Hole`,
+        winnerNames: parseWinnerList((card.querySelector('[data-ryder-last-hole-putt-winners]') || {}).value || ''),
+        distance: String((card.querySelector('[data-ryder-last-hole-putt-distance]') || {}).value || '').trim(),
+        amount: parseHandicapValue((card.querySelector('[data-ryder-last-hole-putt-amount]') || {}).value),
+        notes: String((card.querySelector('[data-ryder-last-hole-putt-notes]') || {}).value || '').trim(),
       }));
       return {
         sideGames: {
           dailyNet,
+          dailyBirdiePot,
+          dailyNetBirdiePot,
+          dailyLongestPuttLastHole,
           weeklyNet: {
             winnerNames: parseWinnerList((document.getElementById('ryderWeeklyNetWinners') || {}).value || ''),
             amount: parseHandicapValue((document.getElementById('ryderWeeklyNetAmount') || {}).value),
             notes: String((document.getElementById('ryderWeeklyNetNotes') || {}).value || '').trim(),
           },
-          secretSnowman,
           closestToPin: {
             entries: parseRyderCupClosestToPin((document.getElementById('ryderClosestToPinField') || {}).value || ''),
           },
