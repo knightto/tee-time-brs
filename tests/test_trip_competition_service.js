@@ -414,6 +414,8 @@ function run() {
   assert.strictEqual(myrtleView.ryderCup.payout.totalPot, 2000, 'Myrtle payout should default to the full $2,000 pot');
   assert.strictEqual(myrtleView.ryderCup.payout.nonTeamAmount, 1500, 'Configured non-team Myrtle prizes should total $1,500');
   assert.strictEqual(myrtleView.ryderCup.payout.teamAmount, 500, 'Winning team should receive the fixed $500 share so each winner gets $50');
+  assert.deepStrictEqual(myrtleView.ryderCup.payout.rows.find((row) => row.key === 'winningTeam').winners, [], 'Winning-team payouts should stay undistributed until the Ryder Cup is complete');
+  assert.strictEqual(myrtleView.ryderCup.payout.rows.find((row) => row.key === 'winningTeam').winnerLabel, 'Pending Ryder Cup finish', 'Winning-team payout should remain pending while points are still available');
   assert.strictEqual(myrtleView.ryderCup.payout.rows.find((row) => row.key === 'dailyNet').amount, 375, 'Five daily net payouts should total $375');
   assert.strictEqual(myrtleView.ryderCup.payout.rows.find((row) => row.key === 'dailyOver100Draw').amount, 100, 'Five daily over-100 draws should total $100');
   assert.strictEqual(myrtleView.ryderCup.payout.rows.find((row) => row.key === 'dailyBirdiePot').amount, 250, 'Five daily gross birdie payouts should total $250');
@@ -605,9 +607,29 @@ function run() {
     amount: 20,
     notes: 'Gross birdies',
   };
+  dailyBirdieTrip.competition.ryderCup.sideGames.birdiePool = {
+    ...dailyBirdieTrip.competition.ryderCup.sideGames.birdiePool,
+    counts: [
+      { playerName: 'Joe Gillette', count: 4 },
+      { playerName: 'John Quimby', count: 2 },
+    ],
+    amount: 30,
+  };
   const dailyBirdieView = buildTripCompetitionView(dailyBirdieTrip, myrtleParticipants);
-  assert.strictEqual(dailyBirdieView.ryderCup.sideGames.dailyBirdiePot[0].automaticWinners[0], 'Joe Gillette', 'Daily gross birdie pot should auto-pick the highest gross birdie count');
-  assert.strictEqual(dailyBirdieView.ryderCup.sideGames.dailyBirdiePot[0].highestCount, 2, 'Daily gross birdie pot should expose the leading gross birdie count');
+  assert.deepStrictEqual(dailyBirdieView.ryderCup.sideGames.dailyBirdiePot[0].winnerNames, ['Joe Gillette', 'John Quimby'], 'Daily birdie pot should pay every golfer who recorded a birdie');
+  assert.strictEqual(dailyBirdieView.ryderCup.sideGames.dailyBirdiePot[0].totalBirdies, 3, 'Daily birdie pot should expose the total number of birdies in the pool');
+  assert.strictEqual(dailyBirdieView.ryderCup.sideGames.dailyBirdiePot[0].perBirdieAmount, 6.67, 'Daily birdie pot should expose the per-birdie payout rate');
+  assert.deepStrictEqual(dailyBirdieView.ryderCup.sideGames.dailyBirdiePot[0].shareRows, [
+    { name: 'Joe Gillette', birdies: 2, amount: 13.33 },
+    { name: 'John Quimby', birdies: 1, amount: 6.67 },
+  ], 'Daily birdie pot should split the pool by birdie count');
+  assert.deepStrictEqual(dailyBirdieView.ryderCup.sideGames.birdiePool.winners, ['Joe Gillette', 'John Quimby'], 'Trip birdie pool should pay every golfer who made a trip birdie');
+  assert.strictEqual(dailyBirdieView.ryderCup.sideGames.birdiePool.totalBirdies, 6, 'Trip birdie pool should expose the total trip birdie count');
+  assert.strictEqual(dailyBirdieView.ryderCup.sideGames.birdiePool.perBirdieAmount, 5, 'Trip birdie pool should expose the per-birdie payout rate');
+  assert.deepStrictEqual(dailyBirdieView.ryderCup.sideGames.birdiePool.shareRows, [
+    { name: 'Joe Gillette', birdies: 4, amount: 20 },
+    { name: 'John Quimby', birdies: 2, amount: 10 },
+  ], 'Trip birdie pool should split the pool by trip birdie count');
 
   const over100Trip = makeEditableMyrtleTrip();
   const over100Round = clone(over100Trip.competition.ryderCup.rounds[0]);

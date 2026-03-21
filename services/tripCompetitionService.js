@@ -2647,6 +2647,73 @@ function buildRyderCupOver100EligibleTeams(rows = [], teamLookup = new Map()) {
   };
 }
 
+function normalizeRyderCupBirdieCounts(entries = []) {
+  return (Array.isArray(entries) ? entries : [])
+    .map((entry) => ({
+      playerName: normalizeRyderCupPlayerName(entry && entry.playerName),
+      count: Math.max(0, Math.round(asFiniteNumber(entry && entry.count) || 0)),
+    }))
+    .filter((entry) => entry.playerName && entry.count > 0)
+    .sort((left, right) => {
+      if (right.count !== left.count) return right.count - left.count;
+      return left.playerName.localeCompare(right.playerName);
+    });
+}
+
+function buildRyderCupBirdiePoolShares(entries = [], amount = 0) {
+  const counts = normalizeRyderCupBirdieCounts(entries);
+  const totalBirdies = counts.reduce((sum, entry) => sum + entry.count, 0);
+  const totalCents = Math.max(0, Math.round((asFiniteNumber(amount) || 0) * 100));
+  if (!counts.length || !totalBirdies) {
+    return {
+      counts,
+      totalBirdies: 0,
+      paidPlayers: [],
+      perBirdieAmount: null,
+      shareRows: [],
+    };
+  }
+
+  const provisionalShares = counts.map((entry) => {
+    const exactCents = (totalCents * entry.count) / totalBirdies;
+    return {
+      name: entry.playerName,
+      birdies: entry.count,
+      cents: Math.floor(exactCents),
+      remainder: exactCents - Math.floor(exactCents),
+    };
+  });
+  let remainderCents = totalCents - provisionalShares.reduce((sum, entry) => sum + entry.cents, 0);
+  provisionalShares
+    .slice()
+    .sort((left, right) => {
+      if (right.remainder !== left.remainder) return right.remainder - left.remainder;
+      return left.name.localeCompare(right.name);
+    })
+    .forEach((entry) => {
+      if (remainderCents <= 0) return;
+      entry.cents += 1;
+      remainderCents -= 1;
+    });
+
+  return {
+    counts,
+    totalBirdies,
+    paidPlayers: counts.map((entry) => entry.playerName),
+    perBirdieAmount: roundCurrency(totalCents / 100 / totalBirdies),
+    shareRows: provisionalShares
+      .map((entry) => ({
+        name: entry.name,
+        birdies: entry.birdies,
+        amount: roundCurrency(entry.cents / 100),
+      }))
+      .sort((left, right) => {
+        if (right.birdies !== left.birdies) return right.birdies - left.birdies;
+        return left.name.localeCompare(right.name);
+      }),
+  };
+}
+
 function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], rounds = [], handicapLookup = null, teams = []) {
   const netSummary = buildRyderCupNetScoreSummary(rounds, handicapLookup);
   const teamLookup = buildRyderCupSideGameTeamLookup(teams);
@@ -2657,31 +2724,24 @@ function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], 
         const saved = savedEntries.find((entry) => Number(entry && entry.roundNumber) === Number(roundSummary.roundNumber))
           || savedEntries[index]
           || {};
-        const counts = (Array.isArray(saved.counts) ? saved.counts : [])
-          .map((entry) => ({
-            playerName: normalizeRyderCupPlayerName(entry && entry.playerName),
-            count: Math.max(0, Math.round(asFiniteNumber(entry && entry.count) || 0)),
-          }))
-          .filter((entry) => entry.playerName && entry.count > 0)
-          .sort((left, right) => {
-            if (right.count !== left.count) return right.count - left.count;
-            return left.playerName.localeCompare(right.playerName);
-          });
+        const amount = normalizeCurrencyAmount(saved.amount);
+        const birdiePool = buildRyderCupBirdiePoolShares(saved.counts, amount);
+        const counts = birdiePool.counts;
         const highestCount = counts.length ? counts[0].count : 0;
-        const automaticWinners = highestCount > 0
-          ? counts.filter((entry) => entry.count === highestCount).map((entry) => entry.playerName)
-          : [];
-        const manualWinners = normalizeRyderCupWinnerList(saved.winnerNames || saved.winnerName);
         return {
           roundNumber: roundSummary.roundNumber,
           label: cleanString(saved.label) || `${roundSummary.title} ${labelSuffix}`,
           counts,
-          winnerNames: manualWinners.length ? manualWinners : automaticWinners,
-          automaticWinners,
-          amount: normalizeCurrencyAmount(saved.amount),
+          winnerNames: birdiePool.paidPlayers,
+          automaticWinners: birdiePool.paidPlayers,
+          amount,
           notes: cleanString(saved.notes),
-          manualOverride: manualWinners.length > 0,
+          manualOverride: false,
           highestCount: highestCount || null,
+          totalBirdies: birdiePool.totalBirdies,
+          perBirdieAmount: birdiePool.perBirdieAmount,
+          shareRows: birdiePool.shareRows,
+          isComplete: roundSummary.complete,
         };
       })
   );
@@ -2689,24 +2749,13 @@ function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], 
     ? sideGames.closestToPin.entries
     : [];
   const closestToPinWinners = uniqueNames(closestEntries.map((entry) => entry.playerName).filter(Boolean));
-  const birdieCounts = sideGames && sideGames.birdiePool && Array.isArray(sideGames.birdiePool.counts)
-    ? sideGames.birdiePool.counts
-    : [];
-  const birdieLeaderboard = birdieCounts
-    .map((entry) => ({
-      playerName: normalizeRyderCupPlayerName(entry && entry.playerName),
-      count: Math.max(0, Math.round(asFiniteNumber(entry && entry.count) || 0)),
-    }))
-    .sort((left, right) => {
-      if (right.count !== left.count) return right.count - left.count;
-      return left.playerName.localeCompare(right.playerName);
-    });
-  const highestBirdieCount = birdieLeaderboard.length ? birdieLeaderboard[0].count : 0;
-  const birdieWinners = normalizeRyderCupWinnerList(sideGames && sideGames.birdiePool && sideGames.birdiePool.winners).length
-    ? normalizeRyderCupWinnerList(sideGames && sideGames.birdiePool && sideGames.birdiePool.winners)
-    : (highestBirdieCount > 0
-      ? birdieLeaderboard.filter((entry) => entry.count === highestBirdieCount).map((entry) => entry.playerName)
-      : []);
+  const tripBirdiePool = buildRyderCupBirdiePoolShares(
+    sideGames && sideGames.birdiePool && Array.isArray(sideGames.birdiePool.counts)
+      ? sideGames.birdiePool.counts
+      : [],
+    sideGames && sideGames.birdiePool ? sideGames.birdiePool.amount : null
+  );
+  const birdieLeaderboard = tripBirdiePool.counts;
   const overrideMvpWinners = normalizeRyderCupWinnerList(sideGames && sideGames.mvp && sideGames.mvp.overrideWinners);
   const highestPoints = individualLeaderboard.length ? individualLeaderboard[0].pointsWon : 0;
   const automaticMvpWinners = highestPoints > 0
@@ -2821,9 +2870,12 @@ function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], 
     },
     birdiePool: {
       counts: birdieLeaderboard,
-      winners: birdieWinners,
+      winners: tripBirdiePool.paidPlayers,
       amount: sideGames && sideGames.birdiePool ? sideGames.birdiePool.amount : null,
       notes: sideGames && sideGames.birdiePool ? sideGames.birdiePool.notes : '',
+      totalBirdies: tripBirdiePool.totalBirdies,
+      perBirdieAmount: tripBirdiePool.perBirdieAmount,
+      shareRows: tripBirdiePool.shareRows,
     },
     mvp: {
       winners: overrideMvpWinners.length ? overrideMvpWinners : automaticMvpWinners,
@@ -2855,6 +2907,15 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
     const list = uniqueNames(Array.isArray(winners) ? winners : [winners]);
     return list.length ? list.join(', ') : pendingLabel;
   };
+  const formatCurrencyLabel = (value) => `$${roundCurrency(value).toFixed(2)}`;
+  const buildBirdiePoolLabel = (entry = {}, pendingLabel = 'Pending') => {
+    const totalBirdies = Math.max(0, Math.round(asFiniteNumber(entry && entry.totalBirdies) || 0));
+    if (!totalBirdies) return pendingLabel;
+    const perBirdieAmount = asFiniteNumber(entry && entry.perBirdieAmount);
+    return perBirdieAmount === null
+      ? `${totalBirdies} ${totalBirdies === 1 ? 'birdie' : 'birdies'} recorded`
+      : `${totalBirdies} ${totalBirdies === 1 ? 'birdie' : 'birdies'} @ ${formatCurrencyLabel(perBirdieAmount)} per birdie`;
+  };
   const buildPrizeRow = ({
     key = '',
     label = '',
@@ -2863,6 +2924,7 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
     winnerLabel = 'Pending',
     perPerson = null,
     group = 'trip',
+    shareRows = [],
   }) => ({
     key,
     label,
@@ -2871,6 +2933,13 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
     winnerLabel,
     perPerson: perPerson === null || perPerson === undefined ? null : roundCurrency(perPerson),
     group,
+    shareRows: (Array.isArray(shareRows) ? shareRows : [])
+      .map((entry) => ({
+        name: String(entry && entry.name || '').trim(),
+        birdies: Math.max(0, Math.round(asFiniteNumber(entry && entry.birdies) || 0)),
+        amount: roundCurrency(entry && entry.amount),
+      }))
+      .filter((entry) => entry.name && entry.amount > 0),
   });
 
   const dailyNetEntries = Array.isArray(sideGames && sideGames.dailyNet) ? sideGames.dailyNet : [];
@@ -2908,13 +2977,13 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
   const teamAmount = overAllocatedAmount > 0 ? 0 : roundCurrency(totalPot - nonTeamAmount);
 
   const teamRows = [];
-  if (standings.remainingPoints > 0 && standings.teamAPoints === standings.teamBPoints) {
+  if (standings.remainingPoints > 0) {
     teamRows.push(buildPrizeRow({
       key: 'winningTeam',
       label: 'Winning Team',
       amount: teamAmount,
       winners: [],
-      winnerLabel: 'Pending Ryder Cup result',
+      winnerLabel: 'Pending Ryder Cup finish',
       perPerson: null,
       group: 'trip',
     }));
@@ -2965,7 +3034,7 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
       label: 'Daily Birdie Pot',
       amount: dailyBirdieAmount,
       winners: uniqueNames(dailyBirdieEntries.flatMap((entry) => entry && Array.isArray(entry.winnerNames) ? entry.winnerNames : [])),
-      winnerLabel: dailyBirdieEntries.length ? `${dailyBirdieEntries.length} daily payouts` : 'Pending',
+      winnerLabel: dailyBirdieEntries.length ? `${dailyBirdieEntries.length} daily pools paid by birdie count` : 'Pending',
       group: 'daily',
     }),
     buildPrizeRow({
@@ -3014,10 +3083,7 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
       label: 'Trip Birdie Pool',
       amount: birdieAmount,
       winners: sideGames.birdiePool && Array.isArray(sideGames.birdiePool.winners) ? sideGames.birdiePool.winners : [],
-      winnerLabel: buildWinnerLabel(sideGames.birdiePool && sideGames.birdiePool.winners, 'Pending'),
-      perPerson: sideGames.birdiePool && sideGames.birdiePool.winners && sideGames.birdiePool.winners.length
-        ? birdieAmount / sideGames.birdiePool.winners.length
-        : null,
+      winnerLabel: buildBirdiePoolLabel(sideGames && sideGames.birdiePool, 'Pending'),
       group: 'trip',
     }),
     buildPrizeRow({
@@ -3057,9 +3123,9 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
       label: cleanString(entry && entry.label) || `Round ${index + 1} Birdie Pot`,
       amount: asFiniteNumber(entry && entry.amount) || 0,
       winners: entry && Array.isArray(entry.winnerNames) ? entry.winnerNames : [],
-      winnerLabel: buildWinnerLabel(entry && entry.winnerNames, 'Pending'),
-      perPerson: entry && Array.isArray(entry.winnerNames) && entry.winnerNames.length ? (asFiniteNumber(entry.amount) || 0) / entry.winnerNames.length : null,
+      winnerLabel: buildBirdiePoolLabel(entry, 'Pending'),
       group: 'daily',
+      shareRows: entry && Array.isArray(entry.shareRows) ? entry.shareRows : [],
     })),
     dailyLongestPuttEntries.map((entry, index) => buildPrizeRow({
       key: `dailyLongestPuttLastHole-${index + 1}`,
@@ -3123,11 +3189,11 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
         label: 'Trip Birdie Pool',
         amount: birdieAmount,
         winners: sideGames.birdiePool && Array.isArray(sideGames.birdiePool.winners) ? sideGames.birdiePool.winners : [],
-        winnerLabel: buildWinnerLabel(sideGames.birdiePool && sideGames.birdiePool.winners, 'Pending'),
-        perPerson: sideGames.birdiePool && sideGames.birdiePool.winners && sideGames.birdiePool.winners.length
-          ? birdieAmount / sideGames.birdiePool.winners.length
-          : null,
+        winnerLabel: buildBirdiePoolLabel(sideGames && sideGames.birdiePool, 'Pending'),
         group: 'trip',
+        shareRows: sideGames && sideGames.birdiePool && Array.isArray(sideGames.birdiePool.shareRows)
+          ? sideGames.birdiePool.shareRows
+          : [],
       }),
       buildPrizeRow({
         key: 'mvp-winner',

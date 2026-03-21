@@ -112,6 +112,14 @@
     const formatCurrency = (value) => { const num = Number(value); return Number.isFinite(num) ? num.toLocaleString(undefined, { style:'currency', currency:'USD' }) : '—'; };
     const formatCompetitionPoints = (value) => { const num = Number(value); if (!Number.isFinite(num)) return '0'; return Number.isInteger(num) ? String(num) : num.toFixed(1).replace(/\.0$/, ''); };
     const formatWinnerList = (values = []) => Array.isArray(values) && values.length ? values.join(', ') : '';
+    const formatBirdiePoolDetail = (entry = {}, pendingLabel = 'Pending') => {
+      const totalBirdies = Math.max(0, Math.round(Number(entry && entry.totalBirdies) || 0));
+      if (!totalBirdies) return pendingLabel;
+      const perBirdieAmount = Number(entry && entry.perBirdieAmount);
+      return Number.isFinite(perBirdieAmount)
+        ? `${totalBirdies} ${totalBirdies === 1 ? 'birdie' : 'birdies'} @ ${formatCurrency(perBirdieAmount)} per birdie`
+        : `${totalBirdies} ${totalBirdies === 1 ? 'birdie' : 'birdies'}`;
+    };
     function buildRyderCupScoreRankingState(ryderCup = {}) {
       const teams = Array.isArray(ryderCup.teams) ? ryderCup.teams : [];
       const rounds = Array.isArray(ryderCup.rounds) ? ryderCup.rounds : [];
@@ -191,12 +199,12 @@
       const latestLongestPutt = getLatestWinnerEntry(sideGames.dailyLongestPuttLastHole);
       pushRow('Daily Net', 'dailyNet', latestDailyNet ? `${latestDailyNet.label}: ${formatWinnerList(latestDailyNet.winnerNames)}` : 'Pending');
       pushRow('Daily Over-100 Draw', 'dailyOver100Draw', latestDailyOver100 ? `${latestDailyOver100.label}: ${formatWinnerList(latestDailyOver100.winnerNames)}` : 'Pending');
-      pushRow('Daily Birdie Pot', 'dailyBirdiePot', latestDailyBirdie ? `${latestDailyBirdie.label}: ${formatWinnerList(latestDailyBirdie.winnerNames)}` : 'Pending');
+      pushRow('Daily Birdie Pot', 'dailyBirdiePot', latestDailyBirdie ? `${latestDailyBirdie.label}: ${formatBirdiePoolDetail(latestDailyBirdie, 'Pending')}` : 'Pending');
       pushRow('Longest Made Putt', 'dailyLongestPuttLastHole', latestLongestPutt ? `${latestLongestPutt.label}: ${formatWinnerList(latestLongestPutt.winnerNames)}` : 'Pending');
       pushRow('Weekly Net Champion', 'weeklyNet', formatWinnerList(sideGames.weeklyNet && sideGames.weeklyNet.winnerNames) || 'Pending');
       pushRow('Weekly Over-100 Draw', 'weeklyOver100Draw', formatWinnerList(sideGames.weeklyOver100Draw && sideGames.weeklyOver100Draw.winnerNames) || 'Pending');
       pushRow('Closest To Pin', 'closestToPin', formatWinnerList(sideGames.closestToPin && sideGames.closestToPin.winners) || 'Pending');
-      pushRow('Trip Birdie Pool', 'birdiePool', formatWinnerList(sideGames.birdiePool && sideGames.birdiePool.winners) || 'Pending');
+      pushRow('Trip Birdie Pool', 'birdiePool', formatBirdiePoolDetail(sideGames.birdiePool, 'Pending'));
       pushRow('Ryder Cup MVP', 'mvp', formatWinnerList(sideGames.mvp && sideGames.mvp.winners) || 'Pending');
       return rows;
     }
@@ -209,12 +217,33 @@
       const buildEntryBreakdown = (entries = [], fallback = 'Configured payouts') => { const amounts = (Array.isArray(entries) ? entries : []).map((entry) => Number(entry && entry.amount || 0)).filter((amount) => amount > 0); if (!amounts.length) return fallback; const unique = Array.from(new Set(amounts.map((amount) => amount.toFixed(2)))); return unique.length === 1 ? `${amounts.length} x ${formatCurrency(amounts[0])}` : amounts.map((amount) => formatCurrency(amount)).join(' + '); };
       const buildSingleBreakdown = (row = {}, fallbackCount = 1) => {
         const winners = Array.isArray(row.winners) ? row.winners.filter(Boolean) : [];
+        const shareRows = Array.isArray(row.shareRows) ? row.shareRows.filter((entry) => Number(entry && entry.amount || 0) > 0) : [];
         const perPerson = Number(row.perPerson || 0);
         const amount = Number(row.amount || 0);
+        if (shareRows.length) {
+          const totalBirdies = shareRows.reduce((sum, entry) => sum + Math.max(0, Math.round(Number(entry && entry.birdies) || 0)), 0);
+          if (totalBirdies > 0) return `${totalBirdies} birdies paid from ${formatCurrency(amount)}`;
+        }
         if (winners.length && perPerson > 0 && Math.abs((perPerson / 5) - Math.round(perPerson / 5)) < 0.001) return `${winners.length} x ${formatCurrency(perPerson)} each`;
         if (winners.length && amount > 0) return `${winners.length} winners split ${formatCurrency(amount)} in $5 chunks`;
         if (amount > 0) return `${fallbackCount} x ${formatCurrency(amount)}`;
         return 'Pending';
+      };
+      const buildBirdieEntryBreakdown = (entries = [], fallback = 'Round-by-round payout') => {
+        const list = (Array.isArray(entries) ? entries : []).filter((entry) => Number(entry && entry.amount || 0) > 0);
+        if (!list.length) return fallback;
+        const unique = Array.from(new Set(list.map((entry) => Number(entry.amount || 0).toFixed(2))));
+        const baseLabel = unique.length === 1
+          ? `${list.length} x ${formatCurrency(Number(list[0].amount || 0))} pools`
+          : list.map((entry) => formatCurrency(Number(entry.amount || 0))).join(' + ');
+        return `${baseLabel}, paid by birdie count`;
+      };
+      const buildTripBirdieBreakdown = (entry = {}, row = {}) => {
+        const amount = Number(row.amount || entry.amount || 0);
+        const totalBirdies = Math.max(0, Math.round(Number(entry && entry.totalBirdies) || 0));
+        if (!amount) return 'Pending';
+        if (!totalBirdies) return `1 x ${formatCurrency(amount)}`;
+        return `${totalBirdies} birdies paid from ${formatCurrency(amount)}`;
       };
       const sections = [];
       const pushRow = (title, key, label, breakdown) => {
@@ -231,12 +260,12 @@
       pushRow('Team Result', 'winningTeam', 'Winning Team', Number(winningTeamRow.perPerson || 0) > 0 ? buildSingleBreakdown(winningTeamRow) : (pendingTeamShare > 0 ? `${defaultTeamCount} x ${formatCurrency(pendingTeamShare)} if they win` : 'Pending Ryder Cup finish'));
       pushRow('Daily Pots', 'dailyNet', 'Daily Net', buildEntryBreakdown(sideGames.dailyNet, 'Round-by-round payout'));
       pushRow('Daily Pots', 'dailyOver100Draw', 'Daily Over-100 Draw', buildEntryBreakdown(sideGames.dailyOver100Draw, 'Round-by-round payout'));
-      pushRow('Daily Pots', 'dailyBirdiePot', 'Daily Birdie Pot', buildEntryBreakdown(sideGames.dailyBirdiePot, 'Round-by-round payout'));
+      pushRow('Daily Pots', 'dailyBirdiePot', 'Daily Birdie Pot', buildBirdieEntryBreakdown(sideGames.dailyBirdiePot, 'Round-by-round payout'));
       pushRow('Daily Pots', 'dailyLongestPuttLastHole', 'Last-Hole Putt', buildEntryBreakdown(sideGames.dailyLongestPuttLastHole, 'Round-by-round payout'));
       pushRow('Trip-Long Pots', 'weeklyNet', 'Weekly Net Champion', buildSingleBreakdown(getPayoutRow('weeklyNet')));
       pushRow('Trip-Long Pots', 'weeklyOver100Draw', 'Weekly Over-100 Draw', buildSingleBreakdown(getPayoutRow('weeklyOver100Draw')));
       pushRow('Trip-Long Pots', 'closestToPin', 'Closest To Pin', buildSingleBreakdown(getPayoutRow('closestToPin')));
-      pushRow('Trip-Long Pots', 'birdiePool', 'Trip Birdie Pool', buildSingleBreakdown(getPayoutRow('birdiePool')));
+      pushRow('Trip-Long Pots', 'birdiePool', 'Trip Birdie Pool', buildTripBirdieBreakdown(sideGames.birdiePool, getPayoutRow('birdiePool')));
       pushRow('Trip-Long Pots', 'mvp', 'Ryder Cup MVP', buildSingleBreakdown(getPayoutRow('mvp')));
       return sections;
     }

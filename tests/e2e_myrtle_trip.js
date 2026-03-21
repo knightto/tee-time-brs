@@ -387,7 +387,7 @@ async function runApiFlow(results, tripId) {
   ));
   currentSettings.sideGames.dailyBirdiePot = (currentSettings.sideGames.dailyBirdiePot || []).map((entry, index) => (
     index === 0
-      ? { ...entry, counts: [{ playerName: firstSlotPlayers[0], count: 2 }, { playerName: firstSlotPlayers[1], count: 1 }], winnerNames: [firstSlotPlayers[0]], amount: 20, notes: 'API daily birdie pot' }
+      ? { ...entry, counts: [{ playerName: firstSlotPlayers[0], count: 2 }, { playerName: firstSlotPlayers[1], count: 1 }], amount: 20, notes: 'API daily birdie pot' }
       : entry
   ));
   currentSettings.sideGames.dailyLongestPuttLastHole = (currentSettings.sideGames.dailyLongestPuttLastHole || []).map((entry, index) => (
@@ -421,7 +421,8 @@ async function runApiFlow(results, tripId) {
   expect(results, settingsSave.status === 200, 'Ryder Cup settings PUT', `status=${settingsSave.status}`);
   expect(results, settingsSave.body?.ryderCup?.sideGames?.dailyNet?.[0]?.winnerNames?.[0] === firstSlotPlayers[0], 'Ryder daily net saved', settingsSave.body?.ryderCup?.sideGames?.dailyNet?.[0]?.winnerNames?.join(', ') || 'missing');
   expect(results, (settingsSave.body?.ryderCup?.sideGames?.dailyOver100Draw?.[0]?.amount || 0) === 20, 'Ryder daily over-100 amount saved', `amount=${settingsSave.body?.ryderCup?.sideGames?.dailyOver100Draw?.[0]?.amount}`);
-  expect(results, settingsSave.body?.ryderCup?.sideGames?.dailyBirdiePot?.[0]?.winnerNames?.[0] === firstSlotPlayers[0], 'Ryder daily birdie pot saved', settingsSave.body?.ryderCup?.sideGames?.dailyBirdiePot?.[0]?.winnerNames?.join(', ') || 'missing');
+  expect(results, (settingsSave.body?.ryderCup?.sideGames?.dailyBirdiePot?.[0]?.totalBirdies || 0) === 3, 'Ryder daily birdie pot tracks total birdies', `total=${settingsSave.body?.ryderCup?.sideGames?.dailyBirdiePot?.[0]?.totalBirdies}`);
+  expect(results, (settingsSave.body?.ryderCup?.sideGames?.dailyBirdiePot?.[0]?.winnerNames || []).length === 2, 'Ryder daily birdie pot pays every golfer with a birdie', (settingsSave.body?.ryderCup?.sideGames?.dailyBirdiePot?.[0]?.winnerNames || []).join(', ') || 'missing');
   expect(results, settingsSave.body?.ryderCup?.sideGames?.dailyBirdiePot?.[0]?.counts?.[0]?.count === 2, 'Ryder daily birdie counts saved', JSON.stringify(settingsSave.body?.ryderCup?.sideGames?.dailyBirdiePot?.[0]?.counts || []));
   expect(results, settingsSave.body?.ryderCup?.sideGames?.dailyLongestPuttLastHole?.[0]?.winnerNames?.[0] === firstSlotPlayers[1], 'Ryder last-hole putt saved', settingsSave.body?.ryderCup?.sideGames?.dailyLongestPuttLastHole?.[0]?.winnerNames?.join(', ') || 'missing');
   expect(results, settingsSave.body?.ryderCup?.sideGames?.dailyLongestPuttLastHole?.[0]?.distance === '18 ft 4 in', 'Ryder last-hole putt distance saved', settingsSave.body?.ryderCup?.sideGames?.dailyLongestPuttLastHole?.[0]?.distance || 'missing');

@@ -116,6 +116,16 @@
         return { name: winner, amount: nextUnits * 5 };
       });
     };
+    const buildRowPrizeShares = (row = {}) => {
+      const explicitShares = (Array.isArray(row && row.shareRows) ? row.shareRows : [])
+        .map((share) => ({
+          name: String(share && share.name || '').trim(),
+          birdies: Math.max(0, Math.round(Number(share && share.birdies) || 0)),
+          amount: Number(share && share.amount || 0),
+        }))
+        .filter((share) => share.name && share.amount > 0);
+      return explicitShares.length ? explicitShares : buildCleanPrizeShares(row.amount, row.winners);
+    };
     function buildPrizeAuditReport(ryderCup = {}) {
       const payout = ryderCup.payout || {};
       const rows = Array.isArray(payout.rows) ? payout.rows : [];
@@ -128,7 +138,7 @@
       }));
       const awardedRows = winnerRows
         .filter((row) => Array.isArray(row.winners) && row.winners.length)
-        .map((row) => ({ ...row, cleanShares: buildCleanPrizeShares(row.amount, row.winners) }));
+        .map((row) => ({ ...row, cleanShares: buildRowPrizeShares(row) }));
       const pendingRows = winnerRows.filter((row) => !(Array.isArray(row.winners) && row.winners.length));
       const awardedAmount = awardedRows.reduce((sum, row) => sum + (Number(row && row.amount || 0)), 0);
       const pendingAmount = pendingRows.reduce((sum, row) => sum + (Number(row && row.amount || 0)), 0);
@@ -141,7 +151,7 @@
           const key = normalizeNameKey(name);
           const existing = playerTotalsMap.get(key) || { name, teamName: teamNameByPlayer.get(key) || '', amount: 0, prizes: [] };
           existing.amount += Number(share.amount || 0);
-          existing.prizes.push({ label: row.label || 'Prize', amount: Number(share.amount || 0) });
+          existing.prizes.push({ label: row.label || 'Prize', amount: Number(share.amount || 0), birdies: Math.max(0, Math.round(Number(share.birdies) || 0)) });
           playerTotalsMap.set(key, existing);
         });
       });
@@ -200,8 +210,8 @@
           </div>
           <div class="card">
             <strong>Money Won By Player</strong>
-            <div class="note" style="margin-top:4px;">Only prizes with actual winners are counted here. Shared prizes are split in clean $5 chunks.</div>
-            ${audit.playerTotals.length ? `<ul class="list" style="margin-top:12px;">${audit.playerTotals.map((player) => `<li><span><strong>${escapeHtml(player.name || 'Player')}</strong><br><span class="note">${escapeHtml(player.teamName || 'No team')} · ${escapeHtml(player.prizes.map((prize) => `${prize.label} ${formatCurrency(prize.amount)}`).join(' | '))}</span></span><span class="amount">${escapeHtml(formatCurrency(player.amount || 0))}</span></li>`).join('')}</ul>` : `<div class="empty" style="margin-top:12px;">No prize winners have been saved yet.</div>`}
+            <div class="note" style="margin-top:4px;">Only prizes with actual winners are counted here. Birdie pools pay by recorded birdie count; other shared prizes stay split cleanly.</div>
+            ${audit.playerTotals.length ? `<ul class="list" style="margin-top:12px;">${audit.playerTotals.map((player) => `<li><span><strong>${escapeHtml(player.name || 'Player')}</strong><br><span class="note">${escapeHtml(player.teamName || 'No team')} · ${escapeHtml(player.prizes.map((prize) => `${prize.label}${prize.birdies ? ` ${prize.birdies} ${prize.birdies === 1 ? 'birdie' : 'birdies'}` : ''} ${formatCurrency(prize.amount)}`).join(' | '))}</span></span><span class="amount">${escapeHtml(formatCurrency(player.amount || 0))}</span></li>`).join('')}</ul>` : `<div class="empty" style="margin-top:12px;">No prize winners have been saved yet.</div>`}
           </div>
         </div>
         <div class="grid-2" style="margin-top:14px;">
@@ -213,7 +223,7 @@
           <div class="card">
             <strong>Awarded Prize Rows</strong>
             <div class="note" style="margin-top:4px;">Detailed audit trail of the money already paid out on paper.</div>
-            ${audit.awardedRows.length ? `<ul class="list" style="margin-top:12px;">${audit.awardedRows.map((row) => `<li><span><strong>${escapeHtml(row.label || 'Prize')}</strong><br><span class="note">${escapeHtml((row.cleanShares || []).map((share) => `${share.name} ${formatCurrency(share.amount)}`).join(' | ') || formatWinnerList(row.winners || []) || row.winnerLabel || 'Winner saved')}</span></span><span class="amount">${escapeHtml(formatCurrency(row.amount || 0))}</span></li>`).join('')}</ul>` : `<div class="empty" style="margin-top:12px;">No awarded prize rows yet.</div>`}
+            ${audit.awardedRows.length ? `<ul class="list" style="margin-top:12px;">${audit.awardedRows.map((row) => `<li><span><strong>${escapeHtml(row.label || 'Prize')}</strong><br><span class="note">${escapeHtml((row.cleanShares || []).map((share) => `${share.name}${share.birdies ? ` ${share.birdies} ${share.birdies === 1 ? 'birdie' : 'birdies'}` : ''} ${formatCurrency(share.amount)}`).join(' | ') || formatWinnerList(row.winners || []) || row.winnerLabel || 'Winner saved')}</span></span><span class="amount">${escapeHtml(formatCurrency(row.amount || 0))}</span></li>`).join('')}</ul>` : `<div class="empty" style="margin-top:12px;">No awarded prize rows yet.</div>`}
           </div>
         </div>
       `;

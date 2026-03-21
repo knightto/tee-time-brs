@@ -2503,14 +2503,24 @@
       const leaders = highestCount > 0
         ? rows.filter((entry) => entry.count === highestCount).map((entry) => entry.playerName)
         : [];
+      const totalBirdies = rows.reduce((sum, entry) => sum + entry.count, 0);
       return {
         rows,
         highestCount: highestCount || null,
         leaders,
-        label: leaders.length
-          ? `${leaders.join(', ')} · ${highestCount} ${highestCount === 1 ? 'birdie' : 'birdies'}`
+        totalBirdies,
+        label: totalBirdies
+          ? `${totalBirdies} total ${totalBirdies === 1 ? 'birdie' : 'birdies'}${leaders.length ? ` · ${leaders.join(', ')} ${leaders.length === 1 ? 'leads' : 'lead'} with ${highestCount}` : ''}`
           : 'Pending',
       };
+    };
+    const formatRyderCupBirdiePoolDetail = (entry = {}, pendingLabel = 'Pending') => {
+      const totalBirdies = Math.max(0, Math.round(Number(entry && entry.totalBirdies) || 0));
+      if (!totalBirdies) return pendingLabel;
+      const perBirdieAmount = Number(entry && entry.perBirdieAmount);
+      return Number.isFinite(perBirdieAmount)
+        ? `${totalBirdies} ${totalBirdies === 1 ? 'birdie' : 'birdies'} @ ${formatCurrency(perBirdieAmount)} per birdie`
+        : `${totalBirdies} ${totalBirdies === 1 ? 'birdie' : 'birdies'}`;
     };
     const RYDER_CUP_PLAY_STYLE_OPTIONS = [
       'Two-Man Net Total Match',
@@ -4306,7 +4316,7 @@
       const renderDailyBirdiePotCards = (entries = [], options = {}) => {
         const fieldKey = String(options.fieldKey || '').trim();
         const title = String(options.title || 'Daily Birdie Pot').trim();
-        const note = String(options.note || 'Enter one line per player: Player | count.').trim();
+        const note = String(options.note || 'Enter one line per player: Player | count. The pot is split across every birdie recorded.').trim();
         const placeholder = String(options.placeholder || 'Joe Gillette | 2').trim();
         return `
           <div class="competition-sidegame-card" style="grid-column:1/-1;">
@@ -4320,14 +4330,11 @@
                 return `
                   <div class="competition-admin-card" data-ryder-daily-birdie-pot-index="${escapeHtml(String(index))}" data-ryder-daily-birdie-pot-kind="${escapeHtml(fieldKey)}">
                     <strong>${escapeHtml(entry.label || `Round ${index + 1} ${title}`)}</strong>
-                    <div class="competition-note">Leaders: ${escapeHtml(summary.label)}</div>
+                    <div class="competition-note">Birdies tracked: ${escapeHtml(summary.label)}</div>
+                    <div class="competition-note">Auto payout: ${escapeHtml(formatRyderCupBirdiePoolDetail(entry, entry.isComplete ? 'No birdies tracked yet' : 'Pending full round scores'))}</div>
                     <label>
                       <span>Birdies</span>
                       <textarea data-ryder-daily-birdie-pot-counts placeholder="${quoteAttr(placeholder)}">${escapeHtml(formatRyderCupBirdieCounts(entry.counts || []))}</textarea>
-                    </label>
-                    <label>
-                      <span>Manual winners override</span>
-                      <input type="text" data-ryder-daily-birdie-pot-winners value="${quoteAttr(formatWinnerList(entry.manualOverride ? entry.winnerNames : []))}" placeholder="Comma-separated winners">
                     </label>
                     <label>
                       <span>Amount</span>
@@ -4489,14 +4496,11 @@
               </div>
               <div class="competition-sidegame-card">
                 <strong>Trip Birdie Pool</strong>
-                <div class="competition-note">Trip-long total. One line per player: Player | count. Count gross birdies or better.</div>
+                <div class="competition-note">Trip-long total. One line per player: Player | count. The pool is split across every gross birdie or better.</div>
+                <div class="competition-note">Auto payout: ${escapeHtml(formatRyderCupBirdiePoolDetail(sideGames.birdiePool, 'Pending'))}</div>
                 <label>
                   <span>Birdie counts</span>
                   <textarea id="ryderBirdieCountsField" placeholder="Joe Gillette | 4&#10;John Quimby | 2">${escapeHtml(formatRyderCupBirdieCounts(sideGames.birdiePool && sideGames.birdiePool.counts))}</textarea>
-                </label>
-                <label>
-                  <span>Manual winners override</span>
-                  <input id="ryderBirdieWinnersField" type="text" value="${quoteAttr(formatWinnerList(sideGames.birdiePool && sideGames.birdiePool.winners))}" placeholder="Comma-separated winners">
                 </label>
                 <label>
                   <span>Amount</span>
@@ -4777,7 +4781,7 @@
       pushRow(
         'Daily Birdie Pot',
         'dailyBirdiePot',
-        latestDailyBirdies ? `${latestDailyBirdies.label}: ${formatWinnerList(latestDailyBirdies.winnerNames)}` : 'Pending'
+        latestDailyBirdies ? `${latestDailyBirdies.label}: ${formatRyderCupBirdiePoolDetail(latestDailyBirdies, 'Pending')}` : 'Pending'
       );
       pushRow(
         'Longest Made Putt',
@@ -4802,7 +4806,7 @@
       pushRow(
         'Trip Birdie Pool',
         'birdiePool',
-        formatWinnerList(sideGames.birdiePool && sideGames.birdiePool.winners) || 'Pending'
+        formatRyderCupBirdiePoolDetail(sideGames.birdiePool, 'Pending')
       );
       pushRow(
         'Ryder Cup MVP',
@@ -4830,12 +4834,33 @@
       };
       const buildSingleBreakdown = (row = {}, fallbackCount = 1) => {
         const winners = Array.isArray(row.winners) ? row.winners.filter(Boolean) : [];
+        const shareRows = Array.isArray(row.shareRows) ? row.shareRows.filter((entry) => Number(entry && entry.amount || 0) > 0) : [];
         const perPerson = Number(row.perPerson || 0);
         const amount = Number(row.amount || 0);
+        if (shareRows.length) {
+          const totalBirdies = shareRows.reduce((sum, entry) => sum + Math.max(0, Math.round(Number(entry && entry.birdies) || 0)), 0);
+          if (totalBirdies > 0) return `${totalBirdies} birdies paid from ${formatCurrency(amount)}`;
+        }
         if (winners.length && perPerson > 0 && Math.abs((perPerson / 5) - Math.round(perPerson / 5)) < 0.001) return `${winners.length} x ${formatCurrency(perPerson)} each`;
         if (winners.length && amount > 0) return `${winners.length} winners split ${formatCurrency(amount)} in $5 chunks`;
         if (amount > 0) return `${fallbackCount} x ${formatCurrency(amount)}`;
         return 'Pending';
+      };
+      const buildBirdieEntryBreakdown = (entries = [], fallback = 'Round-by-round payout') => {
+        const list = (Array.isArray(entries) ? entries : []).filter((entry) => Number(entry && entry.amount || 0) > 0);
+        if (!list.length) return fallback;
+        const amounts = Array.from(new Set(list.map((entry) => Number(entry.amount || 0).toFixed(2))));
+        const baseLabel = amounts.length === 1
+          ? `${list.length} x ${formatCurrency(Number(list[0].amount || 0))} pools`
+          : list.map((entry) => formatCurrency(Number(entry.amount || 0))).join(' + ');
+        return `${baseLabel}, paid by birdie count`;
+      };
+      const buildTripBirdieBreakdown = (entry = {}, row = {}) => {
+        const amount = Number(row.amount || entry.amount || 0);
+        const totalBirdies = Math.max(0, Math.round(Number(entry && entry.totalBirdies) || 0));
+        if (!amount) return 'Pending';
+        if (!totalBirdies) return `1 x ${formatCurrency(amount)}`;
+        return `${totalBirdies} birdies paid from ${formatCurrency(amount)}`;
       };
       const rowsForSection = [];
       const pushRow = (sectionTitle = '', key = '', label = '', breakdown = '') => {
@@ -4875,12 +4900,12 @@
       );
       pushRow('Daily Pots', 'dailyNet', 'Daily Net', buildEntryBreakdown(sideGames.dailyNet, 'Round-by-round payout'));
       pushRow('Daily Pots', 'dailyOver100Draw', 'Daily Over-100 Draw', buildEntryBreakdown(sideGames.dailyOver100Draw, 'Round-by-round payout'));
-      pushRow('Daily Pots', 'dailyBirdiePot', 'Daily Birdie Pot', buildEntryBreakdown(sideGames.dailyBirdiePot, 'Round-by-round payout'));
+      pushRow('Daily Pots', 'dailyBirdiePot', 'Daily Birdie Pot', buildBirdieEntryBreakdown(sideGames.dailyBirdiePot, 'Round-by-round payout'));
       pushRow('Daily Pots', 'dailyLongestPuttLastHole', 'Last-Hole Putt', buildEntryBreakdown(sideGames.dailyLongestPuttLastHole, 'Round-by-round payout'));
       pushRow('Trip-Long Pots', 'weeklyNet', 'Weekly Net Champion', buildSingleBreakdown(getPayoutRow('weeklyNet')));
       pushRow('Trip-Long Pots', 'weeklyOver100Draw', 'Weekly Over-100 Draw', buildSingleBreakdown(getPayoutRow('weeklyOver100Draw')));
       pushRow('Trip-Long Pots', 'closestToPin', 'Closest To Pin', buildSingleBreakdown(getPayoutRow('closestToPin')));
-      pushRow('Trip-Long Pots', 'birdiePool', 'Trip Birdie Pool', buildSingleBreakdown(getPayoutRow('birdiePool')));
+      pushRow('Trip-Long Pots', 'birdiePool', 'Trip Birdie Pool', buildTripBirdieBreakdown(sideGames.birdiePool, getPayoutRow('birdiePool')));
       pushRow('Trip-Long Pots', 'mvp', 'Ryder Cup MVP', buildSingleBreakdown(getPayoutRow('mvp')));
       return rowsForSection;
     }
@@ -6410,7 +6435,6 @@
         roundNumber: index + 1,
         label: (ryderCup?.sideGames?.[fieldKey] && ryderCup.sideGames[fieldKey][index] && ryderCup.sideGames[fieldKey][index].label) || `Round ${index + 1} ${fallbackSuffix}`,
         counts: parseRyderCupBirdieCounts((card.querySelector('[data-ryder-daily-birdie-pot-counts]') || {}).value || ''),
-        winnerNames: parseWinnerList((card.querySelector('[data-ryder-daily-birdie-pot-winners]') || {}).value || ''),
         amount: parseHandicapValue((card.querySelector('[data-ryder-daily-birdie-pot-amount]') || {}).value),
         notes: String((card.querySelector('[data-ryder-daily-birdie-pot-notes]') || {}).value || '').trim(),
       }));
@@ -6458,7 +6482,6 @@
           },
           birdiePool: {
             counts: parseRyderCupBirdieCounts((document.getElementById('ryderBirdieCountsField') || {}).value || ''),
-            winners: parseWinnerList((document.getElementById('ryderBirdieWinnersField') || {}).value || ''),
             amount: parseHandicapValue((document.getElementById('ryderBirdieAmountField') || {}).value),
             notes: String((document.getElementById('ryderBirdieNotesField') || {}).value || '').trim(),
           },

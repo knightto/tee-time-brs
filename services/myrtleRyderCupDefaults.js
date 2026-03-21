@@ -664,7 +664,7 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
         counts: [],
         winnerNames: [],
         amount: 50,
-        notes: 'Manual daily side prize for gross birdies or better.',
+        notes: 'Daily birdie pool split across every gross birdie or better recorded that round.',
       })),
       weeklyNet: {
         winnerNames: [],
@@ -688,7 +688,7 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
         })),
         winners: [],
         amount: 125,
-        notes: 'Track gross birdies or better.',
+        notes: 'Trip-long birdie pool split across every gross birdie or better recorded during the trip.',
       },
       mvp: {
         overrideWinners: [],
