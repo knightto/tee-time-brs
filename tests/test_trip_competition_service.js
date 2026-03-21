@@ -5,6 +5,7 @@ const {
   getDefaultScorecard,
   normalizeLegacyMyrtleTripTeeSheet,
   setTripRyderCupRound,
+  setTripRyderCupSettings,
   syncTripRyderCupOverlayToCompetition,
   swapTripRyderCupTeamPlayers,
 } = require('../services/tripCompetitionService');
@@ -353,33 +354,33 @@ function run() {
   assert.deepStrictEqual(syncedOverlayView.ryderCup.rounds[0].matches[3].teamBPlayers, ['Caleb Hart', 'Joe Gillette'], 'Overlay roster sync should also update the opposite side pairing that traded players');
   assert.strictEqual(freshView.ryderCup.rounds[0].plan.groups.length, 5, 'Each Ryder Cup round should expose five daily plan groups');
   assert.strictEqual(freshView.ryderCup.rounds[0].plan.groups[0].players.length, 4, 'Daily plan groups should cover full foursomes');
-  assert.strictEqual(freshView.ryderCup.description, 'Team competition with every player playing his own ball and keeping his own score in every round, with fixed 75% handicaps applied automatically.', 'The Ryder Cup intro should explain the own-ball 75% handicap setup');
-  assert.strictEqual(freshView.ryderCup.rounds[1].format, 'Two-Man Net Total Match (75%)', 'Round 2 should now be seeded as the shared 75% handicap team format');
-  assert.strictEqual(freshView.ryderCup.rounds[1].plan.groups[0].playStyle, 'Two-Man Net Total Match (75%)', 'Team rounds should seed with the shared 75% handicap play style');
-  assert.strictEqual(freshView.ryderCup.rounds[3].format, 'Two-Man Net Total Match (75%)', 'Round 4 should now use the same 75% handicap scoring format as the other team rounds');
+  assert.strictEqual(freshView.ryderCup.description, 'Team competition with every player playing his own ball and keeping his own score in every round, with full handicaps applied automatically.', 'The Ryder Cup intro should explain the own-ball full-handicap setup');
+  assert.strictEqual(freshView.ryderCup.rounds[1].format, 'Two-Man Net Total Match', 'Round 2 should now be seeded as the shared full-handicap team format');
+  assert.strictEqual(freshView.ryderCup.rounds[1].plan.groups[0].playStyle, 'Two-Man Net Total Match', 'Team rounds should seed with the shared full-handicap play style');
+  assert.strictEqual(freshView.ryderCup.rounds[3].format, 'Two-Man Net Total Match', 'Round 4 should now use the same full-handicap scoring format as the other team rounds');
   assert.strictEqual(freshView.ryderCup.rounds[3].pointValue, 1, 'Each Round 4 pod should now be worth one point');
-  assert.strictEqual(freshView.ryderCup.rounds[4].plan.groups[0].playStyle, 'Singles Net Total Match (75%)', 'Singles rounds should seed with the 75% handicap singles play style');
+  assert.strictEqual(freshView.ryderCup.rounds[4].plan.groups[0].playStyle, 'Singles Net Total Match', 'Singles rounds should seed with the full-handicap singles play style');
   const myrtleView = buildTripCompetitionView(myrtleTrip, myrtleParticipants);
   assert(myrtleView.ryderCup, 'Myrtle trips should expose a Ryder Cup view');
   assert.strictEqual(myrtleView.ryderCup.canEditTeams, false, 'Ryder Cup teams should lock once results have been entered');
   assert.strictEqual(myrtleView.ryderCup.teams[0].rankSum, 105, 'Team A rank sum should be seeded to 105');
   assert.strictEqual(myrtleView.ryderCup.teams[1].rankSum, 105, 'Team B rank sum should be seeded to 105');
   assert.strictEqual(myrtleView.ryderCup.fairness.status, 'Very balanced', 'Balanced seed should report a very balanced fairness note');
-  assert.strictEqual(myrtleView.ryderCup.rounds[0].format, 'Two-Man Net Total Match (75%)', 'Saved legacy round formats should normalize to the 75% handicap match label');
-  assert.strictEqual(myrtleView.ryderCup.rounds[0].formatKey, 'grossTeamMatch', 'Saved legacy net-total round keys should keep the gross-entry engine under the 75% handicap view');
-  assert.strictEqual(myrtleView.ryderCup.standings.teamAPoints, 1, '75% handicap Ryder Cup rounds should roll up completed daily matches correctly');
-  assert.strictEqual(myrtleView.ryderCup.standings.teamBPoints, 4, 'Completed 75% handicap Ryder Cup matches should update Team B points');
+  assert.strictEqual(myrtleView.ryderCup.rounds[0].format, 'Two-Man Net Total Match', 'Saved legacy round formats should normalize to the full-handicap match label');
+  assert.strictEqual(myrtleView.ryderCup.rounds[0].formatKey, 'grossTeamMatch', 'Saved legacy net-total round keys should keep the gross-entry engine under the full-handicap view');
+  assert.strictEqual(myrtleView.ryderCup.standings.teamAPoints, 1, 'Full-handicap Ryder Cup rounds should roll up completed daily matches correctly');
+  assert.strictEqual(myrtleView.ryderCup.standings.teamBPoints, 4, 'Completed full-handicap Ryder Cup matches should update Team B points');
   assert.strictEqual(myrtleView.ryderCup.standings.remainingPoints, 25, 'Remaining points should reflect unfinished matches after five scored matches');
   assert.strictEqual(myrtleView.ryderCup.totalPointsAvailable, 30, 'Ryder Cup total points should stay fixed at 30');
-  assert(myrtleView.overview.formatSummary.includes('lower net side'), 'Myrtle overview should explain the fixed 75% handicap match flow');
+  assert(myrtleView.overview.formatSummary.includes('lower net side'), 'Myrtle overview should explain the full-handicap match flow');
   assert.strictEqual(myrtleView.ryderCup.teams[0].players[0].handicapIndex, 2, 'Seeded Ryder Cup players should expose their fixed handicap index');
-  assert.strictEqual(myrtleView.ryderCup.teams[0].players[0].matchHandicap, 2, 'Seeded Ryder Cup players should expose their 75% match allowance');
+  assert.strictEqual(myrtleView.ryderCup.teams[0].players[0].matchHandicap, 2, 'Seeded Ryder Cup players should expose their full match handicap');
   const joeGilletteRow = myrtleView.ryderCup.individualLeaderboard.find((entry) => entry.name === 'Joe Gillette');
   assert(joeGilletteRow, 'Individual Ryder Cup rows should be present');
-  assert.strictEqual(joeGilletteRow.pointsWon, 1, 'Completed 75% handicap matches should feed the individual leaderboard');
+  assert.strictEqual(joeGilletteRow.pointsWon, 1, 'Completed full-handicap matches should feed the individual leaderboard');
   const joshRow = myrtleView.ryderCup.individualLeaderboard.find((entry) => entry.name === 'Josh Browne');
   assert(joshRow, 'Scored Ryder Cup players should be present');
-  assert.strictEqual(joshRow.pointsWon, 0, 'Losing 75% handicap matches should award zero points');
+  assert.strictEqual(joshRow.pointsWon, 0, 'Losing full-handicap matches should award zero points');
   const hardConstraint = myrtleView.ryderCup.admin.hardConstraints.find((entry) => entry.id === 'neff-not-manuel');
   assert(hardConstraint, 'Hard constraint rows should be exposed');
   assert.strictEqual(hardConstraint.status, 'clear', 'Seeded Ryder Cup schedule should keep Chris Neff away from Manuel Ordonez');
@@ -393,17 +394,47 @@ function run() {
   assert(requestedGrouping, 'Requested grouping coverage should be exposed');
   assert.strictEqual(requestedGrouping.status, 'scheduled', 'Requested grouping coverage should be tracked');
   assert.strictEqual(myrtleView.ryderCup.rounds[0].plan.dayNote, 'Warm up at the range before the opener.', 'Round-level planning notes should be exposed');
-  assert.strictEqual(myrtleView.ryderCup.rounds[0].plan.groups[0].playStyle, 'Two-Man Net Total Match (75%)', 'Saved complex or legacy plan styles should normalize to the 75% handicap play style');
+  assert.strictEqual(myrtleView.ryderCup.rounds[0].plan.groups[0].playStyle, 'Two-Man Net Total Match', 'Saved complex or legacy plan styles should normalize to the full-handicap play style');
   assert.strictEqual(myrtleView.ryderCup.rounds[0].plan.groups[0].notes, 'Opening match uses the saved gross-score setup.', 'Saved daily plan group notes should survive normalization');
-  assert.strictEqual(myrtleView.ryderCup.rounds[0].matches[0].teamAGrossScore, 166, '75% handicap rounds should still expose calculated team gross totals');
-  assert.strictEqual(myrtleView.ryderCup.rounds[0].matches[0].teamAHandicapAllowance, 16, '75% handicap rounds should expose the applied team allowance');
-  assert.strictEqual(myrtleView.ryderCup.rounds[1].matches[0].teamAScore, 147, '75% handicap rounds should expose the adjusted team net score');
+  assert.strictEqual(myrtleView.ryderCup.rounds[0].matches[0].teamAGrossScore, 166, 'Full-handicap rounds should still expose calculated team gross totals');
+  assert.strictEqual(myrtleView.ryderCup.rounds[0].matches[0].teamAHandicapAllowance, 20, 'Full-handicap rounds should expose the applied team allowance');
+  assert.strictEqual(myrtleView.ryderCup.rounds[1].matches[0].teamAScore, 142, 'Full-handicap rounds should expose the adjusted team net score');
+  assert.strictEqual(myrtleView.ryderCup.sideGames.dailyOver100Draw.length, 5, 'Myrtle Ryder Cup should seed a daily over-100 draw for each round');
   assert.strictEqual(myrtleView.ryderCup.sideGames.dailyLongestPuttLastHole.length, 5, 'Myrtle Ryder Cup should seed a daily last-hole longest-putt prize for each round');
   assert.strictEqual(myrtleView.ryderCup.sideGames.dailyBirdiePot.length, 5, 'Myrtle Ryder Cup should seed a daily gross birdie pot for each round');
-  assert.strictEqual(myrtleView.ryderCup.sideGames.dailyNetBirdiePot.length, 5, 'Myrtle Ryder Cup should seed a daily net birdie pot for each round');
+  assert.strictEqual(Object.prototype.hasOwnProperty.call(myrtleView.ryderCup.sideGames, 'dailyNetBirdiePot'), false, 'Myrtle Ryder Cup should not expose a net birdie pot anymore');
+  assert.strictEqual(myrtleView.ryderCup.sideGames.dailyNet[0].amount, 75, 'Daily net should default to a $75 round prize');
+  assert.strictEqual(myrtleView.ryderCup.sideGames.dailyOver100Draw[0].amount, 20, 'Daily over-100 draw should default to a $20 round prize');
+  assert.strictEqual(myrtleView.ryderCup.sideGames.dailyBirdiePot[0].amount, 50, 'Daily gross birdies should default to a $50 round prize');
+  assert.strictEqual(myrtleView.ryderCup.sideGames.dailyLongestPuttLastHole[0].amount, 15, 'Daily last-hole longest putt should default to a $15 round prize');
+  assert.strictEqual(myrtleView.ryderCup.sideGames.weeklyNet.amount, 250, 'Weekly net should default to a $250 prize');
+  assert.strictEqual(myrtleView.ryderCup.sideGames.weeklyOver100Draw.amount, 120, 'Weekly over-100 draw should default to a $120 prize');
+  assert.strictEqual(myrtleView.ryderCup.sideGames.birdiePool.amount, 125, 'Trip birdie pool should default to a $125 prize');
+  assert.strictEqual(myrtleView.ryderCup.sideGames.mvp.amount, 125, 'MVP should default to a $125 prize');
+  assert.strictEqual(myrtleView.ryderCup.payout.totalPot, 2000, 'Myrtle payout should default to the full $2,000 pot');
+  assert.strictEqual(myrtleView.ryderCup.payout.nonTeamAmount, 1500, 'Configured non-team Myrtle prizes should total $1,500');
+  assert.strictEqual(myrtleView.ryderCup.payout.teamAmount, 500, 'Winning team should receive the fixed $500 share so each winner gets $50');
+  assert.strictEqual(myrtleView.ryderCup.payout.rows.find((row) => row.key === 'dailyNet').amount, 375, 'Five daily net payouts should total $375');
+  assert.strictEqual(myrtleView.ryderCup.payout.rows.find((row) => row.key === 'dailyOver100Draw').amount, 100, 'Five daily over-100 draws should total $100');
+  assert.strictEqual(myrtleView.ryderCup.payout.rows.find((row) => row.key === 'dailyBirdiePot').amount, 250, 'Five daily gross birdie payouts should total $250');
+  assert.strictEqual(myrtleView.ryderCup.payout.rows.some((row) => row.key === 'dailyNetBirdiePot'), false, 'Net birdie payouts should be removed from the Myrtle payout summary');
+  assert.strictEqual(myrtleView.ryderCup.payout.rows.find((row) => row.key === 'dailyLongestPuttLastHole').amount, 75, 'Five daily last-hole putt payouts should total $75');
+  assert.strictEqual(myrtleView.ryderCup.payout.rows.find((row) => row.key === 'weeklyOver100Draw').amount, 120, 'Weekly over-100 draw should total $120');
+  const zeroClosestToPinTrip = clone(myrtleTrip);
+  zeroClosestToPinTrip.competition.ryderCup.payout = {
+    ...(zeroClosestToPinTrip.competition.ryderCup.payout || {}),
+    allocationPercentages: {
+      ...((zeroClosestToPinTrip.competition.ryderCup.payout && zeroClosestToPinTrip.competition.ryderCup.payout.allocationPercentages) || {}),
+      closestToPin: 0,
+    },
+  };
+  const zeroClosestToPinView = buildTripCompetitionView(zeroClosestToPinTrip, []);
+  assert.strictEqual(zeroClosestToPinView.ryderCup.payout.allocationPercentages.closestToPin, 0, 'Closest-to-pin payout allocation should preserve an explicit zero');
+  assert.strictEqual(zeroClosestToPinView.ryderCup.payout.rows.find((row) => row.key === 'closestToPin').amount, 0, 'Explicitly disabling closest-to-pin should zero out the prize amount');
   assert.match(myrtleView.overview.sideGamesSummary, /longest made putt on the last hole/i, 'Myrtle overview should mention the daily last-hole putt prize');
+  assert.match(myrtleView.overview.sideGamesSummary, /over-100 team draws/i, 'Myrtle overview should mention the over-100 draws');
   assert.match(myrtleView.overview.sideGamesSummary, /daily birdie pot/i, 'Myrtle overview should mention the daily birdie pots');
-  assert.strictEqual(myrtleView.ryderCup.rounds[2].matches[0].teamAScore, 163, '75% handicap rounds should derive later net totals from saved gross scores');
+  assert.strictEqual(myrtleView.ryderCup.rounds[2].matches[0].teamAScore, 161, 'Full-handicap rounds should derive later net totals from saved gross scores');
   assert.strictEqual(myrtleView.ryderCup.rounds[3].matches[0].teamAGrossScore, 180, 'Round 4 should still expose the pod gross total on the match itself');
   assert.strictEqual(myrtleView.ryderCup.rounds[3].matches[0].pointsB, 1, 'Round 4 pod matches should award one point to the lower net side');
   assert.strictEqual(myrtleView.ryderCup.admin.roundRules.length, 5, 'Admin rules should explain each own-ball round format');
@@ -442,6 +473,54 @@ function run() {
       rounds,
     };
   };
+  const roundedPrizeTrip = makeEditableMyrtleTrip();
+  setTripRyderCupSettings(roundedPrizeTrip, {
+    sideGames: {
+      ...(roundedPrizeTrip.competition.ryderCup.sideGames || {}),
+      dailyNet: (roundedPrizeTrip.competition.ryderCup.sideGames.dailyNet || []).map((entry, index) => (
+        index === 0 ? { ...entry, amount: 73 } : entry
+      )),
+      dailyBirdiePot: (roundedPrizeTrip.competition.ryderCup.sideGames.dailyBirdiePot || []).map((entry, index) => (
+        index === 0 ? { ...entry, amount: 52 } : entry
+      )),
+      dailyLongestPuttLastHole: (roundedPrizeTrip.competition.ryderCup.sideGames.dailyLongestPuttLastHole || []).map((entry, index) => (
+        index === 0 ? { ...entry, amount: 12 } : entry
+      )),
+      weeklyNet: {
+        ...(roundedPrizeTrip.competition.ryderCup.sideGames.weeklyNet || {}),
+        amount: 248,
+      },
+      weeklyOver100Draw: {
+        ...(roundedPrizeTrip.competition.ryderCup.sideGames.weeklyOver100Draw || {}),
+        amount: 118,
+      },
+      birdiePool: {
+        ...(roundedPrizeTrip.competition.ryderCup.sideGames.birdiePool || {}),
+        amount: 124,
+      },
+      mvp: {
+        ...(roundedPrizeTrip.competition.ryderCup.sideGames.mvp || {}),
+        amount: 127,
+      },
+      closestToPin: {
+        entries: [{ roundNumber: 1, hole: 7, playerName: 'Joe Gillette', distance: '6 ft 2 in', amount: 12 }],
+      },
+    },
+    payout: {
+      ...(roundedPrizeTrip.competition.ryderCup.payout || {}),
+      totalPot: 1998,
+    },
+  });
+  const roundedPrizeView = buildTripCompetitionView(roundedPrizeTrip, myrtleParticipants);
+  assert.strictEqual(roundedPrizeView.ryderCup.sideGames.dailyNet[0].amount, 75, 'Myrtle daily net prizes should round to the nearest $5');
+  assert.strictEqual(roundedPrizeView.ryderCup.sideGames.dailyBirdiePot[0].amount, 50, 'Myrtle daily birdie prizes should round to the nearest $5');
+  assert.strictEqual(roundedPrizeView.ryderCup.sideGames.dailyLongestPuttLastHole[0].amount, 10, 'Myrtle daily longest-putt prizes should round to the nearest $5');
+  assert.strictEqual(roundedPrizeView.ryderCup.sideGames.weeklyNet.amount, 250, 'Myrtle weekly net prizes should round to the nearest $5');
+  assert.strictEqual(roundedPrizeView.ryderCup.sideGames.weeklyOver100Draw.amount, 120, 'Myrtle weekly over-100 prizes should round to the nearest $5');
+  assert.strictEqual(roundedPrizeView.ryderCup.sideGames.birdiePool.amount, 125, 'Myrtle trip birdie prizes should round to the nearest $5');
+  assert.strictEqual(roundedPrizeView.ryderCup.sideGames.mvp.amount, 125, 'Myrtle MVP prizes should round to the nearest $5');
+  assert.strictEqual(roundedPrizeView.ryderCup.sideGames.closestToPin.entries[0].amount, 10, 'Myrtle closest-to-pin entry prizes should round to the nearest $5');
+  assert.strictEqual(roundedPrizeView.ryderCup.payout.totalPot, 2000, 'Myrtle total pot should round to the nearest $5');
   const assignUniqueRyderCupScores = (round) => {
     let nextScore = 70;
     const scoreByName = new Map();
@@ -479,8 +558,8 @@ function run() {
   const overlayHandicapJoe = overlayHandicapView.ryderCup.teams[0].players.find((entry) => entry.name === 'Joe Gillette');
   assert(overlayHandicapJoe, 'Overlay handicap override player should be present');
   assert.strictEqual(overlayHandicapJoe.handicapIndex, 4.5, 'Saved Ryder Cup overlay handicaps should override the seeded Myrtle handicap');
-  assert.strictEqual(overlayHandicapJoe.matchHandicap, 3, 'Saved Ryder Cup overlay handicaps should drive the 75% allowance');
-  assert.strictEqual(overlayHandicapView.ryderCup.rounds[0].matches[0].teamAHandicapAllowance, 17, 'Match allowances should recalculate from saved Ryder Cup overlay handicap edits');
+  assert.strictEqual(overlayHandicapJoe.matchHandicap, 5, 'Saved Ryder Cup overlay handicaps should drive the full handicap allowance');
+  assert.strictEqual(overlayHandicapView.ryderCup.rounds[0].matches[0].teamAHandicapAllowance, 23, 'Match allowances should recalculate from saved Ryder Cup overlay handicap edits');
 
   const allRoundsHandicapTrip = makeEditableMyrtleTrip();
   allRoundsHandicapTrip.ryderCup = getDefaultTripRyderCupState(myrtleParticipants);
@@ -509,7 +588,7 @@ function run() {
   const afterJoeRoundOne = findMatchForPlayer(afterAllRoundsHandicapView.ryderCup.rounds[0], 'Joe Gillette');
   const afterJoeRoundTwo = findMatchForPlayer(afterAllRoundsHandicapView.ryderCup.rounds[1], 'Joe Gillette');
   const afterJoeRoundThree = findMatchForPlayer(afterAllRoundsHandicapView.ryderCup.rounds[2], 'Joe Gillette');
-  assert.strictEqual(afterJoeAllowance, 15, 'Overlay handicap edits should update Joe\'s current 75% allowance');
+  assert.strictEqual(afterJoeAllowance, 20, 'Overlay handicap edits should update Joe\'s current full allowance');
   assert.strictEqual(afterJoeRoundOne.teamAHandicapAllowance, beforeJoeRoundOne.teamAHandicapAllowance + joeAllowanceDelta, 'Completed Round 1 allowances should recalculate after a handicap edit');
   assert.strictEqual(afterJoeRoundOne.teamAScore, beforeJoeRoundOne.teamAScore - joeAllowanceDelta, 'Completed Round 1 net totals should recalculate after a handicap edit');
   assert.strictEqual(afterJoeRoundTwo.teamAHandicapAllowance, beforeJoeRoundTwo.teamAHandicapAllowance + joeAllowanceDelta, 'Completed Round 2 allowances should recalculate after a handicap edit');
@@ -526,20 +605,50 @@ function run() {
     amount: 20,
     notes: 'Gross birdies',
   };
-  dailyBirdieTrip.competition.ryderCup.sideGames.dailyNetBirdiePot[0] = {
-    ...dailyBirdieTrip.competition.ryderCup.sideGames.dailyNetBirdiePot[0],
-    counts: [
-      { playerName: 'Josh Browne', count: 3 },
-      { playerName: 'Reny Butler', count: 1 },
-    ],
-    amount: 20,
-    notes: 'Net birdies',
-  };
   const dailyBirdieView = buildTripCompetitionView(dailyBirdieTrip, myrtleParticipants);
   assert.strictEqual(dailyBirdieView.ryderCup.sideGames.dailyBirdiePot[0].automaticWinners[0], 'Joe Gillette', 'Daily gross birdie pot should auto-pick the highest gross birdie count');
   assert.strictEqual(dailyBirdieView.ryderCup.sideGames.dailyBirdiePot[0].highestCount, 2, 'Daily gross birdie pot should expose the leading gross birdie count');
-  assert.strictEqual(dailyBirdieView.ryderCup.sideGames.dailyNetBirdiePot[0].automaticWinners[0], 'Josh Browne', 'Daily net birdie pot should auto-pick the highest net birdie count');
-  assert.strictEqual(dailyBirdieView.ryderCup.sideGames.dailyNetBirdiePot[0].highestCount, 3, 'Daily net birdie pot should expose the leading net birdie count');
+
+  const over100Trip = makeEditableMyrtleTrip();
+  const over100Round = clone(over100Trip.competition.ryderCup.rounds[0]);
+  const teamAQualifier = over100Round.matches[0].teamAPlayers[0];
+  const teamBQualifier = over100Round.matches[0].teamBPlayers[0];
+  over100Trip.competition.ryderCup.rounds.forEach((savedRound, roundIndex) => {
+    const completedRound = clone(savedRound);
+    completedRound.matches = completedRound.matches.map((match, matchIndex) => ({
+      ...match,
+      teamAPlayerScores: match.teamAPlayers.map((_name, playerIndex) => (
+        roundIndex === 0 && matchIndex === 0 && playerIndex === 0 ? 101 : 92
+      )),
+      teamBPlayerScores: match.teamBPlayers.map((_name, playerIndex) => (
+        roundIndex === 0 && matchIndex === 0 && playerIndex === 0 ? 108 : 89
+      )),
+    }));
+    setTripRyderCupRound(over100Trip, roundIndex, completedRound);
+  });
+  over100Trip.competition.ryderCup.sideGames.dailyOver100Draw[0] = {
+    ...over100Trip.competition.ryderCup.sideGames.dailyOver100Draw[0],
+    teamAWinnerNames: ['Manual Team A Winner'],
+    teamBWinnerNames: ['Manual Team B Winner'],
+    winnerNames: ['Manual Team A Winner', 'Manual Team B Winner'],
+    amount: 20,
+  };
+  over100Trip.competition.ryderCup.sideGames.weeklyOver100Draw = {
+    ...over100Trip.competition.ryderCup.sideGames.weeklyOver100Draw,
+    teamAWinnerNames: ['Manual Team A Winner'],
+    teamBWinnerNames: ['Manual Team B Winner'],
+    winnerNames: ['Manual Team A Winner', 'Manual Team B Winner'],
+    amount: 100,
+  };
+  const over100View = buildTripCompetitionView(over100Trip, myrtleParticipants);
+  assert.deepStrictEqual(over100View.ryderCup.sideGames.dailyOver100Draw[0].teamAEligible, [teamAQualifier], 'Daily over-100 draw should expose Team A qualifiers from saved gross scores');
+  assert.deepStrictEqual(over100View.ryderCup.sideGames.dailyOver100Draw[0].teamBEligible, [teamBQualifier], 'Daily over-100 draw should expose Team B qualifiers from saved gross scores');
+  assert.deepStrictEqual(over100View.ryderCup.sideGames.dailyOver100Draw[0].teamAWinnerNames, [teamAQualifier], 'Daily over-100 draw should auto-pick a Team A winner from the eligible pool');
+  assert.deepStrictEqual(over100View.ryderCup.sideGames.dailyOver100Draw[0].teamBWinnerNames, [teamBQualifier], 'Daily over-100 draw should auto-pick a Team B winner from the eligible pool');
+  assert.strictEqual(over100View.ryderCup.sideGames.dailyOver100Draw[0].manualOverride, false, 'Daily over-100 draw should not use manual winner overrides');
+  assert.deepStrictEqual(over100View.ryderCup.sideGames.weeklyOver100Draw.teamAWinnerNames, [teamAQualifier], 'Weekly over-100 draw should auto-pick a Team A winner from the eligible pool');
+  assert.deepStrictEqual(over100View.ryderCup.sideGames.weeklyOver100Draw.teamBWinnerNames, [teamBQualifier], 'Weekly over-100 draw should auto-pick a Team B winner from the eligible pool');
+  assert.strictEqual(over100View.ryderCup.sideGames.weeklyOver100Draw.manualOverride, false, 'Weekly over-100 draw should not use manual winner overrides');
 
   const grossOnlyTrip = makeEditableMyrtleTrip();
   const grossOnlyRound = clone(grossOnlyTrip.competition.ryderCup.rounds[0]);
@@ -559,9 +668,9 @@ function run() {
   const grossOnlyMatch = grossOnlyView.ryderCup.rounds[0].matches[0];
   assert.strictEqual(grossOnlyMatch.teamAGrossScore, 150, 'Manual team-total entry should keep the saved gross number visible');
   assert.strictEqual(grossOnlyMatch.teamBGrossScore, 170, 'Manual team-total entry should keep the opponent gross number visible');
-  assert.strictEqual(grossOnlyMatch.teamAScore, 134, 'Manual team-total entry should still apply Team A 75% handicap allowance');
-  assert.strictEqual(grossOnlyMatch.teamBScore, 138, 'Manual team-total entry should still apply Team B 75% handicap allowance');
-  assert.strictEqual(grossOnlyMatch.result, 'teamA', 'Manual gross team totals should still auto-resolve the lower net side');
+  assert.strictEqual(grossOnlyMatch.teamAScore, 130, 'Manual team-total entry should still apply Team A full handicap allowance');
+  assert.strictEqual(grossOnlyMatch.teamBScore, 128, 'Manual team-total entry should still apply Team B full handicap allowance');
+  assert.strictEqual(grossOnlyMatch.result, 'teamB', 'Manual gross team totals should still auto-resolve the lower net side');
 
   const grossOnlyRoundTripPayload = clone(grossOnlyView.ryderCup.rounds[0]);
   setTripRyderCupRound(grossOnlyTrip, 0, grossOnlyRoundTripPayload);
@@ -569,8 +678,8 @@ function run() {
   const grossOnlyRoundTripMatch = grossOnlyRoundTripView.ryderCup.rounds[0].matches[0];
   assert.strictEqual(grossOnlyRoundTripMatch.teamAGrossScore, 150, 'Round payloads coming back from the view should not double-subtract Team A handicap');
   assert.strictEqual(grossOnlyRoundTripMatch.teamBGrossScore, 170, 'Round payloads coming back from the view should not double-subtract Team B handicap');
-  assert.strictEqual(grossOnlyRoundTripMatch.teamAScore, 134, 'Round payload round-trips should preserve Team A net totals');
-  assert.strictEqual(grossOnlyRoundTripMatch.teamBScore, 138, 'Round payload round-trips should preserve Team B net totals');
+  assert.strictEqual(grossOnlyRoundTripMatch.teamAScore, 130, 'Round payload round-trips should preserve Team A net totals');
+  assert.strictEqual(grossOnlyRoundTripMatch.teamBScore, 128, 'Round payload round-trips should preserve Team B net totals');
 
   const movedPlayersTrip = makeEditableMyrtleTrip();
   const movedPlayersRound = clone(movedPlayersTrip.competition.ryderCup.rounds[0]);
@@ -612,8 +721,8 @@ function run() {
   assert.strictEqual(movedPlayersMatch.teamBScore, null, 'Opponent scores should not stay attached to a manually swapped match that is no longer on the tee sheet');
   assert.deepStrictEqual(movedPlayersMatchOne.teamAPlayers, originalMatchOne.teamAPlayers, 'Scores should land back on the tee-sheet-aligned Team A pairing');
   assert.deepStrictEqual(movedPlayersMatchOne.teamBPlayers, originalMatchOne.teamBPlayers, 'Scores should land back on the tee-sheet-aligned Team B pairing');
-  assert.strictEqual(movedPlayersMatchOne.teamAHandicapAllowance, expectedMovedTeamAAllowance, 'Tee-sheet-aligned Team A golfers should still carry their 75% allowances');
-  assert.strictEqual(movedPlayersMatchOne.teamBHandicapAllowance, expectedMovedTeamBAllowance, 'Tee-sheet-aligned Team B golfers should still carry their 75% allowances');
+  assert.strictEqual(movedPlayersMatchOne.teamAHandicapAllowance, expectedMovedTeamAAllowance, 'Tee-sheet-aligned Team A golfers should still carry their full allowances');
+  assert.strictEqual(movedPlayersMatchOne.teamBHandicapAllowance, expectedMovedTeamBAllowance, 'Tee-sheet-aligned Team B golfers should still carry their full allowances');
   assert.strictEqual(movedPlayersMatchOne.teamAScore, 150 - expectedMovedTeamAAllowance, 'Gross scores should reattach to the correct tee-sheet Team A pairing');
   assert.strictEqual(movedPlayersMatchOne.teamBScore, 170 - expectedMovedTeamBAllowance, 'Gross scores should reattach to the correct tee-sheet Team B pairing');
 
@@ -687,11 +796,11 @@ function run() {
   const singlesTieMatch = singlesTieView.ryderCup.rounds[4].matches[0];
   assert.strictEqual(singlesTieMatch.teamAGrossScore, 84, 'Singles should expose the entered gross score for Team A');
   assert.strictEqual(singlesTieMatch.teamBGrossScore, 80, 'Singles should expose the entered gross score for Team B');
-  assert.strictEqual(singlesTieMatch.teamAScore, 72, 'Singles should subtract Team A 75% allowance from gross');
-  assert.strictEqual(singlesTieMatch.teamBScore, 72, 'Singles should subtract Team B 75% allowance from gross');
-  assert.strictEqual(singlesTieMatch.result, 'halved', 'Equal net singles should resolve as halved');
-  assert.strictEqual(singlesTieMatch.pointsA, 0.5, 'Halved singles should split the point for Team A');
-  assert.strictEqual(singlesTieMatch.pointsB, 0.5, 'Halved singles should split the point for Team B');
+  assert.strictEqual(singlesTieMatch.teamAScore, 68, 'Singles should subtract Team A full handicap allowance from gross');
+  assert.strictEqual(singlesTieMatch.teamBScore, 69, 'Singles should subtract Team B full handicap allowance from gross');
+  assert.strictEqual(singlesTieMatch.result, 'teamA', 'Lower net singles should resolve to Team A');
+  assert.strictEqual(singlesTieMatch.pointsA, 1, 'Winning singles should award the point to Team A');
+  assert.strictEqual(singlesTieMatch.pointsB, 0, 'Losing singles should award zero points to Team B');
 
   const manualOverrideTrip = makeEditableMyrtleTrip();
   const manualOverrideRound = clone(manualOverrideTrip.competition.ryderCup.rounds[0]);
@@ -707,8 +816,8 @@ function run() {
   setTripRyderCupRound(manualOverrideTrip, 0, manualOverrideRound);
   const manualOverrideView = buildTripCompetitionView(manualOverrideTrip, myrtleParticipants);
   const manualOverrideMatch = manualOverrideView.ryderCup.rounds[0].matches[0];
-  assert.strictEqual(manualOverrideMatch.teamAScore, 150 - 16, 'Manual-result matches should still calculate Team A net correctly');
-  assert.strictEqual(manualOverrideMatch.teamBScore, 170 - 32, 'Manual-result matches should still calculate Team B net correctly');
+  assert.strictEqual(manualOverrideMatch.teamAScore, 150 - 20, 'Manual-result matches should still calculate Team A net correctly');
+  assert.strictEqual(manualOverrideMatch.teamBScore, 170 - 42, 'Manual-result matches should still calculate Team B net correctly');
   assert.strictEqual(manualOverrideMatch.result, 'teamB', 'Manual result selection should override the inferred lower-net winner');
   assert.strictEqual(manualOverrideMatch.resultSource, 'manual', 'Manual result selection should be labeled as manual');
   assert.strictEqual(manualOverrideMatch.pointsA, 0, 'Manual result overrides should award zero points to the losing side');

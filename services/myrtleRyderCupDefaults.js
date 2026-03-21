@@ -3,13 +3,13 @@ function copyPlayers(players = []) {
 }
 
 const MYRTLE_RYDER_CUP_SCHEDULE_VERSION = '2026-03-16-fixed-teams-gross-v4';
-const MYRTLE_RYDER_CUP_TEAM_MATCH_FORMAT = 'Two-Man Net Total Match (75%)';
-const MYRTLE_RYDER_CUP_SINGLES_MATCH_FORMAT = 'Singles Net Total Match (75%)';
-const MYRTLE_RYDER_CUP_DESCRIPTION = 'Team competition with every player playing his own ball and keeping his own score in every round, with fixed 75% handicaps applied automatically.';
-const MYRTLE_RYDER_CUP_TEAM_MATCH_DESCRIPTION = 'Fixed Ryder Cup teams stay intact, every golfer posts one gross total for the day, 75% handicaps are applied automatically, and the lower combined net side wins the point.';
-const MYRTLE_RYDER_CUP_TEAM_MATCH_ENTRY_SUMMARY = 'Enter one gross 18-hole total for every golfer. Gross totals, 75% handicap allowances, net match scores, and winners are calculated automatically.';
-const MYRTLE_RYDER_CUP_SINGLES_MATCH_DESCRIPTION = 'Singles are grouped to preserve the hard foursome rules, each golfer posts one gross total for the day, 75% handicaps are applied automatically, and the lower net score wins the point.';
-const MYRTLE_RYDER_CUP_SINGLES_MATCH_ENTRY_SUMMARY = 'Enter one gross 18-hole total for each player. Gross scores, 75% handicap allowances, net match scores, and winners are calculated automatically.';
+const MYRTLE_RYDER_CUP_TEAM_MATCH_FORMAT = 'Two-Man Net Total Match';
+const MYRTLE_RYDER_CUP_SINGLES_MATCH_FORMAT = 'Singles Net Total Match';
+const MYRTLE_RYDER_CUP_DESCRIPTION = 'Team competition with every player playing his own ball and keeping his own score in every round, with full handicaps applied automatically.';
+const MYRTLE_RYDER_CUP_TEAM_MATCH_DESCRIPTION = 'Fixed Ryder Cup teams stay intact, every golfer posts one gross total for the day, full handicaps are applied automatically, and the lower combined net side wins the point.';
+const MYRTLE_RYDER_CUP_TEAM_MATCH_ENTRY_SUMMARY = 'Enter one gross 18-hole total for every golfer. Gross totals, handicap strokes, net match scores, and winners are calculated automatically.';
+const MYRTLE_RYDER_CUP_SINGLES_MATCH_DESCRIPTION = 'Singles are grouped to preserve the hard foursome rules, each golfer posts one gross total for the day, full handicaps are applied automatically, and the lower net score wins the point.';
+const MYRTLE_RYDER_CUP_SINGLES_MATCH_ENTRY_SUMMARY = 'Enter one gross 18-hole total for each player. Gross scores, handicap strokes, net match scores, and winners are calculated automatically.';
 
 function getDefaultRoundPlayStyle(format = '') {
   const normalized = String(format || '').trim().toLowerCase();
@@ -638,15 +638,24 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
         roundNumber: index + 1,
         label: `${buildRoundLabel(index + 1, Array.isArray(rounds) ? rounds[index] || {} : {})} Net`,
         winnerNames: [],
-        amount: null,
-        notes: 'Auto winner uses the best net round from the saved gross totals and 75% allowance.',
+        amount: 75,
+        notes: 'Auto winner uses the best net round from the saved gross totals and full handicap strokes.',
+      })),
+      dailyOver100Draw: MYRTLE_RYDER_CUP_ROUND_SEEDS.map((seed, index) => ({
+        roundNumber: index + 1,
+        label: `${buildRoundLabel(index + 1, Array.isArray(rounds) ? rounds[index] || {} : {})} Over-100 Team Draw`,
+        winnerNames: [],
+        teamAWinnerNames: [],
+        teamBWinnerNames: [],
+        amount: 20,
+        notes: 'Use the saved gross scores to find every golfer over 100, then draw one random winner from each team.',
       })),
       dailyLongestPuttLastHole: MYRTLE_RYDER_CUP_ROUND_SEEDS.map((seed, index) => ({
         roundNumber: index + 1,
         label: `${buildRoundLabel(index + 1, Array.isArray(rounds) ? rounds[index] || {} : {})} Longest Made Putt on Last Hole`,
         winnerNames: [],
         distance: '',
-        amount: null,
+        amount: 15,
         notes: 'Manual daily side prize for the longest made putt on the last hole.',
       })),
       dailyBirdiePot: MYRTLE_RYDER_CUP_ROUND_SEEDS.map((seed, index) => ({
@@ -654,21 +663,20 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
         label: `${buildRoundLabel(index + 1, Array.isArray(rounds) ? rounds[index] || {} : {})} Birdie Pot`,
         counts: [],
         winnerNames: [],
-        amount: null,
+        amount: 50,
         notes: 'Manual daily side prize for gross birdies or better.',
-      })),
-      dailyNetBirdiePot: MYRTLE_RYDER_CUP_ROUND_SEEDS.map((seed, index) => ({
-        roundNumber: index + 1,
-        label: `${buildRoundLabel(index + 1, Array.isArray(rounds) ? rounds[index] || {} : {})} Net Birdie Pot`,
-        counts: [],
-        winnerNames: [],
-        amount: null,
-        notes: 'Manual daily side prize for net birdies.',
       })),
       weeklyNet: {
         winnerNames: [],
-        amount: null,
+        amount: 250,
         notes: 'Auto winner uses the best trip-long net total from the saved Ryder Cup scores.',
+      },
+      weeklyOver100Draw: {
+        winnerNames: [],
+        teamAWinnerNames: [],
+        teamBWinnerNames: [],
+        amount: 120,
+        notes: 'Pick one random golfer from each team who posted at least one gross score over 100 during the trip.',
       },
       closestToPin: {
         entries: [],
@@ -679,23 +687,23 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
           count: 0,
         })),
         winners: [],
-        amount: null,
+        amount: 125,
         notes: 'Track gross birdies or better.',
       },
       mvp: {
         overrideWinners: [],
-        amount: null,
+        amount: 125,
         notes: 'Match points stay balanced by the seeded rank-based pairings.',
       },
     },
     payout: {
-      totalPot: 1000,
+      totalPot: 2000,
       allocationPercentages: {
-        winningTeam: 50,
-        weeklyNet: 20,
-        birdiePool: 10,
-        closestToPin: 10,
-        mvp: 10,
+        winningTeam: 25,
+        weeklyNet: 12.5,
+        birdiePool: 6.25,
+        closestToPin: 4,
+        mvp: 6.25,
       },
     },
     adminNotes: {
@@ -710,12 +718,12 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
         'Fixed teams stay balanced at 105 seed points per side.',
         'The saved Ryder Cup board now uses the same fixed Team A / Team B split shown in the roster overlay.',
         'Every Ryder Cup round is now an own-ball format. No alternate shot, scramble, shamble, or partner pickup formats are used.',
-        'Every Ryder Cup match now uses one gross score per golfer, then applies the fixed 75% handicap allowance automatically before awarding the point.',
+        'Every Ryder Cup match now uses one gross score per golfer, then applies full handicap strokes automatically before awarding the point.',
         'The seeded tee sheets mirror the Ryder Cup pods exactly, so the day-of tee times match the saved competition board.',
         'The pairings were rebuilt around the current hard do-not-play list first, then tuned to improve preferred pair coverage and overall variety.',
         'No 2-man teammate pair is repeated across the four team-match rounds, and Josh Browne / Matt Shannon are kept off the same 2-man side entirely.',
         'Final-round singles keep Tommy Knight Jr and Tommy Knight Sr in the same foursome while still following the fixed-team setup.',
-        'The Ryder Cup now uses fixed 75% handicap allowances for fairness, and the trip payout now uses daily net, longest made putt on the last hole, weekly net, and MVP-friendly side games instead of gross-only prizes.',
+        'The Ryder Cup now uses full handicaps, and the trip payout now uses daily net, over-100 draws, birdie pots, longest made putt on the last hole, weekly net, and MVP-friendly side games instead of gross-only prizes.',
         'The new seed increases foursome variety across the week and sharply cuts down repeat same-group pairings.',
       ],
     },

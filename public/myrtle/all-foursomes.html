@@ -293,7 +293,9 @@
         </div>
         <div class="hero-actions">
           <a class="hero-link" data-trip-page-link href="/myrtle/trip-2026.html">Trip Page</a>
-          <a class="hero-link" href="/myrtle/lodging-and-maps.html">Lodging + Maps</a>
+          <a class="hero-link" data-leaderboard-link href="/myrtle/leaderboard-and-prizes.html">Leaderboard + Prizes</a>
+          <a class="hero-link" data-report-link href="/myrtle/prize-report.html">Prize Report</a>
+          <a class="hero-link" data-lodging-link href="/myrtle/lodging-and-maps.html">Lodging + Maps</a>
         </div>
       </div>
     </header>
@@ -495,9 +497,21 @@
       return `${path}${path.includes('?') ? '&' : '?'}tripId=${encodeURIComponent(currentTripId)}`;
     };
     const getTripPageHref = () => buildPageHref('/myrtle/trip-2026.html');
+    const getLeaderboardPageHref = () => buildPageHref('/myrtle/leaderboard-and-prizes.html');
+    const getPrizeReportPageHref = () => buildPageHref('/myrtle/prize-report.html');
+    const getLodgingPageHref = () => buildPageHref('/myrtle/lodging-and-maps.html');
     const syncTripLinks = () => {
       document.querySelectorAll('[data-trip-page-link]').forEach((link) => {
         link.href = getTripPageHref();
+      });
+      document.querySelectorAll('[data-leaderboard-link]').forEach((link) => {
+        link.href = getLeaderboardPageHref();
+      });
+      document.querySelectorAll('[data-report-link]').forEach((link) => {
+        link.href = getPrizeReportPageHref();
+      });
+      document.querySelectorAll('[data-lodging-link]').forEach((link) => {
+        link.href = getLodgingPageHref();
       });
     };
     const getIsoDateOnly = (value) => {
@@ -696,6 +710,8 @@
             </div>
             <div class="page-section-actions">
               <a class="hero-link" data-trip-page-link href="${quoteAttr(getTripPageHref())}">Back to Myrtle Trip</a>
+              <a class="hero-link" data-leaderboard-link href="${quoteAttr(getLeaderboardPageHref())}">Leaderboard + Prizes</a>
+              <a class="hero-link" data-report-link href="${quoteAttr(getPrizeReportPageHref())}">Prize Report</a>
             </div>
           </div>
           ${summary.rounds.length ? `

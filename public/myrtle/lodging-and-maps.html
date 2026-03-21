@@ -45,21 +45,23 @@
     button:hover { background:#102036; }
     .subtle-button { background:rgba(255,255,255,0.05); }
     #allParticipantsList ol { padding-left:20px; }
-    .back-link, .audit-link { position:fixed; padding:8px 12px; border-radius:10px; background:#0c1a2c; color:#f9fafb; text-decoration:none; font-weight:700; box-shadow:0 2px 8px rgba(0,0,0,0.35); z-index:999; }
+    .back-link { position:fixed; padding:8px 12px; border-radius:10px; background:#0c1a2c; color:#f9fafb; text-decoration:none; font-weight:700; box-shadow:0 2px 8px rgba(0,0,0,0.35); z-index:999; }
     .back-link { top:12px; left:12px; }
-    .audit-link { right:12px; bottom:12px; display:none; }
     @media (max-width:980px) { .layout { grid-template-columns:1fr; } }
     @media (max-width:640px) { .container { padding:0 12px 24px; } .panel { padding:14px; } .hero-links, .summary-actions, .map-actions { width:100%; } .hero-link, .cta { flex:1 1 180px; } }
   </style>
 </head>
 <body>
-  <a class="back-link" href="/myrtle/trip-2026.html">← Myrtle Trip</a>
+  <a class="back-link" data-trip-page-link href="/myrtle/trip-2026.html">← Myrtle Trip</a>
   <div class="container">
     <header class="hero">
       <div class="hero-row">
         <h1>Myrtle Lodging and Maps <span>Group 3/18-3/22/26</span></h1>
         <div class="hero-links">
-          <a class="hero-link" href="/myrtle/trip-2026.html">Trip Page</a>
+          <a class="hero-link" data-trip-page-link href="/myrtle/trip-2026.html">Trip Page</a>
+          <a class="hero-link" data-all-foursomes-link href="/myrtle/all-foursomes.html">All Foursomes</a>
+          <a class="hero-link" data-leaderboard-link href="/myrtle/leaderboard-and-prizes.html">Leaderboard + Prizes</a>
+          <a class="hero-link" data-report-link href="/myrtle/prize-report.html">Prize Report</a>
         </div>
       </div>
       <div class="chips">
@@ -109,7 +111,6 @@
       <div id="allParticipantsList" style="margin-top:12px;"></div>
     </section>
   </div>
-  <a id="tripAuditLink" class="audit-link" href="/trip-audit.html?myrtleBeach2026=true" aria-label="Trip audit log">Trip Audit</a>
 
   <script>
     const STATUS_ORDER = ['in', 'out', 'maybe', 'waitlist', 'invited'];
@@ -163,6 +164,25 @@
       } catch (_error) {
         return '';
       }
+    };
+    const buildPageHref = (path = '') => {
+      const currentTripId = String(tripId || getRequestedTripId() || '').trim();
+      if (!currentTripId) return path;
+      return `${path}${path.includes('?') ? '&' : '?'}tripId=${encodeURIComponent(currentTripId)}`;
+    };
+    const syncMyrtleLinks = () => {
+      document.querySelectorAll('[data-trip-page-link]').forEach((link) => {
+        link.href = buildPageHref('/myrtle/trip-2026.html');
+      });
+      document.querySelectorAll('[data-all-foursomes-link]').forEach((link) => {
+        link.href = buildPageHref('/myrtle/all-foursomes.html');
+      });
+      document.querySelectorAll('[data-leaderboard-link]').forEach((link) => {
+        link.href = buildPageHref('/myrtle/leaderboard-and-prizes.html');
+      });
+      document.querySelectorAll('[data-report-link]').forEach((link) => {
+        link.href = buildPageHref('/myrtle/prize-report.html');
+      });
     };
     const getIsoDateOnly = (value) => {
       if (!value) return '';
@@ -705,12 +725,7 @@
         return;
       }
       tripId = trip._id;
-
-      const auditLink = $('#tripAuditLink');
-      if (auditLink) {
-        auditLink.href = `/trip-audit.html?tripId=${encodeURIComponent(String(tripId))}&myrtleBeach2026=true&back=${encodeURIComponent('/myrtle/lodging-and-maps.html')}`;
-        auditLink.style.display = '';
-      }
+      syncMyrtleLinks();
 
       participants = await tripFetchJson(tripApi(`/api/trips/${trip._id}/participants`));
       renderTripSummary();

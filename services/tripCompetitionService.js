@@ -242,10 +242,38 @@ function normalizeRyderCupWinnerList(values = []) {
   return uniqueNames(Array.isArray(values) ? values : [values]);
 }
 
+function normalizeRyderCupTeamSplitWinners(entry = {}) {
+  const teamAWinnerNames = normalizeRyderCupWinnerList(entry && (entry.teamAWinnerNames || entry.teamAWinnerName))
+    .map(normalizeRyderCupPlayerName)
+    .filter(Boolean);
+  const teamBWinnerNames = normalizeRyderCupWinnerList(entry && (entry.teamBWinnerNames || entry.teamBWinnerName))
+    .map(normalizeRyderCupPlayerName)
+    .filter(Boolean);
+  const winnerNames = normalizeRyderCupWinnerList([]
+    .concat(teamAWinnerNames)
+    .concat(teamBWinnerNames)
+    .concat(entry && (entry.winnerNames || entry.winnerName || [])))
+    .map(normalizeRyderCupPlayerName)
+    .filter(Boolean);
+  return {
+    winnerNames,
+    teamAWinnerNames,
+    teamBWinnerNames,
+  };
+}
+
 function normalizeCurrencyAmount(value) {
   const parsed = asFiniteNumber(value);
   if (parsed === null) return null;
   return Math.round(parsed * 100) / 100;
+}
+
+function normalizeCurrencyAmountToIncrement(value, increment = 5) {
+  const parsed = normalizeCurrencyAmount(value);
+  const step = asFiniteNumber(increment);
+  if (parsed === null) return null;
+  if (step === null || step <= 0) return parsed;
+  return normalizeCurrencyAmount(Math.round(parsed / step) * step);
 }
 
 function normalizeRyderCupPlayerName(value) {
@@ -302,13 +330,13 @@ function resolveMyrtleRyderCupHandicapIndex(playerName = '', handicapLookup = nu
 function getMyrtleRyderCupMatchAllowance(playerName = '', fallbackHandicap = null) {
   const handicapIndex = getMyrtleRyderCupHandicapIndex(playerName, fallbackHandicap);
   if (!Number.isFinite(handicapIndex)) return 0;
-  return Math.round(handicapIndex * 0.75);
+  return Math.round(handicapIndex);
 }
 
 function resolveMyrtleRyderCupMatchAllowance(playerName = '', handicapLookup = null, fallbackHandicap = null) {
   const handicapIndex = resolveMyrtleRyderCupHandicapIndex(playerName, handicapLookup, fallbackHandicap);
   if (!Number.isFinite(handicapIndex)) return 0;
-  return Math.round(handicapIndex * 0.75);
+  return Math.round(handicapIndex);
 }
 
 function normalizeMyrtleRyderCupTopLevelDescription(value = '') {
@@ -329,6 +357,11 @@ function normalizeMyrtleRyderCupRoundDescription(value = '', roundFormat = '') {
   if (normalized === 'singles are grouped to preserve the hard foursome rules, each golfer posts one gross total for the day, and the lower gross score wins the point.') {
     return MYRTLE_RYDER_CUP_SINGLES_MATCH_DESCRIPTION;
   }
+  if (normalized.includes('75% handicap') || normalized.includes('75% handicaps')) {
+    return isSinglesFormat(roundFormat)
+      ? MYRTLE_RYDER_CUP_SINGLES_MATCH_DESCRIPTION
+      : MYRTLE_RYDER_CUP_TEAM_MATCH_DESCRIPTION;
+  }
   if (isSinglesFormat(roundFormat) && normalized.includes('gross score wins the point')) {
     return MYRTLE_RYDER_CUP_SINGLES_MATCH_DESCRIPTION;
   }
@@ -347,6 +380,11 @@ function normalizeMyrtleRyderCupEntrySummary(value = '', roundFormat = '') {
   if (normalized === 'enter one gross 18-hole total for each player. gross scores and winners are calculated automatically.') {
     return MYRTLE_RYDER_CUP_SINGLES_MATCH_ENTRY_SUMMARY;
   }
+  if (normalized.includes('75% handicap allowance') || normalized.includes('75% handicap allowances')) {
+    return isSinglesFormat(roundFormat)
+      ? MYRTLE_RYDER_CUP_SINGLES_MATCH_ENTRY_SUMMARY
+      : MYRTLE_RYDER_CUP_TEAM_MATCH_ENTRY_SUMMARY;
+  }
   if (isSinglesFormat(roundFormat) && normalized.includes('gross scores and winners are calculated automatically')) {
     return MYRTLE_RYDER_CUP_SINGLES_MATCH_ENTRY_SUMMARY;
   }
@@ -360,12 +398,26 @@ function normalizeMyrtleRyderCupAdminNote(value = '') {
   const normalized = cleanString(value).toLowerCase();
   if (!normalized) return '';
   if (normalized === 'every ryder cup match now uses the same daily gross-total scoring model so the trip admin only enters one gross score per golfer each day.') {
-    return 'Every Ryder Cup match now uses one gross score per golfer, then applies the fixed 75% handicap allowance automatically before awarding the point.';
+    return 'Every Ryder Cup match now uses one gross score per golfer, then applies full handicap strokes automatically before awarding the point.';
   }
   if (normalized === 'with no handicap layer in the ryder cup, side games can stay gross all week as well.') {
-    return 'The Ryder Cup now uses fixed 75% handicap allowances for fairness, while the side games can still stay gross all week.';
+    return 'The Ryder Cup now uses full handicaps, while the side games can still stay gross all week.';
+  }
+  if (normalized.includes('75% handicap allowance') || normalized.includes('75% handicap allowances')) {
+    if (normalized.includes('side games')) return 'The Ryder Cup now uses full handicaps, while the side games can still stay gross all week.';
+    return 'Every Ryder Cup match now uses one gross score per golfer, then applies full handicap strokes automatically before awarding the point.';
   }
   return cleanString(value);
+}
+
+function normalizeMyrtleRyderCupSideGameNote(value = '') {
+  const note = cleanString(value);
+  const normalized = note.toLowerCase();
+  if (!normalized) return '';
+  if (normalized.includes('75% allowance') || normalized.includes('75% handicap')) {
+    return 'Auto winner uses the best net round from the saved gross totals and full handicap strokes.';
+  }
+  return note;
 }
 
 function normalizeRyderCupTeamPlayers(players = [], allowedPlayers = [], expectedCount = 0) {
@@ -413,8 +465,8 @@ function normalizeRyderCupTeams(rawTeams = [], defaultState = {}) {
 function normalizeRyderCupFormatLabel(value = '') {
   const label = cleanString(value);
   const normalized = label.toLowerCase();
-  if (normalized === 'two-man gross total match' || normalized === 'two-man net total match' || normalized === MYRTLE_RYDER_CUP_TEAM_MATCH_FORMAT.toLowerCase()) return MYRTLE_RYDER_CUP_TEAM_MATCH_FORMAT;
-  if (normalized === 'singles gross total match' || normalized === 'singles net total match' || normalized === MYRTLE_RYDER_CUP_SINGLES_MATCH_FORMAT.toLowerCase()) return MYRTLE_RYDER_CUP_SINGLES_MATCH_FORMAT;
+  if (normalized === 'two-man gross total match' || normalized === 'two-man net total match' || normalized === 'two-man net total match (75%)' || normalized === MYRTLE_RYDER_CUP_TEAM_MATCH_FORMAT.toLowerCase()) return MYRTLE_RYDER_CUP_TEAM_MATCH_FORMAT;
+  if (normalized === 'singles gross total match' || normalized === 'singles net total match' || normalized === 'singles net total match (75%)' || normalized === MYRTLE_RYDER_CUP_SINGLES_MATCH_FORMAT.toLowerCase()) return MYRTLE_RYDER_CUP_SINGLES_MATCH_FORMAT;
   return label;
 }
 
@@ -429,8 +481,8 @@ function normalizeRyderCupFormatKey(value = '') {
 function normalizeRyderCupPlanStyleLabel(value = '') {
   const label = cleanString(value);
   const normalized = label.toLowerCase();
-  if (normalized === 'two-man gross total match' || normalized === 'two-man net total match' || normalized === MYRTLE_RYDER_CUP_TEAM_MATCH_FORMAT.toLowerCase()) return MYRTLE_RYDER_CUP_TEAM_MATCH_FORMAT;
-  if (normalized === 'singles gross total match' || normalized === 'singles net total match' || normalized === MYRTLE_RYDER_CUP_SINGLES_MATCH_FORMAT.toLowerCase()) return MYRTLE_RYDER_CUP_SINGLES_MATCH_FORMAT;
+  if (normalized === 'two-man gross total match' || normalized === 'two-man net total match' || normalized === 'two-man net total match (75%)' || normalized === MYRTLE_RYDER_CUP_TEAM_MATCH_FORMAT.toLowerCase()) return MYRTLE_RYDER_CUP_TEAM_MATCH_FORMAT;
+  if (normalized === 'singles gross total match' || normalized === 'singles net total match' || normalized === 'singles net total match (75%)' || normalized === MYRTLE_RYDER_CUP_SINGLES_MATCH_FORMAT.toLowerCase()) return MYRTLE_RYDER_CUP_SINGLES_MATCH_FORMAT;
   return label;
 }
 
@@ -849,8 +901,11 @@ function remapRyderCupRoundForTeams(round = {}, teams = []) {
   };
 }
 
-function normalizeRyderCupSideGames(rawSideGames = {}, defaultState = {}) {
+function normalizeRyderCupSideGames(rawSideGames = {}, defaultState = {}, trip = {}) {
   const defaultSideGames = clonePlain(defaultState.sideGames || {});
+  const normalizePrizeAmount = isMyrtleRyderCupTrip(trip)
+    ? (value) => normalizeCurrencyAmountToIncrement(value, 5)
+    : normalizeCurrencyAmount;
   const normalizeBirdieCountEntries = (entries = []) => (Array.isArray(entries) ? entries : [])
     .map((entry) => ({
       playerName: normalizeRyderCupPlayerName(entry && entry.playerName),
@@ -868,7 +923,27 @@ function normalizeRyderCupSideGames(rawSideGames = {}, defaultState = {}) {
       winnerNames: normalizeRyderCupWinnerList(rawEntry.winnerNames || rawEntry.winnerName || entry.winnerNames)
         .map(normalizeRyderCupPlayerName)
         .filter(Boolean),
-      amount: normalizeCurrencyAmount(rawEntry.amount),
+      amount: normalizePrizeAmount(rawEntry.amount) !== null
+        ? normalizePrizeAmount(rawEntry.amount)
+        : normalizePrizeAmount(entry.amount),
+      notes: normalizeMyrtleRyderCupSideGameNote(rawEntry.notes),
+    };
+  });
+  const rawDailyOver100Draw = Array.isArray(rawSideGames && rawSideGames.dailyOver100Draw)
+    ? rawSideGames.dailyOver100Draw
+    : [];
+  const dailyOver100Draw = (defaultSideGames.dailyOver100Draw || []).map((entry, index) => {
+    const rawEntry = rawDailyOver100Draw[index] || {};
+    const winners = normalizeRyderCupTeamSplitWinners(rawEntry);
+    return {
+      roundNumber: entry.roundNumber,
+      label: entry.label,
+      winnerNames: winners.winnerNames,
+      teamAWinnerNames: winners.teamAWinnerNames,
+      teamBWinnerNames: winners.teamBWinnerNames,
+      amount: normalizePrizeAmount(rawEntry.amount) !== null
+        ? normalizePrizeAmount(rawEntry.amount)
+        : normalizePrizeAmount(entry.amount),
       notes: cleanString(rawEntry.notes),
     };
   });
@@ -884,7 +959,9 @@ function normalizeRyderCupSideGames(rawSideGames = {}, defaultState = {}) {
         .map(normalizeRyderCupPlayerName)
         .filter(Boolean),
       distance: cleanString(rawEntry.distance),
-      amount: normalizeCurrencyAmount(rawEntry.amount),
+      amount: normalizePrizeAmount(rawEntry.amount) !== null
+        ? normalizePrizeAmount(rawEntry.amount)
+        : normalizePrizeAmount(entry.amount),
       notes: cleanString(rawEntry.notes),
     };
   });
@@ -900,29 +977,16 @@ function normalizeRyderCupSideGames(rawSideGames = {}, defaultState = {}) {
       winnerNames: normalizeRyderCupWinnerList(rawEntry.winnerNames || rawEntry.winnerName || entry.winnerNames)
         .map(normalizeRyderCupPlayerName)
         .filter(Boolean),
-      amount: normalizeCurrencyAmount(rawEntry.amount),
-      notes: cleanString(rawEntry.notes),
-    };
-  });
-  const rawDailyNetBirdiePot = Array.isArray(rawSideGames && rawSideGames.dailyNetBirdiePot)
-    ? rawSideGames.dailyNetBirdiePot
-    : [];
-  const dailyNetBirdiePot = (defaultSideGames.dailyNetBirdiePot || []).map((entry, index) => {
-    const rawEntry = rawDailyNetBirdiePot[index] || {};
-    return {
-      roundNumber: entry.roundNumber,
-      label: entry.label,
-      counts: normalizeBirdieCountEntries(rawEntry.counts),
-      winnerNames: normalizeRyderCupWinnerList(rawEntry.winnerNames || rawEntry.winnerName || entry.winnerNames)
-        .map(normalizeRyderCupPlayerName)
-        .filter(Boolean),
-      amount: normalizeCurrencyAmount(rawEntry.amount),
+      amount: normalizePrizeAmount(rawEntry.amount) !== null
+        ? normalizePrizeAmount(rawEntry.amount)
+        : normalizePrizeAmount(entry.amount),
       notes: cleanString(rawEntry.notes),
     };
   });
   const weeklySource = rawSideGames && (rawSideGames.weeklyNet || rawSideGames.weeklyLowGross)
     ? (rawSideGames.weeklyNet || rawSideGames.weeklyLowGross)
     : {};
+  const weeklyOver100Source = rawSideGames && rawSideGames.weeklyOver100Draw ? rawSideGames.weeklyOver100Draw : {};
   const closestSource = rawSideGames && rawSideGames.closestToPin ? rawSideGames.closestToPin : {};
   const birdieSource = rawSideGames && rawSideGames.birdiePool ? rawSideGames.birdiePool : {};
   const mvpSource = rawSideGames && rawSideGames.mvp ? rawSideGames.mvp : {};
@@ -934,7 +998,7 @@ function normalizeRyderCupSideGames(rawSideGames = {}, defaultState = {}) {
       hole: asPositiveInteger(entry && entry.hole),
       playerName: normalizeRyderCupPlayerName(entry && entry.playerName),
       distance: cleanString(entry && entry.distance),
-      amount: normalizeCurrencyAmount(entry && entry.amount),
+      amount: normalizePrizeAmount(entry && entry.amount),
       notes: cleanString(entry && entry.notes),
     }))
     .filter((entry) => entry.roundNumber && entry.hole && entry.playerName);
@@ -949,17 +1013,29 @@ function normalizeRyderCupSideGames(rawSideGames = {}, defaultState = {}) {
   });
   const birdieWinners = normalizeRyderCupWinnerList(birdieSource.winners).map(normalizeRyderCupPlayerName).filter(Boolean);
   const mvpWinners = normalizeRyderCupWinnerList(mvpSource.overrideWinners || mvpSource.winnerName).map(normalizeRyderCupPlayerName).filter(Boolean);
+  const weeklyOver100Winners = normalizeRyderCupTeamSplitWinners(weeklyOver100Source);
   return {
     dailyNet,
+    dailyOver100Draw,
     dailyLongestPuttLastHole,
     dailyBirdiePot,
-    dailyNetBirdiePot,
     weeklyNet: {
       winnerNames: normalizeRyderCupWinnerList(weeklySource.winnerNames || weeklySource.winnerName)
         .map(normalizeRyderCupPlayerName)
         .filter(Boolean),
-      amount: normalizeCurrencyAmount(weeklySource.amount),
+      amount: normalizePrizeAmount(weeklySource.amount) !== null
+        ? normalizePrizeAmount(weeklySource.amount)
+        : normalizePrizeAmount(defaultSideGames.weeklyNet && defaultSideGames.weeklyNet.amount),
       notes: cleanString(weeklySource.notes),
+    },
+    weeklyOver100Draw: {
+      winnerNames: weeklyOver100Winners.winnerNames,
+      teamAWinnerNames: weeklyOver100Winners.teamAWinnerNames,
+      teamBWinnerNames: weeklyOver100Winners.teamBWinnerNames,
+      amount: normalizePrizeAmount(weeklyOver100Source.amount) !== null
+        ? normalizePrizeAmount(weeklyOver100Source.amount)
+        : normalizePrizeAmount(defaultSideGames.weeklyOver100Draw && defaultSideGames.weeklyOver100Draw.amount),
+      notes: cleanString(weeklyOver100Source.notes),
     },
     closestToPin: {
       entries: closestEntries,
@@ -967,33 +1043,76 @@ function normalizeRyderCupSideGames(rawSideGames = {}, defaultState = {}) {
     birdiePool: {
       counts: birdieCounts,
       winners: birdieWinners,
-      amount: normalizeCurrencyAmount(birdieSource.amount),
+      amount: normalizePrizeAmount(birdieSource.amount) !== null
+        ? normalizePrizeAmount(birdieSource.amount)
+        : normalizePrizeAmount(defaultSideGames.birdiePool && defaultSideGames.birdiePool.amount),
       notes: cleanString(birdieSource.notes),
     },
     mvp: {
       overrideWinners: mvpWinners,
-      amount: normalizeCurrencyAmount(mvpSource.amount),
+      amount: normalizePrizeAmount(mvpSource.amount) !== null
+        ? normalizePrizeAmount(mvpSource.amount)
+        : normalizePrizeAmount(defaultSideGames.mvp && defaultSideGames.mvp.amount),
       notes: cleanString(mvpSource.notes),
     },
   };
 }
 
-function normalizeRyderCupPayout(rawPayout = {}, defaultState = {}) {
-  const fallback = clonePlain(defaultState.payout || {});
+function isLegacyMyrtleRyderCupPayout(rawPayout = {}, fallback = {}) {
+  const rawTotalPot = normalizeCurrencyAmount(rawPayout && rawPayout.totalPot);
+  const fallbackTotalPot = normalizeCurrencyAmount(fallback && fallback.totalPot);
+  if (rawTotalPot !== 1000 || fallbackTotalPot !== 2000) return false;
   const rawAllocation = rawPayout && rawPayout.allocationPercentages ? rawPayout.allocationPercentages : {};
+  const winningTeam = asFiniteNumber(rawAllocation.winningTeam);
+  const weeklyNet = asFiniteNumber(rawAllocation.weeklyNet) || asFiniteNumber(rawAllocation.weeklyLowGross);
+  const birdiePool = asFiniteNumber(rawAllocation.birdiePool);
+  const closestToPin = asFiniteNumber(rawAllocation.closestToPin);
+  const mvp = asFiniteNumber(rawAllocation.mvp);
+  const hasNoExplicitAllocation = winningTeam === null
+    && weeklyNet === null
+    && birdiePool === null
+    && closestToPin === null
+    && mvp === null;
+  const hasLegacyAllocation = winningTeam === 50
+    && weeklyNet === 20
+    && birdiePool === 10
+    && closestToPin === 10
+    && mvp === 10;
+  return hasNoExplicitAllocation || hasLegacyAllocation;
+}
+
+function normalizeRyderCupPayout(rawPayout = {}, defaultState = {}, trip = {}) {
+  const fallback = clonePlain(defaultState.payout || {});
+  const useFairMyrtleFallback = isLegacyMyrtleRyderCupPayout(rawPayout, fallback);
+  const normalizePayoutAmount = isMyrtleRyderCupTrip(trip)
+    ? (value) => normalizeCurrencyAmountToIncrement(value, 5)
+    : normalizeCurrencyAmount;
+  const rawAllocation = rawPayout && rawPayout.allocationPercentages ? rawPayout.allocationPercentages : {};
+  const fallbackAllocation = fallback.allocationPercentages || {};
+  const payoutSource = useFairMyrtleFallback ? fallback : rawPayout;
+  const allocationSource = useFairMyrtleFallback ? fallbackAllocation : rawAllocation;
+  const resolveAllocationPercent = (...values) => {
+    for (let index = 0; index < values.length; index += 1) {
+      const parsed = asFiniteNumber(values[index]);
+      if (parsed !== null) return parsed;
+    }
+    return null;
+  };
   return {
-    totalPot: normalizeCurrencyAmount(rawPayout && rawPayout.totalPot) !== null
-      ? normalizeCurrencyAmount(rawPayout && rawPayout.totalPot)
-      : normalizeCurrencyAmount(fallback.totalPot) || 0,
+    totalPot: normalizePayoutAmount(payoutSource && payoutSource.totalPot) !== null
+      ? normalizePayoutAmount(payoutSource && payoutSource.totalPot)
+      : normalizePayoutAmount(fallback.totalPot) || 0,
     allocationPercentages: {
-      winningTeam: asFiniteNumber(rawAllocation.winningTeam) || asFiniteNumber(fallback.allocationPercentages && fallback.allocationPercentages.winningTeam) || 50,
-      weeklyNet: asFiniteNumber(rawAllocation.weeklyNet)
-        || asFiniteNumber(rawAllocation.weeklyLowGross)
-        || asFiniteNumber(fallback.allocationPercentages && (fallback.allocationPercentages.weeklyNet || fallback.allocationPercentages.weeklyLowGross))
-        || 20,
-      birdiePool: asFiniteNumber(rawAllocation.birdiePool) || asFiniteNumber(fallback.allocationPercentages && fallback.allocationPercentages.birdiePool) || 10,
-      closestToPin: asFiniteNumber(rawAllocation.closestToPin) || asFiniteNumber(fallback.allocationPercentages && fallback.allocationPercentages.closestToPin) || 10,
-      mvp: asFiniteNumber(rawAllocation.mvp) || asFiniteNumber(fallback.allocationPercentages && fallback.allocationPercentages.mvp) || 10,
+      winningTeam: resolveAllocationPercent(allocationSource.winningTeam, fallbackAllocation.winningTeam) ?? 25,
+      weeklyNet: resolveAllocationPercent(
+        allocationSource.weeklyNet,
+        allocationSource.weeklyLowGross,
+        fallbackAllocation.weeklyNet,
+        fallbackAllocation.weeklyLowGross
+      ) ?? 12.5,
+      birdiePool: resolveAllocationPercent(allocationSource.birdiePool, fallbackAllocation.birdiePool) ?? 6.25,
+      closestToPin: resolveAllocationPercent(allocationSource.closestToPin, fallbackAllocation.closestToPin) ?? 4,
+      mvp: resolveAllocationPercent(allocationSource.mvp, fallbackAllocation.mvp) ?? 6.25,
     },
   };
 }
@@ -1031,8 +1150,8 @@ function normalizeRyderCupState(rawState = {}, trip = {}) {
     players: buildRyderCupPlayerRows(),
     teams,
     rounds,
-    sideGames: normalizeRyderCupSideGames(state.sideGames, defaultState),
-    payout: normalizeRyderCupPayout(state.payout, defaultState),
+    sideGames: normalizeRyderCupSideGames(state.sideGames, defaultState, trip),
+    payout: normalizeRyderCupPayout(state.payout, defaultState, trip),
     adminNotes: {
       hardConstraints: MYRTLE_RYDER_CUP_HARD_CONSTRAINTS.map((entry) => ({ ...entry })),
       requestedGroupings: MYRTLE_RYDER_CUP_REQUESTED_GROUPINGS.map((entry) => ({ ...entry })),
@@ -1795,10 +1914,10 @@ function setTripRyderCupSettings(trip = {}, payload = {}) {
   const nextState = {
     ...current,
     sideGames: Object.prototype.hasOwnProperty.call(payload || {}, 'sideGames')
-      ? normalizeRyderCupSideGames(payload.sideGames, current)
+      ? normalizeRyderCupSideGames(payload.sideGames, current, trip)
       : current.sideGames,
     payout: Object.prototype.hasOwnProperty.call(payload || {}, 'payout')
-      ? normalizeRyderCupPayout(payload.payout, current)
+      ? normalizeRyderCupPayout(payload.payout, current, trip)
       : current.payout,
   };
   return setTripRyderCupState(trip, nextState);
@@ -2453,8 +2572,84 @@ function buildRyderCupNetScoreSummary(rounds = [], handicapLookup = null) {
   };
 }
 
-function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], rounds = [], handicapLookup = null) {
+function buildRyderCupSideGameTeamLookup(teams = []) {
+  const lookup = new Map();
+  (teams[0] && Array.isArray(teams[0].players) ? teams[0].players : []).forEach((name) => {
+    lookup.set(normalizeNameKey(name), 'teamA');
+  });
+  (teams[1] && Array.isArray(teams[1].players) ? teams[1].players : []).forEach((name) => {
+    lookup.set(normalizeNameKey(name), 'teamB');
+  });
+  return lookup;
+}
+
+function resolveRyderCupTeamSplitWinners(entry = {}, teamLookup = new Map()) {
+  const explicit = normalizeRyderCupTeamSplitWinners(entry);
+  if (explicit.teamAWinnerNames.length || explicit.teamBWinnerNames.length) {
+    return explicit;
+  }
+  const teamAWinnerNames = [];
+  const teamBWinnerNames = [];
+  explicit.winnerNames.forEach((name) => {
+    const teamKey = teamLookup.get(normalizeNameKey(name));
+    if (teamKey === 'teamA') teamAWinnerNames.push(name);
+    else if (teamKey === 'teamB') teamBWinnerNames.push(name);
+  });
+  return {
+    winnerNames: uniqueNames([].concat(teamAWinnerNames, teamBWinnerNames, explicit.winnerNames)),
+    teamAWinnerNames: uniqueNames(teamAWinnerNames),
+    teamBWinnerNames: uniqueNames(teamBWinnerNames),
+  };
+}
+
+function hashDeterministicSeed(value = '') {
+  const input = String(value || '');
+  let hash = 2166136261;
+  for (let index = 0; index < input.length; index += 1) {
+    hash ^= input.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return Math.abs(hash >>> 0);
+}
+
+function pickDeterministicWinner(values = [], seed = '') {
+  const pool = uniqueNames(values).sort((left, right) => left.localeCompare(right));
+  if (!pool.length) return [];
+  const winnerIndex = hashDeterministicSeed(`${seed}|${pool.join('|')}`) % pool.length;
+  return [pool[winnerIndex]];
+}
+
+function buildAutomaticRyderCupOver100Draw(eligible = {}, seed = '') {
+  const teamAEligible = uniqueNames(eligible && eligible.teamAEligible).sort((left, right) => left.localeCompare(right));
+  const teamBEligible = uniqueNames(eligible && eligible.teamBEligible).sort((left, right) => left.localeCompare(right));
+  const teamAWinnerNames = pickDeterministicWinner(teamAEligible, `${seed}|teamA`);
+  const teamBWinnerNames = pickDeterministicWinner(teamBEligible, `${seed}|teamB`);
+  return {
+    winnerNames: uniqueNames([].concat(teamAWinnerNames, teamBWinnerNames)),
+    teamAWinnerNames,
+    teamBWinnerNames,
+  };
+}
+
+function buildRyderCupOver100EligibleTeams(rows = [], teamLookup = new Map()) {
+  const teamAEligible = [];
+  const teamBEligible = [];
+  (rows || []).forEach((row) => {
+    if ((asFiniteNumber(row && row.grossTotal) || 0) <= 100) return;
+    const playerName = normalizeRyderCupPlayerName(row && row.playerName);
+    const teamKey = teamLookup.get(normalizeNameKey(playerName));
+    if (teamKey === 'teamA') teamAEligible.push(playerName);
+    else if (teamKey === 'teamB') teamBEligible.push(playerName);
+  });
+  return {
+    teamAEligible: uniqueNames(teamAEligible).sort((left, right) => left.localeCompare(right)),
+    teamBEligible: uniqueNames(teamBEligible).sort((left, right) => left.localeCompare(right)),
+  };
+}
+
+function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], rounds = [], handicapLookup = null, teams = []) {
   const netSummary = buildRyderCupNetScoreSummary(rounds, handicapLookup);
+  const teamLookup = buildRyderCupSideGameTeamLookup(teams);
   const buildDailyBirdiePotView = (savedEntries = [], labelSuffix = 'Birdie Pot') => (
     netSummary.rounds
       .filter((round) => round.eligible)
@@ -2518,6 +2713,9 @@ function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], 
     ? individualLeaderboard.filter((entry) => entry.pointsWon === highestPoints).map((entry) => entry.name)
     : [];
   const savedDailyNet = Array.isArray(sideGames && sideGames.dailyNet) ? sideGames.dailyNet : [];
+  const savedDailyOver100Draw = Array.isArray(sideGames && sideGames.dailyOver100Draw)
+    ? sideGames.dailyOver100Draw
+    : [];
   const dailyNet = netSummary.rounds
     .filter((round) => round.eligible)
     .map((roundSummary, index) => {
@@ -2531,7 +2729,7 @@ function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], 
         winnerNames: manualWinners.length ? manualWinners : roundSummary.winners,
         automaticWinners: roundSummary.winners,
         amount: normalizeCurrencyAmount(saved.amount),
-        notes: cleanString(saved.notes),
+        notes: normalizeMyrtleRyderCupSideGameNote(saved.notes),
         manualOverride: manualWinners.length > 0,
         lowestNet: roundSummary.lowestNet,
         isComplete: roundSummary.complete,
@@ -2543,13 +2741,44 @@ function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], 
   const savedDailyBirdiePot = Array.isArray(sideGames && sideGames.dailyBirdiePot)
     ? sideGames.dailyBirdiePot
     : [];
-  const savedDailyNetBirdiePot = Array.isArray(sideGames && sideGames.dailyNetBirdiePot)
-    ? sideGames.dailyNetBirdiePot
-    : [];
   const weeklySource = sideGames && sideGames.weeklyNet ? sideGames.weeklyNet : {};
+  const weeklyOver100Source = sideGames && sideGames.weeklyOver100Draw ? sideGames.weeklyOver100Draw : {};
   const weeklyManualWinners = normalizeRyderCupWinnerList(weeklySource.winnerNames || weeklySource.winnerName);
+  const weeklyOver100Eligible = netSummary.rounds
+    .filter((round) => round.eligible)
+    .reduce((accumulator, roundSummary) => {
+      const eligible = buildRyderCupOver100EligibleTeams(roundSummary.rows, teamLookup);
+      accumulator.teamAEligible.push(...eligible.teamAEligible);
+      accumulator.teamBEligible.push(...eligible.teamBEligible);
+      return accumulator;
+    }, { teamAEligible: [], teamBEligible: [] });
   return {
     dailyNet,
+    dailyOver100Draw: netSummary.rounds
+      .filter((round) => round.eligible)
+      .map((roundSummary, index) => {
+        const saved = savedDailyOver100Draw.find((entry) => Number(entry && entry.roundNumber) === Number(roundSummary.roundNumber))
+          || savedDailyOver100Draw[index]
+          || {};
+        const eligible = buildRyderCupOver100EligibleTeams(roundSummary.rows, teamLookup);
+        const winners = roundSummary.complete
+          ? buildAutomaticRyderCupOver100Draw(eligible, `${roundSummary.roundNumber}|${roundSummary.title}`)
+          : { winnerNames: [], teamAWinnerNames: [], teamBWinnerNames: [] };
+        return {
+          roundNumber: roundSummary.roundNumber,
+          label: cleanString(saved.label) || `${roundSummary.title} Over-100 Team Draw`,
+          winnerNames: winners.winnerNames,
+          teamAWinnerNames: winners.teamAWinnerNames,
+          teamBWinnerNames: winners.teamBWinnerNames,
+          teamAEligible: eligible.teamAEligible,
+          teamBEligible: eligible.teamBEligible,
+          amount: normalizeCurrencyAmount(saved.amount),
+          notes: cleanString(saved.notes),
+          automaticWinners: winners.winnerNames,
+          manualOverride: false,
+          isComplete: roundSummary.complete,
+        };
+      }),
     dailyLongestPuttLastHole: netSummary.rounds
       .filter((round) => round.eligible)
       .map((roundSummary, index) => {
@@ -2566,7 +2795,6 @@ function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], 
         };
       }),
     dailyBirdiePot: buildDailyBirdiePotView(savedDailyBirdiePot, 'Birdie Pot'),
-    dailyNetBirdiePot: buildDailyBirdiePotView(savedDailyNetBirdiePot, 'Net Birdie Pot'),
     weeklyNet: {
       winnerNames: weeklyManualWinners.length ? weeklyManualWinners : (netSummary.complete ? netSummary.winners : []),
       automaticWinners: netSummary.complete ? netSummary.winners : [],
@@ -2574,6 +2802,17 @@ function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], 
       notes: cleanString(weeklySource.notes),
       manualOverride: weeklyManualWinners.length > 0,
       lowestNet: netSummary.lowestNet,
+      isComplete: netSummary.complete,
+    },
+    weeklyOver100Draw: {
+      ...(netSummary.complete
+        ? buildAutomaticRyderCupOver100Draw(weeklyOver100Eligible, `weekly|${(teams[0] && teams[0].name) || 'teamA'}|${(teams[1] && teams[1].name) || 'teamB'}`)
+        : { winnerNames: [], teamAWinnerNames: [], teamBWinnerNames: [] }),
+      teamAEligible: uniqueNames(weeklyOver100Eligible.teamAEligible).sort((left, right) => left.localeCompare(right)),
+      teamBEligible: uniqueNames(weeklyOver100Eligible.teamBEligible).sort((left, right) => left.localeCompare(right)),
+      amount: normalizeCurrencyAmount(weeklyOver100Source.amount),
+      notes: cleanString(weeklyOver100Source.notes),
+      manualOverride: false,
       isComplete: netSummary.complete,
     },
     closestToPin: {
@@ -2604,94 +2843,314 @@ function roundCurrency(value) {
 function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, teams = []) {
   const totalPot = roundCurrency(payout.totalPot);
   const allocation = payout.allocationPercentages || {};
-  const teamAmount = roundCurrency(totalPot * ((asFiniteNumber(allocation.winningTeam) || 0) / 100));
-  const weeklyAmount = roundCurrency(totalPot * ((asFiniteNumber(allocation.weeklyNet) || 0) / 100));
-  const birdieAmount = roundCurrency(totalPot * ((asFiniteNumber(allocation.birdiePool) || 0) / 100));
-  const closestAmount = roundCurrency(totalPot * ((asFiniteNumber(allocation.closestToPin) || 0) / 100));
-  const mvpAmount = roundCurrency(totalPot * ((asFiniteNumber(allocation.mvp) || 0) / 100));
+  const sumEntryAmounts = (entries = []) => roundCurrency((Array.isArray(entries) ? entries : []).reduce((sum, entry) => (
+    sum + (asFiniteNumber(entry && entry.amount) || 0)
+  ), 0));
+  const resolveConfiguredAmount = (explicitAmount, fallbackPercent = 0) => {
+    const explicit = asFiniteNumber(explicitAmount);
+    if (explicit !== null) return roundCurrency(explicit);
+    return roundCurrency(totalPot * ((asFiniteNumber(fallbackPercent) || 0) / 100));
+  };
+  const buildWinnerLabel = (winners = [], pendingLabel = 'Pending') => {
+    const list = uniqueNames(Array.isArray(winners) ? winners : [winners]);
+    return list.length ? list.join(', ') : pendingLabel;
+  };
+  const buildPrizeRow = ({
+    key = '',
+    label = '',
+    amount = 0,
+    winners = [],
+    winnerLabel = 'Pending',
+    perPerson = null,
+    group = 'trip',
+  }) => ({
+    key,
+    label,
+    amount: roundCurrency(amount),
+    winners: uniqueNames(Array.isArray(winners) ? winners : [winners]),
+    winnerLabel,
+    perPerson: perPerson === null || perPerson === undefined ? null : roundCurrency(perPerson),
+    group,
+  });
+
+  const dailyNetEntries = Array.isArray(sideGames && sideGames.dailyNet) ? sideGames.dailyNet : [];
+  const dailyOver100Entries = Array.isArray(sideGames && sideGames.dailyOver100Draw) ? sideGames.dailyOver100Draw : [];
+  const dailyBirdieEntries = Array.isArray(sideGames && sideGames.dailyBirdiePot) ? sideGames.dailyBirdiePot : [];
+  const dailyLongestPuttEntries = Array.isArray(sideGames && sideGames.dailyLongestPuttLastHole) ? sideGames.dailyLongestPuttLastHole : [];
+  const closestEntries = sideGames && sideGames.closestToPin && Array.isArray(sideGames.closestToPin.entries)
+    ? sideGames.closestToPin.entries
+    : [];
+
+  const dailyNetAmount = sumEntryAmounts(dailyNetEntries);
+  const dailyOver100Amount = sumEntryAmounts(dailyOver100Entries);
+  const dailyBirdieAmount = sumEntryAmounts(dailyBirdieEntries);
+  const dailyLongestPuttAmount = sumEntryAmounts(dailyLongestPuttEntries);
+  const weeklyAmount = resolveConfiguredAmount(sideGames && sideGames.weeklyNet ? sideGames.weeklyNet.amount : null, allocation.weeklyNet);
+  const weeklyOver100Amount = resolveConfiguredAmount(sideGames && sideGames.weeklyOver100Draw ? sideGames.weeklyOver100Draw.amount : null, 0);
+  const birdieAmount = resolveConfiguredAmount(sideGames && sideGames.birdiePool ? sideGames.birdiePool.amount : null, allocation.birdiePool);
+  const closestAmount = closestEntries.some((entry) => asFiniteNumber(entry && entry.amount) !== null)
+    ? sumEntryAmounts(closestEntries)
+    : resolveConfiguredAmount(null, allocation.closestToPin);
+  const mvpAmount = resolveConfiguredAmount(sideGames && sideGames.mvp ? sideGames.mvp.amount : null, allocation.mvp);
+
+  const nonTeamAmount = roundCurrency(
+    dailyNetAmount
+    + dailyOver100Amount
+    + dailyBirdieAmount
+    + dailyLongestPuttAmount
+    + weeklyAmount
+    + weeklyOver100Amount
+    + birdieAmount
+    + closestAmount
+    + mvpAmount
+  );
+  const overAllocatedAmount = nonTeamAmount > totalPot ? roundCurrency(nonTeamAmount - totalPot) : 0;
+  const teamAmount = overAllocatedAmount > 0 ? 0 : roundCurrency(totalPot - nonTeamAmount);
 
   const teamRows = [];
   if (standings.remainingPoints > 0 && standings.teamAPoints === standings.teamBPoints) {
-    teamRows.push({
+    teamRows.push(buildPrizeRow({
       key: 'winningTeam',
       label: 'Winning Team',
       amount: teamAmount,
       winners: [],
       winnerLabel: 'Pending Ryder Cup result',
       perPerson: null,
-    });
+      group: 'trip',
+    }));
   } else if (standings.teamAPoints === standings.teamBPoints) {
     const allWinners = uniqueNames([].concat(teams[0] && teams[0].players ? teams[0].players : [], teams[1] && teams[1].players ? teams[1].players : []));
-    teamRows.push({
+    teamRows.push(buildPrizeRow({
       key: 'winningTeam',
       label: 'Winning Team',
       amount: teamAmount,
       winners: allWinners,
       winnerLabel: `${teams[0] ? teams[0].name : 'Team A'} and ${teams[1] ? teams[1].name : 'Team B'} split the tie`,
-      perPerson: allWinners.length ? roundCurrency(teamAmount / allWinners.length) : null,
-    });
+      perPerson: allWinners.length ? teamAmount / allWinners.length : null,
+      group: 'trip',
+    }));
   } else {
     const winningTeam = standings.teamAPoints > standings.teamBPoints ? teams[0] : teams[1];
     const winners = winningTeam && Array.isArray(winningTeam.players) ? winningTeam.players.slice() : [];
-    teamRows.push({
+    teamRows.push(buildPrizeRow({
       key: 'winningTeam',
       label: 'Winning Team',
       amount: teamAmount,
       winners,
       winnerLabel: winningTeam ? winningTeam.name : 'Winning Team',
-      perPerson: winners.length ? roundCurrency(teamAmount / winners.length) : null,
-    });
+      perPerson: winners.length ? teamAmount / winners.length : null,
+      group: 'trip',
+    }));
   }
 
   const categoryRows = teamRows.concat([
-    {
+    buildPrizeRow({
+      key: 'dailyNet',
+      label: 'Daily Net',
+      amount: dailyNetAmount,
+      winners: uniqueNames(dailyNetEntries.flatMap((entry) => entry && Array.isArray(entry.winnerNames) ? entry.winnerNames : [])),
+      winnerLabel: dailyNetEntries.length ? `${dailyNetEntries.length} daily payouts` : 'Pending',
+      group: 'daily',
+    }),
+    buildPrizeRow({
+      key: 'dailyOver100Draw',
+      label: 'Daily Over-100 Team Draw',
+      amount: dailyOver100Amount,
+      winners: uniqueNames(dailyOver100Entries.flatMap((entry) => entry && Array.isArray(entry.winnerNames) ? entry.winnerNames : [])),
+      winnerLabel: dailyOver100Entries.length ? `${dailyOver100Entries.length} daily draws` : 'Pending',
+      group: 'daily',
+    }),
+    buildPrizeRow({
+      key: 'dailyBirdiePot',
+      label: 'Daily Birdie Pot',
+      amount: dailyBirdieAmount,
+      winners: uniqueNames(dailyBirdieEntries.flatMap((entry) => entry && Array.isArray(entry.winnerNames) ? entry.winnerNames : [])),
+      winnerLabel: dailyBirdieEntries.length ? `${dailyBirdieEntries.length} daily payouts` : 'Pending',
+      group: 'daily',
+    }),
+    buildPrizeRow({
+      key: 'dailyLongestPuttLastHole',
+      label: 'Longest Made Putt On Last Hole',
+      amount: dailyLongestPuttAmount,
+      winners: uniqueNames(dailyLongestPuttEntries.flatMap((entry) => entry && Array.isArray(entry.winnerNames) ? entry.winnerNames : [])),
+      winnerLabel: dailyLongestPuttEntries.length ? `${dailyLongestPuttEntries.length} daily payouts` : 'Pending',
+      group: 'daily',
+    }),
+    buildPrizeRow({
       key: 'weeklyNet',
       label: 'Weekly Net Champion',
       amount: weeklyAmount,
       winners: sideGames.weeklyNet && Array.isArray(sideGames.weeklyNet.winnerNames) ? sideGames.weeklyNet.winnerNames : [],
-      winnerLabel: sideGames.weeklyNet && sideGames.weeklyNet.winnerNames && sideGames.weeklyNet.winnerNames.length
-        ? sideGames.weeklyNet.winnerNames.join(', ')
-        : 'Pending',
+      winnerLabel: buildWinnerLabel(sideGames.weeklyNet && sideGames.weeklyNet.winnerNames, 'Pending'),
       perPerson: sideGames.weeklyNet && sideGames.weeklyNet.winnerNames && sideGames.weeklyNet.winnerNames.length
-        ? roundCurrency(weeklyAmount / sideGames.weeklyNet.winnerNames.length)
+        ? weeklyAmount / sideGames.weeklyNet.winnerNames.length
         : null,
-    },
-    {
-      key: 'birdiePool',
-      label: 'Birdie Pool',
-      amount: birdieAmount,
-      winners: sideGames.birdiePool && Array.isArray(sideGames.birdiePool.winners) ? sideGames.birdiePool.winners : [],
-      winnerLabel: sideGames.birdiePool && sideGames.birdiePool.winners && sideGames.birdiePool.winners.length ? sideGames.birdiePool.winners.join(', ') : 'Pending',
-      perPerson: sideGames.birdiePool && sideGames.birdiePool.winners && sideGames.birdiePool.winners.length
-        ? roundCurrency(birdieAmount / sideGames.birdiePool.winners.length)
+      group: 'trip',
+    }),
+    buildPrizeRow({
+      key: 'weeklyOver100Draw',
+      label: 'Weekly Over-100 Team Draw',
+      amount: weeklyOver100Amount,
+      winners: sideGames.weeklyOver100Draw && Array.isArray(sideGames.weeklyOver100Draw.winnerNames) ? sideGames.weeklyOver100Draw.winnerNames : [],
+      winnerLabel: buildWinnerLabel(sideGames.weeklyOver100Draw && sideGames.weeklyOver100Draw.winnerNames, 'Pending'),
+      perPerson: sideGames.weeklyOver100Draw && sideGames.weeklyOver100Draw.winnerNames && sideGames.weeklyOver100Draw.winnerNames.length
+        ? weeklyOver100Amount / sideGames.weeklyOver100Draw.winnerNames.length
         : null,
-    },
-    {
+      group: 'trip',
+    }),
+    buildPrizeRow({
       key: 'closestToPin',
       label: 'Closest to Pin',
       amount: closestAmount,
       winners: sideGames.closestToPin && Array.isArray(sideGames.closestToPin.winners) ? sideGames.closestToPin.winners : [],
-      winnerLabel: sideGames.closestToPin && sideGames.closestToPin.winners && sideGames.closestToPin.winners.length ? sideGames.closestToPin.winners.join(', ') : 'Pending',
+      winnerLabel: buildWinnerLabel(sideGames.closestToPin && sideGames.closestToPin.winners, 'Pending'),
       perPerson: sideGames.closestToPin && sideGames.closestToPin.winners && sideGames.closestToPin.winners.length
-        ? roundCurrency(closestAmount / sideGames.closestToPin.winners.length)
+        ? closestAmount / sideGames.closestToPin.winners.length
         : null,
-    },
-    {
+      group: 'trip',
+    }),
+    buildPrizeRow({
+      key: 'birdiePool',
+      label: 'Trip Birdie Pool',
+      amount: birdieAmount,
+      winners: sideGames.birdiePool && Array.isArray(sideGames.birdiePool.winners) ? sideGames.birdiePool.winners : [],
+      winnerLabel: buildWinnerLabel(sideGames.birdiePool && sideGames.birdiePool.winners, 'Pending'),
+      perPerson: sideGames.birdiePool && sideGames.birdiePool.winners && sideGames.birdiePool.winners.length
+        ? birdieAmount / sideGames.birdiePool.winners.length
+        : null,
+      group: 'trip',
+    }),
+    buildPrizeRow({
       key: 'mvp',
       label: 'Ryder Cup MVP',
       amount: mvpAmount,
       winners: sideGames.mvp && Array.isArray(sideGames.mvp.winners) ? sideGames.mvp.winners : [],
-      winnerLabel: sideGames.mvp && sideGames.mvp.winners && sideGames.mvp.winners.length ? sideGames.mvp.winners.join(', ') : 'Pending',
+      winnerLabel: buildWinnerLabel(sideGames.mvp && sideGames.mvp.winners, 'Pending'),
       perPerson: sideGames.mvp && sideGames.mvp.winners && sideGames.mvp.winners.length
-        ? roundCurrency(mvpAmount / sideGames.mvp.winners.length)
+        ? mvpAmount / sideGames.mvp.winners.length
         : null,
-    },
+      group: 'trip',
+    }),
   ]);
+
+  const winnerRows = teamRows.concat(
+    dailyNetEntries.map((entry, index) => buildPrizeRow({
+      key: `dailyNet-${index + 1}`,
+      label: cleanString(entry && entry.label) || `Round ${index + 1} Net`,
+      amount: asFiniteNumber(entry && entry.amount) || 0,
+      winners: entry && Array.isArray(entry.winnerNames) ? entry.winnerNames : [],
+      winnerLabel: buildWinnerLabel(entry && entry.winnerNames, entry && entry.isComplete ? 'Pending' : 'Pending full round scores'),
+      perPerson: entry && Array.isArray(entry.winnerNames) && entry.winnerNames.length ? (asFiniteNumber(entry.amount) || 0) / entry.winnerNames.length : null,
+      group: 'daily',
+    })),
+    dailyOver100Entries.map((entry, index) => buildPrizeRow({
+      key: `dailyOver100Draw-${index + 1}`,
+      label: cleanString(entry && entry.label) || `Round ${index + 1} Over-100 Team Draw`,
+      amount: asFiniteNumber(entry && entry.amount) || 0,
+      winners: entry && Array.isArray(entry.winnerNames) ? entry.winnerNames : [],
+      winnerLabel: buildWinnerLabel(entry && entry.winnerNames, entry && entry.isComplete ? 'Pending' : 'Pending full round scores'),
+      perPerson: entry && Array.isArray(entry.winnerNames) && entry.winnerNames.length ? (asFiniteNumber(entry.amount) || 0) / entry.winnerNames.length : null,
+      group: 'daily',
+    })),
+    dailyBirdieEntries.map((entry, index) => buildPrizeRow({
+      key: `dailyBirdiePot-${index + 1}`,
+      label: cleanString(entry && entry.label) || `Round ${index + 1} Birdie Pot`,
+      amount: asFiniteNumber(entry && entry.amount) || 0,
+      winners: entry && Array.isArray(entry.winnerNames) ? entry.winnerNames : [],
+      winnerLabel: buildWinnerLabel(entry && entry.winnerNames, 'Pending'),
+      perPerson: entry && Array.isArray(entry.winnerNames) && entry.winnerNames.length ? (asFiniteNumber(entry.amount) || 0) / entry.winnerNames.length : null,
+      group: 'daily',
+    })),
+    dailyLongestPuttEntries.map((entry, index) => buildPrizeRow({
+      key: `dailyLongestPuttLastHole-${index + 1}`,
+      label: cleanString(entry && entry.label) || `Round ${index + 1} Longest Made Putt on Last Hole`,
+      amount: asFiniteNumber(entry && entry.amount) || 0,
+      winners: entry && Array.isArray(entry.winnerNames) ? entry.winnerNames : [],
+      winnerLabel: buildWinnerLabel(entry && entry.winnerNames, 'Pending'),
+      perPerson: entry && Array.isArray(entry.winnerNames) && entry.winnerNames.length ? (asFiniteNumber(entry.amount) || 0) / entry.winnerNames.length : null,
+      group: 'daily',
+    })),
+    [
+      buildPrizeRow({
+        key: 'weeklyNet-winner',
+        label: 'Weekly Net Champion',
+        amount: weeklyAmount,
+        winners: sideGames.weeklyNet && Array.isArray(sideGames.weeklyNet.winnerNames) ? sideGames.weeklyNet.winnerNames : [],
+        winnerLabel: buildWinnerLabel(sideGames.weeklyNet && sideGames.weeklyNet.winnerNames, 'Pending'),
+        perPerson: sideGames.weeklyNet && sideGames.weeklyNet.winnerNames && sideGames.weeklyNet.winnerNames.length
+          ? weeklyAmount / sideGames.weeklyNet.winnerNames.length
+          : null,
+        group: 'trip',
+      }),
+      buildPrizeRow({
+        key: 'weeklyOver100Draw-winner',
+        label: 'Weekly Over-100 Team Draw',
+        amount: weeklyOver100Amount,
+        winners: sideGames.weeklyOver100Draw && Array.isArray(sideGames.weeklyOver100Draw.winnerNames) ? sideGames.weeklyOver100Draw.winnerNames : [],
+        winnerLabel: buildWinnerLabel(sideGames.weeklyOver100Draw && sideGames.weeklyOver100Draw.winnerNames, 'Pending'),
+        perPerson: sideGames.weeklyOver100Draw && sideGames.weeklyOver100Draw.winnerNames && sideGames.weeklyOver100Draw.winnerNames.length
+          ? weeklyOver100Amount / sideGames.weeklyOver100Draw.winnerNames.length
+          : null,
+        group: 'trip',
+      }),
+    ],
+    closestEntries.length
+      ? closestEntries.map((entry, index) => buildPrizeRow({
+        key: `closestToPin-${index + 1}`,
+        label: `Round ${entry.roundNumber} Hole ${entry.hole} Closest to Pin`,
+        amount: asFiniteNumber(entry && entry.amount) || 0,
+        winners: entry && entry.playerName ? [entry.playerName] : [],
+        winnerLabel: buildWinnerLabel(entry && entry.playerName ? [entry.playerName] : [], 'Pending'),
+        perPerson: asFiniteNumber(entry && entry.amount),
+        group: 'trip',
+      }))
+      : [
+        buildPrizeRow({
+          key: 'closestToPin-winner',
+          label: 'Closest to Pin',
+          amount: closestAmount,
+          winners: sideGames.closestToPin && Array.isArray(sideGames.closestToPin.winners) ? sideGames.closestToPin.winners : [],
+          winnerLabel: buildWinnerLabel(sideGames.closestToPin && sideGames.closestToPin.winners, 'Pending'),
+          perPerson: sideGames.closestToPin && sideGames.closestToPin.winners && sideGames.closestToPin.winners.length
+            ? closestAmount / sideGames.closestToPin.winners.length
+            : null,
+          group: 'trip',
+        }),
+      ],
+    [
+      buildPrizeRow({
+        key: 'birdiePool-winner',
+        label: 'Trip Birdie Pool',
+        amount: birdieAmount,
+        winners: sideGames.birdiePool && Array.isArray(sideGames.birdiePool.winners) ? sideGames.birdiePool.winners : [],
+        winnerLabel: buildWinnerLabel(sideGames.birdiePool && sideGames.birdiePool.winners, 'Pending'),
+        perPerson: sideGames.birdiePool && sideGames.birdiePool.winners && sideGames.birdiePool.winners.length
+          ? birdieAmount / sideGames.birdiePool.winners.length
+          : null,
+        group: 'trip',
+      }),
+      buildPrizeRow({
+        key: 'mvp-winner',
+        label: 'Ryder Cup MVP',
+        amount: mvpAmount,
+        winners: sideGames.mvp && Array.isArray(sideGames.mvp.winners) ? sideGames.mvp.winners : [],
+        winnerLabel: buildWinnerLabel(sideGames.mvp && sideGames.mvp.winners, 'Pending'),
+        perPerson: sideGames.mvp && sideGames.mvp.winners && sideGames.mvp.winners.length
+          ? mvpAmount / sideGames.mvp.winners.length
+          : null,
+        group: 'trip',
+      }),
+    ],
+  );
 
   return {
     totalPot,
     allocationPercentages: allocation,
     rows: categoryRows,
+    winnerRows,
+    nonTeamAmount,
+    teamAmount,
+    overAllocatedAmount,
   };
 }
 
@@ -2701,7 +3160,7 @@ function buildRyderCupView(state = null, playerPool = []) {
   const fairness = buildRyderCupFairness(state.teams || []);
   const roundBundle = buildRyderCupRoundAndStandingsView(state.rounds || [], state.teams || [], playerHandicapLookup);
   const individualLeaderboard = buildRyderCupIndividualLeaderboard(state.rounds || [], state.teams || [], playerHandicapLookup);
-  const sideGames = buildRyderCupSideGamesView(state.sideGames || {}, individualLeaderboard, state.rounds || [], playerHandicapLookup);
+  const sideGames = buildRyderCupSideGamesView(state.sideGames || {}, individualLeaderboard, state.rounds || [], playerHandicapLookup, state.teams || []);
   const payout = buildRyderCupPayoutView(state.payout || {}, roundBundle.standings || {}, sideGames, state.teams || []);
   const hasStarted = hasStartedRyderCup(state.rounds || []);
   const fairnessByTeam = new Map((fairness.teams || []).map((team) => [team.teamId, team]));
@@ -2913,10 +3372,10 @@ function buildTripCompetitionView(trip = {}, participants = []) {
       playerCount: playerPool.length,
       roundCount: roundViews.length,
       formatSummary: isMyrtleOwnBallTrip
-        ? 'Daily Myrtle Ryder Cup matches use one gross total per golfer, then apply a fixed 75% handicap allowance and award each match to the lower net side.'
+        ? 'Daily Myrtle Ryder Cup matches use one gross total per golfer, then apply full handicap strokes and award each match to the lower net side.'
         : 'Individual net Stableford across the trip, with daily 2-man net best ball matches inside each foursome.',
       sideGamesSummary: isMyrtleOwnBallTrip
-        ? 'Ryder Cup matches use 75% handicap allowances, while daily net, daily birdie pot, daily net birdie pot, longest made putt on the last hole, weekly net, closest to pin, birdie pool, MVP, and payouts stay aligned to the Myrtle trip setup.'
+        ? 'Ryder Cup matches use full handicaps, while daily net, over-100 team draws, daily birdie pot, longest made putt on the last hole, weekly net, weekly over-100 draw, closest to pin, birdie pool, MVP, and payouts stay aligned to the Myrtle trip setup.'
         : 'Optional Closest to Pin and skins results are tracked separately from the main competition.',
     },
     buckets: buildHandicapBuckets(playerPool, trip && trip.competition && trip.competition.handicapBuckets),

@@ -376,14 +376,18 @@ async function runApiFlow(results, tripId) {
       ? { ...entry, winnerNames: [firstSlotPlayers[0]], amount: 25, notes: 'API daily net' }
       : entry
   ));
+  currentSettings.sideGames.dailyOver100Draw = (currentSettings.sideGames.dailyOver100Draw || []).map((entry, index) => (
+    index === 0
+      ? {
+          ...entry,
+          amount: 20,
+          notes: 'API daily over-100 draw'
+        }
+      : entry
+  ));
   currentSettings.sideGames.dailyBirdiePot = (currentSettings.sideGames.dailyBirdiePot || []).map((entry, index) => (
     index === 0
       ? { ...entry, counts: [{ playerName: firstSlotPlayers[0], count: 2 }, { playerName: firstSlotPlayers[1], count: 1 }], winnerNames: [firstSlotPlayers[0]], amount: 20, notes: 'API daily birdie pot' }
-      : entry
-  ));
-  currentSettings.sideGames.dailyNetBirdiePot = (currentSettings.sideGames.dailyNetBirdiePot || []).map((entry, index) => (
-    index === 0
-      ? { ...entry, counts: [{ playerName: firstSlotPlayers[1], count: 3 }], winnerNames: [firstSlotPlayers[1]], amount: 20, notes: 'API daily net birdie pot' }
       : entry
   ));
   currentSettings.sideGames.dailyLongestPuttLastHole = (currentSettings.sideGames.dailyLongestPuttLastHole || []).map((entry, index) => (
@@ -396,6 +400,11 @@ async function runApiFlow(results, tripId) {
     winnerNames: [firstSlotPlayers[1]],
     amount: 50,
     notes: 'API weekly net',
+  };
+  currentSettings.sideGames.weeklyOver100Draw = {
+    ...(currentSettings.sideGames.weeklyOver100Draw || {}),
+    amount: 100,
+    notes: 'API weekly over-100 draw',
   };
   currentSettings.payout = {
     ...(currentSettings.payout || {}),
@@ -411,13 +420,13 @@ async function runApiFlow(results, tripId) {
   });
   expect(results, settingsSave.status === 200, 'Ryder Cup settings PUT', `status=${settingsSave.status}`);
   expect(results, settingsSave.body?.ryderCup?.sideGames?.dailyNet?.[0]?.winnerNames?.[0] === firstSlotPlayers[0], 'Ryder daily net saved', settingsSave.body?.ryderCup?.sideGames?.dailyNet?.[0]?.winnerNames?.join(', ') || 'missing');
+  expect(results, (settingsSave.body?.ryderCup?.sideGames?.dailyOver100Draw?.[0]?.amount || 0) === 20, 'Ryder daily over-100 amount saved', `amount=${settingsSave.body?.ryderCup?.sideGames?.dailyOver100Draw?.[0]?.amount}`);
   expect(results, settingsSave.body?.ryderCup?.sideGames?.dailyBirdiePot?.[0]?.winnerNames?.[0] === firstSlotPlayers[0], 'Ryder daily birdie pot saved', settingsSave.body?.ryderCup?.sideGames?.dailyBirdiePot?.[0]?.winnerNames?.join(', ') || 'missing');
   expect(results, settingsSave.body?.ryderCup?.sideGames?.dailyBirdiePot?.[0]?.counts?.[0]?.count === 2, 'Ryder daily birdie counts saved', JSON.stringify(settingsSave.body?.ryderCup?.sideGames?.dailyBirdiePot?.[0]?.counts || []));
-  expect(results, settingsSave.body?.ryderCup?.sideGames?.dailyNetBirdiePot?.[0]?.winnerNames?.[0] === firstSlotPlayers[1], 'Ryder daily net birdie pot saved', settingsSave.body?.ryderCup?.sideGames?.dailyNetBirdiePot?.[0]?.winnerNames?.join(', ') || 'missing');
-  expect(results, settingsSave.body?.ryderCup?.sideGames?.dailyNetBirdiePot?.[0]?.counts?.[0]?.count === 3, 'Ryder daily net birdie counts saved', JSON.stringify(settingsSave.body?.ryderCup?.sideGames?.dailyNetBirdiePot?.[0]?.counts || []));
   expect(results, settingsSave.body?.ryderCup?.sideGames?.dailyLongestPuttLastHole?.[0]?.winnerNames?.[0] === firstSlotPlayers[1], 'Ryder last-hole putt saved', settingsSave.body?.ryderCup?.sideGames?.dailyLongestPuttLastHole?.[0]?.winnerNames?.join(', ') || 'missing');
   expect(results, settingsSave.body?.ryderCup?.sideGames?.dailyLongestPuttLastHole?.[0]?.distance === '18 ft 4 in', 'Ryder last-hole putt distance saved', settingsSave.body?.ryderCup?.sideGames?.dailyLongestPuttLastHole?.[0]?.distance || 'missing');
   expect(results, settingsSave.body?.ryderCup?.sideGames?.weeklyNet?.winnerNames?.[0] === firstSlotPlayers[1], 'Ryder weekly net saved', settingsSave.body?.ryderCup?.sideGames?.weeklyNet?.winnerNames?.join(', ') || 'missing');
+  expect(results, (settingsSave.body?.ryderCup?.sideGames?.weeklyOver100Draw?.amount || 0) === 100, 'Ryder weekly over-100 amount saved', `amount=${settingsSave.body?.ryderCup?.sideGames?.weeklyOver100Draw?.amount}`);
   expect(results, settingsSave.body?.ryderCup?.payout?.totalPot === 1200, 'Ryder payout total pot saved', `pot=${settingsSave.body?.ryderCup?.payout?.totalPot}`);
 }
 
@@ -514,10 +523,10 @@ async function runBrowserFlow(results, tempTripSummary, tripId) {
 
         const overviewExplainsHandicap = await waitFor(send, `(() => {
           const text = document.body.textContent || '';
-          return text.includes('Own-Ball 75% Handicap')
-            && text.includes('5 rounds · own-ball · fixed 75% handicap');
+          return text.includes('Own-Ball Format Rules')
+            && text.includes('full handicaps');
         })()`, 15000);
-        expect(results, overviewExplainsHandicap, 'Myrtle page explains 75% handicap scoring', overviewExplainsHandicap ? 'overview and section summary are clear' : '75% handicap overview text missing');
+        expect(results, overviewExplainsHandicap, 'Myrtle page explains full-handicap scoring', overviewExplainsHandicap ? 'overview and section summary are clear' : 'full-handicap overview text missing');
 
         if (expectedRyderMatch) {
           const firstMatchExplainsMath = await waitFor(send, `(() => {
@@ -531,20 +540,19 @@ async function runBrowserFlow(results, tempTripSummary, tripId) {
             const firstField = matchCard.querySelector('[data-ryder-player-score="teamA"][data-score-slot="0"]');
             const label = firstField ? firstField.closest('label') : null;
             const labelText = label ? (label.textContent || '') : '';
-            return text.includes('Net = gross - fixed 75% handicap allowance')
-              && text.includes(${JSON.stringify(`gross ${expectedRyderMatch.teamAGrossScore}`)})
-              && text.includes(${JSON.stringify(`75% hcp ${expectedRyderMatch.teamAHandicapAllowance}`)})
-              && text.includes(${JSON.stringify(`net ${expectedRyderMatch.teamAScore}`)})
-              && text.includes(${JSON.stringify(`gross ${expectedRyderMatch.teamBGrossScore}`)})
-              && text.includes(${JSON.stringify(`75% hcp ${expectedRyderMatch.teamBHandicapAllowance}`)})
-              && text.includes(${JSON.stringify(`net ${expectedRyderMatch.teamBScore}`)})
+            return text.includes(${JSON.stringify(`Strokes ${expectedRyderMatch.teamAHandicapAllowance}`)})
+              && text.includes(${JSON.stringify(`Gross ${expectedRyderMatch.teamAGrossScore}`)})
+              && text.includes(${JSON.stringify(`Net ${expectedRyderMatch.teamAScore}`)})
+              && text.includes(${JSON.stringify(`Strokes ${expectedRyderMatch.teamBHandicapAllowance}`)})
+              && text.includes(${JSON.stringify(`Gross ${expectedRyderMatch.teamBGrossScore}`)})
+              && text.includes(${JSON.stringify(`Net ${expectedRyderMatch.teamBScore}`)})
               && inputA0 && String(inputA0.value || '') === ${JSON.stringify(String((expectedRyderMatch.teamAPlayerScores || [])[0] ?? ''))}
               && inputA1 && String(inputA1.value || '') === ${JSON.stringify(String((expectedRyderMatch.teamAPlayerScores || [])[1] ?? ''))}
               && inputB0 && String(inputB0.value || '') === ${JSON.stringify(String((expectedRyderMatch.teamBPlayerScores || [])[0] ?? ''))}
               && inputB1 && String(inputB1.value || '') === ${JSON.stringify(String((expectedRyderMatch.teamBPlayerScores || [])[1] ?? ''))}
               && labelText.includes('Gross total')
               && labelText.includes('Hcp')
-              && labelText.includes('75%');
+              && labelText.includes('Gets');
           })()`, 15000);
           expect(results, firstMatchExplainsMath, 'Ryder Cup match cards explain gross, handicap, and net clearly', firstMatchExplainsMath ? 'formula text, labels, pills, and gross inputs are all visible' : 'gross / handicap / net display is incomplete');
         }
