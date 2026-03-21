@@ -914,7 +914,7 @@ function normalizeRyderCupSideGames(rawSideGames = {}, defaultState = {}, trip =
     .filter((entry) => entry.playerName && entry.count > 0);
   const rawDailyNet = Array.isArray(rawSideGames && rawSideGames.dailyNet)
     ? rawSideGames.dailyNet
-    : (Array.isArray(rawSideGames && rawSideGames.dailyLowGross) ? rawSideGames.dailyLowGross : []);
+    : [];
   const dailyNet = (defaultSideGames.dailyNet || []).map((entry, index) => {
     const rawEntry = rawDailyNet[index] || {};
     return {
@@ -927,6 +927,23 @@ function normalizeRyderCupSideGames(rawSideGames = {}, defaultState = {}, trip =
         ? normalizePrizeAmount(rawEntry.amount)
         : normalizePrizeAmount(entry.amount),
       notes: normalizeMyrtleRyderCupSideGameNote(rawEntry.notes),
+    };
+  });
+  const rawDailyGross = Array.isArray(rawSideGames && rawSideGames.dailyGross)
+    ? rawSideGames.dailyGross
+    : (Array.isArray(rawSideGames && rawSideGames.dailyLowGross) ? rawSideGames.dailyLowGross : []);
+  const dailyGross = (defaultSideGames.dailyGross || []).map((entry, index) => {
+    const rawEntry = rawDailyGross[index] || {};
+    return {
+      roundNumber: entry.roundNumber,
+      label: entry.label,
+      winnerNames: normalizeRyderCupWinnerList(rawEntry.winnerNames || rawEntry.winnerName || entry.winnerNames)
+        .map(normalizeRyderCupPlayerName)
+        .filter(Boolean),
+      amount: normalizePrizeAmount(rawEntry.amount) !== null
+        ? normalizePrizeAmount(rawEntry.amount)
+        : normalizePrizeAmount(entry.amount),
+      notes: cleanString(rawEntry.notes),
     };
   });
   const rawDailyOver100Draw = Array.isArray(rawSideGames && rawSideGames.dailyOver100Draw)
@@ -989,6 +1006,7 @@ function normalizeRyderCupSideGames(rawSideGames = {}, defaultState = {}, trip =
   const weeklyOver100Source = rawSideGames && rawSideGames.weeklyOver100Draw ? rawSideGames.weeklyOver100Draw : {};
   const closestSource = rawSideGames && rawSideGames.closestToPin ? rawSideGames.closestToPin : {};
   const birdieSource = rawSideGames && rawSideGames.birdiePool ? rawSideGames.birdiePool : {};
+  const leftoverSource = rawSideGames && rawSideGames.leftoverPot ? rawSideGames.leftoverPot : {};
   const mvpSource = rawSideGames && rawSideGames.mvp ? rawSideGames.mvp : {};
   const rawClosestEntries = Array.isArray(closestSource.entries) ? closestSource.entries : [];
   const closestEntries = rawClosestEntries
@@ -1016,6 +1034,7 @@ function normalizeRyderCupSideGames(rawSideGames = {}, defaultState = {}, trip =
   const weeklyOver100Winners = normalizeRyderCupTeamSplitWinners(weeklyOver100Source);
   return {
     dailyNet,
+    dailyGross,
     dailyOver100Draw,
     dailyLongestPuttLastHole,
     dailyBirdiePot,
@@ -1047,6 +1066,12 @@ function normalizeRyderCupSideGames(rawSideGames = {}, defaultState = {}, trip =
         ? normalizePrizeAmount(birdieSource.amount)
         : normalizePrizeAmount(defaultSideGames.birdiePool && defaultSideGames.birdiePool.amount),
       notes: cleanString(birdieSource.notes),
+    },
+    leftoverPot: {
+      amount: normalizePrizeAmount(leftoverSource.amount) !== null
+        ? normalizePrizeAmount(leftoverSource.amount)
+        : normalizePrizeAmount(defaultSideGames.leftoverPot && defaultSideGames.leftoverPot.amount),
+      notes: cleanString(leftoverSource.notes),
     },
     mvp: {
       overrideWinners: mvpWinners,
@@ -2530,7 +2555,10 @@ function buildRyderCupNetScoreSummary(rounds = [], handicapLookup = null) {
       if (left.grossTotal !== right.grossTotal) return left.grossTotal - right.grossTotal;
       return left.playerName.localeCompare(right.playerName);
     });
-    const complete = eligible && players.length > 0 && rows.length === players.length;
+    const expectedCount = eligible ? players.length : 0;
+    const enteredCount = rows.length;
+    const hasScores = enteredCount > 0;
+    const complete = eligible && expectedCount > 0 && enteredCount === expectedCount;
     if (complete) {
       rows.forEach((row) => {
         const total = totalsByName.get(normalizeNameKey(row.playerName));
@@ -2545,6 +2573,10 @@ function buildRyderCupNetScoreSummary(rounds = [], handicapLookup = null) {
       roundNumber,
       title,
       eligible,
+      hasScores,
+      enteredCount,
+      expectedCount,
+      pendingCount: Math.max(0, expectedCount - enteredCount),
       complete,
       lowestNet,
       winners: Number.isFinite(lowestNet) ? rows.filter((row) => row.netTotal === lowestNet).map((row) => row.playerName) : [],
@@ -2567,6 +2599,8 @@ function buildRyderCupNetScoreSummary(rounds = [], handicapLookup = null) {
     rounds: roundSummaries,
     totals,
     complete,
+    completedRoundsCount: eligibleRounds.filter((round) => round.complete).length,
+    eligibleRoundsCount: eligibleRounds.length,
     lowestNet,
     winners: Number.isFinite(lowestNet) ? totals.filter((row) => row.netTotal === lowestNet).map((row) => row.name) : [],
   };
@@ -2619,9 +2653,16 @@ function pickDeterministicWinner(values = [], seed = '') {
   return [pool[winnerIndex]];
 }
 
-function buildAutomaticRyderCupOver100Draw(eligible = {}, seed = '') {
-  const teamAEligible = uniqueNames(eligible && eligible.teamAEligible).sort((left, right) => left.localeCompare(right));
-  const teamBEligible = uniqueNames(eligible && eligible.teamBEligible).sort((left, right) => left.localeCompare(right));
+function buildAutomaticRyderCupOver100Draw(eligible = {}, seed = '', excludedNames = []) {
+  const excludedKeys = new Set((Array.isArray(excludedNames) ? excludedNames : [excludedNames])
+    .map((name) => normalizeNameKey(name))
+    .filter(Boolean));
+  const teamAEligible = uniqueNames(eligible && eligible.teamAEligible)
+    .filter((name) => !excludedKeys.has(normalizeNameKey(name)))
+    .sort((left, right) => left.localeCompare(right));
+  const teamBEligible = uniqueNames(eligible && eligible.teamBEligible)
+    .filter((name) => !excludedKeys.has(normalizeNameKey(name)))
+    .sort((left, right) => left.localeCompare(right));
   const teamAWinnerNames = pickDeterministicWinner(teamAEligible, `${seed}|teamA`);
   const teamBWinnerNames = pickDeterministicWinner(teamBEligible, `${seed}|teamB`);
   return {
@@ -2647,6 +2688,25 @@ function buildRyderCupOver100EligibleTeams(rows = [], teamLookup = new Map()) {
   };
 }
 
+function parseRyderCupOver100DrawExclusions(notes = '') {
+  const text = cleanString(notes);
+  if (!text) return [];
+  const matches = [];
+  text.split(/\r?\n/).forEach((line) => {
+    const match = line.match(/^\s*exclude(?:\s+winners?)?\s*:\s*(.+)\s*$/i);
+    if (match && match[1]) matches.push(match[1]);
+  });
+  if (!matches.length) {
+    Array.from(text.matchAll(/exclude(?:\s+winners?)?\s*:\s*([^.\n]+)/gi)).forEach((match) => {
+      if (match && match[1]) matches.push(match[1]);
+    });
+  }
+  return uniqueNames(matches
+    .flatMap((segment) => String(segment || '').split(/[|,;]+/))
+    .map((name) => normalizeRyderCupPlayerName(name))
+    .filter(Boolean));
+}
+
 function normalizeRyderCupBirdieCounts(entries = []) {
   return (Array.isArray(entries) ? entries : [])
     .map((entry) => ({
@@ -2670,6 +2730,8 @@ function buildRyderCupBirdiePoolShares(entries = [], amount = 0) {
       totalBirdies: 0,
       paidPlayers: [],
       perBirdieAmount: null,
+      awardedAmount: 0,
+      leftoverAmount: roundCurrency(totalCents / 100),
       shareRows: [],
     };
   }
@@ -2679,28 +2741,19 @@ function buildRyderCupBirdiePoolShares(entries = [], amount = 0) {
     return {
       name: entry.playerName,
       birdies: entry.count,
-      cents: Math.floor(exactCents),
-      remainder: exactCents - Math.floor(exactCents),
+      cents: Math.floor(exactCents / 100) * 100,
     };
   });
-  let remainderCents = totalCents - provisionalShares.reduce((sum, entry) => sum + entry.cents, 0);
-  provisionalShares
-    .slice()
-    .sort((left, right) => {
-      if (right.remainder !== left.remainder) return right.remainder - left.remainder;
-      return left.name.localeCompare(right.name);
-    })
-    .forEach((entry) => {
-      if (remainderCents <= 0) return;
-      entry.cents += 1;
-      remainderCents -= 1;
-    });
+  const awardedCents = provisionalShares.reduce((sum, entry) => sum + entry.cents, 0);
+  const leftoverCents = Math.max(0, totalCents - awardedCents);
 
   return {
     counts,
     totalBirdies,
     paidPlayers: counts.map((entry) => entry.playerName),
     perBirdieAmount: roundCurrency(totalCents / 100 / totalBirdies),
+    awardedAmount: roundCurrency(awardedCents / 100),
+    leftoverAmount: roundCurrency(leftoverCents / 100),
     shareRows: provisionalShares
       .map((entry) => ({
         name: entry.name,
@@ -2740,7 +2793,13 @@ function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], 
           highestCount: highestCount || null,
           totalBirdies: birdiePool.totalBirdies,
           perBirdieAmount: birdiePool.perBirdieAmount,
+          awardedAmount: birdiePool.awardedAmount,
+          leftoverAmount: birdiePool.leftoverAmount,
           shareRows: birdiePool.shareRows,
+          hasScores: roundSummary.hasScores,
+          enteredCount: roundSummary.enteredCount,
+          expectedCount: roundSummary.expectedCount,
+          pendingCount: roundSummary.pendingCount,
           isComplete: roundSummary.complete,
         };
       })
@@ -2762,6 +2821,7 @@ function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], 
     ? individualLeaderboard.filter((entry) => entry.pointsWon === highestPoints).map((entry) => entry.name)
     : [];
   const savedDailyNet = Array.isArray(sideGames && sideGames.dailyNet) ? sideGames.dailyNet : [];
+  const savedDailyGross = Array.isArray(sideGames && sideGames.dailyGross) ? sideGames.dailyGross : [];
   const savedDailyOver100Draw = Array.isArray(sideGames && sideGames.dailyOver100Draw)
     ? sideGames.dailyOver100Draw
     : [];
@@ -2781,6 +2841,42 @@ function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], 
         notes: normalizeMyrtleRyderCupSideGameNote(saved.notes),
         manualOverride: manualWinners.length > 0,
         lowestNet: roundSummary.lowestNet,
+        hasScores: roundSummary.hasScores,
+        enteredCount: roundSummary.enteredCount,
+        expectedCount: roundSummary.expectedCount,
+        pendingCount: roundSummary.pendingCount,
+        isComplete: roundSummary.complete,
+      };
+    });
+  const dailyGross = netSummary.rounds
+    .filter((round) => round.eligible)
+    .map((roundSummary, index) => {
+      const saved = savedDailyGross.find((entry) => Number(entry && entry.roundNumber) === Number(roundSummary.roundNumber))
+        || savedDailyGross[index]
+        || {};
+      const manualWinners = normalizeRyderCupWinnerList(saved.winnerNames || saved.winnerName);
+      const grossRows = (Array.isArray(roundSummary.rows) ? roundSummary.rows.slice() : []).sort((left, right) => {
+        if (left.grossTotal !== right.grossTotal) return left.grossTotal - right.grossTotal;
+        if (left.netTotal !== right.netTotal) return left.netTotal - right.netTotal;
+        return left.playerName.localeCompare(right.playerName);
+      });
+      const lowestGross = roundSummary.complete && grossRows.length ? grossRows[0].grossTotal : null;
+      const automaticWinners = Number.isFinite(lowestGross)
+        ? grossRows.filter((row) => row.grossTotal === lowestGross).map((row) => row.playerName)
+        : [];
+      return {
+        roundNumber: roundSummary.roundNumber,
+        label: cleanString(saved.label) || `${roundSummary.title} Gross`,
+        winnerNames: manualWinners.length ? manualWinners : automaticWinners,
+        automaticWinners,
+        amount: normalizeCurrencyAmount(saved.amount),
+        notes: cleanString(saved.notes),
+        manualOverride: manualWinners.length > 0,
+        lowestGross,
+        hasScores: roundSummary.hasScores,
+        enteredCount: roundSummary.enteredCount,
+        expectedCount: roundSummary.expectedCount,
+        pendingCount: roundSummary.pendingCount,
         isComplete: roundSummary.complete,
       };
     });
@@ -2803,6 +2899,7 @@ function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], 
     }, { teamAEligible: [], teamBEligible: [] });
   return {
     dailyNet,
+    dailyGross,
     dailyOver100Draw: netSummary.rounds
       .filter((round) => round.eligible)
       .map((roundSummary, index) => {
@@ -2810,8 +2907,9 @@ function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], 
           || savedDailyOver100Draw[index]
           || {};
         const eligible = buildRyderCupOver100EligibleTeams(roundSummary.rows, teamLookup);
+        const excludedNames = parseRyderCupOver100DrawExclusions(saved.notes);
         const winners = roundSummary.complete
-          ? buildAutomaticRyderCupOver100Draw(eligible, `${roundSummary.roundNumber}|${roundSummary.title}`)
+          ? buildAutomaticRyderCupOver100Draw(eligible, `${roundSummary.roundNumber}|${roundSummary.title}`, excludedNames)
           : { winnerNames: [], teamAWinnerNames: [], teamBWinnerNames: [] };
         return {
           roundNumber: roundSummary.roundNumber,
@@ -2825,6 +2923,11 @@ function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], 
           notes: cleanString(saved.notes),
           automaticWinners: winners.winnerNames,
           manualOverride: false,
+          excludedNames,
+          hasScores: roundSummary.hasScores,
+          enteredCount: roundSummary.enteredCount,
+          expectedCount: roundSummary.expectedCount,
+          pendingCount: roundSummary.pendingCount,
           isComplete: roundSummary.complete,
         };
       }),
@@ -2841,6 +2944,11 @@ function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], 
           distance: cleanString(saved.distance),
           amount: normalizeCurrencyAmount(saved.amount),
           notes: cleanString(saved.notes),
+          hasScores: roundSummary.hasScores,
+          enteredCount: roundSummary.enteredCount,
+          expectedCount: roundSummary.expectedCount,
+          pendingCount: roundSummary.pendingCount,
+          isComplete: roundSummary.complete,
         };
       }),
     dailyBirdiePot: buildDailyBirdiePotView(savedDailyBirdiePot, 'Birdie Pot'),
@@ -2851,17 +2959,25 @@ function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], 
       notes: cleanString(weeklySource.notes),
       manualOverride: weeklyManualWinners.length > 0,
       lowestNet: netSummary.lowestNet,
+      completedRoundsCount: netSummary.completedRoundsCount,
+      eligibleRoundsCount: netSummary.eligibleRoundsCount,
       isComplete: netSummary.complete,
     },
     weeklyOver100Draw: {
       ...(netSummary.complete
-        ? buildAutomaticRyderCupOver100Draw(weeklyOver100Eligible, `weekly|${(teams[0] && teams[0].name) || 'teamA'}|${(teams[1] && teams[1].name) || 'teamB'}`)
+        ? buildAutomaticRyderCupOver100Draw(
+          weeklyOver100Eligible,
+          `weekly|${(teams[0] && teams[0].name) || 'teamA'}|${(teams[1] && teams[1].name) || 'teamB'}`,
+          parseRyderCupOver100DrawExclusions(weeklyOver100Source.notes)
+        )
         : { winnerNames: [], teamAWinnerNames: [], teamBWinnerNames: [] }),
       teamAEligible: uniqueNames(weeklyOver100Eligible.teamAEligible).sort((left, right) => left.localeCompare(right)),
       teamBEligible: uniqueNames(weeklyOver100Eligible.teamBEligible).sort((left, right) => left.localeCompare(right)),
       amount: normalizeCurrencyAmount(weeklyOver100Source.amount),
       notes: cleanString(weeklyOver100Source.notes),
       manualOverride: false,
+      completedRoundsCount: netSummary.completedRoundsCount,
+      eligibleRoundsCount: netSummary.eligibleRoundsCount,
       isComplete: netSummary.complete,
     },
     closestToPin: {
@@ -2875,7 +2991,13 @@ function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], 
       notes: sideGames && sideGames.birdiePool ? sideGames.birdiePool.notes : '',
       totalBirdies: tripBirdiePool.totalBirdies,
       perBirdieAmount: tripBirdiePool.perBirdieAmount,
+      awardedAmount: tripBirdiePool.awardedAmount,
+      leftoverAmount: tripBirdiePool.leftoverAmount,
       shareRows: tripBirdiePool.shareRows,
+    },
+    leftoverPot: {
+      amount: sideGames && sideGames.leftoverPot ? sideGames.leftoverPot.amount : null,
+      notes: sideGames && sideGames.leftoverPot ? sideGames.leftoverPot.notes : '',
     },
     mvp: {
       winners: overrideMvpWinners.length ? overrideMvpWinners : automaticMvpWinners,
@@ -2908,13 +3030,47 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
     return list.length ? list.join(', ') : pendingLabel;
   };
   const formatCurrencyLabel = (value) => `$${roundCurrency(value).toFixed(2)}`;
+  const buildRoundScorePendingLabel = (
+    entry = {},
+    {
+      emptyLabel = 'Round not played yet',
+      partialLabel = 'Scores still missing',
+      completeLabel = 'Pending',
+    } = {}
+  ) => {
+    if (entry && entry.isComplete) return completeLabel;
+    const enteredCount = Math.max(0, Math.round(asFiniteNumber(entry && entry.enteredCount) || 0));
+    const expectedCount = Math.max(0, Math.round(asFiniteNumber(entry && entry.expectedCount) || 0));
+    if (!enteredCount) return emptyLabel;
+    if (expectedCount > enteredCount) return `${enteredCount}/${expectedCount} scores entered`;
+    return partialLabel;
+  };
+  const buildTripScorePendingLabel = (
+    entry = {},
+    {
+      emptyLabel = 'No scoring rounds complete yet',
+      progressLabel = 'Pending remaining rounds',
+      completeLabel = 'Pending',
+    } = {}
+  ) => {
+    if (entry && entry.isComplete) return completeLabel;
+    const completedRoundsCount = Math.max(0, Math.round(asFiniteNumber(entry && entry.completedRoundsCount) || 0));
+    const eligibleRoundsCount = Math.max(0, Math.round(asFiniteNumber(entry && entry.eligibleRoundsCount) || 0));
+    if (!completedRoundsCount) return emptyLabel;
+    if (eligibleRoundsCount > completedRoundsCount) return `${completedRoundsCount} of ${eligibleRoundsCount} scoring rounds complete`;
+    return progressLabel;
+  };
   const buildBirdiePoolLabel = (entry = {}, pendingLabel = 'Pending') => {
     const totalBirdies = Math.max(0, Math.round(asFiniteNumber(entry && entry.totalBirdies) || 0));
     if (!totalBirdies) return pendingLabel;
     const perBirdieAmount = asFiniteNumber(entry && entry.perBirdieAmount);
-    return perBirdieAmount === null
+    const leftoverAmount = Math.max(0, asFiniteNumber(entry && entry.leftoverAmount) || 0);
+    const baseLabel = perBirdieAmount === null
       ? `${totalBirdies} ${totalBirdies === 1 ? 'birdie' : 'birdies'} recorded`
       : `${totalBirdies} ${totalBirdies === 1 ? 'birdie' : 'birdies'} @ ${formatCurrencyLabel(perBirdieAmount)} per birdie`;
+    return leftoverAmount > 0
+      ? `${baseLabel} · ${formatCurrencyLabel(leftoverAmount)} to leftover pot`
+      : baseLabel;
   };
   const buildPrizeRow = ({
     key = '',
@@ -2924,6 +3080,7 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
     winnerLabel = 'Pending',
     perPerson = null,
     group = 'trip',
+    leftoverAmount = 0,
     shareRows = [],
   }) => ({
     key,
@@ -2933,6 +3090,7 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
     winnerLabel,
     perPerson: perPerson === null || perPerson === undefined ? null : roundCurrency(perPerson),
     group,
+    leftoverAmount: roundCurrency(leftoverAmount),
     shareRows: (Array.isArray(shareRows) ? shareRows : [])
       .map((entry) => ({
         name: String(entry && entry.name || '').trim(),
@@ -2943,6 +3101,7 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
   });
 
   const dailyNetEntries = Array.isArray(sideGames && sideGames.dailyNet) ? sideGames.dailyNet : [];
+  const dailyGrossEntries = Array.isArray(sideGames && sideGames.dailyGross) ? sideGames.dailyGross : [];
   const dailyOver100Entries = Array.isArray(sideGames && sideGames.dailyOver100Draw) ? sideGames.dailyOver100Draw : [];
   const dailyBirdieEntries = Array.isArray(sideGames && sideGames.dailyBirdiePot) ? sideGames.dailyBirdiePot : [];
   const dailyLongestPuttEntries = Array.isArray(sideGames && sideGames.dailyLongestPuttLastHole) ? sideGames.dailyLongestPuttLastHole : [];
@@ -2951,12 +3110,14 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
     : [];
 
   const dailyNetAmount = sumEntryAmounts(dailyNetEntries);
+  const dailyGrossAmount = sumEntryAmounts(dailyGrossEntries);
   const dailyOver100Amount = sumEntryAmounts(dailyOver100Entries);
   const dailyBirdieAmount = sumEntryAmounts(dailyBirdieEntries);
   const dailyLongestPuttAmount = sumEntryAmounts(dailyLongestPuttEntries);
   const weeklyAmount = resolveConfiguredAmount(sideGames && sideGames.weeklyNet ? sideGames.weeklyNet.amount : null, allocation.weeklyNet);
   const weeklyOver100Amount = resolveConfiguredAmount(sideGames && sideGames.weeklyOver100Draw ? sideGames.weeklyOver100Draw.amount : null, 0);
   const birdieAmount = resolveConfiguredAmount(sideGames && sideGames.birdiePool ? sideGames.birdiePool.amount : null, allocation.birdiePool);
+  const leftoverPotAmount = resolveConfiguredAmount(sideGames && sideGames.leftoverPot ? sideGames.leftoverPot.amount : null, 0);
   const closestAmount = closestEntries.some((entry) => asFiniteNumber(entry && entry.amount) !== null)
     ? sumEntryAmounts(closestEntries)
     : resolveConfiguredAmount(null, allocation.closestToPin);
@@ -2964,12 +3125,14 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
 
   const nonTeamAmount = roundCurrency(
     dailyNetAmount
+    + dailyGrossAmount
     + dailyOver100Amount
     + dailyBirdieAmount
     + dailyLongestPuttAmount
     + weeklyAmount
     + weeklyOver100Amount
     + birdieAmount
+    + leftoverPotAmount
     + closestAmount
     + mvpAmount
   );
@@ -3019,6 +3182,14 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
       amount: dailyNetAmount,
       winners: uniqueNames(dailyNetEntries.flatMap((entry) => entry && Array.isArray(entry.winnerNames) ? entry.winnerNames : [])),
       winnerLabel: dailyNetEntries.length ? `${dailyNetEntries.length} daily payouts` : 'Pending',
+      group: 'daily',
+    }),
+    buildPrizeRow({
+      key: 'dailyGross',
+      label: 'Daily Gross',
+      amount: dailyGrossAmount,
+      winners: uniqueNames(dailyGrossEntries.flatMap((entry) => entry && Array.isArray(entry.winnerNames) ? entry.winnerNames : [])),
+      winnerLabel: dailyGrossEntries.length ? `${dailyGrossEntries.length} daily payouts` : 'Pending',
       group: 'daily',
     }),
     buildPrizeRow({
@@ -3085,6 +3256,15 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
       winners: sideGames.birdiePool && Array.isArray(sideGames.birdiePool.winners) ? sideGames.birdiePool.winners : [],
       winnerLabel: buildBirdiePoolLabel(sideGames && sideGames.birdiePool, 'Pending'),
       group: 'trip',
+      leftoverAmount: asFiniteNumber(sideGames && sideGames.birdiePool && sideGames.birdiePool.leftoverAmount) || 0,
+    }),
+    buildPrizeRow({
+      key: 'leftoverPot',
+      label: 'Leftover Pot',
+      amount: leftoverPotAmount,
+      winners: [],
+      winnerLabel: cleanString(sideGames && sideGames.leftoverPot && sideGames.leftoverPot.notes) || 'To be determined',
+      group: 'trip',
     }),
     buildPrizeRow({
       key: 'mvp',
@@ -3105,7 +3285,16 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
       label: cleanString(entry && entry.label) || `Round ${index + 1} Net`,
       amount: asFiniteNumber(entry && entry.amount) || 0,
       winners: entry && Array.isArray(entry.winnerNames) ? entry.winnerNames : [],
-      winnerLabel: buildWinnerLabel(entry && entry.winnerNames, entry && entry.isComplete ? 'Pending' : 'Pending full round scores'),
+      winnerLabel: buildWinnerLabel(entry && entry.winnerNames, buildRoundScorePendingLabel(entry)),
+      perPerson: entry && Array.isArray(entry.winnerNames) && entry.winnerNames.length ? (asFiniteNumber(entry.amount) || 0) / entry.winnerNames.length : null,
+      group: 'daily',
+    })),
+    dailyGrossEntries.map((entry, index) => buildPrizeRow({
+      key: `dailyGross-${index + 1}`,
+      label: cleanString(entry && entry.label) || `Round ${index + 1} Gross`,
+      amount: asFiniteNumber(entry && entry.amount) || 0,
+      winners: entry && Array.isArray(entry.winnerNames) ? entry.winnerNames : [],
+      winnerLabel: buildWinnerLabel(entry && entry.winnerNames, buildRoundScorePendingLabel(entry)),
       perPerson: entry && Array.isArray(entry.winnerNames) && entry.winnerNames.length ? (asFiniteNumber(entry.amount) || 0) / entry.winnerNames.length : null,
       group: 'daily',
     })),
@@ -3114,7 +3303,7 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
       label: cleanString(entry && entry.label) || `Round ${index + 1} Over-100 Team Draw`,
       amount: asFiniteNumber(entry && entry.amount) || 0,
       winners: entry && Array.isArray(entry.winnerNames) ? entry.winnerNames : [],
-      winnerLabel: buildWinnerLabel(entry && entry.winnerNames, entry && entry.isComplete ? 'Pending' : 'Pending full round scores'),
+      winnerLabel: buildWinnerLabel(entry && entry.winnerNames, buildRoundScorePendingLabel(entry, { completeLabel: 'No eligible golfer' })),
       perPerson: entry && Array.isArray(entry.winnerNames) && entry.winnerNames.length ? (asFiniteNumber(entry.amount) || 0) / entry.winnerNames.length : null,
       group: 'daily',
     })),
@@ -3123,8 +3312,9 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
       label: cleanString(entry && entry.label) || `Round ${index + 1} Birdie Pot`,
       amount: asFiniteNumber(entry && entry.amount) || 0,
       winners: entry && Array.isArray(entry.winnerNames) ? entry.winnerNames : [],
-      winnerLabel: buildBirdiePoolLabel(entry, 'Pending'),
+      winnerLabel: buildBirdiePoolLabel(entry, buildRoundScorePendingLabel(entry, { completeLabel: 'No birdies tracked yet' })),
       group: 'daily',
+      leftoverAmount: asFiniteNumber(entry && entry.leftoverAmount) || 0,
       shareRows: entry && Array.isArray(entry.shareRows) ? entry.shareRows : [],
     })),
     dailyLongestPuttEntries.map((entry, index) => buildPrizeRow({
@@ -3132,7 +3322,7 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
       label: cleanString(entry && entry.label) || `Round ${index + 1} Longest Made Putt on Last Hole`,
       amount: asFiniteNumber(entry && entry.amount) || 0,
       winners: entry && Array.isArray(entry.winnerNames) ? entry.winnerNames : [],
-      winnerLabel: buildWinnerLabel(entry && entry.winnerNames, 'Pending'),
+      winnerLabel: buildWinnerLabel(entry && entry.winnerNames, buildRoundScorePendingLabel(entry, { completeLabel: 'Not tracked' })),
       perPerson: entry && Array.isArray(entry.winnerNames) && entry.winnerNames.length ? (asFiniteNumber(entry.amount) || 0) / entry.winnerNames.length : null,
       group: 'daily',
     })),
@@ -3142,7 +3332,7 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
         label: 'Weekly Net Champion',
         amount: weeklyAmount,
         winners: sideGames.weeklyNet && Array.isArray(sideGames.weeklyNet.winnerNames) ? sideGames.weeklyNet.winnerNames : [],
-        winnerLabel: buildWinnerLabel(sideGames.weeklyNet && sideGames.weeklyNet.winnerNames, 'Pending'),
+        winnerLabel: buildWinnerLabel(sideGames.weeklyNet && sideGames.weeklyNet.winnerNames, buildTripScorePendingLabel(sideGames.weeklyNet)),
         perPerson: sideGames.weeklyNet && sideGames.weeklyNet.winnerNames && sideGames.weeklyNet.winnerNames.length
           ? weeklyAmount / sideGames.weeklyNet.winnerNames.length
           : null,
@@ -3153,7 +3343,7 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
         label: 'Weekly Over-100 Team Draw',
         amount: weeklyOver100Amount,
         winners: sideGames.weeklyOver100Draw && Array.isArray(sideGames.weeklyOver100Draw.winnerNames) ? sideGames.weeklyOver100Draw.winnerNames : [],
-        winnerLabel: buildWinnerLabel(sideGames.weeklyOver100Draw && sideGames.weeklyOver100Draw.winnerNames, 'Pending'),
+        winnerLabel: buildWinnerLabel(sideGames.weeklyOver100Draw && sideGames.weeklyOver100Draw.winnerNames, buildTripScorePendingLabel(sideGames.weeklyOver100Draw)),
         perPerson: sideGames.weeklyOver100Draw && sideGames.weeklyOver100Draw.winnerNames && sideGames.weeklyOver100Draw.winnerNames.length
           ? weeklyOver100Amount / sideGames.weeklyOver100Draw.winnerNames.length
           : null,
@@ -3191,9 +3381,18 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
         winners: sideGames.birdiePool && Array.isArray(sideGames.birdiePool.winners) ? sideGames.birdiePool.winners : [],
         winnerLabel: buildBirdiePoolLabel(sideGames && sideGames.birdiePool, 'Pending'),
         group: 'trip',
+        leftoverAmount: asFiniteNumber(sideGames && sideGames.birdiePool && sideGames.birdiePool.leftoverAmount) || 0,
         shareRows: sideGames && sideGames.birdiePool && Array.isArray(sideGames.birdiePool.shareRows)
           ? sideGames.birdiePool.shareRows
           : [],
+      }),
+      buildPrizeRow({
+        key: 'leftoverPot-winner',
+        label: 'Leftover Pot',
+        amount: leftoverPotAmount,
+        winners: [],
+        winnerLabel: cleanString(sideGames && sideGames.leftoverPot && sideGames.leftoverPot.notes) || 'To be determined',
+        group: 'trip',
       }),
       buildPrizeRow({
         key: 'mvp-winner',
@@ -3441,7 +3640,7 @@ function buildTripCompetitionView(trip = {}, participants = []) {
         ? 'Daily Myrtle Ryder Cup matches use one gross total per golfer, then apply full handicap strokes and award each match to the lower net side.'
         : 'Individual net Stableford across the trip, with daily 2-man net best ball matches inside each foursome.',
       sideGamesSummary: isMyrtleOwnBallTrip
-        ? 'Ryder Cup matches use full handicaps, while daily net, over-100 team draws, daily birdie pot, longest made putt on the last hole, weekly net, weekly over-100 draw, closest to pin, birdie pool, MVP, and payouts stay aligned to the Myrtle trip setup.'
+        ? 'Ryder Cup matches use full handicaps, while daily net, daily gross, over-100 team draws, daily birdie pot, longest made putt on the last hole, weekly net, weekly over-100 draw, closest to pin, birdie pool, MVP, and payouts stay aligned to the Myrtle trip setup.'
         : 'Optional Closest to Pin and skins results are tracked separately from the main competition.',
     },
     buckets: buildHandicapBuckets(playerPool, trip && trip.competition && trip.competition.handicapBuckets),

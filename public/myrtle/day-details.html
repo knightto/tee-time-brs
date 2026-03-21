@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Myrtle Day Details</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" href="/assets/knight-club-icon.png">
+  <style>
+    :root { --bg:#0d1726; --panel:#0f2138; --accent:#e0b457; --ink:#e6edf7; --ink-soft:#9fb6d4; --border:rgba(255,255,255,0.08); --shadow:0 20px 50px rgba(0,0,0,0.35); --radius:16px; }
+    * { box-sizing:border-box; }
+    body { font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif; background:radial-gradient(circle at 20% 20%, rgba(109,211,255,0.08), transparent 35%), radial-gradient(circle at 80% 0%, rgba(224,180,87,0.10), transparent 30%), #0b1422; margin:0; color:var(--ink); min-height:100vh; }
+    .container { max-width:1180px; margin:16px auto 32px; padding:0 16px 28px; }
+    .hero, .panel, .card { background:linear-gradient(145deg, var(--panel) 0%, #0c1a2c 100%); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); }
+    .hero { padding:16px; position:sticky; top:0; z-index:10; backdrop-filter:blur(8px); }
+    .hero-row, .section-head, .scoreboard, .card-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+    .hero-links, .pill-row, .scoreboard, .slot-players, .chip-row { display:flex; gap:8px; flex-wrap:wrap; }
+    .hero-links { justify-content:flex-end; }
+    .hero-link, .back-link { display:inline-flex; align-items:center; justify-content:center; min-height:34px; padding:8px 11px; border-radius:999px; border:1px solid rgba(109,211,255,0.28); background:rgba(109,211,255,0.10); color:#d7f0ff; text-decoration:none; font-size:0.84rem; font-weight:700; }
+    .hero-link:hover, .back-link:hover { background:rgba(109,211,255,0.18); text-decoration:none; }
+    .back-link { position:fixed; top:12px; left:12px; z-index:999; background:#0c1a2c; color:#f9fafb; }
+    h1 { margin:0; font-size:clamp(1.4rem, 4vw, 2rem); display:flex; align-items:baseline; gap:10px; letter-spacing:0.4px; }
+    h1 span { color:var(--accent); font-size:0.9rem; letter-spacing:1px; text-transform:uppercase; }
+    h2, h3, strong { color:#fff; }
+    .hero-copy, .section-copy { display:grid; gap:4px; }
+    .note, .empty { color:var(--ink-soft); font-size:0.85rem; line-height:1.45; }
+    .panel { padding:16px; margin-top:14px; }
+    .pill, .chip { padding:6px 10px; border-radius:999px; border:1px solid rgba(109,211,255,0.24); background:rgba(109,211,255,0.10); color:#d7f0ff; font-size:0.8rem; font-weight:700; }
+    .chip.is-team-a { border-color:rgba(109,211,255,0.28); background:rgba(109,211,255,0.12); }
+    .chip.is-team-b { border-color:rgba(224,180,87,0.28); background:rgba(224,180,87,0.12); color:#fff0cf; }
+    .score-box, .card, .match-card, .slot-card, .sidegame-card { padding:12px; border:1px solid rgba(255,255,255,0.06); border-radius:14px; background:rgba(255,255,255,0.03); }
+    .score-box { flex:1 1 220px; }
+    .score-box strong { display:block; font-size:1rem; }
+    .score-value { font-size:1.8rem; font-weight:800; color:#fff; line-height:1.1; margin-top:6px; }
+    .grid-2, .grid-3, .slot-grid, .match-grid, .sidegame-grid, .match-sides { display:grid; gap:12px; }
+    .grid-2 { grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); }
+    .grid-3 { grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); }
+    .slot-grid, .match-grid, .match-sides { grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); }
+    .sidegame-grid { grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); }
+    .list, .rank-list { list-style:none; margin:0; padding:0; display:grid; gap:8px; }
+    .list li, .rank-list li { display:flex; justify-content:space-between; gap:10px; align-items:flex-start; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.06); }
+    .list li:last-child, .rank-list li:last-child { border-bottom:0; padding-bottom:0; }
+    .list li:first-child, .rank-list li:first-child { padding-top:0; }
+    .list li span:last-child, .rank-list li span:last-child { text-align:right; white-space:nowrap; }
+    .amount { font-weight:800; color:#fff; white-space:nowrap; }
+    .match-head, .slot-head, .sidegame-head { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; flex-wrap:wrap; }
+    .match-meta { color:var(--ink-soft); font-size:0.8rem; }
+    @media (max-width:640px) { .container { padding:0 12px 24px; } .hero-links { width:100%; } .hero-link { flex:1 1 160px; } .back-link { position:static; display:inline-flex; margin:12px 12px 0; } body { padding-top:0; } }
+  </style>
+</head>
+<body>
+  <a class="back-link" data-trip-page-link href="/myrtle/trip-2026.html">← Myrtle Trip</a>
+  <div class="container">
+    <header class="hero">
+      <div class="hero-row">
+        <div class="hero-copy">
+          <h1>Day Details <span>Myrtle 2026</span></h1>
+          <div id="heroNote" class="note">Loading round details...</div>
+        </div>
+        <div class="hero-links">
+          <a class="hero-link" data-trip-page-link href="/myrtle/trip-2026.html">Trip Page</a>
+          <a class="hero-link" data-standings-link href="/myrtle/leaderboard-and-prizes.html">Ryder Cup Standings</a>
+          <a class="hero-link" data-report-link href="/myrtle/prize-report.html">Prize Report</a>
+          <a class="hero-link" data-all-foursomes-link href="/myrtle/all-foursomes.html">All Foursomes</a>
+          <a class="hero-link" data-lodging-link href="/myrtle/lodging-and-maps.html">Lodging + Maps</a>
+        </div>
+      </div>
+    </header>
+    <main id="pageBody" class="panel">
+      <div class="empty">Loading Myrtle round details...</div>
+    </main>
+  </div>
+  <script>
+    const MYRTLE_PRIMARY_TRIP_NAME = 'Myrtle Beach - Barefoot Group 3/18-3/22/26';
+    const MYRTLE_ARRIVAL_DATE = '2026-03-18';
+    let tripId = '';
+    let tripData = null;
+    let competitionData = null;
+    let loadError = '';
+    const tripApi = (path) => (path.includes('?') ? `${path}&myrtleBeach2026=true` : `${path}?myrtleBeach2026=true`);
+    const getRequestedTripId = () => { try { return String(new URLSearchParams(window.location.search).get('tripId') || '').trim(); } catch (_error) { return ''; } };
+    const getRequestedRoundNumber = () => { try { const value = Number(new URLSearchParams(window.location.search).get('round') || ''); return Number.isInteger(value) && value > 0 ? value : 1; } catch (_error) { return 1; } };
+    const buildPageHref = (path = '') => { const currentTripId = String(tripId || getRequestedTripId() || '').trim(); return currentTripId ? `${path}${path.includes('?') ? '&' : '?'}tripId=${encodeURIComponent(currentTripId)}` : path; };
+    const buildRoundHref = (roundNumber = 1) => `${buildPageHref('/myrtle/day-details.html')}${buildPageHref('/myrtle/day-details.html').includes('?') ? '&' : '?'}round=${encodeURIComponent(String(roundNumber))}`;
+    const syncLinks = () => {
+      document.querySelectorAll('[data-trip-page-link]').forEach((link) => { link.href = buildPageHref('/myrtle/trip-2026.html'); });
+      document.querySelectorAll('[data-standings-link]').forEach((link) => { link.href = buildPageHref('/myrtle/leaderboard-and-prizes.html'); });
+      document.querySelectorAll('[data-report-link]').forEach((link) => { link.href = buildPageHref('/myrtle/prize-report.html'); });
+      document.querySelectorAll('[data-all-foursomes-link]').forEach((link) => { link.href = buildPageHref('/myrtle/all-foursomes.html'); });
+      document.querySelectorAll('[data-lodging-link]').forEach((link) => { link.href = buildPageHref('/myrtle/lodging-and-maps.html'); });
+    };
+    const escapeHtml = (value) => String(value == null ? '' : value).replace(/[&<>"]/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[char]));
+    const normalizeNameKey = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const formatCurrency = (value) => { const num = Number(value); return Number.isFinite(num) ? num.toLocaleString(undefined, { style:'currency', currency:'USD' }) : '—'; };
+    const formatCompetitionPoints = (value) => { const num = Number(value); if (!Number.isFinite(num)) return '0'; return Number.isInteger(num) ? String(num) : num.toFixed(1).replace(/\.0$/, ''); };
+    const formatWinnerList = (values = []) => Array.isArray(values) && values.length ? values.join(', ') : 'Pending';
+    const toIsoDate = (value) => { if (!value) return ''; const parsed = value instanceof Date ? new Date(value.getTime()) : new Date(value); return Number.isNaN(parsed.getTime()) ? '' : parsed.toISOString().slice(0, 10); };
+    const formatDateLong = (value) => { const iso = toIsoDate(value) || String(value || '').trim(); if (!iso) return ''; const parsed = new Date(`${iso}T12:00:00`); return Number.isNaN(parsed.getTime()) ? iso : parsed.toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric', year:'numeric' }); };
+    const formatTime12 = (value) => { const raw = String(value || '').trim(); if (!raw) return ''; const match = raw.match(/^(\d{1,2}):(\d{2})/); if (!match) return raw; let hours = Number(match[1]); const minutes = match[2]; const suffix = hours >= 12 ? 'PM' : 'AM'; hours = hours % 12 || 12; return `${hours}:${minutes} ${suffix}`; };
+    const isMyrtleTripCandidate = (entry = {}) => /myrtle/i.test(String(entry && entry.name || '').trim()) || /myrtle/i.test(String(entry && entry.location || '').trim());
+    const findPreferredMyrtleTrip = (trips = []) => {
+      const requestedTripId = getRequestedTripId();
+      const list = Array.isArray(trips) ? trips : [];
+      if (requestedTripId) {
+        const requested = list.find((entry) => String(entry && entry._id || '').trim() === requestedTripId);
+        if (requested) return requested;
+      }
+      return list.find((entry) => String(entry && entry.name || '').trim() === MYRTLE_PRIMARY_TRIP_NAME)
+        || list.find((entry) => isMyrtleTripCandidate(entry) && toIsoDate(entry && entry.arrivalDate) === MYRTLE_ARRIVAL_DATE)
+        || list.find((entry) => isMyrtleTripCandidate(entry))
+        || null;
+    };
+    async function tripFetchJson(url, options = {}) {
+      const response = await fetch(url, options);
+      const contentType = response.headers.get('content-type') || '';
+      const payload = contentType.includes('application/json') ? await response.json() : await response.text();
+      if (!response.ok) {
+        const message = payload && typeof payload === 'object' ? (payload.error || payload.message) : String(payload || 'Request failed');
+        throw new Error(message || 'Request failed');
+      }
+      return payload;
+    }
+    function buildHandicapMetaMap(ryderCup = {}) {
+      const map = new Map();
+      (Array.isArray(ryderCup.teams) ? ryderCup.teams : []).forEach((team) => {
+        (team.players || []).forEach((player) => {
+          const name = String(player && player.name || '').trim();
+          if (!name) return;
+          map.set(normalizeNameKey(name), {
+            teamName: team.name || 'Team',
+            handicapIndex: Number.isFinite(Number(player && player.handicapIndex)) ? Number(player.handicapIndex) : 0,
+            matchHandicap: Number.isFinite(Number(player && player.matchHandicap)) ? Number(player.matchHandicap) : 0,
+          });
+        });
+      });
+      return map;
+    }
+    function buildRoundPlayerRows(roundView = {}, ryderCup = {}) {
+      const handicapMeta = buildHandicapMetaMap(ryderCup);
+      const rowsByName = new Map();
+      const addRow = (name = '', grossScore = null, pointsWon = 0) => {
+        const cleanName = String(name || '').trim();
+        const key = normalizeNameKey(cleanName);
+        if (!cleanName || !key) return;
+        const meta = handicapMeta.get(key) || { teamName:'Team', handicapIndex:0, matchHandicap:0 };
+        const gross = Number(grossScore);
+        const existing = rowsByName.get(key) || { name: cleanName, teamName: meta.teamName, handicapIndex: meta.handicapIndex, matchHandicap: meta.matchHandicap, gross: null, net: null, pointsWon: 0 };
+        if (Number.isFinite(gross)) {
+          existing.gross = gross;
+          existing.net = gross - existing.matchHandicap;
+        }
+        existing.pointsWon += Number(pointsWon) || 0;
+        rowsByName.set(key, existing);
+      };
+      (roundView.matches || []).forEach((match) => {
+        (match.teamAPlayers || []).forEach((name, index) => addRow(name, match.teamAPlayerScores && match.teamAPlayerScores[index], match.pointsA));
+        (match.teamBPlayers || []).forEach((name, index) => addRow(name, match.teamBPlayerScores && match.teamBPlayerScores[index], match.pointsB));
+      });
+      return Array.from(rowsByName.values());
+    }
+    function sortByNet(rows = []) {
+      return rows.filter((row) => Number.isFinite(Number(row && row.net))).slice().sort((left, right) => (left.net - right.net) || (left.gross - right.gross) || left.name.localeCompare(right.name));
+    }
+    function sortByGross(rows = []) {
+      return rows.filter((row) => Number.isFinite(Number(row && row.gross))).slice().sort((left, right) => (left.gross - right.gross) || (left.net - right.net) || left.name.localeCompare(right.name));
+    }
+    function sortByPoints(rows = []) {
+      return rows.slice().sort((left, right) => (right.pointsWon - left.pointsWon) || ((Number.isFinite(left.net) ? left.net : Number.POSITIVE_INFINITY) - (Number.isFinite(right.net) ? right.net : Number.POSITIVE_INFINITY)) || left.name.localeCompare(right.name));
+    }
+    function formatResultLabel(result = '', teamAName = 'Team A', teamBName = 'Team B') {
+      const key = String(result || '').trim().toLowerCase();
+      if (key === 'teama') return `${teamAName} win`;
+      if (key === 'teamb') return `${teamBName} win`;
+      if (key === 'halved') return 'Halved';
+      return 'Pending';
+    }
+    function buildDailySideGameEntries(ryderCup = {}, roundNumber = 1) {
+      const sideGames = ryderCup.sideGames || {};
+      const findEntry = (entries = []) => (Array.isArray(entries) ? entries : []).find((entry) => Number(entry && entry.roundNumber) === Number(roundNumber)) || null;
+      return {
+        dailyNet: findEntry(sideGames.dailyNet),
+        dailyGross: findEntry(sideGames.dailyGross),
+        dailyOver100Draw: findEntry(sideGames.dailyOver100Draw),
+        dailyBirdiePot: findEntry(sideGames.dailyBirdiePot),
+        dailyLongestPuttLastHole: findEntry(sideGames.dailyLongestPuttLastHole),
+        ctpEntries: (sideGames.closestToPin && Array.isArray(sideGames.closestToPin.entries) ? sideGames.closestToPin.entries : []).filter((entry) => Number(entry && entry.roundNumber) === Number(roundNumber)),
+      };
+    }
+    function renderTeamRankingCard(teamName = 'Team', rows = [], mode = 'net', emptyText = 'No scores yet.') {
+      const list = mode === 'gross' ? sortByGross(rows) : sortByNet(rows);
+      return `
+        <div class="card">
+          <div class="card-head">
+            <strong>${escapeHtml(teamName)}</strong>
+            <span class="note">${escapeHtml(list.length ? `${list.length} scored` : emptyText)}</span>
+          </div>
+          ${list.length ? `<ol class="rank-list" style="margin-top:10px;">${list.map((row, index) => `<li><span><strong>#${escapeHtml(String(index + 1))} ${escapeHtml(row.name || 'Player')}</strong><br><span class="note">Gross ${escapeHtml(String(row.gross || 0))} · Hcp ${escapeHtml(String(row.matchHandicap || 0))}</span></span><span>${mode === 'gross' ? `Gross ${escapeHtml(String(row.gross || 0))}` : `Net ${escapeHtml(String(row.net || 0))}`}</span></li>`).join('')}</ol>` : `<div class="empty" style="margin-top:10px;">${escapeHtml(emptyText)}</div>`}
+        </div>
+      `;
+    }
+    function renderPage() {
+      syncLinks();
+      const body = document.getElementById('pageBody');
+      const heroNote = document.getElementById('heroNote');
+      const ryderCup = competitionData && competitionData.ryderCup ? competitionData.ryderCup : null;
+      const tripRounds = Array.isArray(tripData && tripData.rounds) ? tripData.rounds : [];
+      if (!ryderCup || !Array.isArray(ryderCup.rounds) || !ryderCup.rounds.length) {
+        body.innerHTML = `<div class="empty">${escapeHtml(loadError || 'Myrtle round details are not available yet.')}</div>`;
+        if (heroNote) heroNote.textContent = loadError || 'Myrtle round details are not available yet.';
+        return;
+      }
+      const requestedRoundNumber = getRequestedRoundNumber();
+      const roundIndex = Math.max(0, ryderCup.rounds.findIndex((entry) => Number(entry && entry.roundNumber) === requestedRoundNumber));
+      const roundView = ryderCup.rounds[roundIndex] || ryderCup.rounds[0] || {};
+      const roundNumber = Number(roundView.roundNumber) || (roundIndex + 1);
+      const tripRound = tripRounds[roundIndex] || {};
+      const teamA = (ryderCup.teams && ryderCup.teams[0]) || { name: 'Team A', players: [] };
+      const teamB = (ryderCup.teams && ryderCup.teams[1]) || { name: 'Team B', players: [] };
+      const playerRows = buildRoundPlayerRows(roundView, ryderCup);
+      const teamARows = playerRows.filter((row) => row.teamName === teamA.name);
+      const teamBRows = playerRows.filter((row) => row.teamName === teamB.name);
+      const dailySideGames = buildDailySideGameEntries(ryderCup, roundNumber);
+      const pointRows = sortByPoints(playerRows);
+      const grossRows = sortByGross(playerRows);
+      const previousHref = roundIndex > 0 ? buildRoundHref(roundNumber - 1) : '';
+      const nextHref = roundIndex < (ryderCup.rounds.length - 1) ? buildRoundHref(roundNumber + 1) : '';
+      const firstTeeTime = (tripRound.teeTimes || []).find((slot) => String(slot && slot.time || '').trim());
+      const scheduleMeta = [formatDateLong(tripRound.date), tripRound.course || '', firstTeeTime ? `First tee ${formatTime12(firstTeeTime.time)}` : '', roundView.format || ''].filter(Boolean).join(' · ');
+      if (heroNote) heroNote.textContent = scheduleMeta || 'Round-specific schedule, scoring, and side games.';
+      body.innerHTML = `
+        <div class="section-head">
+          <div class="section-copy">
+            <h2 class="section-title">${escapeHtml(roundView.title || `Round ${roundNumber}`)}</h2>
+            <div class="note">${escapeHtml(scheduleMeta || 'Round-specific details')}</div>
+            ${tripRound.address ? `<div class="note">${escapeHtml(tripRound.address)}</div>` : ''}
+          </div>
+          <div class="pill-row">
+            ${previousHref ? `<a class="hero-link" href="${previousHref}">Previous Day</a>` : ''}
+            ${nextHref ? `<a class="hero-link" href="${nextHref}">Next Day</a>` : ''}
+          </div>
+        </div>
+        <div class="scoreboard" style="margin-top:12px;">
+          <div class="score-box"><strong>${escapeHtml(teamA.name || 'Team A')}</strong><div class="score-value">${escapeHtml(formatCompetitionPoints(roundView.roundPointsA || 0))}</div><div class="note">Round points</div></div>
+          <div class="score-box"><strong>${escapeHtml(teamB.name || 'Team B')}</strong><div class="score-value">${escapeHtml(formatCompetitionPoints(roundView.roundPointsB || 0))}</div><div class="note">Round points</div></div>
+          <div class="score-box"><strong>Round Status</strong><div class="score-value" style="font-size:1.15rem;">${escapeHtml(roundView.completedMatches === (roundView.matches || []).length && (roundView.matches || []).length ? 'Complete' : 'In Progress')}</div><div class="note">${escapeHtml(`${roundView.completedMatches || 0} of ${(roundView.matches || []).length || 0} matches complete`)}</div></div>
+        </div>
+        <div class="panel">
+          <div class="section-head">
+            <div class="section-copy">
+              <strong>Schedule And Foursomes</strong>
+              <div class="note">Everything for this day in one place. Overall standings stay on Ryder Cup Standings and prize money stays on Prize Report.</div>
+            </div>
+          </div>
+          ${(tripRound.teeTimes || []).length ? `<div class="slot-grid" style="margin-top:12px;">${(tripRound.teeTimes || []).map((slot, slotIndex) => `<div class="slot-card"><div class="slot-head"><strong>${escapeHtml(String(slot.label || `TT#${slotIndex + 1}`).trim() || `TT#${slotIndex + 1}`)}</strong><span class="note">${escapeHtml(formatTime12(slot.time) || 'Time TBD')}</span></div><div class="slot-players">${(slot.players || []).length ? (slot.players || []).map((player) => { const playerKey = normalizeNameKey(player); const teamClass = teamARows.some((row) => normalizeNameKey(row.name) === playerKey) ? ' is-team-a' : (teamBRows.some((row) => normalizeNameKey(row.name) === playerKey) ? ' is-team-b' : ''); return `<span class="chip${teamClass}">${escapeHtml(player)}</span>`; }).join('') : '<span class="empty">No golfers assigned.</span>'}</div></div>`).join('')}</div>` : `<div class="empty" style="margin-top:12px;">No tee sheet entered for this day yet.</div>`}
+          ${(tripRound.unassignedPlayers || []).length ? `<div class="panel" style="margin-top:12px; padding:12px;"><strong>Unassigned</strong><div class="chip-row" style="margin-top:10px;">${(tripRound.unassignedPlayers || []).map((name) => `<span class="chip">${escapeHtml(name)}</span>`).join('')}</div></div>` : ''}
+        </div>
+        <div class="grid-2">
+          <div class="panel">
+            <strong>Points This Round</strong>
+            ${pointRows.length ? `<ul class="list" style="margin-top:12px;">${pointRows.map((row) => `<li><span><strong>${escapeHtml(row.name || 'Player')}</strong><br><span class="note">${escapeHtml(row.teamName || 'Team')} · Gross ${escapeHtml(String(Number.isFinite(row.gross) ? row.gross : '—'))} · Net ${escapeHtml(String(Number.isFinite(row.net) ? row.net : '—'))}</span></span><span class="amount">${escapeHtml(formatCompetitionPoints(row.pointsWon || 0))} pts</span></li>`).join('')}</ul>` : `<div class="empty" style="margin-top:12px;">No player scores saved yet.</div>`}
+          </div>
+          <div class="panel">
+            <strong>Daily Side Games</strong>
+            <div class="sidegame-grid" style="margin-top:12px;">
+              <div class="sidegame-card"><div class="sidegame-head"><strong>Daily Net</strong><span class="amount">${escapeHtml(formatCurrency(dailySideGames.dailyNet && dailySideGames.dailyNet.amount || 0))}</span></div><div class="note" style="margin-top:8px;">${escapeHtml(formatWinnerList(dailySideGames.dailyNet && dailySideGames.dailyNet.winnerNames))}${dailySideGames.dailyNet && Number.isFinite(Number(dailySideGames.dailyNet.lowestNet)) ? ` · Net ${escapeHtml(String(dailySideGames.dailyNet.lowestNet))}` : ''}</div></div>
+              <div class="sidegame-card"><div class="sidegame-head"><strong>Daily Gross</strong><span class="amount">${escapeHtml(formatCurrency(dailySideGames.dailyGross && dailySideGames.dailyGross.amount || 0))}</span></div><div class="note" style="margin-top:8px;">${escapeHtml(formatWinnerList(dailySideGames.dailyGross && dailySideGames.dailyGross.winnerNames))}${dailySideGames.dailyGross && Number.isFinite(Number(dailySideGames.dailyGross.lowestGross)) ? ` · Gross ${escapeHtml(String(dailySideGames.dailyGross.lowestGross))}` : ''}</div></div>
+              <div class="sidegame-card"><div class="sidegame-head"><strong>Over-100 Draw</strong><span class="amount">${escapeHtml(formatCurrency(dailySideGames.dailyOver100Draw && dailySideGames.dailyOver100Draw.amount || 0))}</span></div><div class="note" style="margin-top:8px;">${escapeHtml(teamA.name)} winner: ${escapeHtml(formatWinnerList(dailySideGames.dailyOver100Draw && dailySideGames.dailyOver100Draw.teamAWinnerNames))}</div><div class="note">${escapeHtml(teamA.name)} eligible: ${escapeHtml(((dailySideGames.dailyOver100Draw && dailySideGames.dailyOver100Draw.teamAEligible) || []).join(', ') || 'None')}</div><div class="note" style="margin-top:6px;">${escapeHtml(teamB.name)} winner: ${escapeHtml(formatWinnerList(dailySideGames.dailyOver100Draw && dailySideGames.dailyOver100Draw.teamBWinnerNames))}</div><div class="note">${escapeHtml(teamB.name)} eligible: ${escapeHtml(((dailySideGames.dailyOver100Draw && dailySideGames.dailyOver100Draw.teamBEligible) || []).join(', ') || 'None')}</div></div>
+              <div class="sidegame-card"><div class="sidegame-head"><strong>Longest Putt</strong><span class="amount">${escapeHtml(formatCurrency(dailySideGames.dailyLongestPuttLastHole && dailySideGames.dailyLongestPuttLastHole.amount || 0))}</span></div><div class="note" style="margin-top:8px;">${escapeHtml(formatWinnerList(dailySideGames.dailyLongestPuttLastHole && dailySideGames.dailyLongestPuttLastHole.winnerNames))}</div>${dailySideGames.dailyLongestPuttLastHole && dailySideGames.dailyLongestPuttLastHole.distance ? `<div class="note">${escapeHtml(dailySideGames.dailyLongestPuttLastHole.distance)}</div>` : ''}</div>
+            </div>
+          </div>
+        </div>
+        <div class="panel">
+          <strong>Match Results</strong>
+          ${(roundView.matches || []).length ? `<div class="match-grid" style="margin-top:12px;">${(roundView.matches || []).map((match, matchIndex) => `<div class="match-card"><div class="match-head"><div><strong>${escapeHtml(String(match.label || `Match ${match.matchNumber || matchIndex + 1}`).trim() || `Match ${match.matchNumber || matchIndex + 1}`)}</strong><div class="note">${escapeHtml(formatResultLabel(match.result, teamA.name, teamB.name))}</div></div><span class="pill">${escapeHtml(formatCompetitionPoints(match.pointsA || 0))}-${escapeHtml(formatCompetitionPoints(match.pointsB || 0))} pts</span></div><div class="match-sides" style="margin-top:10px;"><div class="card"><strong>${escapeHtml(teamA.name || 'Team A')}</strong><div class="chip-row" style="margin-top:8px;">${(match.teamAPlayers || []).map((name) => `<span class="chip is-team-a">${escapeHtml(name)}</span>`).join('') || '<span class="empty">No golfers</span>'}</div><div class="match-meta" style="margin-top:8px;">Gross ${escapeHtml(String(Number.isFinite(Number(match.teamAGrossScore)) ? match.teamAGrossScore : '—'))} · Strokes ${escapeHtml(String(Number.isFinite(Number(match.teamAHandicapAllowance)) ? match.teamAHandicapAllowance : '—'))} · Net ${escapeHtml(String(Number.isFinite(Number(match.teamAScore)) ? match.teamAScore : '—'))}</div></div><div class="card"><strong>${escapeHtml(teamB.name || 'Team B')}</strong><div class="chip-row" style="margin-top:8px;">${(match.teamBPlayers || []).map((name) => `<span class="chip is-team-b">${escapeHtml(name)}</span>`).join('') || '<span class="empty">No golfers</span>'}</div><div class="match-meta" style="margin-top:8px;">Gross ${escapeHtml(String(Number.isFinite(Number(match.teamBGrossScore)) ? match.teamBGrossScore : '—'))} · Strokes ${escapeHtml(String(Number.isFinite(Number(match.teamBHandicapAllowance)) ? match.teamBHandicapAllowance : '—'))} · Net ${escapeHtml(String(Number.isFinite(Number(match.teamBScore)) ? match.teamBScore : '—'))}</div></div></div></div>`).join('')}</div>` : `<div class="empty" style="margin-top:12px;">No match data for this round yet.</div>`}
+        </div>
+        <div class="grid-2">
+          <div class="panel">
+            <strong>Daily Net Rankings</strong>
+            <div class="note" style="margin-top:4px;">Lower net is better inside each team for this round.</div>
+            <div class="grid-2" style="margin-top:12px;">${renderTeamRankingCard(teamA.name || 'Team A', teamARows, 'net', 'No scores yet.')}${renderTeamRankingCard(teamB.name || 'Team B', teamBRows, 'net', 'No scores yet.')}</div>
+          </div>
+          <div class="panel">
+            <strong>Gross Scores</strong>
+            ${grossRows.length ? `<ul class="list" style="margin-top:12px;">${grossRows.map((row, index) => `<li><span><strong>#${escapeHtml(String(index + 1))} ${escapeHtml(row.name || 'Player')}</strong><br><span class="note">${escapeHtml(row.teamName || 'Team')} · Hcp ${escapeHtml(String(row.matchHandicap || 0))} · Net ${escapeHtml(String(Number.isFinite(row.net) ? row.net : '—'))}</span></span><span class="amount">Gross ${escapeHtml(String(row.gross || 0))}</span></li>`).join('')}</ul>` : `<div class="empty" style="margin-top:12px;">No gross scores saved yet.</div>`}
+          </div>
+        </div>
+        <div class="panel">
+          <strong>Birdies And Closest To Pin</strong>
+          <div class="grid-2" style="margin-top:12px;">
+            <div class="card">
+              <strong>Daily Birdie Pot</strong>
+              ${dailySideGames.dailyBirdiePot && Array.isArray(dailySideGames.dailyBirdiePot.shareRows) && dailySideGames.dailyBirdiePot.shareRows.length ? `<div class="note" style="margin-top:6px;">${escapeHtml(`${dailySideGames.dailyBirdiePot.totalBirdies || 0} birdies @ ${formatCurrency(dailySideGames.dailyBirdiePot.perBirdieAmount || 0)} per birdie`)}${Number(dailySideGames.dailyBirdiePot.leftoverAmount || 0) > 0 ? ` · ${escapeHtml(formatCurrency(dailySideGames.dailyBirdiePot.leftoverAmount || 0))} to leftover pot` : ''}</div><ul class="list" style="margin-top:12px;">${dailySideGames.dailyBirdiePot.shareRows.map((row) => `<li><span><strong>${escapeHtml(row.name || 'Player')}</strong><br><span class="note">${escapeHtml(`${row.birdies || 0} ${(row.birdies || 0) === 1 ? 'birdie' : 'birdies'}`)}</span></span><span class="amount">${escapeHtml(formatCurrency(row.amount || 0))}</span></li>`).join('')}</ul>` : `<div class="empty" style="margin-top:12px;">No birdie pot entries saved for this round yet.</div>`}
+            </div>
+            <div class="card">
+              <strong>Closest To Pin</strong>
+              ${dailySideGames.ctpEntries.length ? `<ul class="list" style="margin-top:12px;">${dailySideGames.ctpEntries.map((entry) => `<li><span><strong>Hole ${escapeHtml(String(entry.hole || '—'))}</strong><br><span class="note">${escapeHtml(entry.playerName || 'Winner')}${entry.distance ? ` · ${escapeHtml(entry.distance)}` : ''}</span></span><span class="amount">${escapeHtml(formatCurrency(entry.amount || 0))}</span></li>`).join('')}</ul>` : `<div class="empty" style="margin-top:12px;">No closest-to-pin entries saved for this round.</div>`}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+    async function loadPage() {
+      syncLinks();
+      loadError = '';
+      try {
+        const trips = await tripFetchJson(tripApi('/api/trips'));
+        const trip = findPreferredMyrtleTrip(trips);
+        if (!trip) throw new Error(getRequestedTripId() ? 'Requested Myrtle trip not found.' : 'Myrtle trip not found.');
+        tripId = trip._id;
+        syncLinks();
+        [tripData, competitionData] = await Promise.all([
+          tripFetchJson(tripApi(`/api/trips/${tripId}`)),
+          tripFetchJson(tripApi(`/api/trips/${tripId}/competition`)),
+        ]);
+      } catch (error) {
+        loadError = error && error.message ? error.message : 'Failed to load Myrtle round details.';
+      }
+      renderPage();
+    }
+    loadPage();
+  </script>
+</body>
+</html>

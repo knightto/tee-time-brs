@@ -638,8 +638,15 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
         roundNumber: index + 1,
         label: `${buildRoundLabel(index + 1, Array.isArray(rounds) ? rounds[index] || {} : {})} Net`,
         winnerNames: [],
-        amount: 75,
+        amount: 25,
         notes: 'Auto winner uses the best net round from the saved gross totals and full handicap strokes.',
+      })),
+      dailyGross: MYRTLE_RYDER_CUP_ROUND_SEEDS.map((seed, index) => ({
+        roundNumber: index + 1,
+        label: `${buildRoundLabel(index + 1, Array.isArray(rounds) ? rounds[index] || {} : {})} Gross`,
+        winnerNames: [],
+        amount: 25,
+        notes: 'Auto winner uses the lowest gross round from the saved gross totals.',
       })),
       dailyOver100Draw: MYRTLE_RYDER_CUP_ROUND_SEEDS.map((seed, index) => ({
         roundNumber: index + 1,
@@ -689,6 +696,10 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
         winners: [],
         amount: 125,
         notes: 'Trip-long birdie pool split across every gross birdie or better recorded during the trip.',
+      },
+      leftoverPot: {
+        amount: 125,
+        notes: 'Reserved money that has not been assigned to a final prize yet.',
       },
       mvp: {
         overrideWinners: [],
