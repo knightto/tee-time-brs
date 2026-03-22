@@ -4861,6 +4861,7 @@
             rows: rankRows(
               Array.from(totalsByName.values())
                 .filter((row) => row.teamId === team.id)
+                .filter((row) => completedDaily.length === 0 || row.roundsScored === completedDaily.length)
                 .map((row) => ({
                   ...row,
                   averageNet: row.roundsScored ? Math.round((row.netTotal / row.roundsScored) * 10) / 10 : null,

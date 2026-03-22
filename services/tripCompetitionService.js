@@ -2557,6 +2557,18 @@ function buildRyderCupIndividualLeaderboard(rounds = [], teams = [], handicapLoo
     losses: 0,
     halves: 0,
   }]));
+  const applyIndividualMatchResult = (playerNames = [], teamId = '', resultKey = '', pointsWon = 0, options = {}) => {
+    const awardPoints = options.awardPoints !== false;
+    (playerNames || []).forEach((name) => {
+      const entry = rowsByName.get(normalizeNameKey(name));
+      if (!entry) return;
+      entry.matchesPlayed += 1;
+      if (awardPoints) entry.pointsWon += pointsWon;
+      if (resultKey === 'halved') entry.halves += 1;
+      else if (resultKey === teamId) entry.wins += 1;
+      else if (resultKey) entry.losses += 1;
+    });
+  };
   rounds.forEach((round) => {
     const pointValue = asFiniteNumber(round.pointValue) || 1;
     if (isRyderCupTeamRound(round)) {
@@ -2565,24 +2577,8 @@ function buildRyderCupIndividualLeaderboard(rounds = [], teams = [], handicapLoo
       if (!points.complete) return;
       const participationShareA = teamAPlayers.length ? points.pointsA / teamAPlayers.length : 0;
       const participationShareB = teamBPlayers.length ? points.pointsB / teamBPlayers.length : 0;
-      teamAPlayers.forEach((name) => {
-        const entry = rowsByName.get(normalizeNameKey(name));
-        if (!entry) return;
-        entry.matchesPlayed += 1;
-        entry.pointsWon += participationShareA;
-        if (points.resultKey === 'teamA') entry.wins += 1;
-        else if (points.resultKey === 'teamB') entry.losses += 1;
-        else entry.halves += 1;
-      });
-      teamBPlayers.forEach((name) => {
-        const entry = rowsByName.get(normalizeNameKey(name));
-        if (!entry) return;
-        entry.matchesPlayed += 1;
-        entry.pointsWon += participationShareB;
-        if (points.resultKey === 'teamB') entry.wins += 1;
-        else if (points.resultKey === 'teamA') entry.losses += 1;
-        else entry.halves += 1;
-      });
+      applyIndividualMatchResult(teamAPlayers, 'teamA', points.resultKey, participationShareA);
+      applyIndividualMatchResult(teamBPlayers, 'teamB', points.resultKey, participationShareB);
       return;
     }
     (round.matches || []).forEach((match) => {
@@ -2595,24 +2591,17 @@ function buildRyderCupIndividualLeaderboard(rounds = [], teams = [], handicapLoo
       const teamBPlayers = Array.isArray(resolved.teamBActivePlayers) && resolved.teamBActivePlayers.length
         ? resolved.teamBActivePlayers
         : [];
-      teamAPlayers.forEach((name) => {
-        const entry = rowsByName.get(normalizeNameKey(name));
-        if (!entry) return;
-        entry.matchesPlayed += 1;
-        entry.pointsWon += points.pointsA;
-        if (points.resultKey === 'teamA') entry.wins += 1;
-        else if (points.resultKey === 'teamB') entry.losses += 1;
-        else entry.halves += 1;
-      });
-      teamBPlayers.forEach((name) => {
-        const entry = rowsByName.get(normalizeNameKey(name));
-        if (!entry) return;
-        entry.matchesPlayed += 1;
-        entry.pointsWon += points.pointsB;
-        if (points.resultKey === 'teamB') entry.wins += 1;
-        else if (points.resultKey === 'teamA') entry.losses += 1;
-        else entry.halves += 1;
-      });
+      const teamANoShowPlayers = Array.isArray(resolved.teamANoContributionPlayers) && resolved.teamANoContributionPlayers.length
+        ? resolved.teamANoContributionPlayers
+        : [];
+      const teamBNoShowPlayers = Array.isArray(resolved.teamBNoContributionPlayers) && resolved.teamBNoContributionPlayers.length
+        ? resolved.teamBNoContributionPlayers
+        : [];
+      applyIndividualMatchResult(teamAPlayers, 'teamA', points.resultKey, points.pointsA);
+      applyIndividualMatchResult(teamBPlayers, 'teamB', points.resultKey, points.pointsB);
+      // No-show golfers still get no individual points, but the completed match result should count on their record.
+      applyIndividualMatchResult(teamANoShowPlayers, 'teamA', points.resultKey, 0, { awardPoints: false });
+      applyIndividualMatchResult(teamBNoShowPlayers, 'teamB', points.resultKey, 0, { awardPoints: false });
     });
   });
   const sorted = Array.from(rowsByName.values()).sort((left, right) => {

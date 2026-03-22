@@ -175,7 +175,8 @@
         return { roundNumber: Number(round && round.roundNumber) || (roundIndex + 1), label: String((round && (round.label || round.title)) || `Round ${roundIndex + 1}`).trim(), hasScores: rows.length > 0, complete: teamsView.every((teamView) => teamView.rows.length === teamView.expectedCount), teams: teamsView.map(({ expectedCount, ...teamView }) => teamView) };
       }).filter((round) => round.hasScores);
       const totalsByName = new Map();
-      daily.filter((round) => round.complete).forEach((round) => (round.teams || []).forEach((teamView) => (teamView.rows || []).forEach((row) => {
+      const completedDaily = daily.filter((round) => round.complete);
+      completedDaily.forEach((round) => (round.teams || []).forEach((teamView) => (teamView.rows || []).forEach((row) => {
         const key = normalizeNameKey(row.name);
         if (!key) return;
         const existing = totalsByName.get(key) || { name: row.name, teamId: row.teamId, teamName: row.teamName, grossTotal: 0, netTotal: 0, roundsScored: 0 };
@@ -187,8 +188,8 @@
       return {
         daily,
         overall: {
-          completedRoundsCount: daily.filter((round) => round.complete).length,
-          teams: teams.map((team) => ({ teamId: team.id, teamName: team.name || 'Team', rows: rankRows(Array.from(totalsByName.values()).filter((row) => row.teamId === team.id).map((row) => ({ ...row, averageNet: row.roundsScored ? Math.round((row.netTotal / row.roundsScored) * 10) / 10 : null })), 'netTotal') })),
+          completedRoundsCount: completedDaily.length,
+          teams: teams.map((team) => ({ teamId: team.id, teamName: team.name || 'Team', rows: rankRows(Array.from(totalsByName.values()).filter((row) => row.teamId === team.id).filter((row) => completedDaily.length === 0 || row.roundsScored === completedDaily.length).map((row) => ({ ...row, averageNet: row.roundsScored ? Math.round((row.netTotal / row.roundsScored) * 10) / 10 : null })), 'netTotal') })),
         },
       };
     }
