@@ -746,6 +746,53 @@ function run() {
   assert.strictEqual(grossOnlyRoundTripMatch.teamAScore, 130, 'Round payload round-trips should preserve Team A net totals');
   assert.strictEqual(grossOnlyRoundTripMatch.teamBScore, 128, 'Round payload round-trips should preserve Team B net totals');
 
+  const noShowTrip = makeEditableMyrtleTrip();
+  const noShowRoundIndex = noShowTrip.competition.ryderCup.rounds.findIndex((round) => (round.matches || []).some((match) => []
+    .concat(match.teamAPlayers || [])
+    .concat(match.teamBPlayers || [])
+    .includes('Jeremy Bridges')));
+  assert(noShowRoundIndex >= 0, 'Editable Myrtle trip should include a Jeremy Bridges match');
+  const noShowRound = clone(noShowTrip.competition.ryderCup.rounds[noShowRoundIndex]);
+  let noShowMatchIndex = -1;
+  let noShowPartnerName = '';
+  let noShowSideKey = '';
+  noShowRound.matches = noShowRound.matches.map((match, matchIndex) => {
+    const hasJeremyTeamA = (match.teamAPlayers || []).includes('Jeremy Bridges');
+    const hasJeremyTeamB = (match.teamBPlayers || []).includes('Jeremy Bridges');
+    const nextMatch = {
+      ...match,
+      teamAPlayerScores: (match.teamAPlayers || []).map((_name, playerIndex) => 84 + (matchIndex * 4) + playerIndex),
+      teamBPlayerScores: (match.teamBPlayers || []).map((_name, playerIndex) => 92 + (matchIndex * 4) + playerIndex),
+      notes: String(match.notes || '').trim(),
+    };
+    if (hasJeremyTeamA || hasJeremyTeamB) {
+      noShowMatchIndex = matchIndex;
+      noShowSideKey = hasJeremyTeamA ? 'teamA' : 'teamB';
+      const sidePlayers = hasJeremyTeamA ? (match.teamAPlayers || []) : (match.teamBPlayers || []);
+      const sideScoresKey = hasJeremyTeamA ? 'teamAPlayerScores' : 'teamBPlayerScores';
+      noShowPartnerName = sidePlayers.find((name) => name !== 'Jeremy Bridges') || '';
+      nextMatch[sideScoresKey] = sidePlayers.map((name) => (name === 'Jeremy Bridges' ? null : 95));
+      nextMatch[hasJeremyTeamA ? 'teamBPlayerScores' : 'teamAPlayerScores'] = [100, 101];
+      nextMatch.notes = 'No show: Jeremy Bridges';
+    }
+    return nextMatch;
+  });
+  setTripRyderCupRound(noShowTrip, noShowRoundIndex, noShowRound);
+  const noShowView = buildTripCompetitionView(noShowTrip, myrtleParticipants);
+  const noShowMatch = noShowView.ryderCup.rounds[noShowRoundIndex].matches[noShowMatchIndex];
+  const noShowTeam = noShowView.ryderCup.teams.find((team) => team.id === noShowSideKey);
+  const noShowPartnerMeta = noShowTeam && noShowTeam.players.find((player) => player.name === noShowPartnerName);
+  const noShowJeremy = noShowView.ryderCup.individualLeaderboard.find((entry) => entry.name === 'Jeremy Bridges');
+  assert(noShowMatch, 'No-show match should be present in the Ryder Cup view');
+  assert(noShowPartnerMeta, 'Jeremy no-show match should still have the partner metadata available');
+  assert(noShowJeremy, 'Jeremy should still appear on the individual leaderboard');
+  assert.deepStrictEqual(noShowSideKey === 'teamA' ? noShowMatch.teamANoContributionPlayers : noShowMatch.teamBNoContributionPlayers, ['Jeremy Bridges'], 'Jeremy should be marked as a no-contribution player on the saved match');
+  assert.strictEqual(noShowSideKey === 'teamA' ? noShowMatch.teamAGrossScore : noShowMatch.teamBGrossScore, 95, 'A no-show should contribute zero gross to the team total');
+  assert.strictEqual(noShowSideKey === 'teamA' ? noShowMatch.teamAHandicapAllowance : noShowMatch.teamBHandicapAllowance, noShowPartnerMeta.matchHandicap, 'A no-show should not receive handicap strokes in the team total');
+  assert.strictEqual(noShowView.ryderCup.sideGames.dailyNet[noShowRoundIndex].isComplete, true, 'Daily net should treat a marked no-show as a completed round slot');
+  assert.strictEqual(noShowJeremy.matchesPlayed, 0, 'A no-show should not receive individual match credit for rounds they missed');
+  assert.strictEqual(noShowJeremy.pointsWon, 0, 'A no-show should not receive Ryder Cup points for rounds they missed');
+
   const movedPlayersTrip = makeEditableMyrtleTrip();
   const movedPlayersRound = clone(movedPlayersTrip.competition.ryderCup.rounds[0]);
   const originalMatchZero = clone(movedPlayersRound.matches[0]);

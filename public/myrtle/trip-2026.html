@@ -2629,7 +2629,16 @@
       const value = Number(playerMeta && playerMeta.matchHandicap);
       return Number.isFinite(value) ? Math.round(value) : 0;
     };
-    const formatRyderCupScoreNote = (grossScore, matchAllowance) => {
+    const normalizeRyderCupContributionState = (value = '') => {
+      const normalized = String(value || '').trim().toLowerCase();
+      if (normalized === 'noshow' || normalized === 'no show' || normalized === 'no-show') return 'noShow';
+      if (normalized === 'nocontribution' || normalized === 'no contribution' || normalized === 'no-contribution') return 'noShow';
+      return 'active';
+    };
+    const formatRyderCupScoreNote = (grossScore, matchAllowance, contributionState = 'active') => {
+      if (normalizeRyderCupContributionState(contributionState) === 'noShow') {
+        return 'No show. Gross score and handicap strokes do not count in this match.';
+      }
       const gross = parseOptionalWholeNumber(grossScore);
       const allowance = getRyderCupMatchAllowanceValue({ matchHandicap: matchAllowance });
       if (!Number.isFinite(gross)) {
@@ -2672,20 +2681,26 @@
           const input = field.querySelector('[data-ryder-player-score]');
           const playerName = String((input && input.dataset.ryderPlayerName) || '').trim();
           const playerMeta = getRyderCupPlayerMetaByName(playerName) || {};
+          const contributionState = normalizeRyderCupContributionState((input && input.dataset.ryderContributionState) || field.dataset.ryderPlayerContributionState || '');
           const grossScore = parseOptionalWholeNumber(input && input.value);
-          const matchAllowance = getRyderCupMatchAllowanceValue(playerMeta);
+          const matchAllowance = contributionState === 'noShow' ? 0 : getRyderCupMatchAllowanceValue(playerMeta);
           return {
             playerName,
+            contributionState,
             handicapIndex: parseHandicapValue(playerMeta.handicapIndex),
             matchAllowance,
             grossScore,
-            netScore: Number.isFinite(grossScore) ? grossScore - matchAllowance : null,
+            netScore: contributionState === 'noShow'
+              ? null
+              : (Number.isFinite(grossScore) ? grossScore - matchAllowance : null),
           };
         });
-        const enteredCount = rows.filter((row) => Number.isFinite(row.grossScore)).length;
+        const enteredCount = rows.filter((row) => row.contributionState === 'noShow' || Number.isFinite(row.grossScore)).length;
         const expectedCount = rows.length;
         const complete = expectedCount > 0 && enteredCount === expectedCount && rows.every((row) => row.playerName);
-        const grossTotal = complete ? rows.reduce((sum, row) => sum + row.grossScore, 0) : null;
+        const grossTotal = complete
+          ? rows.reduce((sum, row) => sum + (row.contributionState === 'noShow' ? 0 : row.grossScore), 0)
+          : null;
         const allowanceTotal = rows.reduce((sum, row) => sum + row.matchAllowance, 0);
         const netTotal = complete ? grossTotal - allowanceTotal : null;
         return {
@@ -2744,12 +2759,13 @@
           const allowanceEl = field.querySelector('[data-ryder-score-allowance]');
           const strokesEl = field.querySelector('[data-ryder-score-strokes]');
           const noteEl = field.querySelector('[data-ryder-score-note]');
-          const allowance = getRyderCupMatchAllowanceValue(playerMeta);
+          const contributionState = normalizeRyderCupContributionState(input.dataset.ryderContributionState || field.dataset.ryderPlayerContributionState || '');
+          const allowance = contributionState === 'noShow' ? 0 : getRyderCupMatchAllowanceValue(playerMeta);
           if (nameEl) nameEl.textContent = playerName || 'Open slot';
-          if (hcpEl) hcpEl.textContent = `Hcp ${formatHandicapDisplay(playerMeta.handicapIndex)}`;
+          if (hcpEl) hcpEl.textContent = contributionState === 'noShow' ? 'Hcp No show' : `Hcp ${formatHandicapDisplay(playerMeta.handicapIndex)}`;
           if (allowanceEl) allowanceEl.textContent = `Strokes ${allowance}`;
-          if (strokesEl) strokesEl.textContent = allowance ? `Gets ${allowance} strokes` : 'Gets 0 strokes';
-          if (noteEl) noteEl.textContent = formatRyderCupScoreNote(input.value, allowance);
+          if (strokesEl) strokesEl.textContent = contributionState === 'noShow' ? 'No contribution' : (allowance ? `Gets ${allowance} strokes` : 'Gets 0 strokes');
+          if (noteEl) noteEl.textContent = formatRyderCupScoreNote(input.value, allowance, contributionState);
         });
       });
       const liveState = buildRyderCupLiveMatchState(card);
@@ -2767,7 +2783,9 @@
             ${side.rows.map((row) => `
               <div class="ryder-live-player-line">
                 <strong>${escapeHtml(row.playerName || 'Open slot')}</strong>
-                <span>${escapeHtml(Number.isFinite(row.grossScore) ? `${row.grossScore} - ${row.matchAllowance} = ${row.netScore}` : `Gets ${row.matchAllowance} strokes`)}</span>
+                <span>${escapeHtml(row.contributionState === 'noShow'
+                  ? 'No show · no score or strokes counted'
+                  : (Number.isFinite(row.grossScore) ? `${row.grossScore} - ${row.matchAllowance} = ${row.netScore}` : `Gets ${row.matchAllowance} strokes`))}</span>
               </div>
             `).join('')}
           </div>
@@ -2844,8 +2862,9 @@
       const assignmentEl = roundContainer.querySelector('[data-ryder-round-assignment]');
       const resultEl = roundContainer.querySelector('[data-ryder-round-result]');
       const scoreInputs = Array.from(roundContainer.querySelectorAll('[data-ryder-player-score]'));
-      const enteredCount = scoreInputs.filter((input) => Number.isFinite(parseOptionalWholeNumber(input.value))).length;
-      const totalCount = scoreInputs.length;
+      const activeScoreInputs = scoreInputs.filter((input) => normalizeRyderCupContributionState(input.dataset.ryderContributionState || '') !== 'noShow');
+      const enteredCount = activeScoreInputs.filter((input) => Number.isFinite(parseOptionalWholeNumber(input.value))).length;
+      const totalCount = activeScoreInputs.length;
       if (progressEl) progressEl.textContent = `${enteredCount}/${totalCount} gross scores entered`;
       const { teamA, teamB } = getRyderCupTeamMeta();
       const allPlayers = getRyderCupTeamPlayerNames(teamA).concat(getRyderCupTeamPlayerNames(teamB));
@@ -4164,23 +4183,27 @@
       if (!isRyderCupGrossTotalFormat(round)) return '';
       const teamAPlayerScores = Array.isArray(match.teamAPlayerScores) ? match.teamAPlayerScores : [];
       const teamBPlayerScores = Array.isArray(match.teamBPlayerScores) ? match.teamBPlayerScores : [];
+      const teamAPlayerContributionStates = Array.isArray(match.teamAPlayerContributionStates) ? match.teamAPlayerContributionStates : [];
+      const teamBPlayerContributionStates = Array.isArray(match.teamBPlayerContributionStates) ? match.teamBPlayerContributionStates : [];
       const renderGrossTotalField = (sideKey, team, scoreValues, slotIndex) => {
         const players = sideKey === 'teamA' ? (match.teamAPlayers || []) : (match.teamBPlayers || []);
+        const contributionStates = sideKey === 'teamA' ? teamAPlayerContributionStates : teamBPlayerContributionStates;
         const playerName = players[slotIndex] || `${team.name || (sideKey === 'teamA' ? 'Team A' : 'Team B')} ${slotIndex + 1}`;
         const playerMeta = getRyderCupTeamPlayerMeta(team, playerName) || {};
-        const allowance = getRyderCupMatchAllowanceValue(playerMeta);
+        const contributionState = normalizeRyderCupContributionState(contributionStates[slotIndex] || '');
+        const allowance = contributionState === 'noShow' ? 0 : getRyderCupMatchAllowanceValue(playerMeta);
         return `
-          <label class="ryder-score-field" data-ryder-score-field="${escapeHtml(sideKey)}" data-score-slot="${escapeHtml(String(slotIndex))}">
+          <label class="ryder-score-field" data-ryder-score-field="${escapeHtml(sideKey)}" data-score-slot="${escapeHtml(String(slotIndex))}" data-ryder-player-contribution-state="${escapeHtml(contributionState)}">
             <span class="ryder-score-field-head">
               <span class="ryder-score-field-name" data-ryder-score-player-name>${escapeHtml(playerName)}</span>
               <span class="ryder-score-field-badges">
-                <span class="competition-pill" data-ryder-score-hcp>Hcp ${escapeHtml(formatHandicapDisplay(playerMeta.handicapIndex))}</span>
-                <span class="competition-pill" data-ryder-score-strokes>${escapeHtml(`Gets ${allowance} strokes`)}</span>
+                <span class="competition-pill" data-ryder-score-hcp>${escapeHtml(contributionState === 'noShow' ? 'Hcp No show' : `Hcp ${formatHandicapDisplay(playerMeta.handicapIndex)}`)}</span>
+                <span class="competition-pill" data-ryder-score-strokes>${escapeHtml(contributionState === 'noShow' ? 'No contribution' : `Gets ${allowance} strokes`)}</span>
               </span>
             </span>
             <span class="competition-note">Gross total</span>
-            <span class="competition-note" data-ryder-score-note>${escapeHtml(formatRyderCupScoreNote(scoreValues[slotIndex], allowance))}</span>
-            <input type="number" min="1" step="1" inputmode="numeric" data-ryder-player-score="${escapeHtml(sideKey)}" data-score-slot="${escapeHtml(String(slotIndex))}" data-ryder-player-name="${quoteAttr(playerName)}" value="${scoreValues[slotIndex] ?? ''}" placeholder="84">
+            <span class="competition-note" data-ryder-score-note>${escapeHtml(formatRyderCupScoreNote(scoreValues[slotIndex], allowance, contributionState))}</span>
+            <input type="number" min="1" step="1" inputmode="numeric" data-ryder-player-score="${escapeHtml(sideKey)}" data-score-slot="${escapeHtml(String(slotIndex))}" data-ryder-player-name="${quoteAttr(playerName)}" data-ryder-contribution-state="${quoteAttr(contributionState)}" value="${scoreValues[slotIndex] ?? ''}" placeholder="${quoteAttr(contributionState === 'noShow' ? 'No show' : '84')}"${contributionState === 'noShow' ? ' disabled' : ''}>
           </label>
         `;
       };
