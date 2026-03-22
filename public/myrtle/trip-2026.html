@@ -2520,6 +2520,8 @@
       };
     };
     const formatRyderCupBirdiePoolDetail = (entry = {}, pendingLabel = 'Pending') => {
+      const manualWinners = Array.isArray(entry && entry.winnerNames) ? entry.winnerNames.filter(Boolean) : [];
+      if (entry && entry.manualOverride && manualWinners.length) return manualWinners.join(', ');
       const totalBirdies = Math.max(0, Math.round(Number(entry && entry.totalBirdies) || 0));
       if (!totalBirdies) return pendingLabel;
       const perBirdieAmount = Number(entry && entry.perBirdieAmount);
@@ -4582,7 +4584,11 @@
                 <strong>Redemption Birdie Pot</strong>
                 <div class="competition-note">Final-day birdie pool uses the saved last-round birdie counts, but only golfers without a prior saved prize are eligible.</div>
                 <div class="competition-note">Eligible: ${escapeHtml(formatWinnerList(sideGames.redemptionBirdiePot && sideGames.redemptionBirdiePot.eligiblePlayers) || 'No eligible golfers yet')}</div>
-                <div class="competition-note">Auto payout: ${escapeHtml(formatRyderCupBirdiePoolDetail(sideGames.redemptionBirdiePot, getRyderCupRoundScoreStatusLabel(sideGames.redemptionBirdiePot, { completeLabel: 'No birdies tracked yet' })))}</div>
+                <div class="competition-note">Payout: ${escapeHtml(formatRyderCupBirdiePoolDetail(sideGames.redemptionBirdiePot, getRyderCupRoundScoreStatusLabel(sideGames.redemptionBirdiePot, { completeLabel: 'No birdies tracked yet' })))}</div>
+                <label>
+                  <span>Manual override</span>
+                  <input id="ryderRedemptionBirdieWinners" type="text" value="${quoteAttr(formatWinnerList(sideGames.redemptionBirdiePot && sideGames.redemptionBirdiePot.manualOverride ? sideGames.redemptionBirdiePot.winnerNames : []))}" placeholder="Comma-separated winners">
+                </label>
                 <label>
                   <span>Amount</span>
                   <input id="ryderRedemptionBirdieAmount" type="number" step="5" min="0" value="${sideGames.redemptionBirdiePot && sideGames.redemptionBirdiePot.amount !== null && sideGames.redemptionBirdiePot.amount !== undefined ? escapeHtml(String(sideGames.redemptionBirdiePot.amount)) : ''}" placeholder="0">
@@ -6714,6 +6720,7 @@
             notes: String((document.getElementById('ryderLastChanceRedemptionNotes') || {}).value || '').trim(),
           },
           redemptionBirdiePot: {
+            winnerNames: parseWinnerList((document.getElementById('ryderRedemptionBirdieWinners') || {}).value || ''),
             amount: parseHandicapValue((document.getElementById('ryderRedemptionBirdieAmount') || {}).value),
             notes: String((document.getElementById('ryderRedemptionBirdieNotes') || {}).value || '').trim(),
           },

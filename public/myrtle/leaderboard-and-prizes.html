@@ -119,6 +119,8 @@
     const formatCompetitionPoints = (value) => { const num = Number(value); if (!Number.isFinite(num)) return '0'; return Number.isInteger(num) ? String(num) : num.toFixed(1).replace(/\.0$/, ''); };
     const formatWinnerList = (values = []) => Array.isArray(values) && values.length ? values.join(', ') : '';
     const formatBirdiePoolDetail = (entry = {}, pendingLabel = 'Pending') => {
+      const manualWinners = Array.isArray(entry && entry.winnerNames) ? entry.winnerNames.filter(Boolean) : [];
+      if (entry && entry.manualOverride && manualWinners.length) return manualWinners.join(', ');
       const totalBirdies = Math.max(0, Math.round(Number(entry && entry.totalBirdies) || 0));
       if (!totalBirdies) return pendingLabel;
       const perBirdieAmount = Number(entry && entry.perBirdieAmount);

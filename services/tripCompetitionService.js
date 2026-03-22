@@ -1165,6 +1165,9 @@ function normalizeRyderCupSideGames(rawSideGames = {}, defaultState = {}, trip =
         || asPositiveInteger(defaultSideGames.redemptionBirdiePot && defaultSideGames.redemptionBirdiePot.roundNumber),
       label: cleanString(redemptionBirdieSource.label)
         || cleanString(defaultSideGames.redemptionBirdiePot && defaultSideGames.redemptionBirdiePot.label),
+      winnerNames: normalizeRyderCupWinnerList(redemptionBirdieSource.winnerNames || redemptionBirdieSource.winnerName)
+        .map(normalizeRyderCupPlayerName)
+        .filter(Boolean),
       amount: normalizePrizeAmount(redemptionBirdieSource.amount) !== null
         ? normalizePrizeAmount(redemptionBirdieSource.amount)
         : normalizePrizeAmount(defaultSideGames.redemptionBirdiePot && defaultSideGames.redemptionBirdiePot.amount),
@@ -3214,6 +3217,8 @@ function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], 
   const dailyBirdiePot = buildDailyBirdiePotView(savedDailyBirdiePot, 'Birdie Pot');
   const finalDayBirdieEntry = dailyBirdiePot.find((entry) => Number(entry && entry.roundNumber) === Number(finalRoundNumber)) || null;
   const redemptionBirdieSource = sideGames && sideGames.redemptionBirdiePot ? sideGames.redemptionBirdiePot : {};
+  const redemptionBirdieManualWinners = normalizeRyderCupWinnerList(redemptionBirdieSource.winnerNames || redemptionBirdieSource.winnerName);
+  const redemptionBirdieManualOverride = redemptionBirdieManualWinners.length > 0;
   const redemptionBirdieCounts = (finalDayBirdieEntry && Array.isArray(finalDayBirdieEntry.counts) ? finalDayBirdieEntry.counts : [])
     .filter((entry) => redemptionEligibleKeys.has(normalizeNameKey(entry && entry.playerName)));
   const redemptionBirdiePool = buildRyderCupBirdiePoolShares(redemptionBirdieCounts, redemptionBirdieSource.amount);
@@ -3244,24 +3249,31 @@ function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], 
     redemptionBirdiePot: {
       roundNumber: finalRoundNumber || asPositiveInteger(redemptionBirdieSource.roundNumber),
       label: cleanString(redemptionBirdieSource.label) || `${finalEligibleRound ? finalEligibleRound.title : 'Final Round'} Redemption Birdie Pot`,
-      winnerNames: redemptionBirdiePool.paidPlayers,
+      winnerNames: redemptionBirdieManualOverride ? redemptionBirdieManualWinners : redemptionBirdiePool.paidPlayers,
       automaticWinners: redemptionBirdiePool.paidPlayers,
       amount: normalizeCurrencyAmount(redemptionBirdieSource.amount),
       notes: cleanString(redemptionBirdieSource.notes),
+      manualOverride: redemptionBirdieManualOverride,
       eligiblePlayers: redemptionEligiblePlayers,
       priorWinnerNames,
       counts: redemptionBirdiePool.counts,
-      highestCount: redemptionBirdiePool.counts.length ? redemptionBirdiePool.counts[0].count : null,
-      totalBirdies: redemptionBirdiePool.totalBirdies,
-      perBirdieAmount: redemptionBirdiePool.perBirdieAmount,
-      awardedAmount: redemptionBirdiePool.awardedAmount,
-      leftoverAmount: redemptionBirdiePool.leftoverAmount,
-      shareRows: redemptionBirdiePool.shareRows,
+      highestCount: redemptionBirdieManualOverride ? null : (redemptionBirdiePool.counts.length ? redemptionBirdiePool.counts[0].count : null),
+      totalBirdies: redemptionBirdieManualOverride ? 0 : redemptionBirdiePool.totalBirdies,
+      perBirdieAmount: redemptionBirdieManualOverride ? null : redemptionBirdiePool.perBirdieAmount,
+      awardedAmount: redemptionBirdieManualOverride
+        ? (normalizeCurrencyAmount(redemptionBirdieSource.amount) || 0)
+        : redemptionBirdiePool.awardedAmount,
+      leftoverAmount: redemptionBirdieManualOverride ? 0 : redemptionBirdiePool.leftoverAmount,
+      shareRows: redemptionBirdieManualOverride ? [] : redemptionBirdiePool.shareRows,
       hasScores: Boolean(finalEligibleRound && finalEligibleRound.hasScores),
-      enteredCount: redemptionBirdiePool.counts.length,
-      expectedCount: finalEligibleRound && finalEligibleRound.complete ? redemptionBirdiePool.counts.length : redemptionEligiblePlayers.length,
-      pendingCount: Math.max((finalEligibleRound && finalEligibleRound.complete ? redemptionBirdiePool.counts.length : redemptionEligiblePlayers.length) - redemptionBirdiePool.counts.length, 0),
-      isComplete: Boolean(finalEligibleRound && finalEligibleRound.complete),
+      enteredCount: redemptionBirdieManualOverride ? redemptionBirdieManualWinners.length : redemptionBirdiePool.counts.length,
+      expectedCount: redemptionBirdieManualOverride
+        ? redemptionBirdieManualWinners.length
+        : (finalEligibleRound && finalEligibleRound.complete ? redemptionBirdiePool.counts.length : redemptionEligiblePlayers.length),
+      pendingCount: redemptionBirdieManualOverride
+        ? 0
+        : Math.max((finalEligibleRound && finalEligibleRound.complete ? redemptionBirdiePool.counts.length : redemptionEligiblePlayers.length) - redemptionBirdiePool.counts.length, 0),
+      isComplete: redemptionBirdieManualOverride || Boolean(finalEligibleRound && finalEligibleRound.complete),
     },
     finalDayHighHole: {
       roundNumber: finalRoundNumber || asPositiveInteger(finalDayHighHoleSource.roundNumber),
@@ -3387,6 +3399,8 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
     return progressLabel;
   };
   const buildBirdiePoolLabel = (entry = {}, pendingLabel = 'Pending') => {
+    const manualWinners = uniqueNames(Array.isArray(entry && entry.winnerNames) ? entry.winnerNames : [entry && entry.winnerName]);
+    if (entry && entry.manualOverride && manualWinners.length) return manualWinners.join(', ');
     const totalBirdies = Math.max(0, Math.round(asFiniteNumber(entry && entry.totalBirdies) || 0));
     if (!totalBirdies) return pendingLabel;
     const perBirdieAmount = asFiniteNumber(entry && entry.perBirdieAmount);
