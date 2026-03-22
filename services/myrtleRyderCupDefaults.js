@@ -580,6 +580,8 @@ function buildRoundPlan(seed = {}) {
 }
 
 function buildDefaultMyrtleRyderCup(rounds = []) {
+  const finalRoundNumber = MYRTLE_RYDER_CUP_ROUND_SEEDS.length;
+  const finalRoundLabel = buildRoundLabel(finalRoundNumber, Array.isArray(rounds) ? rounds[finalRoundNumber - 1] || {} : {});
   return {
     title: 'Myrtle Ryder Cup',
     description: MYRTLE_RYDER_CUP_DESCRIPTION,
@@ -673,6 +675,28 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
         amount: 50,
         notes: 'Daily birdie pool split across every gross birdie or better recorded that round.',
       })),
+      lastChanceRedemptionPot: {
+        roundNumber: finalRoundNumber,
+        label: `${finalRoundLabel} Last-Chance Redemption Pot`,
+        winnerNames: [],
+        amount: 50,
+        notes: 'Final-day net prize for golfers who have not won another saved prize before the last round starts.',
+      },
+      redemptionBirdiePot: {
+        roundNumber: finalRoundNumber,
+        label: `${finalRoundLabel} Redemption Birdie Pot`,
+        amount: 50,
+        notes: 'Final-day birdie pool uses the saved last-round birdie counts, but only golfers without a prior saved prize are eligible.',
+      },
+      finalDayHighHole: {
+        roundNumber: finalRoundNumber,
+        label: `${finalRoundLabel} Single-Hole High Score`,
+        winnerNames: [],
+        hole: null,
+        score: null,
+        amount: 25,
+        notes: 'Manual final-day side prize for the highest gross score recorded on a single hole.',
+      },
       weeklyNet: {
         winnerNames: [],
         amount: 250,
@@ -698,8 +722,8 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
         notes: 'Trip-long birdie pool split across every gross birdie or better recorded during the trip.',
       },
       leftoverPot: {
-        amount: 125,
-        notes: 'Reserved money that has not been assigned to a final prize yet.',
+        amount: 0,
+        notes: 'Leftover money was redistributed into the final-day redemption prizes and single-hole high score.',
       },
       mvp: {
         overrideWinners: [],

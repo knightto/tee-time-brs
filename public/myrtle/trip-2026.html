@@ -4560,6 +4560,63 @@
                 note: 'One round card per day. Enter gross birdies by player as Player | count.',
                 placeholder: 'Joe Gillette | 2&#10;John Quimby | 1',
               })}
+              <div class="competition-sidegame-card">
+                <strong>Last-Chance Redemption Pot</strong>
+                <div class="competition-note">Final-day net prize for golfers who have not won another saved prize yet.</div>
+                <div class="competition-note">Eligible: ${escapeHtml(formatWinnerList(sideGames.lastChanceRedemptionPot && sideGames.lastChanceRedemptionPot.eligiblePlayers) || 'No eligible golfers yet')}</div>
+                <div class="competition-note">Auto winner: ${escapeHtml(sideGames.lastChanceRedemptionPot && sideGames.lastChanceRedemptionPot.isComplete ? ((sideGames.lastChanceRedemptionPot.automaticWinners || []).join(', ') || 'Pending') : getRyderCupRoundScoreStatusLabel(sideGames.lastChanceRedemptionPot, { completeLabel: 'No eligible golfer' }))}${sideGames.lastChanceRedemptionPot && sideGames.lastChanceRedemptionPot.lowestNet !== null && sideGames.lastChanceRedemptionPot.lowestNet !== undefined ? ` · Net ${escapeHtml(String(sideGames.lastChanceRedemptionPot.lowestNet))}` : ''}</div>
+                <label>
+                  <span>Manual override</span>
+                  <input id="ryderLastChanceRedemptionWinners" type="text" value="${quoteAttr(formatWinnerList(sideGames.lastChanceRedemptionPot && sideGames.lastChanceRedemptionPot.manualOverride ? sideGames.lastChanceRedemptionPot.winnerNames : []))}" placeholder="Comma-separated winners">
+                </label>
+                <label>
+                  <span>Amount</span>
+                  <input id="ryderLastChanceRedemptionAmount" type="number" step="5" min="0" value="${sideGames.lastChanceRedemptionPot && sideGames.lastChanceRedemptionPot.amount !== null && sideGames.lastChanceRedemptionPot.amount !== undefined ? escapeHtml(String(sideGames.lastChanceRedemptionPot.amount)) : ''}" placeholder="0">
+                </label>
+                <label>
+                  <span>Notes</span>
+                  <input id="ryderLastChanceRedemptionNotes" type="text" value="${quoteAttr((sideGames.lastChanceRedemptionPot && sideGames.lastChanceRedemptionPot.notes) || '')}" placeholder="Optional note">
+                </label>
+              </div>
+              <div class="competition-sidegame-card">
+                <strong>Redemption Birdie Pot</strong>
+                <div class="competition-note">Final-day birdie pool uses the saved last-round birdie counts, but only golfers without a prior saved prize are eligible.</div>
+                <div class="competition-note">Eligible: ${escapeHtml(formatWinnerList(sideGames.redemptionBirdiePot && sideGames.redemptionBirdiePot.eligiblePlayers) || 'No eligible golfers yet')}</div>
+                <div class="competition-note">Auto payout: ${escapeHtml(formatRyderCupBirdiePoolDetail(sideGames.redemptionBirdiePot, getRyderCupRoundScoreStatusLabel(sideGames.redemptionBirdiePot, { completeLabel: 'No birdies tracked yet' })))}</div>
+                <label>
+                  <span>Amount</span>
+                  <input id="ryderRedemptionBirdieAmount" type="number" step="5" min="0" value="${sideGames.redemptionBirdiePot && sideGames.redemptionBirdiePot.amount !== null && sideGames.redemptionBirdiePot.amount !== undefined ? escapeHtml(String(sideGames.redemptionBirdiePot.amount)) : ''}" placeholder="0">
+                </label>
+                <label>
+                  <span>Notes</span>
+                  <input id="ryderRedemptionBirdieNotes" type="text" value="${quoteAttr((sideGames.redemptionBirdiePot && sideGames.redemptionBirdiePot.notes) || '')}" placeholder="Optional note">
+                </label>
+              </div>
+              <div class="competition-sidegame-card">
+                <strong>Final-Day Single-Hole High Score</strong>
+                <div class="competition-note">Manual final-day side prize for the ugliest number anybody hangs on one hole.</div>
+                <div class="competition-note">Status: ${escapeHtml(formatWinnerList(sideGames.finalDayHighHole && sideGames.finalDayHighHole.winnerNames) || 'Pending manual entry')}${sideGames.finalDayHighHole && sideGames.finalDayHighHole.hole ? ` | Hole ${escapeHtml(String(sideGames.finalDayHighHole.hole))}` : ''}${sideGames.finalDayHighHole && sideGames.finalDayHighHole.score ? ` | Score ${escapeHtml(String(sideGames.finalDayHighHole.score))}` : ''}</div>
+                <label>
+                  <span>Winners</span>
+                  <input id="ryderFinalDayHighHoleWinners" type="text" value="${quoteAttr(formatWinnerList(sideGames.finalDayHighHole && sideGames.finalDayHighHole.winnerNames))}" placeholder="Comma-separated winners">
+                </label>
+                <label>
+                  <span>Hole</span>
+                  <input id="ryderFinalDayHighHoleHole" type="number" step="1" min="1" max="18" value="${sideGames.finalDayHighHole && sideGames.finalDayHighHole.hole !== null && sideGames.finalDayHighHole.hole !== undefined ? escapeHtml(String(sideGames.finalDayHighHole.hole)) : ''}" placeholder="18">
+                </label>
+                <label>
+                  <span>Score</span>
+                  <input id="ryderFinalDayHighHoleScore" type="number" step="1" min="1" value="${sideGames.finalDayHighHole && sideGames.finalDayHighHole.score !== null && sideGames.finalDayHighHole.score !== undefined ? escapeHtml(String(sideGames.finalDayHighHole.score)) : ''}" placeholder="9">
+                </label>
+                <label>
+                  <span>Amount</span>
+                  <input id="ryderFinalDayHighHoleAmount" type="number" step="5" min="0" value="${sideGames.finalDayHighHole && sideGames.finalDayHighHole.amount !== null && sideGames.finalDayHighHole.amount !== undefined ? escapeHtml(String(sideGames.finalDayHighHole.amount)) : ''}" placeholder="0">
+                </label>
+                <label>
+                  <span>Notes</span>
+                  <input id="ryderFinalDayHighHoleNotes" type="text" value="${quoteAttr((sideGames.finalDayHighHole && sideGames.finalDayHighHole.notes) || '')}" placeholder="Optional note">
+                </label>
+              </div>
               <div class="competition-sidegame-card" style="grid-column:1/-1;">
                 <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
                   <strong>Longest Made Putt On Last Hole</strong>
@@ -4678,6 +4735,7 @@
                   <span class="competition-pill">Daily Gross ${escapeHtml(formatCurrency((payout.rows || []).find((row) => row.key === 'dailyGross')?.amount || 0))}</span>
                   <span class="competition-pill">Over-100 Draws ${escapeHtml(formatCurrency(((payout.rows || []).find((row) => row.key === 'dailyOver100Draw')?.amount || 0) + ((payout.rows || []).find((row) => row.key === 'weeklyOver100Draw')?.amount || 0)))}</span>
                   <span class="competition-pill">Daily Birdies ${escapeHtml(formatCurrency((payout.rows || []).find((row) => row.key === 'dailyBirdiePot')?.amount || 0))}</span>
+                  <span class="competition-pill">Final-Day Extras ${escapeHtml(formatCurrency(((payout.rows || []).find((row) => row.key === 'lastChanceRedemptionPot')?.amount || 0) + ((payout.rows || []).find((row) => row.key === 'redemptionBirdiePot')?.amount || 0) + ((payout.rows || []).find((row) => row.key === 'finalDayHighHole')?.amount || 0)))}</span>
                   <span class="competition-pill">Last-Hole Putt ${escapeHtml(formatCurrency((payout.rows || []).find((row) => row.key === 'dailyLongestPuttLastHole')?.amount || 0))}</span>
                   <span class="competition-pill">Leftover ${escapeHtml(formatCurrency((payout.rows || []).find((row) => row.key === 'leftoverPot')?.amount || 0))}</span>
                 </div>
@@ -4935,6 +4993,27 @@
         latestLongestPutt ? `${latestLongestPutt.label}: ${formatWinnerList(latestLongestPutt.winnerNames)}` : 'Pending'
       );
       pushRow(
+        'Last-Chance Redemption',
+        'lastChanceRedemptionPot',
+        sideGames.lastChanceRedemptionPot
+          ? `${sideGames.lastChanceRedemptionPot.label || 'Last-Chance Redemption Pot'}: ${formatWinnerList(sideGames.lastChanceRedemptionPot.winnerNames) || 'Pending'}`
+          : 'Pending'
+      );
+      pushRow(
+        'Redemption Birdie Pot',
+        'redemptionBirdiePot',
+        sideGames.redemptionBirdiePot
+          ? `${sideGames.redemptionBirdiePot.label || 'Redemption Birdie Pot'}: ${formatRyderCupBirdiePoolDetail(sideGames.redemptionBirdiePot, 'Pending')}`
+          : 'Pending'
+      );
+      pushRow(
+        'Single-Hole High Score',
+        'finalDayHighHole',
+        sideGames.finalDayHighHole
+          ? `${sideGames.finalDayHighHole.label || 'Final-Day Single-Hole High Score'}: ${formatWinnerList(sideGames.finalDayHighHole.winnerNames) || 'Pending'}${sideGames.finalDayHighHole.hole ? ` | Hole ${sideGames.finalDayHighHole.hole}` : ''}${sideGames.finalDayHighHole.score ? ` | Score ${sideGames.finalDayHighHole.score}` : ''}`
+          : 'Pending'
+      );
+      pushRow(
         'Weekly Net Champion',
         'weeklyNet',
         formatWinnerList(sideGames.weeklyNet && sideGames.weeklyNet.winnerNames) || 'Pending'
@@ -5057,6 +5136,9 @@
       pushRow('Daily Pots', 'dailyOver100Draw', 'Daily Over-100 Draw', buildEntryBreakdown(sideGames.dailyOver100Draw, 'Round-by-round payout'));
       pushRow('Daily Pots', 'dailyBirdiePot', 'Daily Birdie Pot', buildBirdieEntryBreakdown(sideGames.dailyBirdiePot, 'Round-by-round payout'));
       pushRow('Daily Pots', 'dailyLongestPuttLastHole', 'Last-Hole Putt', buildEntryBreakdown(sideGames.dailyLongestPuttLastHole, 'Round-by-round payout'));
+      pushRow('Daily Pots', 'lastChanceRedemptionPot', 'Last-Chance Redemption Pot', buildSingleBreakdown(getPayoutRow('lastChanceRedemptionPot')));
+      pushRow('Daily Pots', 'redemptionBirdiePot', 'Redemption Birdie Pot', buildSingleBreakdown(getPayoutRow('redemptionBirdiePot')));
+      pushRow('Daily Pots', 'finalDayHighHole', 'Final-Day Single-Hole High Score', buildSingleBreakdown(getPayoutRow('finalDayHighHole')));
       pushRow('Trip-Long Pots', 'weeklyNet', 'Weekly Net Champion', buildSingleBreakdown(getPayoutRow('weeklyNet')));
       pushRow('Trip-Long Pots', 'weeklyOver100Draw', 'Weekly Over-100 Draw', buildSingleBreakdown(getPayoutRow('weeklyOver100Draw')));
       pushRow('Trip-Long Pots', 'closestToPin', 'Closest To Pin', buildSingleBreakdown(getPayoutRow('closestToPin')));
@@ -6626,6 +6708,22 @@
           dailyOver100Draw,
           dailyBirdiePot,
           dailyLongestPuttLastHole,
+          lastChanceRedemptionPot: {
+            winnerNames: parseWinnerList((document.getElementById('ryderLastChanceRedemptionWinners') || {}).value || ''),
+            amount: parseHandicapValue((document.getElementById('ryderLastChanceRedemptionAmount') || {}).value),
+            notes: String((document.getElementById('ryderLastChanceRedemptionNotes') || {}).value || '').trim(),
+          },
+          redemptionBirdiePot: {
+            amount: parseHandicapValue((document.getElementById('ryderRedemptionBirdieAmount') || {}).value),
+            notes: String((document.getElementById('ryderRedemptionBirdieNotes') || {}).value || '').trim(),
+          },
+          finalDayHighHole: {
+            winnerNames: parseWinnerList((document.getElementById('ryderFinalDayHighHoleWinners') || {}).value || ''),
+            hole: parseHandicapValue((document.getElementById('ryderFinalDayHighHoleHole') || {}).value),
+            score: parseHandicapValue((document.getElementById('ryderFinalDayHighHoleScore') || {}).value),
+            amount: parseHandicapValue((document.getElementById('ryderFinalDayHighHoleAmount') || {}).value),
+            notes: String((document.getElementById('ryderFinalDayHighHoleNotes') || {}).value || '').trim(),
+          },
           weeklyNet: {
             winnerNames: parseWinnerList((document.getElementById('ryderWeeklyNetWinners') || {}).value || ''),
             amount: parseHandicapValue((document.getElementById('ryderWeeklyNetAmount') || {}).value),
