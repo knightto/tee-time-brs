@@ -2672,7 +2672,7 @@
       });
       return scoreMap;
     };
-    const buildRyderCupLiveMatchState = (card) => {
+    const buildRyderCupLiveMatchState = (card, round = {}) => {
       const { teamA, teamB } = getRyderCupTeamMeta();
       const buildSide = (sideKey, fallbackTeam) => {
         const fields = Array.from(card.querySelectorAll(`[data-ryder-score-field="${sideKey}"]`))
@@ -2719,7 +2719,13 @@
       const sideB = buildSide('teamB', teamB);
       let resultKey = '';
       let margin = null;
-      if (sideA.complete && sideB.complete && Number.isFinite(sideA.netTotal) && Number.isFinite(sideB.netTotal)) {
+      const teamANoShow = sideA.rows.some((row) => row.contributionState === 'noShow');
+      const teamBNoShow = sideB.rows.some((row) => row.contributionState === 'noShow');
+      const noShowForfeit = teamANoShow || teamBNoShow;
+      if (noShowForfeit) {
+        if (teamANoShow && teamBNoShow) resultKey = 'halved';
+        else resultKey = teamANoShow ? 'teamB' : 'teamA';
+      } else if (sideA.complete && sideB.complete && Number.isFinite(sideA.netTotal) && Number.isFinite(sideB.netTotal)) {
         if (sideA.netTotal < sideB.netTotal) {
           resultKey = 'teamA';
           margin = sideB.netTotal - sideA.netTotal;
@@ -2735,7 +2741,8 @@
         teamA: sideA,
         teamB: sideB,
         pendingScores: Math.max(0, (sideA.expectedCount - sideA.enteredCount) + (sideB.expectedCount - sideB.enteredCount)),
-        complete: sideA.complete && sideB.complete,
+        complete: noShowForfeit || (sideA.complete && sideB.complete),
+        noShowForfeit,
         resultKey,
         margin,
       };
@@ -2768,7 +2775,7 @@
           if (noteEl) noteEl.textContent = formatRyderCupScoreNote(input.value, allowance, contributionState);
         });
       });
-      const liveState = buildRyderCupLiveMatchState(card);
+      const liveState = buildRyderCupLiveMatchState(card, round);
       const renderSide = (side) => `
         <div class="ryder-match-live-side ${escapeHtml(side.sideKey === 'teamA' ? 'team-a' : 'team-b')}" data-ryder-live-side="${escapeHtml(side.sideKey)}">
           <div class="ryder-match-live-head">
@@ -2808,7 +2815,23 @@
       let pointsB = 0;
       const { teamA, teamB } = getRyderCupTeamMeta();
       if (liveState.complete) {
-        if (liveState.resultKey === 'teamA') {
+        if (liveState.noShowForfeit && liveState.resultKey === 'teamA') {
+          resultTitle = `${teamA.name || 'Team A'} wins by forfeit`;
+          resultDetail = `${liveState.teamB.rows.filter((row) => row.contributionState === 'noShow').map((row) => row.playerName).join(', ') || 'Opponent'} did not play.`;
+          resultClass = 'is-team-a';
+          pointsA = pointValue;
+        } else if (liveState.noShowForfeit && liveState.resultKey === 'teamB') {
+          resultTitle = `${teamB.name || 'Team B'} wins by forfeit`;
+          resultDetail = `${liveState.teamA.rows.filter((row) => row.contributionState === 'noShow').map((row) => row.playerName).join(', ') || 'Opponent'} did not play.`;
+          resultClass = 'is-team-b';
+          pointsB = pointValue;
+        } else if (liveState.noShowForfeit && liveState.resultKey === 'halved') {
+          resultTitle = 'Match halved';
+          resultDetail = 'Both sides have a no-show in this match.';
+          resultClass = 'is-halved';
+          pointsA = pointValue / 2;
+          pointsB = pointValue / 2;
+        } else if (liveState.resultKey === 'teamA') {
           resultTitle = `${teamA.name || 'Team A'} wins`;
           resultDetail = `Lower net by ${liveState.margin}. ${liveState.teamA.netTotal} beats ${liveState.teamB.netTotal}.`;
           resultClass = 'is-team-a';
@@ -2843,7 +2866,9 @@
       if (resultPill) resultPill.textContent = `Live winner ${formatRyderCupWinnerLabel(liveState.resultKey, teamA.name || 'Team A', teamB.name || 'Team B')}`;
       if (scorePill) {
         scorePill.textContent = liveState.complete
-          ? `${teamA.name || 'Team A'} net ${liveState.teamA.netTotal} · ${teamB.name || 'Team B'} net ${liveState.teamB.netTotal}`
+          ? (liveState.noShowForfeit
+            ? `${formatRyderCupWinnerLabel(liveState.resultKey, teamA.name || 'Team A', teamB.name || 'Team B')} by forfeit`
+            : `${teamA.name || 'Team A'} net ${liveState.teamA.netTotal} · ${teamB.name || 'Team B'} net ${liveState.teamB.netTotal}`)
           : (liveState.pendingScores ? `Waiting for ${liveState.pendingScores} scores` : 'Enter gross totals');
       }
       if (pointsPill) pointsPill.textContent = `${teamA.name || 'Team A'} ${formatCompetitionPoints(pointsA)} · ${teamB.name || 'Team B'} ${formatCompetitionPoints(pointsB)}`;

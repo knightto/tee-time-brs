@@ -789,9 +789,38 @@ function run() {
   assert.deepStrictEqual(noShowSideKey === 'teamA' ? noShowMatch.teamANoContributionPlayers : noShowMatch.teamBNoContributionPlayers, ['Jeremy Bridges'], 'Jeremy should be marked as a no-contribution player on the saved match');
   assert.strictEqual(noShowSideKey === 'teamA' ? noShowMatch.teamAGrossScore : noShowMatch.teamBGrossScore, 95, 'A no-show should contribute zero gross to the team total');
   assert.strictEqual(noShowSideKey === 'teamA' ? noShowMatch.teamAHandicapAllowance : noShowMatch.teamBHandicapAllowance, noShowPartnerMeta.matchHandicap, 'A no-show should not receive handicap strokes in the team total');
+  assert.strictEqual(noShowMatch.result, noShowSideKey === 'teamA' ? 'teamB' : 'teamA', 'A no-show side should forfeit a combined-score match');
   assert.strictEqual(noShowView.ryderCup.sideGames.dailyNet[noShowRoundIndex].isComplete, true, 'Daily net should treat a marked no-show as a completed round slot');
   assert.strictEqual(noShowJeremy.matchesPlayed, 0, 'A no-show should not receive individual match credit for rounds they missed');
   assert.strictEqual(noShowJeremy.pointsWon, 0, 'A no-show should not receive Ryder Cup points for rounds they missed');
+
+  const singlesNoShowTrip = makeEditableMyrtleTrip();
+  const singlesNoShowRoundIndex = singlesNoShowTrip.competition.ryderCup.rounds.findIndex((round) => String(round.format || '').toLowerCase().includes('singles'));
+  assert(singlesNoShowRoundIndex >= 0, 'Editable Myrtle trip should include a singles round');
+  const singlesNoShowRound = clone(singlesNoShowTrip.competition.ryderCup.rounds[singlesNoShowRoundIndex]);
+  let singlesNoShowMatchIndex = -1;
+  let singlesNoShowSideKey = '';
+  singlesNoShowRound.matches = singlesNoShowRound.matches.map((match, matchIndex) => {
+    const hasJeremyTeamA = (match.teamAPlayers || []).includes('Jeremy Bridges');
+    const hasJeremyTeamB = (match.teamBPlayers || []).includes('Jeremy Bridges');
+    const nextMatch = {
+      ...match,
+      teamAPlayerScores: (match.teamAPlayers || []).map(() => null),
+      teamBPlayerScores: (match.teamBPlayers || []).map(() => null),
+      notes: String(match.notes || '').trim(),
+    };
+    if (hasJeremyTeamA || hasJeremyTeamB) {
+      singlesNoShowMatchIndex = matchIndex;
+      singlesNoShowSideKey = hasJeremyTeamA ? 'teamA' : 'teamB';
+      nextMatch.notes = 'No show: Jeremy Bridges';
+    }
+    return nextMatch;
+  });
+  setTripRyderCupRound(singlesNoShowTrip, singlesNoShowRoundIndex, singlesNoShowRound);
+  const singlesNoShowView = buildTripCompetitionView(singlesNoShowTrip, myrtleParticipants);
+  const singlesNoShowMatch = singlesNoShowView.ryderCup.rounds[singlesNoShowRoundIndex].matches[singlesNoShowMatchIndex];
+  assert(singlesNoShowMatch, 'Singles no-show match should be present in the Ryder Cup view');
+  assert.strictEqual(singlesNoShowMatch.result, singlesNoShowSideKey === 'teamA' ? 'teamB' : 'teamA', 'A no-show golfer should forfeit a singles match even without an opponent score');
 
   const movedPlayersTrip = makeEditableMyrtleTrip();
   const movedPlayersRound = clone(movedPlayersTrip.competition.ryderCup.rounds[0]);

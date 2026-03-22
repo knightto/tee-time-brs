@@ -56,11 +56,16 @@ Every scheduled golfer in a round should have one of these statuses:
 
 Default rule:
 
-- a `no_show` contributes `0` gross and `0` strokes
-- the partner plays as a one-man side
-- the side still has a valid team total if the active partner has a valid score
+- the missing golfer contributes `0` gross and `0` strokes
+- the partner's individual gross score can still be used for daily gross and net rankings
+- the match itself is a forfeit loss for the side missing a scheduled player
 
-This is the Myrtle rule now and should be the default for future paired total-match formats.
+Reason:
+
+- combined-score formats are defined as a full-side total
+- letting the short side still win the match creates a rules argument later
+
+This should be the default for future paired total-match formats.
 
 ### Singles
 
@@ -94,6 +99,16 @@ Recommended default:
   - `manual_override`
 
 This rule must be chosen per trip before play starts.
+
+### Best-Ball Or Best-Score-Per-Hole Formats
+
+Default rule:
+
+- the missing golfer contributes no hole scores
+- only the active partner's hole result can be used for that side
+- the no-show golfer gets no individual points
+
+This lets the active partner keep playing, but never gives credit to the absent player.
 
 ## Prize Rules
 
@@ -295,8 +310,9 @@ Replace note-driven fallback behavior with explicit saved statuses everywhere.
 
 Unless a trip overrides it, use this policy:
 
-- paired total-match formats: `no_show = no contribution`
+- paired combined-score formats: `no_show = forfeit loss`
 - singles: `no_show = forfeit`
+- best-ball formats: `active partner only`
 - team aggregate rounds: `reduce count symmetrically if possible, otherwise manual override`
 - score-based prizes: active completed scores only
 - achievement prizes: keep only what was actually tracked

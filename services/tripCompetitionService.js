@@ -577,6 +577,21 @@ function inferRyderCupWinningResult(teamAScore, teamBScore) {
   return teamAScore < teamBScore ? 'teamA' : 'teamB';
 }
 
+function inferRyderCupNoShowForfeitResult(round = {}, scoreState = {}) {
+  const formatKey = cleanString(round && round.formatKey).toLowerCase();
+  const supportsForfeitOnNoShow = isGrossTotalFormatKey(formatKey)
+    || formatKey === 'combinedscore'
+    || isSinglesFormat(round && round.format);
+  if (!supportsForfeitOnNoShow) return '';
+  const teamANoShow = Array.isArray(scoreState && scoreState.teamANoContributionPlayers)
+    && scoreState.teamANoContributionPlayers.length > 0;
+  const teamBNoShow = Array.isArray(scoreState && scoreState.teamBNoContributionPlayers)
+    && scoreState.teamBNoContributionPlayers.length > 0;
+  if (!teamANoShow && !teamBNoShow) return '';
+  if (teamANoShow && teamBNoShow) return 'halved';
+  return teamANoShow ? 'teamB' : 'teamA';
+}
+
 function isRyderCupTeamRound(round = {}) {
   return cleanString(round && round.resultMode).toLowerCase() === 'teamround'
     || cleanString(round && round.resultMode).toLowerCase() === 'team_round'
@@ -2167,11 +2182,14 @@ function resolveRyderCupMatchTotals(round = {}, match = {}, handicapLookup = nul
 function resolveRyderCupMatchOutcome(round = {}, match = {}, handicapLookup = null) {
   const scoreState = resolveRyderCupMatchTotals(round, match, handicapLookup);
   const manualResult = normalizeRyderCupResult(match && match.result);
+  const noShowForfeitResult = inferRyderCupNoShowForfeitResult(round, scoreState);
   const inferredResult = inferRyderCupWinningResult(scoreState.teamAScore, scoreState.teamBScore);
   return {
     ...scoreState,
-    resultKey: manualResult || inferredResult,
-    resultSource: manualResult ? 'manual' : (inferredResult ? 'scores' : ''),
+    resultKey: manualResult || noShowForfeitResult || inferredResult,
+    resultSource: manualResult
+      ? 'manual'
+      : (noShowForfeitResult ? 'noShowForfeit' : (inferredResult ? 'scores' : '')),
   };
 }
 
