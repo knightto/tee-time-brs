@@ -4735,7 +4735,7 @@
                 </label>
                 <div class="competition-note">${escapeHtml(payout.overAllocatedAmount > 0
                   ? `Current prize amounts run ${formatCurrency(payout.overAllocatedAmount)} over the pot.`
-                  : `Current non-team prizes total ${formatCurrency(payout.nonTeamAmount || 0)}, leaving ${formatCurrency(payout.teamAmount || 0)} for the winning team.`)}</div>
+                  : `Current non-team prizes total ${formatCurrency(payout.nonTeamAmount || 0)}, and the winning team pays ${formatCurrency(payout.teamAmount || 0)} total.`)}</div>
                 <div class="competition-pill-row">
                   <span class="competition-pill">Daily Net ${escapeHtml(formatCurrency((payout.rows || []).find((row) => row.key === 'dailyNet')?.amount || 0))}</span>
                   <span class="competition-pill">Daily Gross ${escapeHtml(formatCurrency((payout.rows || []).find((row) => row.key === 'dailyGross')?.amount || 0))}</span>

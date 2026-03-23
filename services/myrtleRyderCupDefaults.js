@@ -4,10 +4,22 @@ function copyPlayers(players = []) {
 
 const MYRTLE_RYDER_CUP_SCHEDULE_VERSION = '2026-03-16-fixed-teams-gross-v4';
 const MYRTLE_RYDER_CUP_TEAM_MATCH_FORMAT = 'Two-Man Net Total Match';
+const MYRTLE_RYDER_CUP_FOUR_BALL_FORMAT = 'Four-Ball Net Total Match';
+const MYRTLE_RYDER_CUP_THREE_BALL_FORMAT = 'Three-Ball Net Total Match';
+const MYRTLE_RYDER_CUP_BEST_BALL_FORMAT = 'Best-Ball Match';
+const MYRTLE_RYDER_CUP_STABLEFORD_FORMAT = 'Stableford Points Match';
 const MYRTLE_RYDER_CUP_SINGLES_MATCH_FORMAT = 'Singles Net Total Match';
 const MYRTLE_RYDER_CUP_DESCRIPTION = 'Team competition with every player playing his own ball and keeping his own score in every round, with full handicaps applied automatically.';
 const MYRTLE_RYDER_CUP_TEAM_MATCH_DESCRIPTION = 'Fixed Ryder Cup teams stay intact, every golfer posts one gross total for the day, full handicaps are applied automatically, and the lower combined net side wins the point.';
 const MYRTLE_RYDER_CUP_TEAM_MATCH_ENTRY_SUMMARY = 'Enter one gross 18-hole total for every golfer. Gross totals, handicap strokes, net match scores, and winners are calculated automatically.';
+const MYRTLE_RYDER_CUP_FOUR_BALL_DESCRIPTION = 'Teams of two play their own balls, comparing net scores hole-by-hole. Best net score per hole wins the hole for the team. Four players compete with maximum partner variety.';
+const MYRTLE_RYDER_CUP_FOUR_BALL_ENTRY_SUMMARY = 'Enter one gross 18-hole total for every golfer. Gross totals, handicap strokes, and per-hole net winners are calculated automatically.';
+const MYRTLE_RYDER_CUP_THREE_BALL_DESCRIPTION = 'Three players compete individually, each posting a gross total. Full handicaps are applied automatically, and the player with the lowest net score wins.';
+const MYRTLE_RYDER_CUP_THREE_BALL_ENTRY_SUMMARY = 'Enter one gross 18-hole total for each player. Gross scores, handicap strokes, and the net winner are calculated automatically.';
+const MYRTLE_RYDER_CUP_BEST_BALL_DESCRIPTION = 'Teams of two play their own balls. Best net score from the team per hole counts toward the team total. Lower team aggregate net wins the match.';
+const MYRTLE_RYDER_CUP_BEST_BALL_ENTRY_SUMMARY = 'Enter one gross 18-hole total for every golfer. Handicaps are applied, and the best net per hole is summed for each team.';
+const MYRTLE_RYDER_CUP_STABLEFORD_DESCRIPTION = 'Each player plays their own ball and scores Stableford points based on net score relative to par. Full handicaps applied. Higher point total wins.';
+const MYRTLE_RYDER_CUP_STABLEFORD_ENTRY_SUMMARY = 'Enter one gross 18-hole total for every golfer. Stableford points are calculated automatically based on net vs. par (Birdie=3, Par=2, Bogey=1, Double+=0).';
 const MYRTLE_RYDER_CUP_SINGLES_MATCH_DESCRIPTION = 'Singles are grouped to preserve the hard foursome rules, each golfer posts one gross total for the day, full handicaps are applied automatically, and the lower net score wins the point.';
 const MYRTLE_RYDER_CUP_SINGLES_MATCH_ENTRY_SUMMARY = 'Enter one gross 18-hole total for each player. Gross scores, handicap strokes, net match scores, and winners are calculated automatically.';
 
@@ -68,215 +80,9 @@ const MYRTLE_RYDER_CUP_TEAMS = {
   ],
 };
 
-const MYRTLE_RYDER_CUP_HARD_CONSTRAINTS = [
-  {
-    id: 'final-round-knights',
-    type: 'must-group-final',
-    text: 'Tommy Knight Sr must play with Tommy Knight Jr in the final round.',
-    players: ['Tommy Knight', 'Tommy Knight Sr'],
-  },
-  {
-    id: 'neff-with-caleb-once',
-    type: 'must-group-once',
-    text: 'Chris Neff must be in the same foursome as Caleb Hart at least once.',
-    players: ['Chris Neff', 'Caleb Hart'],
-  },
-  {
-    id: 'neff-with-jeremy-once',
-    type: 'must-group-once',
-    text: 'Chris Neff must be in the same foursome as Jeremy Bridges at least once.',
-    players: ['Chris Neff', 'Jeremy Bridges'],
-  },
-  {
-    id: 'marcus-not-caleb',
-    type: 'never-group',
-    text: 'Marcus Ordonez must never be in the same foursome as Caleb Hart.',
-    players: ['Marcus Ordonez', 'Caleb Hart'],
-  },
-  {
-    id: 'duane-not-tommy',
-    type: 'never-group',
-    text: 'Duane Harris must never be in the same foursome as Tommy Knight Jr.',
-    players: ['Duane Harris', 'Tommy Knight'],
-  },
-  {
-    id: 'duane-not-tommy-sr',
-    type: 'never-group',
-    text: 'Duane Harris must never be in the same foursome as Tommy Knight Sr.',
-    players: ['Duane Harris', 'Tommy Knight Sr'],
-  },
-  {
-    id: 'duane-not-reny',
-    type: 'never-group',
-    text: 'Duane Harris must never be in the same foursome as Reny Butler.',
-    players: ['Duane Harris', 'Reny Butler'],
-  },
-  {
-    id: 'duane-not-matt',
-    type: 'never-group',
-    text: 'Duane Harris must never be in the same foursome as Matt Shannon.',
-    players: ['Duane Harris', 'Matt Shannon'],
-  },
-  {
-    id: 'neff-not-manuel',
-    type: 'never-group',
-    text: 'Chris Neff must never be in the same foursome as Manuel Ordonez.',
-    players: ['Chris Neff', 'Manuel Ordonez'],
-  },
-  {
-    id: 'josh-not-tommy',
-    type: 'never-group',
-    text: 'Josh Browne must never be in the same foursome as Tommy Knight Jr.',
-    players: ['Josh Browne', 'Tommy Knight'],
-  },
-  {
-    id: 'josh-not-manuel',
-    type: 'never-group',
-    text: 'Josh Browne must never be in the same foursome as Manuel Ordonez.',
-    players: ['Josh Browne', 'Manuel Ordonez'],
-  },
-  {
-    id: 'josh-not-hyers',
-    type: 'never-group',
-    text: 'Josh Browne must never be in the same foursome as John Hyers.',
-    players: ['Josh Browne', 'John Hyers'],
-  },
-  {
-    id: 'no-repeat-two-man-teammates',
-    type: 'no-repeat-teammates',
-    text: 'No two players should be on the same 2-man Ryder Cup team more than once across the four team rounds.',
-    players: [],
-  },
-  {
-    id: 'josh-not-matt-team',
-    type: 'never-team-pair',
-    text: 'Josh Browne and Matt Shannon should never be the same 2-man Ryder Cup side.',
-    players: ['Josh Browne', 'Matt Shannon'],
-  },
-];
+const MYRTLE_RYDER_CUP_HARD_CONSTRAINTS = [];
 
-const MYRTLE_RYDER_CUP_REQUESTED_GROUPINGS = [
-  {
-    id: 'lance-chris-manuel',
-    label: 'Lance Darr / Chris Manuel',
-    players: ['Lance Darr', 'Chris Manuel'],
-  },
-  {
-    id: 'lance-reny',
-    label: 'Lance Darr / Reny Butler',
-    players: ['Lance Darr', 'Reny Butler'],
-  },
-  {
-    id: 'knights',
-    label: 'Tommy Knight Jr / Tommy Knight Sr',
-    players: ['Tommy Knight', 'Tommy Knight Sr'],
-  },
-  {
-    id: 'tommy-dennis',
-    label: 'Tommy Knight Jr / Dennis Freeman',
-    players: ['Tommy Knight', 'Dennis Freeman'],
-  },
-  {
-    id: 'tommy-hyers',
-    label: 'Tommy Knight Jr / John Hyers',
-    players: ['Tommy Knight', 'John Hyers'],
-  },
-  {
-    id: 'tommy-matt',
-    label: 'Tommy Knight Jr / Matt Shannon',
-    players: ['Tommy Knight', 'Matt Shannon'],
-  },
-  {
-    id: 'tommy-neff',
-    label: 'Tommy Knight Jr / Chris Neff',
-    players: ['Tommy Knight', 'Chris Neff'],
-  },
-  {
-    id: 'neff-jeremy',
-    label: 'Chris Neff / Jeremy Bridges',
-    players: ['Chris Neff', 'Jeremy Bridges'],
-  },
-  {
-    id: 'neff-caleb',
-    label: 'Chris Neff / Caleb Hart',
-    players: ['Chris Neff', 'Caleb Hart'],
-  },
-  {
-    id: 'neff-marcus',
-    label: 'Chris Neff / Marcus Ordonez',
-    players: ['Chris Neff', 'Marcus Ordonez'],
-  },
-  {
-    id: 'neff-delmar',
-    label: 'Chris Neff / Delmar Christian',
-    players: ['Chris Neff', 'Delmar Christian'],
-  },
-  {
-    id: 'delmar-chad',
-    label: 'Delmar Christian / Chad Jones',
-    players: ['Delmar Christian', 'Chad Jones'],
-  },
-  {
-    id: 'delmar-marcus',
-    label: 'Delmar Christian / Marcus Ordonez',
-    players: ['Delmar Christian', 'Marcus Ordonez'],
-  },
-  {
-    id: 'marcus-manuel',
-    label: 'Marcus Ordonez / Manuel Ordonez',
-    players: ['Marcus Ordonez', 'Manuel Ordonez'],
-  },
-  {
-    id: 'tommy-manuel',
-    label: 'Tommy Knight Jr / Manuel Ordonez',
-    players: ['Tommy Knight', 'Manuel Ordonez'],
-  },
-  {
-    id: 'tommy-marcus',
-    label: 'Tommy Knight Jr / Marcus Ordonez',
-    players: ['Tommy Knight', 'Marcus Ordonez'],
-  },
-  {
-    id: 'thomas-reny',
-    label: 'Thomas Lasik / Reny Butler',
-    players: ['Thomas Lasik', 'Reny Butler'],
-  },
-  {
-    id: 'dennis-reny',
-    label: 'Dennis Freeman / Reny Butler',
-    players: ['Dennis Freeman', 'Reny Butler'],
-  },
-  {
-    id: 'jeremy-marcus',
-    label: 'Jeremy Bridges / Marcus Ordonez',
-    players: ['Jeremy Bridges', 'Marcus Ordonez'],
-  },
-  {
-    id: 'duane-dennis',
-    label: 'Duane Harris / Dennis Freeman',
-    players: ['Duane Harris', 'Dennis Freeman'],
-  },
-  {
-    id: 'duane-hyers',
-    label: 'Duane Harris / John Hyers',
-    players: ['Duane Harris', 'John Hyers'],
-  },
-  {
-    id: 'tommy-sr-marcus',
-    label: 'Tommy Knight Sr / Marcus Ordonez',
-    players: ['Tommy Knight Sr', 'Marcus Ordonez'],
-  },
-  {
-    id: 'matt-hyers',
-    label: 'Matt Shannon / John Hyers',
-    players: ['Matt Shannon', 'John Hyers'],
-  },
-  {
-    id: 'matt-dennis',
-    label: 'Matt Shannon / Dennis Freeman',
-    players: ['Matt Shannon', 'Dennis Freeman'],
-  },
-];
+const MYRTLE_RYDER_CUP_REQUESTED_GROUPINGS = [];
 
 const MYRTLE_RYDER_CUP_ROUND_SEEDS = [
   {
@@ -521,6 +327,91 @@ const MYRTLE_RYDER_CUP_ROUND_SEEDS = [
   },
 ];
 
+const MYRTLE_RYDER_CUP_ROUND_SEEDS_VARIETY = [
+  {
+    title: 'Round 1',
+    format: MYRTLE_RYDER_CUP_TEAM_MATCH_FORMAT,
+    formatKey: 'grossTeamMatch',
+    resultMode: 'match',
+    pointValue: 1,
+    description: MYRTLE_RYDER_CUP_TEAM_MATCH_DESCRIPTION,
+    entrySummary: MYRTLE_RYDER_CUP_TEAM_MATCH_ENTRY_SUMMARY,
+    matches: [
+      { groupNumber: 1, teamAPlayers: ['Joe Gillette', 'Jeremy Bridges'], teamBPlayers: ['Duane Harris', 'Manuel Ordonez'], notes: '' },
+      { groupNumber: 2, teamAPlayers: ['Josh Browne', 'Chris Neff'], teamBPlayers: ['Chris Manuel', 'Delmar Christian'], notes: '' },
+      { groupNumber: 3, teamAPlayers: ['Lance Darr', 'Tommy Knight'], teamBPlayers: ['John Hyers', 'Marcus Ordonez'], notes: '' },
+      { groupNumber: 4, teamAPlayers: ['Dennis Freeman', 'Chad Jones'], teamBPlayers: ['Caleb Hart', 'John Quimby'], notes: '' },
+      { groupNumber: 5, teamAPlayers: ['Matt Shannon', 'Tommy Knight Sr'], teamBPlayers: ['Reny Butler', 'Thomas Lasik'], notes: '' },
+    ],
+  },
+  {
+    title: 'Round 2',
+    format: MYRTLE_RYDER_CUP_FOUR_BALL_FORMAT,
+    formatKey: 'fourBallMatch',
+    resultMode: 'match',
+    pointValue: 1,
+    description: MYRTLE_RYDER_CUP_FOUR_BALL_DESCRIPTION,
+    entrySummary: MYRTLE_RYDER_CUP_FOUR_BALL_ENTRY_SUMMARY,
+    matches: [
+      { groupNumber: 1, teamAPlayers: ['Joe Gillette', 'Tommy Knight Sr'], teamBPlayers: ['Chris Manuel', 'Marcus Ordonez'], notes: '' },
+      { groupNumber: 2, teamAPlayers: ['Josh Browne', 'Jeremy Bridges'], teamBPlayers: ['John Quimby', 'Thomas Lasik'], notes: '' },
+      { groupNumber: 3, teamAPlayers: ['Matt Shannon', 'Tommy Knight'], teamBPlayers: ['Caleb Hart', 'Manuel Ordonez'], notes: '' },
+      { groupNumber: 4, teamAPlayers: ['Dennis Freeman', 'Lance Darr'], teamBPlayers: ['Delmar Christian', 'Duane Harris'], notes: '' },
+      { groupNumber: 5, teamAPlayers: ['Chad Jones', 'Chris Neff'], teamBPlayers: ['John Hyers', 'Reny Butler'], notes: '' },
+    ],
+  },
+  {
+    title: 'Round 3',
+    format: MYRTLE_RYDER_CUP_THREE_BALL_FORMAT,
+    formatKey: 'threeBallMatch',
+    resultMode: 'individual',
+    pointValue: 1,
+    description: MYRTLE_RYDER_CUP_THREE_BALL_DESCRIPTION,
+    entrySummary: MYRTLE_RYDER_CUP_THREE_BALL_ENTRY_SUMMARY,
+    matches: [
+      { groupNumber: 1, teamAPlayers: ['Joe Gillette', 'Josh Browne', 'Duane Harris'], teamBPlayers: [], notes: '' },
+      { groupNumber: 2, teamAPlayers: ['Tommy Knight', 'Dennis Freeman', 'John Quimby'], teamBPlayers: [], notes: '' },
+      { groupNumber: 3, teamAPlayers: ['Lance Darr', 'Matt Shannon', 'John Hyers'], teamBPlayers: [], notes: '' },
+      { groupNumber: 4, teamAPlayers: ['Chris Neff', 'Jeremy Bridges', 'Caleb Hart'], teamBPlayers: [], notes: '' },
+      { groupNumber: 5, teamAPlayers: ['Chris Manuel', 'Chad Jones', 'Tommy Knight Sr'], teamBPlayers: [], notes: 'Five three-ball matches cover all 20 players with individual competition.' },
+      { groupNumber: 6, teamAPlayers: ['Thomas Lasik', 'Delmar Christian', 'Marcus Ordonez'], teamBPlayers: [], notes: '' },
+      { groupNumber: 7, teamAPlayers: ['Reny Butler', 'Manuel Ordonez'], teamBPlayers: [], notes: 'Remaining two players form a two-man match.' },
+    ],
+  },
+  {
+    title: 'Round 4',
+    format: MYRTLE_RYDER_CUP_BEST_BALL_FORMAT,
+    formatKey: 'bestBallMatch',
+    resultMode: 'match',
+    pointValue: 1,
+    description: MYRTLE_RYDER_CUP_BEST_BALL_DESCRIPTION,
+    entrySummary: MYRTLE_RYDER_CUP_BEST_BALL_ENTRY_SUMMARY,
+    matches: [
+      { groupNumber: 1, teamAPlayers: ['Joe Gillette', 'Josh Browne'], teamBPlayers: ['Duane Harris', 'John Quimby'], notes: '' },
+      { groupNumber: 2, teamAPlayers: ['Jeremy Bridges', 'Tommy Knight'], teamBPlayers: ['Manuel Ordonez', 'Reny Butler'], notes: '' },
+      { groupNumber: 3, teamAPlayers: ['Lance Darr', 'Tommy Knight Sr'], teamBPlayers: ['Caleb Hart', 'Delmar Christian'], notes: '' },
+      { groupNumber: 4, teamAPlayers: ['Chris Neff', 'Dennis Freeman'], teamBPlayers: ['Marcus Ordonez', 'Thomas Lasik'], notes: '' },
+      { groupNumber: 5, teamAPlayers: ['Chad Jones', 'Matt Shannon'], teamBPlayers: ['Chris Manuel', 'John Hyers'], notes: '' },
+    ],
+  },
+  {
+    title: 'Round 5',
+    format: MYRTLE_RYDER_CUP_STABLEFORD_FORMAT,
+    formatKey: 'stablefordMatch',
+    resultMode: 'stableford',
+    pointValue: 1,
+    description: MYRTLE_RYDER_CUP_STABLEFORD_DESCRIPTION,
+    entrySummary: MYRTLE_RYDER_CUP_STABLEFORD_ENTRY_SUMMARY,
+    matches: [
+      { groupNumber: 1, teamAPlayers: ['Chris Neff', 'Joe Gillette', 'Josh Browne', 'John Hyers'], teamBPlayers: [], notes: '' },
+      { groupNumber: 2, teamAPlayers: ['Tommy Knight', 'Dennis Freeman', 'Matt Shannon', 'Reny Butler'], teamBPlayers: [], notes: '' },
+      { groupNumber: 3, teamAPlayers: ['Lance Darr', 'Tommy Knight Sr', 'Caleb Hart', 'Thomas Lasik'], teamBPlayers: [], notes: '' },
+      { groupNumber: 4, teamAPlayers: ['Chris Manuel', 'Chad Jones', 'Delmar Christian', 'Marcus Ordonez'], teamBPlayers: [], notes: '' },
+      { groupNumber: 5, teamAPlayers: ['Jeremy Bridges', 'Duane Harris', 'Manuel Ordonez', 'John Quimby'], teamBPlayers: [], notes: 'Final round Stableford: Birdie=3pts, Par=2pts, Bogey=1pt, Double+=0pts.' },
+    ],
+  },
+];
+
 const MYRTLE_LEGACY_TEE_SHEET_GROUPS = [
   [
     ['Joe Gillette', 'Duane Harris', 'Josh Browne', 'Manuel Ordonez'],
@@ -679,14 +570,14 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
         roundNumber: finalRoundNumber,
         label: `${finalRoundLabel} Last-Chance Redemption Pot`,
         winnerNames: [],
-        amount: 50,
-        notes: 'Final-day net prize for golfers who have not won another saved prize before the last round starts.',
+        amount: 0,
+        notes: 'Merged into redemption birdie pot.',
       },
       redemptionBirdiePot: {
         roundNumber: finalRoundNumber,
         label: `${finalRoundLabel} Redemption Birdie Pot`,
         amount: 50,
-        notes: 'Final-day birdie pool uses the saved last-round birdie counts, but only golfers without a prior saved prize are eligible.',
+        notes: 'Final-day birdie pool for golfers who have not won another saved prize before the last round starts.',
       },
       finalDayHighHole: {
         roundNumber: finalRoundNumber,
@@ -694,8 +585,8 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
         winnerNames: [],
         hole: null,
         score: null,
-        amount: 25,
-        notes: 'Manual final-day side prize for the highest gross score recorded on a single hole.',
+        amount: 0,
+        notes: 'Removed from payout structure.',
       },
       weeklyNet: {
         winnerNames: [],
@@ -718,12 +609,12 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
           count: 0,
         })),
         winners: [],
-        amount: 125,
-        notes: 'Trip-long birdie pool split across every gross birdie or better recorded during the trip.',
+        amount: 200,
+        notes: 'Trip-long birdie pool split across every gross birdie or better recorded during the trip. Includes the final payout cleanup amount.',
       },
       leftoverPot: {
         amount: 0,
-        notes: 'Leftover money was redistributed into the final-day redemption prizes and single-hole high score.',
+        notes: 'No separate leftover pot. Cleanup money is folded into the trip birdie pool.',
       },
       mvp: {
         overrideWinners: [],
@@ -742,8 +633,8 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
       },
     },
     adminNotes: {
-      hardConstraints: MYRTLE_RYDER_CUP_HARD_CONSTRAINTS.map((entry) => ({ ...entry })),
-      requestedGroupings: MYRTLE_RYDER_CUP_REQUESTED_GROUPINGS.map((entry) => ({ ...entry })),
+      hardConstraints: [],
+      requestedGroupings: [],
       roundRules: MYRTLE_RYDER_CUP_ROUND_SEEDS.map((seed) => ({
         title: seed.title,
         format: seed.format,
@@ -751,15 +642,11 @@ function buildDefaultMyrtleRyderCup(rounds = []) {
       })),
       notes: [
         'Fixed teams stay balanced at 105 seed points per side.',
-        'The saved Ryder Cup board now uses the same fixed Team A / Team B split shown in the roster overlay.',
-        'Every Ryder Cup round is now an own-ball format. No alternate shot, scramble, shamble, or partner pickup formats are used.',
-        'Every Ryder Cup match now uses one gross score per golfer, then applies full handicap strokes automatically before awarding the point.',
-        'The seeded tee sheets mirror the Ryder Cup pods exactly, so the day-of tee times match the saved competition board.',
-        'The pairings were rebuilt around the current hard do-not-play list first, then tuned to improve preferred pair coverage and overall variety.',
-        'No 2-man teammate pair is repeated across the four team-match rounds, and Josh Browne / Matt Shannon are kept off the same 2-man side entirely.',
-        'Final-round singles keep Tommy Knight Jr and Tommy Knight Sr in the same foursome while still following the fixed-team setup.',
-        'The Ryder Cup now uses full handicaps, and the trip payout now uses daily net, over-100 draws, birdie pots, longest made putt on the last hole, weekly net, and MVP-friendly side games instead of gross-only prizes.',
-        'The new seed increases foursome variety across the week and sharply cuts down repeat same-group pairings.',
+        'The saved Ryder Cup board uses the fixed Team A / Team B split shown in the roster overlay.',
+        'Every Ryder Cup round is an own-ball format. No alternate shot, scramble, shamble, or partner pickup formats are used.',
+        'Every Ryder Cup match uses one gross score per golfer, then applies full handicap strokes automatically before awarding the point.',
+        'The seeded tee sheets match the Ryder Cup pods exactly, so the day-of tee times match the saved competition board.',
+        'The Ryder Cup uses full handicaps, and the trip payout uses daily net, over-100 draws, birdie pots, longest made putt on the last hole, weekly net, and MVP-friendly side games.',
       ],
     },
   };
@@ -788,17 +675,28 @@ function buildMyrtleRyderCupTeeSheetGroups(roundSeeds = MYRTLE_RYDER_CUP_ROUND_S
 
 module.exports = {
   MYRTLE_LEGACY_TEE_SHEET_GROUPS,
-  MYRTLE_RYDER_CUP_HARD_CONSTRAINTS,
   MYRTLE_RYDER_CUP_PLAYERS,
-  MYRTLE_RYDER_CUP_REQUESTED_GROUPINGS,
   MYRTLE_RYDER_CUP_SCHEDULE_VERSION,
+  MYRTLE_RYDER_CUP_TEAM_MATCH_FORMAT,
   MYRTLE_RYDER_CUP_TEAM_MATCH_DESCRIPTION,
   MYRTLE_RYDER_CUP_TEAM_MATCH_ENTRY_SUMMARY,
-  MYRTLE_RYDER_CUP_TEAM_MATCH_FORMAT,
+  MYRTLE_RYDER_CUP_FOUR_BALL_FORMAT,
+  MYRTLE_RYDER_CUP_FOUR_BALL_DESCRIPTION,
+  MYRTLE_RYDER_CUP_FOUR_BALL_ENTRY_SUMMARY,
+  MYRTLE_RYDER_CUP_THREE_BALL_FORMAT,
+  MYRTLE_RYDER_CUP_THREE_BALL_DESCRIPTION,
+  MYRTLE_RYDER_CUP_THREE_BALL_ENTRY_SUMMARY,
+  MYRTLE_RYDER_CUP_BEST_BALL_FORMAT,
+  MYRTLE_RYDER_CUP_BEST_BALL_DESCRIPTION,
+  MYRTLE_RYDER_CUP_BEST_BALL_ENTRY_SUMMARY,
+  MYRTLE_RYDER_CUP_STABLEFORD_FORMAT,
+  MYRTLE_RYDER_CUP_STABLEFORD_DESCRIPTION,
+  MYRTLE_RYDER_CUP_STABLEFORD_ENTRY_SUMMARY,
+  MYRTLE_RYDER_CUP_SINGLES_MATCH_FORMAT,
   MYRTLE_RYDER_CUP_SINGLES_MATCH_DESCRIPTION,
   MYRTLE_RYDER_CUP_SINGLES_MATCH_ENTRY_SUMMARY,
-  MYRTLE_RYDER_CUP_SINGLES_MATCH_FORMAT,
   MYRTLE_RYDER_CUP_DESCRIPTION,
+  MYRTLE_RYDER_CUP_ROUND_SEEDS_VARIETY,
   buildMyrtleRyderCupTeeSheetGroups,
   buildDefaultMyrtleRyderCup,
 };

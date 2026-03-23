@@ -382,17 +382,13 @@ function run() {
   assert(joshRow, 'Scored Ryder Cup players should be present');
   assert.strictEqual(joshRow.pointsWon, 0, 'Losing full-handicap matches should award zero points');
   const hardConstraint = myrtleView.ryderCup.admin.hardConstraints.find((entry) => entry.id === 'neff-not-manuel');
-  assert(hardConstraint, 'Hard constraint rows should be exposed');
-  assert.strictEqual(hardConstraint.status, 'clear', 'Seeded Ryder Cup schedule should keep Chris Neff away from Manuel Ordonez');
+  assert(!hardConstraint, 'Hard constraints have been removed for pure competition focus');
   const noRepeatConstraint = myrtleView.ryderCup.admin.hardConstraints.find((entry) => entry.id === 'no-repeat-two-man-teammates');
-  assert(noRepeatConstraint, 'No-repeat teammate rules should be exposed');
-  assert.strictEqual(noRepeatConstraint.status, 'clear', 'Seeded Ryder Cup schedule should avoid repeating the same 2-man team');
+  assert(!noRepeatConstraint, 'No-repeat teammate rules have been removed');
   const joshMattConstraint = myrtleView.ryderCup.admin.hardConstraints.find((entry) => entry.id === 'josh-not-matt-team');
-  assert(joshMattConstraint, 'Specific teammate bans should be exposed');
-  assert.strictEqual(joshMattConstraint.status, 'clear', 'Josh Browne and Matt Shannon should not be paired together');
+  assert(!joshMattConstraint, 'Specific teammate bans have been removed');
   const requestedGrouping = myrtleView.ryderCup.admin.requestedGroupings.find((entry) => entry.id === 'duane-hyers');
-  assert(requestedGrouping, 'Requested grouping coverage should be exposed');
-  assert.strictEqual(requestedGrouping.status, 'scheduled', 'Requested grouping coverage should be tracked');
+  assert(!requestedGrouping, 'Requested groupings have been removed for pure competition focus');
   assert.strictEqual(myrtleView.ryderCup.rounds[0].plan.dayNote, 'Warm up at the range before the opener.', 'Round-level planning notes should be exposed');
   assert.strictEqual(myrtleView.ryderCup.rounds[0].plan.groups[0].playStyle, 'Two-Man Net Total Match', 'Saved complex or legacy plan styles should normalize to the full-handicap play style');
   assert.strictEqual(myrtleView.ryderCup.rounds[0].plan.groups[0].notes, 'Opening match uses the saved gross-score setup.', 'Saved daily plan group notes should survive normalization');
@@ -411,12 +407,12 @@ function run() {
   assert.strictEqual(myrtleView.ryderCup.sideGames.dailyLongestPuttLastHole[0].amount, 15, 'Daily last-hole longest putt should default to a $15 round prize');
   assert.strictEqual(myrtleView.ryderCup.sideGames.weeklyNet.amount, 250, 'Weekly net should default to a $250 prize');
   assert.strictEqual(myrtleView.ryderCup.sideGames.weeklyOver100Draw.amount, 120, 'Weekly over-100 draw should default to a $120 prize');
-  assert.strictEqual(myrtleView.ryderCup.sideGames.birdiePool.amount, 125, 'Trip birdie pool should default to a $125 prize');
-  assert.strictEqual(myrtleView.ryderCup.sideGames.leftoverPot.amount, 125, 'Leftover pot should default to a $125 reserve');
+  assert.strictEqual(myrtleView.ryderCup.sideGames.birdiePool.amount, 200, 'Trip birdie pool should default to a $200 prize (includes the payout cleanup amount)');
+  assert.strictEqual(myrtleView.ryderCup.sideGames.leftoverPot.amount, 0, 'Leftover pot should default to a $0 reserve (redistributed to birdie pool)');
   assert.strictEqual(myrtleView.ryderCup.sideGames.mvp.amount, 125, 'MVP should default to a $125 prize');
   assert.strictEqual(myrtleView.ryderCup.payout.totalPot, 2000, 'Myrtle payout should default to the full $2,000 pot');
   assert.strictEqual(myrtleView.ryderCup.payout.nonTeamAmount, 1500, 'Configured non-team Myrtle prizes should total $1,500');
-  assert.strictEqual(myrtleView.ryderCup.payout.teamAmount, 500, 'Winning team should receive the fixed $500 share so each winner gets $50');
+  assert.strictEqual(myrtleView.ryderCup.payout.teamAmount, 500, 'Winning team should receive a fixed $500 share so each winner gets $50.00');
   assert.deepStrictEqual(myrtleView.ryderCup.payout.rows.find((row) => row.key === 'winningTeam').winners, [], 'Winning-team payouts should stay undistributed until the Ryder Cup is complete');
   assert.strictEqual(myrtleView.ryderCup.payout.rows.find((row) => row.key === 'winningTeam').winnerLabel, 'Pending Ryder Cup finish', 'Winning-team payout should remain pending while points are still available');
   assert.strictEqual(myrtleView.ryderCup.payout.rows.find((row) => row.key === 'dailyNet').amount, 125, 'Five daily net payouts should total $125');
@@ -426,7 +422,7 @@ function run() {
   assert.strictEqual(myrtleView.ryderCup.payout.rows.some((row) => row.key === 'dailyNetBirdiePot'), false, 'Net birdie payouts should be removed from the Myrtle payout summary');
   assert.strictEqual(myrtleView.ryderCup.payout.rows.find((row) => row.key === 'dailyLongestPuttLastHole').amount, 75, 'Five daily last-hole putt payouts should total $75');
   assert.strictEqual(myrtleView.ryderCup.payout.rows.find((row) => row.key === 'weeklyOver100Draw').amount, 120, 'Weekly over-100 draw should total $120');
-  assert.strictEqual(myrtleView.ryderCup.payout.rows.find((row) => row.key === 'leftoverPot').amount, 125, 'Leftover pot should remain visible in the payout summary');
+  assert.strictEqual(myrtleView.ryderCup.payout.rows.find((row) => row.key === 'leftoverPot').amount, 0, 'Leftover pot should be $0 (redistributed to birdie pool)');
   const zeroClosestToPinTrip = clone(myrtleTrip);
   zeroClosestToPinTrip.competition.ryderCup.payout = {
     ...(zeroClosestToPinTrip.competition.ryderCup.payout || {}),

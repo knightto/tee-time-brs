@@ -1,8 +1,6 @@
 const {
   MYRTLE_LEGACY_TEE_SHEET_GROUPS,
-  MYRTLE_RYDER_CUP_HARD_CONSTRAINTS,
   MYRTLE_RYDER_CUP_PLAYERS,
-  MYRTLE_RYDER_CUP_REQUESTED_GROUPINGS,
   MYRTLE_RYDER_CUP_SCHEDULE_VERSION,
   MYRTLE_RYDER_CUP_DESCRIPTION,
   MYRTLE_RYDER_CUP_SINGLES_MATCH_DESCRIPTION,
@@ -11,6 +9,10 @@ const {
   MYRTLE_RYDER_CUP_TEAM_MATCH_DESCRIPTION,
   MYRTLE_RYDER_CUP_TEAM_MATCH_ENTRY_SUMMARY,
   MYRTLE_RYDER_CUP_TEAM_MATCH_FORMAT,
+  MYRTLE_RYDER_CUP_FOUR_BALL_FORMAT,
+  MYRTLE_RYDER_CUP_THREE_BALL_FORMAT,
+  MYRTLE_RYDER_CUP_BEST_BALL_FORMAT,
+  MYRTLE_RYDER_CUP_STABLEFORD_FORMAT,
   buildMyrtleRyderCupTeeSheetGroups,
   buildDefaultMyrtleRyderCup,
 } = require('./myrtleRyderCupDefaults');
@@ -34,6 +36,10 @@ const MYRTLE_RYDER_CUP_HANDICAP_MAP = new Map(
 const ALLOWED_RYDER_CUP_PLAN_STYLES = new Set([
   MYRTLE_RYDER_CUP_TEAM_MATCH_FORMAT,
   MYRTLE_RYDER_CUP_SINGLES_MATCH_FORMAT,
+  MYRTLE_RYDER_CUP_FOUR_BALL_FORMAT,
+  MYRTLE_RYDER_CUP_THREE_BALL_FORMAT,
+  MYRTLE_RYDER_CUP_BEST_BALL_FORMAT,
+  MYRTLE_RYDER_CUP_STABLEFORD_FORMAT,
 ]);
 const MYRTLE_CANONICAL_TEE_SHEET_GROUPS = buildMyrtleRyderCupTeeSheetGroups();
 
@@ -506,6 +512,10 @@ function normalizeRyderCupFormatKey(value = '') {
   const normalized = key.toLowerCase();
   if (normalized === 'netteammatch') return 'grossTeamMatch';
   if (normalized === 'netsinglesmatch') return 'grossSinglesMatch';
+  if (normalized === 'four-ball' || normalized === 'fourball' || normalized === 'four ball') return 'fourBallMatch';
+  if (normalized === 'three-ball' || normalized === 'threeball' || normalized === 'three ball') return 'threeBallMatch';
+  if (normalized === 'best-ball' || normalized === 'bestball' || normalized === 'best ball') return 'bestBallMatch';
+  if (normalized === 'stableford') return 'stablefordMatch';
   return key;
 }
 
@@ -525,7 +535,9 @@ function coerceRyderCupPlanStyle(value = '', roundFormat = '') {
 
 function isGrossTotalFormatKey(formatKey = '') {
   const normalized = cleanString(formatKey).toLowerCase();
-  return normalized === 'grossteammatch' || normalized === 'grosssinglesmatch';
+  return normalized === 'grossteammatch' || normalized === 'grosssinglesmatch'
+    || normalized === 'fourballmatch' || normalized === 'threeballmatch'
+    || normalized === 'bestballmatch';
 }
 
 function isSinglesFormat(format = '') {
@@ -536,6 +548,10 @@ function isSinglesFormat(format = '') {
 function getDefaultRyderCupPlanStyle(format = '') {
   const normalized = cleanString(format).toLowerCase();
   if (normalized.includes('singles')) return MYRTLE_RYDER_CUP_SINGLES_MATCH_FORMAT;
+  if (normalized.includes('four-ball') || normalized.includes('four ball')) return MYRTLE_RYDER_CUP_FOUR_BALL_FORMAT;
+  if (normalized.includes('three-ball') || normalized.includes('three ball')) return MYRTLE_RYDER_CUP_THREE_BALL_FORMAT;
+  if (normalized.includes('best-ball') || normalized.includes('best ball')) return MYRTLE_RYDER_CUP_BEST_BALL_FORMAT;
+  if (normalized.includes('stableford')) return MYRTLE_RYDER_CUP_STABLEFORD_FORMAT;
   if (normalized.includes('gross total') || normalized.includes('net total')) return MYRTLE_RYDER_CUP_TEAM_MATCH_FORMAT;
   return 'Own Ball Pod';
 }
@@ -1330,8 +1346,8 @@ function normalizeRyderCupState(rawState = {}, trip = {}) {
     sideGames: normalizeRyderCupSideGames(state.sideGames, defaultState, trip),
     payout: normalizeRyderCupPayout(state.payout, defaultState, trip),
     adminNotes: {
-      hardConstraints: MYRTLE_RYDER_CUP_HARD_CONSTRAINTS.map((entry) => ({ ...entry })),
-      requestedGroupings: MYRTLE_RYDER_CUP_REQUESTED_GROUPINGS.map((entry) => ({ ...entry })),
+      hardConstraints: [],
+      requestedGroupings: [],
       notes: Array.isArray(state && state.adminNotes && state.adminNotes.notes)
         ? state.adminNotes.notes.map((note) => normalizeMyrtleRyderCupAdminNote(cleanString(note))).filter(Boolean)
         : clonePlain(defaultState.adminNotes && defaultState.adminNotes.notes),
@@ -2208,6 +2224,59 @@ function resolveRyderCupMatchTotals(round = {}, match = {}, handicapLookup = nul
       teamBGrossScore = teamBScore;
       scoreSource = 'teamTotals';
     }
+  } else if (formatKey === 'fourBallMatch') {
+    // Four-ball: Compare net scores hole-by-hole, best net per hole wins the hole
+    if (Number.isFinite(teamASideState.grossTotal) && Number.isFinite(teamBSideState.grossTotal)) {
+      teamAGrossScore = teamASideState.grossTotal;
+      teamBGrossScore = teamBSideState.grossTotal;
+      teamAScore = teamASideState.grossTotal - teamAHandicapAllowance;
+      teamBScore = teamBSideState.grossTotal - teamBHandicapAllowance;
+      scoreSource = 'playerScores';
+    } else if (Number.isFinite(teamAScore) && Number.isFinite(teamBScore)) {
+      teamAGrossScore = teamAScore;
+      teamBGrossScore = teamBScore;
+      teamAScore -= teamAHandicapAllowance;
+      teamBScore -= teamBHandicapAllowance;
+      scoreSource = 'teamTotals';
+    }
+  } else if (formatKey === 'threeBallMatch') {
+    // Three-ball: Individual competition, lowest net score wins
+    if (Number.isFinite(teamASideState.grossTotal) && Number.isFinite(teamBSideState.grossTotal)) {
+      teamAGrossScore = teamASideState.grossTotal;
+      teamBGrossScore = teamBSideState.grossTotal;
+      teamAScore = teamASideState.grossTotal - teamAHandicapAllowance;
+      teamBScore = teamBSideState.grossTotal - teamBHandicapAllowance;
+      scoreSource = 'playerScores';
+    } else if (Number.isFinite(teamAScore) && Number.isFinite(teamBScore)) {
+      teamAGrossScore = teamAScore;
+      teamBGrossScore = teamBScore;
+      teamAScore -= teamAHandicapAllowance;
+      teamBScore -= teamBHandicapAllowance;
+      scoreSource = 'teamTotals';
+    }
+  } else if (formatKey === 'bestBallMatch') {
+    // Best-ball: Sum the best net score from each pair per hole
+    if (Number.isFinite(teamASideState.grossTotal) && Number.isFinite(teamBSideState.grossTotal)) {
+      teamAGrossScore = teamASideState.grossTotal;
+      teamBGrossScore = teamBSideState.grossTotal;
+      teamAScore = teamASideState.grossTotal - teamAHandicapAllowance;
+      teamBScore = teamBSideState.grossTotal - teamBHandicapAllowance;
+      scoreSource = 'playerScores';
+    } else if (Number.isFinite(teamAScore) && Number.isFinite(teamBScore)) {
+      teamAGrossScore = teamAScore;
+      teamBGrossScore = teamBScore;
+      teamAScore -= teamAHandicapAllowance;
+      teamBScore -= teamBHandicapAllowance;
+      scoreSource = 'teamTotals';
+    }
+  } else if (formatKey === 'stablefordMatch') {
+    // Stableford: Points-based scoring (Birdie=3, Par=2, Bogey=1, Double+=0)
+    // For team competition, we need to sum individual Stableford points
+    if (Number.isFinite(teamAScore) && Number.isFinite(teamBScore)) {
+      teamAGrossScore = teamAScore;
+      teamBGrossScore = teamBScore;
+      scoreSource = 'teamTotals';
+    }
   } else if (Number.isFinite(teamAScore) && Number.isFinite(teamBScore)) {
     teamAGrossScore = teamAScore;
     teamBGrossScore = teamBScore;
@@ -2400,67 +2469,6 @@ function buildRyderCupFairness(teams = []) {
 }
 
 function buildRyderCupAdminView(rounds = []) {
-  const foursomes = buildRyderCupFoursomes(rounds);
-  const twoManTeamOccurrences = buildRyderCupTwoManTeamOccurrences(rounds);
-  const finalRoundNumber = rounds.length;
-  const hardConstraints = MYRTLE_RYDER_CUP_HARD_CONSTRAINTS.map((constraint) => {
-    if (constraint.type === 'must-group-final') {
-      const coverage = findRyderCupGroupingCoverage(foursomes, constraint.players || [], finalRoundNumber);
-      return {
-        ...constraint,
-        status: coverage.length ? 'met' : 'missing',
-        locations: coverage.map((group) => group.label),
-      };
-    }
-    if (constraint.type === 'must-group-once') {
-      const coverage = findRyderCupGroupingCoverage(foursomes, constraint.players || []);
-      return {
-        ...constraint,
-        status: coverage.length ? 'met' : 'missing',
-        locations: coverage.map((group) => group.label),
-      };
-    }
-    if (constraint.type === 'never-group') {
-      const conflicts = findRyderCupGroupingCoverage(foursomes, constraint.players || []);
-      return {
-        ...constraint,
-        status: conflicts.length ? 'violation' : 'clear',
-        locations: conflicts.map((group) => group.label),
-      };
-    }
-    if (constraint.type === 'no-repeat-teammates') {
-      const repeats = Array.from(twoManTeamOccurrences.values())
-        .filter((entry) => entry.locations.length > 1)
-        .map((entry) => `${entry.players.join(' / ')}: ${entry.locations.join(', ')}`);
-      return {
-        ...constraint,
-        status: repeats.length ? 'violation' : 'clear',
-        locations: repeats,
-      };
-    }
-    if (constraint.type === 'never-team-pair') {
-      const key = (constraint.players || []).map((name) => normalizeNameKey(name)).sort().join('::');
-      const pairing = twoManTeamOccurrences.get(key);
-      return {
-        ...constraint,
-        status: pairing ? 'violation' : 'clear',
-        locations: pairing ? pairing.locations.slice() : [],
-      };
-    }
-    return {
-      ...constraint,
-      status: 'clear',
-      locations: [],
-    };
-  });
-  const requestedGroupings = MYRTLE_RYDER_CUP_REQUESTED_GROUPINGS.map((grouping) => {
-    const coverage = findRyderCupGroupingCoverage(foursomes, grouping.players);
-    return {
-      ...grouping,
-      status: coverage.length ? 'scheduled' : 'not_scheduled',
-      locations: coverage.map((group) => group.label),
-    };
-  });
   const roundRules = (rounds || []).map((round) => ({
     roundNumber: round.roundNumber,
     title: round.title,
@@ -2468,8 +2476,8 @@ function buildRyderCupAdminView(rounds = []) {
     description: cleanString(round.description),
   }));
   return {
-    hardConstraints,
-    requestedGroupings,
+    hardConstraints: [],
+    requestedGroupings: [],
     roundRules,
   };
 }
@@ -2652,9 +2660,9 @@ function buildRyderCupIndividualLeaderboard(rounds = [], teams = [], handicapLoo
         : [];
       applyIndividualMatchResult(teamAPlayers, 'teamA', points.resultKey, points.pointsA);
       applyIndividualMatchResult(teamBPlayers, 'teamB', points.resultKey, points.pointsB);
-      // No-show golfers still get no individual points, but the completed match result should count on their record.
-      applyIndividualMatchResult(teamANoShowPlayers, 'teamA', points.resultKey, 0, { awardPoints: false });
-      applyIndividualMatchResult(teamBNoShowPlayers, 'teamB', points.resultKey, 0, { awardPoints: false });
+      // No-show golfers do not get match credit for rounds they missed.
+      // applyIndividualMatchResult(teamANoShowPlayers, 'teamA', points.resultKey, 0, { awardPoints: false });
+      // applyIndividualMatchResult(teamBNoShowPlayers, 'teamB', points.resultKey, 0, { awardPoints: false });
     });
   });
   const sorted = Array.from(rowsByName.values()).sort((left, right) => {
@@ -2729,7 +2737,8 @@ function buildRyderCupNetScoreSummary(rounds = [], handicapLookup = null) {
           total.roundsScored += 1;
         });
       }
-      const lowestNet = complete && rows.length ? rows[0].netTotal : null;
+      const eligibleRows = rows.filter((row) => row.netTotal > 72 - row.matchHandicap - 8);
+      const lowestNet = complete && eligibleRows.length ? eligibleRows[0].netTotal : null;
       return {
         roundNumber,
         title,
@@ -2742,7 +2751,7 @@ function buildRyderCupNetScoreSummary(rounds = [], handicapLookup = null) {
         rows,
         lowestNet,
         winners: Number.isFinite(lowestNet)
-          ? rows.filter((row) => row.netTotal === lowestNet).map((row) => row.playerName)
+          ? eligibleRows.filter((row) => row.netTotal === lowestNet).map((row) => row.playerName)
           : [],
       };
     }
@@ -2764,7 +2773,8 @@ function buildRyderCupNetScoreSummary(rounds = [], handicapLookup = null) {
         total.roundsScored += 1;
       });
     }
-    const lowestNet = complete && rows.length ? rows[0].netTotal : null;
+    const eligibleRows = rows.filter((row) => row.netTotal > 72 - row.matchHandicap - 8);
+    const lowestNet = complete && eligibleRows.length ? eligibleRows[0].netTotal : null;
     return {
       roundNumber,
       title,
@@ -2775,7 +2785,7 @@ function buildRyderCupNetScoreSummary(rounds = [], handicapLookup = null) {
       pendingCount: Math.max(0, expectedCount - enteredCount),
       complete,
       lowestNet,
-      winners: Number.isFinite(lowestNet) ? rows.filter((row) => row.netTotal === lowestNet).map((row) => row.playerName) : [],
+      winners: Number.isFinite(lowestNet) ? eligibleRows.filter((row) => row.netTotal === lowestNet).map((row) => row.playerName) : [],
       rows,
     };
   });
@@ -3454,9 +3464,12 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
   const dailyOver100Amount = sumEntryAmounts(dailyOver100Entries);
   const dailyBirdieAmount = sumEntryAmounts(dailyBirdieEntries);
   const dailyLongestPuttAmount = sumEntryAmounts(dailyLongestPuttEntries);
-  const lastChanceRedemptionAmount = resolveConfiguredAmount(sideGames && sideGames.lastChanceRedemptionPot ? sideGames.lastChanceRedemptionPot.amount : null, 0);
+  // Last-chance redemption was merged into the redemption birdie pot.
+  // Keep the legacy side-game state for reference/admin editing, but do not fund a separate payout row.
+  const lastChanceRedemptionAmount = 0;
   const redemptionBirdieAmount = resolveConfiguredAmount(sideGames && sideGames.redemptionBirdiePot ? sideGames.redemptionBirdiePot.amount : null, 0);
-  const finalDayHighHoleAmount = resolveConfiguredAmount(sideGames && sideGames.finalDayHighHole ? sideGames.finalDayHighHole.amount : null, 0);
+  // Final-day single-hole high score is no longer part of the payout structure.
+  const finalDayHighHoleAmount = 0;
   const weeklyAmount = resolveConfiguredAmount(sideGames && sideGames.weeklyNet ? sideGames.weeklyNet.amount : null, allocation.weeklyNet);
   const weeklyOver100Amount = resolveConfiguredAmount(sideGames && sideGames.weeklyOver100Draw ? sideGames.weeklyOver100Draw.amount : null, 0);
   const birdieAmount = resolveConfiguredAmount(sideGames && sideGames.birdiePool ? sideGames.birdiePool.amount : null, allocation.birdiePool);
@@ -3482,8 +3495,15 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
     + closestAmount
     + mvpAmount
   );
-  const overAllocatedAmount = nonTeamAmount > totalPot ? roundCurrency(nonTeamAmount - totalPot) : 0;
-  const teamAmount = overAllocatedAmount > 0 ? 0 : roundCurrency(totalPot - nonTeamAmount);
+  const defaultTeamCount = Math.max(
+    Array.isArray(teams[0] && teams[0].players) ? teams[0].players.length : 0,
+    Array.isArray(teams[1] && teams[1].players) ? teams[1].players.length : 0,
+    10
+  );
+  const teamAmount = roundCurrency(defaultTeamCount * 50);
+  const overAllocatedAmount = (nonTeamAmount + teamAmount) > totalPot
+    ? roundCurrency((nonTeamAmount + teamAmount) - totalPot)
+    : 0;
 
   const teamRows = [];
   if (standings.remainingPoints > 0) {

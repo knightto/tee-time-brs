@@ -6,36 +6,44 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <link rel="icon" href="/assets/knight-club-icon.png">
   <style>
-    :root { --bg:#0d1726; --panel:#0f2138; --panel-soft:#132a45; --accent:#e0b457; --accent-2:#6dd3ff; --ink:#e6edf7; --ink-soft:#9fb6d4; --border:rgba(255,255,255,0.08); --shadow:0 20px 50px rgba(0,0,0,0.35); --radius:16px; }
+    :root { --bg:#0d1726; --panel:#0f2138; --accent:#e0b457; --ink:#e6edf7; --ink-soft:#9fb6d4; --border:rgba(255,255,255,0.08); --shadow:0 20px 50px rgba(0,0,0,0.35); --radius:16px; }
     * { box-sizing:border-box; }
     body { font-family:"Segoe UI","Helvetica Neue",Arial,sans-serif; background:radial-gradient(circle at 20% 20%, rgba(109,211,255,0.08), transparent 35%), radial-gradient(circle at 80% 0%, rgba(224,180,87,0.10), transparent 30%), #0b1422; margin:0; color:var(--ink); min-height:100vh; }
     .container { max-width:1160px; margin:16px auto 32px; padding:0 16px 28px; }
     .hero, .panel, .card { background:linear-gradient(145deg, var(--panel) 0%, #0c1a2c 100%); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); }
     .hero { padding:16px; position:sticky; top:0; z-index:10; backdrop-filter:blur(8px); }
-    .hero-row, .section-head, .row, .summary-grid { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
+    .hero-row, .section-head { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; flex-wrap:wrap; }
     .hero-links, .pill-row { display:flex; gap:8px; flex-wrap:wrap; }
     .hero-link, .back-link { display:inline-flex; align-items:center; justify-content:center; min-height:34px; padding:8px 11px; border-radius:999px; border:1px solid rgba(109,211,255,0.28); background:rgba(109,211,255,0.10); color:#d7f0ff; text-decoration:none; font-size:0.84rem; font-weight:700; }
     .hero-link:hover, .back-link:hover { background:rgba(109,211,255,0.18); text-decoration:none; }
     .back-link { position:fixed; top:12px; left:12px; z-index:999; background:#0c1a2c; color:#f9fafb; }
     h1 { margin:0; font-size:clamp(1.4rem, 4vw, 2rem); display:flex; align-items:baseline; gap:10px; letter-spacing:0.4px; }
     h1 span { color:var(--accent); font-size:0.9rem; letter-spacing:1px; text-transform:uppercase; }
-    h2, h3, strong { color:#fff; }
+    h2, strong { color:#fff; }
     .hero-copy, .section-copy { display:grid; gap:4px; }
     .note, .empty { color:var(--ink-soft); font-size:0.85rem; line-height:1.45; }
     .panel { padding:16px; margin-top:14px; }
     .card { padding:12px; }
     .pill { padding:6px 10px; border-radius:999px; border:1px solid rgba(109,211,255,0.24); background:rgba(109,211,255,0.10); color:#d7f0ff; font-size:0.8rem; font-weight:700; }
     .grid-2 { display:grid; grid-template-columns:repeat(auto-fit, minmax(320px, 1fr)); gap:12px; }
-    .grid-3 { display:grid; grid-template-columns:repeat(auto-fit, minmax(230px, 1fr)); gap:12px; }
+    .grid-4 { display:grid; grid-template-columns:repeat(auto-fit, minmax(190px, 1fr)); gap:10px; }
     .metric { border:1px solid var(--border); border-radius:14px; background:rgba(255,255,255,0.04); padding:12px; display:grid; gap:6px; }
-    .metric-value { font-size:1.7rem; font-weight:800; color:#fff; line-height:1.1; }
-    .list { list-style:none; margin:0; padding:0; display:grid; gap:8px; }
-    .list li, .audit-row { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.06); }
-    .list li:last-child, .audit-row:last-child { border-bottom:0; padding-bottom:0; }
-    .list li:first-child, .audit-row:first-child { padding-top:0; }
-    .amount { font-weight:800; color:#fff; white-space:nowrap; }
+    .metric-value { font-size:1.45rem; font-weight:800; color:#fff; line-height:1.1; }
     .section-label { font-size:0.78rem; letter-spacing:0.08em; text-transform:uppercase; color:var(--accent); margin-bottom:8px; }
     .detail-lines { display:grid; gap:8px; }
+    .audit-row { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.06); }
+    .audit-row:last-child { border-bottom:0; padding-bottom:0; }
+    .audit-row:first-child { padding-top:0; }
+    .amount { font-weight:800; color:#fff; white-space:nowrap; }
+    .player-list { display:grid; gap:8px; margin-top:12px; }
+    .player-item { border:1px solid rgba(255,255,255,0.08); border-radius:14px; background:rgba(255,255,255,0.03); overflow:hidden; }
+    .player-item summary { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; padding:12px; cursor:pointer; list-style:none; }
+    .player-item summary::-webkit-details-marker { display:none; }
+    .player-item[open] summary { border-bottom:1px solid rgba(255,255,255,0.06); }
+    .player-meta { display:grid; gap:4px; min-width:0; }
+    .player-awards { padding:10px 12px 12px; display:grid; gap:8px; }
+    .award-chip { display:flex; justify-content:space-between; align-items:flex-start; gap:12px; border:1px solid rgba(255,255,255,0.06); border-radius:12px; background:rgba(255,255,255,0.03); padding:10px; }
+    .stack { display:grid; gap:12px; }
     @media (max-width:640px) { .container { padding:0 12px 24px; } .hero-links { width:100%; } .hero-link { flex:1 1 160px; } .back-link { position:static; display:inline-flex; margin:12px 12px 0; } }
   </style>
 </head>
@@ -46,7 +54,7 @@
       <div class="hero-row">
         <div class="hero-copy">
           <h1>Prize Report <span>Myrtle 2026</span></h1>
-          <div class="note">Audit view showing how the full pot is allocated, what is already won, and what is still pending.</div>
+          <div class="note">Compact audit view of configured prizes and awarded money.</div>
         </div>
         <div class="hero-links">
           <a class="hero-link" data-standings-link href="/myrtle/leaderboard-and-prizes.html">Ryder Cup Standings</a>
@@ -102,7 +110,6 @@
     const escapeHtml = (value) => String(value == null ? '' : value).replace(/[&<>"]/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[char]));
     const normalizeNameKey = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
     const formatCurrency = (value) => { const num = Number(value); return Number.isFinite(num) ? num.toLocaleString(undefined, { style:'currency', currency:'USD' }) : '—'; };
-    const formatWinnerList = (values = []) => Array.isArray(values) && values.length ? values.join(', ') : '';
     const buildCleanPrizeShares = (amount = 0, winners = []) => {
       const total = Number(amount);
       const winnerList = (Array.isArray(winners) ? winners : []).map((winner) => String(winner || '').trim()).filter(Boolean);
@@ -139,21 +146,11 @@
       const awardedRows = winnerRows
         .filter((row) => Array.isArray(row.winners) && row.winners.length)
         .map((row) => ({ ...row, cleanShares: buildRowPrizeShares(row) }));
-      const leftoverRows = awardedRows
-        .map((row) => ({
-          key: `${row.key || 'row'}-leftover`,
-          label: `${row.label || 'Prize'} Leftover Pot`,
-          amount: Number(row && row.leftoverAmount || 0),
-          winnerLabel: 'Rounded down birdie payouts',
-        }))
-        .filter((row) => row.amount > 0);
-      const pendingRows = winnerRows
-        .filter((row) => !(Array.isArray(row.winners) && row.winners.length))
-        .concat(leftoverRows);
+      const pendingRows = winnerRows.filter((row) => !(Array.isArray(row.winners) && row.winners.length));
       const awardedAmount = awardedRows.reduce((sum, row) => sum + ((row.cleanShares || []).length
         ? (row.cleanShares || []).reduce((rowSum, share) => rowSum + Number(share && share.amount || 0), 0)
         : Number(row && row.amount || 0)), 0);
-      const pendingAmount = pendingRows.reduce((sum, row) => sum + (Number(row && row.amount || 0)), 0);
+      const pendingAmount = pendingRows.reduce((sum, row) => sum + Number(row && row.amount || 0), 0);
       const auditedTotal = awardedAmount + pendingAmount;
       const playerTotalsMap = new Map();
       awardedRows.forEach((row) => {
@@ -179,7 +176,7 @@
         title: section.title,
         rows: rows.filter((row) => row && section.keys.has(row.key) && Number(row.amount || 0) > 0),
       })).filter((section) => section.rows.length);
-      return { payout, rows, winnerRows, sections, awardedRows, pendingRows, awardedAmount, pendingAmount, auditedTotal, playerTotals };
+      return { payout, rows, sections, awardedRows, awardedAmount, auditedTotal, playerTotals };
     }
     function renderReport() {
       syncLinks();
@@ -191,51 +188,47 @@
       }
       const audit = buildPrizeAuditReport(ryderCup);
       const payout = audit.payout || {};
+      const activeRows = (audit.rows || []).filter((row) => Number(row && row.amount || 0) > 0);
+      const tripBirdieRow = activeRows.find((row) => row && row.key === 'birdiePool') || {};
       const allAccountedFor = Math.abs((Number(payout.totalPot || 0)) - audit.auditedTotal) < 0.01;
       reportBody.innerHTML = `
         <div class="section-head">
           <div class="section-copy">
             <h2 style="margin:0 0 6px;">Prize Pool Audit</h2>
-            <div class="note">This report rolls the whole Myrtle prize pool forward from category setup to actual winners.</div>
+            <div class="note">Configured rows on the left, winner totals on the right, with extra detail hidden until you open it.</div>
           </div>
           <div class="pill-row">
             <span class="pill">${escapeHtml(formatCurrency(payout.totalPot || 0))} configured pot</span>
-            <span class="pill">${escapeHtml(formatCurrency(audit.auditedTotal || 0))} audited rows</span>
+            <span class="pill">${escapeHtml(String(activeRows.length))} active prize rows</span>
             <span class="pill">${escapeHtml(allAccountedFor ? 'Fully reconciled' : 'Needs review')}</span>
           </div>
         </div>
-        <div class="grid-3" style="margin-top:12px;">
+        <div class="grid-4" style="margin-top:12px;">
           <div class="metric"><strong>Total Pot</strong><div class="metric-value">${escapeHtml(formatCurrency(payout.totalPot || 0))}</div><div class="note">$100 per man across 20 golfers.</div></div>
           <div class="metric"><strong>Awarded So Far</strong><div class="metric-value">${escapeHtml(formatCurrency(audit.awardedAmount || 0))}</div><div class="note">${escapeHtml(`${audit.awardedRows.length} prize rows already have winners`)}</div></div>
-          <div class="metric"><strong>Still Pending</strong><div class="metric-value">${escapeHtml(formatCurrency(audit.pendingAmount || 0))}</div><div class="note">${escapeHtml(`${audit.pendingRows.length} prize rows are still open`)}</div></div>
-          <div class="metric"><strong>Side Games</strong><div class="metric-value">${escapeHtml(formatCurrency(payout.nonTeamAmount || 0))}</div><div class="note">Everything outside the winning-team payout.</div></div>
-          <div class="metric"><strong>Winning Team Share</strong><div class="metric-value">${escapeHtml(formatCurrency(payout.teamAmount || 0))}</div><div class="note">Reserved for the final Ryder Cup winner.</div></div>
-          <div class="metric"><strong>Over / Under</strong><div class="metric-value">${escapeHtml(formatCurrency((payout.totalPot || 0) - audit.auditedTotal))}</div><div class="note">${escapeHtml(allAccountedFor ? 'Configured total matches the detailed prize rows.' : 'Configured total and detailed prize rows do not match.')}</div></div>
+          <div class="metric"><strong>Trip Birdie Pool</strong><div class="metric-value">${escapeHtml(formatCurrency(tripBirdieRow.amount || 0))}</div><div class="note">${escapeHtml((tripBirdieRow.winnerLabel || 'By total birdie count').trim())}</div></div>
+          <div class="metric"><strong>Winning Team Share</strong><div class="metric-value">${escapeHtml(formatCurrency(payout.teamAmount || 0))}</div><div class="note">$50 per man for the cup winner.</div></div>
+          <div class="metric"><strong>Over / Under</strong><div class="metric-value">${escapeHtml(formatCurrency((payout.totalPot || 0) - audit.auditedTotal))}</div><div class="note">${escapeHtml(allAccountedFor ? 'Configured total matches the active rows.' : 'Configured total and active rows do not match.')}</div></div>
         </div>
         <div class="grid-2" style="margin-top:14px;">
           <div class="card">
             <strong>Category Breakdown</strong>
-            <div class="note" style="margin-top:4px;">High-level allocation of the pot.</div>
+            <div class="note" style="margin-top:4px;">Each active prize row appears once here. This is the only category-level list on the page.</div>
             <div class="detail-lines" style="margin-top:12px;">
               ${audit.sections.map((section) => `<div><div class="section-label">${escapeHtml(section.title || 'Section')}</div>${section.rows.map((row) => `<div class="audit-row"><div><strong>${escapeHtml(row.label || 'Prize')}</strong><div class="note">${escapeHtml(row.winnerLabel || 'Pending')}</div></div><div class="amount">${escapeHtml(formatCurrency(row.amount || 0))}</div></div>`).join('')}</div>`).join('') || '<div class="empty">No prize categories are configured yet.</div>'}
             </div>
           </div>
           <div class="card">
             <strong>Money Won By Player</strong>
-            <div class="note" style="margin-top:4px;">Only prizes with actual winners are counted here. Birdie pools pay by recorded birdie count, each player rounds down to the lower whole dollar, and the leftover stays pending.</div>
-            ${audit.playerTotals.length ? `<ul class="list" style="margin-top:12px;">${audit.playerTotals.map((player) => `<li><span><strong>${escapeHtml(player.name || 'Player')}</strong><br><span class="note">${escapeHtml(player.teamName || 'No team')} · ${escapeHtml(player.prizes.map((prize) => `${prize.label}${prize.birdies ? ` ${prize.birdies} ${prize.birdies === 1 ? 'birdie' : 'birdies'}` : ''} ${formatCurrency(prize.amount)}`).join(' | '))}</span></span><span class="amount">${escapeHtml(formatCurrency(player.amount || 0))}</span></li>`).join('')}</ul>` : `<div class="empty" style="margin-top:12px;">No prize winners have been saved yet.</div>`}
+            <div class="note" style="margin-top:4px;">Open a player only if you want the full prize-level detail behind his total.</div>
+            ${audit.playerTotals.length ? `<div class="player-list">${audit.playerTotals.map((player) => `<details class="player-item"><summary><div class="player-meta"><strong>${escapeHtml(player.name || 'Player')}</strong><span class="note">${escapeHtml(player.teamName || 'No team')} · ${escapeHtml(`${player.prizes.length} ${player.prizes.length === 1 ? 'prize' : 'prizes'}`)}</span></div><span class="amount">${escapeHtml(formatCurrency(player.amount || 0))}</span></summary><div class="player-awards">${player.prizes.map((prize) => `<div class="award-chip"><div><strong>${escapeHtml(prize.label || 'Prize')}</strong><div class="note">${escapeHtml(prize.birdies ? `${prize.birdies} ${prize.birdies === 1 ? 'birdie' : 'birdies'}` : 'Flat payout')}</div></div><span class="amount">${escapeHtml(formatCurrency(prize.amount || 0))}</span></div>`).join('')}</div></details>`).join('')}</div>` : `<div class="empty" style="margin-top:12px;">No prize winners have been saved yet.</div>`}
           </div>
         </div>
-        <div class="grid-2" style="margin-top:14px;">
-          <div class="card">
-            <strong>Pending Prize Money</strong>
-            <div class="note" style="margin-top:4px;">This is money that is still sitting in open prizes.</div>
-            ${audit.pendingRows.length ? `<ul class="list" style="margin-top:12px;">${audit.pendingRows.map((row) => `<li><span><strong>${escapeHtml(row.label || 'Prize')}</strong><br><span class="note">${escapeHtml(row.winnerLabel || 'Pending')}</span></span><span class="amount">${escapeHtml(formatCurrency(row.amount || 0))}</span></li>`).join('')}</ul>` : `<div class="empty" style="margin-top:12px;">Every prize row currently has a winner.</div>`}
-          </div>
+        <div class="stack" style="margin-top:14px;">
           <div class="card">
             <strong>Awarded Prize Rows</strong>
-            <div class="note" style="margin-top:4px;">Detailed audit trail of the money already paid out on paper.</div>
-            ${audit.awardedRows.length ? `<ul class="list" style="margin-top:12px;">${audit.awardedRows.map((row) => `<li><span><strong>${escapeHtml(row.label || 'Prize')}</strong><br><span class="note">${escapeHtml([((row.cleanShares || []).map((share) => `${share.name}${share.birdies ? ` ${share.birdies} ${share.birdies === 1 ? 'birdie' : 'birdies'}` : ''} ${formatCurrency(share.amount)}`).join(' | ') || formatWinnerList(row.winners || []) || row.winnerLabel || 'Winner saved'), Number(row && row.leftoverAmount || 0) > 0 ? `Leftover Pot ${formatCurrency(row.leftoverAmount)}` : ''].filter(Boolean).join(' | '))}</span></span><span class="amount">${escapeHtml(formatCurrency(row.amount || 0))}</span></li>`).join('')}</ul>` : `<div class="empty" style="margin-top:12px;">No awarded prize rows yet.</div>`}
+            <div class="note" style="margin-top:4px;">Collapsed by default. Open a row only if you want the winner split behind that prize.</div>
+            ${audit.awardedRows.length ? `<div class="player-list">${audit.awardedRows.map((row) => `<details class="player-item"><summary><div class="player-meta"><strong>${escapeHtml(row.label || 'Prize')}</strong><span class="note">${escapeHtml((row.cleanShares || []).length ? `${row.cleanShares.length} ${(row.cleanShares || []).length === 1 ? 'winner' : 'winners'}` : (row.winnerLabel || 'Winner saved'))}</span></div><span class="amount">${escapeHtml(formatCurrency(row.amount || 0))}</span></summary><div class="player-awards">${(row.cleanShares || []).map((share) => `<div class="award-chip"><div><strong>${escapeHtml(share.name || 'Winner')}</strong><div class="note">${escapeHtml(share.birdies ? `${share.birdies} ${share.birdies === 1 ? 'birdie' : 'birdies'}` : 'Prize share')}</div></div><span class="amount">${escapeHtml(formatCurrency(share.amount || 0))}</span></div>`).join('') || `<div class="note">${escapeHtml(row.winnerLabel || 'Winner saved')}</div>`}</div></details>`).join('')}</div>` : `<div class="empty" style="margin-top:12px;">No awarded prize rows yet.</div>`}
           </div>
         </div>
       `;
