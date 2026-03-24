@@ -228,7 +228,7 @@
         const id = btn.dataset.del;
         if (!confirm('Delete this golfer?')) return;
         const admin = localStorage.getItem('handicapAdminCode') || '';
-        const ownerCode = prompt('Enter your personal code (or admin code):') || '';
+        const ownerCode = prompt('Enter your personal code (or site admin code):') || '';
         try {
           const headers = {};
           if (admin) headers['x-admin-code'] = admin;

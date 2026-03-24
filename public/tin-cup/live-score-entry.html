@@ -2073,7 +2073,7 @@
       const id = await resolveTripId();
       let adminCode = String(adminCodeInput.value || '').trim();
       if (!adminCode) {
-        adminCode = String(window.prompt('Enter admin code to save side game winners:') || '').trim();
+        adminCode = String(window.prompt('Enter site admin code to save side game winners:') || '').trim();
         if (adminCode) adminCodeInput.value = adminCode;
       }
       if (!adminCode) throw new Error('Admin code required');
@@ -2092,7 +2092,7 @@
       const id = await resolveTripId();
       let adminCode = String(adminCodeInput.value || '').trim();
       if (!adminCode) {
-        adminCode = String(window.prompt('Enter admin code to draw Secret Snowman:') || '').trim();
+        adminCode = String(window.prompt('Enter site admin code to draw Secret Snowman:') || '').trim();
         if (adminCode) adminCodeInput.value = adminCode;
       }
       if (!adminCode) throw new Error('Admin code required');
@@ -2289,7 +2289,7 @@
     }
 
     function getAdminCode() {
-      const code = String(window.prompt('Enter admin code') || '').trim();
+      const code = String(window.prompt('Enter site admin code') || '').trim();
       return code;
     }
 
@@ -2414,7 +2414,7 @@
       const id = await resolveTripId();
       let adminCode = String(adminCodeInput.value || '').trim();
       if (!adminCode) {
-        adminCode = String(window.prompt('Enter admin code to update scorecard access settings:') || '').trim();
+        adminCode = String(window.prompt('Enter site admin code to update scorecard access settings:') || '').trim();
         if (adminCode) adminCodeInput.value = adminCode;
       }
       if (!adminCode) throw new Error('Admin code required');
@@ -2444,7 +2444,7 @@
       const id = await resolveTripId();
       let adminCode = String(adminCodeInput.value || '').trim();
       if (!adminCode) {
-        adminCode = String(window.prompt('Enter admin code to export the final competition CSV:') || '').trim();
+        adminCode = String(window.prompt('Enter site admin code to export the final competition CSV:') || '').trim();
         if (adminCode) adminCodeInput.value = adminCode;
       }
       if (!adminCode) throw new Error('Admin code required');
@@ -2592,7 +2592,7 @@
       const id = await resolveTripId();
       let adminCode = String(adminCodeInput.value || '').trim();
       if (!adminCode) {
-        adminCode = String(window.prompt('Enter admin code to save workbook config:') || '').trim();
+        adminCode = String(window.prompt('Enter site admin code to save workbook config:') || '').trim();
         if (adminCode) adminCodeInput.value = adminCode;
       }
       if (!adminCode) throw new Error('Admin code required');
@@ -2678,7 +2678,7 @@
     function ensureAdminToolsUnlocked() {
       let adminCode = getAdminOverrideCode();
       if (!adminCode) {
-        adminCode = String(window.prompt('Enter admin code to open Admin Tools:') || '').trim();
+        adminCode = String(window.prompt('Enter site admin code to open Admin Tools:') || '').trim();
         if (adminCode) adminCodeInput.value = adminCode;
       }
       if (!adminCode) {
@@ -2711,7 +2711,7 @@
     async function requestAdminOverride() {
       let adminCode = getAdminOverrideCode();
       if (!adminCode) {
-        adminCode = String(window.prompt('Enter admin code to edit this submitted scorecard:') || '').trim();
+        adminCode = String(window.prompt('Enter site admin code to edit this submitted scorecard:') || '').trim();
         if (adminCode) adminCodeInput.value = adminCode;
       }
       if (!adminCode) throw new Error('Admin code required to edit this submitted scorecard.');

@@ -761,7 +761,7 @@
       if (clearRosterBtn) {
         clearRosterBtn.addEventListener("click", async () => {
           if (!window.confirm("Clear all RSVP/check-in and reserve request data from the shared database?")) return;
-          const code = window.prompt("Enter admin code to clear shared data:");
+          const code = window.prompt("Enter site admin code to clear shared data:");
           if (!code) return;
           try {
             await api(`/api/valley/state?code=${encodeURIComponent(code)}`, { method: "DELETE" });

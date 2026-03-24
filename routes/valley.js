@@ -5,7 +5,7 @@ const { getSecondaryConn, initSecondaryConn } = require('../secondary-conn');
 initSecondaryConn();
 
 const router = express.Router();
-const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
+const SITE_ADMIN_WRITE_CODE = process.env.SITE_ADMIN_WRITE_CODE || '2000';
 
 function getModels() {
   const conn = getSecondaryConn();
@@ -106,7 +106,7 @@ function buildSchedule() {
 
 function isAdmin(req) {
   const code = req.headers['x-admin-code'] || req.query.code || (req.body && req.body.adminCode);
-  return Boolean(ADMIN_DELETE_CODE && code && code === ADMIN_DELETE_CODE);
+  return Boolean(SITE_ADMIN_WRITE_CODE && code && code === SITE_ADMIN_WRITE_CODE);
 }
 
 router.get('/state', async (_req, res) => {

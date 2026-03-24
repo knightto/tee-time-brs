@@ -2,16 +2,14 @@ const express = require('express');
 const { getSecondaryConn, initSecondaryConn } = require('../secondary-conn');
 initSecondaryConn();
 const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
-const ADMIN_WRITE_CODE = process.env.ADMIN_WRITE_CODE || process.env.ADMIN_CODE || ADMIN_DELETE_CODE;
+const SITE_ADMIN_WRITE_CODE = process.env.SITE_ADMIN_WRITE_CODE || '2000';
 const ADMIN_DESTRUCTIVE_CODE = process.env.ADMIN_DESTRUCTIVE_CODE || ADMIN_DELETE_CODE;
 const ADMIN_DESTRUCTIVE_CONFIRM_CODE = process.env.ADMIN_DESTRUCTIVE_CONFIRM_CODE || '';
 const TripPrimary = require('../models/Trip');
 const TripParticipantPrimary = require('../models/TripParticipant');
 const TripAuditLogPrimary = require('../models/TripAuditLog');
 const {
-  buildDefaultTripTemplate,
   buildRyderCupTripTemplate,
-  DEFAULT_TEMPLATE_NAME,
   RYDER_CUP_TEMPLATE_NAME,
 } = require('../services/tripTemplateService');
 const {
@@ -73,7 +71,7 @@ function getSecondaryModels() {
 
 function isAdmin(req) {
   const code = req.headers['x-admin-code'] || req.query.code || (req.body && (req.body.code || req.body.adminCode));
-  return Boolean(ADMIN_WRITE_CODE && code && code === ADMIN_WRITE_CODE);
+  return Boolean(SITE_ADMIN_WRITE_CODE && code && code === SITE_ADMIN_WRITE_CODE);
 }
 
 function isDeleteAdmin(req) {
@@ -261,25 +259,6 @@ router.get('/', async (req, res) => {
   }
   const trips = await TripPrimary.find();
   res.json(trips.map((trip) => normalizeLegacyMyrtleTripTeeSheet(trip)));
-});
-
-// Create a reusable default template trip
-router.post('/templates/default', async (req, res) => {
-  if (!isAdmin(req)) {
-    return res.status(403).json({ error: 'Admin code required' });
-  }
-  try {
-    const { TripModel } = getTripModelsForRequest(req);
-    const payload = buildDefaultTripTemplate(req.body || {});
-    const trip = await TripModel.create(payload);
-    return res.status(201).json({
-      trip,
-      templateName: DEFAULT_TEMPLATE_NAME,
-      message: 'Default golf trip template created.',
-    });
-  } catch (error) {
-    return sendTripRouteError(res, error);
-  }
 });
 
 router.post('/templates/ryder-cup', async (req, res) => {

@@ -68,8 +68,7 @@ app.set('trust proxy', 1);
 app.use(express.json());
 const PORT = process.env.PORT || 5000;
 const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
-const ADMIN_READ_CODE = process.env.ADMIN_READ_CODE || process.env.ADMIN_CODE || ADMIN_DELETE_CODE;
-const ADMIN_WRITE_CODE = process.env.ADMIN_WRITE_CODE || process.env.ADMIN_CODE || ADMIN_DELETE_CODE;
+const SITE_ADMIN_WRITE_CODE = process.env.SITE_ADMIN_WRITE_CODE || '2000';
 const ADMIN_DESTRUCTIVE_CODE = process.env.ADMIN_DESTRUCTIVE_CODE || ADMIN_DELETE_CODE;
 const ADMIN_DESTRUCTIVE_CONFIRM_CODE = process.env.ADMIN_DESTRUCTIVE_CONFIRM_CODE || '';
 const SITE_URL = (process.env.SITE_URL || 'https://tee-time-brs.onrender.com/').replace(/\/$/, '') + '/';
@@ -165,7 +164,7 @@ app.get('/api/handicaps', async (_req, res) => {
 app.post('/api/handicaps', async (req, res) => {
   try {
     if (!Handicap) return res.status(500).json({ error: 'Handicap model unavailable' });
-    const isAdminUser = isAdmin(req);
+    const isAdminUser = isSiteAdmin(req);
     const { name, ghinNumber, handicapIndex, notes, ownerCode, clubName } = req.body || {};
     if (!name) return res.status(400).json({ error: 'name required' });
     if (!isAdminUser && !ownerCode) return res.status(400).json({ error: 'ownerCode required' });
@@ -197,7 +196,7 @@ app.post('/api/handicaps', async (req, res) => {
 app.put('/api/handicaps/:id', async (req, res) => {
   try {
     if (!Handicap) return res.status(500).json({ error: 'Handicap model unavailable' });
-    const isAdminUser = isAdmin(req);
+    const isAdminUser = isSiteAdmin(req);
     const h = await Handicap.findById(req.params.id);
     if (!h) return res.status(404).json({ error: 'Not found' });
     if (!isAdminUser) {
@@ -232,7 +231,7 @@ app.put('/api/handicaps/:id', async (req, res) => {
 app.delete('/api/handicaps/:id', async (req, res) => {
   try {
     if (!Handicap) return res.status(500).json({ error: 'Handicap model unavailable' });
-    const isAdminUser = isAdmin(req);
+    const isAdminUser = isSiteAdmin(req);
     const h = await Handicap.findById(req.params.id);
     if (!h) return res.status(404).json({ error: 'Not found' });
     if (!isAdminUser) {
@@ -276,7 +275,7 @@ app.get('/api/clubs/:clubId/golfers', async (req, res) => {
 // Admin import (CSV upload)
 app.post('/api/admin/clubs/:clubId/handicaps/import', upload.single('file'), async (req, res) => {
   try {
-    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+    if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
     if (!Golfer || !HandicapSnapshot || !ImportBatch) return res.status(500).json({ error: 'Handicap models unavailable' });
     const clubId = req.params.clubId;
     const dryRun = String(req.query.dryRun || '').toLowerCase() === 'true';
@@ -299,7 +298,7 @@ app.post('/api/admin/clubs/:clubId/handicaps/import', upload.single('file'), asy
 
 app.get('/api/admin/import-batches', async (req, res) => {
   try {
-    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+    if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
     if (!ImportBatch) return res.status(500).json({ error: 'ImportBatch model unavailable' });
     const q = {};
     if (req.query.clubId) q.clubId = req.query.clubId;
@@ -312,7 +311,7 @@ app.get('/api/admin/import-batches', async (req, res) => {
 
 app.get('/api/admin/import-batches/:batchId', async (req, res) => {
   try {
-    if (!isAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+    if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
     if (!ImportBatch) return res.status(500).json({ error: 'ImportBatch model unavailable' });
     const batch = await ImportBatch.findById(req.params.batchId).lean();
     if (!batch) return res.status(404).json({ error: 'Not found' });
@@ -1572,14 +1571,13 @@ function getDestructiveConfirmCode(req) {
   ).trim();
 }
 
-function isAdminRead(req) {
+function isSiteAdmin(req) {
   const code = getScopedAdminCode(req);
-  return Boolean(ADMIN_READ_CODE && code === ADMIN_READ_CODE);
+  return Boolean(SITE_ADMIN_WRITE_CODE && code === SITE_ADMIN_WRITE_CODE);
 }
 
-function isAdminWrite(req) {
-  const code = getScopedAdminCode(req);
-  return Boolean(ADMIN_WRITE_CODE && code === ADMIN_WRITE_CODE);
+function isSiteAdminCode(code = '') {
+  return Boolean(SITE_ADMIN_WRITE_CODE && String(code || '').trim() === SITE_ADMIN_WRITE_CODE);
 }
 
 function isAdminDelete(req) {
@@ -1600,10 +1598,6 @@ function hasDeleteActionConfirmed(req) {
 function hasDestructiveConfirm(req) {
   if (!ADMIN_DESTRUCTIVE_CONFIRM_CODE) return true;
   return getDestructiveConfirmCode(req) === ADMIN_DESTRUCTIVE_CONFIRM_CODE;
-}
-
-function isAdmin(req){
-  return isAdminWrite(req);
 }
 
 function backupIdFromDate(date = new Date()) {
@@ -4001,8 +3995,7 @@ app.get('/api/unsubscribe/:token', async (req, res) => {
 
 /* Admin - Get/Set Global Notification Setting */
 app.get('/api/admin/settings/notifications', async (req, res) => {
-  const code = req.query.code || '';
-  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+  if (!isSiteAdmin(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   
@@ -4015,8 +4008,7 @@ app.get('/api/admin/settings/notifications', async (req, res) => {
 });
 
 app.put('/api/admin/settings/notifications', async (req, res) => {
-  const code = req.query.code || '';
-  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+  if (!isSiteAdmin(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   
@@ -4038,8 +4030,7 @@ app.put('/api/admin/settings/notifications', async (req, res) => {
 
 /* Admin - Get/Set Scheduler Enable Setting */
 app.get('/api/admin/settings/scheduler', async (req, res) => {
-  const code = req.query.code || '';
-  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+  if (!isSiteAdmin(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
@@ -4051,8 +4042,7 @@ app.get('/api/admin/settings/scheduler', async (req, res) => {
 });
 
 app.put('/api/admin/settings/scheduler', async (req, res) => {
-  const code = req.query.code || '';
-  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+  if (!isSiteAdmin(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
@@ -4085,8 +4075,7 @@ app.put('/api/admin/settings/scheduler', async (req, res) => {
 
 /* Admin - Get/Set Scheduled Email Rule Settings */
 app.get('/api/admin/settings/scheduled-email-rules', async (req, res) => {
-  const code = req.query.code || '';
-  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+  if (!isSiteAdmin(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
@@ -4098,8 +4087,7 @@ app.get('/api/admin/settings/scheduled-email-rules', async (req, res) => {
 });
 
 app.put('/api/admin/settings/scheduled-email-rules', async (req, res) => {
-  const code = req.query.code || '';
-  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+  if (!isSiteAdmin(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
@@ -4129,7 +4117,7 @@ app.put('/api/admin/settings/scheduled-email-rules', async (req, res) => {
 
 /* Admin - List Subscribers */
 app.get('/api/admin/subscribers', async (req, res) => {
-  if (!isAdminRead(req)) {
+  if (!isSiteAdmin(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   
@@ -4171,7 +4159,7 @@ app.delete('/api/admin/subscribers/:id', async (req, res) => {
 
 // Admin - Tee time change log
 app.get('/api/admin/tee-time-log', async (req, res) => {
-  if (!isAdminRead(req)) {
+  if (!isSiteAdmin(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   if (!TeeTimeLog) return res.status(500).json({ error: 'TeeTimeLog model not available' });
@@ -4186,7 +4174,7 @@ app.get('/api/admin/tee-time-log', async (req, res) => {
 
 /* Admin - Create/List/Download Backups */
 app.get('/api/admin/backups', async (req, res) => {
-  if (!isAdminRead(req)) {
+  if (!isSiteAdmin(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
@@ -4201,7 +4189,7 @@ app.get('/api/admin/backups', async (req, res) => {
       status,
       overview: buildBackupOverview(backups, settings, status),
       auth: {
-        separateDeleteCode: ADMIN_DESTRUCTIVE_CODE !== ADMIN_WRITE_CODE,
+        separateDeleteCode: ADMIN_DESTRUCTIVE_CODE !== SITE_ADMIN_WRITE_CODE,
         destructiveConfirmRequired: Boolean(ADMIN_DESTRUCTIVE_CONFIRM_CODE),
       },
       backups,
@@ -4212,7 +4200,7 @@ app.get('/api/admin/backups', async (req, res) => {
 });
 
 app.get('/api/admin/settings/backups', async (req, res) => {
-  if (!isAdminRead(req)) {
+  if (!isSiteAdmin(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
@@ -4225,7 +4213,7 @@ app.get('/api/admin/settings/backups', async (req, res) => {
 });
 
 app.put('/api/admin/settings/backups', async (req, res) => {
-  if (!isAdminWrite(req)) {
+  if (!isSiteAdmin(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
@@ -4244,7 +4232,7 @@ app.put('/api/admin/settings/backups', async (req, res) => {
 });
 
 app.post('/api/admin/backups', async (req, res) => {
-  if (!isAdminWrite(req)) {
+  if (!isSiteAdmin(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   if (backupJobPromise) {
@@ -4318,7 +4306,7 @@ app.post('/api/admin/backups/:backupId/restore', async (req, res) => {
 });
 
 app.get('/api/admin/backups/:backupId/files/:fileName', async (req, res) => {
-  if (!isAdminRead(req)) {
+  if (!isSiteAdmin(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   const backupId = String(req.params.backupId || '').trim();
@@ -4339,7 +4327,7 @@ app.get('/api/admin/backups/:backupId/files/:fileName', async (req, res) => {
 app.post('/api/admin/send-custom-message', async (req, res) => {
   const { code, subject, message } = req.body;
   
-  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) {
+  if (!isSiteAdminCode(code)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   
@@ -4580,8 +4568,7 @@ app.get('/admin/empty-tee-report', async (req, res) => {
 
 /* Verify golf course data quality: GET /admin/verify-courses?code=... */
 app.get('/admin/verify-courses', async (req, res) => {
-  const code = req.query.code || '';
-  if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) return res.status(403).json({ error: 'Forbidden' });
+  if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
   
   if (!GOLF_API_KEY && !GOLF_API_KEY_BACKUP) {
     return res.json({ 
