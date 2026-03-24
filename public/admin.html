@@ -197,6 +197,115 @@
       gap: 8px;
     }
 
+    .template-builder-shell {
+      display: grid;
+      gap: 12px;
+    }
+
+    .template-builder-card {
+      border: 1px solid #d9e2ec;
+      border-radius: 12px;
+      padding: 12px;
+      background: #fff;
+    }
+
+    .template-builder-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .template-builder-title {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .template-builder-meta {
+      margin: 4px 0 0 0;
+      color: #475569;
+      font-size: 12px;
+      line-height: 1.4;
+      max-width: 64ch;
+    }
+
+    .template-question-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+
+    .template-question-grid label,
+    .template-question-stack label {
+      display: grid;
+      gap: 4px;
+      font-size: 13px;
+      color: #334155;
+      font-weight: 600;
+    }
+
+    .template-question-grid input,
+    .template-question-grid textarea,
+    .template-question-grid select,
+    .template-question-stack input,
+    .template-question-stack textarea,
+    .template-question-stack select {
+      width: 100%;
+      box-sizing: border-box;
+    }
+
+    .template-question-stack {
+      display: grid;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .template-help {
+      margin: 0;
+      color: #64748b;
+      font-size: 12px;
+      line-height: 1.4;
+    }
+
+    .template-question-list {
+      margin: 0;
+      padding-left: 18px;
+      color: #334155;
+      font-size: 13px;
+      line-height: 1.5;
+      display: grid;
+      gap: 4px;
+    }
+
+    .template-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .template-links a {
+      text-decoration: none;
+      font-size: 12px;
+      font-weight: 700;
+      color: #1d4ed8;
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid #bfdbfe;
+      background: #eff6ff;
+    }
+
+    .template-links a:hover {
+      background: #dbeafe;
+    }
+
+    .template-form-shell[hidden] {
+      display: none !important;
+    }
+
     button.btn-test,
     button.btn-delete {
       border: none;
@@ -674,6 +783,7 @@
   <div class="admin-container">
     <nav class="section-nav">
       <a href="#quickActionsSection">Quick Actions</a>
+      <a href="#tripTemplatesSection">Trip Templates</a>
       <a href="#backupsSection">Backups</a>
       <a href="#notificationsSection">Notifications</a>
       <a href="#scheduledEmailRulesSection">Email Rules</a>
@@ -689,6 +799,126 @@
         <button class="btn-test btn-purple" onclick="showCustomMessageDialog()">💬 Message All Subscribers</button>
       </div>
       <div id="quickResult" class="test-result"></div>
+    </section>
+
+    <section id="tripTemplatesSection" class="admin-section section-quick">
+      <h2>Trip Templates</h2>
+      <p class="section-intro">Create a new Myrtle-style trip from the reusable Ryder Cup template. This writes to the Myrtle secondary trip database so the Myrtle trip pages can open it right away.</p>
+      <div class="template-builder-shell">
+        <div class="template-builder-card">
+          <div class="template-builder-head">
+            <div>
+              <p class="template-builder-title">Ryder Cup Template</p>
+              <p class="template-builder-meta">Uses the Myrtle Ryder Cup structure: 5 rounds, 20 seeded players, seeded team matches, side games, payouts, and the existing Myrtle trip, standings, and prize pages.</p>
+            </div>
+            <button class="btn-test btn-blue" type="button" id="openRyderCupTemplateBtn">Create Trip From Template</button>
+          </div>
+          <div id="ryderCupTemplateFormShell" class="template-form-shell" hidden>
+            <p class="template-help" style="margin-bottom:10px;">Answer these setup questions before the trip is created.</p>
+            <ul class="template-question-list">
+              <li>What should the trip be called?</li>
+              <li>Where is the trip being played, and what group or organizer name should show on it?</li>
+              <li>What date does round 1 start, and what are the five course names?</li>
+              <li>What are the two Ryder Cup team names?</li>
+              <li>What should the first tee time be, how many tee times should each round have, and how many minutes apart are they?</li>
+              <li>What package, reservation, coordinator, and contact phone details should be saved?</li>
+              <li>Who are the 20 seeded players in order, and what handicap index should each seed start with?</li>
+            </ul>
+            <form id="ryderCupTemplateForm" class="template-question-stack">
+              <div class="template-question-grid">
+                <label>
+                  <span>Trip Name</span>
+                  <input id="ryderTripNameInput" type="text" maxlength="120" value="Ryder Cup Template" required>
+                </label>
+                <label>
+                  <span>Group Name</span>
+                  <input id="ryderGroupNameInput" type="text" maxlength="120" value="Ryder Cup Group">
+                </label>
+                <label>
+                  <span>Location</span>
+                  <input id="ryderLocationInput" type="text" maxlength="120" value="Destination TBD" required>
+                </label>
+                <label>
+                  <span>Round 1 Start Date</span>
+                  <input id="ryderStartDateInput" type="date" required>
+                </label>
+                <label>
+                  <span>Team A Name</span>
+                  <input id="ryderTeamANameInput" type="text" maxlength="60" value="Team A">
+                </label>
+                <label>
+                  <span>Team B Name</span>
+                  <input id="ryderTeamBNameInput" type="text" maxlength="60" value="Team B">
+                </label>
+                <label>
+                  <span>First Tee Time</span>
+                  <input id="ryderFirstTeeTimeInput" type="time" value="08:00">
+                </label>
+                <label>
+                  <span>Tee Times Per Round</span>
+                  <input id="ryderTeeTimeCountInput" type="number" min="1" max="12" value="5">
+                </label>
+                <label>
+                  <span>Minutes Between Tee Times</span>
+                  <input id="ryderTeeIntervalInput" type="number" min="1" max="60" value="9">
+                </label>
+                <label>
+                  <span>Package Type</span>
+                  <input id="ryderPackageTypeInput" type="text" maxlength="120" value="5 Rounds Ryder Cup">
+                </label>
+                <label>
+                  <span>Reservation Number</span>
+                  <input id="ryderReservationInput" type="text" maxlength="80">
+                </label>
+                <label>
+                  <span>Prepared By</span>
+                  <input id="ryderPreparedByInput" type="text" maxlength="120" value="Trip Coordinator">
+                </label>
+                <label>
+                  <span>Contact Phone</span>
+                  <input id="ryderContactPhoneInput" type="text" maxlength="40">
+                </label>
+              </div>
+              <div class="template-question-grid">
+                <label>
+                  <span>Round 1 Course</span>
+                  <input class="ryder-course-input" type="text" maxlength="120" value="Round 1 Course">
+                </label>
+                <label>
+                  <span>Round 2 Course</span>
+                  <input class="ryder-course-input" type="text" maxlength="120" value="Round 2 Course">
+                </label>
+                <label>
+                  <span>Round 3 Course</span>
+                  <input class="ryder-course-input" type="text" maxlength="120" value="Round 3 Course">
+                </label>
+                <label>
+                  <span>Round 4 Course</span>
+                  <input class="ryder-course-input" type="text" maxlength="120" value="Round 4 Course">
+                </label>
+                <label>
+                  <span>Round 5 Course</span>
+                  <input class="ryder-course-input" type="text" maxlength="120" value="Round 5 Course">
+                </label>
+              </div>
+              <label>
+                <span>Seeded Roster (20 lines, seed order 1-20)</span>
+                <textarea id="ryderPlayerNamesInput" rows="10"></textarea>
+              </label>
+              <label>
+                <span>Handicap Indexes (20 lines, same order as roster)</span>
+                <textarea id="ryderHandicapIndexesInput" rows="8"></textarea>
+              </label>
+              <div class="test-buttons">
+                <button class="btn-test btn-green" type="submit">Create Ryder Cup Trip</button>
+                <button class="btn-test btn-amber" type="button" id="cancelRyderCupTemplateBtn">Hide Questions</button>
+              </div>
+            </form>
+          </div>
+          <div id="ryderCupTemplateResult" class="test-result"></div>
+          <div id="ryderCupTemplateLinks" class="template-links"></div>
+        </div>
+      </div>
     </section>
 
     <section id="backupsSection" class="admin-section section-log">
@@ -1085,12 +1315,196 @@
       });
     }
 
+    const DEFAULT_RYDER_TEMPLATE_PLAYERS = [
+      { name: 'Joe Gillette', handicapIndex: 2 },
+      { name: 'John Quimby', handicapIndex: 5 },
+      { name: 'Josh Browne', handicapIndex: 6 },
+      { name: 'Tommy Knight', handicapIndex: 9 },
+      { name: 'Reny Butler', handicapIndex: 10 },
+      { name: 'Thomas Lasik', handicapIndex: 10 },
+      { name: 'John Hyers', handicapIndex: 11 },
+      { name: 'Chris Manuel', handicapIndex: 12 },
+      { name: 'Lance Darr', handicapIndex: 13 },
+      { name: 'Caleb Hart', handicapIndex: 16 },
+      { name: 'Chris Neff', handicapIndex: 16 },
+      { name: 'Marcus Ordonez', handicapIndex: 15 },
+      { name: 'Dennis Freeman', handicapIndex: 16 },
+      { name: 'Chad Jones', handicapIndex: 16 },
+      { name: 'Jeremy Bridges', handicapIndex: 18 },
+      { name: 'Matt Shannon', handicapIndex: 18 },
+      { name: 'Delmar Christian', handicapIndex: 20 },
+      { name: 'Manuel Ordonez', handicapIndex: 20 },
+      { name: 'Tommy Knight Sr', handicapIndex: 22 },
+      { name: 'Duane Harris', handicapIndex: 22 },
+    ];
+
+    function getRyderCupTemplateElements() {
+      return {
+        formShell: document.getElementById('ryderCupTemplateFormShell'),
+        form: document.getElementById('ryderCupTemplateForm'),
+        result: document.getElementById('ryderCupTemplateResult'),
+        links: document.getElementById('ryderCupTemplateLinks'),
+        openBtn: document.getElementById('openRyderCupTemplateBtn'),
+        cancelBtn: document.getElementById('cancelRyderCupTemplateBtn'),
+      };
+    }
+
+    function toDateInputValue(date) {
+      const parsed = date instanceof Date ? new Date(date.getTime()) : new Date(date);
+      if (Number.isNaN(parsed.getTime())) return '';
+      return parsed.toISOString().slice(0, 10);
+    }
+
+    function showRyderCupTemplateResult(message, isSuccess = true) {
+      const result = document.getElementById('ryderCupTemplateResult');
+      if (!result) return;
+      result.textContent = message;
+      result.className = `test-result ${isSuccess ? 'success' : 'error'}`;
+      result.style.display = 'block';
+    }
+
+    function clearRyderCupTemplateLinks() {
+      const links = document.getElementById('ryderCupTemplateLinks');
+      if (links) links.innerHTML = '';
+    }
+
+    function renderRyderCupTemplateLinks(tripId) {
+      const links = document.getElementById('ryderCupTemplateLinks');
+      if (!links) return;
+      const id = String(tripId || '').trim();
+      if (!id) {
+        links.innerHTML = '';
+        return;
+      }
+      const qp = `tripId=${encodeURIComponent(id)}`;
+      links.innerHTML = `
+        <a href="/myrtle/trip-2026.html?${qp}" target="_blank" rel="noopener">Open Trip Page</a>
+        <a href="/myrtle/leaderboard-and-prizes.html?${qp}" target="_blank" rel="noopener">Open Standings</a>
+        <a href="/myrtle/prize-report.html?${qp}" target="_blank" rel="noopener">Open Prize Report</a>
+        <a href="/myrtle/lodging-and-maps.html?${qp}" target="_blank" rel="noopener">Open Lodging + Maps</a>
+      `;
+    }
+
+    function setRyderCupTemplateQuestionsVisible(visible) {
+      const els = getRyderCupTemplateElements();
+      if (!els.formShell) return;
+      els.formShell.hidden = !visible;
+      if (els.openBtn) els.openBtn.style.display = visible ? 'none' : '';
+      if (visible) {
+        const section = document.getElementById('tripTemplatesSection');
+        if (section) {
+          section.dataset.expanded = 'true';
+          const toggle = section.querySelector(':scope > .section-toggle');
+          const body = section.querySelector(':scope > .section-body');
+          if (toggle) toggle.setAttribute('aria-expanded', 'true');
+          if (body) body.hidden = false;
+        }
+      }
+    }
+
+    function seedRyderCupTemplateDefaults() {
+      const startInput = document.getElementById('ryderStartDateInput');
+      if (startInput && !startInput.value) {
+        const date = new Date();
+        date.setDate(date.getDate() + 60);
+        startInput.value = toDateInputValue(date);
+      }
+      const rosterInput = document.getElementById('ryderPlayerNamesInput');
+      if (rosterInput && !rosterInput.value.trim()) {
+        rosterInput.value = DEFAULT_RYDER_TEMPLATE_PLAYERS.map((player) => player.name).join('\n');
+      }
+      const handicapInput = document.getElementById('ryderHandicapIndexesInput');
+      if (handicapInput && !handicapInput.value.trim()) {
+        handicapInput.value = DEFAULT_RYDER_TEMPLATE_PLAYERS.map((player) => String(player.handicapIndex ?? '')).join('\n');
+      }
+    }
+
+    function getTextareaLines(id) {
+      const el = document.getElementById(id);
+      return String(el && el.value || '')
+        .split(/\r?\n/)
+        .map((line) => line.trim());
+    }
+
+    function collectRyderCupTemplatePayload() {
+      const playerNames = getTextareaLines('ryderPlayerNamesInput').filter(Boolean);
+      if (playerNames.length !== 20) {
+        throw new Error('Seeded roster must include exactly 20 player names.');
+      }
+      const handicapIndexes = getTextareaLines('ryderHandicapIndexesInput').map((value) => {
+        if (!value) return null;
+        const num = Number(value);
+        return Number.isFinite(num) ? num : null;
+      });
+      return {
+        code: ADMIN_CODE,
+        name: String(document.getElementById('ryderTripNameInput').value || '').trim(),
+        groupName: String(document.getElementById('ryderGroupNameInput').value || '').trim(),
+        location: String(document.getElementById('ryderLocationInput').value || '').trim(),
+        startDate: String(document.getElementById('ryderStartDateInput').value || '').trim(),
+        teamAName: String(document.getElementById('ryderTeamANameInput').value || '').trim(),
+        teamBName: String(document.getElementById('ryderTeamBNameInput').value || '').trim(),
+        firstTeeTime: String(document.getElementById('ryderFirstTeeTimeInput').value || '').trim(),
+        teeTimeCount: Number(document.getElementById('ryderTeeTimeCountInput').value || 5),
+        teeIntervalMinutes: Number(document.getElementById('ryderTeeIntervalInput').value || 9),
+        packageType: String(document.getElementById('ryderPackageTypeInput').value || '').trim(),
+        reservationNumber: String(document.getElementById('ryderReservationInput').value || '').trim(),
+        preparedBy: String(document.getElementById('ryderPreparedByInput').value || '').trim(),
+        contactPhone: String(document.getElementById('ryderContactPhoneInput').value || '').trim(),
+        courseNames: Array.from(document.querySelectorAll('.ryder-course-input')).map((input) => String(input.value || '').trim()),
+        playerNames,
+        handicapIndexes,
+      };
+    }
+
+    async function createTripFromRyderCupTemplate(event) {
+      if (event) event.preventDefault();
+      clearRyderCupTemplateLinks();
+      try {
+        const payload = collectRyderCupTemplatePayload();
+        if (!payload.name) throw new Error('Trip name is required.');
+        if (!payload.location) throw new Error('Location is required.');
+        if (!payload.startDate) throw new Error('Round 1 start date is required.');
+        showRyderCupTemplateResult('Creating Ryder Cup trip...', true);
+        const response = await fetch(`/api/trips/templates/ryder-cup?myrtleBeach2026=true`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Failed to create Ryder Cup trip.');
+        showRyderCupTemplateResult(`Created ${result.trip && result.trip.name ? result.trip.name : 'Ryder Cup trip'} successfully.`, true);
+        renderRyderCupTemplateLinks(result.trip && result.trip._id);
+      } catch (error) {
+        showRyderCupTemplateResult(error.message || 'Failed to create Ryder Cup trip.', false);
+      }
+    }
+
+    function initRyderCupTemplateBuilder() {
+      seedRyderCupTemplateDefaults();
+      const els = getRyderCupTemplateElements();
+      if (els.openBtn) {
+        els.openBtn.addEventListener('click', () => {
+          setRyderCupTemplateQuestionsVisible(true);
+        });
+      }
+      if (els.cancelBtn) {
+        els.cancelBtn.addEventListener('click', () => {
+          setRyderCupTemplateQuestionsVisible(false);
+        });
+      }
+      if (els.form) {
+        els.form.addEventListener('submit', createTripFromRyderCupTemplate);
+      }
+    }
+
     setupCollapsibleSections();
 
     const ADMIN_CODE = prompt('Enter admin code:');
     if (!ADMIN_CODE) {
       document.getElementById('content').innerHTML = '<div class="empty-state">Admin access required</div>';
     } else {
+      initRyderCupTemplateBuilder();
       loadSubscribers();
       loadBackups();
       loadNotificationSettings();

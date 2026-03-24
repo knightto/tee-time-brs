@@ -170,13 +170,42 @@
       });
       const sections = [
         { title:'Team Result', keys:new Set(['winningTeam']) },
-        { title:'Daily Pots', keys:new Set(['dailyNet', 'dailyGross', 'dailyOver100Draw', 'dailyBirdiePot', 'dailyLongestPuttLastHole', 'lastChanceRedemptionPot', 'redemptionBirdiePot', 'finalDayHighHole']) },
-        { title:'Trip-Long Pots', keys:new Set(['weeklyNet', 'weeklyOver100Draw', 'closestToPin', 'birdiePool', 'leftoverPot', 'mvp']) },
+        { title:'Daily Pots', keys:new Set(['dailyNet', 'dailyGross', 'dailyOver100Draw', 'dailyBirdiePot', 'dailyLongestPuttLastHole', 'redemptionBirdiePot']) },
+        { title:'Trip-Long Pots', keys:new Set(['weeklyNet', 'weeklyOver100Draw', 'closestToPin', 'birdiePool', 'mvp']) },
       ].map((section) => ({
         title: section.title,
         rows: rows.filter((row) => row && section.keys.has(row.key) && Number(row.amount || 0) > 0),
       })).filter((section) => section.rows.length);
-      return { payout, rows, sections, awardedRows, awardedAmount, auditedTotal, playerTotals };
+      const roundWinnerRows = awardedRows.filter((row) => String(row && row.group || '').toLowerCase() === 'daily');
+      const closestToPinRows = awardedRows.filter((row) => String(row && row.key || '').toLowerCase().startsWith('closesttopin'));
+      const groupedAwardedRows = [];
+      if (roundWinnerRows.length) {
+        groupedAwardedRows.push({
+          label: 'Round Winners',
+          amount: roundWinnerRows.reduce((sum, row) => sum + Number(row && row.amount || 0), 0),
+          note: `${roundWinnerRows.length} awarded daily rows`,
+          children: roundWinnerRows,
+        });
+      }
+      if (closestToPinRows.length) {
+        groupedAwardedRows.push({
+          label: 'Overall CTP',
+          amount: closestToPinRows.reduce((sum, row) => sum + Number(row && row.amount || 0), 0),
+          note: `${closestToPinRows.length} closest-to-pin ${closestToPinRows.length === 1 ? 'row' : 'rows'}`,
+          children: closestToPinRows,
+        });
+      }
+      awardedRows
+        .filter((row) => !roundWinnerRows.includes(row) && !closestToPinRows.includes(row))
+        .forEach((row) => {
+          groupedAwardedRows.push({
+            label: row.label || 'Prize',
+            amount: Number(row && row.amount || 0),
+            note: (row.cleanShares || []).length ? `${row.cleanShares.length} ${(row.cleanShares || []).length === 1 ? 'winner' : 'winners'}` : (row.winnerLabel || 'Winner saved'),
+            children: [row],
+          });
+        });
+      return { payout, rows, sections, awardedRows, groupedAwardedRows, awardedAmount, auditedTotal, playerTotals };
     }
     function renderReport() {
       syncLinks();
@@ -228,7 +257,7 @@
           <div class="card">
             <strong>Awarded Prize Rows</strong>
             <div class="note" style="margin-top:4px;">Collapsed by default. Open a row only if you want the winner split behind that prize.</div>
-            ${audit.awardedRows.length ? `<div class="player-list">${audit.awardedRows.map((row) => `<details class="player-item"><summary><div class="player-meta"><strong>${escapeHtml(row.label || 'Prize')}</strong><span class="note">${escapeHtml((row.cleanShares || []).length ? `${row.cleanShares.length} ${(row.cleanShares || []).length === 1 ? 'winner' : 'winners'}` : (row.winnerLabel || 'Winner saved'))}</span></div><span class="amount">${escapeHtml(formatCurrency(row.amount || 0))}</span></summary><div class="player-awards">${(row.cleanShares || []).map((share) => `<div class="award-chip"><div><strong>${escapeHtml(share.name || 'Winner')}</strong><div class="note">${escapeHtml(share.birdies ? `${share.birdies} ${share.birdies === 1 ? 'birdie' : 'birdies'}` : 'Prize share')}</div></div><span class="amount">${escapeHtml(formatCurrency(share.amount || 0))}</span></div>`).join('') || `<div class="note">${escapeHtml(row.winnerLabel || 'Winner saved')}</div>`}</div></details>`).join('')}</div>` : `<div class="empty" style="margin-top:12px;">No awarded prize rows yet.</div>`}
+            ${audit.groupedAwardedRows.length ? `<div class="player-list">${audit.groupedAwardedRows.map((group) => `<details class="player-item"><summary><div class="player-meta"><strong>${escapeHtml(group.label || 'Prize Group')}</strong><span class="note">${escapeHtml(group.note || '')}</span></div><span class="amount">${escapeHtml(formatCurrency(group.amount || 0))}</span></summary><div class="player-awards">${(group.children || []).map((row) => `<div class="award-chip"><div><strong>${escapeHtml(row.label || 'Prize')}</strong><div class="note">${escapeHtml((row.cleanShares || []).map((share) => `${share.name || 'Winner'}${share.birdies ? ` ${share.birdies} ${share.birdies === 1 ? 'birdie' : 'birdies'}` : ''} ${formatCurrency(share.amount || 0)}`).join(' | ') || row.winnerLabel || 'Winner saved')}</div></div><span class="amount">${escapeHtml(formatCurrency(row.amount || 0))}</span></div>`).join('')}</div></details>`).join('')}</div>` : `<div class="empty" style="margin-top:12px;">No awarded prize rows yet.</div>`}
           </div>
         </div>
       `;

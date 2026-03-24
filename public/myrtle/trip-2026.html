@@ -310,15 +310,22 @@
     }
     .trip-event-list {
       display: grid;
-      gap: 10px;
+      gap: 8px;
     }
     .trip-event-card {
       background: rgba(255,255,255,0.04);
       border: 1px solid var(--border);
       border-radius: 11px;
-      padding: 9px;
+      padding: 8px;
       display: grid;
-      gap: 7px;
+      gap: 6px;
+    }
+    .trip-event-card summary {
+      cursor: pointer;
+      list-style: none;
+    }
+    .trip-event-card summary::-webkit-details-marker {
+      display: none;
     }
     .trip-event-top {
       display: flex;
@@ -327,16 +334,22 @@
       gap: 8px;
       flex-wrap: wrap;
     }
+    .trip-event-summary-copy {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
     .trip-event-course {
       margin: 0;
-      font-size: 1rem;
+      font-size: 0.96rem;
       font-weight: 800;
       letter-spacing: 0.2px;
     }
     .trip-event-time {
       color: var(--ink-soft);
-      font-size: 0.84rem;
+      font-size: 0.78rem;
       font-weight: 600;
+      white-space: nowrap;
     }
     .trip-event-meta-row {
       display: flex;
@@ -353,7 +366,7 @@
     .trip-weather-pill {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       padding: 4px 8px;
       border-radius: 999px;
       border: 1px solid rgba(255,255,255,0.1);
@@ -383,10 +396,10 @@
     .trip-drop-target {
       border: 1px solid var(--border);
       border-radius: 9px;
-      padding: 7px 8px;
+      padding: 6px 7px;
       background: rgba(11,23,40,0.55);
       display: grid;
-      gap: 5px;
+      gap: 4px;
       transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
     }
     .trip-slot {
@@ -405,10 +418,10 @@
     .trip-slot-head {
       display: flex;
       justify-content: space-between;
-      gap: 8px;
+      gap: 6px;
       align-items: center;
       flex-wrap: wrap;
-      font-size: 0.81rem;
+      font-size: 0.76rem;
       color: var(--ink-soft);
       font-weight: 700;
     }
@@ -422,7 +435,7 @@
     .trip-slot-head-actions {
       display: inline-flex;
       align-items: center;
-      gap: 6px;
+      gap: 4px;
       flex-wrap: wrap;
       justify-content: flex-end;
     }
@@ -431,11 +444,11 @@
       appearance: none;
       border: 1px solid rgba(255,255,255,0.16);
       border-radius: 999px;
-      padding: 3px 8px;
+      padding: 2px 7px;
       background: rgba(255,255,255,0.06);
       color: #dce7f7;
       font: inherit;
-      font-size: 0.7rem;
+      font-size: 0.66rem;
       font-weight: 700;
       line-height: 1.2;
       box-shadow: none;
@@ -468,8 +481,8 @@
     }
     .trip-slot-ryder {
       display: grid;
-      gap: 6px;
-      padding: 7px 8px;
+      gap: 5px;
+      padding: 6px 7px;
       border-radius: 10px;
       border: 1px solid rgba(255,255,255,0.08);
       background: rgba(255,255,255,0.03);
@@ -525,12 +538,12 @@
     .trip-slot-players {
       display: flex;
       flex-wrap: wrap;
-      gap: 5px;
-      min-height: 32px;
+      gap: 4px;
+      min-height: 28px;
     }
     .trip-unassigned-box {
-      margin-top: 8px;
-      padding: 8px 9px;
+      margin-top: 4px;
+      padding: 7px 8px;
       background: rgba(224,180,87,0.08);
       border-style: dashed;
     }
@@ -555,8 +568,8 @@
       gap: 6px;
       border: 1px solid rgba(255,255,255,0.16);
       border-radius: 999px;
-      padding: 3px 8px;
-      font-size: 0.76rem;
+      padding: 2px 7px;
+      font-size: 0.72rem;
       color: #dce7f7;
       background: rgba(255,255,255,0.08);
       line-height: 1.2;
@@ -627,14 +640,37 @@
     .trip-event-actions {
       display: flex;
       justify-content: flex-start;
-      gap: 8px;
+      gap: 6px;
       flex-wrap: wrap;
     }
     .trip-event-link {
       color: var(--accent-2);
-      font-size: 0.8rem;
+      font-size: 0.76rem;
       font-weight: 700;
       text-decoration: none;
+    }
+    @media (max-width: 700px) {
+      .trip-events-container {
+        padding: 8px;
+      }
+      .trip-event-card {
+        padding: 7px;
+      }
+      .trip-event-top,
+      .trip-slot-head {
+        align-items: flex-start;
+      }
+      .trip-slot-head-actions {
+        width: 100%;
+        justify-content: flex-start;
+      }
+      .trip-slot-players {
+        gap: 3px;
+      }
+      .trip-player-chip {
+        width: 100%;
+        justify-content: flex-start;
+      }
     }
     .trip-event-link:hover {
       text-decoration: underline;
@@ -4300,7 +4336,7 @@
       const rounds = Array.isArray(ryderCup.rounds) ? ryderCup.rounds : [];
       const { teamA, teamB } = getRyderCupTeamMeta();
       return `
-        <details class="competition-section" open>
+        <details class="competition-section">
           <summary>
             <span>Round Scores</span>
             <span class="competition-note">Enter gross scores and save each round.</span>
@@ -4315,7 +4351,7 @@
                 const roundSyncIssues = scheduleSync && Array.isArray(scheduleSync.issues) ? scheduleSync.issues.filter(Boolean) : [];
                 const roundSyncInvalid = grossTotalFormat && Boolean(scheduleSync && String(scheduleSync.status || '').toLowerCase() === 'invalid');
                 return `
-                  <details class="competition-section"${roundIndex === 0 ? ' open' : ''}>
+                  <details class="competition-section">
                     <summary>
                       <span>${escapeHtml(round.title || `Round ${roundIndex + 1}`)} · ${escapeHtml(round.format || '')}</span>
                       <span class="competition-note">${escapeHtml(round.course || '')}${round.date ? ` · ${escapeHtml(formatCompetitionDate(round.date))}` : ''}</span>
@@ -4563,24 +4599,6 @@
                 placeholder: 'Joe Gillette | 2&#10;John Quimby | 1',
               })}
               <div class="competition-sidegame-card">
-                <strong>Last-Chance Redemption Pot</strong>
-                <div class="competition-note">Final-day net prize for golfers who have not won another saved prize yet.</div>
-                <div class="competition-note">Eligible: ${escapeHtml(formatWinnerList(sideGames.lastChanceRedemptionPot && sideGames.lastChanceRedemptionPot.eligiblePlayers) || 'No eligible golfers yet')}</div>
-                <div class="competition-note">Auto winner: ${escapeHtml(sideGames.lastChanceRedemptionPot && sideGames.lastChanceRedemptionPot.isComplete ? ((sideGames.lastChanceRedemptionPot.automaticWinners || []).join(', ') || 'Pending') : getRyderCupRoundScoreStatusLabel(sideGames.lastChanceRedemptionPot, { completeLabel: 'No eligible golfer' }))}${sideGames.lastChanceRedemptionPot && sideGames.lastChanceRedemptionPot.lowestNet !== null && sideGames.lastChanceRedemptionPot.lowestNet !== undefined ? ` · Net ${escapeHtml(String(sideGames.lastChanceRedemptionPot.lowestNet))}` : ''}</div>
-                <label>
-                  <span>Manual override</span>
-                  <input id="ryderLastChanceRedemptionWinners" type="text" value="${quoteAttr(formatWinnerList(sideGames.lastChanceRedemptionPot && sideGames.lastChanceRedemptionPot.manualOverride ? sideGames.lastChanceRedemptionPot.winnerNames : []))}" placeholder="Comma-separated winners">
-                </label>
-                <label>
-                  <span>Amount</span>
-                  <input id="ryderLastChanceRedemptionAmount" type="number" step="5" min="0" value="${sideGames.lastChanceRedemptionPot && sideGames.lastChanceRedemptionPot.amount !== null && sideGames.lastChanceRedemptionPot.amount !== undefined ? escapeHtml(String(sideGames.lastChanceRedemptionPot.amount)) : ''}" placeholder="0">
-                </label>
-                <label>
-                  <span>Notes</span>
-                  <input id="ryderLastChanceRedemptionNotes" type="text" value="${quoteAttr((sideGames.lastChanceRedemptionPot && sideGames.lastChanceRedemptionPot.notes) || '')}" placeholder="Optional note">
-                </label>
-              </div>
-              <div class="competition-sidegame-card">
                 <strong>Redemption Birdie Pot</strong>
                 <div class="competition-note">Final-day birdie pool uses the saved last-round birdie counts, but only golfers without a prior saved prize are eligible.</div>
                 <div class="competition-note">Eligible: ${escapeHtml(formatWinnerList(sideGames.redemptionBirdiePot && sideGames.redemptionBirdiePot.eligiblePlayers) || 'No eligible golfers yet')}</div>
@@ -4596,31 +4614,6 @@
                 <label>
                   <span>Notes</span>
                   <input id="ryderRedemptionBirdieNotes" type="text" value="${quoteAttr((sideGames.redemptionBirdiePot && sideGames.redemptionBirdiePot.notes) || '')}" placeholder="Optional note">
-                </label>
-              </div>
-              <div class="competition-sidegame-card">
-                <strong>Final-Day Single-Hole High Score</strong>
-                <div class="competition-note">Manual final-day side prize for the ugliest number anybody hangs on one hole.</div>
-                <div class="competition-note">Status: ${escapeHtml(formatWinnerList(sideGames.finalDayHighHole && sideGames.finalDayHighHole.winnerNames) || 'Pending manual entry')}${sideGames.finalDayHighHole && sideGames.finalDayHighHole.hole ? ` | Hole ${escapeHtml(String(sideGames.finalDayHighHole.hole))}` : ''}${sideGames.finalDayHighHole && sideGames.finalDayHighHole.score ? ` | Score ${escapeHtml(String(sideGames.finalDayHighHole.score))}` : ''}</div>
-                <label>
-                  <span>Winners</span>
-                  <input id="ryderFinalDayHighHoleWinners" type="text" value="${quoteAttr(formatWinnerList(sideGames.finalDayHighHole && sideGames.finalDayHighHole.winnerNames))}" placeholder="Comma-separated winners">
-                </label>
-                <label>
-                  <span>Hole</span>
-                  <input id="ryderFinalDayHighHoleHole" type="number" step="1" min="1" max="18" value="${sideGames.finalDayHighHole && sideGames.finalDayHighHole.hole !== null && sideGames.finalDayHighHole.hole !== undefined ? escapeHtml(String(sideGames.finalDayHighHole.hole)) : ''}" placeholder="18">
-                </label>
-                <label>
-                  <span>Score</span>
-                  <input id="ryderFinalDayHighHoleScore" type="number" step="1" min="1" value="${sideGames.finalDayHighHole && sideGames.finalDayHighHole.score !== null && sideGames.finalDayHighHole.score !== undefined ? escapeHtml(String(sideGames.finalDayHighHole.score)) : ''}" placeholder="9">
-                </label>
-                <label>
-                  <span>Amount</span>
-                  <input id="ryderFinalDayHighHoleAmount" type="number" step="5" min="0" value="${sideGames.finalDayHighHole && sideGames.finalDayHighHole.amount !== null && sideGames.finalDayHighHole.amount !== undefined ? escapeHtml(String(sideGames.finalDayHighHole.amount)) : ''}" placeholder="0">
-                </label>
-                <label>
-                  <span>Notes</span>
-                  <input id="ryderFinalDayHighHoleNotes" type="text" value="${quoteAttr((sideGames.finalDayHighHole && sideGames.finalDayHighHole.notes) || '')}" placeholder="Optional note">
                 </label>
               </div>
               <div class="competition-sidegame-card" style="grid-column:1/-1;">
@@ -4700,18 +4693,6 @@
                 </label>
               </div>
               <div class="competition-sidegame-card">
-                <strong>Leftover Pot</strong>
-                <div class="competition-note">${escapeHtml((sideGames.leftoverPot && sideGames.leftoverPot.notes) || 'Reserved money that has not been assigned to a final prize yet.')}</div>
-                <label>
-                  <span>Amount</span>
-                  <input id="ryderLeftoverPotAmountField" type="number" step="5" min="0" value="${sideGames.leftoverPot && sideGames.leftoverPot.amount !== null && sideGames.leftoverPot.amount !== undefined ? escapeHtml(String(sideGames.leftoverPot.amount)) : ''}" placeholder="0">
-                </label>
-                <label>
-                  <span>Notes</span>
-                  <input id="ryderLeftoverPotNotesField" type="text" value="${quoteAttr((sideGames.leftoverPot && sideGames.leftoverPot.notes) || '')}" placeholder="To be determined">
-                </label>
-              </div>
-              <div class="competition-sidegame-card">
                 <strong>Ryder Cup MVP</strong>
                 <div class="competition-note">Auto winner: ${escapeHtml((sideGames.mvp && sideGames.mvp.winners && sideGames.mvp.winners.join(', ')) || 'Pending')}</div>
                 <label>
@@ -4741,9 +4722,8 @@
                   <span class="competition-pill">Daily Gross ${escapeHtml(formatCurrency((payout.rows || []).find((row) => row.key === 'dailyGross')?.amount || 0))}</span>
                   <span class="competition-pill">Over-100 Draws ${escapeHtml(formatCurrency(((payout.rows || []).find((row) => row.key === 'dailyOver100Draw')?.amount || 0) + ((payout.rows || []).find((row) => row.key === 'weeklyOver100Draw')?.amount || 0)))}</span>
                   <span class="competition-pill">Daily Birdies ${escapeHtml(formatCurrency((payout.rows || []).find((row) => row.key === 'dailyBirdiePot')?.amount || 0))}</span>
-                  <span class="competition-pill">Final-Day Extras ${escapeHtml(formatCurrency(((payout.rows || []).find((row) => row.key === 'lastChanceRedemptionPot')?.amount || 0) + ((payout.rows || []).find((row) => row.key === 'redemptionBirdiePot')?.amount || 0) + ((payout.rows || []).find((row) => row.key === 'finalDayHighHole')?.amount || 0)))}</span>
+                  <span class="competition-pill">Final-Day Extras ${escapeHtml(formatCurrency(((payout.rows || []).find((row) => row.key === 'redemptionBirdiePot')?.amount || 0)))}</span>
                   <span class="competition-pill">Last-Hole Putt ${escapeHtml(formatCurrency((payout.rows || []).find((row) => row.key === 'dailyLongestPuttLastHole')?.amount || 0))}</span>
-                  <span class="competition-pill">Leftover ${escapeHtml(formatCurrency((payout.rows || []).find((row) => row.key === 'leftoverPot')?.amount || 0))}</span>
                 </div>
                 <ul class="ryder-payout-list">
                   ${(payout.rows || []).filter((row) => Number(row && row.amount) > 0).map((row) => `
@@ -4999,24 +4979,10 @@
         latestLongestPutt ? `${latestLongestPutt.label}: ${formatWinnerList(latestLongestPutt.winnerNames)}` : 'Pending'
       );
       pushRow(
-        'Last-Chance Redemption',
-        'lastChanceRedemptionPot',
-        sideGames.lastChanceRedemptionPot
-          ? `${sideGames.lastChanceRedemptionPot.label || 'Last-Chance Redemption Pot'}: ${formatWinnerList(sideGames.lastChanceRedemptionPot.winnerNames) || 'Pending'}`
-          : 'Pending'
-      );
-      pushRow(
         'Redemption Birdie Pot',
         'redemptionBirdiePot',
         sideGames.redemptionBirdiePot
           ? `${sideGames.redemptionBirdiePot.label || 'Redemption Birdie Pot'}: ${formatRyderCupBirdiePoolDetail(sideGames.redemptionBirdiePot, 'Pending')}`
-          : 'Pending'
-      );
-      pushRow(
-        'Single-Hole High Score',
-        'finalDayHighHole',
-        sideGames.finalDayHighHole
-          ? `${sideGames.finalDayHighHole.label || 'Final-Day Single-Hole High Score'}: ${formatWinnerList(sideGames.finalDayHighHole.winnerNames) || 'Pending'}${sideGames.finalDayHighHole.hole ? ` | Hole ${sideGames.finalDayHighHole.hole}` : ''}${sideGames.finalDayHighHole.score ? ` | Score ${sideGames.finalDayHighHole.score}` : ''}`
           : 'Pending'
       );
       pushRow(
@@ -5038,11 +5004,6 @@
         'Trip Birdie Pool',
         'birdiePool',
         formatRyderCupBirdiePoolDetail(sideGames.birdiePool, 'Pending')
-      );
-      pushRow(
-        'Leftover Pot',
-        'leftoverPot',
-        (sideGames.leftoverPot && sideGames.leftoverPot.notes) || 'To be determined'
       );
       pushRow(
         'Ryder Cup MVP',
@@ -5142,14 +5103,11 @@
       pushRow('Daily Pots', 'dailyOver100Draw', 'Daily Over-100 Draw', buildEntryBreakdown(sideGames.dailyOver100Draw, 'Round-by-round payout'));
       pushRow('Daily Pots', 'dailyBirdiePot', 'Daily Birdie Pot', buildBirdieEntryBreakdown(sideGames.dailyBirdiePot, 'Round-by-round payout'));
       pushRow('Daily Pots', 'dailyLongestPuttLastHole', 'Last-Hole Putt', buildEntryBreakdown(sideGames.dailyLongestPuttLastHole, 'Round-by-round payout'));
-      pushRow('Daily Pots', 'lastChanceRedemptionPot', 'Last-Chance Redemption Pot', buildSingleBreakdown(getPayoutRow('lastChanceRedemptionPot')));
       pushRow('Daily Pots', 'redemptionBirdiePot', 'Redemption Birdie Pot', buildSingleBreakdown(getPayoutRow('redemptionBirdiePot')));
-      pushRow('Daily Pots', 'finalDayHighHole', 'Final-Day Single-Hole High Score', buildSingleBreakdown(getPayoutRow('finalDayHighHole')));
       pushRow('Trip-Long Pots', 'weeklyNet', 'Weekly Net Champion', buildSingleBreakdown(getPayoutRow('weeklyNet')));
       pushRow('Trip-Long Pots', 'weeklyOver100Draw', 'Weekly Over-100 Draw', buildSingleBreakdown(getPayoutRow('weeklyOver100Draw')));
       pushRow('Trip-Long Pots', 'closestToPin', 'Closest To Pin', buildSingleBreakdown(getPayoutRow('closestToPin')));
       pushRow('Trip-Long Pots', 'birdiePool', 'Trip Birdie Pool', buildTripBirdieBreakdown(sideGames.birdiePool, getPayoutRow('birdiePool')));
-      pushRow('Trip-Long Pots', 'leftoverPot', 'Leftover Pot', buildSingleBreakdown(getPayoutRow('leftoverPot')));
       pushRow('Trip-Long Pots', 'mvp', 'Ryder Cup MVP', buildSingleBreakdown(getPayoutRow('mvp')));
       return rowsForSection;
     }
@@ -5271,7 +5229,7 @@
     function renderRyderCupSection(ryderCup = null) {
       if (!ryderCup) return '';
       return `
-        <details class="competition-section section-anchor" id="competitionSection" open>
+        <details class="competition-section section-anchor" id="competitionSection">
           <summary>
             <span>${escapeHtml(ryderCup.title || 'Myrtle Ryder Cup')}</span>
             <span class="competition-note">Enter scores and update the standings</span>
@@ -5883,11 +5841,16 @@
                 `).join('')
               : '<div class="trip-unassigned-empty">Drop a golfer here to take them out of the tee sheet.</div>';
             return `
-              <article class="trip-event-card">
-                <div class="trip-event-top">
-                  <h3 class="trip-event-course">${courseMarkup}</h3>
-                  <span class="trip-event-time">${escapeHtml(firstTime ? `First tee ${formatTime12(firstTime)}` : 'Time TBD')}</span>
-                </div>
+              <details class="trip-event-card">
+                <summary>
+                  <div class="trip-event-top">
+                    <div class="trip-event-summary-copy">
+                      <h3 class="trip-event-course">${courseMarkup}</h3>
+                      ${ryderRound ? `<div class="competition-note">${escapeHtml(ryderRound.title || `Round ${Number(roundIndex) + 1}`)} · ${escapeHtml(ryderRound.format || 'Myrtle Ryder Cup round')}</div>` : ''}
+                    </div>
+                    <span class="trip-event-time">${escapeHtml(firstTime ? `First tee ${formatTime12(firstTime)}` : 'Time TBD')}</span>
+                  </div>
+                </summary>
                 ${ryderRound ? `<div class="competition-note" style="margin-top:6px;">${escapeHtml(ryderRound.title || `Round ${Number(roundIndex) + 1}`)} · ${escapeHtml(ryderRound.format || 'Myrtle Ryder Cup round')}</div>` : ''}
                 ${metaRowMarkup}
                 ${slotMarkup ? `<div class="trip-slot-grid">${slotMarkup}</div>` : '<div class="trip-empty-state">No tee sheet entered.</div>'}
@@ -5903,7 +5866,7 @@
                   ${googleUrl ? `<a class="trip-event-link" href="${googleUrl}" target="_blank" rel="noopener">Google Calendar</a>` : ''}
                   ${waze ? `<a class="trip-event-link" href="${waze}" target="_blank" rel="noopener">Waze</a>` : ''}
                 </div>
-              </article>
+              </details>
             `;
           }).join('')}
         </div>
@@ -6714,22 +6677,10 @@
           dailyOver100Draw,
           dailyBirdiePot,
           dailyLongestPuttLastHole,
-          lastChanceRedemptionPot: {
-            winnerNames: parseWinnerList((document.getElementById('ryderLastChanceRedemptionWinners') || {}).value || ''),
-            amount: parseHandicapValue((document.getElementById('ryderLastChanceRedemptionAmount') || {}).value),
-            notes: String((document.getElementById('ryderLastChanceRedemptionNotes') || {}).value || '').trim(),
-          },
           redemptionBirdiePot: {
             winnerNames: parseWinnerList((document.getElementById('ryderRedemptionBirdieWinners') || {}).value || ''),
             amount: parseHandicapValue((document.getElementById('ryderRedemptionBirdieAmount') || {}).value),
             notes: String((document.getElementById('ryderRedemptionBirdieNotes') || {}).value || '').trim(),
-          },
-          finalDayHighHole: {
-            winnerNames: parseWinnerList((document.getElementById('ryderFinalDayHighHoleWinners') || {}).value || ''),
-            hole: parseHandicapValue((document.getElementById('ryderFinalDayHighHoleHole') || {}).value),
-            score: parseHandicapValue((document.getElementById('ryderFinalDayHighHoleScore') || {}).value),
-            amount: parseHandicapValue((document.getElementById('ryderFinalDayHighHoleAmount') || {}).value),
-            notes: String((document.getElementById('ryderFinalDayHighHoleNotes') || {}).value || '').trim(),
           },
           weeklyNet: {
             winnerNames: parseWinnerList((document.getElementById('ryderWeeklyNetWinners') || {}).value || ''),
@@ -6747,10 +6698,6 @@
             counts: parseRyderCupBirdieCounts((document.getElementById('ryderBirdieCountsField') || {}).value || ''),
             amount: parseHandicapValue((document.getElementById('ryderBirdieAmountField') || {}).value),
             notes: String((document.getElementById('ryderBirdieNotesField') || {}).value || '').trim(),
-          },
-          leftoverPot: {
-            amount: parseHandicapValue((document.getElementById('ryderLeftoverPotAmountField') || {}).value),
-            notes: String((document.getElementById('ryderLeftoverPotNotesField') || {}).value || '').trim(),
           },
           mvp: {
             overrideWinners: parseWinnerList((document.getElementById('ryderMvpWinnersField') || {}).value || ''),

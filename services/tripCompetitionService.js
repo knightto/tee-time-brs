@@ -3473,7 +3473,7 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
   const weeklyAmount = resolveConfiguredAmount(sideGames && sideGames.weeklyNet ? sideGames.weeklyNet.amount : null, allocation.weeklyNet);
   const weeklyOver100Amount = resolveConfiguredAmount(sideGames && sideGames.weeklyOver100Draw ? sideGames.weeklyOver100Draw.amount : null, 0);
   const birdieAmount = resolveConfiguredAmount(sideGames && sideGames.birdiePool ? sideGames.birdiePool.amount : null, allocation.birdiePool);
-  const leftoverPotAmount = resolveConfiguredAmount(sideGames && sideGames.leftoverPot ? sideGames.leftoverPot.amount : null, 0);
+  const leftoverPotAmount = 0;
   const closestAmount = closestEntries.some((entry) => asFiniteNumber(entry && entry.amount) !== null)
     ? sumEntryAmounts(closestEntries)
     : resolveConfiguredAmount(null, allocation.closestToPin);
@@ -3491,7 +3491,6 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
     + weeklyAmount
     + weeklyOver100Amount
     + birdieAmount
-    + leftoverPotAmount
     + closestAmount
     + mvpAmount
   );
@@ -3583,17 +3582,6 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
       group: 'daily',
     }),
     buildPrizeRow({
-      key: 'lastChanceRedemptionPot',
-      label: 'Last-Chance Redemption Pot',
-      amount: lastChanceRedemptionAmount,
-      winners: sideGames.lastChanceRedemptionPot && Array.isArray(sideGames.lastChanceRedemptionPot.winnerNames) ? sideGames.lastChanceRedemptionPot.winnerNames : [],
-      winnerLabel: buildWinnerLabel(sideGames.lastChanceRedemptionPot && sideGames.lastChanceRedemptionPot.winnerNames, 'Pending'),
-      perPerson: sideGames.lastChanceRedemptionPot && sideGames.lastChanceRedemptionPot.winnerNames && sideGames.lastChanceRedemptionPot.winnerNames.length
-        ? lastChanceRedemptionAmount / sideGames.lastChanceRedemptionPot.winnerNames.length
-        : null,
-      group: 'daily',
-    }),
-    buildPrizeRow({
       key: 'redemptionBirdiePot',
       label: 'Redemption Birdie Pot',
       amount: redemptionBirdieAmount,
@@ -3604,22 +3592,6 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
       shareRows: sideGames && sideGames.redemptionBirdiePot && Array.isArray(sideGames.redemptionBirdiePot.shareRows)
         ? sideGames.redemptionBirdiePot.shareRows
         : [],
-    }),
-    buildPrizeRow({
-      key: 'finalDayHighHole',
-      label: 'Final-Day Single-Hole High Score',
-      amount: finalDayHighHoleAmount,
-      winners: sideGames.finalDayHighHole && Array.isArray(sideGames.finalDayHighHole.winnerNames) ? sideGames.finalDayHighHole.winnerNames : [],
-      winnerLabel: buildWinnerLabel(
-        sideGames.finalDayHighHole && sideGames.finalDayHighHole.winnerNames,
-        cleanString(sideGames && sideGames.finalDayHighHole && sideGames.finalDayHighHole.hole)
-          ? `Hole ${sideGames.finalDayHighHole.hole}${sideGames.finalDayHighHole.score ? ` | Score ${sideGames.finalDayHighHole.score}` : ''}`
-          : 'Pending'
-      ),
-      perPerson: sideGames.finalDayHighHole && sideGames.finalDayHighHole.winnerNames && sideGames.finalDayHighHole.winnerNames.length
-        ? finalDayHighHoleAmount / sideGames.finalDayHighHole.winnerNames.length
-        : null,
-      group: 'daily',
     }),
     buildPrizeRow({
       key: 'weeklyNet',
@@ -3662,14 +3634,6 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
       winnerLabel: buildBirdiePoolLabel(sideGames && sideGames.birdiePool, 'Pending'),
       group: 'trip',
       leftoverAmount: asFiniteNumber(sideGames && sideGames.birdiePool && sideGames.birdiePool.leftoverAmount) || 0,
-    }),
-    buildPrizeRow({
-      key: 'leftoverPot',
-      label: 'Leftover Pot',
-      amount: leftoverPotAmount,
-      winners: [],
-      winnerLabel: cleanString(sideGames && sideGames.leftoverPot && sideGames.leftoverPot.notes) || 'To be determined',
-      group: 'trip',
     }),
     buildPrizeRow({
       key: 'mvp',
@@ -3733,17 +3697,6 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
     })),
     [
       buildPrizeRow({
-        key: 'lastChanceRedemptionPot-winner',
-        label: cleanString(sideGames && sideGames.lastChanceRedemptionPot && sideGames.lastChanceRedemptionPot.label) || 'Last-Chance Redemption Pot',
-        amount: lastChanceRedemptionAmount,
-        winners: sideGames.lastChanceRedemptionPot && Array.isArray(sideGames.lastChanceRedemptionPot.winnerNames) ? sideGames.lastChanceRedemptionPot.winnerNames : [],
-        winnerLabel: buildWinnerLabel(sideGames.lastChanceRedemptionPot && sideGames.lastChanceRedemptionPot.winnerNames, buildRoundScorePendingLabel(sideGames.lastChanceRedemptionPot, { completeLabel: 'No eligible golfer' })),
-        perPerson: sideGames.lastChanceRedemptionPot && sideGames.lastChanceRedemptionPot.winnerNames && sideGames.lastChanceRedemptionPot.winnerNames.length
-          ? lastChanceRedemptionAmount / sideGames.lastChanceRedemptionPot.winnerNames.length
-          : null,
-        group: 'daily',
-      }),
-      buildPrizeRow({
         key: 'redemptionBirdiePot-winner',
         label: cleanString(sideGames && sideGames.redemptionBirdiePot && sideGames.redemptionBirdiePot.label) || 'Redemption Birdie Pot',
         amount: redemptionBirdieAmount,
@@ -3754,22 +3707,6 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
         shareRows: sideGames && sideGames.redemptionBirdiePot && Array.isArray(sideGames.redemptionBirdiePot.shareRows)
           ? sideGames.redemptionBirdiePot.shareRows
           : [],
-      }),
-      buildPrizeRow({
-        key: 'finalDayHighHole-winner',
-        label: cleanString(sideGames && sideGames.finalDayHighHole && sideGames.finalDayHighHole.label) || 'Final-Day Single-Hole High Score',
-        amount: finalDayHighHoleAmount,
-        winners: sideGames.finalDayHighHole && Array.isArray(sideGames.finalDayHighHole.winnerNames) ? sideGames.finalDayHighHole.winnerNames : [],
-        winnerLabel: buildWinnerLabel(
-          sideGames.finalDayHighHole && sideGames.finalDayHighHole.winnerNames,
-          sideGames.finalDayHighHole && Number.isFinite(asFiniteNumber(sideGames.finalDayHighHole.score))
-            ? `Hole ${sideGames.finalDayHighHole.hole || '?'} | Score ${sideGames.finalDayHighHole.score}`
-            : 'Pending'
-        ),
-        perPerson: sideGames.finalDayHighHole && sideGames.finalDayHighHole.winnerNames && sideGames.finalDayHighHole.winnerNames.length
-          ? finalDayHighHoleAmount / sideGames.finalDayHighHole.winnerNames.length
-          : null,
-        group: 'daily',
       }),
     ],
     [
@@ -3831,14 +3768,6 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
         shareRows: sideGames && sideGames.birdiePool && Array.isArray(sideGames.birdiePool.shareRows)
           ? sideGames.birdiePool.shareRows
           : [],
-      }),
-      buildPrizeRow({
-        key: 'leftoverPot-winner',
-        label: 'Leftover Pot',
-        amount: leftoverPotAmount,
-        winners: [],
-        winnerLabel: cleanString(sideGames && sideGames.leftoverPot && sideGames.leftoverPot.notes) || 'To be determined',
-        group: 'trip',
       }),
       buildPrizeRow({
         key: 'mvp-winner',

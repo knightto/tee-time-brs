@@ -156,6 +156,7 @@ if ('serviceWorker' in navigator) {
   let selectedDateRequestSeq = 0;
   let activeMobileFilter = 'all';
   let starterMode = false;
+  let teeDragState = null;
   let starterEventViewIds = loadStarterEventViewIds();
   const initialSelectedDateFromUrl = (() => {
     try {
@@ -2025,7 +2026,7 @@ if ('serviceWorker' in navigator) {
       // keep a safe-quoted title for tooltips so long names can be seen on hover
       const safe = String(p.name || '').replace(/"/g, '&quot;');
       const checkedIn = !!p.checkedIn;
-      return `<span class="chip ${checkedIn ? 'checked-in' : ''}" title="${safe}">
+      return `<span class="chip ${checkedIn ? 'checked-in' : ''}" title="${safe}" draggable="true" data-drag-player="${ev._id}:${tt._id}:${p._id}">
         <span class="chip-label" title="${safe}">${p.name}</span>
         <span class="chip-actions">
           <button class="icon small ${checkedIn ? 'ok' : ''}" title="${checkedIn ? 'Checked in' : 'Mark checked in'}" data-toggle-checkin="${ev._id}:${tt._id}:${p._id}:${checkedIn ? '1' : '0'}">${checkedIn ? '✓' : '○'}</button>
@@ -2064,7 +2065,7 @@ if ('serviceWorker' in navigator) {
       const editTitle = 'Edit team name';
       editBtn = `<button class="icon small" title="${editTitle}" data-edit-tee="${ev._id}:${tt._id}">✎</button>`;
     }
-    return `<div class="${teeClasses.join(' ')}">
+    return `<div class="${teeClasses.join(' ')}" data-drop-tee="${ev._id}:${tt._id}" data-slot-max="${slotMax}" data-player-count="${count}">
       <div class="tee-meta">
         <div class="tee-time">${left} <span style="font-size:11px;opacity:0.8">(${count}/${slotMax})</span></div>
         <div class="tee-summary" style="font-size:11px;color:var(--slate-700)">${openSpots} open</div>
@@ -2080,6 +2081,103 @@ if ('serviceWorker' in navigator) {
       </div>
     </div>`;
   }
+
+  function clearTeeDragUi(){
+    document.querySelectorAll('.chip.is-dragging').forEach((node) => node.classList.remove('is-dragging'));
+    document.querySelectorAll('.tee.is-drop-target').forEach((node) => node.classList.remove('is-drop-target'));
+    document.querySelectorAll('.tee.is-drop-invalid').forEach((node) => node.classList.remove('is-drop-invalid'));
+  }
+
+  function parseDragPlayerValue(value = ''){
+    const [eventId, fromTeeId, playerId] = String(value || '').split(':');
+    if (!eventId || !fromTeeId || !playerId) return null;
+    return { eventId, fromTeeId, playerId };
+  }
+
+  async function movePlayerToTee(eventId, fromTeeId, toTeeId, playerId){
+    if (!eventId || !fromTeeId || !toTeeId || !playerId) return;
+    if (String(fromTeeId) === String(toTeeId)) return;
+    const updatedEvent = await api(`/api/events/${eventId}/move-player`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ fromTeeId, toTeeId, playerId })
+    });
+    await updateEventCard(eventId, updatedEvent);
+  }
+
+  function syncTeeDropUi(target){
+    if (!teeDragState) return;
+    clearTeeDragUi();
+    const dragChip = document.querySelector(`[data-drag-player="${CSS.escape(`${teeDragState.eventId}:${teeDragState.fromTeeId}:${teeDragState.playerId}`)}"]`);
+    if (dragChip) dragChip.classList.add('is-dragging');
+    if (!target) return;
+    const [eventId, toTeeId] = String(target.dataset.dropTee || '').split(':');
+    const maxSize = Number(target.dataset.slotMax || 4);
+    const playerCount = Number(target.dataset.playerCount || 0);
+    if (String(eventId) !== String(teeDragState.eventId) || String(toTeeId) === String(teeDragState.fromTeeId)) return;
+    target.classList.add(playerCount < maxSize ? 'is-drop-target' : 'is-drop-invalid');
+  }
+
+  on(eventsEl, 'dragstart', (e) => {
+    const chip = e.target.closest('[data-drag-player]');
+    if (!chip) return;
+    const parsed = parseDragPlayerValue(chip.dataset.dragPlayer);
+    if (!parsed) return;
+    teeDragState = parsed;
+    chip.classList.add('is-dragging');
+    if (e.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
+      e.dataTransfer.setData('text/plain', chip.dataset.dragPlayer);
+    }
+  });
+
+  on(eventsEl, 'dragover', (e) => {
+    const target = e.target.closest('[data-drop-tee]');
+    if (!target || !teeDragState) return;
+    const [eventId, toTeeId] = String(target.dataset.dropTee || '').split(':');
+    if (String(eventId) !== String(teeDragState.eventId) || String(toTeeId) === String(teeDragState.fromTeeId)) return;
+    e.preventDefault();
+    const maxSize = Number(target.dataset.slotMax || 4);
+    const playerCount = Number(target.dataset.playerCount || 0);
+    if (e.dataTransfer) e.dataTransfer.dropEffect = playerCount < maxSize ? 'move' : 'none';
+    syncTeeDropUi(target);
+  });
+
+  on(eventsEl, 'dragleave', (e) => {
+    const target = e.target.closest('[data-drop-tee]');
+    if (!target) return;
+    const related = e.relatedTarget;
+    if (related && target.contains(related)) return;
+    target.classList.remove('is-drop-target', 'is-drop-invalid');
+  });
+
+  on(eventsEl, 'dragend', () => {
+    teeDragState = null;
+    clearTeeDragUi();
+  });
+
+  on(eventsEl, 'drop', async (e) => {
+    const target = e.target.closest('[data-drop-tee]');
+    if (!target || !teeDragState) return;
+    e.preventDefault();
+    const dragState = teeDragState;
+    teeDragState = null;
+    clearTeeDragUi();
+    const [eventId, toTeeId] = String(target.dataset.dropTee || '').split(':');
+    if (String(eventId) !== String(dragState.eventId) || String(toTeeId) === String(dragState.fromTeeId)) return;
+    const maxSize = Number(target.dataset.slotMax || 4);
+    const playerCount = Number(target.dataset.playerCount || 0);
+    if (playerCount >= maxSize) {
+      showToast('That tee time is already full.', 'error');
+      return;
+    }
+    try {
+      await movePlayerToTee(dragState.eventId, dragState.fromTeeId, toTeeId, dragState.playerId);
+    } catch (err) {
+      console.error(err);
+      showToast('Move failed: ' + (err.message || 'Unknown error'), 'error');
+    }
+  });
 
   on(eventsEl, 'click', async (e)=>{
     const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-ics],[data-toggle-starter-event]')||e.target);
@@ -2612,9 +2710,8 @@ if ('serviceWorker' in navigator) {
     const playerId=moveForm.elements['playerId'].value;
     const toTeeId=moveForm.elements['dest'].value;
     try{
-      const updatedEvent = await api(`/api/events/${eventId}/move-player`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({fromTeeId,toTeeId,playerId})});
+      await movePlayerToTee(eventId, fromTeeId, toTeeId, playerId);
       moveModal.close?.();
-      await updateEventCard(eventId, updatedEvent);
     }catch(err){ 
       console.error(err);
       const msg = err.message || 'Move failed';

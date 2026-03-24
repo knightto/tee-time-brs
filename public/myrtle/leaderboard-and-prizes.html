@@ -214,14 +214,11 @@
       pushRow('Daily Over-100 Draw', 'dailyOver100Draw', latestDailyOver100 ? `${latestDailyOver100.label}: ${formatWinnerList(latestDailyOver100.winnerNames)}` : 'Pending');
       pushRow('Daily Birdie Pot', 'dailyBirdiePot', latestDailyBirdie ? `${latestDailyBirdie.label}: ${formatBirdiePoolDetail(latestDailyBirdie, 'Pending')}` : 'Pending');
       pushRow('Longest Made Putt', 'dailyLongestPuttLastHole', latestLongestPutt ? `${latestLongestPutt.label}: ${formatWinnerList(latestLongestPutt.winnerNames)}` : 'Pending');
-      pushRow('Last-Chance Redemption', 'lastChanceRedemptionPot', sideGames.lastChanceRedemptionPot ? `${sideGames.lastChanceRedemptionPot.label || 'Last-Chance Redemption Pot'}: ${formatWinnerList(sideGames.lastChanceRedemptionPot.winnerNames) || 'Pending'}` : 'Pending');
       pushRow('Redemption Birdie Pot', 'redemptionBirdiePot', sideGames.redemptionBirdiePot ? `${sideGames.redemptionBirdiePot.label || 'Redemption Birdie Pot'}: ${formatBirdiePoolDetail(sideGames.redemptionBirdiePot, 'Pending')}` : 'Pending');
-      pushRow('Single-Hole High Score', 'finalDayHighHole', sideGames.finalDayHighHole ? `${sideGames.finalDayHighHole.label || 'Final-Day Single-Hole High Score'}: ${formatWinnerList(sideGames.finalDayHighHole.winnerNames) || 'Pending'}${sideGames.finalDayHighHole.hole ? ` | Hole ${sideGames.finalDayHighHole.hole}` : ''}${sideGames.finalDayHighHole.score ? ` | Score ${sideGames.finalDayHighHole.score}` : ''}` : 'Pending');
       pushRow('Weekly Net Champion', 'weeklyNet', formatWinnerList(sideGames.weeklyNet && sideGames.weeklyNet.winnerNames) || 'Pending');
       pushRow('Weekly Over-100 Draw', 'weeklyOver100Draw', formatWinnerList(sideGames.weeklyOver100Draw && sideGames.weeklyOver100Draw.winnerNames) || 'Pending');
       pushRow('Closest To Pin', 'closestToPin', formatWinnerList(sideGames.closestToPin && sideGames.closestToPin.winners) || 'Pending');
       pushRow('Trip Birdie Pool', 'birdiePool', formatBirdiePoolDetail(sideGames.birdiePool, 'Pending'));
-      pushRow('Leftover Pot', 'leftoverPot', (sideGames.leftoverPot && sideGames.leftoverPot.notes) || 'To be determined');
       pushRow('Ryder Cup MVP', 'mvp', formatWinnerList(sideGames.mvp && sideGames.mvp.winners) || 'Pending');
       return rows;
     }
@@ -283,14 +280,11 @@
       pushRow('Daily Pots', 'dailyOver100Draw', 'Daily Over-100 Draw', buildEntryBreakdown(sideGames.dailyOver100Draw, 'Round-by-round payout'));
       pushRow('Daily Pots', 'dailyBirdiePot', 'Daily Birdie Pot', buildBirdieEntryBreakdown(sideGames.dailyBirdiePot, 'Round-by-round payout'));
       pushRow('Daily Pots', 'dailyLongestPuttLastHole', 'Last-Hole Putt', buildEntryBreakdown(sideGames.dailyLongestPuttLastHole, 'Round-by-round payout'));
-      pushRow('Daily Pots', 'lastChanceRedemptionPot', 'Last-Chance Redemption Pot', buildSingleBreakdown(getPayoutRow('lastChanceRedemptionPot')));
       pushRow('Daily Pots', 'redemptionBirdiePot', 'Redemption Birdie Pot', buildSingleBreakdown(getPayoutRow('redemptionBirdiePot')));
-      pushRow('Daily Pots', 'finalDayHighHole', 'Final-Day Single-Hole High Score', buildSingleBreakdown(getPayoutRow('finalDayHighHole')));
       pushRow('Trip-Long Pots', 'weeklyNet', 'Weekly Net Champion', buildSingleBreakdown(getPayoutRow('weeklyNet')));
       pushRow('Trip-Long Pots', 'weeklyOver100Draw', 'Weekly Over-100 Draw', buildSingleBreakdown(getPayoutRow('weeklyOver100Draw')));
       pushRow('Trip-Long Pots', 'closestToPin', 'Closest To Pin', buildSingleBreakdown(getPayoutRow('closestToPin')));
       pushRow('Trip-Long Pots', 'birdiePool', 'Trip Birdie Pool', buildTripBirdieBreakdown(sideGames.birdiePool, getPayoutRow('birdiePool')));
-      pushRow('Trip-Long Pots', 'leftoverPot', 'Leftover Pot', buildSingleBreakdown(getPayoutRow('leftoverPot')));
       pushRow('Trip-Long Pots', 'mvp', 'Ryder Cup MVP', buildSingleBreakdown(getPayoutRow('mvp')));
       return sections;
     }

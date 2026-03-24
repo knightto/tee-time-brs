@@ -422,7 +422,7 @@ function run() {
   assert.strictEqual(myrtleView.ryderCup.payout.rows.some((row) => row.key === 'dailyNetBirdiePot'), false, 'Net birdie payouts should be removed from the Myrtle payout summary');
   assert.strictEqual(myrtleView.ryderCup.payout.rows.find((row) => row.key === 'dailyLongestPuttLastHole').amount, 75, 'Five daily last-hole putt payouts should total $75');
   assert.strictEqual(myrtleView.ryderCup.payout.rows.find((row) => row.key === 'weeklyOver100Draw').amount, 120, 'Weekly over-100 draw should total $120');
-  assert.strictEqual(myrtleView.ryderCup.payout.rows.find((row) => row.key === 'leftoverPot').amount, 0, 'Leftover pot should be $0 (redistributed to birdie pool)');
+  assert.strictEqual(myrtleView.ryderCup.payout.rows.some((row) => row.key === 'leftoverPot'), false, 'Leftover pot should not render as a payout row anymore');
   const zeroClosestToPinTrip = clone(myrtleTrip);
   zeroClosestToPinTrip.competition.ryderCup.payout = {
     ...(zeroClosestToPinTrip.competition.ryderCup.payout || {}),

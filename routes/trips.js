@@ -8,7 +8,12 @@ const ADMIN_DESTRUCTIVE_CONFIRM_CODE = process.env.ADMIN_DESTRUCTIVE_CONFIRM_COD
 const TripPrimary = require('../models/Trip');
 const TripParticipantPrimary = require('../models/TripParticipant');
 const TripAuditLogPrimary = require('../models/TripAuditLog');
-const { buildDefaultTripTemplate, DEFAULT_TEMPLATE_NAME } = require('../services/tripTemplateService');
+const {
+  buildDefaultTripTemplate,
+  buildRyderCupTripTemplate,
+  DEFAULT_TEMPLATE_NAME,
+  RYDER_CUP_TEMPLATE_NAME,
+} = require('../services/tripTemplateService');
 const {
   buildTripCompetitionView,
   setRoundMatchTeams,
@@ -271,6 +276,36 @@ router.post('/templates/default', async (req, res) => {
       trip,
       templateName: DEFAULT_TEMPLATE_NAME,
       message: 'Default golf trip template created.',
+    });
+  } catch (error) {
+    return sendTripRouteError(res, error);
+  }
+});
+
+router.post('/templates/ryder-cup', async (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ error: 'Admin code required' });
+  }
+  try {
+    const { TripModel, TripParticipantModel } = getTripModelsForRequest(req);
+    const payload = buildRyderCupTripTemplate(req.body || {});
+    const trip = await TripModel.create(payload.trip);
+    const participants = await TripParticipantModel.insertMany(
+      (payload.participants || []).map((participant) => ({
+        ...participant,
+        trip: trip._id,
+      }))
+    );
+    if (payload.ryderCup) {
+      const state = setTripRyderCupState(trip, participants, payload.ryderCup);
+      syncTripRyderCupOverlayToCompetition(trip, state);
+      await trip.save();
+    }
+    return res.status(201).json({
+      trip: normalizeLegacyMyrtleTripTeeSheet(trip),
+      participants,
+      templateName: RYDER_CUP_TEMPLATE_NAME,
+      message: 'Ryder Cup trip created from template.',
     });
   } catch (error) {
     return sendTripRouteError(res, error);
