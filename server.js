@@ -4,7 +4,7 @@ async function alertNearlyFullTeeTimes(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   const fourDaysOut = new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000);
   // Find all tee-time events (not team events) within next 4 days (inclusive)
   const scopedGroupSlug = normalizeGroupSlug(groupSlug);
-  const events = await Event.find({ groupSlug: scopedGroupSlug, isTeamEvent: false, date: { $gte: now, $lte: fourDaysOut } }).lean();
+  const events = await Event.find({ ...groupScopeFilter(scopedGroupSlug), isTeamEvent: false, date: { $gte: now, $lte: fourDaysOut } }).lean();
   let blocks = [];
   for (const ev of events) {
     if (!Array.isArray(ev.teeTimes) || !ev.teeTimes.length) continue;
@@ -595,7 +595,7 @@ app.post('/webhooks/resend', async (req, res) => {
           const matches = await findMatchingEvents();
           if (matches.length) {
             const primary = matches[0];
-            await Event.findOneAndDelete({ _id: primary._id, groupSlug: normalizeGroupSlug(primary.groupSlug) });
+            await Event.findOneAndDelete({ ...groupScopeFilter(primary.groupSlug), _id: primary._id });
             console.log('[webhook] Event cancelled from email (removed match):', primary._id);
             // Notify subscribers about the cancellation (non-blocking)
             const teeMatch = (primary.teeTimes || []).find(tt => tt && tt.time === eventPayload.teeTime);
@@ -1116,7 +1116,7 @@ async function sendEmailViaResendApi(to, subject, html, options = {}) {
 async function areNotificationsEnabled(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   if (!Settings) return true; // Default to enabled if Settings model not available
   try {
-    const setting = await Settings.findOne({ groupSlug: normalizeGroupSlug(groupSlug), key: 'notificationsEnabled' });
+    const setting = await Settings.findOne({ ...groupScopeFilter(groupSlug), key: 'notificationsEnabled' });
     return setting ? setting.value !== false : true; // Default to true if not set
   } catch (e) {
     console.error('Error checking notification settings:', e);
@@ -1167,7 +1167,7 @@ async function areSchedulerJobsEnabled(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   let enabled = true;
   if (Settings) {
     try {
-      const setting = await Settings.findOne({ groupSlug: cacheKey, key: 'schedulerEnabled' });
+      const setting = await Settings.findOne({ ...groupScopeFilter(cacheKey), key: 'schedulerEnabled' });
       enabled = setting ? setting.value !== false : true;
     } catch (e) {
       console.error('Error checking scheduler settings:', e);
@@ -1199,7 +1199,7 @@ async function getScheduledEmailRules(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   let rules = { ...SCHEDULED_EMAIL_RULE_DEFAULTS };
   if (Settings) {
     try {
-      const setting = await Settings.findOne({ groupSlug: cacheKey, key: 'scheduledEmailRules' });
+      const setting = await Settings.findOne({ ...groupScopeFilter(cacheKey), key: 'scheduledEmailRules' });
       rules = normalizeScheduledEmailRules(setting && setting.value);
     } catch (e) {
       console.error('Error checking scheduled email rule settings:', e);
@@ -1325,7 +1325,7 @@ async function sendEmailToAll(subject, html, options = {}) {
     console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'Notifications disabled for group, skipping email', groupSlug }));
     return { ok:true, sent:0, disabled:true };
   }
-  const subs = await Subscriber.find({ groupSlug }).lean();
+  const subs = await Subscriber.find({ ...groupScopeFilter(groupSlug) }).lean();
   if (!subs.length) return { ok:true, sent:0 };
   let sent = 0;
   for (const s of subs) {
@@ -1583,12 +1583,27 @@ function getGroupSlug(req, fallback = DEFAULT_SITE_GROUP_SLUG) {
   );
 }
 
+function groupScopeFilter(groupSlug = DEFAULT_SITE_GROUP_SLUG, fieldName = 'groupSlug') {
+  const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
+  if (normalizedGroupSlug === DEFAULT_SITE_GROUP_SLUG) {
+    return {
+      $or: [
+        { [fieldName]: normalizedGroupSlug },
+        { [fieldName]: { $exists: false } },
+        { [fieldName]: null },
+        { [fieldName]: '' },
+      ],
+    };
+  }
+  return { [fieldName]: normalizedGroupSlug };
+}
+
 function scopeQuery(req, extra = {}) {
-  return { groupSlug: getGroupSlug(req), ...extra };
+  return { ...groupScopeFilter(getGroupSlug(req)), ...extra };
 }
 
 function scopedSettingQuery(groupSlug, key) {
-  return { groupSlug: normalizeGroupSlug(groupSlug), key: String(key || '').trim() };
+  return { ...groupScopeFilter(groupSlug), key: String(key || '').trim() };
 }
 
 async function getAllManagedGroupSlugs() {
@@ -1608,7 +1623,7 @@ async function getAllManagedGroupSlugs() {
 }
 
 async function findScopedEventById(req, eventId, options = {}) {
-  const query = Event.findOne(scopeQuery(req, { _id: eventId }));
+  const query = Event.findOne({ ...groupScopeFilter(getGroupSlug(req)), _id: eventId });
   if (options.lean) query.lean();
   return query;
 }
@@ -2901,7 +2916,7 @@ app.post('/api/events/:id/dedupe', async (req, res) => {
       : matches[0]._id;
 
     const toRemove = matches.filter((m) => String(m._id) !== String(keepId)).map((m) => m._id);
-    const delResult = await Event.deleteMany({ groupSlug: ev.groupSlug, _id: { $in: toRemove } });
+    const delResult = await Event.deleteMany({ ...groupScopeFilter(ev.groupSlug), _id: { $in: toRemove } });
     console.log('[dedupe] Removed duplicate events', { keepId: String(keepId), removed: delResult.deletedCount, ids: toRemove.map(String) });
 
     return res.json({ ok: true, keptId: keepId, removed: delResult.deletedCount, removedIds: toRemove, matched: matches.length });
@@ -4041,7 +4056,7 @@ app.post('/api/subscribe', async (req, res) => {
     const subscriberData = { groupSlug, email: email.toLowerCase() };
     
     // Check if subscriber already exists
-    let existing = await Subscriber.findOne({ groupSlug, email: subscriberData.email });
+    let existing = await Subscriber.findOne({ ...groupScopeFilter(groupSlug), email: subscriberData.email });
     
     let s;
     if (existing) {
@@ -4248,13 +4263,13 @@ app.get('/api/admin/subscribers', async (req, res) => {
     const groupSlug = getGroupSlug(req);
     // Migration: Add tokens to existing subscribers without them
     const crypto = require('crypto');
-    const subsWithoutToken = await Subscriber.find({ groupSlug, unsubscribeToken: { $exists: false } });
+    const subsWithoutToken = await Subscriber.find({ ...groupScopeFilter(groupSlug), unsubscribeToken: { $exists: false } });
     for (const sub of subsWithoutToken) {
       sub.unsubscribeToken = crypto.randomBytes(32).toString('hex');
       await sub.save();
     }
     
-    const subscribers = await Subscriber.find({ groupSlug }).sort({ createdAt: -1 }).lean();
+    const subscribers = await Subscriber.find({ ...groupScopeFilter(groupSlug) }).sort({ createdAt: -1 }).lean();
     res.json(subscribers);
   } catch (e) {
     console.error('List subscribers error:', e);
@@ -4270,7 +4285,7 @@ app.delete('/api/admin/subscribers/:id', async (req, res) => {
   
   try {
     if (!Subscriber) return res.status(500).json({ error: 'Subscriber model not available' });
-    const deleted = await Subscriber.findOneAndDelete({ _id: req.params.id, groupSlug: getGroupSlug(req) });
+    const deleted = await Subscriber.findOneAndDelete({ ...groupScopeFilter(getGroupSlug(req)), _id: req.params.id });
     if (!deleted) return res.status(404).json({ error: 'Subscriber not found' });
     res.json({ ok: true });
   } catch (e) {
@@ -4461,7 +4476,7 @@ app.post('/api/admin/send-custom-message', async (req, res) => {
   try {
     if (!Subscriber) return res.status(500).json({ error: 'Subscriber model not available' });
     
-    const subscribers = await Subscriber.find({ groupSlug }).sort({ createdAt: -1 }).lean();
+    const subscribers = await Subscriber.find({ ...groupScopeFilter(groupSlug) }).sort({ createdAt: -1 }).lean();
     if (subscribers.length === 0) {
       return res.json({ count: 0, message: 'No subscribers' });
     }
@@ -4545,7 +4560,7 @@ async function findEmptyTeeTimesForDay(daysAhead = 1, groupSlug = DEFAULT_SITE_G
   const start = new Date(base.getTime() - 12*60*60*1000); // noon previous day UTC
   const end = new Date(base.getTime() + 36*60*60*1000 - 1); // just before noon next day UTC
   const scopedGroupSlug = normalizeGroupSlug(groupSlug);
-  const events = await Event.find({ groupSlug: scopedGroupSlug, isTeamEvent: false, date: { $gte: start, $lte: end } }).lean();
+  const events = await Event.find({ ...groupScopeFilter(scopedGroupSlug), isTeamEvent: false, date: { $gte: start, $lte: end } }).lean();
   const blocks = [];
   for (const ev of events) {
     const eventDateYMD = fmt.dateISO(ev.date);
@@ -4629,7 +4644,7 @@ app.get('/admin/empty-tee-report', async (req, res) => {
     const nowPlus2 = new Date(now.getTime() + 48 * 60 * 60 * 1000);
     const nowPlus3 = new Date(now.getTime() + 72 * 60 * 60 * 1000);
     // Only non-team events
-    const events = await Event.find({ groupSlug, isTeamEvent: false }).lean();
+    const events = await Event.find({ ...groupScopeFilter(groupSlug), isTeamEvent: false }).lean();
     const within1Day = [];
     const within2Days = [];
     const within3Days = [];
@@ -4761,7 +4776,7 @@ async function refreshWeatherForUpcomingEvents(groupSlug = DEFAULT_SITE_GROUP_SL
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     
     const events = await Event.find({
-      groupSlug: scopedGroupSlug,
+      ...groupScopeFilter(scopedGroupSlug),
       date: { $gte: now, $lte: sevenDaysFromNow }
     });
     
