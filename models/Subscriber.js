@@ -3,9 +3,12 @@ const mongoose = require('mongoose');
 const crypto = require('crypto');
 
 const SubscriberSchema = new mongoose.Schema({
-  email: { type: String, required: true, lowercase: true, trim: true, unique: true },
+  groupSlug: { type: String, required: true, lowercase: true, trim: true, default: 'main' },
+  email: { type: String, required: true, lowercase: true, trim: true },
   unsubscribeToken: { type: String, unique: true, sparse: true } // Token for unsubscribe link
 }, { timestamps: true });
+
+SubscriberSchema.index({ groupSlug: 1, email: 1 }, { unique: true });
 
 // Generate unsubscribe token before saving if not present
 SubscriberSchema.pre('save', function(next) {

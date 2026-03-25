@@ -6,7 +6,7 @@ const {
 } = require('./myrtleRyderCupDefaults');
 
 const DEFAULT_TEMPLATE_BUCKET_LABELS = ['Bucket A', 'Bucket B', 'Bucket C', 'Bucket D'];
-const RYDER_CUP_TEMPLATE_NAME = 'Ryder Cup Template';
+const RYDER_CUP_TEMPLATE_NAME = 'Ryder Cup 5 round template';
 const RYDER_CUP_TEMPLATE_GROUP = 'Ryder Cup Group';
 const RYDER_CUP_TEMPLATE_LOCATION = 'Destination TBD';
 const RYDER_CUP_TEMPLATE_PACKAGE = '5 Rounds Ryder Cup';

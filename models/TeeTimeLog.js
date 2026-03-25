@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 
 const TeeTimeLogSchema = new mongoose.Schema(
   {
+    groupSlug: { type: String, required: true, trim: true, lowercase: true, default: 'main', index: true },
     eventId: { type: mongoose.Schema.Types.ObjectId, ref: 'Event', index: true },
     teeId: { type: mongoose.Schema.Types.ObjectId },
     action: { type: String, enum: ['add', 'update', 'delete'], required: true },
@@ -18,6 +19,6 @@ const TeeTimeLogSchema = new mongoose.Schema(
   { timestamps: false }
 );
 
-TeeTimeLogSchema.index({ createdAt: -1 });
+TeeTimeLogSchema.index({ groupSlug: 1, createdAt: -1 });
 
 module.exports = mongoose.model('TeeTimeLog', TeeTimeLogSchema);

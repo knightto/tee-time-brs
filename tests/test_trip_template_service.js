@@ -30,7 +30,7 @@ function run() {
   assert.strictEqual(ryder.trip.competition.ryderCup.title, 'Ryder Cup', 'Competition title should default to Ryder Cup');
   assert.strictEqual(ryder.trip.competition.ryderCup.teams[0].players[0], 'Player 1', 'Seeded roster should flow into the Ryder Cup teams');
   assert.strictEqual(ryder.trip.competition.ryderCup.sideGames.birdiePool.counts[19].playerName, 'Player 20', 'Birdie pool should follow the seeded roster');
-  assert.strictEqual(RYDER_CUP_TEMPLATE_NAME, 'Ryder Cup Template', 'Ryder Cup template constant should expose the public template name');
+  assert.strictEqual(RYDER_CUP_TEMPLATE_NAME, 'Ryder Cup 5 round template', 'Ryder Cup template constant should expose the public template name');
 
   console.log('test_trip_template_service.js passed');
 }

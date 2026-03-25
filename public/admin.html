@@ -306,6 +306,217 @@
       display: none !important;
     }
 
+    .check {
+      display: flex !important;
+      align-items: center;
+      gap: 8px;
+      min-height: 44px;
+      padding: 10px 12px;
+      border: 1px solid #d9e2ec;
+      border-radius: 10px;
+      background: #f8fafc;
+      font-weight: 700;
+    }
+
+    .check input[type="checkbox"] {
+      width: auto;
+      margin: 0;
+    }
+
+    .inventory-toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .inventory-filter-grid {
+      flex: 1 1 320px;
+      display: grid;
+      grid-template-columns: minmax(180px, 1fr) minmax(140px, 180px);
+      gap: 10px;
+    }
+
+    .inventory-filter-grid label {
+      display: grid;
+      gap: 4px;
+      font-size: 12px;
+      color: #334155;
+      font-weight: 700;
+    }
+
+    .inventory-summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .inventory-stat-card {
+      border: 1px solid #d9e2ec;
+      border-radius: 12px;
+      background: #fff;
+      padding: 12px;
+    }
+
+    .inventory-stat-label {
+      margin: 0;
+      font-size: 12px;
+      font-weight: 700;
+      color: #475569;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
+
+    .inventory-stat-value {
+      margin: 6px 0 0 0;
+      font-size: 26px;
+      line-height: 1;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .inventory-groups {
+      display: grid;
+      gap: 10px;
+    }
+
+    .inventory-group {
+      border: 1px solid #d9e2ec;
+      border-radius: 12px;
+      background: #fff;
+      overflow: hidden;
+    }
+
+    .inventory-group summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 12px 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .inventory-group summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .inventory-group-meta {
+      font-size: 12px;
+      font-weight: 700;
+      color: #475569;
+    }
+
+    .inventory-group-body {
+      padding: 0 14px 14px;
+      display: grid;
+      gap: 8px;
+    }
+
+    .inventory-row {
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 10px 12px;
+      background: #f8fafc;
+      display: grid;
+      gap: 6px;
+    }
+
+    .inventory-row-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .inventory-row-title {
+      margin: 0;
+      font-size: 15px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .inventory-row-meta {
+      margin: 0;
+      font-size: 12px;
+      line-height: 1.45;
+      color: #475569;
+    }
+
+    .inventory-tag-list,
+    .inventory-link-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .inventory-tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid #cbd5e1;
+      background: #fff;
+      color: #334155;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .inventory-tag.status-live {
+      border-color: #86efac;
+      background: #ecfdf3;
+      color: #166534;
+    }
+
+    .inventory-tag.status-upcoming,
+    .inventory-tag.status-open {
+      border-color: #93c5fd;
+      background: #eff6ff;
+      color: #1d4ed8;
+    }
+
+    .inventory-tag.status-completed,
+    .inventory-tag.status-past {
+      border-color: #cbd5e1;
+      background: #f8fafc;
+      color: #475569;
+    }
+
+    .inventory-tag.status-draft,
+    .inventory-tag.status-waitlist {
+      border-color: #fcd34d;
+      background: #fffbeb;
+      color: #92400e;
+    }
+
+    .inventory-link-list a {
+      font-size: 12px;
+      font-weight: 700;
+      text-decoration: none;
+      color: #1d4ed8;
+      padding: 4px 8px;
+      border-radius: 999px;
+      border: 1px solid #bfdbfe;
+      background: #eff6ff;
+    }
+
+    .inventory-link-list a:hover {
+      background: #dbeafe;
+    }
+
+    .inventory-empty {
+      border: 1px dashed #cbd5e1;
+      border-radius: 10px;
+      padding: 12px;
+      background: #f8fafc;
+      color: #64748b;
+      font-size: 13px;
+    }
+
     button.btn-test,
     button.btn-delete {
       border: none;
@@ -668,6 +879,14 @@
         grid-template-columns: 1fr;
       }
 
+      .inventory-filter-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .inventory-row-head {
+        flex-direction: column;
+      }
+
       .toggle-card {
         flex-direction: column;
         align-items: stretch;
@@ -783,7 +1002,8 @@
   <div class="admin-container">
     <nav class="section-nav">
       <a href="#quickActionsSection">Quick Actions</a>
-      <a href="#tripTemplatesSection">Trip Templates</a>
+      <a href="#tripTemplatesSection">Templates</a>
+      <a href="#siteInventorySection">Site Inventory</a>
       <a href="#backupsSection">Backups</a>
       <a href="#notificationsSection">Notifications</a>
       <a href="#scheduledEmailRulesSection">Email Rules</a>
@@ -802,16 +1022,19 @@
     </section>
 
     <section id="tripTemplatesSection" class="admin-section section-quick">
-      <h2>Trip Templates</h2>
-      <p class="section-intro">Create a new Myrtle-style trip from the reusable Ryder Cup template. This writes to the Myrtle secondary trip database so the Myrtle trip pages can open it right away.</p>
+      <h2>Templates</h2>
+      <p class="section-intro">Manage reusable templates here. This includes trip templates and full site-package templates that can be prepared for individual groups.</p>
       <div class="template-builder-shell">
         <div class="template-builder-card">
           <div class="template-builder-head">
             <div>
-              <p class="template-builder-title">Ryder Cup Template</p>
+              <p class="template-builder-title">Ryder Cup 5 round template</p>
               <p class="template-builder-meta">Uses the Myrtle Ryder Cup structure: 5 rounds, 20 seeded players, seeded team matches, side games, payouts, and the existing Myrtle trip, standings, and prize pages.</p>
             </div>
             <button class="btn-test btn-blue" type="button" id="openRyderCupTemplateBtn">Create Trip From Template</button>
+          </div>
+          <div class="template-links" style="margin-top:0;margin-bottom:10px;">
+            <a href="#" id="downloadRyderCupTemplateGuideLink">Download Template Guide</a>
           </div>
           <div id="ryderCupTemplateFormShell" class="template-form-shell" hidden>
             <p class="template-help" style="margin-bottom:10px;">Answer these setup questions before the trip is created.</p>
@@ -828,7 +1051,7 @@
               <div class="template-question-grid">
                 <label>
                   <span>Trip Name</span>
-                  <input id="ryderTripNameInput" type="text" maxlength="120" value="Ryder Cup Template" required>
+                  <input id="ryderTripNameInput" type="text" maxlength="120" value="Ryder Cup 5 round template" required>
                 </label>
                 <label>
                   <span>Group Name</span>
@@ -918,7 +1141,164 @@
           <div id="ryderCupTemplateResult" class="test-result"></div>
           <div id="ryderCupTemplateLinks" class="template-links"></div>
         </div>
+        <div class="template-builder-card">
+          <div class="template-builder-head">
+            <div>
+              <p class="template-builder-title">Group site package template</p>
+              <p class="template-builder-meta">Packages the current tee-times stack into a deployable template spec for an individual group, including the main tee-times flow, admin functions, optional modules, deployment checklist, external dependencies, and source-file map.</p>
+            </div>
+            <button class="btn-test btn-blue" type="button" id="openTeeTimesSiteTemplateBtn">Create Group From Template</button>
+          </div>
+          <div class="template-links" style="margin-top:0;margin-bottom:10px;">
+            <a href="#" id="downloadTeeTimesSiteTemplateGuideLink">Download Deployment Guide</a>
+          </div>
+          <div id="teeTimesSiteTemplateFormShell" class="template-form-shell" hidden>
+            <p class="template-help" style="margin-bottom:10px;">Answer these setup questions before the package is generated.</p>
+            <div class="status-note warn" style="margin-bottom:10px;">Group deployments can now share the live stack when launched with a unique `group` slug. For lower-risk rollouts, a separate database and env config per group is still the safer option.</div>
+            <ul class="template-question-list">
+              <li>What should the site be called for this group?</li>
+              <li>What short app name and group/club names should be used?</li>
+              <li>What primary/secondary emails, reply-to email, club-request email, phones, icon, and theme color should ship in the package profile?</li>
+              <li>Which optional modules should be included beyond the core tee-times and admin pages?</li>
+              <li>Any deployment or branding notes that should stay with the package?</li>
+            </ul>
+            <form id="teeTimesSiteTemplateForm" class="template-question-stack">
+              <div class="template-question-grid">
+                <label>
+                  <span>Site Title</span>
+                  <input id="siteTemplateTitleInput" type="text" maxlength="120" value="Thursday Seniors Tee Times" required>
+                </label>
+                <label>
+                  <span>Short App Title</span>
+                  <input id="siteTemplateShortTitleInput" type="text" maxlength="60" value="Thursday Seniors" required>
+                </label>
+                <label>
+                  <span>Group Name</span>
+                  <input id="siteTemplateGroupNameInput" type="text" maxlength="120" value="Thursday Seniors Group" required>
+                </label>
+                <label>
+                  <span>Package Slug</span>
+                  <input id="siteTemplatePackageSlugInput" type="text" maxlength="120" value="thursday-seniors-group" required>
+                </label>
+                <label>
+                  <span>Club Name</span>
+                  <input id="siteTemplateClubNameInput" type="text" maxlength="120" value="Thursday Seniors Group" required>
+                </label>
+                <label>
+                  <span>Club Request Button Label</span>
+                  <input id="siteTemplateClubRequestLabelInput" type="text" maxlength="140" value="Request a Tee Time for Thursday Seniors Group" required>
+                </label>
+                <label>
+                  <span>Primary Contact Email</span>
+                  <input id="siteTemplatePrimaryEmailInput" type="email" maxlength="120" value="admin@example.com" required>
+                </label>
+                <label>
+                  <span>Club Request Email</span>
+                  <input id="siteTemplateClubEmailInput" type="email" maxlength="120" value="golfshop@example.com" required>
+                </label>
+                <label>
+                  <span>Secondary Contact Email</span>
+                  <input id="siteTemplateSecondaryEmailInput" type="email" maxlength="120" placeholder="Optional">
+                </label>
+                <label>
+                  <span>Reply-To Email</span>
+                  <input id="siteTemplateReplyToEmailInput" type="email" maxlength="120" placeholder="Optional">
+                </label>
+                <label>
+                  <span>Support Phone</span>
+                  <input id="siteTemplatePhoneInput" type="text" maxlength="40" placeholder="Optional">
+                </label>
+                <label>
+                  <span>Club Phone</span>
+                  <input id="siteTemplateClubPhoneInput" type="text" maxlength="40" placeholder="Optional">
+                </label>
+                <label>
+                  <span>SMS / Text Phone</span>
+                  <input id="siteTemplateSmsPhoneInput" type="text" maxlength="40" placeholder="Optional">
+                </label>
+                <label>
+                  <span>Theme Color</span>
+                  <input id="siteTemplateThemeColorInput" type="text" maxlength="20" value="#173224" required>
+                </label>
+                <label>
+                  <span>Icon Asset Name</span>
+                  <input id="siteTemplateIconInput" type="text" maxlength="80" value="knight-club-icon.png" required>
+                </label>
+                <label>
+                  <span>Mongo DB Name</span>
+                  <input id="siteTemplateMongoDbInput" type="text" maxlength="80" value="teetimes_thursday_seniors" required>
+                </label>
+              </div>
+              <div class="template-question-grid">
+                <label class="check">
+                  <input id="siteTemplateIncludeHandicapsInput" type="checkbox" checked>
+                  Include handicaps pages
+                </label>
+                <label class="check">
+                  <input id="siteTemplateIncludeTripsInput" type="checkbox" checked>
+                  Include trip systems
+                </label>
+                <label class="check">
+                  <input id="siteTemplateIncludeOutingsInput" type="checkbox" checked>
+                  Include outings system
+                </label>
+                <label class="check">
+                  <input id="siteTemplateIncludeNotificationsInput" type="checkbox" checked>
+                  Include notifications
+                </label>
+                <label class="check">
+                  <input id="siteTemplateIncludeSchedulerInput" type="checkbox" checked>
+                  Include scheduler rules
+                </label>
+                <label class="check">
+                  <input id="siteTemplateIncludeBackupsInput" type="checkbox" checked>
+                  Include backups
+                </label>
+              </div>
+              <label>
+                <span>Admin Alert Phones</span>
+                <textarea id="siteTemplateAdminPhonesInput" rows="3" placeholder="One phone per line"></textarea>
+              </label>
+              <label>
+                <span>Deployment Notes</span>
+                <textarea id="siteTemplateNotesInput" rows="5" placeholder="Optional branding, deploy, or setup notes for this group package"></textarea>
+              </label>
+              <div class="test-buttons">
+                <button class="btn-test btn-green" type="submit">Build Site Package</button>
+                <button class="btn-test btn-amber" type="button" id="cancelTeeTimesSiteTemplateBtn">Hide Questions</button>
+              </div>
+            </form>
+          </div>
+          <div id="teeTimesSiteTemplateResult" class="test-result"></div>
+          <div id="teeTimesSiteTemplateLinks" class="template-links"></div>
+        </div>
       </div>
+    </section>
+
+    <section id="siteInventorySection" class="admin-section">
+      <h2>Site Inventory</h2>
+      <p class="section-intro">One place to see the different site areas, page groups, and reusable templates that exist in the current projects. Use this as the admin-page directory for what systems are live and where each one is managed.</p>
+      <div class="inventory-toolbar">
+        <div class="inventory-filter-grid">
+          <label>
+            <span>Search Inventory</span>
+            <input id="siteInventorySearchInput" type="search" placeholder="Search by page, project, role, or template">
+          </label>
+          <label>
+            <span>Show</span>
+            <select id="siteInventoryScopeSelect">
+              <option value="all">Everything</option>
+              <option value="pages">Pages</option>
+              <option value="admin">Admin / setup</option>
+              <option value="templates">Templates</option>
+            </select>
+          </label>
+        </div>
+        <button class="btn-test btn-blue" type="button" id="reloadSiteInventoryBtn">Reset Catalog</button>
+      </div>
+      <div id="siteInventoryStatus" class="test-result" style="display:block;">Loading catalog...</div>
+      <div id="siteInventorySummary" class="inventory-summary-grid"></div>
+      <div id="siteInventoryGroups" class="inventory-groups"></div>
     </section>
 
     <section id="backupsSection" class="admin-section section-log">
@@ -1457,6 +1837,65 @@
       };
     }
 
+    function buildRyderCupTemplateGuideMarkdown() {
+      const payload = collectRyderCupTemplatePayload();
+      const courseLines = (payload.courseNames || []).map((course, index) => `- Round ${index + 1}: ${course || `Round ${index + 1} Course`}`);
+      return [
+        '# Ryder Cup 5 Round Template Guide',
+        '',
+        '## Purpose',
+        'Use this template to create a Myrtle-style Ryder Cup trip with five rounds, seeded teams, tee sheets, side games, payouts, and linked Ryder Cup pages.',
+        '',
+        '## Default Setup Profile',
+        `- Trip name: ${payload.name || 'Ryder Cup 5 round template'}`,
+        `- Group name: ${payload.groupName || 'Ryder Cup Group'}`,
+        `- Location: ${payload.location || 'Destination TBD'}`,
+        `- Round 1 start date: ${payload.startDate || 'Not set'}`,
+        `- Team A: ${payload.teamAName || 'Team A'}`,
+        `- Team B: ${payload.teamBName || 'Team B'}`,
+        `- First tee time: ${payload.firstTeeTime || '08:00'}`,
+        `- Tee times per round: ${payload.teeTimeCount || 5}`,
+        `- Minutes between tee times: ${payload.teeIntervalMinutes || 9}`,
+        `- Package type: ${payload.packageType || '5 Rounds Ryder Cup'}`,
+        '',
+        '## Courses',
+        ...courseLines,
+        '',
+        '## Questions You Need To Answer',
+        '- What should the trip be called?',
+        '- What location and group name should show on the trip?',
+        '- What date should round 1 start?',
+        '- What are the final team names?',
+        '- What are the five courses?',
+        '- What tee-time cadence should each round use?',
+        '- What package, reservation, and contact details should be saved?',
+        '- Who are the 20 seeded players and what are their handicap indexes?',
+        '',
+        '## What The Template Creates',
+        '- Five rounds with seeded tee times',
+        '- Twenty participants',
+        '- Ryder Cup overlay and seeded team structure',
+        '- Myrtle standings, prize report, trip, and lodging pages wired to the created trip',
+        '',
+        '## Recommended QA',
+        '1. Open the generated trip page and confirm all five rounds and tee times are present.',
+        '2. Open standings and prize report to confirm the trip context links are correct.',
+        '3. Review roster, team names, and round courses before live use.',
+        '',
+      ].join('\n');
+    }
+
+    function downloadRyderCupTemplateGuide(event) {
+      if (event) event.preventDefault();
+      try {
+        seedRyderCupTemplateDefaults();
+        const guide = buildRyderCupTemplateGuideMarkdown();
+        downloadTextFile('ryder-cup-5-round-template-guide.md', guide, 'text/markdown');
+      } catch (error) {
+        showRyderCupTemplateResult(error.message || 'Failed to build Ryder Cup template guide.', false);
+      }
+    }
+
     async function createTripFromRyderCupTemplate(event) {
       if (event) event.preventDefault();
       clearRyderCupTemplateLinks();
@@ -1483,6 +1922,10 @@
     function initRyderCupTemplateBuilder() {
       seedRyderCupTemplateDefaults();
       const els = getRyderCupTemplateElements();
+      const guideLink = document.getElementById('downloadRyderCupTemplateGuideLink');
+      if (guideLink) {
+        guideLink.addEventListener('click', downloadRyderCupTemplateGuide);
+      }
       if (els.openBtn) {
         els.openBtn.addEventListener('click', () => {
           setRyderCupTemplateQuestionsVisible(true);
@@ -1498,13 +1941,513 @@
       }
     }
 
+    function getTeeTimesSiteTemplateElements() {
+      return {
+        formShell: document.getElementById('teeTimesSiteTemplateFormShell'),
+        form: document.getElementById('teeTimesSiteTemplateForm'),
+        result: document.getElementById('teeTimesSiteTemplateResult'),
+        links: document.getElementById('teeTimesSiteTemplateLinks'),
+        openBtn: document.getElementById('openTeeTimesSiteTemplateBtn'),
+        cancelBtn: document.getElementById('cancelTeeTimesSiteTemplateBtn'),
+      };
+    }
+
+    function seedTeeTimesSiteTemplateDefaults() {
+      const groupNameInput = document.getElementById('siteTemplateGroupNameInput');
+      const siteTitleInput = document.getElementById('siteTemplateTitleInput');
+      const shortTitleInput = document.getElementById('siteTemplateShortTitleInput');
+      const clubNameInput = document.getElementById('siteTemplateClubNameInput');
+      const clubRequestLabelInput = document.getElementById('siteTemplateClubRequestLabelInput');
+      const slugInput = document.getElementById('siteTemplatePackageSlugInput');
+      const mongoDbInput = document.getElementById('siteTemplateMongoDbInput');
+
+      if (groupNameInput && !groupNameInput.value.trim()) groupNameInput.value = 'Thursday Seniors Group';
+      if (siteTitleInput && !siteTitleInput.value.trim()) siteTitleInput.value = 'Thursday Seniors Tee Times';
+      if (shortTitleInput && !shortTitleInput.value.trim()) shortTitleInput.value = 'Thursday Seniors';
+      if (clubNameInput && !clubNameInput.value.trim()) clubNameInput.value = 'Thursday Seniors Group';
+      if (clubRequestLabelInput && !clubRequestLabelInput.value.trim()) clubRequestLabelInput.value = 'Request a Tee Time for Thursday Seniors Group';
+      if (slugInput && !slugInput.value.trim()) slugInput.value = 'thursday-seniors-group';
+      if (mongoDbInput && !mongoDbInput.value.trim()) mongoDbInput.value = 'teetimes_thursday_seniors';
+    }
+
+    function showTeeTimesSiteTemplateResult(message, isSuccess = true) {
+      const result = document.getElementById('teeTimesSiteTemplateResult');
+      if (!result) return;
+      result.textContent = message;
+      result.className = `test-result ${isSuccess ? 'success' : 'error'}`;
+      result.style.display = 'block';
+    }
+
+    function clearTeeTimesSiteTemplateLinks() {
+      const links = document.getElementById('teeTimesSiteTemplateLinks');
+      if (links) links.innerHTML = '';
+    }
+
+    function renderTeeTimesSiteTemplateLinks(filename = '', guideFilename = '', adminArtifactFilename = '') {
+      const links = document.getElementById('teeTimesSiteTemplateLinks');
+      if (!links) return;
+      const safeFilename = String(filename || '').trim() || 'tee-times-site-package.json';
+      const safeGuideFilename = String(guideFilename || '').trim() || 'deployment-guide.md';
+      const safeAdminArtifactFilename = String(adminArtifactFilename || '').trim() || 'group-admin-lite.html';
+      links.innerHTML = `
+        <a href="/admin.html#tripTemplatesSection">Template Section</a>
+        <a href="/" target="_blank" rel="noopener">Open Tee Times</a>
+        <a href="/admin.html" target="_blank" rel="noopener">Open Admin</a>
+        <span style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid #d9e2ec;background:#fff;color:#475569;font-size:12px;font-weight:700;">Downloaded: ${escapeHtml(safeFilename)}</span>
+        <span style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid #d9e2ec;background:#fff;color:#475569;font-size:12px;font-weight:700;">Guide: ${escapeHtml(safeGuideFilename)}</span>
+        <span style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid #d9e2ec;background:#fff;color:#475569;font-size:12px;font-weight:700;">Admin starter: ${escapeHtml(safeAdminArtifactFilename)}</span>
+      `;
+    }
+
+    function setTeeTimesSiteTemplateQuestionsVisible(visible) {
+      const els = getTeeTimesSiteTemplateElements();
+      if (!els.formShell) return;
+      els.formShell.hidden = !visible;
+      if (els.openBtn) els.openBtn.style.display = visible ? 'none' : '';
+      if (visible) {
+        const section = document.getElementById('tripTemplatesSection');
+        if (section) {
+          section.dataset.expanded = 'true';
+          const toggle = section.querySelector(':scope > .section-toggle');
+          const body = section.querySelector(':scope > .section-body');
+          if (toggle) toggle.setAttribute('aria-expanded', 'true');
+          if (body) body.hidden = false;
+        }
+      }
+    }
+
+    function collectTeeTimesSiteTemplatePayload() {
+      return {
+        code: ADMIN_CODE,
+        siteTitle: String(document.getElementById('siteTemplateTitleInput').value || '').trim(),
+        shortTitle: String(document.getElementById('siteTemplateShortTitleInput').value || '').trim(),
+        groupName: String(document.getElementById('siteTemplateGroupNameInput').value || '').trim(),
+        clubName: String(document.getElementById('siteTemplateClubNameInput').value || '').trim(),
+        packageSlug: String(document.getElementById('siteTemplatePackageSlugInput').value || '').trim(),
+        clubRequestLabel: String(document.getElementById('siteTemplateClubRequestLabelInput').value || '').trim(),
+        primaryContactEmail: String(document.getElementById('siteTemplatePrimaryEmailInput').value || '').trim(),
+        clubRequestEmail: String(document.getElementById('siteTemplateClubEmailInput').value || '').trim(),
+        secondaryContactEmail: String(document.getElementById('siteTemplateSecondaryEmailInput').value || '').trim(),
+        replyToEmail: String(document.getElementById('siteTemplateReplyToEmailInput').value || '').trim(),
+        supportPhone: String(document.getElementById('siteTemplatePhoneInput').value || '').trim(),
+        clubPhone: String(document.getElementById('siteTemplateClubPhoneInput').value || '').trim(),
+        smsPhone: String(document.getElementById('siteTemplateSmsPhoneInput').value || '').trim(),
+        adminAlertPhones: String(document.getElementById('siteTemplateAdminPhonesInput').value || '').trim(),
+        themeColor: String(document.getElementById('siteTemplateThemeColorInput').value || '').trim(),
+        iconAssetName: String(document.getElementById('siteTemplateIconInput').value || '').trim(),
+        mongoDbName: String(document.getElementById('siteTemplateMongoDbInput').value || '').trim(),
+        includeHandicaps: Boolean(document.getElementById('siteTemplateIncludeHandicapsInput').checked),
+        includeTrips: Boolean(document.getElementById('siteTemplateIncludeTripsInput').checked),
+        includeOutings: Boolean(document.getElementById('siteTemplateIncludeOutingsInput').checked),
+        includeNotifications: Boolean(document.getElementById('siteTemplateIncludeNotificationsInput').checked),
+        includeScheduler: Boolean(document.getElementById('siteTemplateIncludeSchedulerInput').checked),
+        includeBackups: Boolean(document.getElementById('siteTemplateIncludeBackupsInput').checked),
+        notes: String(document.getElementById('siteTemplateNotesInput').value || '').trim(),
+      };
+    }
+
+    async function downloadTeeTimesSiteTemplateGuide(event) {
+      if (event) event.preventDefault();
+      try {
+        const payload = collectTeeTimesSiteTemplatePayload();
+        if (!payload.siteTitle) throw new Error('Site title is required.');
+        const response = await fetch('/api/admin/templates/tee-times-site-package?guideOnly=1', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ...payload, guideOnly: true, code: '' }),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Failed to build deployment guide.');
+        downloadTextFile(result.guideFilename, result.package && result.package.deploymentGuide ? result.package.deploymentGuide : '', 'text/markdown');
+        const adminArtifact = result.package && Array.isArray(result.package.starterArtifacts)
+          ? result.package.starterArtifacts.find((entry) => entry && entry.path === '/public/group-admin-lite.html')
+          : null;
+        if (adminArtifact && adminArtifact.content) {
+          downloadTextFile('group-admin-lite.html', adminArtifact.content, 'text/html');
+        }
+        showTeeTimesSiteTemplateResult(`Downloaded ${result.guideFilename || 'deployment-guide.md'}.`, true);
+      } catch (error) {
+        showTeeTimesSiteTemplateResult(error.message || 'Failed to build deployment guide.', false);
+      }
+    }
+
+    function downloadJsonFile(filename, payload) {
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = href;
+      link.download = String(filename || 'tee-times-site-package.json').trim() || 'tee-times-site-package.json';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(href), 1000);
+    }
+
+    function downloadTextFile(filename, text, mimeType = 'text/plain') {
+      const blob = new Blob([String(text || '')], { type: `${mimeType};charset=utf-8` });
+      const href = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = href;
+      link.download = String(filename || 'deployment-guide.md').trim() || 'deployment-guide.md';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(href), 1000);
+    }
+
+    async function createTeeTimesSitePackage(event) {
+      if (event) event.preventDefault();
+      clearTeeTimesSiteTemplateLinks();
+      try {
+        const payload = collectTeeTimesSiteTemplatePayload();
+        if (!payload.siteTitle) throw new Error('Site title is required.');
+        if (!payload.groupName) throw new Error('Group name is required.');
+        if (!payload.clubName) throw new Error('Club name is required.');
+        if (!payload.primaryContactEmail) throw new Error('Primary contact email is required.');
+        if (!payload.clubRequestEmail) throw new Error('Club request email is required.');
+        showTeeTimesSiteTemplateResult('Building Tee Times site package...', true);
+        const response = await fetch('/api/admin/templates/tee-times-site-package', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const result = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(result.error || 'Failed to build Tee Times site package.');
+        downloadJsonFile(result.filename, result.package);
+        downloadTextFile(result.guideFilename, result.package && result.package.deploymentGuide ? result.package.deploymentGuide : '', 'text/markdown');
+        const adminArtifact = result.package && Array.isArray(result.package.starterArtifacts)
+          ? result.package.starterArtifacts.find((entry) => entry && entry.path === '/public/group-admin-lite.html')
+          : null;
+        if (adminArtifact && adminArtifact.content) {
+          downloadTextFile('group-admin-lite.html', adminArtifact.content, 'text/html');
+        }
+        showTeeTimesSiteTemplateResult(`Built ${result.filename || 'tee-times-site-package.json'} successfully.`, true);
+        renderTeeTimesSiteTemplateLinks(result.filename, result.guideFilename, adminArtifact ? 'group-admin-lite.html' : '');
+      } catch (error) {
+        showTeeTimesSiteTemplateResult(error.message || 'Failed to build Tee Times site package.', false);
+      }
+    }
+
+    function initTeeTimesSiteTemplateBuilder() {
+      const els = getTeeTimesSiteTemplateElements();
+      seedTeeTimesSiteTemplateDefaults();
+      const guideLink = document.getElementById('downloadTeeTimesSiteTemplateGuideLink');
+      if (guideLink) {
+        guideLink.addEventListener('click', downloadTeeTimesSiteTemplateGuide);
+      }
+      if (els.openBtn) {
+        els.openBtn.addEventListener('click', () => {
+          setTeeTimesSiteTemplateQuestionsVisible(true);
+        });
+      }
+      if (els.cancelBtn) {
+        els.cancelBtn.addEventListener('click', () => {
+          setTeeTimesSiteTemplateQuestionsVisible(false);
+        });
+      }
+      if (els.form) {
+        els.form.addEventListener('submit', createTeeTimesSitePackage);
+      }
+    }
+
+    let siteInventoryState = {
+      groups: [],
+    };
+
+    function buildSiteCatalog() {
+      return [
+        {
+          key: 'core-site',
+          title: 'Core Site Pages',
+          items: [
+            {
+              title: 'Main Tee Times',
+              meta: 'Primary public tee-time page for the calendar, tee sheets, and player signups.',
+              tags: [
+                { label: 'Page', tone: 'upcoming' },
+                { label: 'Core', tone: 'type' },
+              ],
+              links: [{ label: 'Open Page', href: '/' }],
+              bucket: 'pages',
+              searchText: 'main tee times calendar tee sheets signups public page',
+            },
+            {
+              title: 'Admin',
+              meta: 'Main admin hub for backups, notifications, templates, subscribers, and project access.',
+              tags: [
+                { label: 'Admin', tone: 'open' },
+                { label: 'Core', tone: 'type' },
+              ],
+              links: [{ label: 'Open Admin', href: '/admin.html' }],
+              bucket: 'admin',
+              searchText: 'admin main hub backups notifications templates subscribers',
+            },
+            {
+              title: 'Handicap Pages',
+              meta: 'Handicap lookup and handicap import/support pages.',
+              tags: [
+                { label: 'Page Set', tone: 'upcoming' },
+                { label: 'Support', tone: 'type' },
+              ],
+              links: [
+                { label: 'Handicaps', href: '/handicaps.html' },
+                { label: 'Import', href: '/handicap-import.html' },
+              ],
+              bucket: 'pages',
+              searchText: 'handicaps handicap import support pages',
+            },
+          ],
+        },
+        {
+          key: 'trip-systems',
+          title: 'Trip Systems',
+          items: [
+            {
+              title: 'Myrtle / Ryder Cup Page Set',
+              meta: 'Trip page, standings, prize report, lodging, day-details, and all-foursomes pages for the Ryder Cup trip system.',
+              tags: [
+                { label: 'Page Set', tone: 'upcoming' },
+                { label: 'Trip System', tone: 'type' },
+              ],
+              links: [
+                { label: 'Trip Page', href: '/myrtle/trip-2026.html' },
+                { label: 'Standings', href: '/myrtle/leaderboard-and-prizes.html' },
+                { label: 'Prize Report', href: '/myrtle/prize-report.html' },
+                { label: 'Lodging', href: '/myrtle/lodging-and-maps.html' },
+              ],
+              bucket: 'pages',
+              searchText: 'myrtle ryder cup page set trip standings prize report lodging day details all foursomes',
+            },
+            {
+              title: 'Tin Cup Page Set',
+              meta: 'Trip page, live admin, scorekeeper, results, winners, today, lodging, and admin-guide pages for Tin Cup.',
+              tags: [
+                { label: 'Page Set', tone: 'upcoming' },
+                { label: 'Trip System', tone: 'type' },
+              ],
+              links: [
+                { label: 'Trip Page', href: '/tin-cup/trip-2026.html' },
+                { label: 'Live Admin', href: '/tin-cup/live-score-entry.html' },
+                { label: 'Scorekeeper', href: '/tin-cup/scorekeeper.html' },
+                { label: 'Results', href: '/tin-cup/leaderboard-2026.html' },
+              ],
+              bucket: 'pages',
+              searchText: 'tin cup page set trip live admin scorekeeper results winners today lodging admin guide',
+            },
+          ],
+        },
+        {
+          key: 'event-systems',
+          title: 'Event Systems',
+          items: [
+            {
+              title: 'Blue Ridge Outings',
+              meta: 'Separate outings registration system with its own public page and dedicated admin page.',
+              tags: [
+                { label: 'Page Set', tone: 'upcoming' },
+                { label: 'Event System', tone: 'type' },
+              ],
+              links: [
+                { label: 'Public Page', href: '/blue-ridge-outings.html' },
+                { label: 'Admin Page', href: '/blue-ridge-outings-admin.html' },
+              ],
+              bucket: 'pages',
+              searchText: 'blue ridge outings public admin event system',
+            },
+            {
+              title: 'Valley Sip And Smoke',
+              meta: 'Standalone event site with its own public page and isolated flow, separate from the tee-times package.',
+              tags: [
+                { label: 'Standalone Site', tone: 'upcoming' },
+                { label: 'Event System', tone: 'type' },
+              ],
+              links: [{ label: 'Open Page', href: '/valley-sip-and-smoke.html' }],
+              bucket: 'pages',
+              searchText: 'valley sip and smoke standalone site rsvp reserve request event page',
+            },
+          ],
+        },
+        {
+          key: 'templates-and-support',
+          title: 'Templates And Support',
+          items: [
+            {
+              title: 'Ryder Cup 5 Round Template',
+              meta: 'Reusable trip template seeded from the Myrtle Ryder Cup setup and created from the admin page.',
+              tags: [
+                { label: 'Template', tone: 'draft' },
+                { label: 'Active', tone: 'open' },
+              ],
+              links: [{ label: 'Open Template Builder', href: '/admin.html#tripTemplatesSection' }],
+              bucket: 'templates',
+              searchText: 'ryder cup 5 round template myrtle template builder admin',
+            },
+            {
+              title: 'Tee Times Site Package Template',
+              meta: 'Reusable deployment package template for spinning up a branded tee-times + admin instance for an individual group.',
+              tags: [
+                { label: 'Template', tone: 'draft' },
+                { label: 'Site Package', tone: 'type' },
+              ],
+              links: [{ label: 'Open Template Builder', href: '/admin.html#tripTemplatesSection' }],
+              bucket: 'templates',
+              searchText: 'tee times site package template deploy branded group admin',
+            },
+            {
+              title: 'Features / Reference',
+              meta: 'Lightweight reference page listing the major public destinations on the site.',
+              tags: [
+                { label: 'Page', tone: 'upcoming' },
+                { label: 'Reference', tone: 'type' },
+              ],
+              links: [{ label: 'Open Features', href: '/features.html' }],
+              bucket: 'pages',
+              searchText: 'features reference page public destinations',
+            },
+          ],
+        },
+      ];
+    }
+
+    function showSiteInventoryStatus(message, isSuccess = true) {
+      const el = document.getElementById('siteInventoryStatus');
+      if (!el) return;
+      el.textContent = message;
+      el.className = `test-result ${isSuccess ? 'success' : 'error'}`;
+      el.style.display = 'block';
+    }
+
+    function getSiteInventoryFilters() {
+      const search = String(document.getElementById('siteInventorySearchInput')?.value || '').trim().toLowerCase();
+      const scope = String(document.getElementById('siteInventoryScopeSelect')?.value || 'all').trim().toLowerCase();
+      return { search, scope };
+    }
+
+    function renderSiteInventory() {
+      const summaryEl = document.getElementById('siteInventorySummary');
+      const groupsEl = document.getElementById('siteInventoryGroups');
+      if (!summaryEl || !groupsEl) return;
+
+      const { search, scope } = getSiteInventoryFilters();
+      const groups = (siteInventoryState.groups || []).map((group) => {
+        const filteredItems = (group.items || []).filter((item) => {
+          if (scope !== 'all' && item.bucket !== scope) return false;
+          if (search && !String(item.searchText || '').toLowerCase().includes(search)) return false;
+          return true;
+        });
+        return { ...group, filteredItems };
+      });
+
+      const visibleItems = groups.flatMap((group) => group.filteredItems || []);
+      const totalItems = (siteInventoryState.groups || []).reduce((sum, group) => sum + ((group.items || []).length), 0);
+      const pageCount = visibleItems.filter((item) => item.bucket === 'pages').length;
+      const adminCount = visibleItems.filter((item) => item.bucket === 'admin').length;
+      const templateCount = visibleItems.filter((item) => item.bucket === 'templates').length;
+
+      summaryEl.innerHTML = [
+        ['Visible Items', visibleItems.length],
+        ['All Catalog Items', totalItems],
+        ['Pages', pageCount],
+        ['Admin / Setup', adminCount],
+        ['Templates', templateCount],
+      ].map(([label, value]) => `
+        <div class="inventory-stat-card">
+          <p class="inventory-stat-label">${escapeHtml(label)}</p>
+          <p class="inventory-stat-value">${escapeHtml(String(value))}</p>
+        </div>
+      `).join('');
+
+      const groupHtml = groups.map((group, index) => {
+        const shown = group.filteredItems || [];
+        const bodyHtml = shown.length
+          ? shown.map((item) => `
+              <article class="inventory-row">
+                <div class="inventory-row-head">
+                  <div>
+                    <p class="inventory-row-title">${escapeHtml(item.title || '')}</p>
+                    <p class="inventory-row-meta">${escapeHtml(item.meta || '')}</p>
+                  </div>
+                </div>
+                <div class="inventory-tag-list">
+                  ${(item.tags || []).map((tag) => `<span class="inventory-tag${tag && tag.tone ? ` status-${escapeHtml(tag.tone)}` : ''}">${escapeHtml(tag && tag.label || '')}</span>`).join('')}
+                </div>
+                <div class="inventory-link-list">
+                  ${(item.links || []).map((link) => `<a href="${escapeHtml(link && link.href || '#')}" target="_blank" rel="noopener">${escapeHtml(link && link.label || 'Open')}</a>`).join('')}
+                </div>
+              </article>
+            `).join('')
+          : '<div class="inventory-empty">No records match the current filters.</div>';
+        return `
+          <details class="inventory-group" ${index < 2 ? 'open' : ''}>
+            <summary>
+              <span>${escapeHtml(group.title || '')}</span>
+              <span class="inventory-group-meta">${escapeHtml(`${shown.length} shown of ${(group.items || []).length}`)}</span>
+            </summary>
+            <div class="inventory-group-body">${bodyHtml}</div>
+          </details>
+        `;
+      }).join('');
+
+      groupsEl.innerHTML = groupHtml || '<div class="inventory-empty">No catalog groups are available.</div>';
+    }
+
+    function loadSiteInventory() {
+      showSiteInventoryStatus('Loading catalog...', true);
+      siteInventoryState = {
+        groups: buildSiteCatalog(),
+      };
+      renderSiteInventory();
+      const total = siteInventoryState.groups.reduce((sum, group) => sum + ((group.items || []).length), 0);
+      showSiteInventoryStatus(`Loaded ${total} catalog items across ${siteInventoryState.groups.length} project groups.`, true);
+    }
+
+    function initSiteInventorySection() {
+      const reloadBtn = document.getElementById('reloadSiteInventoryBtn');
+      const searchInput = document.getElementById('siteInventorySearchInput');
+      const scopeSelect = document.getElementById('siteInventoryScopeSelect');
+      if (reloadBtn) reloadBtn.addEventListener('click', loadSiteInventory);
+      if (searchInput) searchInput.addEventListener('input', renderSiteInventory);
+      if (scopeSelect) scopeSelect.addEventListener('change', renderSiteInventory);
+      loadSiteInventory();
+    }
+
     setupCollapsibleSections();
 
-    const ADMIN_CODE = prompt('Enter site admin code:');
+    const ADMIN_GROUP = (() => {
+      try {
+        const raw = String(new URLSearchParams(window.location.search).get('group') || '').trim().toLowerCase();
+        const normalized = raw.replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+        return normalized || 'main';
+      } catch (_) {
+        return 'main';
+      }
+    })();
+
+    function withAdminGroup(url) {
+      try {
+        const scopedUrl = new URL(url, window.location.origin);
+        if (scopedUrl.origin === window.location.origin && (scopedUrl.pathname.startsWith('/api/') || scopedUrl.pathname.startsWith('/admin/'))) {
+          if (!scopedUrl.searchParams.has('group')) scopedUrl.searchParams.set('group', ADMIN_GROUP);
+          return `${scopedUrl.pathname}${scopedUrl.search}${scopedUrl.hash}`;
+        }
+      } catch (_) {}
+      return url;
+    }
+
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      if (typeof input === 'string') return nativeFetch(withAdminGroup(input), init);
+      if (input instanceof Request) return nativeFetch(new Request(withAdminGroup(input.url), input), init);
+      return nativeFetch(input, init);
+    };
+
+    const ADMIN_CODE = prompt(`Enter site admin code${ADMIN_GROUP !== 'main' ? ` for ${ADMIN_GROUP}` : ''}:`);
     if (!ADMIN_CODE) {
       document.getElementById('content').innerHTML = '<div class="empty-state">Admin access required</div>';
     } else {
       initRyderCupTemplateBuilder();
+      initTeeTimesSiteTemplateBuilder();
+      initSiteInventorySection();
       loadSubscribers();
       loadBackups();
       loadNotificationSettings();

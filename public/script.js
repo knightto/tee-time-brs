@@ -158,6 +158,15 @@ if ('serviceWorker' in navigator) {
   let starterMode = false;
   let teeDragState = null;
   let starterEventViewIds = loadStarterEventViewIds();
+  const currentGroupSlug = (() => {
+    try {
+      const raw = String(new URLSearchParams(window.location.search).get('group') || '').trim().toLowerCase();
+      const normalized = raw.replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+      return normalized || 'main';
+    } catch (_) {
+      return 'main';
+    }
+  })();
   const initialSelectedDateFromUrl = (() => {
     try {
       const dateISO = String(new URLSearchParams(window.location.search).get('date') || '').trim();
@@ -812,6 +821,7 @@ if ('serviceWorker' in navigator) {
 
   function buildSelectedDateShareUrl(dateISO = selectedDate) {
     const url = new URL(window.location.pathname, window.location.origin);
+    if (currentGroupSlug !== 'main') url.searchParams.set('group', currentGroupSlug);
     if (dateISO) url.searchParams.set('date', dateISO);
     return url.toString();
   }
@@ -989,7 +999,12 @@ if ('serviceWorker' in navigator) {
       .filter(Boolean);
     if (slotLines.length) lines.push(`${ev && ev.isTeamEvent ? 'Teams' : 'Tee Times'}: ${slotLines.join(', ')}`);
     if (ev && ev.notes) lines.push(`Notes: ${String(ev.notes).trim()}`);
-    if (ev && ev._id) lines.push(`Event Link: ${window.location.origin}/?event=${encodeURIComponent(ev._id)}`);
+    if (ev && ev._id) {
+      const eventUrl = new URL('/', window.location.origin);
+      if (currentGroupSlug !== 'main') eventUrl.searchParams.set('group', currentGroupSlug);
+      eventUrl.searchParams.set('event', String(ev._id));
+      lines.push(`Event Link: ${eventUrl.toString()}`);
+    }
     return lines.join('\n');
   }
 
@@ -1191,6 +1206,13 @@ if ('serviceWorker' in navigator) {
     const method = String(opts?.method || 'GET').toUpperCase();
     let requestPath = path;
     const mergedHeaders = { ...(opts?.headers || {}) };
+    try {
+      const scopedUrl = new URL(requestPath, window.location.origin);
+      if (scopedUrl.origin === window.location.origin && (scopedUrl.pathname.startsWith('/api/') || scopedUrl.pathname.startsWith('/admin/'))) {
+        if (!scopedUrl.searchParams.has('group')) scopedUrl.searchParams.set('group', currentGroupSlug);
+        requestPath = `${scopedUrl.pathname}${scopedUrl.search}${scopedUrl.hash}`;
+      }
+    } catch (_) {}
     if (method === 'GET') {
       // Force fresh API reads, especially after mobile app resume.
       mergedHeaders['Cache-Control'] = mergedHeaders['Cache-Control'] || 'no-cache';
@@ -1788,7 +1810,7 @@ if ('serviceWorker' in navigator) {
     e.preventDefault();
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth() + 1;
-    const url = `/api/events/calendar/month.ics?year=${encodeURIComponent(year)}&month=${encodeURIComponent(month)}`;
+    const url = `/api/events/calendar/month.ics?year=${encodeURIComponent(year)}&month=${encodeURIComponent(month)}&group=${encodeURIComponent(currentGroupSlug)}`;
     window.location.assign(url);
   });
 
@@ -2208,7 +2230,7 @@ if ('serviceWorker' in navigator) {
       }
       if(t.dataset.calendarIcs){
         const id = String(t.dataset.calendarIcs);
-        window.location.assign(`/api/events/${encodeURIComponent(id)}/calendar.ics`);
+        window.location.assign(`/api/events/${encodeURIComponent(id)}/calendar.ics?group=${encodeURIComponent(currentGroupSlug)}`);
         return;
       }
       if(t.dataset.addMaybe){

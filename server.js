@@ -1,9 +1,10 @@
 // Alert for nearly full tee times (4 days out or less, >50% full)
-async function alertNearlyFullTeeTimes() {
+async function alertNearlyFullTeeTimes(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   const now = new Date();
   const fourDaysOut = new Date(now.getTime() + 4 * 24 * 60 * 60 * 1000);
   // Find all tee-time events (not team events) within next 4 days (inclusive)
-  const events = await Event.find({ isTeamEvent: false, date: { $gte: now, $lte: fourDaysOut } }).lean();
+  const scopedGroupSlug = normalizeGroupSlug(groupSlug);
+  const events = await Event.find({ groupSlug: scopedGroupSlug, isTeamEvent: false, date: { $gte: now, $lte: fourDaysOut } }).lean();
   let blocks = [];
   for (const ev of events) {
     if (!Array.isArray(ev.teeTimes) || !ev.teeTimes.length) continue;
@@ -33,9 +34,9 @@ async function alertNearlyFullTeeTimes() {
       <p style="color:#b91c1c;"><strong>Consider calling the clubhouse to request an additional tee time if needed.</strong></p>
     </div>`;
   }).join('');
-  const html = frame('Tee Times Nearly Full', `<p>The following tee times are more than 50% full (4 days out or less):</p>${rows}${btn('Go to Sign-up Page')}`);
-  const res = await sendEmailToAll('Alert: Tee Times Nearly Full', html);
-  return { ok: true, sent: res.sent, blocks };
+  const html = frame('Tee Times Nearly Full', `<p>The following tee times are more than 50% full (4 days out or less):</p>${rows}${btn('Go to Sign-up Page', buildSiteEventUrl(scopedGroupSlug))}`);
+  const res = await sendEmailToAll('Alert: Tee Times Nearly Full', html, { groupSlug: scopedGroupSlug });
+  return { ok: true, sent: res.sent, blocks, groupSlug: scopedGroupSlug };
 }
 /* server.js v3.13 — daily 5pm empty-tee reminder + manual trigger */
 const fs = require('fs');
@@ -55,6 +56,7 @@ const rateLimit = require('express-rate-limit');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 const { importHandicapsFromCsv } = require('./services/handicapImportService');
+const { buildTeeTimesSiteTemplatePackage } = require('./services/siteTemplateService');
 const { requestContext } = require('./middleware/requestContext');
 const { cacheJson } = require('./middleware/responseCache');
 const { validateBody, validateCreateEvent, validateAddPlayer } = require('./middleware/validate');
@@ -73,6 +75,7 @@ const ADMIN_DESTRUCTIVE_CODE = process.env.ADMIN_DESTRUCTIVE_CODE || ADMIN_DELET
 const ADMIN_DESTRUCTIVE_CONFIRM_CODE = process.env.ADMIN_DESTRUCTIVE_CONFIRM_CODE || '';
 const SITE_URL = (process.env.SITE_URL || 'https://tee-time-brs.onrender.com/').replace(/\/$/, '') + '/';
 const LOCAL_TZ = process.env.LOCAL_TZ || 'America/New_York';
+const DEFAULT_SITE_GROUP_SLUG = String(process.env.DEFAULT_SITE_GROUP_SLUG || 'main').trim().toLowerCase() || 'main';
 const CALENDAR_EVENT_DURATION_MINUTES = Math.max(30, Number(process.env.CALENDAR_EVENT_DURATION_MINUTES || 270) || 270);
 const BACKUP_ROOT = path.join(__dirname, 'backups');
 const SITE_BACKUP_TARGETS = [
@@ -538,9 +541,10 @@ app.post('/webhooks/resend', async (req, res) => {
         return ev.save();
       };
 
+      const requestGroupSlug = getGroupSlug(req);
       const createEventThroughApi = async (reason = 'CREATE') => {
         const body = { ...eventPayload, date: normalizedDate };
-        const fetchRes = await fetch(`${SITE_URL}api/events`, {
+        const fetchRes = await fetch(`${SITE_URL}api/events?group=${encodeURIComponent(requestGroupSlug)}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body)
@@ -567,7 +571,7 @@ app.post('/webhooks/resend', async (req, res) => {
           const created = await createEventThroughApi(parsed.action);
           // Send notification email to all subscribers (same as /api/events) for brand new events only
           try {
-            const eventUrl = `${SITE_URL}?event=${created._id}`;
+            const eventUrl = buildSiteEventUrl(created.groupSlug || requestGroupSlug, created._id);
             await sendEmailToAll(`New Event: ${created.course} (${fmt.dateISO(created.date)})`,
               frame('A New Golf Event Has Been Scheduled!',
                 `<p>The following event is now open for sign-up:</p>
@@ -576,7 +580,7 @@ app.post('/webhooks/resend', async (req, res) => {
                  <p><strong>Date:</strong> ${esc(fmt.dateLong(created.date))}</p>
                  ${(!created.isTeamEvent && created.teeTimes?.[0]?.time) ? `<p><strong>First Tee Time:</strong> ${esc(fmt.tee(created.teeTimes[0].time))}</p>`:''}
                  <p>Please <a href="${eventUrl}" style="color:#166534;text-decoration:underline">click here to view this event directly</a> or visit the sign-up page to secure your spot!</p>${btn('Go to Sign-up Page', eventUrl)}`)
-            );
+            , { groupSlug: created.groupSlug || requestGroupSlug });
           } catch (e) {
             console.error('[webhook] Failed to send notification email:', e);
           }
@@ -591,7 +595,7 @@ app.post('/webhooks/resend', async (req, res) => {
           const matches = await findMatchingEvents();
           if (matches.length) {
             const primary = matches[0];
-            await Event.findByIdAndDelete(primary._id);
+            await Event.findOneAndDelete({ _id: primary._id, groupSlug: normalizeGroupSlug(primary.groupSlug) });
             console.log('[webhook] Event cancelled from email (removed match):', primary._id);
             // Notify subscribers about the cancellation (non-blocking)
             const teeMatch = (primary.teeTimes || []).find(tt => tt && tt.time === eventPayload.teeTime);
@@ -605,6 +609,7 @@ app.post('/webhooks/resend', async (req, res) => {
                  <p><strong>Date:</strong> ${esc(fmt.dateLong(primary.date))}</p>
                  ${teeLabel ? `<p><strong>Tee Time:</strong> ${esc(teeLabel)}</p>` : ''}
                  <p>We apologize for any inconvenience.</p>${btn('View Other Events')}`))
+              , { groupSlug: primary.groupSlug }
               .catch(err => console.error('[webhook] Failed to send cancellation email:', err));
             markProcessed();
             return res.status(200).json({ ok: true, cancelled: true, eventIds: [primary._id] });
@@ -709,6 +714,7 @@ async function logTeeTimeChange(entry = {}) {
   if (!TeeTimeLog) return;
   try {
     await TeeTimeLog.create({
+      groupSlug: normalizeGroupSlug(entry.groupSlug),
       eventId: entry.eventId,
       teeId: entry.teeId,
       action: entry.action,
@@ -1107,10 +1113,10 @@ async function sendEmailViaResendApi(to, subject, html, options = {}) {
 }
 
 /* Helper to check if notifications are globally enabled */
-async function areNotificationsEnabled() {
+async function areNotificationsEnabled(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   if (!Settings) return true; // Default to enabled if Settings model not available
   try {
-    const setting = await Settings.findOne({ key: 'notificationsEnabled' });
+    const setting = await Settings.findOne({ groupSlug: normalizeGroupSlug(groupSlug), key: 'notificationsEnabled' });
     return setting ? setting.value !== false : true; // Default to true if not set
   } catch (e) {
     console.error('Error checking notification settings:', e);
@@ -1119,8 +1125,8 @@ async function areNotificationsEnabled() {
 }
 
 const SCHEDULER_SETTINGS_CACHE_TTL_MS = 30 * 1000;
-let schedulerEnabledCache = { value: !SCHEDULER_ENV_DISABLED, ts: 0 };
-let scheduledEmailRulesCache = { value: { ...SCHEDULED_EMAIL_RULE_DEFAULTS }, ts: 0 };
+let schedulerEnabledCache = new Map();
+let scheduledEmailRulesCache = new Map();
 const BACKUP_SETTINGS_DEFAULTS = Object.freeze({
   monthlyEnabled: true,
   monthlyDay: 1,
@@ -1150,23 +1156,25 @@ const BACKUP_STATUS_DEFAULTS = Object.freeze({
 });
 let backupStatusCache = { value: { ...BACKUP_STATUS_DEFAULTS }, ts: 0 };
 
-async function areSchedulerJobsEnabled() {
+async function areSchedulerJobsEnabled(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   if (SCHEDULER_ENV_DISABLED) return false;
+  const cacheKey = normalizeGroupSlug(groupSlug);
   const now = Date.now();
-  if (now - schedulerEnabledCache.ts < SCHEDULER_SETTINGS_CACHE_TTL_MS) {
-    return schedulerEnabledCache.value;
+  const cached = schedulerEnabledCache.get(cacheKey);
+  if (cached && (now - cached.ts < SCHEDULER_SETTINGS_CACHE_TTL_MS)) {
+    return cached.value;
   }
   let enabled = true;
   if (Settings) {
     try {
-      const setting = await Settings.findOne({ key: 'schedulerEnabled' });
+      const setting = await Settings.findOne({ groupSlug: cacheKey, key: 'schedulerEnabled' });
       enabled = setting ? setting.value !== false : true;
     } catch (e) {
       console.error('Error checking scheduler settings:', e);
       enabled = true;
     }
   }
-  schedulerEnabledCache = { value: enabled, ts: now };
+  schedulerEnabledCache.set(cacheKey, { value: enabled, ts: now });
   return enabled;
 }
 
@@ -1181,21 +1189,23 @@ function normalizeScheduledEmailRules(rawValue) {
   return normalized;
 }
 
-async function getScheduledEmailRules() {
+async function getScheduledEmailRules(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  const cacheKey = normalizeGroupSlug(groupSlug);
   const now = Date.now();
-  if (now - scheduledEmailRulesCache.ts < SCHEDULER_SETTINGS_CACHE_TTL_MS) {
-    return scheduledEmailRulesCache.value;
+  const cached = scheduledEmailRulesCache.get(cacheKey);
+  if (cached && (now - cached.ts < SCHEDULER_SETTINGS_CACHE_TTL_MS)) {
+    return cached.value;
   }
   let rules = { ...SCHEDULED_EMAIL_RULE_DEFAULTS };
   if (Settings) {
     try {
-      const setting = await Settings.findOne({ key: 'scheduledEmailRules' });
+      const setting = await Settings.findOne({ groupSlug: cacheKey, key: 'scheduledEmailRules' });
       rules = normalizeScheduledEmailRules(setting && setting.value);
     } catch (e) {
       console.error('Error checking scheduled email rule settings:', e);
     }
   }
-  scheduledEmailRulesCache = { value: rules, ts: now };
+  scheduledEmailRulesCache.set(cacheKey, { value: rules, ts: now });
   return rules;
 }
 
@@ -1306,15 +1316,16 @@ async function recordBackupFailure(error) {
   });
 }
 
-async function sendEmailToAll(subject, html) {
+async function sendEmailToAll(subject, html, options = {}) {
   if (!Subscriber) return { ok:false, reason:'no model' };
+  const groupSlug = normalizeGroupSlug(options.groupSlug);
   // Check if notifications are globally enabled
-  const notifEnabled = await areNotificationsEnabled();
+  const notifEnabled = await areNotificationsEnabled(groupSlug);
   if (!notifEnabled) {
-    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'Notifications disabled globally, skipping email' }));
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'Notifications disabled for group, skipping email', groupSlug }));
     return { ok:true, sent:0, disabled:true };
   }
-  const subs = await Subscriber.find({}).lean();
+  const subs = await Subscriber.find({ groupSlug }).lean();
   if (!subs.length) return { ok:true, sent:0 };
   let sent = 0;
   for (const s of subs) {
@@ -1552,6 +1563,63 @@ function getScopedAdminCode(req) {
   return String(req.headers['x-admin-code'] || req.query.code || req.body?.code || '').trim();
 }
 
+function normalizeGroupSlug(value = '') {
+  const normalized = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-+|-+$/g, '');
+  return normalized || DEFAULT_SITE_GROUP_SLUG;
+}
+
+function getGroupSlug(req, fallback = DEFAULT_SITE_GROUP_SLUG) {
+  return normalizeGroupSlug(
+    req.headers['x-site-group']
+      || req.query.group
+      || req.body?.group
+      || req.body?.groupSlug
+      || fallback
+  );
+}
+
+function scopeQuery(req, extra = {}) {
+  return { groupSlug: getGroupSlug(req), ...extra };
+}
+
+function scopedSettingQuery(groupSlug, key) {
+  return { groupSlug: normalizeGroupSlug(groupSlug), key: String(key || '').trim() };
+}
+
+async function getAllManagedGroupSlugs() {
+  const groups = new Set([DEFAULT_SITE_GROUP_SLUG]);
+  const loaders = [];
+  if (Event) loaders.push(Event.distinct('groupSlug'));
+  if (Subscriber) loaders.push(Subscriber.distinct('groupSlug'));
+  if (Settings) loaders.push(Settings.distinct('groupSlug'));
+  const results = await Promise.allSettled(loaders);
+  for (const result of results) {
+    if (result.status !== 'fulfilled' || !Array.isArray(result.value)) continue;
+    for (const rawGroup of result.value) {
+      groups.add(normalizeGroupSlug(rawGroup));
+    }
+  }
+  return Array.from(groups);
+}
+
+async function findScopedEventById(req, eventId, options = {}) {
+  const query = Event.findOne(scopeQuery(req, { _id: eventId }));
+  if (options.lean) query.lean();
+  return query;
+}
+
+function buildGroupAwarePath(pathname = '', groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  const slug = normalizeGroupSlug(groupSlug);
+  if (slug === DEFAULT_SITE_GROUP_SLUG) return `${pathname}`;
+  const sep = pathname.includes('?') ? '&' : '?';
+  return `${pathname}${sep}group=${encodeURIComponent(slug)}`;
+}
+
 function getDestructiveAdminCode(req) {
   return String(
     req.headers['x-admin-delete-code']
@@ -1599,6 +1667,25 @@ function hasDestructiveConfirm(req) {
   if (!ADMIN_DESTRUCTIVE_CONFIRM_CODE) return true;
   return getDestructiveConfirmCode(req) === ADMIN_DESTRUCTIVE_CONFIRM_CODE;
 }
+
+app.post('/api/admin/templates/tee-times-site-package', async (req, res) => {
+  try {
+    const guideOnly = String(req.query.guideOnly || req.body?.guideOnly || '').trim().toLowerCase();
+    const allowGuideOnly = guideOnly === '1' || guideOnly === 'true' || guideOnly === 'yes';
+    if (!allowGuideOnly && !isSiteAdmin(req)) {
+      return res.status(403).json({ error: 'Admin code required' });
+    }
+    const pkg = buildTeeTimesSiteTemplatePackage(req.body || {});
+    return res.status(201).json({
+      package: pkg,
+      filename: `${pkg.packageSlug || 'tee-times-group'}-tee-times-site-package.json`,
+      guideFilename: `${pkg.packageSlug || 'tee-times-group'}-deployment-guide.md`,
+      message: allowGuideOnly ? 'Tee Times deployment guide created.' : 'Tee Times site package created.',
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to build site package' });
+  }
+});
 
 function backupIdFromDate(date = new Date()) {
   const iso = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().replace(/\.\d{3}Z$/, 'Z');
@@ -2014,8 +2101,19 @@ function buildDedupeKey(dateVal, teeTimes = [], isTeam = false) {
   if (!times.length) return null;
   return `${dateISO}|${times.join(',')}`;
 }
-function btn(label='Go to Sign-up Page'){
-  return `<p style="margin:24px 0"><a href="${esc(SITE_URL)}" style="background:#2563eb;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;display:inline-block">${esc(label)}</a></p>`;
+function btn(label='Go to Sign-up Page', href = SITE_URL){
+  return `<p style="margin:24px 0"><a href="${esc(href || SITE_URL)}" style="background:#2563eb;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;display:inline-block">${esc(label)}</a></p>`;
+}
+function buildSiteEventUrl(groupSlug = DEFAULT_SITE_GROUP_SLUG, eventId = '', extraParams = {}) {
+  const base = new URL(SITE_URL);
+  if (eventId) base.searchParams.set('event', String(eventId));
+  const slug = normalizeGroupSlug(groupSlug);
+  if (slug !== DEFAULT_SITE_GROUP_SLUG) base.searchParams.set('group', slug);
+  Object.entries(extraParams || {}).forEach(([key, value]) => {
+    if (value === undefined || value === null || value === '') return;
+    base.searchParams.set(key, String(value));
+  });
+  return base.toString();
 }
 function frame(title, body){
   return `<table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f6f7f9;padding:24px"><tr><td align="center"><table role="presentation" cellpadding="0" cellspacing="0" width="600" style="max-width:600px;background:#ffffff;border-radius:10px;padding:24px;border:1px solid #e5e7eb"><tr><td><h2 style="margin:0 0 12px 0;color:#111827;font-size:20px">${esc(title)}</h2>${body}<p style="color:#6b7280;font-size:12px;margin-top:24px">You received this because you subscribed to tee time updates.</p></td></tr></table></td></tr></table>`;
@@ -2052,35 +2150,37 @@ function brianJonesEmptyTeeAlertEmail(blocks){
   return frame('Alert: Empty Tee Times Tomorrow', `<p>The following tee times are still empty for tomorrow.</p>${rows}${btn('Go to Sign-up Page')}`);
 }
 
-async function runBrianJonesTomorrowEmptyTeeAlert(label = 'manual'){
-  const blocks = await findEmptyTeeTimesForDay(1);
+async function runBrianJonesTomorrowEmptyTeeAlert(label = 'manual', groupSlug = DEFAULT_SITE_GROUP_SLUG){
+  const scopedGroupSlug = normalizeGroupSlug(groupSlug);
+  const blocks = await findEmptyTeeTimesForDay(1, scopedGroupSlug);
   if (!blocks.length) {
-    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'brian-empty-alert-skip', reason:'no empty tees', label }));
-    return { ok: true, sent: 0, to: CLUB_EMAIL, message: 'No empty tee times for tomorrow' };
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'brian-empty-alert-skip', reason:'no empty tees', label, groupSlug: scopedGroupSlug }));
+    return { ok: true, sent: 0, to: CLUB_EMAIL, message: 'No empty tee times for tomorrow', groupSlug: scopedGroupSlug };
   }
   const subject = 'Alert: Empty Tee Times for Tomorrow';
   const html = brianJonesEmptyTeeAlertEmail(blocks);
   const httpRes = await sendEmailViaResendApi(CLUB_EMAIL, subject, html);
   if (httpRes && httpRes.ok) {
-    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'brian-empty-alert-sent', method:'http', label, to:CLUB_EMAIL, events: blocks.length }));
-    return { ok: true, sent: 1, method: 'http', to: CLUB_EMAIL, events: blocks.length };
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'brian-empty-alert-sent', method:'http', label, to:CLUB_EMAIL, events: blocks.length, groupSlug: scopedGroupSlug }));
+    return { ok: true, sent: 1, method: 'http', to: CLUB_EMAIL, events: blocks.length, groupSlug: scopedGroupSlug };
   }
   const smtpRes = await sendEmail(CLUB_EMAIL, subject, html);
   if (smtpRes && smtpRes.ok) {
-    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'brian-empty-alert-sent', method:'smtp', label, to:CLUB_EMAIL, events: blocks.length }));
-    return { ok: true, sent: 1, method: 'smtp', to: CLUB_EMAIL, events: blocks.length };
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'brian-empty-alert-sent', method:'smtp', label, to:CLUB_EMAIL, events: blocks.length, groupSlug: scopedGroupSlug }));
+    return { ok: true, sent: 1, method: 'smtp', to: CLUB_EMAIL, events: blocks.length, groupSlug: scopedGroupSlug };
   }
   const error = (httpRes && httpRes.error && httpRes.error.message) || (smtpRes && smtpRes.error && smtpRes.error.message) || 'Unknown email error';
-  console.error(JSON.stringify({ t:new Date().toISOString(), level:'error', msg:'brian-empty-alert-failed', label, to:CLUB_EMAIL, error }));
-  return { ok: false, sent: 0, to: CLUB_EMAIL, error };
+  console.error(JSON.stringify({ t:new Date().toISOString(), level:'error', msg:'brian-empty-alert-failed', label, to:CLUB_EMAIL, error, groupSlug: scopedGroupSlug }));
+  return { ok: false, sent: 0, to: CLUB_EMAIL, error, groupSlug: scopedGroupSlug };
 }
 
-async function checkEmptyTeeTimesForAdminAlert() {
-  const blocks24 = await findEmptyTeeTimesForDay(1);
-  const blocks48 = await findEmptyTeeTimesForDay(2);
+async function checkEmptyTeeTimesForAdminAlert(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  const scopedGroupSlug = normalizeGroupSlug(groupSlug);
+  const blocks24 = await findEmptyTeeTimesForDay(1, scopedGroupSlug);
+  const blocks48 = await findEmptyTeeTimesForDay(2, scopedGroupSlug);
 
   if (!blocks24.length && !blocks48.length) {
-    return { ok: true, sent: 0, message: 'No empty tee times' };
+    return { ok: true, sent: 0, message: 'No empty tee times', groupSlug: scopedGroupSlug };
   }
 
   const renderSection = (blocks, title) => {
@@ -2096,9 +2196,9 @@ async function checkEmptyTeeTimesForAdminAlert() {
     return `<h3 style="margin:8px 0 4px 0;">${title}</h3>${rows}`;
   };
 
-  const body = `${renderSection(blocks24, 'Empty tee times in next 24 hours')}${renderSection(blocks48, 'Empty tee times in next 48 hours')}${btn('Go to Sign-up Page')}`;
+  const body = `${renderSection(blocks24, 'Empty tee times in next 24 hours')}${renderSection(blocks48, 'Empty tee times in next 48 hours')}${btn('Go to Sign-up Page', buildSiteEventUrl(scopedGroupSlug))}`;
   const res = await sendAdminAlert('Admin Alert: Empty Tee Times', body);
-  return { ok: true, sent: res.sent, counts: { within24: blocks24.length, within48: blocks48.length } };
+  return { ok: true, sent: res.sent, counts: { within24: blocks24.length, within48: blocks48.length }, groupSlug: scopedGroupSlug };
 }
 
 /* local YMD in a TZ */
@@ -2378,8 +2478,8 @@ async function buildPairingSuggestion(ev) {
   };
 }
 
-app.get('/api/events', cacheJson(10 * 1000), async (_req, res) => {
-  const items = await Event.find().sort({ date: 1 }).lean();
+app.get('/api/events', cacheJson(10 * 1000), async (req, res) => {
+  const items = await Event.find(scopeQuery(req)).sort({ date: 1 }).lean();
   res.json(items);
 });
 
@@ -2398,7 +2498,7 @@ app.get('/api/events/calendar/summary', cacheJson(10 * 1000), async (req, res) =
     const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
     const end = new Date(Date.UTC(year, month, 1, 0, 0, 0));
     const events = await Event.find(
-      { date: { $gte: start, $lt: end } },
+      scopeQuery(req, { date: { $gte: start, $lt: end } }),
       { date: 1, isTeamEvent: 1, course: 1 }
     ).lean();
     res.json({
@@ -2427,10 +2527,10 @@ app.get('/api/events/calendar/month.ics', async (req, res) => {
     const includeTeamEvents = ['1', 'true', 'yes'].includes(String(req.query.includeTeams || '').trim().toLowerCase());
     const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0));
     const end = new Date(Date.UTC(year, month, 1, 0, 0, 0));
-    const query = {
+    const query = scopeQuery(req, {
       date: { $gte: start, $lt: end },
       ...(includeTeamEvents ? {} : { isTeamEvent: false }),
-    };
+    });
     const events = await Event.find(query).lean();
 
     const monthLabel = `${year}-${twoDigits(month)}`;
@@ -2455,7 +2555,7 @@ app.get('/api/events/by-date', cacheJson(10 * 1000), async (req, res) => {
     }
     const start = new Date(`${dateISO}T00:00:00.000Z`);
     const end = new Date(start.getTime() + (24 * 60 * 60 * 1000));
-    const events = await Event.find({ date: { $gte: start, $lt: end } }).sort({ date: 1, createdAt: 1 }).lean();
+    const events = await Event.find(scopeQuery(req, { date: { $gte: start, $lt: end } })).sort({ date: 1, createdAt: 1 }).lean();
     res.json({ date: dateISO, events });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -2465,7 +2565,7 @@ app.get('/api/events/by-date', cacheJson(10 * 1000), async (req, res) => {
 // Fetch a single event by id for targeted refreshes
 app.get('/api/events/:id', cacheJson(10 * 1000), async (req, res) => {
   try {
-    const ev = await Event.findById(req.params.id).lean();
+    const ev = await findScopedEventById(req, req.params.id, { lean: true });
     if (!ev) return res.status(404).json({ error: 'Event not found' });
     res.json(ev);
   } catch (e) {
@@ -2475,7 +2575,7 @@ app.get('/api/events/:id', cacheJson(10 * 1000), async (req, res) => {
 
 app.get('/api/events/:id/calendar.ics', async (req, res) => {
   try {
-    const ev = await Event.findById(req.params.id).lean();
+    const ev = await findScopedEventById(req, req.params.id, { lean: true });
     if (!ev) return res.status(404).json({ error: 'Event not found' });
     const icsBody = buildEventIcs(ev);
     if (!icsBody) return res.status(400).json({ error: 'Unable to build calendar event' });
@@ -2527,7 +2627,7 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
     });
     
     if (dedupeKey) {
-      const existing = await Event.findOne({ dedupeKey });
+      const existing = await Event.findOne(scopeQuery(req, { dedupeKey }));
       if (existing) {
         return res.status(200).json(existing);
       }
@@ -2536,6 +2636,7 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
     let created;
     try {
       created = await Event.create({
+        groupSlug: getGroupSlug(req),
         course,
         courseInfo: normalizedCourseInfo,
         date: eventDate,
@@ -2558,13 +2659,13 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
     } catch (err) {
       // If another request created the event at the same time, return the existing one
       if (err && err.code === 11000 && dedupeKey) {
-        const existing = await Event.findOne({ dedupeKey });
+        const existing = await Event.findOne(scopeQuery(req, { dedupeKey }));
         if (existing) return res.status(200).json(existing);
       }
       throw err;
     }
     res.status(201).json(created);
-    const eventUrl = `${SITE_URL}?event=${created._id}`;
+    const eventUrl = buildSiteEventUrl(created.groupSlug, created._id);
     await sendEmailToAll(`New Event: ${created.course} (${fmt.dateISO(created.date)})`,
       frame('A New Golf Event Has Been Scheduled!',
             `<p>The following event is now open for sign-up:</p>
@@ -2572,13 +2673,14 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
              <p><strong>Course:</strong> ${esc(created.course||'')}</p>
              <p><strong>Date:</strong> ${esc(fmt.dateLong(created.date))}</p>
              ${(!created.isTeamEvent && created.teeTimes?.[0]?.time) ? `<p><strong>First Tee Time:</strong> ${esc(fmt.tee(created.teeTimes[0].time))}</p>`:''}
-             <p>Please <a href="${eventUrl}" style="color:#166534;text-decoration:underline">click here to view this event directly</a> or visit the sign-up page to secure your spot!</p>${btn('Go to Sign-up Page', eventUrl)}`));
+             <p>Please <a href="${eventUrl}" style="color:#166534;text-decoration:underline">click here to view this event directly</a> or visit the sign-up page to secure your spot!</p>${btn('Go to Sign-up Page', eventUrl)}`),
+      { groupSlug: created.groupSlug });
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
 app.put('/api/events/:id', async (req, res) => {
   try {
-    const ev = await Event.findById(req.params.id);
+    const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     const body = req.body || {};
     const { course, courseInfo, date, notes, isTeamEvent, teamSizeMax } = body;
@@ -2622,7 +2724,7 @@ app.put('/api/events/:id', async (req, res) => {
 
 app.delete('/api/events/:id', async (req, res) => {
   if (!isAdminDelete(req)) return res.status(403).json({ error: 'Delete code required' });
-  const del = await Event.findByIdAndDelete(req.params.id);
+  const del = await Event.findOneAndDelete(scopeQuery(req, { _id: req.params.id }));
   if (!del) return res.status(404).json({ error: 'Not found' });
   
   // Send response immediately
@@ -2635,13 +2737,14 @@ app.delete('/api/events/:id', async (req, res) => {
            <p><strong>Event:</strong> ${esc(fmt.dateShortTitle(del.date))}</p>
            <p><strong>Course:</strong> ${esc(del.course||'')}</p>
            <p><strong>Date:</strong> ${esc(fmt.dateLong(del.date))}</p>
-           <p>We apologize for any inconvenience.</p>${btn('View Other Events')}`))
+           <p>We apologize for any inconvenience.</p>${btn('View Other Events', buildGroupAwarePath(SITE_URL, del.groupSlug))}`, del.groupSlug),
+    { groupSlug: del.groupSlug })
     .catch(err => console.error('Failed to send deletion emails:', err));
 });
 
 app.post('/api/events/:id/request-extra-tee-time', async (req, res) => {
   try {
-    const ev = await Event.findById(req.params.id);
+    const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
 
     const note = String(req.body?.note || '').trim();
@@ -2759,7 +2862,7 @@ app.post('/api/request-club-time', async (req, res) => {
 // Remove duplicate tee-time events for the same date/time/tee-count, keeping the requested event
 app.post('/api/events/:id/dedupe', async (req, res) => {
   try {
-    const ev = await Event.findById(req.params.id);
+    const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     if (ev.isTeamEvent) return res.status(400).json({ error: 'Dedupe only supported for tee-time events' });
     if (!Array.isArray(ev.teeTimes) || !ev.teeTimes.length || !ev.teeTimes[0].time) {
@@ -2777,10 +2880,10 @@ app.post('/api/events/:id/dedupe', async (req, res) => {
     if (!baseCount) return res.status(400).json({ error: 'No tee times to match' });
     const baseKey = baseTimes.join('|');
 
-    const candidates = await Event.find({
+    const candidates = await Event.find(scopeQuery(req, {
       isTeamEvent: false,
       date: { $gte: start, $lte: end }
-    }).sort({ createdAt: 1 });
+    })).sort({ createdAt: 1 });
 
     const matches = candidates.filter((e) => {
       const times = (e.teeTimes || []).map((t) => t && t.time).filter(Boolean).sort();
@@ -2798,7 +2901,7 @@ app.post('/api/events/:id/dedupe', async (req, res) => {
       : matches[0]._id;
 
     const toRemove = matches.filter((m) => String(m._id) !== String(keepId)).map((m) => m._id);
-    const delResult = await Event.deleteMany({ _id: { $in: toRemove } });
+    const delResult = await Event.deleteMany({ groupSlug: ev.groupSlug, _id: { $in: toRemove } });
     console.log('[dedupe] Removed duplicate events', { keepId: String(keepId), removed: delResult.deletedCount, ids: toRemove.map(String) });
 
     return res.json({ ok: true, keptId: keepId, removed: delResult.deletedCount, removedIds: toRemove, matched: matches.length });
@@ -2811,7 +2914,7 @@ app.post('/api/events/:id/dedupe', async (req, res) => {
 /* tee/team, players, move endpoints remain as in your current server.js */
 app.post('/api/events/:id/tee-times', async (req, res) => {
   // Clean logging: only log errors or important info
-  const ev = await Event.findById(req.params.id);
+  const ev = await findScopedEventById(req, req.params.id);
   if (!ev) {
     console.error('[tee-time] Add failed: event not found', { eventId: req.params.id });
     return res.status(404).json({ error: 'Not found' });
@@ -2849,7 +2952,7 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
       { new: true }
     );
     console.log('[tee-time] Team added', { eventId: ev._id, teamName: name, time });
-    const eventUrl = `${SITE_URL}?event=${ev._id}`;
+    const eventUrl = buildSiteEventUrl(ev.groupSlug, ev._id);
     sendEmailToAll(
       `New Team Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
       frame('New Team Added!',
@@ -2857,10 +2960,12 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
          <p><strong>Event:</strong> ${esc(ev.course)}</p>
          <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
          <p><strong>Team:</strong> ${esc(name)}</p>
-         <p>Please <a href="${eventUrl}" style="color:#166534;text-decoration:underline">click here to view this event directly</a>.</p>${btn('View Event', eventUrl)}`)
+         <p>Please <a href="${eventUrl}" style="color:#166534;text-decoration:underline">click here to view this event directly</a>.</p>${btn('View Event', eventUrl)}`),
+      { groupSlug: ev.groupSlug }
     ).catch(err => console.error('[tee-time] Failed to send team add email:', err));
     const added = pushResult && pushResult.teeTimes ? pushResult.teeTimes[pushResult.teeTimes.length - 1] : null;
     await logTeeTimeChange({
+      groupSlug: pushResult?.groupSlug || ev.groupSlug,
       eventId: pushResult?._id,
       teeId: added?._id,
       action: 'add',
@@ -2900,7 +3005,7 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
   });
   await ev.save();
   console.log('[tee-time] Tee time added', { eventId: ev._id, time: newTime });
-  const eventUrl = `${SITE_URL}?event=${ev._id}&time=${encodeURIComponent(newTime)}`;
+  const eventUrl = buildSiteEventUrl(ev.groupSlug, ev._id, { time: newTime });
   sendEmailToAll(
     `New Tee Time Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
     frame('New Tee Time Added!',
@@ -2908,10 +3013,12 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
        <p><strong>Event:</strong> ${esc(ev.course)}</p>
        <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
        <p><strong>Tee Time:</strong> ${esc(fmt.tee(newTime))}</p>
-       <p>Please <a href="${eventUrl}" style="color:#166534;text-decoration:underline">click here to view this tee time directly</a>.</p>${btn('View Event', eventUrl)}`)
+       <p>Please <a href="${eventUrl}" style="color:#166534;text-decoration:underline">click here to view this tee time directly</a>.</p>${btn('View Event', eventUrl)}`),
+    { groupSlug: ev.groupSlug }
   ).catch(err => console.error('[tee-time] Failed to send tee add email:', err));
   const added = ev.teeTimes[ev.teeTimes.length - 1];
   await logTeeTimeChange({
+    groupSlug: ev.groupSlug,
     eventId: ev._id,
     teeId: added?._id,
     action: 'add',
@@ -2927,7 +3034,7 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
 // Edit tee time or team name
 app.put('/api/events/:id/tee-times/:teeId', async (req, res) => {
   try {
-    const ev = await Event.findById(req.params.id);
+    const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     const tt = ev.teeTimes.id(req.params.teeId);
     if (!tt) return res.status(404).json({ error: 'tee/team not found' });
@@ -2949,6 +3056,7 @@ app.put('/api/events/:id/tee-times/:teeId', async (req, res) => {
     await ev.save();
     const afterLabel = ev.isTeamEvent ? (tt.name || '') : (tt.time || '');
     await logTeeTimeChange({
+      groupSlug: ev.groupSlug,
       eventId: ev._id,
       teeId: tt._id,
       action: 'update',
@@ -2980,7 +3088,7 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
       confirmedDelete,
     });
 
-    const ev = await Event.findById(req.params.id);
+    const ev = await findScopedEventById(req, req.params.id);
     if (!ev) {
       console.error('[tee-time] Remove failed: event not found', { eventId: req.params.id });
       return res.status(404).json({ error: 'Not found' });
@@ -3005,7 +3113,8 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
         `<p>A ${ev.isTeamEvent ? 'team' : 'tee time'} has been removed:</p>
          <p><strong>Event:</strong> ${esc(ev.course)}</p>
          <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
-         ${btn('View Event')}`)
+         ${btn('View Event', buildSiteEventUrl(ev.groupSlug, ev._id))}`),
+      { groupSlug: ev.groupSlug }
     ).catch(err => console.error('Failed to send tee/team removal email:', err));
 
     let mailMethod = null;
@@ -3041,6 +3150,7 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
     }
 
     await logTeeTimeChange({
+      groupSlug: ev.groupSlug,
       eventId: ev._id,
       teeId: req.params.teeId,
       action: 'delete',
@@ -3071,7 +3181,7 @@ app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPla
   const trimmedName = String(name).trim();
   if (!trimmedName) return res.status(400).json({ error: 'name cannot be empty' });
 
-  const ev = await Event.findById(req.params.id);
+  const ev = await findScopedEventById(req, req.params.id);
   if (!ev) return res.status(404).json({ error: 'Not found' });
   const tt = ev.teeTimes.id(req.params.teeId);
   if (!tt) return res.status(404).json({ error: 'tee time not found' });
@@ -3119,7 +3229,8 @@ app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPla
          <p><strong>Event:</strong> ${esc(ev.course)}</p>
          <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
          <p><strong>${ev.isTeamEvent ? 'Team' : 'Tee Time'}:</strong> ${esc(teeLabel)}</p>
-         ${btn('View Event')}`)
+         ${btn('View Event', buildSiteEventUrl(ev.groupSlug, ev._id))}`),
+      { groupSlug: ev.groupSlug }
     ).catch(err => console.error('Failed to send player add email:', err));
 
     const oneSpotLeft = tt.players.length === Math.max(1, maxSize - 1);
@@ -3131,7 +3242,8 @@ app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPla
            <p><strong>Event:</strong> ${esc(ev.course)}</p>
            <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
            <p>Last call if you want in.</p>
-           ${btn('Join This Event')}`)
+           ${btn('Join This Event', buildSiteEventUrl(ev.groupSlug, ev._id))}`),
+        { groupSlug: ev.groupSlug }
       ).catch(err => console.error('Failed to send one-spot-left email:', err));
     }
   }
@@ -3142,7 +3254,7 @@ app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res
   try {
     const confirmedDelete = hasDeleteActionConfirmed(req);
     if (!isAdminDelete(req) && !confirmedDelete) return res.status(403).json({ error: 'Removal confirmation required' });
-    const ev = await Event.findById(req.params.id);
+    const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     const tt = ev.teeTimes.id(req.params.teeId);
     if (!tt) return res.status(404).json({ error: 'tee/team not found' });
@@ -3185,7 +3297,8 @@ app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res
            <p><strong>Event:</strong> ${esc(ev.course)}</p>
            <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
            <p><strong>${ev.isTeamEvent ? 'Team' : 'Tee Time'}:</strong> ${esc(teeLabel)}</p>
-           ${btn('View Event')}`)
+           ${btn('View Event', buildSiteEventUrl(ev.groupSlug, ev._id))}`),
+        { groupSlug: ev.groupSlug }
       ).catch(err => console.error('Failed to send player removal email:', err));
     }
 
@@ -3197,7 +3310,7 @@ app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res
 app.post('/api/events/:id/move-player', async (req, res) => {
   const { fromTeeId, toTeeId, playerId } = req.body || {};
   if (!fromTeeId || !toTeeId || !playerId) return res.status(400).json({ error: 'fromTeeId, toTeeId, playerId required' });
-  const ev = await Event.findById(req.params.id);
+  const ev = await findScopedEventById(req, req.params.id);
   if (!ev) return res.status(404).json({ error: 'Not found' });
   const fromTT = ev.teeTimes.id(fromTeeId);
   const toTT = ev.teeTimes.id(toTeeId);
@@ -3239,7 +3352,7 @@ app.post('/api/events/:id/tee-times/:teeId/players/:playerId/check-in', async (r
     const checkedIn = req.body && req.body.checkedIn;
     if (typeof checkedIn !== 'boolean') return res.status(400).json({ error: 'checkedIn boolean required' });
 
-    const ev = await Event.findById(req.params.id);
+    const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     const tt = ev.teeTimes.id(req.params.teeId);
     if (!tt) return res.status(404).json({ error: 'tee/team not found' });
@@ -3266,7 +3379,7 @@ app.post('/api/events/:id/tee-times/:teeId/check-in-all', async (req, res) => {
     const checkedIn = req.body && req.body.checkedIn;
     if (typeof checkedIn !== 'boolean') return res.status(400).json({ error: 'checkedIn boolean required' });
 
-    const ev = await Event.findById(req.params.id);
+    const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     const tt = ev.teeTimes.id(req.params.teeId);
     if (!tt) return res.status(404).json({ error: 'tee/team not found' });
@@ -3288,7 +3401,7 @@ app.post('/api/events/:id/tee-times/:teeId/check-in-all', async (req, res) => {
 
 app.post('/api/events/:id/pairings/suggest', async (req, res) => {
   try {
-    const ev = await Event.findById(req.params.id).lean();
+    const ev = await findScopedEventById(req, req.params.id, { lean: true });
     if (!ev) return res.status(404).json({ error: 'Not found' });
     const suggestion = await buildPairingSuggestion(ev);
     res.json({
@@ -3307,7 +3420,7 @@ app.post('/api/events/:id/pairings/suggest', async (req, res) => {
 
 app.post('/api/events/:id/pairings/apply', async (req, res) => {
   try {
-    const ev = await Event.findById(req.params.id);
+    const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
 
     const suggestion = await buildPairingSuggestion(ev);
@@ -3733,7 +3846,7 @@ app.get('/api/golf-courses/search', async (req, res) => {
 // Refresh weather for an event
 app.post('/api/events/:id/weather', async (req, res) => {
   try {
-    const ev = await Event.findById(req.params.id);
+    const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     
     const weatherData = await fetchWeatherForEvent(ev);
@@ -3747,9 +3860,9 @@ app.post('/api/events/:id/weather', async (req, res) => {
 });
 
 // Refresh weather for all events
-app.post('/api/events/weather/refresh-all', async (_req, res) => {
+app.post('/api/events/weather/refresh-all', async (req, res) => {
   try {
-    const events = await Event.find();
+    const events = await Event.find(scopeQuery(req));
     let updated = 0;
     let failed = 0;
     let errors = [];
@@ -3795,7 +3908,7 @@ app.post('/api/events/:id/maybe', async (req, res) => {
     const { name } = req.body || {};
     if (!name) return res.status(400).json({ error: 'name required' });
     
-    const ev = await Event.findById(req.params.id);
+    const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     
     if (!Array.isArray(ev.maybeList)) ev.maybeList = [];
@@ -3817,7 +3930,7 @@ app.post('/api/events/:id/maybe', async (req, res) => {
 app.post('/api/events/:id/maybe/fill', async (req, res) => {
   try {
     const { name, teeId } = req.body || {};
-    const ev = await Event.findById(req.params.id);
+    const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     if (!Array.isArray(ev.maybeList)) ev.maybeList = [];
     if (!Array.isArray(ev.teeTimes) || !ev.teeTimes.length) {
@@ -3862,7 +3975,8 @@ app.post('/api/events/:id/maybe/fill', async (req, res) => {
            <p><strong>Event:</strong> ${esc(ev.course)}</p>
            <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
            <p><strong>${ev.isTeamEvent ? 'Team' : 'Tee Time'}:</strong> ${esc(teeLabel)}</p>
-           ${btn('View Event')}`)
+           ${btn('View Event', buildSiteEventUrl(ev.groupSlug, ev._id))}`),
+        { groupSlug: ev.groupSlug }
       ).catch((err) => console.error('Failed maybe fill email:', err));
     }
 
@@ -3877,7 +3991,7 @@ app.post('/api/events/:id/maybe/fill', async (req, res) => {
 // Remove player from maybe list
 app.delete('/api/events/:id/maybe/:index', async (req, res) => {
   try {
-    const ev = await Event.findById(req.params.id);
+    const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     
     if (!Array.isArray(ev.maybeList)) ev.maybeList = [];
@@ -3912,6 +4026,7 @@ app.get('/api/events/:id/audit-log', async (req, res) => {
 /* ---------------- Subscribers ---------------- */
 app.post('/api/subscribe', async (req, res) => {
   const { email } = req.body || {};
+  const groupSlug = getGroupSlug(req);
   
   console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'subscribe request received', email: email ? '***' : null }));
   
@@ -3923,10 +4038,10 @@ app.post('/api/subscribe', async (req, res) => {
       return res.status(500).json({ error: 'subscriber model missing' });
     }
     
-    const subscriberData = { email: email.toLowerCase() };
+    const subscriberData = { groupSlug, email: email.toLowerCase() };
     
     // Check if subscriber already exists
-    let existing = await Subscriber.findOne({ email: subscriberData.email });
+    let existing = await Subscriber.findOne({ groupSlug, email: subscriberData.email });
     
     let s;
     if (existing) {
@@ -4000,8 +4115,9 @@ app.get('/api/admin/settings/notifications', async (req, res) => {
   }
   
   try {
-    const enabled = await areNotificationsEnabled();
-    res.json({ notificationsEnabled: enabled });
+    const groupSlug = getGroupSlug(req);
+    const enabled = await areNotificationsEnabled(groupSlug);
+    res.json({ notificationsEnabled: enabled, groupSlug });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -4016,13 +4132,14 @@ app.put('/api/admin/settings/notifications', async (req, res) => {
     if (!Settings) return res.status(500).json({ error: 'Settings model not available' });
     
     const { notificationsEnabled } = req.body;
+    const groupSlug = getGroupSlug(req);
     await Settings.findOneAndUpdate(
-      { key: 'notificationsEnabled' },
-      { key: 'notificationsEnabled', value: notificationsEnabled },
+      scopedSettingQuery(groupSlug, 'notificationsEnabled'),
+      { groupSlug, key: 'notificationsEnabled', value: notificationsEnabled },
       { upsert: true, new: true }
     );
     
-    res.json({ ok: true, notificationsEnabled });
+    res.json({ ok: true, notificationsEnabled, groupSlug });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -4034,8 +4151,9 @@ app.get('/api/admin/settings/scheduler', async (req, res) => {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
-    const schedulerEnabled = await areSchedulerJobsEnabled();
-    res.json({ schedulerEnabled, lockedByEnv: SCHEDULER_ENV_DISABLED });
+    const groupSlug = getGroupSlug(req);
+    const schedulerEnabled = await areSchedulerJobsEnabled(groupSlug);
+    res.json({ schedulerEnabled, lockedByEnv: SCHEDULER_ENV_DISABLED, groupSlug });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -4056,18 +4174,19 @@ app.put('/api/admin/settings/scheduler', async (req, res) => {
 
   try {
     if (!Settings) return res.status(500).json({ error: 'Settings model not available' });
+    const groupSlug = getGroupSlug(req);
     const rawEnabled = req.body && req.body.schedulerEnabled;
     if (typeof rawEnabled !== 'boolean') {
       return res.status(400).json({ error: 'schedulerEnabled must be a boolean' });
     }
     const enabled = rawEnabled;
     await Settings.findOneAndUpdate(
-      { key: 'schedulerEnabled' },
-      { key: 'schedulerEnabled', value: enabled },
+      scopedSettingQuery(groupSlug, 'schedulerEnabled'),
+      { groupSlug, key: 'schedulerEnabled', value: enabled },
       { upsert: true, new: true }
     );
-    schedulerEnabledCache = { value: enabled, ts: Date.now() };
-    res.json({ ok: true, schedulerEnabled: enabled, lockedByEnv: false });
+    schedulerEnabledCache.set(groupSlug, { value: enabled, ts: Date.now() });
+    res.json({ ok: true, schedulerEnabled: enabled, lockedByEnv: false, groupSlug });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -4079,8 +4198,9 @@ app.get('/api/admin/settings/scheduled-email-rules', async (req, res) => {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
-    const rules = await getScheduledEmailRules();
-    res.json({ rules, availableRules: SCHEDULED_EMAIL_RULE_KEYS });
+    const groupSlug = getGroupSlug(req);
+    const rules = await getScheduledEmailRules(groupSlug);
+    res.json({ rules, availableRules: SCHEDULED_EMAIL_RULE_KEYS, groupSlug });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -4092,6 +4212,7 @@ app.put('/api/admin/settings/scheduled-email-rules', async (req, res) => {
   }
   try {
     if (!Settings) return res.status(500).json({ error: 'Settings model not available' });
+    const groupSlug = getGroupSlug(req);
     const ruleKey = String((req.body && req.body.ruleKey) || '').trim();
     if (!SCHEDULED_EMAIL_RULE_KEYS.includes(ruleKey)) {
       return res.status(400).json({ error: 'Invalid ruleKey', availableRules: SCHEDULED_EMAIL_RULE_KEYS });
@@ -4101,15 +4222,15 @@ app.put('/api/admin/settings/scheduled-email-rules', async (req, res) => {
       return res.status(400).json({ error: 'enabled must be a boolean' });
     }
 
-    const current = await getScheduledEmailRules();
+    const current = await getScheduledEmailRules(groupSlug);
     const updated = { ...current, [ruleKey]: rawEnabled };
     await Settings.findOneAndUpdate(
-      { key: 'scheduledEmailRules' },
-      { key: 'scheduledEmailRules', value: updated },
+      scopedSettingQuery(groupSlug, 'scheduledEmailRules'),
+      { groupSlug, key: 'scheduledEmailRules', value: updated },
       { upsert: true, new: true }
     );
-    scheduledEmailRulesCache = { value: updated, ts: Date.now() };
-    res.json({ ok: true, rules: updated });
+    scheduledEmailRulesCache.set(groupSlug, { value: updated, ts: Date.now() });
+    res.json({ ok: true, rules: updated, groupSlug });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -4124,15 +4245,16 @@ app.get('/api/admin/subscribers', async (req, res) => {
   try {
     if (!Subscriber) return res.status(500).json({ error: 'Subscriber model not available' });
     
+    const groupSlug = getGroupSlug(req);
     // Migration: Add tokens to existing subscribers without them
     const crypto = require('crypto');
-    const subsWithoutToken = await Subscriber.find({ unsubscribeToken: { $exists: false } });
+    const subsWithoutToken = await Subscriber.find({ groupSlug, unsubscribeToken: { $exists: false } });
     for (const sub of subsWithoutToken) {
       sub.unsubscribeToken = crypto.randomBytes(32).toString('hex');
       await sub.save();
     }
     
-    const subscribers = await Subscriber.find({}).sort({ createdAt: -1 }).lean();
+    const subscribers = await Subscriber.find({ groupSlug }).sort({ createdAt: -1 }).lean();
     res.json(subscribers);
   } catch (e) {
     console.error('List subscribers error:', e);
@@ -4148,7 +4270,7 @@ app.delete('/api/admin/subscribers/:id', async (req, res) => {
   
   try {
     if (!Subscriber) return res.status(500).json({ error: 'Subscriber model not available' });
-    const deleted = await Subscriber.findByIdAndDelete(req.params.id);
+    const deleted = await Subscriber.findOneAndDelete({ _id: req.params.id, groupSlug: getGroupSlug(req) });
     if (!deleted) return res.status(404).json({ error: 'Subscriber not found' });
     res.json({ ok: true });
   } catch (e) {
@@ -4164,7 +4286,7 @@ app.get('/api/admin/tee-time-log', async (req, res) => {
   }
   if (!TeeTimeLog) return res.status(500).json({ error: 'TeeTimeLog model not available' });
   try {
-    const logs = await TeeTimeLog.find({}).sort({ createdAt: -1 }).limit(200).lean();
+    const logs = await TeeTimeLog.find({ groupSlug: getGroupSlug(req) }).sort({ createdAt: -1 }).limit(200).lean();
     res.json(logs);
   } catch (e) {
     console.error('Tee time log error:', e);
@@ -4326,6 +4448,7 @@ app.get('/api/admin/backups/:backupId/files/:fileName', async (req, res) => {
 /* Admin - Send Custom Message to All Subscribers */
 app.post('/api/admin/send-custom-message', async (req, res) => {
   const { code, subject, message } = req.body;
+  const groupSlug = getGroupSlug(req);
   
   if (!isSiteAdminCode(code)) {
     return res.status(403).json({ error: 'Forbidden' });
@@ -4338,8 +4461,7 @@ app.post('/api/admin/send-custom-message', async (req, res) => {
   try {
     if (!Subscriber) return res.status(500).json({ error: 'Subscriber model not available' });
     
-    // Get all subscribers (match admin page logic)
-    const subscribers = await Subscriber.find({}).sort({ createdAt: -1 }).lean();
+    const subscribers = await Subscriber.find({ groupSlug }).sort({ createdAt: -1 }).lean();
     if (subscribers.length === 0) {
       return res.json({ count: 0, message: 'No subscribers' });
     }
@@ -4358,7 +4480,7 @@ app.post('/api/admin/send-custom-message', async (req, res) => {
               <div style="color: #1a5a1a; font-size: 16px; line-height: 1.6; white-space: pre-wrap;">${message}</div>
               <hr style="border: none; border-top: 2px solid #e5e7eb; margin: 30px 0;">
               <p style="color: #6b7280; font-size: 14px; margin: 0;">
-                This message was sent to all Tee Time BRS subscribers.
+                This message was sent to all ${esc(groupSlug)} subscribers.
               </p>
               <p style="color: #6b7280; font-size: 12px; margin: 16px 0 0 0;">
                 <a href="${unsubLink}" style="color: #dc2626;">Unsubscribe from notifications</a>
@@ -4375,9 +4497,10 @@ app.post('/api/admin/send-custom-message', async (req, res) => {
       }
     }
     
-    console.log(`Custom message sent: "${subject}" to ${successCount}/${subscribers.length} subscribers`);
+    console.log(`Custom message sent for group ${groupSlug}: "${subject}" to ${successCount}/${subscribers.length} subscribers`);
     
     res.json({ 
+      groupSlug,
       count: successCount,
       total: subscribers.length,
       errors: errors.length > 0 ? errors : undefined
@@ -4415,13 +4538,14 @@ function ymdLocalPlusDays(days=1){
   const targetUTCNoon = addDaysUTC(baseUTCNoon, days);
   return ymdInTZ(targetUTCNoon, LOCAL_TZ);
 }
-async function findEmptyTeeTimesForDay(daysAhead = 1){
+async function findEmptyTeeTimesForDay(daysAhead = 1, groupSlug = DEFAULT_SITE_GROUP_SLUG){
   const ymd = ymdLocalPlusDays(daysAhead); // 'YYYY-MM-DD' in local TZ
   // Robust window: include events from noon UTC previous day to noon UTC next day
   const base = new Date(ymd + 'T00:00:00' + 'Z');
   const start = new Date(base.getTime() - 12*60*60*1000); // noon previous day UTC
   const end = new Date(base.getTime() + 36*60*60*1000 - 1); // just before noon next day UTC
-  const events = await Event.find({ isTeamEvent: false, date: { $gte: start, $lte: end } }).lean();
+  const scopedGroupSlug = normalizeGroupSlug(groupSlug);
+  const events = await Event.find({ groupSlug: scopedGroupSlug, isTeamEvent: false, date: { $gte: start, $lte: end } }).lean();
   const blocks = [];
   for (const ev of events) {
     const eventDateYMD = fmt.dateISO(ev.date);
@@ -4453,17 +4577,18 @@ async function findEmptyTeeTimesForDay(daysAhead = 1){
 }
 
 
-async function runReminderIfNeeded(label, daysAhead = 1){
-  const blocks = await findEmptyTeeTimesForDay(daysAhead);
+async function runReminderIfNeeded(label, daysAhead = 1, groupSlug = DEFAULT_SITE_GROUP_SLUG){
+  const scopedGroupSlug = normalizeGroupSlug(groupSlug);
+  const blocks = await findEmptyTeeTimesForDay(daysAhead, scopedGroupSlug);
   if (!blocks.length) {
-    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'reminder-skip', reason:'no empty tees', label, daysAhead }));
-    return { ok:true, sent:0 };
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'reminder-skip', reason:'no empty tees', label, daysAhead, groupSlug: scopedGroupSlug }));
+    return { ok:true, sent:0, groupSlug: scopedGroupSlug };
   }
   const html = reminderEmail(blocks, { daysAhead });
   const subj = daysAhead === 2 ? 'Reminder: Empty Tee Times in 2 Days' : 'Reminder: Empty Tee Times Tomorrow';
-  const res = await sendEmailToAll(subj, html);
-  console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'reminder-sent', sent:res.sent, label, daysAhead }));
-  return res;
+  const res = await sendEmailToAll(subj, html, { groupSlug: scopedGroupSlug });
+  console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'reminder-sent', sent:res.sent, label, daysAhead, groupSlug: scopedGroupSlug }));
+  return { ...res, groupSlug: scopedGroupSlug };
 }
 
 /* manual trigger: GET /admin/run-reminders?code=... */
@@ -4471,8 +4596,9 @@ app.get('/admin/run_reminders', async (req, res) => {
   const code = req.query.code || '';
   if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) return res.status(403).json({ error: 'Forbidden' });
   try {
-    const r48 = await runReminderIfNeeded('manual-48hr', 2);
-    const r24 = await runReminderIfNeeded('manual-24hr', 1);
+    const groupSlug = getGroupSlug(req);
+    const r48 = await runReminderIfNeeded('manual-48hr', 2, groupSlug);
+    const r24 = await runReminderIfNeeded('manual-24hr', 1, groupSlug);
     return res.json({ r48, r24 });
   }
   catch (e) { return res.status(500).json({ error: e.message }); }
@@ -4483,7 +4609,7 @@ app.get('/admin/run_brian_empty_alert', async (req, res) => {
   const code = req.query.code || '';
   if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) return res.status(403).json({ error: 'Forbidden' });
   try {
-    const result = await runBrianJonesTomorrowEmptyTeeAlert('manual');
+    const result = await runBrianJonesTomorrowEmptyTeeAlert('manual', getGroupSlug(req));
     return res.json(result);
   } catch (e) {
     return res.status(500).json({ error: e.message });
@@ -4497,12 +4623,13 @@ app.get('/admin/empty-tee-report', async (req, res) => {
   const code = req.query.code || '';
   if (!ADMIN_DELETE_CODE || code !== ADMIN_DELETE_CODE) return res.status(403).json({ error: 'Forbidden' });
   try {
+    const groupSlug = getGroupSlug(req);
     const now = new Date();
     const nowPlus1 = new Date(now.getTime() + 24 * 60 * 60 * 1000);
     const nowPlus2 = new Date(now.getTime() + 48 * 60 * 60 * 1000);
     const nowPlus3 = new Date(now.getTime() + 72 * 60 * 60 * 1000);
     // Only non-team events
-    const events = await Event.find({ isTeamEvent: false }).lean();
+    const events = await Event.find({ groupSlug, isTeamEvent: false }).lean();
     const within1Day = [];
     const within2Days = [];
     const within3Days = [];
@@ -4551,6 +4678,7 @@ app.get('/admin/empty-tee-report', async (req, res) => {
     }
     res.json({
       ok: true,
+      groupSlug,
       within1Day,
       within2Days,
       within3Days,
@@ -4626,12 +4754,14 @@ app.get('/admin/verify-courses', async (req, res) => {
 });
 
 /* Helper: refresh weather for events in next 7 days */
-async function refreshWeatherForUpcomingEvents() {
+async function refreshWeatherForUpcomingEvents(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   try {
+    const scopedGroupSlug = normalizeGroupSlug(groupSlug);
     const now = new Date();
     const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
     
     const events = await Event.find({
+      groupSlug: scopedGroupSlug,
       date: { $gte: now, $lte: sevenDaysFromNow }
     });
     
@@ -4647,8 +4777,8 @@ async function refreshWeatherForUpcomingEvents() {
       }
     }
     
-    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'weather-refresh', updated, total: events.length }));
-    return { ok: true, updated, total: events.length };
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'weather-refresh', updated, total: events.length, groupSlug: scopedGroupSlug }));
+    return { ok: true, updated, total: events.length, groupSlug: scopedGroupSlug };
   } catch (e) {
     console.error('Weather refresh error:', e);
     return { ok: false, error: e.message };
@@ -4659,11 +4789,11 @@ async function refreshWeatherForUpcomingEvents() {
    Only enable when running as the entry point (not when imported by tests)
    and when ENABLE_SCHEDULER is not explicitly disabled. */
 if (require.main === module && !SCHEDULER_ENV_DISABLED) {
-  let lastRunForYMD_24 = null;
-  let lastRunForYMD_48 = null;
-  let lastBrianAlertForYMD = null;
-  let lastAdminCheckHour = null;
-  let lastWeatherRefreshHour = null;
+  const lastRunForYMD24ByGroup = new Map();
+  const lastRunForYMD48ByGroup = new Map();
+  const lastBrianAlertForYMDByGroup = new Map();
+  const lastAdminCheckHourByGroup = new Map();
+  const lastWeatherRefreshHourByGroup = new Map();
   let lastMonthlyBackupKey = null;
   let lastWeeklyBackupKey = null;
   let lastDailyBackupKey = null;
@@ -4674,8 +4804,13 @@ if (require.main === module && !SCHEDULER_ENV_DISABLED) {
       const now = new Date();
       const parts = new Intl.DateTimeFormat('en-US', { timeZone: LOCAL_TZ, hour:'2-digit', minute:'2-digit', hour12:false }).format(now).split(':');
       const hour = Number(parts[0]), minute = Number(parts[1]);
-      const schedulerEnabled = await areSchedulerJobsEnabled();
-      if (!schedulerEnabled) {
+      const enabledGroups = [];
+      for (const groupSlug of await getAllManagedGroupSlugs()) {
+        if (await areSchedulerJobsEnabled(groupSlug)) {
+          enabledGroups.push(groupSlug);
+        }
+      }
+      if (!enabledGroups.length) {
         if (lastSchedulerDisabledLogHour !== hour) {
           lastSchedulerDisabledLogHour = hour;
           console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'scheduler-paused', reason:'admin-disabled' }));
@@ -4683,7 +4818,6 @@ if (require.main === module && !SCHEDULER_ENV_DISABLED) {
         return;
       }
       lastSchedulerDisabledLogHour = null;
-      const emailRules = await getScheduledEmailRules();
       const backupSettings = await getBackupSettings();
       const todayLocalYMD = ymdInTZ(now, LOCAL_TZ);
       const ymdTomorrow = ymdLocalPlusDays(1);
@@ -4692,52 +4826,41 @@ if (require.main === module && !SCHEDULER_ENV_DISABLED) {
       const dayOfMonth = Number(todayParts[2] || 0);
       const currentMonthKey = monthKeyInTZ(now, LOCAL_TZ);
       const currentWeekKey = weekKeyInTZ(now, LOCAL_TZ);
+      for (const groupSlug of enabledGroups) {
+        const emailRules = await getScheduledEmailRules(groupSlug);
 
-
-      // Daily 4:00 PM Brian Jones alert for empty tee times tomorrow
-      if (emailRules.brianTomorrowEmptyClubAlert && hour === 16 && minute === 0 && lastBrianAlertForYMD !== ymdTomorrow) {
-        lastBrianAlertForYMD = ymdTomorrow;
-        const result = await runBrianJonesTomorrowEmptyTeeAlert('auto-16:00');
-        console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'brian-empty-alert-complete', targetYMD: ymdTomorrow, result }));
-      }
-
-      // Daily 5:00 PM reminders
-      if (hour === 17 && minute === 0) {
-        // Empty tee times 2 days ahead (48hr)
-        if (emailRules.reminder48Hour && lastRunForYMD_48 !== ymd48) {
-          lastRunForYMD_48 = ymd48;
-          await runReminderIfNeeded('auto-17:00-48hr', 2);
+        if (emailRules.brianTomorrowEmptyClubAlert && hour === 16 && minute === 0 && lastBrianAlertForYMDByGroup.get(groupSlug) !== ymdTomorrow) {
+          lastBrianAlertForYMDByGroup.set(groupSlug, ymdTomorrow);
+          const result = await runBrianJonesTomorrowEmptyTeeAlert('auto-16:00', groupSlug);
+          console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'brian-empty-alert-complete', targetYMD: ymdTomorrow, result, groupSlug }));
         }
-        // Empty tee times tomorrow (24hr)
-        if (emailRules.reminder24Hour && lastRunForYMD_24 !== todayLocalYMD) {
-          lastRunForYMD_24 = todayLocalYMD;
-          await runReminderIfNeeded('auto-17:00-24hr', 1);
+
+        if (hour === 17 && minute === 0) {
+          if (emailRules.reminder48Hour && lastRunForYMD48ByGroup.get(groupSlug) !== ymd48) {
+            lastRunForYMD48ByGroup.set(groupSlug, ymd48);
+            await runReminderIfNeeded('auto-17:00-48hr', 2, groupSlug);
+          }
+          if (emailRules.reminder24Hour && lastRunForYMD24ByGroup.get(groupSlug) !== todayLocalYMD) {
+            lastRunForYMD24ByGroup.set(groupSlug, todayLocalYMD);
+            await runReminderIfNeeded('auto-17:00-24hr', 1, groupSlug);
+          }
+          if (emailRules.nearlyFullTeeTimes) {
+            await alertNearlyFullTeeTimes(groupSlug);
+          }
         }
-        // Nearly full tee times (4 days out or less)
-        if (emailRules.nearlyFullTeeTimes) {
-          await alertNearlyFullTeeTimes();
+
+        if (emailRules.adminEmptyTeeAlerts && [0, 6, 12, 18].includes(hour) && minute === 0 && lastAdminCheckHourByGroup.get(groupSlug) !== hour) {
+          lastAdminCheckHourByGroup.set(groupSlug, hour);
+          const result = await checkEmptyTeeTimesForAdminAlert(groupSlug);
+          console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'admin-check-complete', result, groupSlug }));
+          if (hour === 0) lastAdminCheckHourByGroup.delete(groupSlug);
         }
-      }
 
-      // Admin alerts for empty tee times (48hr and 24hr checks)
-      // Run every 6 hours at: 6 AM, 12 PM, 6 PM, 12 AM
-      if (emailRules.adminEmptyTeeAlerts && [0, 6, 12, 18].includes(hour) && minute === 0 && lastAdminCheckHour !== hour) {
-        lastAdminCheckHour = hour;
-        const result = await checkEmptyTeeTimesForAdminAlert();
-        console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'admin-check-complete', result }));
-
-        // Reset at end of day
-        if (hour === 0) lastAdminCheckHour = null;
-      }
-
-      // Weather refresh for events in next 7 days
-      // Run every 2 hours at: 12 AM, 2 AM, 4 AM, 6 AM, 8 AM, 10 AM, 12 PM, 2 PM, 4 PM, 6 PM, 8 PM, 10 PM
-      if (hour % 2 === 0 && minute === 0 && lastWeatherRefreshHour !== hour) {
-        lastWeatherRefreshHour = hour;
-        await refreshWeatherForUpcomingEvents();
-
-        // Reset at end of day
-        if (hour === 0) lastWeatherRefreshHour = null;
+        if (hour % 2 === 0 && minute === 0 && lastWeatherRefreshHourByGroup.get(groupSlug) !== hour) {
+          lastWeatherRefreshHourByGroup.set(groupSlug, hour);
+          await refreshWeatherForUpcomingEvents(groupSlug);
+          if (hour === 0) lastWeatherRefreshHourByGroup.delete(groupSlug);
+        }
       }
 
       // Automated backups and retention cleanup
