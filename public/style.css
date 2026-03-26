@@ -853,6 +853,13 @@ body.starter-mode #events{
   font-weight:600;
   line-height:1.2;
   max-width:100%;
+  text-decoration:none;
+}
+.weather-summary:hover,
+.weather-summary:focus {
+  border-color:rgba(100,116,139,.6);
+  background:rgba(148,163,184,.2);
+  color:var(--slate-900);
 }
 
 .weather-summary-muted{

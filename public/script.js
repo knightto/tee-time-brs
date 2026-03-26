@@ -469,30 +469,56 @@ if ('serviceWorker' in navigator) {
     };
     window.setTimeout(dismiss, tone === 'error' ? 4200 : 3000);
   }
+  function weatherLinkForEvent(ev) {
+    const info = (ev && ev.courseInfo) || {};
+    const lat = Number(info.latitude);
+    const lon = Number(info.longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      return `https://weather.com/weather/today/l/${lat},${lon}`;
+    }
+
+    const address = String(info.address || info.fullAddress || '').trim();
+    const city = String(info.city || '').trim();
+    const state = String(info.state || '').trim();
+    const course = String(ev && ev.course || '').trim();
+    const queryUnits = [];
+    if (address) queryUnits.push(address);
+    if (city) queryUnits.push(city);
+    if (state) queryUnits.push(state);
+    if (!queryUnits.length && course) queryUnits.push(course);
+    const query = queryUnits.join(', ').trim();
+    if (query) {
+      return `https://www.google.com/search?q=${encodeURIComponent(`weather ${query}`)}`;
+    }
+    return 'https://www.weather.com/weather/today';
+  }
+
   function weatherSummaryMarkup(ev) {
     const weather = ev && ev.weather ? ev.weather : null;
-    if (!weather) {
-      return '<span class="weather-summary weather-summary-muted"><span class="weather-text">Forecast unavailable</span></span>';
-    }
-    const icon = weather.icon ? `<span class="weather-inline" aria-hidden="true">${escapeHtml(weather.icon)}</span>` : '';
+    const link = weatherLinkForEvent(ev);
+    const icon = weather && weather.icon ? `<span class="weather-inline" aria-hidden="true">${escapeHtml(weather.icon)}</span>` : '';
     const details = [];
-    const low = Number.isFinite(Number(weather.tempLow)) ? Math.round(Number(weather.tempLow)) : null;
-    const high = Number.isFinite(Number(weather.tempHigh)) ? Math.round(Number(weather.tempHigh)) : null;
-    if (Number.isFinite(low) && Number.isFinite(high)) {
-      details.push(`L${low}\u00b0 / H${high}\u00b0`);
-    } else if (Number.isFinite(Number(weather.temp))) {
-      details.push(`${Math.round(Number(weather.temp))}\u00b0F`);
+    if (weather) {
+      const low = Number.isFinite(Number(weather.tempLow)) ? Math.round(Number(weather.tempLow)) : null;
+      const high = Number.isFinite(Number(weather.tempHigh)) ? Math.round(Number(weather.tempHigh)) : null;
+      if (Number.isFinite(low) && Number.isFinite(high)) {
+        details.push(`L${low}\u00b0 / H${high}\u00b0`);
+      } else if (Number.isFinite(Number(weather.temp))) {
+        details.push(`${Math.round(Number(weather.temp))}\u00b0F`);
+      }
+      const rainChance = Number.isFinite(Number(weather.rainChance)) ? Math.round(Number(weather.rainChance)) : null;
+      if (Number.isFinite(rainChance) && rainChance > 15) {
+        details.push(`Rain ${rainChance}%`);
+      }
+      const desc = String(weather.description || weather.condition || '').trim();
+      if (desc) details.push(desc);
     }
-    const rainChance = Number.isFinite(Number(weather.rainChance)) ? Math.round(Number(weather.rainChance)) : null;
-    if (Number.isFinite(rainChance) && rainChance > 15) {
-      details.push(`Rain ${rainChance}%`);
-    }
-    const desc = String(weather.description || weather.condition || '').trim();
-    if (desc) details.push(desc);
-    const text = details.join(' • ') || 'Forecast unavailable';
+
+    const text = (details.length ? details.join(' • ') : 'Forecast unavailable');
     const safeText = escapeHtml(text);
-    return `<span class="weather-summary${details.length ? '' : ' weather-summary-muted'}" title="${safeText}">${icon}<span class="weather-text">${safeText}</span></span>`;
+    return `<a class="weather-summary${details.length ? '' : ' weather-summary-muted'}" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" title="Open local weather forecast">${icon}<span class="weather-text">${safeText}</span></a>`;
   }
+
   function wazeLinkForEvent(ev) {
     const course = String((ev && ev.course) || '').trim();
     const info = (ev && ev.courseInfo) || {};
