@@ -771,6 +771,7 @@ body.starter-mode #events{
   font-weight:800;
   box-shadow:none;
   padding:0;
+  cursor:pointer;
 }
 
 .starter-player-check:hover{

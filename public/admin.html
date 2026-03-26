@@ -2540,6 +2540,19 @@
           return;
         }
         
+        const subscriberRows = subscribers.map((s) => {
+          const email = String(s.email || s.emailAddress || '').trim();
+          const displayEmail = email || '(no email)';
+          return `
+            <tr>
+              <td data-label="Email">${escapeHtml(displayEmail)}</td>
+              <td data-label="Subscribed">${s.createdAt ? new Date(s.createdAt).toLocaleDateString() : 'Unknown'}</td>
+              <td data-label="Actions">
+                <button class="btn-delete" onclick="deleteSubscriber('${s._id}', '${escapeHtml(email)}')">Delete</button>
+              </td>
+            </tr>`;
+        }).join('');
+
         content.innerHTML = `
           <div class="table-shell">
           <table class="admin-table">
@@ -2551,21 +2564,10 @@
               </tr>
             </thead>
             <tbody>
-              ${subscribers.map(s => `
-                <tr>
-                  <td data-label="Email">${escapeHtml(s.email)}</td>
-                  <td data-label="Subscribed">${new Date(s.createdAt).toLocaleDateString()}</td>
-                  <td data-label="Actions">
-                    <button class="btn-delete" onclick="deleteSubscriber('${s._id}', '${escapeHtml(s.email)}')">
-                      Delete
-                    </button>
-                  </td>
-                </tr>
-              `).join('')}
+              ${subscriberRows}
             </tbody>
           </table>
-          </div>
-        `;
+          </div>`;
       } catch (error) {
         console.error('Error loading subscribers:', error);
         document.getElementById('content').innerHTML = `<div class="empty-state">❌ Error loading subscribers<br><small style="color:#dc2626">${error.message}</small></div>`;

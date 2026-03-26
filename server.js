@@ -1656,7 +1656,9 @@ function getDestructiveConfirmCode(req) {
 
 function isSiteAdmin(req) {
   const code = getScopedAdminCode(req);
-  return Boolean(SITE_ADMIN_WRITE_CODE && code === SITE_ADMIN_WRITE_CODE);
+  if (SITE_ADMIN_WRITE_CODE && code === SITE_ADMIN_WRITE_CODE) return true;
+  if (ADMIN_DESTRUCTIVE_CODE && code === ADMIN_DESTRUCTIVE_CODE) return true;
+  return false;
 }
 
 function isSiteAdminCode(code = '') {

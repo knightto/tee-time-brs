@@ -735,7 +735,7 @@ if ('serviceWorker' in navigator) {
       </li>`;
     });
     for (let i = 0; i < openCount; i += 1) {
-      playersMarkup.push(`<li class="starter-player starter-player-open"><span class="starter-player-check is-open">+</span><span class="starter-player-name">Open</span></li>`);
+      playersMarkup.push(`<li class="starter-player starter-player-open"><button class="starter-player-check is-open" type="button" data-add-player="${escapeHtml(String(ev && ev._id || ''))}:${escapeHtml(String(teeTime && teeTime._id || ''))}" title="Add player to ${escapeHtml(teeSlotLabel(ev, teeTime, idx))}">+</button><span class="starter-player-name">Open</span></li>`);
     }
     return `<article class="${slotClasses.join(' ')}">
       <div class="starter-slot-header">
