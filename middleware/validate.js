@@ -20,6 +20,7 @@ function validateCreateEvent(body) {
 
 function validateAddPlayer(body) {
   if (!String(body.name || '').trim()) return 'name required';
+  if (body.asFifth !== undefined && typeof body.asFifth !== 'boolean') return 'asFifth must be boolean';
   return null;
 }
 

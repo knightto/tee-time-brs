@@ -992,11 +992,12 @@
 </head>
 <body>
   <header class="topbar">
-    <h1>Admin</h1>
+    <h1 id="adminHeaderTitle">Admin</h1>
     <nav class="topbar-links">
-      <a href="/" class="pill-link">Tee Times</a>
-      <a href="/handicaps.html" class="pill-link">Handicaps</a>
-      <a href="/handicap-import.html" class="pill-link">Handicap Import</a>
+      <a href="/" class="pill-link" id="adminHomeLink" data-admin-group-link>Tee Times</a>
+      <a href="/group-admin-lite.html" class="pill-link" id="adminLiteLink" data-admin-group-link>Lite Admin</a>
+      <a href="/handicaps.html" class="pill-link" id="adminHandicapsLink" data-admin-group-link data-admin-feature-link="includeHandicaps">Handicaps</a>
+      <a href="/handicap-import.html" class="pill-link" id="adminHandicapImportLink" data-admin-group-link data-admin-feature-link="includeHandicaps">Handicap Import</a>
     </nav>
   </header>
   <div class="admin-container">
@@ -1029,7 +1030,7 @@
           <div class="template-builder-head">
             <div>
               <p class="template-builder-title">Ryder Cup 5 round template</p>
-              <p class="template-builder-meta">Uses the Myrtle Ryder Cup structure: 5 rounds, 20 seeded players, seeded team matches, side games, payouts, and the existing Myrtle trip, standings, and prize pages.</p>
+              <p class="template-builder-meta">Uses the Myrtle Ryder Cup structure: 5 rounds, seeded team matches, side games, payouts, and the existing Myrtle trip, standings, and prize pages, with roster sizes starting at 12 golfers and staying in groups of 4.</p>
             </div>
             <button class="btn-test btn-blue" type="button" id="openRyderCupTemplateBtn">Create Trip From Template</button>
           </div>
@@ -1043,9 +1044,9 @@
               <li>Where is the trip being played, and what group or organizer name should show on it?</li>
               <li>What date does round 1 start, and what are the five course names?</li>
               <li>What are the two Ryder Cup team names?</li>
-              <li>What should the first tee time be, how many tee times should each round have, and how many minutes apart are they?</li>
+              <li>What should the first tee time be, and how many minutes apart should each foursome go off?</li>
               <li>What package, reservation, coordinator, and contact phone details should be saved?</li>
-              <li>Who are the 20 seeded players in order, and what handicap index should each seed start with?</li>
+              <li>Who are the seeded players in order, and what handicap index should each seed start with? Use at least 12 golfers, in groups of 4.</li>
             </ul>
             <form id="ryderCupTemplateForm" class="template-question-stack">
               <div class="template-question-grid">
@@ -1078,8 +1079,8 @@
                   <input id="ryderFirstTeeTimeInput" type="time" value="08:00">
                 </label>
                 <label>
-                  <span>Tee Times Per Round</span>
-                  <input id="ryderTeeTimeCountInput" type="number" min="1" max="12" value="5">
+                  <span>Foursomes Per Round</span>
+                  <input id="ryderTeeTimeCountInput" type="number" min="3" max="12" value="5" readonly>
                 </label>
                 <label>
                   <span>Minutes Between Tee Times</span>
@@ -1125,11 +1126,11 @@
                 </label>
               </div>
               <label>
-                <span>Seeded Roster (20 lines, seed order 1-20)</span>
+                <span>Seeded Roster (12+ lines, seed order 1-N, total golfers must stay divisible by 4)</span>
                 <textarea id="ryderPlayerNamesInput" rows="10"></textarea>
               </label>
               <label>
-                <span>Handicap Indexes (20 lines, same order as roster)</span>
+                <span>Handicap Indexes (same order as roster)</span>
                 <textarea id="ryderHandicapIndexesInput" rows="8"></textarea>
               </label>
               <div class="test-buttons">
@@ -1144,20 +1145,20 @@
         <div class="template-builder-card">
           <div class="template-builder-head">
             <div>
-              <p class="template-builder-title">Group site package template</p>
-              <p class="template-builder-meta">Packages the current tee-times stack into a deployable template spec for an individual group, including the main tee-times flow, admin functions, optional modules, deployment checklist, external dependencies, and source-file map.</p>
+              <p class="template-builder-title">Group tee-times deployment template</p>
+              <p class="template-builder-meta">Deploys a dedicated group profile on the shared tee-times stack, then downloads the package spec, guide, and minimal-admin starter artifact for that group.</p>
             </div>
-            <button class="btn-test btn-blue" type="button" id="openTeeTimesSiteTemplateBtn">Create Group From Template</button>
+            <button class="btn-test btn-blue" type="button" id="openTeeTimesSiteTemplateBtn">Deploy Group From Template</button>
           </div>
           <div class="template-links" style="margin-top:0;margin-bottom:10px;">
             <a href="#" id="downloadTeeTimesSiteTemplateGuideLink">Download Deployment Guide</a>
           </div>
           <div id="teeTimesSiteTemplateFormShell" class="template-form-shell" hidden>
-            <p class="template-help" style="margin-bottom:10px;">Answer these setup questions before the package is generated.</p>
-            <div class="status-note warn" style="margin-bottom:10px;">Group deployments can now share the live stack when launched with a unique `group` slug. For lower-risk rollouts, a separate database and env config per group is still the safer option.</div>
+            <p class="template-help" style="margin-bottom:10px;">Answer these setup questions before the group is deployed and the package files are generated.</p>
+            <div class="status-note warn" style="margin-bottom:10px;">This now creates a live shared-stack deployment under a dedicated group slug, with separate public, admin, minimal-admin, and calendar URLs. A separate database/env per group is still the lower-risk option if you want hard isolation.</div>
             <ul class="template-question-list">
               <li>What should the site be called for this group?</li>
-              <li>What short app name and group/club names should be used?</li>
+              <li>What short app name, group name, and group URL slug should be used?</li>
               <li>What primary/secondary emails, reply-to email, club-request email, phones, icon, and theme color should ship in the package profile?</li>
               <li>Which optional modules should be included beyond the core tee-times and admin pages?</li>
               <li>Any deployment or branding notes that should stay with the package?</li>
@@ -1177,7 +1178,7 @@
                   <input id="siteTemplateGroupNameInput" type="text" maxlength="120" value="Thursday Seniors Group" required>
                 </label>
                 <label>
-                  <span>Package Slug</span>
+                  <span>Group / URL Slug</span>
                   <input id="siteTemplatePackageSlugInput" type="text" maxlength="120" value="thursday-seniors-group" required>
                 </label>
                 <label>
@@ -1264,7 +1265,7 @@
                 <textarea id="siteTemplateNotesInput" rows="5" placeholder="Optional branding, deploy, or setup notes for this group package"></textarea>
               </label>
               <div class="test-buttons">
-                <button class="btn-test btn-green" type="submit">Build Site Package</button>
+                <button class="btn-test btn-green" type="submit">Deploy Group + Download Package</button>
                 <button class="btn-test btn-amber" type="button" id="cancelTeeTimesSiteTemplateBtn">Hide Questions</button>
               </div>
             </form>
@@ -1482,7 +1483,7 @@
       <div class="toggle-card" style="margin-top:10px;">
         <div>
           <p class="toggle-title">4 PM Club Alert (Tomorrow Empty Tees)</p>
-          <p class="toggle-text">Sends Brian Jones an alert at 4:00 PM if tomorrow has empty tee times.</p>
+          <p class="toggle-text">Sends the configured club contact an alert at 4:00 PM if tomorrow has empty tee times.</p>
         </div>
         <label class="toggle-control">
           <span id="ruleStatusBrianTomorrowEmptyClubAlert" class="toggle-status">Loading...</span>
@@ -1797,6 +1798,7 @@
       if (handicapInput && !handicapInput.value.trim()) {
         handicapInput.value = DEFAULT_RYDER_TEMPLATE_PLAYERS.map((player) => String(player.handicapIndex ?? '')).join('\n');
       }
+      syncRyderCupTemplateRosterMetadata();
     }
 
     function getTextareaLines(id) {
@@ -1806,10 +1808,29 @@
         .map((line) => line.trim());
     }
 
+    function getRyderCupTemplateRosterCount() {
+      return getTextareaLines('ryderPlayerNamesInput').filter(Boolean).length;
+    }
+
+    function syncRyderCupTemplateRosterMetadata() {
+      const teeTimeCountInput = document.getElementById('ryderTeeTimeCountInput');
+      if (!teeTimeCountInput) return;
+      const rosterCount = getRyderCupTemplateRosterCount();
+      teeTimeCountInput.value = rosterCount >= 4 ? String(Math.floor(rosterCount / 4)) : '0';
+    }
+
     function collectRyderCupTemplatePayload() {
       const playerNames = getTextareaLines('ryderPlayerNamesInput').filter(Boolean);
-      if (playerNames.length !== 20) {
-        throw new Error('Seeded roster must include exactly 20 player names.');
+      if (playerNames.length < 12 || playerNames.length % 4 !== 0) {
+        throw new Error('Seeded roster must include at least 12 player names in groups of 4.');
+      }
+      const seenNames = new Set();
+      for (const name of playerNames) {
+        const key = String(name || '').trim().toLowerCase();
+        if (seenNames.has(key)) {
+          throw new Error('Seeded roster must use unique player names.');
+        }
+        seenNames.add(key);
       }
       const handicapIndexes = getTextareaLines('ryderHandicapIndexesInput').map((value) => {
         if (!value) return null;
@@ -1825,7 +1846,7 @@
         teamAName: String(document.getElementById('ryderTeamANameInput').value || '').trim(),
         teamBName: String(document.getElementById('ryderTeamBNameInput').value || '').trim(),
         firstTeeTime: String(document.getElementById('ryderFirstTeeTimeInput').value || '').trim(),
-        teeTimeCount: Number(document.getElementById('ryderTeeTimeCountInput').value || 5),
+        teeTimeCount: Math.floor(playerNames.length / 4),
         teeIntervalMinutes: Number(document.getElementById('ryderTeeIntervalInput').value || 9),
         packageType: String(document.getElementById('ryderPackageTypeInput').value || '').trim(),
         reservationNumber: String(document.getElementById('ryderReservationInput').value || '').trim(),
@@ -1854,7 +1875,7 @@
         `- Team A: ${payload.teamAName || 'Team A'}`,
         `- Team B: ${payload.teamBName || 'Team B'}`,
         `- First tee time: ${payload.firstTeeTime || '08:00'}`,
-        `- Tee times per round: ${payload.teeTimeCount || 5}`,
+        `- Foursomes per round: ${payload.teeTimeCount || 0}`,
         `- Minutes between tee times: ${payload.teeIntervalMinutes || 9}`,
         `- Package type: ${payload.packageType || '5 Rounds Ryder Cup'}`,
         '',
@@ -1867,13 +1888,13 @@
         '- What date should round 1 start?',
         '- What are the final team names?',
         '- What are the five courses?',
-        '- What tee-time cadence should each round use?',
+        '- What tee-time cadence should each foursome use?',
         '- What package, reservation, and contact details should be saved?',
-        '- Who are the 20 seeded players and what are their handicap indexes?',
+        '- Who are the seeded players and what are their handicap indexes?',
         '',
         '## What The Template Creates',
         '- Five rounds with seeded tee times',
-        '- Twenty participants',
+        `- ${payload.playerNames.length} participants`,
         '- Ryder Cup overlay and seeded team structure',
         '- Myrtle standings, prize report, trip, and lodging pages wired to the created trip',
         '',
@@ -1923,6 +1944,7 @@
       seedRyderCupTemplateDefaults();
       const els = getRyderCupTemplateElements();
       const guideLink = document.getElementById('downloadRyderCupTemplateGuideLink');
+      const rosterInput = document.getElementById('ryderPlayerNamesInput');
       if (guideLink) {
         guideLink.addEventListener('click', downloadRyderCupTemplateGuide);
       }
@@ -1938,6 +1960,9 @@
       }
       if (els.form) {
         els.form.addEventListener('submit', createTripFromRyderCupTemplate);
+      }
+      if (rosterInput) {
+        rosterInput.addEventListener('input', syncRyderCupTemplateRosterMetadata);
       }
     }
 
@@ -1983,16 +2008,26 @@
       if (links) links.innerHTML = '';
     }
 
-    function renderTeeTimesSiteTemplateLinks(filename = '', guideFilename = '', adminArtifactFilename = '') {
+    function renderTeeTimesSiteTemplateLinks(filename = '', guideFilename = '', adminArtifactFilename = '', deployment = null) {
       const links = document.getElementById('teeTimesSiteTemplateLinks');
       if (!links) return;
       const safeFilename = String(filename || '').trim() || 'tee-times-site-package.json';
       const safeGuideFilename = String(guideFilename || '').trim() || 'deployment-guide.md';
       const safeAdminArtifactFilename = String(adminArtifactFilename || '').trim() || 'group-admin-lite.html';
-      links.innerHTML = `
+      const deploymentLinks = deployment && deployment.links && typeof deployment.links === 'object' ? deployment.links : null;
+      const deploymentLinkHtml = deploymentLinks ? `
+        <a href="${escapeHtml(deploymentLinks.sitePath || '/')}" target="_blank" rel="noopener">Open Group Site</a>
+        <a href="${escapeHtml(deploymentLinks.adminPath || '/admin.html')}" target="_blank" rel="noopener">Open Group Admin</a>
+        <a href="${escapeHtml(deploymentLinks.adminLitePath || '/group-admin-lite.html')}" target="_blank" rel="noopener">Open Lite Admin</a>
+        <a href="${escapeHtml(deploymentLinks.calendarPath || '#')}" target="_blank" rel="noopener">Open Calendar Feed</a>
+        <span style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid #d9e2ec;background:#fff;color:#475569;font-size:12px;font-weight:700;">Group: ${escapeHtml(String(deployment.groupSlug || 'main'))}</span>
+      ` : `
         <a href="/admin.html#tripTemplatesSection">Template Section</a>
         <a href="/" target="_blank" rel="noopener">Open Tee Times</a>
         <a href="/admin.html" target="_blank" rel="noopener">Open Admin</a>
+      `;
+      links.innerHTML = `
+        ${deploymentLinkHtml}
         <span style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid #d9e2ec;background:#fff;color:#475569;font-size:12px;font-weight:700;">Downloaded: ${escapeHtml(safeFilename)}</span>
         <span style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid #d9e2ec;background:#fff;color:#475569;font-size:12px;font-weight:700;">Guide: ${escapeHtml(safeGuideFilename)}</span>
         <span style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid #d9e2ec;background:#fff;color:#475569;font-size:12px;font-weight:700;">Admin starter: ${escapeHtml(safeAdminArtifactFilename)}</span>
@@ -2105,7 +2140,7 @@
         if (!payload.clubName) throw new Error('Club name is required.');
         if (!payload.primaryContactEmail) throw new Error('Primary contact email is required.');
         if (!payload.clubRequestEmail) throw new Error('Club request email is required.');
-        showTeeTimesSiteTemplateResult('Building Tee Times site package...', true);
+        showTeeTimesSiteTemplateResult('Deploying Tee Times group and building package...', true);
         const response = await fetch('/api/admin/templates/tee-times-site-package', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2121,8 +2156,14 @@
         if (adminArtifact && adminArtifact.content) {
           downloadTextFile('group-admin-lite.html', adminArtifact.content, 'text/html');
         }
-        showTeeTimesSiteTemplateResult(`Built ${result.filename || 'tee-times-site-package.json'} successfully.`, true);
-        renderTeeTimesSiteTemplateLinks(result.filename, result.guideFilename, adminArtifact ? 'group-admin-lite.html' : '');
+        const deployedName = result.deployment && result.deployment.profile && result.deployment.profile.siteTitle
+          ? result.deployment.profile.siteTitle
+          : (payload.siteTitle || 'group');
+        const deployedPath = result.deployment && result.deployment.links && result.deployment.links.sitePath
+          ? result.deployment.links.sitePath
+          : '';
+        showTeeTimesSiteTemplateResult(`Deployed ${deployedName}${deployedPath ? ` at ${deployedPath}` : ''} and downloaded the package files.`, true);
+        renderTeeTimesSiteTemplateLinks(result.filename, result.guideFilename, adminArtifact ? 'group-admin-lite.html' : '', result.deployment || null);
       } catch (error) {
         showTeeTimesSiteTemplateResult(error.message || 'Failed to build Tee Times site package.', false);
       }
@@ -2423,6 +2464,55 @@
       }
     })();
 
+    function buildAdminGroupPageHref(url = '/') {
+      try {
+        const scopedUrl = new URL(url, window.location.origin);
+        if (scopedUrl.origin === window.location.origin && ADMIN_GROUP !== 'main' && !scopedUrl.searchParams.has('group')) {
+          scopedUrl.searchParams.set('group', ADMIN_GROUP);
+        }
+        return scopedUrl.origin === window.location.origin
+          ? `${scopedUrl.pathname}${scopedUrl.search}${scopedUrl.hash}`
+          : scopedUrl.toString();
+      } catch (_) {
+        return url;
+      }
+    }
+
+    function applyAdminSiteProfile(profile = {}, links = {}) {
+      const siteTitle = String(profile.siteTitle || 'Tee Times').trim() || 'Tee Times';
+      const groupName = String(profile.groupName || siteTitle).trim() || siteTitle;
+      const features = {
+        includeHandicaps: true,
+        includeTrips: true,
+        includeOutings: true,
+        includeNotifications: true,
+        includeScheduler: true,
+        includeBackups: true,
+        ...((profile && profile.features) || {}),
+      };
+
+      document.title = `${siteTitle} Admin`;
+      const headerTitle = document.getElementById('adminHeaderTitle');
+      if (headerTitle) {
+        headerTitle.textContent = ADMIN_GROUP === 'main' ? 'Admin' : `${groupName} Admin`;
+      }
+
+      const homeLink = document.getElementById('adminHomeLink');
+      if (homeLink) homeLink.href = links.siteQueryPath || buildAdminGroupPageHref('/');
+      const liteLink = document.getElementById('adminLiteLink');
+      if (liteLink) liteLink.href = links.adminLiteQueryPath || buildAdminGroupPageHref('/group-admin-lite.html');
+
+      document.querySelectorAll('[data-admin-group-link]').forEach((node) => {
+        if (node === homeLink || node === liteLink) return;
+        const href = node.getAttribute('href') || '/';
+        node.setAttribute('href', buildAdminGroupPageHref(href));
+      });
+      document.querySelectorAll('[data-admin-feature-link]').forEach((node) => {
+        const featureKey = String(node.getAttribute('data-admin-feature-link') || '').trim();
+        node.hidden = !!featureKey && features[featureKey] === false;
+      });
+    }
+
     function withAdminGroup(url) {
       try {
         const scopedUrl = new URL(url, window.location.origin);
@@ -2441,10 +2531,26 @@
       return nativeFetch(input, init);
     };
 
+    async function loadAdminSiteProfile() {
+      try {
+        const response = await fetch(`/api/admin/site-profile?code=${encodeURIComponent(ADMIN_CODE)}`);
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Failed to load admin site profile.');
+        applyAdminSiteProfile(payload.publicProfile || payload.profile || {}, payload.links || {});
+      } catch (error) {
+        console.warn('Failed to load admin site profile:', error);
+        applyAdminSiteProfile({}, {
+          siteQueryPath: buildAdminGroupPageHref('/'),
+          adminLiteQueryPath: buildAdminGroupPageHref('/group-admin-lite.html'),
+        });
+      }
+    }
+
     const ADMIN_CODE = prompt(`Enter site admin code${ADMIN_GROUP !== 'main' ? ` for ${ADMIN_GROUP}` : ''}:`);
     if (!ADMIN_CODE) {
       document.getElementById('content').innerHTML = '<div class="empty-state">Admin access required</div>';
     } else {
+      loadAdminSiteProfile();
       initRyderCupTemplateBuilder();
       initTeeTimesSiteTemplateBuilder();
       initSiteInventorySection();

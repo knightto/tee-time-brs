@@ -2,12 +2,26 @@ function cleanString(value = '') {
   return String(value || '').trim();
 }
 
+function cleanEmail(value = '') {
+  return cleanString(value).toLowerCase();
+}
+
 function cleanSlug(value = '') {
   const safe = cleanString(value)
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
   return safe || 'tee-times-group';
+}
+
+function cleanHexColor(value = '', fallback = '#173224') {
+  const normalized = cleanString(value);
+  if (/^#[0-9a-f]{3}$/i.test(normalized)) {
+    const [, hex = ''] = normalized.match(/^#([0-9a-f]{3})$/i) || [];
+    return `#${hex.split('').map((part) => `${part}${part}`).join('').toLowerCase()}`;
+  }
+  if (/^#[0-9a-f]{6}$/i.test(normalized)) return normalized.toLowerCase();
+  return fallback;
 }
 
 function parseBool(value, fallback = true) {
@@ -19,12 +33,98 @@ function parseBool(value, fallback = true) {
   return fallback;
 }
 
+function cleanStringList(value = '') {
+  const entries = Array.isArray(value)
+    ? value
+    : String(value || '').split(/\r?\n|,/);
+  return entries
+    .map((entry) => cleanString(entry))
+    .filter(Boolean);
+}
+
+function resolveFeatureFlag(input = {}, key = '', fallback = true) {
+  if (!key) return fallback;
+  if (Object.prototype.hasOwnProperty.call(input, key)) {
+    return parseBool(input[key], fallback);
+  }
+  if (input.features && Object.prototype.hasOwnProperty.call(input.features, key)) {
+    return parseBool(input.features[key], fallback);
+  }
+  return fallback;
+}
+
+function buildGroupRoutePaths(groupSlug = '') {
+  const safeGroupSlug = cleanSlug(groupSlug);
+  return {
+    site: `/groups/${safeGroupSlug}`,
+    admin: `/groups/${safeGroupSlug}/admin`,
+    adminLite: `/groups/${safeGroupSlug}/admin-lite`,
+    calendar: `/groups/${safeGroupSlug}/calendar.ics`,
+  };
+}
+
+function buildTeeTimesSiteDeploymentProfile(input = {}) {
+  const siteTitle = cleanString(input.siteTitle) || 'Tee Times';
+  const shortTitle = cleanString(input.shortTitle) || siteTitle;
+  const groupName = cleanString(input.groupName) || 'Golf Group';
+  const clubName = cleanString(input.clubName) || groupName;
+  const packageSlug = cleanSlug(input.packageSlug || siteTitle || groupName);
+  const groupSlug = cleanSlug(input.groupSlug || packageSlug || groupName || siteTitle);
+  const clubRequestLabel = cleanString(input.clubRequestLabel) || `Request a Tee Time for ${clubName}`;
+  const primaryContactEmail = cleanEmail(input.primaryContactEmail) || 'admin@example.com';
+  const secondaryContactEmail = cleanEmail(input.secondaryContactEmail) || '';
+  const clubRequestEmail = cleanEmail(input.clubRequestEmail) || 'golfshop@example.com';
+  const replyToEmail = cleanEmail(input.replyToEmail) || primaryContactEmail;
+  const supportPhone = cleanString(input.supportPhone) || '';
+  const clubPhone = cleanString(input.clubPhone) || '';
+  const smsPhone = cleanString(input.smsPhone) || '';
+  const adminAlertPhones = cleanStringList(input.adminAlertPhones);
+  const themeColor = cleanHexColor(input.themeColor, '#173224');
+  const iconAssetName = cleanString(input.iconAssetName) || 'knight-club-icon.png';
+  const mongoDbName = cleanString(input.mongoDbName) || `${packageSlug.replace(/-/g, '_')}_db`;
+  const notes = cleanString(input.notes) || 'Deploy this package as a branded instance of the current tee-times + admin stack.';
+  const features = {
+    includeHandicaps: resolveFeatureFlag(input, 'includeHandicaps', true),
+    includeTrips: resolveFeatureFlag(input, 'includeTrips', true),
+    includeOutings: resolveFeatureFlag(input, 'includeOutings', true),
+    includeNotifications: resolveFeatureFlag(input, 'includeNotifications', true),
+    includeScheduler: resolveFeatureFlag(input, 'includeScheduler', true),
+    includeBackups: resolveFeatureFlag(input, 'includeBackups', true),
+  };
+
+  return {
+    groupSlug,
+    packageSlug,
+    siteTitle,
+    shortTitle,
+    groupName,
+    clubName,
+    clubRequestLabel,
+    primaryContactEmail,
+    secondaryContactEmail,
+    clubRequestEmail,
+    replyToEmail,
+    supportPhone,
+    clubPhone,
+    smsPhone,
+    adminAlertPhones,
+    themeColor,
+    iconAssetName,
+    mongoDbName,
+    features,
+    routePaths: buildGroupRoutePaths(groupSlug),
+    notes,
+  };
+}
+
 function buildMinimalGroupAdminPage({
   siteTitle,
   groupName,
+  groupSlug,
   packageSlug,
   themeColor,
   contactDirectory,
+  routePaths,
 }) {
   const jsonPayload = JSON.stringify(contactDirectory, null, 2);
   return `<!DOCTYPE html>
@@ -124,8 +224,8 @@ function buildMinimalGroupAdminPage({
 <body>
   <main class="shell">
     <h1>${siteTitle} Contact Admin</h1>
-    <p class="meta">${groupName} | package slug: ${packageSlug}</p>
-    <p class="note">Starter admin page for group-specific contact details. Wire the save/export action to your preferred persistence layer before production use.</p>
+    <p class="meta">${groupName} | group slug: ${groupSlug} | package slug: ${packageSlug}</p>
+    <p class="note">Starter admin page for group-specific contact details. The live shared-stack deployment uses ${routePaths && routePaths.adminLite ? routePaths.adminLite : '/group-admin-lite.html'} for the minimal admin surface.</p>
     <form id="contactAdminForm">
       <div class="grid">
         <label>Primary Contact Email<input name="primaryContactEmail" type="email" value="${contactDirectory.primaryContactEmail || ''}"></label>
@@ -185,27 +285,30 @@ function buildMinimalGroupAdminPage({
 }
 
 function buildTeeTimesSiteTemplatePackage(input = {}) {
-  const siteTitle = cleanString(input.siteTitle) || 'Tee Times';
-  const shortTitle = cleanString(input.shortTitle) || siteTitle;
-  const groupName = cleanString(input.groupName) || 'Golf Group';
-  const clubName = cleanString(input.clubName) || groupName;
-  const clubRequestLabel = cleanString(input.clubRequestLabel) || `Request a Tee Time for ${clubName}`;
-  const primaryContactEmail = cleanString(input.primaryContactEmail) || 'admin@example.com';
-  const secondaryContactEmail = cleanString(input.secondaryContactEmail) || '';
-  const clubRequestEmail = cleanString(input.clubRequestEmail) || 'golfshop@example.com';
-  const replyToEmail = cleanString(input.replyToEmail) || primaryContactEmail;
-  const supportPhone = cleanString(input.supportPhone) || '';
-  const clubPhone = cleanString(input.clubPhone) || '';
-  const smsPhone = cleanString(input.smsPhone) || '';
-  const adminAlertPhones = String(input.adminAlertPhones || '')
-    .split(/\r?\n|,/)
-    .map((value) => cleanString(value))
-    .filter(Boolean);
-  const themeColor = cleanString(input.themeColor) || '#173224';
-  const iconAssetName = cleanString(input.iconAssetName) || 'knight-club-icon.png';
-  const packageSlug = cleanSlug(input.packageSlug || siteTitle || groupName);
-  const packageNotes = cleanString(input.notes) || 'Deploy this package as a branded instance of the current tee-times + admin stack.';
-  const mongoDbName = cleanString(input.mongoDbName) || `${packageSlug.replace(/-/g, '_')}_db`;
+  const deploymentProfile = buildTeeTimesSiteDeploymentProfile(input);
+  const {
+    groupSlug,
+    packageSlug,
+    siteTitle,
+    shortTitle,
+    groupName,
+    clubName,
+    clubRequestLabel,
+    primaryContactEmail,
+    secondaryContactEmail,
+    clubRequestEmail,
+    replyToEmail,
+    supportPhone,
+    clubPhone,
+    smsPhone,
+    adminAlertPhones,
+    themeColor,
+    iconAssetName,
+    mongoDbName,
+    features,
+    routePaths,
+    notes: packageNotes,
+  } = deploymentProfile;
 
   const contactDirectory = {
     primaryContactEmail,
@@ -218,20 +321,12 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
     adminAlertPhones,
   };
 
-  const features = {
-    includeHandicaps: parseBool(input.includeHandicaps, true),
-    includeTrips: parseBool(input.includeTrips, true),
-    includeOutings: parseBool(input.includeOutings, true),
-    includeNotifications: parseBool(input.includeNotifications, true),
-    includeScheduler: parseBool(input.includeScheduler, true),
-    includeBackups: parseBool(input.includeBackups, true),
-  };
-
   const includedPages = [
     {
       key: 'tee-times',
       title: 'Main Tee Times',
       path: '/public/index.html',
+      deployedPath: routePaths.site,
       enabled: true,
       category: 'core',
       notes: 'Calendar, tee-time events, team events, course search, weather, starter mode, and drag/drop player movement.',
@@ -240,6 +335,7 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
       key: 'admin',
       title: 'Admin',
       path: '/public/admin.html',
+      deployedPath: routePaths.admin,
       enabled: true,
       category: 'core',
       notes: 'Templates, backups, notifications, scheduler rules, quick actions, audit log, and subscriber tools.',
@@ -248,9 +344,10 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
       key: 'group-admin-lite',
       title: 'Minimal Group Admin',
       path: '/public/group-admin-lite.html',
+      deployedPath: routePaths.adminLite,
       enabled: true,
       category: 'core',
-      notes: 'Starter admin page for editing group contact emails and phone numbers.',
+      notes: 'Starter minimal admin page for editing group contact emails, branding, feature toggles, and deployment links.',
     },
     {
       key: 'handicaps',
@@ -395,6 +492,7 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
     `Brand the site title, short title, icon, and theme color for ${groupName}.`,
     `Set the club request copy to "${clubRequestLabel}" and point club email flows to ${clubRequestEmail}.`,
     `Seed the minimal group admin page with contact emails and phones for ${groupName}.`,
+    `Verify the dedicated URLs for the public page (${routePaths.site}), full admin (${routePaths.admin}), minimal admin (${routePaths.adminLite}), and calendar feed (${routePaths.calendar}).`,
     'Configure site admin, destructive action, URL, and database environment variables.',
     'Provision hosting/runtime on Render or an equivalent Node web-service platform.',
     'Configure outbound email through Resend and verify sender/domain settings if email flows are enabled.',
@@ -423,6 +521,7 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
     `- Site title: ${siteTitle}`,
     `- Short app title: ${shortTitle}`,
     `- Group name: ${groupName}`,
+    `- Group slug: ${groupSlug}`,
     `- Package slug: ${packageSlug}`,
     `- Club name: ${clubName}`,
     `- Club request label: ${clubRequestLabel}`,
@@ -437,6 +536,12 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
     `- Theme color: ${themeColor}`,
     `- Icon asset: ${iconAssetName}`,
     `- Recommended Mongo DB name: ${mongoDbName}`,
+    '',
+    '## Dedicated URLs',
+    `- Public page: ${routePaths.site}`,
+    `- Full admin: ${routePaths.admin}`,
+    `- Minimal admin: ${routePaths.adminLite}`,
+    `- Calendar feed: ${routePaths.calendar}`,
     '',
     '## Enabled Modules',
     `- Handicaps: ${features.includeHandicaps ? 'Yes' : 'No'}`,
@@ -487,9 +592,11 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
       content: buildMinimalGroupAdminPage({
         siteTitle,
         groupName,
+        groupSlug,
         packageSlug,
         themeColor,
         contactDirectory,
+        routePaths,
       }),
     },
   ];
@@ -499,25 +606,8 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
     packageVersion: 1,
     packageSlug,
     packageLabel: `${siteTitle} tee-times-site-package`,
-    deploymentProfile: {
-      siteTitle,
-      shortTitle,
-      groupName,
-      packageSlug,
-      clubName,
-      clubRequestLabel,
-      primaryContactEmail,
-      secondaryContactEmail,
-      clubRequestEmail,
-      replyToEmail,
-      supportPhone,
-      clubPhone,
-      smsPhone,
-      adminAlertPhones,
-      themeColor,
-      iconAssetName,
-      mongoDbName,
-    },
+    deploymentProfile,
+    deploymentLinks: routePaths,
     contactDirectory,
     features,
     includedPages,
@@ -535,5 +625,7 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
 }
 
 module.exports = {
+  buildGroupRoutePaths,
+  buildTeeTimesSiteDeploymentProfile,
   buildTeeTimesSiteTemplatePackage,
 };

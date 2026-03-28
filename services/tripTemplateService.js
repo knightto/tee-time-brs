@@ -1,6 +1,7 @@
 const { getDefaultScorecard } = require('./tripCompetitionService');
 const {
   MYRTLE_RYDER_CUP_PLAYERS,
+  RYDER_CUP_MIN_PLAYER_COUNT,
   buildMyrtleRyderCupTeeSheetGroups,
   buildDefaultMyrtleRyderCup,
 } = require('./myrtleRyderCupDefaults');
@@ -13,9 +14,7 @@ const RYDER_CUP_TEMPLATE_PACKAGE = '5 Rounds Ryder Cup';
 const RYDER_CUP_DEFAULT_TEAM_A = 'Team A';
 const RYDER_CUP_DEFAULT_TEAM_B = 'Team B';
 const RYDER_CUP_DEFAULT_FIRST_TEE_TIME = '08:00';
-const RYDER_CUP_DEFAULT_TEE_TIME_COUNT = 5;
 const RYDER_CUP_DEFAULT_TEE_INTERVAL_MINUTES = 9;
-const DEFAULT_RYDER_RANK_BY_NAME = new Map(MYRTLE_RYDER_CUP_PLAYERS.map((player) => [String(player.name || '').trim(), Number(player.rank)]));
 
 function toDateOnly(value) {
   const parsed = value ? new Date(value) : new Date();
@@ -69,10 +68,15 @@ function parseOptionalStringList(value) {
 function normalizeSeededPlayers(input = {}) {
   const requestedNames = parseOptionalStringList(input.playerNames);
   const requestedHandicaps = Array.isArray(input.handicapIndexes) ? input.handicapIndexes : [];
-  return MYRTLE_RYDER_CUP_PLAYERS.map((defaultPlayer, index) => {
+  const playerCount = requestedNames.length || MYRTLE_RYDER_CUP_PLAYERS.length;
+  if (playerCount < RYDER_CUP_MIN_PLAYER_COUNT || playerCount % 4 !== 0) {
+    throw new Error('Seeded roster must include at least 12 players in groups of 4.');
+  }
+  return Array.from({ length: playerCount }, (_, index) => {
+    const defaultPlayer = MYRTLE_RYDER_CUP_PLAYERS[index] || {};
     const rank = index + 1;
     const customName = cleanString(requestedNames[index]);
-    const name = customName || defaultPlayer.name;
+    const name = customName || cleanString(defaultPlayer.name) || `Player ${rank}`;
     const parsedHandicap = normalizeMaybeNumber(requestedHandicaps[index]);
     const handicapIndex = parsedHandicap !== null
       ? parsedHandicap
@@ -85,21 +89,23 @@ function normalizeSeededPlayers(input = {}) {
   });
 }
 
-function remapRyderCupName(name = '', playersByRank = new Map()) {
-  const rank = DEFAULT_RYDER_RANK_BY_NAME.get(cleanString(name));
-  if (!Number.isInteger(rank)) return cleanString(name);
-  const replacement = playersByRank.get(rank);
-  return replacement && replacement.name ? replacement.name : cleanString(name);
+function assertValidSeededPlayers(players = []) {
+  const seenNames = new Set();
+  for (const player of (players || [])) {
+    const nameKey = cleanString(player && player.name).toLowerCase();
+    if (!nameKey) throw new Error('Seeded roster contains an empty player name.');
+    if (seenNames.has(nameKey)) throw new Error('Seeded roster must use unique player names.');
+    seenNames.add(nameKey);
+  }
 }
 
-function buildSeededTeeTimes(input = {}, playersByRank = new Map()) {
-  const teeTimeCount = normalizeWholeNumber(input.teeTimeCount, RYDER_CUP_DEFAULT_TEE_TIME_COUNT);
+function buildSeededTeeTimes(input = {}, roundSeeds = []) {
   const teeIntervalMinutes = normalizeWholeNumber(input.teeIntervalMinutes, RYDER_CUP_DEFAULT_TEE_INTERVAL_MINUTES);
   const firstTeeTime = parseTimeString(input.firstTeeTime, RYDER_CUP_DEFAULT_FIRST_TEE_TIME);
   const firstMatch = /^(\d{2}):(\d{2})$/.exec(firstTeeTime);
   const firstMinutes = (Number(firstMatch[1]) * 60) + Number(firstMatch[2]);
-  const seededGroups = buildMyrtleRyderCupTeeSheetGroups();
-  return seededGroups.map((roundGroups = []) => Array.from({ length: teeTimeCount }, (_, slotIndex) => {
+  const seededGroups = buildMyrtleRyderCupTeeSheetGroups(roundSeeds);
+  return seededGroups.map((roundGroups = []) => Array.from({ length: roundGroups.length }, (_, slotIndex) => {
     const minutes = firstMinutes + (slotIndex * teeIntervalMinutes);
     const hh = String(Math.floor(minutes / 60)).padStart(2, '0');
     const mm = String(minutes % 60).padStart(2, '0');
@@ -107,7 +113,7 @@ function buildSeededTeeTimes(input = {}, playersByRank = new Map()) {
     return {
       label: `TT#${slotIndex + 1}`,
       time: `${hh}:${mm}`,
-      players: seededPlayers.map((playerName) => remapRyderCupName(playerName, playersByRank)),
+      players: seededPlayers.slice(),
     };
   }));
 }
@@ -118,69 +124,50 @@ function formatTemplateRoundLabel(index) {
 
 function buildRyderCupTripTemplate(input = {}) {
   const seededPlayers = normalizeSeededPlayers(input);
-  const playersByRank = new Map(seededPlayers.map((player) => [player.rank, { ...player }]));
+  assertValidSeededPlayers(seededPlayers);
   const requestedStartDate = toDateOnly(input.startDate);
   const startDate = requestedStartDate || addDays(toDateOnly(), 60);
   const arrivalDate = toDateOnly(input.arrivalDate) || startDate;
   const departureDate = toDateOnly(input.departureDate) || addDays(startDate, 4);
   const courseNames = parseOptionalStringList(input.courseNames);
-  const roundTeeTimes = buildSeededTeeTimes(input, playersByRank);
-  const rounds = Array.from({ length: 5 }, (_, roundIndex) => {
-    const teeTimes = roundTeeTimes[roundIndex] || [];
-    return {
-      course: courseNames[roundIndex] || `${formatTemplateRoundLabel(roundIndex)} Course`,
-      address: '',
-      date: addDays(startDate, roundIndex),
-      time: teeTimes[0] && teeTimes[0].time ? teeTimes[0].time : parseTimeString(input.firstTeeTime, RYDER_CUP_DEFAULT_FIRST_TEE_TIME),
-      confirmation: '',
-      teeTimes,
-      unassignedPlayers: [],
-      scorecard: getDefaultScorecard(''),
-      playerScores: [],
-      teamMatches: [],
-      ctpWinners: [],
-      skinsResults: [],
-    };
-  });
+  const rounds = Array.from({ length: 5 }, (_, roundIndex) => ({
+    course: courseNames[roundIndex] || `${formatTemplateRoundLabel(roundIndex)} Course`,
+    address: '',
+    date: addDays(startDate, roundIndex),
+    time: parseTimeString(input.firstTeeTime, RYDER_CUP_DEFAULT_FIRST_TEE_TIME),
+    confirmation: '',
+    teeTimes: [],
+    unassignedPlayers: [],
+    scorecard: getDefaultScorecard(''),
+    playerScores: [],
+    teamMatches: [],
+    ctpWinners: [],
+    skinsResults: [],
+  }));
 
-  const competitionRyderCup = buildDefaultMyrtleRyderCup(rounds);
-  competitionRyderCup.title = cleanString(input.competitionTitle) || 'Ryder Cup';
-  competitionRyderCup.players = seededPlayers.map((player) => ({ ...player }));
-  competitionRyderCup.teams = (competitionRyderCup.teams || []).map((team, teamIndex) => ({
-    ...team,
-    name: teamIndex === 0
-      ? (cleanString(input.teamAName) || team.name || RYDER_CUP_DEFAULT_TEAM_A)
-      : (cleanString(input.teamBName) || team.name || RYDER_CUP_DEFAULT_TEAM_B),
-    players: Array.isArray(team.players)
-      ? team.players.map((playerName) => remapRyderCupName(playerName, playersByRank))
-      : [],
-  }));
-  competitionRyderCup.rounds = (competitionRyderCup.rounds || []).map((round) => ({
-    ...round,
-    matches: Array.isArray(round.matches)
-      ? round.matches.map((match) => ({
-        ...match,
-        teamAPlayers: Array.isArray(match.teamAPlayers)
-          ? match.teamAPlayers.map((playerName) => remapRyderCupName(playerName, playersByRank))
-          : [],
-        teamBPlayers: Array.isArray(match.teamBPlayers)
-          ? match.teamBPlayers.map((playerName) => remapRyderCupName(playerName, playersByRank))
-          : [],
-      }))
-      : [],
-  }));
-  if (competitionRyderCup.sideGames && competitionRyderCup.sideGames.birdiePool) {
-    competitionRyderCup.sideGames.birdiePool.counts = seededPlayers.map((player) => ({
-      playerName: player.name,
-      count: 0,
-    }));
+  const competitionRyderCup = buildDefaultMyrtleRyderCup(rounds, {
+    players: seededPlayers,
+    title: cleanString(input.competitionTitle) || 'Ryder Cup',
+    teamAName: cleanString(input.teamAName) || RYDER_CUP_DEFAULT_TEAM_A,
+    teamBName: cleanString(input.teamBName) || RYDER_CUP_DEFAULT_TEAM_B,
+  });
+  const competitionPlayers = Array.isArray(competitionRyderCup && competitionRyderCup.players) ? competitionRyderCup.players : [];
+  const seededNames = seededPlayers.map((player) => player.name);
+  const competitionNames = competitionPlayers.map((player) => player && player.name);
+  if (competitionPlayers.length !== seededPlayers.length || competitionNames.some((name, index) => name !== seededNames[index])) {
+    throw new Error('Seeded roster must use unique valid player names.');
   }
+  const roundTeeTimes = buildSeededTeeTimes(input, competitionRyderCup.rounds || []);
+  rounds.forEach((round, roundIndex) => {
+    const teeTimes = roundTeeTimes[roundIndex] || [];
+    round.time = teeTimes[0] && teeTimes[0].time ? teeTimes[0].time : round.time;
+    round.teeTimes = teeTimes;
+  });
 
   const teamA = competitionRyderCup.teams[0] || { players: [], name: RYDER_CUP_DEFAULT_TEAM_A };
   const teamB = competitionRyderCup.teams[1] || { players: [], name: RYDER_CUP_DEFAULT_TEAM_B };
   const buildOverlayPlayers = (playerNames = []) => playerNames.map((name) => {
-    const defaultRank = DEFAULT_RYDER_RANK_BY_NAME.get(cleanString(name));
-    const seededPlayer = Number.isInteger(defaultRank) ? playersByRank.get(defaultRank) : seededPlayers.find((player) => player.name === name);
+    const seededPlayer = seededPlayers.find((player) => player.name === name);
     return {
       name,
       seedRank: seededPlayer ? seededPlayer.rank : null,

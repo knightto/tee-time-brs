@@ -11,6 +11,7 @@ self.__SW_ASSETS = [
   "/dist/style.min.css",
   "/favicon.svg",
   "/features.html",
+  "/group-admin-lite.html",
   "/handicap-import.html",
   "/handicaps.html",
   "/icons/icon-192.png",

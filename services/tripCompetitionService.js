@@ -13,6 +13,7 @@ const {
   MYRTLE_RYDER_CUP_THREE_BALL_FORMAT,
   MYRTLE_RYDER_CUP_BEST_BALL_FORMAT,
   MYRTLE_RYDER_CUP_STABLEFORD_FORMAT,
+  RYDER_CUP_MIN_PLAYER_COUNT,
   buildMyrtleRyderCupTeeSheetGroups,
   buildDefaultMyrtleRyderCup,
 } = require('./myrtleRyderCupDefaults');
@@ -26,13 +27,6 @@ const DEFAULT_HANDICAP_BUCKET_LABELS = ['Bucket A', 'Bucket B', 'Bucket C', 'Buc
 const RYDER_CUP_TEAM_IDS = ['teamA', 'teamB'];
 const MYRTLE_RYDER_CUP_PLAYER_NAMES = MYRTLE_RYDER_CUP_PLAYERS.map((player) => player.name);
 const MYRTLE_RYDER_CUP_NAME_MAP = new Map(MYRTLE_RYDER_CUP_PLAYER_NAMES.map((name) => [normalizeNameKey(name), name]));
-const MYRTLE_RYDER_CUP_RANK_MAP = new Map(MYRTLE_RYDER_CUP_PLAYERS.map((player) => [player.name, player.rank]));
-const MYRTLE_RYDER_CUP_NAME_BY_RANK = new Map(MYRTLE_RYDER_CUP_PLAYERS.map((player) => [player.rank, player.name]));
-const MYRTLE_RYDER_CUP_HANDICAP_MAP = new Map(
-  MYRTLE_RYDER_CUP_PLAYERS
-    .filter((player) => asFiniteNumber(player && player.handicapIndex) !== null)
-    .map((player) => [normalizeNameKey(player.name), asFiniteNumber(player.handicapIndex)])
-);
 const ALLOWED_RYDER_CUP_PLAN_STYLES = new Set([
   MYRTLE_RYDER_CUP_TEAM_MATCH_FORMAT,
   MYRTLE_RYDER_CUP_SINGLES_MATCH_FORMAT,
@@ -201,6 +195,50 @@ function asPositiveInteger(value) {
   return rounded > 0 ? rounded : null;
 }
 
+function buildRyderCupPlayerRows(players = []) {
+  const source = Array.isArray(players) && players.length ? players : MYRTLE_RYDER_CUP_PLAYERS;
+  const normalized = source.map((player, index) => ({
+    name: normalizeRyderCupPlayerName(player && player.name),
+    rank: asPositiveInteger(player && player.rank) || (index + 1),
+    handicapIndex: asFiniteNumber(player && player.handicapIndex),
+  }));
+  if (normalized.length < RYDER_CUP_MIN_PLAYER_COUNT || normalized.length % 4 !== 0) {
+    return MYRTLE_RYDER_CUP_PLAYERS.map((player) => ({ ...player }));
+  }
+  const nameKeys = new Set();
+  const ranks = new Set();
+  for (const player of normalized) {
+    const nameKey = normalizeNameKey(player.name);
+    if (!player.name || nameKeys.has(nameKey) || ranks.has(player.rank)) {
+      return MYRTLE_RYDER_CUP_PLAYERS.map((defaultPlayer) => ({ ...defaultPlayer }));
+    }
+    nameKeys.add(nameKey);
+    ranks.add(player.rank);
+  }
+  return normalized;
+}
+
+function buildRyderCupPlayerMaps(players = []) {
+  const rows = buildRyderCupPlayerRows(players);
+  const playerNames = rows.map((player) => player.name);
+  const nameMap = new Map(playerNames.map((name) => [normalizeNameKey(name), name]));
+  const rankMap = new Map(rows.map((player) => [player.name, player.rank]));
+  const nameByRank = new Map(rows.map((player) => [player.rank, player.name]));
+  const handicapMap = new Map(
+    rows
+      .filter((player) => asFiniteNumber(player && player.handicapIndex) !== null)
+      .map((player) => [normalizeNameKey(player.name), asFiniteNumber(player.handicapIndex)])
+  );
+  return {
+    rows,
+    playerNames,
+    nameMap,
+    rankMap,
+    nameByRank,
+    handicapMap,
+  };
+}
+
 function toIsoDateOnly(value) {
   if (!value) return '';
   const parsed = value instanceof Date ? new Date(value.getTime()) : new Date(value);
@@ -237,11 +275,16 @@ function normalizeRyderCupResult(value) {
 }
 
 function getRyderCupDefaultState(trip = {}) {
-  return buildDefaultMyrtleRyderCup(Array.isArray(trip && trip.rounds) ? trip.rounds : []);
-}
-
-function buildRyderCupPlayerRows() {
-  return MYRTLE_RYDER_CUP_PLAYERS.map((player) => ({ ...player }));
+  const rawState = trip && trip.competition && trip.competition.ryderCup && typeof trip.competition.ryderCup === 'object'
+    ? trip.competition.ryderCup
+    : {};
+  const rawTeams = Array.isArray(rawState.teams) ? rawState.teams : [];
+  return buildDefaultMyrtleRyderCup(Array.isArray(trip && trip.rounds) ? trip.rounds : [], {
+    players: Array.isArray(rawState.players) && rawState.players.length ? rawState.players : MYRTLE_RYDER_CUP_PLAYERS,
+    title: cleanString(rawState.title) || 'Myrtle Ryder Cup',
+    teamAName: cleanString(rawTeams[0] && rawTeams[0].name) || 'Team A',
+    teamBName: cleanString(rawTeams[1] && rawTeams[1].name) || 'Team B',
+  });
 }
 
 function normalizeRyderCupWinnerList(values = []) {
@@ -329,17 +372,22 @@ function buildPlayerHandicapLookup(players = []) {
   return lookup;
 }
 
-function resolveOverlayPlayerName(player = {}) {
+function resolveOverlayPlayerName(player = {}, playerRows = []) {
   const rank = asPositiveInteger(player && player.seedRank);
-  if (rank && MYRTLE_RYDER_CUP_NAME_BY_RANK.has(rank)) return MYRTLE_RYDER_CUP_NAME_BY_RANK.get(rank);
+  const { nameByRank } = buildRyderCupPlayerMaps(playerRows);
+  if (rank && nameByRank.has(rank)) return nameByRank.get(rank);
   return normalizeRyderCupPlayerName(typeof player === 'string' ? player : (player && player.name));
 }
 
 function buildTripRyderCupHandicapLookup(trip = {}) {
   const overlay = trip && trip.ryderCup && typeof trip.ryderCup === 'object' ? trip.ryderCup : {};
+  const rawCompetitionState = trip && trip.competition && trip.competition.ryderCup && typeof trip.competition.ryderCup === 'object'
+    ? trip.competition.ryderCup
+    : {};
+  const playerRows = buildRyderCupPlayerRows(rawCompetitionState.players);
   const players = [].concat(overlay.teamAPlayers || [], overlay.teamBPlayers || []);
   return buildPlayerHandicapLookup(players.map((player) => ({
-    name: resolveOverlayPlayerName(player),
+    name: resolveOverlayPlayerName(player, playerRows),
     handicapIndex: player && player.handicapIndex,
   })));
 }
@@ -351,27 +399,22 @@ function getHandicapFromLookup(playerName = '', handicapLookup = null) {
   return handicapIndex === undefined ? null : asFiniteNumber(handicapIndex);
 }
 
-function getMyrtleRyderCupHandicapIndex(playerName = '', fallbackHandicap = null) {
+function getMyrtleRyderCupHandicapIndex(playerName = '', playerRows = [], fallbackHandicap = null) {
   const normalizedFallback = asFiniteNumber(fallbackHandicap);
   const canonicalName = normalizeRyderCupPlayerName(playerName);
-  const mappedHandicap = MYRTLE_RYDER_CUP_HANDICAP_MAP.get(normalizeNameKey(canonicalName));
+  const { handicapMap } = buildRyderCupPlayerMaps(playerRows);
+  const mappedHandicap = handicapMap.get(normalizeNameKey(canonicalName));
   return mappedHandicap !== undefined ? mappedHandicap : normalizedFallback;
 }
 
-function resolveMyrtleRyderCupHandicapIndex(playerName = '', handicapLookup = null, fallbackHandicap = null) {
+function resolveMyrtleRyderCupHandicapIndex(playerName = '', handicapLookup = null, playerRows = [], fallbackHandicap = null) {
   const overriddenHandicap = getHandicapFromLookup(playerName, handicapLookup);
   if (overriddenHandicap !== null) return overriddenHandicap;
-  return getMyrtleRyderCupHandicapIndex(playerName, fallbackHandicap);
+  return getMyrtleRyderCupHandicapIndex(playerName, playerRows, fallbackHandicap);
 }
 
-function getMyrtleRyderCupMatchAllowance(playerName = '', fallbackHandicap = null) {
-  const handicapIndex = getMyrtleRyderCupHandicapIndex(playerName, fallbackHandicap);
-  if (!Number.isFinite(handicapIndex)) return 0;
-  return Math.round(handicapIndex);
-}
-
-function resolveMyrtleRyderCupMatchAllowance(playerName = '', handicapLookup = null, fallbackHandicap = null) {
-  const handicapIndex = resolveMyrtleRyderCupHandicapIndex(playerName, handicapLookup, fallbackHandicap);
+function resolveMyrtleRyderCupMatchAllowance(playerName = '', handicapLookup = null, playerRows = [], fallbackHandicap = null) {
+  const handicapIndex = resolveMyrtleRyderCupHandicapIndex(playerName, handicapLookup, playerRows, fallbackHandicap);
   if (!Number.isFinite(handicapIndex)) return 0;
   return Math.round(handicapIndex);
 }
@@ -472,20 +515,28 @@ function normalizeRyderCupTeamPlayers(players = [], allowedPlayers = [], expecte
   return output;
 }
 
-function areValidRyderCupTeams(teams = []) {
+function areValidRyderCupTeams(teams = [], players = []) {
   if (!Array.isArray(teams) || teams.length !== 2) return false;
+  const playerRows = buildRyderCupPlayerRows(players);
+  const allowedPlayers = playerRows.map((player) => player.name);
   const allPlayers = [];
   for (const team of teams) {
-    if (!team || !Array.isArray(team.players) || team.players.length !== 10) return false;
+    if (!team || !Array.isArray(team.players) || team.players.length !== teams[0].players.length) return false;
     allPlayers.push(...team.players);
   }
+  if (allPlayers.length < RYDER_CUP_MIN_PLAYER_COUNT || allPlayers.length % 4 !== 0 || allPlayers.length !== allowedPlayers.length) return false;
+  if ((teams[0].players.length || 0) < (RYDER_CUP_MIN_PLAYER_COUNT / 2) || teams[0].players.length % 2 !== 0) return false;
   const uniqueTeamPlayers = uniqueNames(allPlayers);
-  if (uniqueTeamPlayers.length !== MYRTLE_RYDER_CUP_PLAYER_NAMES.length) return false;
-  return uniqueTeamPlayers.every((name) => MYRTLE_RYDER_CUP_NAME_MAP.has(normalizeNameKey(name)));
+  if (uniqueTeamPlayers.length !== allowedPlayers.length) return false;
+  const allowedMap = new Map(allowedPlayers.map((name) => [normalizeNameKey(name), name]));
+  return uniqueTeamPlayers.every((name) => allowedMap.has(normalizeNameKey(name)));
 }
 
 function normalizeRyderCupTeams(rawTeams = [], defaultState = {}) {
   const fallbackTeams = Array.isArray(defaultState.teams) ? clonePlain(defaultState.teams) : [];
+  const playerRows = buildRyderCupPlayerRows(defaultState.players);
+  const allowedPlayers = playerRows.map((player) => player.name);
+  const expectedCount = allowedPlayers.length / 2;
   const sourceTeams = Array.isArray(rawTeams) && rawTeams.length ? rawTeams : fallbackTeams;
   const normalized = RYDER_CUP_TEAM_IDS.map((teamId, index) => {
     const fallback = fallbackTeams[index] || { id: teamId, name: `Team ${index === 0 ? 'A' : 'B'}`, players: [] };
@@ -493,10 +544,10 @@ function normalizeRyderCupTeams(rawTeams = [], defaultState = {}) {
     return {
       id: teamId,
       name: cleanString(source && source.name) || fallback.name,
-      players: normalizeRyderCupTeamPlayers(source && source.players, MYRTLE_RYDER_CUP_PLAYER_NAMES, 10),
+      players: normalizeRyderCupTeamPlayers(source && source.players, allowedPlayers, expectedCount),
     };
   });
-  return areValidRyderCupTeams(normalized) ? normalized : fallbackTeams;
+  return areValidRyderCupTeams(normalized, playerRows) ? normalized : fallbackTeams;
 }
 
 function normalizeRyderCupFormatLabel(value = '') {
@@ -1018,6 +1069,7 @@ function remapRyderCupRoundForTeams(round = {}, teams = []) {
 
 function normalizeRyderCupSideGames(rawSideGames = {}, defaultState = {}, trip = {}) {
   const defaultSideGames = clonePlain(defaultState.sideGames || {});
+  const playerRows = buildRyderCupPlayerRows(defaultState.players);
   const normalizePrizeAmount = isMyrtleRyderCupTrip(trip)
     ? (value) => normalizeCurrencyAmountToIncrement(value, 5)
     : normalizeCurrencyAmount;
@@ -1144,7 +1196,7 @@ function normalizeRyderCupSideGames(rawSideGames = {}, defaultState = {}, trip =
       notes: cleanString(entry && entry.notes),
     }))
     .filter((entry) => entry.roundNumber && entry.hole && entry.playerName);
-  const birdieCounts = buildRyderCupPlayerRows().map((player) => {
+  const birdieCounts = playerRows.map((player) => {
     const saved = Array.isArray(birdieSource.counts)
       ? birdieSource.counts.find((entry) => normalizeNameKey(entry && entry.playerName) === normalizeNameKey(player.name))
       : null;
@@ -1312,6 +1364,7 @@ function normalizeRyderCupPayout(rawPayout = {}, defaultState = {}, trip = {}) {
 
 function normalizeRyderCupState(rawState = {}, trip = {}) {
   const defaultState = getRyderCupDefaultState(trip);
+  const playerRows = buildRyderCupPlayerRows(defaultState.players);
   const state = clonePlain(rawState || {});
   const rawScheduleVersion = cleanString(state.scheduleVersion);
   const teams = normalizeRyderCupTeams(state.teams, defaultState);
@@ -1340,7 +1393,7 @@ function normalizeRyderCupState(rawState = {}, trip = {}) {
     title: cleanString(state.title) || defaultState.title,
     description: normalizeMyrtleRyderCupTopLevelDescription(cleanString(state.description) || cleanString(defaultState.description)),
     scheduleVersion: MYRTLE_RYDER_CUP_SCHEDULE_VERSION,
-    players: buildRyderCupPlayerRows(),
+    players: playerRows.map((player) => ({ ...player })),
     teams,
     rounds,
     sideGames: normalizeRyderCupSideGames(state.sideGames, defaultState, trip),
@@ -1499,6 +1552,8 @@ function getRoundPlayerNames(round = {}) {
 
 function getCompetitionPlayerPool(trip = {}, participants = []) {
   const tripRyderCupHandicapLookup = buildTripRyderCupHandicapLookup(trip);
+  const defaultState = getRyderCupDefaultState(trip);
+  const playerRows = buildRyderCupPlayerRows(defaultState.players);
   const roundNames = [];
   for (const round of trip.rounds || []) {
     roundNames.push(...getRoundPlayerNames(round));
@@ -1515,7 +1570,7 @@ function getCompetitionPlayerPool(trip = {}, participants = []) {
     const key = normalizeNameKey(name);
     if (!name || seen.has(key)) continue;
     seen.add(key);
-    const handicapIndex = resolveMyrtleRyderCupHandicapIndex(name, tripRyderCupHandicapLookup, participant && participant.handicapIndex);
+    const handicapIndex = resolveMyrtleRyderCupHandicapIndex(name, tripRyderCupHandicapLookup, playerRows, participant && participant.handicapIndex);
     output.push({
       participantId: participant && participant._id ? String(participant._id) : null,
       name,
@@ -1531,7 +1586,7 @@ function getCompetitionPlayerPool(trip = {}, participants = []) {
     output.push({
       participantId: null,
       name,
-      handicapIndex: resolveMyrtleRyderCupHandicapIndex(name, tripRyderCupHandicapLookup, null),
+      handicapIndex: resolveMyrtleRyderCupHandicapIndex(name, tripRyderCupHandicapLookup, playerRows, null),
       status: roundNameSet.has(key) ? 'in' : '',
     });
   }
@@ -1542,7 +1597,7 @@ function getCompetitionPlayerPool(trip = {}, participants = []) {
       const key = normalizeNameKey(name);
       if (!name || seen.has(key)) continue;
       seen.add(key);
-      const handicapIndex = resolveMyrtleRyderCupHandicapIndex(name, tripRyderCupHandicapLookup, participant && participant.handicapIndex);
+      const handicapIndex = resolveMyrtleRyderCupHandicapIndex(name, tripRyderCupHandicapLookup, playerRows, participant && participant.handicapIndex);
       output.push({
         participantId: participant && participant._id ? String(participant._id) : null,
         name,
@@ -1902,9 +1957,9 @@ function setTripRyderCupState(trip = {}, nextState = {}) {
   return trip.competition.ryderCup;
 }
 
-function assertValidRyderCupTeams(teams = []) {
-  if (!areValidRyderCupTeams(teams)) {
-    throw new Error('Ryder Cup teams must have 10 unique ranked players on each side.');
+function assertValidRyderCupTeams(teams = [], players = []) {
+  if (!areValidRyderCupTeams(teams, players)) {
+    throw new Error('Ryder Cup teams must keep evenly sized, ranked rosters in groups of 4.');
   }
 }
 
@@ -1961,7 +2016,7 @@ function setTripRyderCupTeams(trip = {}, payload = {}) {
     teams: nextTeams,
     rounds: current.rounds.map((round) => remapRyderCupRoundForTeams(round, nextTeams)),
   };
-  assertValidRyderCupTeams(nextState.teams);
+  assertValidRyderCupTeams(nextState.teams, nextState.players);
   try {
     nextState.rounds.forEach((round) => assertValidRyderCupRound(round, nextState.teams));
   } catch (_error) {
@@ -1979,21 +2034,24 @@ function haveSameRyderCupPlayerSet(leftPlayers = [], rightPlayers = []) {
 
 function buildRyderCupTeamsFromOverlayState(overlayState = {}, currentState = {}) {
   const currentTeams = Array.isArray(currentState.teams) ? currentState.teams : [];
+  const playerRows = buildRyderCupPlayerRows(currentState.players);
+  const allowedPlayers = playerRows.map((player) => player.name);
+  const expectedCount = allowedPlayers.length / 2;
   const currentTeamA = currentTeams.find((team, index) => normalizeRyderCupTeamId(team && team.id, index) === 'teamA') || currentTeams[0] || { name: 'Team A' };
   const currentTeamB = currentTeams.find((team, index) => normalizeRyderCupTeamId(team && team.id, index) === 'teamB') || currentTeams[1] || { name: 'Team B' };
   const teamAPlayers = normalizeRyderCupTeamPlayers(
     Array.isArray(overlayState && overlayState.teamAPlayers)
-      ? overlayState.teamAPlayers.map((player) => resolveOverlayPlayerName(player))
+      ? overlayState.teamAPlayers.map((player) => resolveOverlayPlayerName(player, playerRows))
       : [],
-    MYRTLE_RYDER_CUP_PLAYER_NAMES,
-    10
+    allowedPlayers,
+    expectedCount
   );
   const teamBPlayers = normalizeRyderCupTeamPlayers(
     Array.isArray(overlayState && overlayState.teamBPlayers)
-      ? overlayState.teamBPlayers.map((player) => resolveOverlayPlayerName(player))
+      ? overlayState.teamBPlayers.map((player) => resolveOverlayPlayerName(player, playerRows))
       : [],
-    MYRTLE_RYDER_CUP_PLAYER_NAMES,
-    10
+    allowedPlayers,
+    expectedCount
   );
   return [
     {
@@ -2051,7 +2109,7 @@ function syncTripRyderCupOverlayToCompetition(trip = {}, overlayState = {}) {
   const current = getTripRyderCupState(trip, { force: true });
   if (!current || !Array.isArray(current.teams) || current.teams.length !== 2) return null;
   const nextTeams = buildRyderCupTeamsFromOverlayState(overlayState, current);
-  assertValidRyderCupTeams(nextTeams);
+  assertValidRyderCupTeams(nextTeams, current.players);
 
   const currentTeamA = current.teams.find((team, index) => normalizeRyderCupTeamId(team && team.id, index) === 'teamA') || current.teams[0] || { players: [] };
   const currentTeamB = current.teams.find((team, index) => normalizeRyderCupTeamId(team && team.id, index) === 'teamB') || current.teams[1] || { players: [] };
@@ -2076,7 +2134,7 @@ function syncTripRyderCupOverlayToCompetition(trip = {}, overlayState = {}) {
     ...team,
     players: (team.players || []).slice(),
   }));
-  assertValidRyderCupTeams(nextState.teams);
+  assertValidRyderCupTeams(nextState.teams, nextState.players);
   nextState.rounds.forEach((round) => assertValidRyderCupRound(round, nextState.teams));
   return setTripRyderCupState(trip, nextState);
 }
@@ -2169,7 +2227,7 @@ function swapTripRyderCupTeamPlayers(trip = {}, playerName = '', targetPlayerNam
     })),
   }));
 
-  assertValidRyderCupTeams(nextState.teams);
+  assertValidRyderCupTeams(nextState.teams, nextState.players);
   nextState.rounds.forEach((round) => assertValidRyderCupRound(round, nextState.teams));
   return setTripRyderCupState(trip, nextState);
 }
@@ -2439,13 +2497,16 @@ function buildRyderCupTwoManTeamOccurrences(rounds = []) {
   return occurrences;
 }
 
-function buildRyderCupFairness(teams = []) {
+function buildRyderCupFairness(teams = [], players = []) {
+  const { rankMap, rows } = buildRyderCupPlayerMaps(players);
+  const tierSize = Math.max(1, Math.floor(rows.length / 4));
+  const bottomTierStart = Math.max(1, rows.length - tierSize + 1);
   const summary = teams.map((team) => {
-    const ranks = (team.players || []).map((name) => MYRTLE_RYDER_CUP_RANK_MAP.get(name)).filter((value) => Number.isFinite(value));
+    const ranks = (team.players || []).map((name) => rankMap.get(name)).filter((value) => Number.isFinite(value));
     const rankSum = ranks.reduce((sum, value) => sum + value, 0);
     const averageRank = ranks.length ? rankSum / ranks.length : null;
-    const topFiveCount = ranks.filter((rank) => rank <= 5).length;
-    const bottomFiveCount = ranks.filter((rank) => rank >= 16).length;
+    const topFiveCount = ranks.filter((rank) => rank <= tierSize).length;
+    const bottomFiveCount = ranks.filter((rank) => rank >= bottomTierStart).length;
     return {
       teamId: team.id,
       teamName: team.name,
@@ -2603,11 +2664,11 @@ function buildRyderCupRoundAndStandingsView(rounds = [], teams = [], handicapLoo
   };
 }
 
-function buildRyderCupIndividualLeaderboard(rounds = [], teams = [], handicapLookup = null) {
+function buildRyderCupIndividualLeaderboard(rounds = [], teams = [], handicapLookup = null, players = []) {
   const teamLookup = buildRyderCupTeamLookup(teams);
   const teamAPlayers = ((teams[0] && teams[0].players) || []).slice();
   const teamBPlayers = ((teams[1] && teams[1].players) || []).slice();
-  const rowsByName = new Map(buildRyderCupPlayerRows().map((player) => [normalizeNameKey(player.name), {
+  const rowsByName = new Map(buildRyderCupPlayerRows(players).map((player) => [normalizeNameKey(player.name), {
     name: player.name,
     rank: player.rank,
     teamId: teamLookup.get(normalizeNameKey(player.name)) ? teamLookup.get(normalizeNameKey(player.name)).teamId : '',
@@ -2685,9 +2746,9 @@ function buildRyderCupIndividualLeaderboard(rounds = [], teams = [], handicapLoo
   });
 }
 
-function buildRyderCupNetScoreSummary(rounds = [], handicapLookup = null) {
-  const players = buildRyderCupPlayerRows();
-  const totalsByName = new Map(players.map((player) => [normalizeNameKey(player.name), {
+function buildRyderCupNetScoreSummary(rounds = [], handicapLookup = null, players = []) {
+  const playerRows = buildRyderCupPlayerRows(players);
+  const totalsByName = new Map(playerRows.map((player) => [normalizeNameKey(player.name), {
     name: player.name,
     grossTotal: 0,
     netTotal: 0,
@@ -2704,7 +2765,7 @@ function buildRyderCupNetScoreSummary(rounds = [], handicapLookup = null) {
       const cleanName = normalizeRyderCupPlayerName(playerName);
       const playerKey = normalizeNameKey(cleanName);
       if (!cleanName || !playerKey || rowsByName.has(playerKey)) return;
-      const matchHandicap = resolveMyrtleRyderCupMatchAllowance(cleanName, handicapLookup, null);
+      const matchHandicap = resolveMyrtleRyderCupMatchAllowance(cleanName, handicapLookup, playerRows, null);
       rowsByName.set(playerKey, {
         playerName: cleanName,
         grossTotal: normalizedGross,
@@ -3021,8 +3082,8 @@ function buildRyderCupRedemptionEligiblePlayers(teams = [], excludedPlayers = []
     .sort((left, right) => left.localeCompare(right));
 }
 
-function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], rounds = [], handicapLookup = null, teams = []) {
-  const netSummary = buildRyderCupNetScoreSummary(rounds, handicapLookup);
+function buildRyderCupSideGamesView(sideGames = {}, individualLeaderboard = [], rounds = [], handicapLookup = null, teams = [], players = []) {
+  const netSummary = buildRyderCupNetScoreSummary(rounds, handicapLookup, players);
   const teamLookup = buildRyderCupSideGameTeamLookup(teams);
   const buildDailyBirdiePotView = (savedEntries = [], labelSuffix = 'Birdie Pot') => (
     netSummary.rounds
@@ -3796,11 +3857,13 @@ function buildRyderCupPayoutView(payout = {}, standings = {}, sideGames = {}, te
 
 function buildRyderCupView(state = null, playerPool = []) {
   if (!state) return null;
+  const playerRows = buildRyderCupPlayerRows(state.players);
+  const { rankMap } = buildRyderCupPlayerMaps(playerRows);
   const playerHandicapLookup = buildPlayerHandicapLookup(playerPool);
-  const fairness = buildRyderCupFairness(state.teams || []);
+  const fairness = buildRyderCupFairness(state.teams || [], playerRows);
   const roundBundle = buildRyderCupRoundAndStandingsView(state.rounds || [], state.teams || [], playerHandicapLookup);
-  const individualLeaderboard = buildRyderCupIndividualLeaderboard(state.rounds || [], state.teams || [], playerHandicapLookup);
-  const sideGames = buildRyderCupSideGamesView(state.sideGames || {}, individualLeaderboard, state.rounds || [], playerHandicapLookup, state.teams || []);
+  const individualLeaderboard = buildRyderCupIndividualLeaderboard(state.rounds || [], state.teams || [], playerHandicapLookup, playerRows);
+  const sideGames = buildRyderCupSideGamesView(state.sideGames || {}, individualLeaderboard, state.rounds || [], playerHandicapLookup, state.teams || [], playerRows);
   const payout = buildRyderCupPayoutView(state.payout || {}, roundBundle.standings || {}, sideGames, state.teams || []);
   const hasStarted = hasStartedRyderCup(state.rounds || []);
   const fairnessByTeam = new Map((fairness.teams || []).map((team) => [team.teamId, team]));
@@ -3812,9 +3875,9 @@ function buildRyderCupView(state = null, playerPool = []) {
       players: (team.players || [])
         .map((name) => ({
           name,
-          rank: MYRTLE_RYDER_CUP_RANK_MAP.get(name) || null,
-          handicapIndex: resolveMyrtleRyderCupHandicapIndex(name, playerHandicapLookup, null),
-          matchHandicap: resolveMyrtleRyderCupMatchAllowance(name, playerHandicapLookup, null),
+          rank: rankMap.get(name) || null,
+          handicapIndex: resolveMyrtleRyderCupHandicapIndex(name, playerHandicapLookup, playerRows, null),
+          matchHandicap: resolveMyrtleRyderCupMatchAllowance(name, playerHandicapLookup, playerRows, null),
         }))
         .sort((left, right) => {
           if (left.rank !== right.rank) return left.rank - right.rank;

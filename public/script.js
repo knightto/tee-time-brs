@@ -167,6 +167,27 @@ if ('serviceWorker' in navigator) {
       return 'main';
     }
   })();
+  const defaultSiteProfile = {
+    groupSlug: currentGroupSlug,
+    siteTitle: 'Tee Times',
+    shortTitle: 'Tee Time',
+    groupName: currentGroupSlug === 'main' ? 'Knight Group Tee Times' : '',
+    clubName: 'Blue Ridge Shadows',
+    clubRequestLabel: 'Request a Tee Time for Blue Ridge Shadows',
+    themeColor: '#173224',
+    iconAssetName: 'knight-club-icon.png',
+    iconPath: '/assets/knight-club-icon.png',
+    features: {
+      includeHandicaps: true,
+      includeTrips: true,
+      includeOutings: true,
+      includeNotifications: true,
+      includeScheduler: true,
+      includeBackups: true,
+    },
+  };
+  let currentSiteProfile = { ...defaultSiteProfile };
+  let currentSiteLinks = {};
   const initialSelectedDateFromUrl = (() => {
     try {
       const dateISO = String(new URLSearchParams(window.location.search).get('date') || '').trim();
@@ -183,6 +204,119 @@ if ('serviceWorker' in navigator) {
     'blue-ridge': 'Blue Ridge only',
     'team-events': 'Team events',
   };
+
+  function normalizeHexColor(value = '', fallback = '#173224') {
+    const input = String(value || '').trim();
+    if (/^#[0-9a-f]{3}$/i.test(input)) {
+      return `#${input.slice(1).split('').map((part) => `${part}${part}`).join('').toLowerCase()}`;
+    }
+    if (/^#[0-9a-f]{6}$/i.test(input)) return input.toLowerCase();
+    return fallback;
+  }
+
+  function shiftHexColor(hexColor, amount = 0) {
+    const safe = normalizeHexColor(hexColor, '#173224').slice(1);
+    const clamp = (value) => Math.max(0, Math.min(255, value));
+    const adjust = (segment) => clamp(parseInt(segment, 16) + amount).toString(16).padStart(2, '0');
+    return `#${adjust(safe.slice(0, 2))}${adjust(safe.slice(2, 4))}${adjust(safe.slice(4, 6))}`;
+  }
+
+  function resolveSiteIconPath(iconAssetName = '') {
+    const safe = String(iconAssetName || '').trim();
+    if (!safe) return '/assets/knight-club-icon.png';
+    return safe.startsWith('/') ? safe : `/assets/${safe}`;
+  }
+
+  function buildGroupPageHref(pathname = '/') {
+    try {
+      const scopedUrl = new URL(pathname, window.location.origin);
+      if (scopedUrl.origin === window.location.origin && currentGroupSlug !== 'main' && !scopedUrl.searchParams.has('group')) {
+        scopedUrl.searchParams.set('group', currentGroupSlug);
+      }
+      return scopedUrl.origin === window.location.origin
+        ? `${scopedUrl.pathname}${scopedUrl.search}${scopedUrl.hash}`
+        : scopedUrl.toString();
+    } catch (_) {
+      return pathname;
+    }
+  }
+
+  function siteFeatureEnabled(featureKey = '') {
+    return !featureKey || !currentSiteProfile.features || currentSiteProfile.features[featureKey] !== false;
+  }
+
+  function clubContactLabel() {
+    return String(currentSiteProfile.clubName || 'the club').trim() || 'the club';
+  }
+
+  function applySiteTheme(themeColor = '#173224') {
+    const safeTheme = normalizeHexColor(themeColor, '#173224');
+    const root = document.documentElement;
+    root.style.setProperty('--golf-green-dark', shiftHexColor(safeTheme, -36));
+    root.style.setProperty('--golf-green', safeTheme);
+    root.style.setProperty('--golf-green-light', shiftHexColor(safeTheme, 24));
+    root.style.setProperty('--golf-green-fairway', shiftHexColor(safeTheme, 54));
+    root.style.setProperty('--golf-accent', shiftHexColor(safeTheme, 18));
+    root.style.setProperty('--green-600', safeTheme);
+    root.style.setProperty('--green-500', shiftHexColor(safeTheme, 20));
+    root.style.setProperty('--green-700', shiftHexColor(safeTheme, -16));
+  }
+
+  function applySiteProfile(profile = {}, links = {}) {
+    currentSiteProfile = {
+      ...defaultSiteProfile,
+      ...(profile || {}),
+      themeColor: normalizeHexColor(profile && profile.themeColor, defaultSiteProfile.themeColor),
+      iconPath: resolveSiteIconPath((profile && profile.iconPath) || (profile && profile.iconAssetName) || defaultSiteProfile.iconAssetName),
+      features: {
+        ...(defaultSiteProfile.features || {}),
+        ...((profile && profile.features) || {}),
+      },
+    };
+    currentSiteLinks = links && typeof links === 'object' ? links : {};
+
+    document.title = currentSiteProfile.siteTitle || defaultSiteProfile.siteTitle;
+    applySiteTheme(currentSiteProfile.themeColor);
+
+    const topbarTitleLink = document.querySelector('.topbar-title-link');
+    if (topbarTitleLink) {
+      topbarTitleLink.textContent = currentSiteProfile.siteTitle || defaultSiteProfile.siteTitle;
+      topbarTitleLink.href = buildGroupPageHref('/');
+    }
+
+    if (requestClubTimeBtn) {
+      requestClubTimeBtn.textContent = currentSiteProfile.clubRequestLabel || defaultSiteProfile.clubRequestLabel;
+      requestClubTimeBtn.title = `Request a tee time from ${clubContactLabel()}`;
+    }
+
+    document.querySelectorAll('[data-group-link]').forEach((node) => {
+      const href = node.getAttribute('href') || '/';
+      node.setAttribute('href', buildGroupPageHref(href));
+    });
+    document.querySelectorAll('[data-feature-link]').forEach((node) => {
+      const featureKey = String(node.getAttribute('data-feature-link') || '').trim();
+      node.hidden = !siteFeatureEnabled(featureKey);
+    });
+
+    if (openSubscribeBtn) openSubscribeBtn.hidden = !siteFeatureEnabled('includeNotifications');
+
+    const themeMeta = document.querySelector('meta[name="theme-color"]');
+    if (themeMeta) themeMeta.setAttribute('content', currentSiteProfile.themeColor);
+    const appleTitleMeta = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+    if (appleTitleMeta) appleTitleMeta.setAttribute('content', currentSiteProfile.shortTitle || currentSiteProfile.siteTitle || defaultSiteProfile.shortTitle);
+    const appleTouchIcon = document.querySelector('link[rel="apple-touch-icon"]');
+    if (appleTouchIcon) appleTouchIcon.setAttribute('href', currentSiteProfile.iconPath);
+  }
+
+  async function initSiteProfile() {
+    try {
+      const payload = await api('/api/site-profile');
+      applySiteProfile(payload && payload.profile ? payload.profile : {}, payload && payload.links ? payload.links : {});
+    } catch (err) {
+      console.warn('Failed to load site profile:', err);
+      applySiteProfile(defaultSiteProfile, currentSiteLinks);
+    }
+  }
 
   if (initialSelectedDateFromUrl) {
     selectedDate = initialSelectedDateFromUrl;
@@ -655,11 +789,13 @@ if ('serviceWorker' in navigator) {
     const teeTimes = Array.isArray(ev && ev.teeTimes) ? ev.teeTimes : [];
     const slotCap = isTeamEvent ? Number((ev && ev.teamSizeMax) || 4) : 4;
     const registeredCount = teeTimes.reduce((sum, tt) => sum + ((tt && tt.players || []).length), 0);
+    const fifthCount = eventFifthCount(ev);
     const totalCapacity = teeTimes.length * slotCap;
     return {
       teeTimes,
       isTeamEvent,
       registeredCount,
+      fifthCount,
       totalCapacity,
       openCount: Math.max(0, totalCapacity - registeredCount),
     };
@@ -737,6 +873,35 @@ if ('serviceWorker' in navigator) {
     return ((teeTime && teeTime.players) || []).length;
   }
 
+  function slotFifthCount(teeTime = {}) {
+    return ((teeTime && teeTime.players) || []).filter((player) => !!(player && player.isFifth)).length;
+  }
+
+  function eventFifthCount(ev = {}, options = {}) {
+    if (!ev || ev.isTeamEvent) return 0;
+    const ignoredPlayerId = String(options.ignorePlayerId || '').trim();
+    return ((ev && ev.teeTimes) || []).reduce((sum, teeTime) => (
+      sum + ((teeTime && teeTime.players) || []).filter((player) => {
+        if (!(player && player.isFifth)) return false;
+        return !ignoredPlayerId || String(player._id) !== ignoredPlayerId;
+      }).length
+    ), 0);
+  }
+
+  function slotHasFifthPlayer(teeTime = {}) {
+    return slotFifthCount(teeTime) > 0;
+  }
+
+  function slotCanAddFifth(ev, teeTime = {}, options = {}) {
+    return !!(
+      ev &&
+      !ev.isTeamEvent &&
+      slotPlayerCount(teeTime) === 4 &&
+      !slotHasFifthPlayer(teeTime) &&
+      eventFifthCount(ev, options) === 0
+    );
+  }
+
   function slotCheckedInCount(teeTime = {}) {
     return ((teeTime && teeTime.players) || []).filter((player) => !!(player && player.checkedIn)).length;
   }
@@ -744,30 +909,39 @@ if ('serviceWorker' in navigator) {
   function starterSlotMarkup(ev, teeTime = {}, idx = 0) {
     const slotCap = ev && ev.isTeamEvent ? Number((ev && ev.teamSizeMax) || 4) : 4;
     const count = slotPlayerCount(teeTime);
+    const hasFifth = slotHasFifthPlayer(teeTime);
+    const canAddFifth = slotCanAddFifth(ev, teeTime);
     const checkedInCount = slotCheckedInCount(teeTime);
     const openCount = Math.max(0, slotCap - count);
     const allCheckedIn = count > 0 && checkedInCount === count;
-    const urgentEmpty = !Boolean(ev && ev.isTeamEvent) && count === 0 && eventHasUrgentEmpty({ ...ev, teeTimes: [teeTime] });
+    const urgentEmpty = !(ev && ev.isTeamEvent) && count === 0 && eventHasUrgentEmpty({ ...ev, teeTimes: [teeTime] });
     const slotClasses = ['starter-slot'];
     if (count === 0) slotClasses.push('starter-slot-empty');
     if (urgentEmpty) slotClasses.push('starter-slot-urgent');
     if (allCheckedIn) slotClasses.push('starter-slot-ready');
     const playersMarkup = ((teeTime && teeTime.players) || []).map((player) => {
       const checkedIn = !!(player && player.checkedIn);
+      const isFifth = !!(player && player.isFifth);
       const safeName = escapeHtml(String(player && player.name || 'Player'));
-      return `<li class="starter-player ${checkedIn ? 'is-checked' : ''}">
+      return `<li class="starter-player ${checkedIn ? 'is-checked' : ''}${isFifth ? ' is-fifth' : ''}">
         <button class="starter-player-check ${checkedIn ? 'is-checked' : ''}" type="button" data-toggle-checkin="${ev._id}:${teeTime._id}:${player._id}:${checkedIn ? '1' : '0'}" aria-label="${checkedIn ? 'Clear check-in for' : 'Mark checked in for'} ${safeName}">${checkedIn ? '✓' : '○'}</button>
-        <span class="starter-player-name">${safeName}</span>
+        <span class="starter-player-name"><span class="starter-player-text">${safeName}</span>${isFifth ? '<span class="player-status-badge player-status-badge-fifth">5th</span>' : ''}</span>
       </li>`;
     });
     for (let i = 0; i < openCount; i += 1) {
       playersMarkup.push(`<li class="starter-player starter-player-open"><button class="starter-player-check is-open" type="button" data-add-player="${escapeHtml(String(ev && ev._id || ''))}:${escapeHtml(String(teeTime && teeTime._id || ''))}" title="Add player to ${escapeHtml(teeSlotLabel(ev, teeTime, idx))}">+</button><span class="starter-player-name">Open</span></li>`);
     }
+    if (canAddFifth) {
+      playersMarkup.push(`<li class="starter-player starter-player-open starter-player-fifth-open"><button class="starter-player-check" type="button" data-add-player="${escapeHtml(String(ev && ev._id || ''))}:${escapeHtml(String(teeTime && teeTime._id || ''))}" title="Add a marked 5th player to ${escapeHtml(teeSlotLabel(ev, teeTime, idx))}">+5</button><span class="starter-player-name"><span class="starter-player-text">Add 5th</span><span class="player-status-badge player-status-badge-fifth">Rare</span></span></li>`);
+    }
+    const metaParts = [`${count}/${slotCap} in`, `${openCount} open`, `${checkedInCount} checked in`];
+    if (hasFifth) metaParts.push('5th added');
+    else if (canAddFifth) metaParts.push('5th available');
     return `<article class="${slotClasses.join(' ')}">
       <div class="starter-slot-header">
         <div>
           <div class="starter-slot-title">${escapeHtml(teeSlotLabel(ev, teeTime, idx))}</div>
-          <div class="starter-slot-meta">${count}/${slotCap} in · ${openCount} open · ${checkedInCount} checked in</div>
+          <div class="starter-slot-meta">${metaParts.join(' · ')}</div>
         </div>
         <button class="starter-slot-bulk" type="button" data-checkin-all="${ev._id}:${teeTime._id}:${allCheckedIn ? '1' : '0'}" ${count ? '' : 'disabled'}>${allCheckedIn ? 'Clear' : 'Check In All'}</button>
       </div>
@@ -797,6 +971,7 @@ if ('serviceWorker' in navigator) {
         <span>${capacity.registeredCount} golfer${capacity.registeredCount === 1 ? '' : 's'}</span>
         <span>${capacity.openCount} open</span>
         <span>${checkedInCount} checked in</span>
+        ${capacity.fifthCount ? `<span>${capacity.fifthCount} fifth${capacity.fifthCount === 1 ? '' : 's'}</span>` : ''}
         ${maybeCount ? `<span>${maybeCount} maybe</span>` : ''}
       </div>
       ${notes ? `<div class="starter-card-note">${escapeHtml(notes)}</div>` : ''}
@@ -843,6 +1018,65 @@ if ('serviceWorker' in navigator) {
       teeIndex,
       label: teeSlotLabel(ev, teeTime, teeIndex)
     };
+  }
+
+  function getCachedEventById(eventId = '') {
+    return (allEvents || []).find((ev) => String(ev && ev._id) === String(eventId)) || null;
+  }
+
+  function getTeeDropAvailability(eventId = '', toTeeId = '', playerId = '') {
+    const ev = getCachedEventById(eventId);
+    if (!ev) return { allowed: false, asFifth: false };
+    const teeDetails = findTeeTimeDetails(ev, toTeeId);
+    const teeTime = teeDetails.teeTime;
+    if (!teeTime) return { allowed: false, asFifth: false };
+    const slotCap = ev.isTeamEvent ? Number(ev.teamSizeMax || 4) : 4;
+    const playerCount = slotPlayerCount(teeTime);
+    if (playerCount < slotCap) return { allowed: true, asFifth: false };
+    const asFifth = slotCanAddFifth(ev, teeTime, { ignorePlayerId: playerId });
+    return { allowed: asFifth, asFifth };
+  }
+
+  function encodeMaybeFillTargetValue(teeId = '', asFifth = false) {
+    return `${String(teeId || '').trim()}|${asFifth ? '1' : '0'}`;
+  }
+
+  function decodeMaybeFillTargetValue(value = '') {
+    const [teeId, asFifth] = String(value || '').split('|');
+    return { teeId: String(teeId || '').trim(), asFifth: asFifth === '1' };
+  }
+
+  function maybeFillTargetOptions(ev) {
+    const teeTimes = Array.isArray(ev && ev.teeTimes) ? ev.teeTimes : [];
+    const slotCap = ev && ev.isTeamEvent ? Number((ev && ev.teamSizeMax) || 4) : 4;
+    const options = teeTimes.map((teeTime, idx) => {
+      const playerCount = Array.isArray(teeTime && teeTime.players) ? teeTime.players.length : 0;
+      const openCount = Math.max(0, slotCap - playerCount);
+      const canAddFifth = slotCanAddFifth(ev, teeTime);
+      return {
+        idx,
+        value: String(teeTime && teeTime._id || '').trim(),
+        label: teeSlotLabel(ev, teeTime, idx),
+        openCount,
+        canAddFifth,
+        sortMinutes: ev && !ev.isTeamEvent ? parseHHMMToMinutes(teeTime && teeTime.time) : null
+      };
+    }).filter((option) => option.value && (option.openCount > 0 || option.canAddFifth));
+
+    if (ev && !ev.isTeamEvent) {
+      options.sort((left, right) => {
+        if (left.sortMinutes === null && right.sortMinutes === null) return left.idx - right.idx;
+        if (left.sortMinutes === null) return 1;
+        if (right.sortMinutes === null) return -1;
+        if (left.sortMinutes !== right.sortMinutes) return left.sortMinutes - right.sortMinutes;
+        return left.idx - right.idx;
+      });
+    }
+
+    return options.map((option) => ({
+      value: encodeMaybeFillTargetValue(option.value, option.canAddFifth && option.openCount === 0),
+      label: option.openCount > 0 ? `${option.label} (${option.openCount} open)` : `${option.label} (Add as 5th)`
+    }));
   }
 
   function buildSelectedDateShareUrl(dateISO = selectedDate) {
@@ -1244,7 +1478,7 @@ if ('serviceWorker' in navigator) {
       mergedHeaders['Cache-Control'] = mergedHeaders['Cache-Control'] || 'no-cache';
       mergedHeaders.Pragma = mergedHeaders.Pragma || 'no-cache';
       try {
-        const u = new URL(path, window.location.origin);
+        const u = new URL(requestPath, window.location.origin);
         if (!u.searchParams.has('fresh')) u.searchParams.set('fresh', '1');
         u.searchParams.set('_rt', String(Date.now()));
         requestPath = u.origin === window.location.origin
@@ -1966,6 +2200,7 @@ if ('serviceWorker' in navigator) {
         const slotCount = teesArr.length;
         const registeredCount = teesArr.reduce((sum, tt) => sum + ((tt.players || []).length), 0);
         const checkedInCount = teesArr.reduce((sum, tt) => sum + ((tt.players || []).filter((p) => !!p.checkedIn).length), 0);
+        const fifthCount = eventFifthCount(ev);
         const totalCapacity = slotCount * slotCap;
         const openCount = Math.max(0, totalCapacity - registeredCount);
         const maybeCount = (ev.maybeList || []).length;
@@ -1973,6 +2208,7 @@ if ('serviceWorker' in navigator) {
           <span><strong>${registeredCount}</strong> registered</span>
           <span><strong>${checkedInCount}</strong> checked in</span>
           <span><strong>${openCount}</strong> open</span>
+          ${fifthCount ? `<span><strong>${fifthCount}</strong> fifth${fifthCount === 1 ? '' : 's'}</span>` : ''}
           <span><strong>${maybeCount}</strong> maybe</span>
           <span><strong>${slotCount}</strong> ${isTeams ? 'teams' : 'tee times'}</span>
         </div>`;
@@ -2050,7 +2286,7 @@ if ('serviceWorker' in navigator) {
               <button class="small event-actions-toggle" data-toggle-actions title="Show/hide event actions">Actions</button>
               <div class="button-row">
                 <button class="small" data-toggle-starter-event="${ev._id}" title="Switch this event to the compact starter view">Starter View</button>
-                ${isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<div class="time-action-pair"><button class="small" data-add-tee="${ev._id}">Add Existing Time</button><button class="small" data-request-extra-tee="${ev._id}" title="Email Brian Jones to request an additional tee time">Request Club Time</button></div>`}
+                ${isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<div class="time-action-pair"><button class="small" data-add-tee="${ev._id}">Add Existing Time</button><button class="small" data-request-extra-tee="${ev._id}" title="Email ${escapeHtml(clubContactLabel())} to request an additional tee time">Request Club Time</button></div>`}
                 ${isTeams ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Pairings</button>`}
                 <button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button>
               </div>
@@ -2074,8 +2310,9 @@ if ('serviceWorker' in navigator) {
       // keep a safe-quoted title for tooltips so long names can be seen on hover
       const safe = String(p.name || '').replace(/"/g, '&quot;');
       const checkedIn = !!p.checkedIn;
-      return `<span class="chip ${checkedIn ? 'checked-in' : ''}" title="${safe}" draggable="true" data-drag-player="${ev._id}:${tt._id}:${p._id}">
-        <span class="chip-label" title="${safe}">${p.name}</span>
+      const isFifth = !!p.isFifth;
+      return `<span class="chip ${checkedIn ? 'checked-in' : ''}${isFifth ? ' is-fifth' : ''}" title="${safe}" draggable="true" data-drag-player="${ev._id}:${tt._id}:${p._id}">
+        <span class="chip-label" title="${safe}"><span class="chip-name">${p.name}</span>${isFifth ? '<span class="player-status-badge player-status-badge-fifth">5th</span>' : ''}</span>
         <span class="chip-actions">
           <button class="icon small ${checkedIn ? 'ok' : ''}" title="${checkedIn ? 'Checked in' : 'Mark checked in'}" data-toggle-checkin="${ev._id}:${tt._id}:${p._id}:${checkedIn ? '1' : '0'}">${checkedIn ? '✓' : '○'}</button>
           <button class="icon small" title="Move" data-move="${ev._id}:${tt._id}:${p._id}">↔</button>
@@ -2086,9 +2323,12 @@ if ('serviceWorker' in navigator) {
     const max = ev.teamSizeMax || 4;
     const slotMax = isTeams ? max : 4;
     const count = (tt.players || []).length;
+    const hasFifth = slotHasFifthPlayer(tt);
+    const canAddFifth = slotCanAddFifth(ev, tt);
     const checkedInCount = (tt.players || []).filter((p) => !!p.checkedIn).length;
     const openSpots = Math.max(0, slotMax - count);
     const full = count >= slotMax;
+    const addDisabled = isTeams ? full : (count >= slotMax && !canAddFifth);
     const dateISO = toDateISO(ev && ev.date);
     let daysUntil = null;
     if (dateISO) {
@@ -2106,6 +2346,8 @@ if ('serviceWorker' in navigator) {
     const delTitle = isTeams ? 'Remove team' : 'Remove tee time';
     const teeClasses = ['tee'];
     if (full) teeClasses.push('tee-full');
+    if (canAddFifth) teeClasses.push('tee-can-add-fifth');
+    if (hasFifth) teeClasses.push('tee-has-fifth');
     if (urgentEmpty) teeClasses.push('tee-empty-urgent');
     // Only show edit button for teams, not tee times
     let editBtn = '';
@@ -2113,10 +2355,12 @@ if ('serviceWorker' in navigator) {
       const editTitle = 'Edit team name';
       editBtn = `<button class="icon small" title="${editTitle}" data-edit-tee="${ev._id}:${tt._id}">✎</button>`;
     }
+    const summaryText = hasFifth ? '5th added' : (canAddFifth ? '5th available' : `${openSpots} open`);
+    const addLabel = canAddFifth ? 'Add 5th' : 'Add Player';
     return `<div class="${teeClasses.join(' ')}" data-drop-tee="${ev._id}:${tt._id}" data-slot-max="${slotMax}" data-player-count="${count}">
       <div class="tee-meta">
         <div class="tee-time">${left} <span style="font-size:11px;opacity:0.8">(${count}/${slotMax})</span></div>
-        <div class="tee-summary" style="font-size:11px;color:var(--slate-700)">${openSpots} open</div>
+        <div class="tee-summary" style="font-size:11px;color:var(--slate-700)">${summaryText}</div>
         <div class="tee-actions">
           ${editBtn}
           <button class="icon small danger" title="${delTitle}" data-del-tee="${ev._id}:${tt._id}">×</button>
@@ -2124,7 +2368,7 @@ if ('serviceWorker' in navigator) {
       </div>
       <div class="tee-players">${chips}</div>
             <div class="row" style="gap:8px;flex-wrap:wrap">
-        <button class="small" data-add-player="${ev._id}:${tt._id}" ${full?'disabled':''}>Add Player</button>
+        <button class="small" data-add-player="${ev._id}:${tt._id}" ${addDisabled ? 'disabled' : ''}>${addLabel}</button>
         <button class="small" data-checkin-all="${ev._id}:${tt._id}:${allCheckedIn ? '1' : '0'}" ${count ? '' : 'disabled'}>${allCheckedIn ? 'Clear Check-In' : 'Check In All'}</button>
       </div>
     </div>`;
@@ -2142,13 +2386,13 @@ if ('serviceWorker' in navigator) {
     return { eventId, fromTeeId, playerId };
   }
 
-  async function movePlayerToTee(eventId, fromTeeId, toTeeId, playerId){
+  async function movePlayerToTee(eventId, fromTeeId, toTeeId, playerId, options = {}){
     if (!eventId || !fromTeeId || !toTeeId || !playerId) return;
     if (String(fromTeeId) === String(toTeeId)) return;
     const updatedEvent = await api(`/api/events/${eventId}/move-player`, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({ fromTeeId, toTeeId, playerId })
+      body:JSON.stringify({ fromTeeId, toTeeId, playerId, asFifth: !!options.asFifth })
     });
     await updateEventCard(eventId, updatedEvent);
   }
@@ -2160,10 +2404,9 @@ if ('serviceWorker' in navigator) {
     if (dragChip) dragChip.classList.add('is-dragging');
     if (!target) return;
     const [eventId, toTeeId] = String(target.dataset.dropTee || '').split(':');
-    const maxSize = Number(target.dataset.slotMax || 4);
-    const playerCount = Number(target.dataset.playerCount || 0);
     if (String(eventId) !== String(teeDragState.eventId) || String(toTeeId) === String(teeDragState.fromTeeId)) return;
-    target.classList.add(playerCount < maxSize ? 'is-drop-target' : 'is-drop-invalid');
+    const availability = getTeeDropAvailability(eventId, toTeeId, teeDragState.playerId);
+    target.classList.add(availability.allowed ? 'is-drop-target' : 'is-drop-invalid');
   }
 
   on(eventsEl, 'dragstart', (e) => {
@@ -2185,9 +2428,8 @@ if ('serviceWorker' in navigator) {
     const [eventId, toTeeId] = String(target.dataset.dropTee || '').split(':');
     if (String(eventId) !== String(teeDragState.eventId) || String(toTeeId) === String(teeDragState.fromTeeId)) return;
     e.preventDefault();
-    const maxSize = Number(target.dataset.slotMax || 4);
-    const playerCount = Number(target.dataset.playerCount || 0);
-    if (e.dataTransfer) e.dataTransfer.dropEffect = playerCount < maxSize ? 'move' : 'none';
+    const availability = getTeeDropAvailability(eventId, toTeeId, teeDragState.playerId);
+    if (e.dataTransfer) e.dataTransfer.dropEffect = availability.allowed ? 'move' : 'none';
     syncTeeDropUi(target);
   });
 
@@ -2213,14 +2455,13 @@ if ('serviceWorker' in navigator) {
     clearTeeDragUi();
     const [eventId, toTeeId] = String(target.dataset.dropTee || '').split(':');
     if (String(eventId) !== String(dragState.eventId) || String(toTeeId) === String(dragState.fromTeeId)) return;
-    const maxSize = Number(target.dataset.slotMax || 4);
-    const playerCount = Number(target.dataset.playerCount || 0);
-    if (playerCount >= maxSize) {
+    const availability = getTeeDropAvailability(eventId, toTeeId, dragState.playerId);
+    if (!availability.allowed) {
       showToast('That tee time is already full.', 'error');
       return;
     }
     try {
-      await movePlayerToTee(dragState.eventId, dragState.fromTeeId, toTeeId, dragState.playerId);
+      await movePlayerToTee(dragState.eventId, dragState.fromTeeId, toTeeId, dragState.playerId, { asFifth: availability.asFifth });
     } catch (err) {
       console.error(err);
       showToast('Move failed: ' + (err.message || 'Unknown error'), 'error');
@@ -2291,19 +2532,53 @@ if ('serviceWorker' in navigator) {
       }
       if(t.dataset.fillMaybe){
         const id = t.dataset.fillMaybe;
+        const ev = await getEventForAction(id);
+        if (!ev) {
+          showToast('Unable to load this event right now.', 'error');
+          return;
+        }
+        const maybeOptions = (Array.isArray(ev.maybeList) ? ev.maybeList : [])
+          .map((name) => String(name || '').trim())
+          .filter(Boolean)
+          .map((name) => ({ value: name, label: name }));
+        if (!maybeOptions.length) {
+          showToast('No interested players are waiting for this event.', 'error');
+          return;
+        }
+        const targetOptions = maybeFillTargetOptions(ev);
+        if (!targetOptions.length) {
+          showToast(`No open ${ev.isTeamEvent ? 'teams' : 'tee times'} are available.`, 'error');
+          return;
+        }
         const maybeFillValues = await openActionDialog({
           title: 'Confirm Maybe Player',
-          message: 'Leave the name blank to confirm the first player on the maybe list.',
+          message: `Choose the interested player and the ${ev.isTeamEvent ? 'team' : 'tee time'} to add them to.`,
           confirmLabel: 'Confirm Player',
+          hint: ev.isTeamEvent
+            ? 'Only teams with room are listed.'
+            : 'Only tee times with room, plus the single event-wide 5th option when available, are listed.',
           fields: [{
             name: 'name',
-            label: 'Maybe-list name',
-            placeholder: 'First player in list',
-            value: ''
+            label: 'Interested player',
+            type: 'select',
+            value: maybeOptions[0].value,
+            options: maybeOptions,
+            required: true
+          }, {
+            name: 'teeId',
+            label: ev.isTeamEvent ? 'Destination team' : 'Destination tee time',
+            type: 'select',
+            value: targetOptions[0].value,
+            options: targetOptions,
+            required: true
           }]
         });
         if (maybeFillValues === null) return;
         const name = String(maybeFillValues.name || '').trim();
+        const targetChoice = decodeMaybeFillTargetValue(maybeFillValues.teeId || '');
+        const teeId = String(targetChoice.teeId || '').trim();
+        const asFifth = !!targetChoice.asFifth;
+        if (!name || !teeId) return;
         const original = t.textContent;
         t.disabled = true;
         t.textContent = 'Filling...';
@@ -2311,7 +2586,7 @@ if ('serviceWorker' in navigator) {
           const result = await api(`/api/events/${id}/maybe/fill`, {
             method:'POST',
             headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ name: name.trim() || undefined })
+            body: JSON.stringify({ name, teeId, asFifth })
           });
           await updateEventCard(id, result && result.event ? result.event : null);
         } catch (err) {
@@ -2365,7 +2640,7 @@ if ('serviceWorker' in navigator) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ note })
           });
-          showToast('Additional tee time request emailed to Brian Jones.', 'success');
+          showToast(`Additional tee time request emailed to ${clubContactLabel()}.`, 'success');
         } catch (err) {
           console.error(err);
           showToast('Request failed: ' + (err.message || 'Unknown error'), 'error');
@@ -2469,7 +2744,7 @@ if ('serviceWorker' in navigator) {
           title: isTeamEvent ? 'Remove Team' : 'Remove Tee Time',
           message: isTeamEvent
             ? `Remove ${slotLabel}? This cannot be undone.`
-            : `Remove ${slotLabel}? Choose whether to only remove it here or also notify Brian Jones.`,
+            : `Remove ${slotLabel}? Choose whether to only remove it here or also notify ${clubContactLabel()}.`,
           confirmLabel: isTeamEvent ? 'Remove Team' : 'Remove Tee Time',
           confirmClass: 'dialog-danger',
           fields: [
@@ -2480,7 +2755,7 @@ if ('serviceWorker' in navigator) {
               value: 'no',
               options: [
                 { value: 'no', label: 'Remove only' },
-                { value: 'yes', label: 'Remove and email Brian Jones' }
+                { value: 'yes', label: `Remove and email ${clubContactLabel()}` }
               ]
             } : null
           ]
@@ -2639,10 +2914,21 @@ if ('serviceWorker' in navigator) {
       }
       if(t.dataset.addPlayer){
         const [id,teeId]=t.dataset.addPlayer.split(':');
+        const ev = await getEventForAction(id);
+        if (!ev) {
+          showToast('Unable to load this tee time right now.', 'error');
+          return;
+        }
+        const teeDetails = findTeeTimeDetails(ev, teeId);
+        const slotLabel = teeDetails.label || (ev.isTeamEvent ? 'this team' : 'this tee time');
+        const canAddFifth = slotCanAddFifth(ev, teeDetails.teeTime);
         const playerValues = await openActionDialog({
-          title: 'Add Player',
-          message: 'Enter the golfer name to add to this tee time.',
-          confirmLabel: 'Add Player',
+          title: canAddFifth ? 'Add 5th Player' : 'Add Player',
+          message: canAddFifth
+            ? `This tee time already has four golfers. The next player will be clearly marked as the 5th on ${slotLabel}.`
+            : `Enter the golfer name to add to ${slotLabel}.`,
+          confirmLabel: canAddFifth ? 'Add 5th Player' : 'Add Player',
+          hint: canAddFifth ? 'Only one marked 5th player is allowed per event.' : '',
           fields: [{
             name: 'name',
             label: 'Player name',
@@ -2656,8 +2942,8 @@ if ('serviceWorker' in navigator) {
         const origText = t.textContent;
         try {
           t.disabled = true;
-          t.textContent = 'Adding...';
-          const updatedEvent = await api(`/api/events/${id}/tee-times/${teeId}/players`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
+          t.textContent = canAddFifth ? 'Adding 5th...' : 'Adding...';
+          const updatedEvent = await api(`/api/events/${id}/tee-times/${teeId}/players`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ name, asFifth: canAddFifth }) });
           await updateEventCard(id, updatedEvent);
           return;
         } catch (err) {
@@ -2733,17 +3019,28 @@ if ('serviceWorker' in navigator) {
   async function openMoveDialog(eventId, fromTeeId, playerId){
     const list=await api('/api/events'); const ev=(list||[]).find(x=>x._id===eventId); if(!ev) return;
     const all = ev.teeTimes || [];
-    const dests = all.filter(t => String(t._id) !== String(fromTeeId));
+    const slotCap = ev.isTeamEvent ? Number(ev.teamSizeMax || 4) : 4;
+    const dests = all
+      .filter(t => String(t._id) !== String(fromTeeId))
+      .map((t) => {
+        const playerCount = Array.isArray(t && t.players) ? t.players.length : 0;
+        const openCount = Math.max(0, slotCap - playerCount);
+        const asFifth = slotCanAddFifth(ev, t, { ignorePlayerId: playerId });
+        return { teeTime: t, openCount, asFifth };
+      })
+      .filter((entry) => entry.openCount > 0 || entry.asFifth);
     if(!dests.length){ alert('No other destinations'); return; }
 
     moveForm.elements['eventId'].value=eventId;
     moveForm.elements['fromTeeId'].value=fromTeeId;
     moveForm.elements['playerId'].value=playerId;
 
-    const html = dests.map((t)=>{
+    const html = dests.map((entry)=>{
+      const t = entry.teeTime;
       const originalIdx = all.findIndex(tt => String(tt._id) === String(t._id));
       const label = ev.isTeamEvent ? (t.name ? t.name : ('Team ' + (originalIdx + 1))) : (t.time ? fmtTime(t.time) : '—');
-      return `<label class="radio-item"><input type="radio" name="dest" value="${t._id}" required> ${label}</label>`;
+      const detail = entry.asFifth ? 'Add as 5th' : `${entry.openCount} open`;
+      return `<label class="radio-item"><input type="radio" name="dest" value="${t._id}" data-as-fifth="${entry.asFifth ? '1' : '0'}" required> ${label} <span class="radio-item-meta">${detail}</span></label>`;
     }).join('');
 
     moveTitle.textContent = ev.isTeamEvent ? 'Move Player to another Team' : 'Move Player to another Tee Time';
@@ -2756,9 +3053,12 @@ if ('serviceWorker' in navigator) {
     const eventId=moveForm.elements['eventId'].value;
     const fromTeeId=moveForm.elements['fromTeeId'].value;
     const playerId=moveForm.elements['playerId'].value;
-    const toTeeId=moveForm.elements['dest'].value;
+    const selectedDest = moveForm.querySelector('input[name="dest"]:checked');
+    if (!selectedDest) return;
+    const toTeeId=selectedDest.value;
+    const asFifth = selectedDest.dataset.asFifth === '1';
     try{
-      await movePlayerToTee(eventId, fromTeeId, toTeeId, playerId);
+      await movePlayerToTee(eventId, fromTeeId, toTeeId, playerId, { asFifth });
       moveModal.close?.();
     }catch(err){ 
       console.error(err);
@@ -3095,9 +3395,11 @@ if ('serviceWorker' in navigator) {
     }
   }
 
+  applySiteProfile(defaultSiteProfile, currentSiteLinks);
   updateMobileFilterButtons();
   updateStarterModeButtons();
   updateLastUpdated('Loading…');
+  initSiteProfile();
   load();
   startAutoRefresh();
 })();

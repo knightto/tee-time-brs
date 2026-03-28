@@ -123,7 +123,7 @@ function sendTripRouteError(res, error) {
   const message = error && error.message ? error.message : 'Request failed';
   if (error && Number.isInteger(error.status)) return res.status(error.status).json({ error: message });
   if (/not found/i.test(message)) return res.status(404).json({ error: message });
-  if (/required|select exactly|four-player|10 players|20 unique|seed rank/i.test(message)) return res.status(400).json({ error: message });
+  if (/required|select exactly|four-player|groups of 4|even player count|unique players|seed rank/i.test(message)) return res.status(400).json({ error: message });
   return res.status(500).json({ error: message });
 }
 

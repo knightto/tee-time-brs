@@ -5267,7 +5267,11 @@
       const balance = state.balance || buildTripRyderCupBalance(state);
       const teamACount = Array.isArray(state.teamAPlayers) ? state.teamAPlayers.length : 0;
       const teamBCount = Array.isArray(state.teamBPlayers) ? state.teamBPlayers.length : 0;
-      const countsValid = teamACount === 10 && teamBCount === 10;
+      const expectedTeamCount = Math.max(0, Math.round((teamACount + teamBCount) / 2));
+      const countsValid = expectedTeamCount >= 6
+        && expectedTeamCount % 2 === 0
+        && teamACount === expectedTeamCount
+        && teamBCount === expectedTeamCount;
       const notesValue = String(state.notes || '').trim();
       const renderTeam = (teamKey, teamName, players) => {
         const savedTeamMeta = teamKey === 'teamA' ? getRyderCupTeamMeta().teamA : getRyderCupTeamMeta().teamB;
@@ -5347,7 +5351,7 @@
               <span class="competition-pill">${escapeHtml(state.teamAName)} ${escapeHtml(String(balance.teamASum || 0))}</span>
               <span class="competition-pill">${escapeHtml(state.teamBName)} ${escapeHtml(String(balance.teamBSum || 0))}</span>
               <span class="competition-note">${escapeHtml(balance.difference === 0 ? 'Even seed split' : `Difference ${balance.difference}`)}</span>
-              <span class="competition-note">${escapeHtml(`${teamACount}/10 on ${state.teamAName} · ${teamBCount}/10 on ${state.teamBName}`)}</span>
+              <span class="competition-note">${escapeHtml(`${teamACount}/${expectedTeamCount || '—'} on ${state.teamAName} · ${teamBCount}/${expectedTeamCount || '—'} on ${state.teamBName}`)}</span>
               ${state.enabled ? '<span class="competition-pill">Enabled</span>' : '<span class="competition-pill">Disabled</span>'}
               ${tripRyderCupUiState.copyStatus ? `<span class="ryder-overlay-copy-status">${escapeHtml(tripRyderCupUiState.copyStatus)}</span>` : ''}
             </div>
@@ -5375,7 +5379,7 @@
               ${renderTeam('teamA', state.teamAName, state.teamAPlayers)}
               ${renderTeam('teamB', state.teamBName, state.teamBPlayers)}
             </div>
-            ${isEditing && !countsValid ? '<div class="competition-empty">Save is disabled until both teams are back to 10 players.</div>' : ''}
+            ${isEditing && !countsValid ? `<div class="competition-empty">Save is disabled until both teams are back to ${escapeHtml(String(expectedTeamCount || 'the same even'))} players.</div>` : ''}
           </div>
         </div>
       `;

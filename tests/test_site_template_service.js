@@ -19,6 +19,7 @@ const pkg = buildTeeTimesSiteTemplatePackage({
 });
 
 assert.strictEqual(pkg.templateName, 'Tee Times Site Package');
+assert.strictEqual(pkg.deploymentProfile.groupSlug, 'blue-ridge-tee-times');
 assert.strictEqual(pkg.deploymentProfile.siteTitle, 'Blue Ridge Tee Times');
 assert.strictEqual(pkg.deploymentProfile.clubName, 'Blue Ridge Shadows');
 assert.strictEqual(pkg.deploymentProfile.secondaryContactEmail, 'assistant@blueridge.example');
@@ -26,7 +27,10 @@ assert.strictEqual(pkg.deploymentProfile.replyToEmail, 'reply@blueridge.example'
 assert.strictEqual(pkg.contactDirectory.clubPhone, '540-555-2000');
 assert.deepStrictEqual(pkg.contactDirectory.adminAlertPhones, ['540-555-4000', '540-555-5000']);
 assert.strictEqual(pkg.features.includeTrips, true);
+assert.strictEqual(pkg.deploymentLinks.site, '/groups/blue-ridge-tee-times');
+assert.strictEqual(pkg.deploymentLinks.adminLite, '/groups/blue-ridge-tee-times/admin-lite');
 assert.ok(pkg.includedPages.some((entry) => entry.key === 'admin' && entry.enabled), 'Admin page should be included');
+assert.ok(pkg.includedPages.some((entry) => entry.key === 'tee-times' && entry.deployedPath === '/groups/blue-ridge-tee-times'), 'Package should document the deployed site URL');
 assert.ok(pkg.includedPages.some((entry) => entry.key === 'group-admin-lite' && entry.enabled), 'Minimal group admin page should be included');
 assert.ok(pkg.sourceFiles.includes('/public/index.html'), 'Main tee-times page should be part of the package');
 assert.ok(pkg.sourceFiles.includes('/public/group-admin-lite.html'), 'Starter group admin page should be part of the package');

@@ -56,7 +56,11 @@ const rateLimit = require('express-rate-limit');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 const { importHandicapsFromCsv } = require('./services/handicapImportService');
-const { buildTeeTimesSiteTemplatePackage } = require('./services/siteTemplateService');
+const {
+  buildGroupRoutePaths,
+  buildTeeTimesSiteDeploymentProfile,
+  buildTeeTimesSiteTemplatePackage,
+} = require('./services/siteTemplateService');
 const { requestContext } = require('./middleware/requestContext');
 const { cacheJson } = require('./middleware/responseCache');
 const { validateBody, validateCreateEvent, validateAddPlayer } = require('./middleware/validate');
@@ -129,6 +133,66 @@ app.use('/api', (_req, res, next) => {
 
 // Define routes before static middleware to ensure they take precedence
 app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/manifest.json', async (req, res) => {
+  try {
+    const scopedGroupSlug = String(req.query.group || '').trim()
+      ? getGroupSlug(req)
+      : inferGroupSlugFromReferrer(req, DEFAULT_SITE_GROUP_SLUG);
+    const profile = toPublicSiteProfile(await getSiteProfile(scopedGroupSlug));
+    const links = buildGroupDeploymentLinks(profile.groupSlug);
+    const startUrl = profile.groupSlug === DEFAULT_SITE_GROUP_SLUG
+      ? '/?source=pwa'
+      : `${links.sitePath}?source=pwa`;
+    const iconPath = profile.iconPath || '/icons/icon-512.png';
+    const manifest = {
+      id: startUrl,
+      name: profile.siteTitle || 'Tee Times',
+      short_name: profile.shortTitle || profile.siteTitle || 'Tee Time',
+      description: `Mobile-friendly tee times, calendar, and group admin tools for ${profile.groupName || profile.siteTitle || 'Tee Times'}.`,
+      start_url: startUrl,
+      scope: '/',
+      display: 'standalone',
+      display_override: ['standalone', 'minimal-ui', 'browser'],
+      background_color: '#112417',
+      theme_color: profile.themeColor || '#173224',
+      orientation: 'any',
+      categories: ['sports', 'productivity', 'utilities'],
+      icons: [
+        { src: iconPath, sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
+        { src: iconPath, sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
+      ],
+      shortcuts: [
+        {
+          name: `${profile.shortTitle || profile.siteTitle} Tee Times`,
+          short_name: 'Tee Times',
+          url: links.sitePath,
+          icons: [{ src: iconPath, sizes: '192x192', type: 'image/png' }],
+        },
+        {
+          name: 'Minimal Admin',
+          short_name: 'Lite Admin',
+          url: links.adminLitePath,
+          icons: [{ src: iconPath, sizes: '192x192', type: 'image/png' }],
+        },
+      ],
+    };
+    res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+    return res.send(JSON.stringify(manifest, null, 2));
+  } catch (error) {
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to build manifest' });
+  }
+});
+
+app.get('/groups/:groupSlug', (req, res) => (
+  res.redirect(302, buildRedirectWithGroupPath('/', req.params.groupSlug, req.query))
+));
+app.get('/groups/:groupSlug/admin', (req, res) => (
+  res.redirect(302, buildRedirectWithGroupPath('/admin.html', req.params.groupSlug, req.query))
+));
+app.get('/groups/:groupSlug/admin-lite', (req, res) => (
+  res.redirect(302, buildRedirectWithGroupPath('/group-admin-lite.html', req.params.groupSlug, req.query))
+));
 // --- Myrtle Beach Trip Tracker API ---
 // Debug endpoint: Query all trips and participants from secondary DB
 app.get('/api/debug/secondary-trips', async (req, res) => {
@@ -668,7 +732,10 @@ const skipMongoConnect = process.env.SKIP_MONGO_CONNECT === '1';
 const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/teetimes';
 if (!skipMongoConnect) {
   mongoose.connect(mongoUri, { dbName: process.env.MONGO_DB || undefined })
-    .then(() => console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'Mongo connected', uri:mongoUri })))
+    .then(async () => {
+      console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'Mongo connected', uri:mongoUri }));
+      await ensureScopedSettingsIndexes();
+    })
     .catch((e) => { console.error('Mongo connection error', e); process.exit(1); });
 } else {
   console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'Mongo connect skipped for test mode' }));
@@ -683,6 +750,56 @@ let Golfer; try { Golfer = require('./models/Golfer'); } catch { Golfer = null; 
 let HandicapSnapshot; try { HandicapSnapshot = require('./models/HandicapSnapshot'); } catch { HandicapSnapshot = null; }
 let ImportBatch; try { ImportBatch = require('./models/ImportBatch'); } catch { ImportBatch = null; }
 let TeeTimeLog; try { TeeTimeLog = require('./models/TeeTimeLog'); } catch { TeeTimeLog = null; }
+
+async function ensureScopedSettingsIndexes() {
+  if (!Settings || !Settings.collection) return;
+  try {
+    const mainGroupSlug = DEFAULT_SITE_GROUP_SLUG;
+    const legacySettings = await Settings.find({
+      $or: [
+        { groupSlug: { $exists: false } },
+        { groupSlug: null },
+        { groupSlug: '' },
+      ],
+    }).sort({ updatedAt: -1, _id: -1 }).lean();
+
+    for (const legacySetting of legacySettings) {
+      const key = String(legacySetting && legacySetting.key || '').trim();
+      if (!key) continue;
+      const existingScoped = await Settings.findOne({ groupSlug: mainGroupSlug, key }).sort({ updatedAt: -1, _id: -1 }).lean();
+      if (existingScoped) {
+        const legacyUpdatedAt = legacySetting && legacySetting.updatedAt ? new Date(legacySetting.updatedAt).getTime() : 0;
+        const scopedUpdatedAt = existingScoped && existingScoped.updatedAt ? new Date(existingScoped.updatedAt).getTime() : 0;
+        if (legacyUpdatedAt > scopedUpdatedAt) {
+          await Settings.updateOne({ _id: existingScoped._id }, { $set: { value: legacySetting.value } });
+        }
+        await Settings.deleteOne({ _id: legacySetting._id });
+        continue;
+      }
+      await Settings.updateOne({ _id: legacySetting._id }, { $set: { groupSlug: mainGroupSlug } });
+    }
+
+    if (legacySettings.length) {
+      console.log(JSON.stringify({
+        t: new Date().toISOString(),
+        level: 'info',
+        msg: 'settings-group-backfill',
+        migrated: legacySettings.length,
+        groupSlug: mainGroupSlug,
+      }));
+    }
+
+    const indexes = await Settings.collection.indexes();
+    const legacyKeyIndex = indexes.find((index) => index && index.name === 'key_1' && index.unique);
+    if (legacyKeyIndex) {
+      await Settings.collection.dropIndex('key_1');
+      console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'settings-index-migrated', dropped:'key_1' }));
+    }
+    await Settings.collection.createIndex({ groupSlug: 1, key: 1 }, { unique: true, name: 'groupSlug_1_key_1' });
+  } catch (error) {
+    console.error('Failed to ensure scoped settings indexes:', error);
+  }
+}
 
 app.use('/api', buildSystemRouter({
   mongoose,
@@ -1635,6 +1752,218 @@ function buildGroupAwarePath(pathname = '', groupSlug = DEFAULT_SITE_GROUP_SLUG)
   return `${pathname}${sep}group=${encodeURIComponent(slug)}`;
 }
 
+function titleFromGroupSlug(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  return normalizeGroupSlug(groupSlug)
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ') || 'Tee Times';
+}
+
+function uniqueEmailList(values = []) {
+  const flattened = Array.isArray(values) ? values.flat() : [values];
+  return Array.from(new Set(flattened
+    .map((value) => String(value || '').trim().toLowerCase())
+    .filter(Boolean)));
+}
+
+function buildDefaultSiteProfileInput(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
+  const adminEmails = uniqueEmailList(ADMIN_EMAILS);
+  const defaultLabel = titleFromGroupSlug(normalizedGroupSlug);
+  const isMainGroup = normalizedGroupSlug === DEFAULT_SITE_GROUP_SLUG;
+  const siteTitle = isMainGroup ? 'Tee Times' : `${defaultLabel} Tee Times`;
+  const clubName = isMainGroup ? 'Blue Ridge Shadows' : defaultLabel;
+  return {
+    groupSlug: normalizedGroupSlug,
+    packageSlug: normalizedGroupSlug,
+    siteTitle,
+    shortTitle: isMainGroup ? 'Tee Time' : defaultLabel,
+    groupName: isMainGroup ? 'Knight Group Tee Times' : defaultLabel,
+    clubName,
+    clubRequestLabel: isMainGroup ? 'Request a Tee Time for Blue Ridge Shadows' : `Request a Tee Time for ${clubName}`,
+    primaryContactEmail: adminEmails[0] || '',
+    secondaryContactEmail: adminEmails[1] || '',
+    clubRequestEmail: CLUB_EMAIL,
+    replyToEmail: adminEmails[0] || CLUB_EMAIL,
+    supportPhone: '',
+    clubPhone: '',
+    smsPhone: '',
+    adminAlertPhones: [],
+    themeColor: '#173224',
+    iconAssetName: 'knight-club-icon.png',
+    notes: isMainGroup ? 'Main Tee Times site profile.' : '',
+    features: {
+      includeHandicaps: true,
+      includeTrips: true,
+      includeOutings: true,
+      includeNotifications: true,
+      includeScheduler: true,
+      includeBackups: true,
+    },
+  };
+}
+
+function resolveSiteIconPath(iconAssetName = '') {
+  const assetName = String(iconAssetName || '').trim();
+  if (!assetName) return '/icons/icon-512.png';
+  if (assetName.startsWith('/')) return assetName;
+  return `/assets/${assetName}`;
+}
+
+function buildAbsoluteSiteUrl(pathname = '/') {
+  return new URL(String(pathname || '/'), SITE_URL).toString();
+}
+
+function buildGroupDeploymentLinks(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
+  const routePaths = buildGroupRoutePaths(normalizedGroupSlug);
+  return {
+    groupSlug: normalizedGroupSlug,
+    sitePath: routePaths.site,
+    siteUrl: buildAbsoluteSiteUrl(routePaths.site),
+    siteQueryPath: buildGroupAwarePath('/', normalizedGroupSlug),
+    adminPath: routePaths.admin,
+    adminUrl: buildAbsoluteSiteUrl(routePaths.admin),
+    adminQueryPath: buildGroupAwarePath('/admin.html', normalizedGroupSlug),
+    adminLitePath: routePaths.adminLite,
+    adminLiteUrl: buildAbsoluteSiteUrl(routePaths.adminLite),
+    adminLiteQueryPath: buildGroupAwarePath('/group-admin-lite.html', normalizedGroupSlug),
+    calendarPath: routePaths.calendar,
+    calendarUrl: buildAbsoluteSiteUrl(routePaths.calendar),
+    manifestPath: `/manifest.json?group=${encodeURIComponent(normalizedGroupSlug)}`,
+    manifestUrl: buildAbsoluteSiteUrl(`/manifest.json?group=${encodeURIComponent(normalizedGroupSlug)}`),
+  };
+}
+
+function toPublicSiteProfile(profile = {}) {
+  const normalizedGroupSlug = normalizeGroupSlug(profile.groupSlug || DEFAULT_SITE_GROUP_SLUG);
+  const routePaths = buildGroupRoutePaths(normalizedGroupSlug);
+  return {
+    groupSlug: normalizedGroupSlug,
+    siteTitle: String(profile.siteTitle || 'Tee Times').trim() || 'Tee Times',
+    shortTitle: String(profile.shortTitle || profile.siteTitle || 'Tee Time').trim() || 'Tee Time',
+    groupName: String(profile.groupName || '').trim(),
+    clubName: String(profile.clubName || '').trim(),
+    clubRequestLabel: String(profile.clubRequestLabel || '').trim(),
+    themeColor: String(profile.themeColor || '#173224').trim() || '#173224',
+    iconAssetName: String(profile.iconAssetName || '').trim(),
+    iconPath: resolveSiteIconPath(profile.iconAssetName),
+    features: profile.features && typeof profile.features === 'object' ? profile.features : buildDefaultSiteProfileInput(normalizedGroupSlug).features,
+    routePaths,
+    links: buildGroupDeploymentLinks(normalizedGroupSlug),
+  };
+}
+
+async function getSiteProfile(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
+  const defaults = buildDefaultSiteProfileInput(normalizedGroupSlug);
+  if (!Settings) {
+    return buildTeeTimesSiteDeploymentProfile(defaults);
+  }
+  try {
+    const setting = await Settings.findOne(scopedSettingQuery(normalizedGroupSlug, 'siteProfile')).lean();
+    const storedValue = setting && setting.value && typeof setting.value === 'object' ? setting.value : {};
+    return buildTeeTimesSiteDeploymentProfile({
+      ...defaults,
+      ...storedValue,
+      features: {
+        ...(defaults.features || {}),
+        ...((storedValue && storedValue.features) || {}),
+      },
+      groupSlug: normalizedGroupSlug,
+      packageSlug: storedValue.packageSlug || normalizedGroupSlug,
+    });
+  } catch (error) {
+    console.error('Error loading site profile:', error);
+    return buildTeeTimesSiteDeploymentProfile(defaults);
+  }
+}
+
+async function saveSiteProfile(groupSlug = DEFAULT_SITE_GROUP_SLUG, input = {}) {
+  if (!Settings) throw new Error('Settings model not available');
+  const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
+  const currentProfile = await getSiteProfile(normalizedGroupSlug);
+  const nextProfile = buildTeeTimesSiteDeploymentProfile({
+    ...currentProfile,
+    ...input,
+    features: {
+      ...(currentProfile.features || {}),
+      ...((input && input.features) || {}),
+    },
+    groupSlug: normalizedGroupSlug,
+    packageSlug: input && input.packageSlug ? input.packageSlug : (currentProfile.packageSlug || normalizedGroupSlug),
+  });
+
+  await Settings.findOneAndUpdate(
+    scopedSettingQuery(normalizedGroupSlug, 'siteProfile'),
+    { groupSlug: normalizedGroupSlug, key: 'siteProfile', value: nextProfile },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
+  const notificationsEnabled = nextProfile.features.includeNotifications !== false;
+  const schedulerEnabled = nextProfile.features.includeScheduler !== false;
+
+  await Settings.findOneAndUpdate(
+    scopedSettingQuery(normalizedGroupSlug, 'notificationsEnabled'),
+    { groupSlug: normalizedGroupSlug, key: 'notificationsEnabled', value: notificationsEnabled },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+  await Settings.findOneAndUpdate(
+    scopedSettingQuery(normalizedGroupSlug, 'schedulerEnabled'),
+    { groupSlug: normalizedGroupSlug, key: 'schedulerEnabled', value: schedulerEnabled },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+  schedulerEnabledCache.set(normalizedGroupSlug, { value: schedulerEnabled, ts: Date.now() });
+
+  return nextProfile;
+}
+
+async function getGroupContactTargets(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  const profile = await getSiteProfile(groupSlug);
+  const adminEmails = uniqueEmailList([
+    profile.primaryContactEmail,
+    profile.secondaryContactEmail,
+    ADMIN_EMAILS,
+  ]);
+  const clubCcEmails = uniqueEmailList([
+    profile.primaryContactEmail,
+    profile.secondaryContactEmail,
+    String(process.env.CLUB_CANCEL_CC || '').split(','),
+  ]);
+  return {
+    profile,
+    groupLabel: String(profile.groupName || profile.siteTitle || 'Tee Times').trim() || 'Tee Times',
+    clubEmail: String(profile.clubRequestEmail || CLUB_EMAIL).trim() || CLUB_EMAIL,
+    adminEmails,
+    clubCcEmails,
+  };
+}
+
+function inferGroupSlugFromReferrer(req, fallback = DEFAULT_SITE_GROUP_SLUG) {
+  try {
+    const referrer = String(req.get('referer') || req.get('referrer') || '').trim();
+    if (!referrer) return normalizeGroupSlug(fallback);
+    const refUrl = new URL(referrer);
+    const queryGroup = String(refUrl.searchParams.get('group') || '').trim();
+    if (queryGroup) return normalizeGroupSlug(queryGroup);
+    const match = refUrl.pathname.match(/^\/groups\/([^/]+)/i);
+    if (match && match[1]) return normalizeGroupSlug(match[1]);
+  } catch (_) {}
+  return normalizeGroupSlug(fallback);
+}
+
+function buildRedirectWithGroupPath(pathname = '/', groupSlug = DEFAULT_SITE_GROUP_SLUG, query = {}) {
+  const target = new URL(buildAbsoluteSiteUrl(buildGroupAwarePath(pathname, groupSlug)));
+  Object.entries(query || {}).forEach(([key, rawValue]) => {
+    if (key === 'group') return;
+    const value = Array.isArray(rawValue) ? rawValue[rawValue.length - 1] : rawValue;
+    if (value === undefined || value === null || value === '') return;
+    target.searchParams.set(key, String(value));
+  });
+  return `${target.pathname}${target.search}${target.hash}`;
+}
+
 function getDestructiveAdminCode(req) {
   return String(
     req.headers['x-admin-delete-code']
@@ -1693,29 +2022,83 @@ app.post('/api/admin/templates/tee-times-site-package', async (req, res) => {
       return res.status(403).json({ error: 'Admin code required' });
     }
     const pkg = buildTeeTimesSiteTemplatePackage(req.body || {});
+    let deployment = null;
+    if (!allowGuideOnly) {
+      if (!Settings) return res.status(500).json({ error: 'Settings model unavailable for group deployment' });
+      const groupSlug = normalizeGroupSlug(pkg.deploymentProfile && pkg.deploymentProfile.groupSlug
+        ? pkg.deploymentProfile.groupSlug
+        : pkg.packageSlug);
+      const existing = await Settings.findOne(scopedSettingQuery(groupSlug, 'siteProfile')).lean();
+      const savedProfile = await saveSiteProfile(groupSlug, pkg.deploymentProfile || {});
+      deployment = {
+        created: !existing,
+        groupSlug,
+        profile: savedProfile,
+        publicProfile: toPublicSiteProfile(savedProfile),
+        links: buildGroupDeploymentLinks(groupSlug),
+      };
+    }
     return res.status(201).json({
       package: pkg,
       filename: `${pkg.packageSlug || 'tee-times-group'}-tee-times-site-package.json`,
       guideFilename: `${pkg.packageSlug || 'tee-times-group'}-deployment-guide.md`,
-      message: allowGuideOnly ? 'Tee Times deployment guide created.' : 'Tee Times site package created.',
+      deployment,
+      message: allowGuideOnly
+        ? 'Tee Times deployment guide created.'
+        : (deployment && deployment.created ? 'Tee Times group deployed from template.' : 'Tee Times group template updated.'),
     });
   } catch (error) {
     return res.status(500).json({ error: error && error.message ? error.message : 'Failed to build site package' });
   }
 });
 
+app.get('/api/site-profile', async (req, res) => {
+  try {
+    const groupSlug = getGroupSlug(req);
+    const profile = await getSiteProfile(groupSlug);
+    return res.json({
+      profile: toPublicSiteProfile(profile),
+      links: buildGroupDeploymentLinks(groupSlug),
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to load site profile' });
+  }
+});
+
+app.get('/api/admin/site-profile', async (req, res) => {
+  try {
+    if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    const groupSlug = getGroupSlug(req);
+    const profile = await getSiteProfile(groupSlug);
+    return res.json({
+      profile,
+      publicProfile: toPublicSiteProfile(profile),
+      links: buildGroupDeploymentLinks(groupSlug),
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to load admin site profile' });
+  }
+});
+
+app.put('/api/admin/site-profile', async (req, res) => {
+  try {
+    if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    const groupSlug = getGroupSlug(req);
+    const profile = await saveSiteProfile(groupSlug, req.body || {});
+    return res.json({
+      ok: true,
+      profile,
+      publicProfile: toPublicSiteProfile(profile),
+      links: buildGroupDeploymentLinks(groupSlug),
+    });
+  } catch (error) {
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to save site profile' });
+  }
+});
+
 function backupIdFromDate(date = new Date()) {
   const iso = new Date(date.getTime() - (date.getTimezoneOffset() * 60000)).toISOString().replace(/\.\d{3}Z$/, 'Z');
   return `backup-${iso.replace(/[:]/g, '-').replace(/\./g, '-').replace('T', '_')}`;
-}
-
-function formatDateKeyInTZ(date = new Date(), timeZone = 'America/New_York') {
-  return new Intl.DateTimeFormat('en-CA', {
-    timeZone,
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).format(date);
 }
 
 function weekKeyInTZ(date = new Date(), timeZone = 'America/New_York') {
@@ -2170,25 +2553,26 @@ function brianJonesEmptyTeeAlertEmail(blocks){
 async function runBrianJonesTomorrowEmptyTeeAlert(label = 'manual', groupSlug = DEFAULT_SITE_GROUP_SLUG){
   const scopedGroupSlug = normalizeGroupSlug(groupSlug);
   const blocks = await findEmptyTeeTimesForDay(1, scopedGroupSlug);
+  const { clubEmail } = await getGroupContactTargets(scopedGroupSlug);
   if (!blocks.length) {
     console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'brian-empty-alert-skip', reason:'no empty tees', label, groupSlug: scopedGroupSlug }));
-    return { ok: true, sent: 0, to: CLUB_EMAIL, message: 'No empty tee times for tomorrow', groupSlug: scopedGroupSlug };
+    return { ok: true, sent: 0, to: clubEmail, message: 'No empty tee times for tomorrow', groupSlug: scopedGroupSlug };
   }
   const subject = 'Alert: Empty Tee Times for Tomorrow';
   const html = brianJonesEmptyTeeAlertEmail(blocks);
-  const httpRes = await sendEmailViaResendApi(CLUB_EMAIL, subject, html);
+  const httpRes = await sendEmailViaResendApi(clubEmail, subject, html);
   if (httpRes && httpRes.ok) {
-    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'brian-empty-alert-sent', method:'http', label, to:CLUB_EMAIL, events: blocks.length, groupSlug: scopedGroupSlug }));
-    return { ok: true, sent: 1, method: 'http', to: CLUB_EMAIL, events: blocks.length, groupSlug: scopedGroupSlug };
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'brian-empty-alert-sent', method:'http', label, to:clubEmail, events: blocks.length, groupSlug: scopedGroupSlug }));
+    return { ok: true, sent: 1, method: 'http', to: clubEmail, events: blocks.length, groupSlug: scopedGroupSlug };
   }
-  const smtpRes = await sendEmail(CLUB_EMAIL, subject, html);
+  const smtpRes = await sendEmail(clubEmail, subject, html);
   if (smtpRes && smtpRes.ok) {
-    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'brian-empty-alert-sent', method:'smtp', label, to:CLUB_EMAIL, events: blocks.length, groupSlug: scopedGroupSlug }));
-    return { ok: true, sent: 1, method: 'smtp', to: CLUB_EMAIL, events: blocks.length, groupSlug: scopedGroupSlug };
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'brian-empty-alert-sent', method:'smtp', label, to:clubEmail, events: blocks.length, groupSlug: scopedGroupSlug }));
+    return { ok: true, sent: 1, method: 'smtp', to: clubEmail, events: blocks.length, groupSlug: scopedGroupSlug };
   }
   const error = (httpRes && httpRes.error && httpRes.error.message) || (smtpRes && smtpRes.error && smtpRes.error.message) || 'Unknown email error';
-  console.error(JSON.stringify({ t:new Date().toISOString(), level:'error', msg:'brian-empty-alert-failed', label, to:CLUB_EMAIL, error, groupSlug: scopedGroupSlug }));
-  return { ok: false, sent: 0, to: CLUB_EMAIL, error, groupSlug: scopedGroupSlug };
+  console.error(JSON.stringify({ t:new Date().toISOString(), level:'error', msg:'brian-empty-alert-failed', label, to:clubEmail, error, groupSlug: scopedGroupSlug }));
+  return { ok: false, sent: 0, to: clubEmail, error, groupSlug: scopedGroupSlug };
 }
 
 async function checkEmptyTeeTimesForAdminAlert(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
@@ -2214,7 +2598,7 @@ async function checkEmptyTeeTimesForAdminAlert(groupSlug = DEFAULT_SITE_GROUP_SL
   };
 
   const body = `${renderSection(blocks24, 'Empty tee times in next 24 hours')}${renderSection(blocks48, 'Empty tee times in next 48 hours')}${btn('Go to Sign-up Page', buildSiteEventUrl(scopedGroupSlug))}`;
-  const res = await sendAdminAlert('Admin Alert: Empty Tee Times', body);
+  const res = await sendAdminAlert('Admin Alert: Empty Tee Times', body, scopedGroupSlug);
   return { ok: true, sent: res.sent, counts: { within24: blocks24.length, within48: blocks48.length }, groupSlug: scopedGroupSlug };
 }
 
@@ -2266,8 +2650,105 @@ function getTeeLabel(ev, teeId) {
   return tt.time ? fmt.tee(tt.time) : 'Unknown';
 }
 
+function slotCapacityForEvent(ev) {
+  return ev && ev.isTeamEvent ? (ev.teamSizeMax || 4) : 4;
+}
+
+function slotMaxCapacityForEvent(ev) {
+  return ev && ev.isTeamEvent ? slotCapacityForEvent(ev) : 5;
+}
+
+function slotFifthCount(tt) {
+  return ((tt && tt.players) || []).filter((p) => !!(p && p.isFifth)).length;
+}
+
+function eventFifthCount(ev, opts = {}) {
+  if (!ev || ev.isTeamEvent) return 0;
+  const ignoredPlayerId = String(opts.ignorePlayerId || '').trim();
+  return ((ev && ev.teeTimes) || []).reduce((sum, tt) => {
+    if (!tt) return sum;
+    normalizeSlotFifthState(ev, tt);
+    return sum + ((tt.players || []).filter((player) => {
+      if (!(player && player.isFifth)) return false;
+      return !ignoredPlayerId || String(player._id) !== ignoredPlayerId;
+    }).length);
+  }, 0);
+}
+
+function eventCanAddFifth(ev, opts = {}) {
+  return !!(ev && !ev.isTeamEvent && eventFifthCount(ev, opts) === 0);
+}
+
+function normalizeSlotFifthState(ev, tt) {
+  if (!tt) return;
+  if (!Array.isArray(tt.players)) tt.players = [];
+
+  if (ev && ev.isTeamEvent) {
+    for (const player of tt.players) {
+      if (player && player.isFifth) player.isFifth = false;
+    }
+    return;
+  }
+
+  if (tt.players.length <= 4) {
+    for (const player of tt.players) {
+      if (player && player.isFifth) player.isFifth = false;
+    }
+    return;
+  }
+
+  let keptMarkedPlayer = false;
+  for (let i = tt.players.length - 1; i >= 0; i -= 1) {
+    const player = tt.players[i];
+    if (!player) continue;
+    if (player.isFifth && !keptMarkedPlayer) {
+      keptMarkedPlayer = true;
+      continue;
+    }
+    if (player.isFifth) player.isFifth = false;
+  }
+  if (!keptMarkedPlayer && tt.players.length) {
+    tt.players[tt.players.length - 1].isFifth = true;
+  }
+}
+
+function evaluateSlotAddition(ev, tt, opts = {}) {
+  if (!tt) return { ok: false, error: 'tee time not found', canAddFifth: false, asFifth: false };
+  if (!Array.isArray(tt.players)) tt.players = [];
+  normalizeSlotFifthState(ev, tt);
+
+  const baseSize = slotCapacityForEvent(ev);
+  const maxSize = slotMaxCapacityForEvent(ev);
+  const allowFifth = !!opts.allowFifth;
+  const fifthAvailable = eventCanAddFifth(ev, { ignorePlayerId: opts.ignorePlayerId });
+  const canAddFifth = !ev.isTeamEvent && tt.players.length === baseSize && slotFifthCount(tt) === 0 && fifthAvailable;
+
+  if (tt.players.length < baseSize) {
+    return { ok: true, asFifth: false, canAddFifth };
+  }
+  if (!ev.isTeamEvent && allowFifth && tt.players.length < maxSize && slotFifthCount(tt) === 0) {
+    if (!fifthAvailable) {
+      return { ok: false, error: 'only one 5-some is allowed per event', canAddFifth: false, asFifth: false };
+    }
+    return { ok: true, asFifth: true, canAddFifth: false };
+  }
+  return {
+    ok: false,
+    error: ev.isTeamEvent ? 'team full' : 'tee time full',
+    canAddFifth
+  };
+}
+
+function buildPlayerEntry(name, opts = {}) {
+  return {
+    name: String(name || '').trim(),
+    checkedIn: !!opts.checkedIn,
+    isFifth: !!opts.isFifth
+  };
+}
+
 function findNextOpenSlot(ev, preferredTeeId = null) {
-  const maxSize = ev.isTeamEvent ? (ev.teamSizeMax || 4) : 4;
+  const maxSize = slotCapacityForEvent(ev);
   if (preferredTeeId) {
     const preferred = ev.teeTimes.id(preferredTeeId);
     if (preferred) {
@@ -2564,6 +3045,37 @@ app.get('/api/events/calendar/month.ics', async (req, res) => {
   }
 });
 
+app.get('/groups/:groupSlug/calendar.ics', async (req, res) => {
+  try {
+    const groupSlug = normalizeGroupSlug(req.params.groupSlug);
+    const includeTeamEvents = ['1', 'true', 'yes'].includes(String(req.query.includeTeams || '').trim().toLowerCase());
+    const fromRaw = String(req.query.from || '').trim();
+    let start = new Date();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(fromRaw)) {
+      start = new Date(`${fromRaw}T00:00:00.000Z`);
+    } else {
+      start = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate(), 0, 0, 0));
+    }
+    const events = await Event.find({
+      ...groupScopeFilter(groupSlug),
+      date: { $gte: start },
+      ...(includeTeamEvents ? {} : { isTeamEvent: false }),
+    }).sort({ date: 1, createdAt: 1 }).lean();
+    const profile = await getSiteProfile(groupSlug);
+    const calendarLabel = profile.shortTitle || profile.siteTitle || 'Tee Times';
+    const calName = includeTeamEvents ? `${calendarLabel} Events` : `${calendarLabel} Tee Times`;
+    const calDesc = includeTeamEvents
+      ? `Upcoming golf events for ${profile.groupName || profile.siteTitle || 'Tee Times'}`
+      : `Upcoming tee times for ${profile.groupName || profile.siteTitle || 'Tee Times'}`;
+    const icsBody = buildEventsIcs(events, { calName, calDesc });
+    res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${groupSlug}-tee-times.ics"`);
+    return res.send(icsBody);
+  } catch (error) {
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to build group calendar feed' });
+  }
+});
+
 app.get('/api/events/by-date', cacheJson(10 * 1000), async (req, res) => {
   try {
     const dateISO = String(req.query.date || '').trim();
@@ -2775,22 +3287,17 @@ app.post('/api/events/:id/request-extra-tee-time', async (req, res) => {
       .filter(Boolean)
       .join(', ');
 
-    const clubEmail = CLUB_EMAIL;
-    const defaultCcList = ['tommy.knight@gmail.com', 'jvhyers@gmail.com'];
-    const envCcList = String(process.env.CLUB_CANCEL_CC || '')
-      .split(',')
-      .map(s => s.trim())
-      .filter(Boolean);
-    const ccList = Array.from(new Set([...defaultCcList, ...envCcList]));
+    const { clubEmail, clubCcEmails, groupLabel } = await getGroupContactTargets(ev.groupSlug);
+    const ccList = clubCcEmails;
     const smtpRecipients = Array.from(new Set([clubEmail, ...ccList]));
-    const subj = `Request additional tee time: ${ev.course || 'Course'} ${fmt.dateISO(ev.date)} - KNIGHT GROUP TEE TIMES`;
+    const subj = `Request additional tee time: ${ev.course || 'Course'} ${fmt.dateISO(ev.date)} - ${groupLabel}`;
     const html = `<p>Please add an additional tee time for the event below:</p>
       <ul>
         <li><strong>Course:</strong> ${esc(ev.course || '')}</li>
         <li><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</li>
         <li><strong>Current ${ev.isTeamEvent ? 'teams' : 'tee times'}:</strong> ${teeCount}</li>
         <li><strong>Current list:</strong> ${esc(teeLabels || 'None')}</li>
-        <li><strong>Group:</strong> KNIGHT GROUP TEE TIMES</li>
+        <li><strong>Group:</strong> ${esc(groupLabel)}</li>
         <li><strong>Source:</strong> Tee Time booking app</li>
       </ul>
       ${note ? `<p><strong>Request note:</strong> ${esc(note)}</p>` : ''}
@@ -2835,22 +3342,17 @@ app.post('/api/request-club-time', async (req, res) => {
     const requestDate = asUTCDate(requestDateRaw);
     if (Number.isNaN(requestDate.getTime())) return res.status(400).json({ error: 'invalid date' });
 
-    const clubEmail = CLUB_EMAIL;
-    const defaultCcList = ['tommy.knight@gmail.com', 'jvhyers@gmail.com'];
-    const envCcList = String(process.env.CLUB_CANCEL_CC || '')
-      .split(',')
-      .map(s => s.trim())
-      .filter(Boolean);
-    const ccList = Array.from(new Set([...defaultCcList, ...envCcList]));
+    const { clubEmail, clubCcEmails, groupLabel } = await getGroupContactTargets(getGroupSlug(req));
+    const ccList = clubCcEmails;
     const smtpRecipients = Array.from(new Set([clubEmail, ...ccList]));
     const preferredTimeText = fmt.tee(preferredTimeRaw);
-    const subj = `Request additional tee time: ${fmt.dateISO(requestDate)} ${preferredTimeText} - KNIGHT GROUP TEE TIMES`;
+    const subj = `Request additional tee time: ${fmt.dateISO(requestDate)} ${preferredTimeText} - ${groupLabel}`;
     const html = `<p>Please add an additional tee time for the date below:</p>
       <ul>
         <li><strong>Date requested:</strong> ${esc(fmt.dateLong(requestDate))}</li>
         <li><strong>Preferred time:</strong> ${esc(preferredTimeText)}</li>
         <li><strong>Requested by:</strong> ${esc(requesterName)}</li>
-        <li><strong>Group:</strong> KNIGHT GROUP TEE TIMES</li>
+        <li><strong>Group:</strong> ${esc(groupLabel)}</li>
         <li><strong>Source:</strong> Monthly calendar request</li>
       </ul>
       ${note ? `<p><strong>Request note:</strong> ${esc(note)}</p>` : ''}
@@ -3137,18 +3639,18 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
     let mailMethod = null;
     let mailError = null;
     if (notifyClub) {
-      const clubEmail = CLUB_EMAIL;
-      const subj = `Cancel tee time: ${ev.course || 'Course'} ${fmt.dateISO(ev.date)} ${teeLabel} - KNIGHT GROUP TEE TIMES`;
+      const { clubEmail, clubCcEmails, groupLabel } = await getGroupContactTargets(ev.groupSlug);
+      const subj = `Cancel tee time: ${ev.course || 'Course'} ${fmt.dateISO(ev.date)} ${teeLabel} - ${groupLabel}`;
       const html = `<p>Please cancel the tee time below:</p>
         <ul>
           <li><strong>Course:</strong> ${esc(ev.course || '')}</li>
           <li><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</li>
           <li><strong>Tee time:</strong> ${esc(teeLabel)}</li>
-          <li><strong>Group:</strong> KNIGHT GROUP TEE TIMES</li>
+          <li><strong>Group:</strong> ${esc(groupLabel)}</li>
           <li><strong>Source:</strong> Tee Time booking app</li>
         </ul>
         <p>Please remove this tee time from your system to release it back to inventory. If already cancelled, no further action needed.</p>`;
-      const cc = process.env.CLUB_CANCEL_CC || 'tommy.knight@gmail.com';
+      const cc = clubCcEmails.length ? clubCcEmails.join(',') : '';
       const httpRes = await sendEmailViaResendApi(clubEmail, subj, html, cc ? { cc } : undefined);
       if (httpRes.ok) {
         mailMethod = 'http';
@@ -3193,7 +3695,7 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
 });
 
 app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPlayer), async (req, res) => {
-  const { name } = req.body || {};
+  const { name, asFifth } = req.body || {};
   if (!name) return res.status(400).json({ error: 'name required' });
   const trimmedName = String(name).trim();
   if (!trimmedName) return res.status(400).json({ error: 'name cannot be empty' });
@@ -3219,15 +3721,19 @@ app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPla
     console.log('[add_player][TEST] Adding player to 11/16 event:', trimmedName);
   }
 
-  const maxSize = ev.isTeamEvent ? (ev.teamSizeMax || 4) : 4;
-  if (tt.players.length >= maxSize) return res.status(400).json({ error: ev.isTeamEvent ? 'team full' : 'tee time full' });
+  const capacity = evaluateSlotAddition(ev, tt, { allowFifth: !!asFifth });
+  if (!capacity.ok) {
+    return res.status(400).json({ error: capacity.error, canAddFifth: capacity.canAddFifth });
+  }
+  const maxSize = slotCapacityForEvent(ev);
 
   // Anti-chaos check: duplicate name prevention
   if (isDuplicatePlayerName(ev, trimmedName)) {
     return res.status(409).json({ error: 'duplicate player name', message: 'A player with this name already exists. Use a nickname (e.g., "John S" or "John 2").' });
   }
 
-  tt.players.push({ name: trimmedName, checkedIn: false });
+  tt.players.push(buildPlayerEntry(trimmedName, { isFifth: capacity.asFifth }));
+  normalizeSlotFifthState(ev, tt);
   await ev.save();
 
   // Audit log
@@ -3298,6 +3804,7 @@ app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res
     }
 
     tt.players.splice(idx, 1);
+    normalizeSlotFifthState(ev, tt);
     await ev.save();
 
     // Audit log
@@ -3325,7 +3832,7 @@ app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res
   }
 });
 app.post('/api/events/:id/move-player', async (req, res) => {
-  const { fromTeeId, toTeeId, playerId } = req.body || {};
+  const { fromTeeId, toTeeId, playerId, asFifth } = req.body || {};
   if (!fromTeeId || !toTeeId || !playerId) return res.status(400).json({ error: 'fromTeeId, toTeeId, playerId required' });
   const ev = await findScopedEventById(req, req.params.id);
   if (!ev) return res.status(404).json({ error: 'Not found' });
@@ -3336,8 +3843,14 @@ app.post('/api/events/:id/move-player', async (req, res) => {
   if (!Array.isArray(toTT.players)) toTT.players = [];
   const idx = fromTT.players.findIndex(p => String(p._id) === String(playerId));
   if (idx === -1) return res.status(404).json({ error: 'player not found' });
-  const maxSize = ev.isTeamEvent ? (ev.teamSizeMax || 4) : 4;
-  if (toTT.players.length >= maxSize) return res.status(400).json({ error: 'destination full' });
+  normalizeSlotFifthState(ev, fromTT);
+  normalizeSlotFifthState(ev, toTT);
+  const movingPlayer = fromTT.players[idx];
+  const capacity = evaluateSlotAddition(ev, toTT, {
+    allowFifth: !!asFifth,
+    ignorePlayerId: movingPlayer && movingPlayer.isFifth ? movingPlayer._id : null
+  });
+  if (!capacity.ok) return res.status(400).json({ error: capacity.error, canAddFifth: capacity.canAddFifth });
   
   const [player] = fromTT.players.splice(idx, 1);
   const playerName = player.name;
@@ -3350,7 +3863,9 @@ app.post('/api/events/:id/move-player', async (req, res) => {
     return res.status(409).json({ error: 'player conflict', message: `${playerName} is already on ${conflict.teeName}` });
   }
   
-  toTT.players.push({ name: playerName, checkedIn: !!player.checkedIn });
+  normalizeSlotFifthState(ev, fromTT);
+  toTT.players.push(buildPlayerEntry(playerName, { checkedIn: !!player.checkedIn, isFifth: capacity.asFifth }));
+  normalizeSlotFifthState(ev, toTT);
   await ev.save();
   
   // Audit log
@@ -3946,7 +4461,7 @@ app.post('/api/events/:id/maybe', async (req, res) => {
 // Promote a maybe-list player into an open tee/team slot
 app.post('/api/events/:id/maybe/fill', async (req, res) => {
   try {
-    const { name, teeId } = req.body || {};
+    const { name, teeId, asFifth } = req.body || {};
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     if (!Array.isArray(ev.maybeList)) ev.maybeList = [];
@@ -3968,12 +4483,24 @@ app.post('/api/events/:id/maybe/fill', async (req, res) => {
       return res.status(409).json({ error: 'duplicate player name', message: 'Player already registered on this event.' });
     }
 
-    const slot = findNextOpenSlot(ev, teeId || null);
+    let slot = null;
+    let addAsFifth = false;
+    if (teeId) {
+      slot = ev.teeTimes.id(teeId);
+      const capacity = evaluateSlotAddition(ev, slot, { allowFifth: !!asFifth });
+      if (!capacity.ok) {
+        return res.status(409).json({ error: capacity.error, canAddFifth: capacity.canAddFifth });
+      }
+      addAsFifth = capacity.asFifth;
+    } else {
+      slot = findNextOpenSlot(ev, teeId || null);
+    }
     if (!slot) {
       return res.status(409).json({ error: teeId ? 'selected slot full' : 'all slots full' });
     }
 
-    slot.players.push({ name: pickedName, checkedIn: false });
+    slot.players.push(buildPlayerEntry(pickedName, { isFifth: addAsFifth }));
+    normalizeSlotFifthState(ev, slot);
     ev.maybeList.splice(maybeIndex, 1);
     await ev.save();
 
@@ -4529,14 +5056,15 @@ app.post('/api/admin/send-custom-message', async (req, res) => {
 });
 
 /* ---------------- Reminder logic ---------------- */
-async function sendAdminAlert(subject, htmlBody) {
-  if (!ADMIN_EMAILS || ADMIN_EMAILS.length === 0) {
+async function sendAdminAlert(subject, htmlBody, groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  const { adminEmails } = await getGroupContactTargets(groupSlug);
+  if (!adminEmails || adminEmails.length === 0) {
     console.log('No admin emails configured');
     return { ok: false, reason: 'no admins' };
   }
   
   let sent = 0;
-  for (const adminEmail of ADMIN_EMAILS) {
+  for (const adminEmail of adminEmails) {
     try {
       await sendEmail(adminEmail, subject, frame('Admin Alert', htmlBody));
       sent++;

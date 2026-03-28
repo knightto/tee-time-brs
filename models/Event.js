@@ -3,7 +3,8 @@ const mongoose = require('mongoose');
 
 const PlayerSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
-  checkedIn: { type: Boolean, default: false }
+  checkedIn: { type: Boolean, default: false },
+  isFifth: { type: Boolean, default: false }
 }, { _id: true });
 
 // Tee or Team slot

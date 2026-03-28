@@ -11,6 +11,7 @@ const {
 } = require('../services/tripCompetitionService');
 const { buildDefaultMyrtleRyderCup } = require('../services/myrtleRyderCupDefaults');
 const { getDefaultTripRyderCupState } = require('../services/tripRyderCupService');
+const { buildRyderCupTripTemplate } = require('../services/tripTemplateService');
 
 function makeScorecard() {
   return Array.from({ length: 18 }, (_, index) => ({
@@ -266,6 +267,29 @@ function run() {
   };
   const freshView = buildTripCompetitionView(freshMyrtleTrip, myrtleParticipants);
   assert.strictEqual(freshView.ryderCup.canEditTeams, true, 'Seeded Ryder Cup teams should be editable before results are entered');
+  const customTwelveTemplate = buildRyderCupTripTemplate({
+    name: 'Custom 12 Player Ryder Cup',
+    location: 'Hilton Head, SC',
+    startDate: '2031-09-14',
+    firstTeeTime: '07:30',
+    teeIntervalMinutes: 10,
+    playerNames: Array.from({ length: 12 }, (_, index) => `Template Player ${index + 1}`),
+    handicapIndexes: Array.from({ length: 12 }, (_, index) => index + 0.5),
+  });
+  const customTwelveParticipants = customTwelveTemplate.participants.map((participant, index) => ({
+    _id: `template-${index + 1}`,
+    ...participant,
+  }));
+  customTwelveTemplate.trip.ryderCup = getDefaultTripRyderCupState(customTwelveParticipants);
+  customTwelveTemplate.trip.ryderCup.teamAPlayers = customTwelveTemplate.ryderCup.teamAPlayers;
+  customTwelveTemplate.trip.ryderCup.teamBPlayers = customTwelveTemplate.ryderCup.teamBPlayers;
+  customTwelveTemplate.trip.ryderCup.teamAName = customTwelveTemplate.ryderCup.teamAName;
+  customTwelveTemplate.trip.ryderCup.teamBName = customTwelveTemplate.ryderCup.teamBName;
+  const customTwelveView = buildTripCompetitionView(customTwelveTemplate.trip, customTwelveParticipants);
+  assert.strictEqual(customTwelveView.ryderCup.teams[0].players.length, 6, 'Custom twelve-player Ryder Cup trips should keep six players on Team A');
+  assert.strictEqual(customTwelveView.ryderCup.teams[1].players.length, 6, 'Custom twelve-player Ryder Cup trips should keep six players on Team B');
+  assert.strictEqual(customTwelveView.ryderCup.rounds[0].plan.groups.length, 3, 'Custom twelve-player Ryder Cup trips should build three foursomes per round');
+  assert.strictEqual(customTwelveView.ryderCup.individualLeaderboard.length, 12, 'Custom twelve-player Ryder Cup trips should keep the leaderboard aligned to the roster size');
   const legacySeedTrip = {
     name: 'Myrtle Beach - Barefoot Group 3/18-3/22/26',
     location: 'Myrtle Beach, SC',

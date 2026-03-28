@@ -23,11 +23,11 @@
       <details class="topbar-dropdown">
         <summary class="pill-link">Info</summary>
         <div class="topbar-dropdown-menu">
-          <a href="/user-guide.html" class="topbar-dropdown-item">User Guide</a>
-          <a href="/features.html" class="topbar-dropdown-item">Features</a>
-          <a href="/blue-ridge-outings.html" class="topbar-dropdown-item">Blue Ridge Outings</a>
-          <a href="/rules.html" class="topbar-dropdown-item">Weekend Game Rules</a>
-          <a href="/handicaps.html" class="topbar-dropdown-item">Handicaps</a>
+          <a href="/user-guide.html" class="topbar-dropdown-item" data-group-link>User Guide</a>
+          <a href="/features.html" class="topbar-dropdown-item" data-group-link>Features</a>
+          <a href="/blue-ridge-outings.html" class="topbar-dropdown-item" data-group-link data-feature-link="includeOutings">Blue Ridge Outings</a>
+          <a href="/rules.html" class="topbar-dropdown-item" data-group-link>Weekend Game Rules</a>
+          <a href="/handicaps.html" class="topbar-dropdown-item" data-group-link data-feature-link="includeHandicaps">Handicaps</a>
         </div>
       </details>
       <button id="openSubscribeBtn" class="pill-link pill-primary topbar-subscribe-btn">Subscribe</button>
@@ -248,7 +248,7 @@
   
   <!-- Admin Link -->
   <div class="admin-link-wrap">
-    <a href="/admin.html" target="_blank" class="admin-link">Admin</a>
+    <a href="/admin.html" target="_blank" class="admin-link" data-group-link>Admin</a>
   </div>
 
   <script src="/script.js" defer></script>

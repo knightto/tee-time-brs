@@ -792,11 +792,23 @@ body.starter-mode #events{
 
 .starter-player-name{
   min-width:0;
+  display:flex;
+  align-items:center;
+  gap:8px;
   font-weight:700;
   color:var(--slate-800);
+}
+
+.starter-player-text{
+  min-width:0;
   overflow:hidden;
   text-overflow:ellipsis;
   white-space:nowrap;
+}
+
+.starter-player.is-fifth{
+  border-color:rgba(245,158,11,.28);
+  background:rgba(255,251,235,.96);
 }
 
 .starter-empty{
@@ -1122,13 +1134,12 @@ button[disabled]{opacity:.5;cursor:not-allowed;filter:grayscale(0.5)}
 }
 
 .chip-label{
-  display:block;
+  display:flex;
+  align-items:center;
+  gap:8px;
   width:100%;
   max-width:100%;
   min-width:0;
-  white-space:nowrap;
-  overflow:hidden;
-  text-overflow:ellipsis;
   font-weight:500;
   color:var(--green-700);
   letter-spacing:0.1px;
@@ -1136,6 +1147,13 @@ button[disabled]{opacity:.5;cursor:not-allowed;filter:grayscale(0.5)}
   font-size:0.9rem;
   margin:0;
   text-align:left;
+}
+
+.chip-name{
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
 }
 
 .chip-actions{
@@ -1178,12 +1196,35 @@ button[disabled]{opacity:.5;cursor:not-allowed;filter:grayscale(0.5)}
   border-color:#86efac;
   background:#f0fdf4;
 }
+.chip.is-fifth{
+  border-color:#f59e0b;
+  background:#fffbeb;
+}
 .chip button.ok{
   color:#166534;
 }
 .chip button.ok:hover{
   background:#dcfce7;
   color:#14532d;
+}
+
+.player-status-badge{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:2px 7px;
+  border-radius:999px;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.2px;
+  white-space:nowrap;
+  flex:0 0 auto;
+}
+
+.player-status-badge-fifth{
+  color:#b45309;
+  background:rgba(245,158,11,.14);
+  border:1px solid rgba(245,158,11,.28);
 }
 
 .tee.is-drop-target{
@@ -1261,6 +1302,7 @@ dialog form{display:grid;gap:10px;min-width:320px} menu{display:flex;gap:8px;jus
   background:linear-gradient(135deg, #991b1b 0%, #dc2626 100%);
 }
 .radio-group{display:grid;gap:8px} .radio-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1px solid var(--slate-300);border-radius:12px;background:#fff}
+.radio-item-meta{margin-left:auto;font-size:12px;font-weight:700;color:#b45309;white-space:nowrap}
 label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;border-radius:12px;border:1px solid var(--slate-300);background:#fff}
 
 @media (max-width:1200px) {
@@ -2364,6 +2406,46 @@ nav a:hover{
   font-weight:700;
   color: #dc2626;
   margin-left:8px;
+}
+
+.tee.tee-can-add-fifth{
+  background:linear-gradient(135deg, rgba(255,251,235,.94) 0%, rgba(254,249,195,.9) 100%);
+  border:2px solid #f59e0b;
+  opacity:1;
+}
+
+.tee.tee-can-add-fifth .tee-time{
+  color:#92400e;
+}
+
+.tee.tee-can-add-fifth .tee-time::after{
+  content:' (FULL, 5TH OK)';
+  color:#b45309;
+}
+
+.tee.tee-can-add-fifth .tee-summary{
+  color:#b45309 !important;
+  font-weight:700;
+}
+
+.tee.tee-has-fifth{
+  background:linear-gradient(135deg, rgba(255,251,235,.96) 0%, rgba(254,243,199,.92) 100%);
+  border:2px solid #f59e0b;
+  opacity:1;
+}
+
+.tee.tee-has-fifth .tee-time{
+  color:#92400e;
+}
+
+.tee.tee-has-fifth .tee-time::after{
+  content:' (5TH ADDED)';
+  color:#b45309;
+}
+
+.tee.tee-has-fifth .tee-summary{
+  color:#b45309 !important;
+  font-weight:700;
 }
 
 /* Empty tee time visual indicator for upcoming 3 days */

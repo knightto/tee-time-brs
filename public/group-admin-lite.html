@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#173224">
+  <title>Group Admin Lite</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>
+    :root {
+      --accent: #173224;
+      --accent-dark: #0d1f15;
+      --panel: rgba(255, 255, 255, 0.98);
+      --ink: #10231c;
+      --muted: #5a6a63;
+      --line: #d6e0dc;
+      --bg: #eef4f0;
+      --danger: #b42318;
+      --ok: #0f8a43;
+      --warn: #b36a00;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font: 400 15px/1.5 "Segoe UI", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(255, 255, 255, 0.55), transparent 36%),
+        linear-gradient(160deg, rgba(23, 50, 36, 0.94), rgba(12, 26, 18, 0.88)),
+        url('/assets/cool-golf-clear-water-hazards-in-autumn-enlr3jq4slsvb0rd.jpg') center/cover fixed no-repeat;
+      padding: 24px 16px 40px;
+    }
+
+    .shell {
+      max-width: 1080px;
+      margin: 0 auto;
+      display: grid;
+      gap: 18px;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid rgba(255, 255, 255, 0.42);
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+      overflow: hidden;
+    }
+
+    .hero {
+      padding: 24px;
+      display: grid;
+      gap: 18px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.14), transparent 58%),
+        linear-gradient(135deg, var(--accent-dark), var(--accent));
+      color: #fff;
+    }
+
+    .hero-copy {
+      display: grid;
+      gap: 6px;
+    }
+
+    .eyebrow {
+      margin: 0;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      font-size: 12px;
+      opacity: 0.8;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(28px, 4vw, 40px);
+      line-height: 1.05;
+    }
+
+    .hero-meta {
+      margin: 0;
+      max-width: 760px;
+      font-size: 14px;
+      color: rgba(255, 255, 255, 0.88);
+    }
+
+    .hero-links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .hero-link {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.32);
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .hero-link:hover {
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    .content {
+      padding: 24px;
+      display: grid;
+      gap: 18px;
+    }
+
+    .note {
+      padding: 14px 16px;
+      border-radius: 14px;
+      border: 1px solid #d4e4db;
+      background: #f4fbf7;
+      color: #1d4935;
+    }
+
+    .note.warn {
+      border-color: #f4d6a4;
+      background: #fff6e8;
+      color: var(--warn);
+    }
+
+    .note.error {
+      border-color: #f7c8c4;
+      background: #fff1f0;
+      color: var(--danger);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 14px;
+    }
+
+    label {
+      display: grid;
+      gap: 6px;
+      font-weight: 700;
+      color: var(--ink);
+    }
+
+    label span {
+      font-size: 13px;
+    }
+
+    input,
+    textarea,
+    select {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 11px 12px;
+      font: inherit;
+      color: var(--ink);
+      background: #fff;
+    }
+
+    textarea {
+      min-height: 110px;
+      resize: vertical;
+    }
+
+    .checks {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 12px;
+    }
+
+    .check {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #f9fcfa;
+      font-weight: 700;
+    }
+
+    .check input {
+      width: 18px;
+      height: 18px;
+      margin: 0;
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    button {
+      border: none;
+      border-radius: 999px;
+      padding: 11px 18px;
+      font: inherit;
+      font-weight: 800;
+      cursor: pointer;
+      background: var(--accent);
+      color: #fff;
+    }
+
+    button.secondary {
+      background: #e7eeea;
+      color: var(--ink);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: wait;
+    }
+
+    .summary-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .summary-item {
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fbfdfc;
+    }
+
+    .summary-item strong {
+      display: block;
+      margin-bottom: 2px;
+      font-size: 13px;
+    }
+
+    .summary-item span,
+    .summary-item a {
+      color: var(--muted);
+      text-align: right;
+      word-break: break-word;
+    }
+
+    @media (max-width: 720px) {
+      body {
+        padding: 12px 10px 24px;
+      }
+
+      .hero,
+      .content {
+        padding: 18px;
+      }
+
+      .summary-item {
+        display: grid;
+      }
+
+      .summary-item span,
+      .summary-item a {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <section class="panel hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Minimal Group Admin</p>
+        <h1 id="pageTitle">Loading Group Admin...</h1>
+        <p class="hero-meta" id="pageMeta">This page only manages branding, contact settings, and feature flags for a deployed tee-times group. Daily tee-time operations stay on the full group admin page.</p>
+      </div>
+      <div class="hero-links">
+        <a class="hero-link" id="groupSiteLink" href="/" target="_blank" rel="noopener">Open Group Site</a>
+        <a class="hero-link" id="fullAdminLink" href="/admin.html" target="_blank" rel="noopener">Open Full Admin</a>
+        <a class="hero-link" id="calendarFeedLink" href="/api/events/calendar/month.ics" target="_blank" rel="noopener">Open Calendar Feed</a>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="content">
+        <div id="statusNote" class="note">Enter the site admin code when prompted to load this group's settings.</div>
+
+        <form id="profileForm" hidden>
+          <div class="grid">
+            <label>
+              <span>Site Title</span>
+              <input type="text" name="siteTitle" maxlength="120" required>
+            </label>
+            <label>
+              <span>Short App Title</span>
+              <input type="text" name="shortTitle" maxlength="60" required>
+            </label>
+            <label>
+              <span>Group Name</span>
+              <input type="text" name="groupName" maxlength="120" required>
+            </label>
+            <label>
+              <span>Group Slug</span>
+              <input type="text" name="groupSlug" readonly>
+            </label>
+            <label>
+              <span>Club Name</span>
+              <input type="text" name="clubName" maxlength="120" required>
+            </label>
+            <label>
+              <span>Club Request Button Label</span>
+              <input type="text" name="clubRequestLabel" maxlength="160" required>
+            </label>
+            <label>
+              <span>Primary Contact Email</span>
+              <input type="email" name="primaryContactEmail" maxlength="120" required>
+            </label>
+            <label>
+              <span>Secondary Contact Email</span>
+              <input type="email" name="secondaryContactEmail" maxlength="120">
+            </label>
+            <label>
+              <span>Club Request Email</span>
+              <input type="email" name="clubRequestEmail" maxlength="120" required>
+            </label>
+            <label>
+              <span>Reply-To Email</span>
+              <input type="email" name="replyToEmail" maxlength="120">
+            </label>
+            <label>
+              <span>Support Phone</span>
+              <input type="text" name="supportPhone" maxlength="40">
+            </label>
+            <label>
+              <span>Club Phone</span>
+              <input type="text" name="clubPhone" maxlength="40">
+            </label>
+            <label>
+              <span>SMS / Text Phone</span>
+              <input type="text" name="smsPhone" maxlength="40">
+            </label>
+            <label>
+              <span>Theme Color</span>
+              <input type="text" name="themeColor" maxlength="20" required>
+            </label>
+            <label>
+              <span>Icon Asset Name</span>
+              <input type="text" name="iconAssetName" maxlength="80" required>
+            </label>
+            <label>
+              <span>Mongo DB Name</span>
+              <input type="text" name="mongoDbName" maxlength="80">
+            </label>
+          </div>
+
+          <label>
+            <span>Admin Alert Phones</span>
+            <textarea name="adminAlertPhones" placeholder="One phone per line"></textarea>
+          </label>
+
+          <div class="checks">
+            <label class="check"><input type="checkbox" name="includeHandicaps"> Include handicaps</label>
+            <label class="check"><input type="checkbox" name="includeTrips"> Include trips</label>
+            <label class="check"><input type="checkbox" name="includeOutings"> Include outings</label>
+            <label class="check"><input type="checkbox" name="includeNotifications"> Include notifications</label>
+            <label class="check"><input type="checkbox" name="includeScheduler"> Include scheduler</label>
+            <label class="check"><input type="checkbox" name="includeBackups"> Include backups</label>
+          </div>
+
+          <label>
+            <span>Deployment Notes</span>
+            <textarea name="notes" placeholder="Any notes that should stay with this group deployment"></textarea>
+          </label>
+
+          <div class="actions">
+            <button type="submit" id="saveProfileBtn">Save Group Profile</button>
+            <button type="button" class="secondary" id="reloadProfileBtn">Reload</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="content">
+        <div class="note warn">This page is intentionally limited. Tee-time creation, player movement, backups, subscriber messaging, and scheduler operations stay on the full group admin page.</div>
+        <div class="summary-list" id="deploymentSummary">
+          <div class="summary-item">
+            <div>
+              <strong>Group Site</strong>
+              <span>The separate public tee-times page for this group.</span>
+            </div>
+            <a id="summarySiteLink" href="/" target="_blank" rel="noopener">/</a>
+          </div>
+          <div class="summary-item">
+            <div>
+              <strong>Full Admin</strong>
+              <span>The main tee-time management page for this group.</span>
+            </div>
+            <a id="summaryAdminLink" href="/admin.html" target="_blank" rel="noopener">/admin.html</a>
+          </div>
+          <div class="summary-item">
+            <div>
+              <strong>Calendar Feed</strong>
+              <span>The dedicated ICS feed for all upcoming tee times in this group.</span>
+            </div>
+            <a id="summaryCalendarLink" href="/api/events/calendar/month.ics" target="_blank" rel="noopener">/api/events/calendar/month.ics</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      const form = document.getElementById('profileForm');
+      const statusNote = document.getElementById('statusNote');
+      const saveProfileBtn = document.getElementById('saveProfileBtn');
+      const reloadProfileBtn = document.getElementById('reloadProfileBtn');
+      const pageTitle = document.getElementById('pageTitle');
+      const pageMeta = document.getElementById('pageMeta');
+      const groupSiteLink = document.getElementById('groupSiteLink');
+      const fullAdminLink = document.getElementById('fullAdminLink');
+      const calendarFeedLink = document.getElementById('calendarFeedLink');
+      const summarySiteLink = document.getElementById('summarySiteLink');
+      const summaryAdminLink = document.getElementById('summaryAdminLink');
+      const summaryCalendarLink = document.getElementById('summaryCalendarLink');
+
+      const groupSlug = (() => {
+        try {
+          const raw = String(new URLSearchParams(window.location.search).get('group') || '').trim().toLowerCase();
+          const normalized = raw.replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+          return normalized || 'main';
+        } catch (_) {
+          return 'main';
+        }
+      })();
+
+      const state = {
+        code: '',
+        profile: null,
+        links: null,
+      };
+
+      function normalizeHexColor(value = '', fallback = '#173224') {
+        const input = String(value || '').trim();
+        if (/^#[0-9a-f]{3}$/i.test(input)) {
+          return `#${input.slice(1).split('').map((part) => `${part}${part}`).join('').toLowerCase()}`;
+        }
+        if (/^#[0-9a-f]{6}$/i.test(input)) return input.toLowerCase();
+        return fallback;
+      }
+
+      function shiftHexColor(hexColor, amount = 0) {
+        const safe = normalizeHexColor(hexColor, '#173224').slice(1);
+        const clamp = (value) => Math.max(0, Math.min(255, value));
+        const adjust = (segment) => clamp(parseInt(segment, 16) + amount).toString(16).padStart(2, '0');
+        return `#${adjust(safe.slice(0, 2))}${adjust(safe.slice(2, 4))}${adjust(safe.slice(4, 6))}`;
+      }
+
+      function applyTheme(themeColor = '#173224') {
+        const safeTheme = normalizeHexColor(themeColor, '#173224');
+        const root = document.documentElement;
+        root.style.setProperty('--accent', safeTheme);
+        root.style.setProperty('--accent-dark', shiftHexColor(safeTheme, -34));
+        const themeMeta = document.querySelector('meta[name="theme-color"]');
+        if (themeMeta) themeMeta.setAttribute('content', safeTheme);
+      }
+
+      function withGroup(url = '/') {
+        try {
+          const scopedUrl = new URL(url, window.location.origin);
+          if (scopedUrl.origin === window.location.origin && groupSlug !== 'main' && !scopedUrl.searchParams.has('group')) {
+            scopedUrl.searchParams.set('group', groupSlug);
+          }
+          return scopedUrl.origin === window.location.origin
+            ? `${scopedUrl.pathname}${scopedUrl.search}${scopedUrl.hash}`
+            : scopedUrl.toString();
+        } catch (_) {
+          return url;
+        }
+      }
+
+      function setStatus(message, tone = 'info') {
+        statusNote.textContent = message;
+        statusNote.className = 'note';
+        if (tone === 'warn') statusNote.classList.add('warn');
+        if (tone === 'error') statusNote.classList.add('error');
+      }
+
+      function setLinks(links = {}) {
+        const siteHref = links.sitePath || withGroup('/');
+        const adminHref = links.adminQueryPath || withGroup('/admin.html');
+        const calendarHref = links.calendarPath || `/groups/${encodeURIComponent(groupSlug)}/calendar.ics`;
+        groupSiteLink.href = siteHref;
+        fullAdminLink.href = adminHref;
+        calendarFeedLink.href = calendarHref;
+        summarySiteLink.href = siteHref;
+        summarySiteLink.textContent = siteHref;
+        summaryAdminLink.href = adminHref;
+        summaryAdminLink.textContent = adminHref;
+        summaryCalendarLink.href = calendarHref;
+        summaryCalendarLink.textContent = calendarHref;
+      }
+
+      function fillForm(profile = {}) {
+        form.elements.siteTitle.value = profile.siteTitle || '';
+        form.elements.shortTitle.value = profile.shortTitle || '';
+        form.elements.groupName.value = profile.groupName || '';
+        form.elements.groupSlug.value = profile.groupSlug || groupSlug;
+        form.elements.clubName.value = profile.clubName || '';
+        form.elements.clubRequestLabel.value = profile.clubRequestLabel || '';
+        form.elements.primaryContactEmail.value = profile.primaryContactEmail || '';
+        form.elements.secondaryContactEmail.value = profile.secondaryContactEmail || '';
+        form.elements.clubRequestEmail.value = profile.clubRequestEmail || '';
+        form.elements.replyToEmail.value = profile.replyToEmail || '';
+        form.elements.supportPhone.value = profile.supportPhone || '';
+        form.elements.clubPhone.value = profile.clubPhone || '';
+        form.elements.smsPhone.value = profile.smsPhone || '';
+        form.elements.themeColor.value = profile.themeColor || '#173224';
+        form.elements.iconAssetName.value = profile.iconAssetName || 'knight-club-icon.png';
+        form.elements.mongoDbName.value = profile.mongoDbName || '';
+        form.elements.adminAlertPhones.value = Array.isArray(profile.adminAlertPhones)
+          ? profile.adminAlertPhones.join('\n')
+          : String(profile.adminAlertPhones || '');
+        form.elements.notes.value = profile.notes || '';
+
+        const features = profile.features || {};
+        form.elements.includeHandicaps.checked = features.includeHandicaps !== false;
+        form.elements.includeTrips.checked = features.includeTrips !== false;
+        form.elements.includeOutings.checked = features.includeOutings !== false;
+        form.elements.includeNotifications.checked = features.includeNotifications !== false;
+        form.elements.includeScheduler.checked = features.includeScheduler !== false;
+        form.elements.includeBackups.checked = features.includeBackups !== false;
+
+        const title = profile.siteTitle || 'Group Admin';
+        document.title = `${title} Lite Admin`;
+        pageTitle.textContent = `${profile.groupName || title} Lite Admin`;
+        pageMeta.textContent = `Group slug: ${profile.groupSlug || groupSlug}. Use this page for branding, contact settings, and feature toggles.`;
+        applyTheme(profile.themeColor || '#173224');
+      }
+
+      function collectPayload() {
+        const fd = new FormData(form);
+        return {
+          siteTitle: String(fd.get('siteTitle') || '').trim(),
+          shortTitle: String(fd.get('shortTitle') || '').trim(),
+          groupName: String(fd.get('groupName') || '').trim(),
+          groupSlug: groupSlug,
+          clubName: String(fd.get('clubName') || '').trim(),
+          clubRequestLabel: String(fd.get('clubRequestLabel') || '').trim(),
+          primaryContactEmail: String(fd.get('primaryContactEmail') || '').trim(),
+          secondaryContactEmail: String(fd.get('secondaryContactEmail') || '').trim(),
+          clubRequestEmail: String(fd.get('clubRequestEmail') || '').trim(),
+          replyToEmail: String(fd.get('replyToEmail') || '').trim(),
+          supportPhone: String(fd.get('supportPhone') || '').trim(),
+          clubPhone: String(fd.get('clubPhone') || '').trim(),
+          smsPhone: String(fd.get('smsPhone') || '').trim(),
+          themeColor: String(fd.get('themeColor') || '').trim(),
+          iconAssetName: String(fd.get('iconAssetName') || '').trim(),
+          mongoDbName: String(fd.get('mongoDbName') || '').trim(),
+          adminAlertPhones: String(fd.get('adminAlertPhones') || '').trim(),
+          notes: String(fd.get('notes') || '').trim(),
+          includeHandicaps: form.elements.includeHandicaps.checked,
+          includeTrips: form.elements.includeTrips.checked,
+          includeOutings: form.elements.includeOutings.checked,
+          includeNotifications: form.elements.includeNotifications.checked,
+          includeScheduler: form.elements.includeScheduler.checked,
+          includeBackups: form.elements.includeBackups.checked,
+        };
+      }
+
+      async function api(pathname, options = {}) {
+        const response = await fetch(withGroup(pathname), {
+          ...options,
+          headers: {
+            'Content-Type': 'application/json',
+            'x-admin-code': state.code,
+            ...(options.headers || {}),
+          },
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.error || payload.message || `HTTP ${response.status}`);
+        }
+        return payload;
+      }
+
+      async function loadProfile() {
+        if (!state.code) {
+          state.code = prompt(`Enter site admin code${groupSlug !== 'main' ? ` for ${groupSlug}` : ''}:`) || '';
+        }
+        if (!state.code) {
+          setStatus('Admin access required to open the minimal group admin page.', 'error');
+          pageTitle.textContent = 'Admin Access Required';
+          return;
+        }
+        setStatus('Loading group profile...', 'warn');
+        const payload = await api('/api/admin/site-profile');
+        state.profile = payload.profile || null;
+        state.links = payload.links || {};
+        fillForm(state.profile || {});
+        setLinks(state.links || {});
+        form.hidden = false;
+        setStatus('Group profile loaded.', 'info');
+      }
+
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        saveProfileBtn.disabled = true;
+        const originalLabel = saveProfileBtn.textContent;
+        saveProfileBtn.textContent = 'Saving...';
+        try {
+          const payload = await api('/api/admin/site-profile', {
+            method: 'PUT',
+            body: JSON.stringify(collectPayload()),
+          });
+          state.profile = payload.profile || state.profile;
+          state.links = payload.links || state.links;
+          fillForm(state.profile || {});
+          setLinks(state.links || {});
+          setStatus('Group profile saved.', 'info');
+        } catch (error) {
+          setStatus(error.message || 'Failed to save group profile.', 'error');
+        } finally {
+          saveProfileBtn.disabled = false;
+          saveProfileBtn.textContent = originalLabel;
+        }
+      });
+
+      reloadProfileBtn.addEventListener('click', async () => {
+        reloadProfileBtn.disabled = true;
+        const originalLabel = reloadProfileBtn.textContent;
+        reloadProfileBtn.textContent = 'Reloading...';
+        try {
+          await loadProfile();
+        } catch (error) {
+          setStatus(error.message || 'Failed to reload group profile.', 'error');
+        } finally {
+          reloadProfileBtn.disabled = false;
+          reloadProfileBtn.textContent = originalLabel;
+        }
+      });
+
+      loadProfile().catch((error) => {
+        setStatus(error.message || 'Failed to load group profile.', 'error');
+      });
+    })();
+  </script>
+</body>
+</html>

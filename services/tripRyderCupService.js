@@ -227,8 +227,13 @@ function buildCandidateTripRyderCupState(rawState = {}, participants = [], defau
 function validateTripRyderCupState(state = {}) {
   const teamAPlayers = Array.isArray(state.teamAPlayers) ? state.teamAPlayers : [];
   const teamBPlayers = Array.isArray(state.teamBPlayers) ? state.teamBPlayers : [];
-  if (teamAPlayers.length !== 10 || teamBPlayers.length !== 10) {
-    throw new Error('Ryder Cup teams must have exactly 10 players on each side.');
+  const expectedTeamCount = teamAPlayers.length || teamBPlayers.length || 0;
+  const totalPlayers = teamAPlayers.length + teamBPlayers.length;
+  if (!expectedTeamCount || teamAPlayers.length !== teamBPlayers.length || expectedTeamCount < 6 || expectedTeamCount % 2 !== 0) {
+    throw new Error('Ryder Cup teams must keep the same even player count on each side (6, 8, 10, ...).');
+  }
+  if (totalPlayers < 12 || totalPlayers % 4 !== 0) {
+    throw new Error('Ryder Cup rosters must include at least 12 unique players in groups of 4.');
   }
   const allPlayers = teamAPlayers.concat(teamBPlayers);
   const nameKeys = new Set();
@@ -241,7 +246,7 @@ function validateTripRyderCupState(state = {}) {
     }
     const nameKey = normalizeNameKey(name);
     if (nameKeys.has(nameKey)) {
-      throw new Error('Ryder Cup rosters must contain 20 unique players.');
+      throw new Error(`Ryder Cup rosters must contain ${totalPlayers} unique players.`);
     }
     if (seedRanks.has(seedRank)) {
       throw new Error('Ryder Cup rosters must contain unique seed ranks.');

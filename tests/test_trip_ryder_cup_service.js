@@ -30,9 +30,29 @@ function run() {
   invalidPayload.teamAPlayers = invalidPayload.teamAPlayers.slice(0, 9);
   assert.throws(
     () => setTripRyderCupState({}, participants, invalidPayload),
-    /exactly 10 players on each side/i,
-    'Saving should reject rosters that do not keep 10 players on each team'
+    /same even player count on each side/i,
+    'Saving should reject rosters that do not keep matching even team sizes'
   );
+
+  const dynamicPayload = {
+    enabled: true,
+    teamAName: 'Blue',
+    teamBName: 'Gold',
+    teamAPlayers: Array.from({ length: 6 }, (_, index) => ({
+      name: `Team A ${index + 1}`,
+      seedRank: index + 1,
+      handicapIndex: index + 0.5,
+    })),
+    teamBPlayers: Array.from({ length: 6 }, (_, index) => ({
+      name: `Team B ${index + 1}`,
+      seedRank: index + 7,
+      handicapIndex: index + 6.5,
+    })),
+    notes: '',
+  };
+  const dynamicState = setTripRyderCupState({}, participants, dynamicPayload);
+  assert.strictEqual(dynamicState.teamAPlayers.length, 6, 'Saving should allow six-player Ryder Cup teams');
+  assert.strictEqual(dynamicState.teamBPlayers.length, 6, 'Saving should allow six-player Ryder Cup teams on both sides');
 
   console.log('test_trip_ryder_cup_service.js passed');
 }
