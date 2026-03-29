@@ -709,6 +709,13 @@ body.starter-mode #events{
   gap:10px;
 }
 
+.starter-slot-actions{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  gap:8px;
+}
+
 .starter-slot-title{
   font-size:17px;
   font-weight:800;
@@ -723,6 +730,14 @@ body.starter-mode #events{
 }
 
 .starter-slot-bulk{
+  flex:0 0 auto;
+  min-height:34px;
+  padding:7px 12px;
+  font-size:12px;
+  box-shadow:none;
+}
+
+.starter-slot-add{
   flex:0 0 auto;
   min-height:34px;
   padding:7px 12px;
@@ -746,6 +761,15 @@ body.starter-mode #events{
   border-radius:12px;
   border:1px solid rgba(148,163,184,.18);
   background:rgba(248,250,252,.92);
+}
+
+.starter-player[draggable="true"]{
+  cursor:grab;
+}
+
+.starter-player.is-dragging{
+  opacity:.45;
+  cursor:grabbing;
 }
 
 .starter-player.is-checked{
@@ -785,9 +809,9 @@ body.starter-mode #events{
 }
 
 .starter-player-check.is-open{
-  pointer-events:none;
   background:rgba(148,163,184,.16);
   color:var(--slate-500);
+  cursor:pointer;
 }
 
 .starter-player-name{
@@ -809,6 +833,27 @@ body.starter-mode #events{
 .starter-player.is-fifth{
   border-color:rgba(245,158,11,.28);
   background:rgba(255,251,235,.96);
+}
+
+.starter-slot.starter-slot-can-add-fifth{
+  border-color:rgba(245,158,11,.42);
+  background:linear-gradient(135deg, rgba(255,255,255,.98) 0%, rgba(255,251,235,.95) 100%);
+}
+
+.starter-slot.starter-slot-has-fifth{
+  border-color:rgba(245,158,11,.48);
+  background:linear-gradient(135deg, rgba(255,255,255,.98) 0%, rgba(255,247,237,.95) 100%);
+}
+
+.starter-slot.is-drop-target{
+  border-color:#22c55e;
+  box-shadow:0 0 0 2px rgba(34,197,94,.18), 0 10px 24px rgba(15,23,42,.06);
+  background:linear-gradient(135deg, rgba(240,253,244,.98) 0%, rgba(220,252,231,.94) 100%);
+}
+
+.starter-slot.is-drop-invalid{
+  border-color:#f59e0b;
+  box-shadow:0 0 0 2px rgba(245,158,11,.14), 0 10px 24px rgba(15,23,42,.06);
 }
 
 .starter-empty{

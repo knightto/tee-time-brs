@@ -5,6 +5,7 @@ const pkg = buildTeeTimesSiteTemplatePackage({
   siteTitle: 'Blue Ridge Tee Times',
   shortTitle: 'BR Tee',
   groupName: 'Blue Ridge Weekend Group',
+  groupReference: 'BRS Weekend',
   clubName: 'Blue Ridge Shadows',
   clubRequestLabel: 'Request a Tee Time for Blue Ridge Shadows',
   primaryContactEmail: 'admin@blueridge.example',
@@ -22,6 +23,7 @@ assert.strictEqual(pkg.templateName, 'Tee Times Site Package');
 assert.strictEqual(pkg.deploymentProfile.groupSlug, 'blue-ridge-tee-times');
 assert.strictEqual(pkg.deploymentProfile.siteTitle, 'Blue Ridge Tee Times');
 assert.strictEqual(pkg.deploymentProfile.clubName, 'Blue Ridge Shadows');
+assert.strictEqual(pkg.deploymentProfile.groupReference, 'BRS Weekend');
 assert.strictEqual(pkg.deploymentProfile.secondaryContactEmail, 'assistant@blueridge.example');
 assert.strictEqual(pkg.deploymentProfile.replyToEmail, 'reply@blueridge.example');
 assert.strictEqual(pkg.contactDirectory.clubPhone, '540-555-2000');
@@ -45,6 +47,7 @@ assert.ok(pkg.runtimeDependencies.some((entry) => entry.name === 'Node.js'), 'Pa
 assert.ok(Array.isArray(pkg.deploymentLoe) && pkg.deploymentLoe.length >= 4, 'Package should include LOE planning rows');
 assert.ok(String(pkg.deploymentGuide || '').includes('## LOE For Group Deployment'), 'Package should include a human-readable deployment guide');
 assert.ok(String(pkg.deploymentGuide || '').includes('## Contact Directory'), 'Deployment guide should include contact directory section');
+assert.ok(String(pkg.deploymentGuide || '').includes('Group reference: BRS Weekend'), 'Deployment guide should include the group reference');
 assert.ok(pkg.deploymentChecklist.length >= 4, 'Package should include deployment checklist items');
 assert.ok(Array.isArray(pkg.starterArtifacts) && pkg.starterArtifacts.some((entry) => entry.path === '/public/group-admin-lite.html'), 'Package should include minimal group admin starter artifact');
 

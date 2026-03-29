@@ -80,6 +80,10 @@ const ADMIN_DESTRUCTIVE_CONFIRM_CODE = process.env.ADMIN_DESTRUCTIVE_CONFIRM_COD
 const SITE_URL = (process.env.SITE_URL || 'https://tee-time-brs.onrender.com/').replace(/\/$/, '') + '/';
 const LOCAL_TZ = process.env.LOCAL_TZ || 'America/New_York';
 const DEFAULT_SITE_GROUP_SLUG = String(process.env.DEFAULT_SITE_GROUP_SLUG || 'main').trim().toLowerCase() || 'main';
+const GROUP_REFERENCE_OVERRIDES = Object.freeze({
+  [DEFAULT_SITE_GROUP_SLUG]: 'BRS Group',
+  'thursday-seniors-group': 'Thursday Seniors',
+});
 const CALENDAR_EVENT_DURATION_MINUTES = Math.max(30, Number(process.env.CALENDAR_EVENT_DURATION_MINUTES || 270) || 270);
 const BACKUP_ROOT = path.join(__dirname, 'backups');
 const SITE_BACKUP_TARGETS = [
@@ -131,8 +135,33 @@ app.use('/api', (_req, res, next) => {
   next();
 });
 
+function applyNoStoreHeaders(res) {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.setHeader('Pragma', 'no-cache');
+  res.setHeader('Expires', '0');
+}
+
 // Define routes before static middleware to ensure they take precedence
-app.get('/', (_req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
+app.get('/', (_req, res) => {
+  applyNoStoreHeaders(res);
+  return res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+app.get('/admin.html', (req, res) => {
+  const groupSlug = getGroupSlug(req);
+  if (groupSlug !== DEFAULT_SITE_GROUP_SLUG) {
+    return res.redirect(302, buildRedirectWithGroupPath('/group-admin-lite.html', groupSlug, req.query));
+  }
+  applyNoStoreHeaders(res);
+  return res.sendFile(path.join(__dirname, 'public', 'admin.html'));
+});
+app.get('/group-admin-lite.html', (req, res) => {
+  const groupSlug = getGroupSlug(req);
+  if (groupSlug === DEFAULT_SITE_GROUP_SLUG) {
+    return res.redirect(302, buildRedirectWithGroupPath('/admin.html', DEFAULT_SITE_GROUP_SLUG, req.query));
+  }
+  applyNoStoreHeaders(res);
+  return res.sendFile(path.join(__dirname, 'public', 'group-admin-lite.html'));
+});
 app.get('/manifest.json', async (req, res) => {
   try {
     const scopedGroupSlug = String(req.query.group || '').trim()
@@ -144,6 +173,22 @@ app.get('/manifest.json', async (req, res) => {
       ? '/?source=pwa'
       : `${links.sitePath}?source=pwa`;
     const iconPath = profile.iconPath || '/icons/icon-512.png';
+    const shortcuts = [
+      {
+        name: `${profile.shortTitle || profile.siteTitle} Tee Times`,
+        short_name: 'Tee Times',
+        url: links.sitePath,
+        icons: [{ src: iconPath, sizes: '192x192', type: 'image/png' }],
+      },
+    ];
+    if (links.adminLitePath) {
+      shortcuts.push({
+        name: 'Group Admin',
+        short_name: 'Group Admin',
+        url: links.adminPath,
+        icons: [{ src: iconPath, sizes: '192x192', type: 'image/png' }],
+      });
+    }
     const manifest = {
       id: startUrl,
       name: profile.siteTitle || 'Tee Times',
@@ -161,20 +206,7 @@ app.get('/manifest.json', async (req, res) => {
         { src: iconPath, sizes: '192x192', type: 'image/png', purpose: 'any maskable' },
         { src: iconPath, sizes: '512x512', type: 'image/png', purpose: 'any maskable' },
       ],
-      shortcuts: [
-        {
-          name: `${profile.shortTitle || profile.siteTitle} Tee Times`,
-          short_name: 'Tee Times',
-          url: links.sitePath,
-          icons: [{ src: iconPath, sizes: '192x192', type: 'image/png' }],
-        },
-        {
-          name: 'Minimal Admin',
-          short_name: 'Lite Admin',
-          url: links.adminLitePath,
-          icons: [{ src: iconPath, sizes: '192x192', type: 'image/png' }],
-        },
-      ],
+      shortcuts,
     };
     res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
     res.setHeader('Cache-Control', 'no-cache');
@@ -187,12 +219,20 @@ app.get('/manifest.json', async (req, res) => {
 app.get('/groups/:groupSlug', (req, res) => (
   res.redirect(302, buildRedirectWithGroupPath('/', req.params.groupSlug, req.query))
 ));
-app.get('/groups/:groupSlug/admin', (req, res) => (
-  res.redirect(302, buildRedirectWithGroupPath('/admin.html', req.params.groupSlug, req.query))
-));
-app.get('/groups/:groupSlug/admin-lite', (req, res) => (
-  res.redirect(302, buildRedirectWithGroupPath('/group-admin-lite.html', req.params.groupSlug, req.query))
-));
+app.get('/groups/:groupSlug/admin', (req, res) => {
+  const groupSlug = normalizeGroupSlug(req.params.groupSlug);
+  if (groupSlug === DEFAULT_SITE_GROUP_SLUG) {
+    return res.redirect(302, buildRedirectWithGroupPath('/admin.html', DEFAULT_SITE_GROUP_SLUG, req.query));
+  }
+  return res.redirect(302, buildRedirectWithGroupPath('/group-admin-lite.html', groupSlug, req.query));
+});
+app.get('/groups/:groupSlug/admin-lite', (req, res) => {
+  const groupSlug = normalizeGroupSlug(req.params.groupSlug);
+  if (groupSlug === DEFAULT_SITE_GROUP_SLUG) {
+    return res.redirect(302, buildRedirectWithGroupPath('/admin.html', DEFAULT_SITE_GROUP_SLUG, req.query));
+  }
+  return res.redirect(302, buildRedirectWithGroupPath('/group-admin-lite.html', groupSlug, req.query));
+});
 // --- Myrtle Beach Trip Tracker API ---
 // Debug endpoint: Query all trips and participants from secondary DB
 app.get('/api/debug/secondary-trips', async (req, res) => {
@@ -720,10 +760,12 @@ app.use(express.static(path.join(__dirname, 'public'), {
   maxAge: '1h',
   etag: true,
   setHeaders: (res, filePath) => {
-    if (/\.(js|css|png|svg|ico|webp|json)$/i.test(filePath)) {
+    if (/(^|[\\/])(service-worker\.js|sw-assets\.js)$/i.test(filePath)) {
+      applyNoStoreHeaders(res);
+    } else if (/\.(js|css|png|svg|ico|webp|json)$/i.test(filePath)) {
       res.setHeader('Cache-Control', 'public, max-age=3600, stale-while-revalidate=300');
     } else if (/\.html$/i.test(filePath)) {
-      res.setHeader('Cache-Control', 'no-cache');
+      applyNoStoreHeaders(res);
     }
   },
 }));
@@ -1760,6 +1802,15 @@ function titleFromGroupSlug(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
     .join(' ') || 'Tee Times';
 }
 
+function resolveGroupReference(groupSlug = DEFAULT_SITE_GROUP_SLUG, profile = {}) {
+  const normalizedGroupSlug = normalizeGroupSlug(groupSlug || profile.groupSlug || DEFAULT_SITE_GROUP_SLUG);
+  const explicit = String(profile.groupReference || '').trim();
+  if (explicit) return explicit;
+  if (GROUP_REFERENCE_OVERRIDES[normalizedGroupSlug]) return GROUP_REFERENCE_OVERRIDES[normalizedGroupSlug];
+  return String(profile.groupName || profile.siteTitle || titleFromGroupSlug(normalizedGroupSlug)).trim()
+    || titleFromGroupSlug(normalizedGroupSlug);
+}
+
 function uniqueEmailList(values = []) {
   const flattened = Array.isArray(values) ? values.flat() : [values];
   return Array.from(new Set(flattened
@@ -1774,12 +1825,14 @@ function buildDefaultSiteProfileInput(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   const isMainGroup = normalizedGroupSlug === DEFAULT_SITE_GROUP_SLUG;
   const siteTitle = isMainGroup ? 'Tee Times' : `${defaultLabel} Tee Times`;
   const clubName = isMainGroup ? 'Blue Ridge Shadows' : defaultLabel;
+  const groupName = isMainGroup ? 'Knight Group Tee Times' : defaultLabel;
   return {
     groupSlug: normalizedGroupSlug,
     packageSlug: normalizedGroupSlug,
     siteTitle,
     shortTitle: isMainGroup ? 'Tee Time' : defaultLabel,
-    groupName: isMainGroup ? 'Knight Group Tee Times' : defaultLabel,
+    groupName,
+    groupReference: resolveGroupReference(normalizedGroupSlug, { groupName, siteTitle }),
     clubName,
     clubRequestLabel: isMainGroup ? 'Request a Tee Time for Blue Ridge Shadows' : `Request a Tee Time for ${clubName}`,
     primaryContactEmail: adminEmails[0] || '',
@@ -1818,6 +1871,7 @@ function buildAbsoluteSiteUrl(pathname = '/') {
 function buildGroupDeploymentLinks(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
   const routePaths = buildGroupRoutePaths(normalizedGroupSlug);
+  const hasLiteAdmin = normalizedGroupSlug !== DEFAULT_SITE_GROUP_SLUG;
   return {
     groupSlug: normalizedGroupSlug,
     sitePath: routePaths.site,
@@ -1825,10 +1879,10 @@ function buildGroupDeploymentLinks(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
     siteQueryPath: buildGroupAwarePath('/', normalizedGroupSlug),
     adminPath: routePaths.admin,
     adminUrl: buildAbsoluteSiteUrl(routePaths.admin),
-    adminQueryPath: buildGroupAwarePath('/admin.html', normalizedGroupSlug),
-    adminLitePath: routePaths.adminLite,
-    adminLiteUrl: buildAbsoluteSiteUrl(routePaths.adminLite),
-    adminLiteQueryPath: buildGroupAwarePath('/group-admin-lite.html', normalizedGroupSlug),
+    adminQueryPath: hasLiteAdmin ? '' : buildGroupAwarePath('/admin.html', normalizedGroupSlug),
+    adminLitePath: hasLiteAdmin ? routePaths.adminLite : '',
+    adminLiteUrl: hasLiteAdmin ? buildAbsoluteSiteUrl(routePaths.adminLite) : '',
+    adminLiteQueryPath: hasLiteAdmin ? buildGroupAwarePath('/group-admin-lite.html', normalizedGroupSlug) : '',
     calendarPath: routePaths.calendar,
     calendarUrl: buildAbsoluteSiteUrl(routePaths.calendar),
     manifestPath: `/manifest.json?group=${encodeURIComponent(normalizedGroupSlug)}`,
@@ -1844,6 +1898,7 @@ function toPublicSiteProfile(profile = {}) {
     siteTitle: String(profile.siteTitle || 'Tee Times').trim() || 'Tee Times',
     shortTitle: String(profile.shortTitle || profile.siteTitle || 'Tee Time').trim() || 'Tee Time',
     groupName: String(profile.groupName || '').trim(),
+    groupReference: resolveGroupReference(normalizedGroupSlug, profile),
     clubName: String(profile.clubName || '').trim(),
     clubRequestLabel: String(profile.clubRequestLabel || '').trim(),
     themeColor: String(profile.themeColor || '#173224').trim() || '#173224',
@@ -2077,6 +2132,34 @@ app.get('/api/admin/site-profile', async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ error: error && error.message ? error.message : 'Failed to load admin site profile' });
+  }
+});
+
+app.get('/api/admin/site-groups', async (req, res) => {
+  try {
+    if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    const groupSlugs = await getAllManagedGroupSlugs();
+    const groups = await Promise.all(groupSlugs.map(async (groupSlug) => {
+      const profile = toPublicSiteProfile(await getSiteProfile(groupSlug));
+      const links = buildGroupDeploymentLinks(groupSlug);
+      return {
+        groupSlug: normalizeGroupSlug(groupSlug),
+        isMainGroup: normalizeGroupSlug(groupSlug) === DEFAULT_SITE_GROUP_SLUG,
+        groupReference: resolveGroupReference(groupSlug, profile),
+        groupName: String(profile.groupName || profile.siteTitle || '').trim(),
+        siteTitle: String(profile.siteTitle || '').trim(),
+        links,
+      };
+    }));
+    groups.sort((a, b) => {
+      if (a.isMainGroup && !b.isMainGroup) return -1;
+      if (!a.isMainGroup && b.isMainGroup) return 1;
+      return String(a.groupReference || '').localeCompare(String(b.groupReference || ''))
+        || String(a.groupSlug || '').localeCompare(String(b.groupSlug || ''));
+    });
+    return res.json({ groups });
+  } catch (error) {
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to load site groups' });
   }
 });
 
@@ -2675,8 +2758,35 @@ function eventFifthCount(ev, opts = {}) {
   }, 0);
 }
 
-function eventCanAddFifth(ev, opts = {}) {
-  return !!(ev && !ev.isTeamEvent && eventFifthCount(ev, opts) === 0);
+function slotPlayerCountIgnoring(tt, opts = {}) {
+  if (!tt || !Array.isArray(tt.players)) return 0;
+  const ignoredPlayerId = String(opts.ignorePlayerId || '').trim();
+  if (!ignoredPlayerId) return tt.players.length;
+  return tt.players.filter((player) => !player || String(player._id) !== ignoredPlayerId).length;
+}
+
+function eventHasOtherOpenBaseSlot(ev, targetTeeId = null, opts = {}) {
+  if (!ev || ev.isTeamEvent) return false;
+  const baseSize = slotCapacityForEvent(ev);
+  const targetId = String(targetTeeId || '').trim();
+  return ((ev && ev.teeTimes) || []).some((tt) => {
+    if (!tt) return false;
+    if (targetId && String(tt._id) === targetId) return false;
+    return slotPlayerCountIgnoring(tt, opts) < baseSize;
+  });
+}
+
+function evaluateFifthAvailability(ev, tt, opts = {}) {
+  if (!ev || ev.isTeamEvent) {
+    return { ok: false, error: 'team full' };
+  }
+  if (eventFifthCount(ev, opts) > 0) {
+    return { ok: false, error: 'only one 5-some is allowed per event' };
+  }
+  if (eventHasOtherOpenBaseSlot(ev, tt && tt._id, opts)) {
+    return { ok: false, error: 'fill every other tee time to four players before adding a 5th' };
+  }
+  return { ok: true, error: '' };
 }
 
 function normalizeSlotFifthState(ev, tt) {
@@ -2720,7 +2830,8 @@ function evaluateSlotAddition(ev, tt, opts = {}) {
   const baseSize = slotCapacityForEvent(ev);
   const maxSize = slotMaxCapacityForEvent(ev);
   const allowFifth = !!opts.allowFifth;
-  const fifthAvailable = eventCanAddFifth(ev, { ignorePlayerId: opts.ignorePlayerId });
+  const fifthAvailability = evaluateFifthAvailability(ev, tt, { ignorePlayerId: opts.ignorePlayerId });
+  const fifthAvailable = fifthAvailability.ok;
   const canAddFifth = !ev.isTeamEvent && tt.players.length === baseSize && slotFifthCount(tt) === 0 && fifthAvailable;
 
   if (tt.players.length < baseSize) {
@@ -2728,7 +2839,7 @@ function evaluateSlotAddition(ev, tt, opts = {}) {
   }
   if (!ev.isTeamEvent && allowFifth && tt.players.length < maxSize && slotFifthCount(tt) === 0) {
     if (!fifthAvailable) {
-      return { ok: false, error: 'only one 5-some is allowed per event', canAddFifth: false, asFifth: false };
+      return { ok: false, error: fifthAvailability.error, canAddFifth: false, asFifth: false };
     }
     return { ok: true, asFifth: true, canAddFifth: false };
   }
@@ -4568,6 +4679,26 @@ app.get('/api/events/:id/audit-log', async (req, res) => {
 });
 
 /* ---------------- Subscribers ---------------- */
+async function ensureSubscriberRecord(groupSlug = DEFAULT_SITE_GROUP_SLUG, email = '') {
+  if (!Subscriber) throw new Error('subscriber model missing');
+  const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+  if (!normalizedEmail) throw new Error('email required');
+
+  let existing = await Subscriber.findOne({ ...groupScopeFilter(normalizedGroupSlug), email: normalizedEmail });
+  if (existing) {
+    if (!existing.unsubscribeToken) {
+      existing.unsubscribeToken = require('crypto').randomBytes(32).toString('hex');
+      await existing.save();
+    }
+    return { subscriber: existing, isNew: false };
+  }
+
+  const created = new Subscriber({ groupSlug: normalizedGroupSlug, email: normalizedEmail });
+  await created.save();
+  return { subscriber: created, isNew: true };
+}
+
 app.post('/api/subscribe', async (req, res) => {
   const { email } = req.body || {};
   const groupSlug = getGroupSlug(req);
@@ -4577,42 +4708,20 @@ app.post('/api/subscribe', async (req, res) => {
   if (!email) return res.status(400).json({ error: 'email required' });
   
   try {
-    if (!Subscriber) {
-      console.error(JSON.stringify({ t:new Date().toISOString(), level:'error', msg:'Subscriber model not loaded' }));
-      return res.status(500).json({ error: 'subscriber model missing' });
-    }
-    
-    const subscriberData = { groupSlug, email: email.toLowerCase() };
-    
-    // Check if subscriber already exists
-    let existing = await Subscriber.findOne({ ...groupScopeFilter(groupSlug), email: subscriberData.email });
-    
-    let s;
-    if (existing) {
-      // Ensure existing subscriber has an unsubscribe token
-      if (!existing.unsubscribeToken) {
-        existing.unsubscribeToken = require('crypto').randomBytes(32).toString('hex');
-        await existing.save();
-      }
-      s = existing;
-    } else {
-      // Create new subscriber (pre-save hook will generate token)
-      s = new Subscriber(subscriberData);
-      await s.save();
-    }
-    
-    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'subscriber added', email: subscriberData.email, isNew: !existing }));
+    const { subscriber: s, isNew } = await ensureSubscriberRecord(groupSlug, email);
+    const subscriberEmail = String(s.email || '').trim().toLowerCase();
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'subscriber added', email: subscriberEmail, isNew }));
     
     // Send response immediately
-    res.json({ ok: true, id: s._id.toString(), isNew: !existing });
+    res.json({ ok: true, id: s._id.toString(), isNew });
     
     // Send confirmation email asynchronously (don't block the response)
-    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'sending confirmation', to: subscriberData.email }));
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'sending confirmation', to: subscriberEmail }));
     const unsubLink = `${SITE_URL}api/unsubscribe/${s.unsubscribeToken}`;
     const subject = 'Golf Notifications - Subscription Confirmed';
     const message = `<p>Thanks for subscribing! You'll receive email notifications when new golf events are posted.</p><p><a href="${unsubLink}">Click here to unsubscribe</a></p>`;
     
-    sendEmail(subscriberData.email, subject, message)
+    sendEmail(subscriberEmail, subject, message)
       .then(result => {
         console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'confirmation sent', result }));
       })
@@ -4622,6 +4731,35 @@ app.post('/api/subscribe', async (req, res) => {
   } catch (e) { 
     console.error(JSON.stringify({ t:new Date().toISOString(), level:'error', msg:'subscribe error', error:e.message, stack:e.stack }));
     res.status(500).json({ error:e.message }); 
+  }
+});
+
+app.post('/api/admin/subscribers', async (req, res) => {
+  if (!isSiteAdmin(req)) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const { email } = req.body || {};
+  if (!email) return res.status(400).json({ error: 'email required' });
+
+  try {
+    const groupSlug = getGroupSlug(req);
+    const { subscriber, isNew } = await ensureSubscriberRecord(groupSlug, email);
+    return res.status(isNew ? 201 : 200).json({
+      ok: true,
+      isNew,
+      groupSlug,
+      subscriber: {
+        _id: subscriber._id,
+        email: subscriber.email,
+        unsubscribeToken: subscriber.unsubscribeToken,
+        createdAt: subscriber.createdAt,
+        updatedAt: subscriber.updatedAt,
+      },
+    });
+  } catch (error) {
+    console.error('Admin add subscriber error:', error);
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to add subscriber' });
   }
 });
 
@@ -4808,7 +4946,7 @@ app.get('/api/admin/subscribers', async (req, res) => {
 
 /* Admin - Delete Subscriber */
 app.delete('/api/admin/subscribers/:id', async (req, res) => {
-  if (!isAdminDelete(req)) {
+  if (!isSiteAdmin(req) && !isAdminDelete(req)) {
     return res.status(403).json({ error: 'Delete code required' });
   }
   

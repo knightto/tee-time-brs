@@ -9,6 +9,7 @@ const app = require('../server');
 const { getSecondaryConn } = require('../secondary-conn');
 const Event = require('../models/Event');
 const Settings = require('../models/Settings');
+const Subscriber = require('../models/Subscriber');
 
 const PORT = Number(process.env.E2E_GROUP_TEMPLATE_PORT || 0);
 const DEBUG_PORT = Number(process.env.E2E_GROUP_TEMPLATE_DEBUG_PORT || 9246);
@@ -119,6 +120,7 @@ async function waitForExpression(send, expression, timeoutMs = 15000) {
 async function cleanupGroup(groupSlug) {
   await Event.deleteMany({ groupSlug }).catch(() => {});
   await Settings.deleteMany({ groupSlug }).catch(() => {});
+  await Subscriber.deleteMany({ groupSlug }).catch(() => {});
 }
 
 async function main() {
@@ -137,6 +139,7 @@ async function main() {
     siteTitle: 'Admin Template Tee Times',
     shortTitle: 'Admin Smoke',
     groupName: 'Admin Smoke Group',
+    groupReference: 'Admin Smoke',
     packageSlug: groupSlug,
     clubName: 'Admin Smoke Club',
     clubRequestLabel: 'Request a Tee Time for Admin Smoke Club',
@@ -188,6 +191,7 @@ async function main() {
         });
         await send('Page.navigate', { url: `${base}/admin.html` });
         await waitForExpression(send, `Boolean(document.getElementById('openTeeTimesSiteTemplateBtn'))`);
+        await waitForExpression(send, `document.querySelectorAll('#groupReferenceGrid .group-reference-title').length >= 1`, 20000);
         await sleep(2500);
         await evaluate(send, `(() => {
           const payload = ${JSON.stringify(payload)};
@@ -203,6 +207,7 @@ async function main() {
           assign('siteTemplateTitleInput', payload.siteTitle);
           assign('siteTemplateShortTitleInput', payload.shortTitle);
           assign('siteTemplateGroupNameInput', payload.groupName);
+          assign('siteTemplateGroupReferenceInput', payload.groupReference);
           assign('siteTemplatePackageSlugInput', payload.packageSlug);
           assign('siteTemplateClubNameInput', payload.clubName);
           assign('siteTemplateClubRequestLabelInput', payload.clubRequestLabel);
@@ -229,11 +234,13 @@ async function main() {
         await waitForExpression(send, `document.getElementById('teeTimesSiteTemplateResult').textContent.includes('Deployed')`, 30000);
         const adminResult = await evaluate(send, `(() => ({
           resultText: document.getElementById('teeTimesSiteTemplateResult').textContent,
-          links: Array.from(document.querySelectorAll('#teeTimesSiteTemplateLinks a')).map((node) => node.getAttribute('href'))
+          links: Array.from(document.querySelectorAll('#teeTimesSiteTemplateLinks a')).map((node) => node.getAttribute('href')),
+          groupReferences: Array.from(document.querySelectorAll('#groupReferenceGrid .group-reference-title')).map((node) => node.textContent)
         }))()`);
         assert.ok(adminResult.resultText.includes('Deployed Admin Template Tee Times'), 'Admin page should report a deployed group');
         assert.ok(adminResult.links.includes(`/groups/${groupSlug}`), 'Admin page should expose the dedicated group site URL');
-        assert.ok(adminResult.links.includes(`/groups/${groupSlug}/admin-lite`), 'Admin page should expose the lite admin URL');
+        assert.ok(adminResult.links.includes(`/groups/${groupSlug}/admin`), 'Admin page should expose the group admin URL');
+        assert.ok(adminResult.groupReferences.includes('BRS Group'), 'Admin page should show the main group reference');
       });
       console.log('Admin template deployment flow completed');
     } finally {
@@ -244,6 +251,7 @@ async function main() {
     assert.strictEqual(publicProfileResponse.status, 200, 'Deployed group profile should be available after admin flow');
     const publicProfilePayload = await publicProfileResponse.json();
     assert.strictEqual(publicProfilePayload.profile.siteTitle, payload.siteTitle);
+    assert.strictEqual(publicProfilePayload.profile.groupReference, payload.groupReference);
     assert.strictEqual(publicProfilePayload.profile.features.includeHandicaps, false);
 
     const siteTarget = await openTarget(`${base}/groups/${groupSlug}`);
@@ -257,11 +265,21 @@ async function main() {
         const siteState = await evaluate(send, `(() => ({
           title: document.querySelector('.topbar-title-link') && document.querySelector('.topbar-title-link').textContent,
           requestLabel: document.getElementById('requestClubTimeBtn') && document.getElementById('requestClubTimeBtn').textContent,
-          handicapsHidden: document.querySelector('[data-feature-link="includeHandicaps"]')?.hidden === true
+          handicapsHidden: document.querySelector('[data-feature-link="includeHandicaps"]')?.hidden === true,
+          adminLinkHref: document.querySelector('[data-group-admin-link]') && document.querySelector('[data-group-admin-link]').getAttribute('href'),
+          adminLinkText: document.querySelector('[data-group-admin-link]') && document.querySelector('[data-group-admin-link]').textContent,
+          mainOnlyLinksHidden: Array.from(document.querySelectorAll('[data-main-only-link]')).every((node) => node.hidden === true),
+          bodyText: document.body && document.body.innerText
         }))()`);
         assert.strictEqual(siteState.title, payload.siteTitle);
         assert.strictEqual(siteState.requestLabel, payload.clubRequestLabel);
         assert.strictEqual(siteState.handicapsHidden, true);
+        assert.strictEqual(siteState.adminLinkHref, `/groups/${groupSlug}/admin`);
+        assert.strictEqual(siteState.adminLinkText, 'Group Admin');
+        assert.strictEqual(siteState.mainOnlyLinksHidden, true);
+        assert.ok(!String(siteState.bodyText || '').includes('BRS Group'), 'Group site should not mention the main group reference');
+        assert.ok(!String(siteState.bodyText || '').includes('Knight Group'), 'Group site should not mention the main group name');
+        assert.ok(!String(siteState.bodyText || '').includes('Blue Ridge Shadows'), 'Group site should not mention the main club');
       });
       console.log('Deployed group site verified');
     } finally {
@@ -279,12 +297,30 @@ async function main() {
         });
         await send('Page.navigate', { url: `${base}/groups/${groupSlug}/admin-lite` });
         await waitForExpression(send, `document.getElementById('profileForm') && document.getElementById('profileForm').hidden === false`, 20000);
+        await evaluate(send, `(() => {
+          const input = document.getElementById('subscriberEmailInput');
+          const form = document.getElementById('subscriberForm');
+          input.value = 'lite-admin@example.com';
+          if (typeof form.requestSubmit === 'function') form.requestSubmit();
+          else form.querySelector('button[type="submit"]').click();
+        })()`);
+        await waitForExpression(send, `document.getElementById('subscriberCount') && document.getElementById('subscriberCount').textContent === '1'`, 20000);
         const liteState = await evaluate(send, `(() => ({
           title: document.getElementById('pageTitle') && document.getElementById('pageTitle').textContent,
-          siteLink: document.getElementById('summarySiteLink') && document.getElementById('summarySiteLink').textContent
+          siteLink: document.getElementById('summarySiteLink') && document.getElementById('summarySiteLink').textContent,
+          subscriberCount: document.getElementById('subscriberCount') && document.getElementById('subscriberCount').textContent,
+          hasFrame: Boolean(document.getElementById('teeTimesFrame')),
+          links: Array.from(document.querySelectorAll('a')).map((node) => node.getAttribute('href')),
+          bodyText: document.body && document.body.innerText
         }))()`);
-        assert.ok(String(liteState.title || '').includes('Admin Smoke Group Lite Admin'));
+        assert.ok(String(liteState.title || '').includes('Admin Smoke Group Admin'));
         assert.strictEqual(liteState.siteLink, `/groups/${groupSlug}`);
+        assert.strictEqual(liteState.subscriberCount, '1');
+        assert.strictEqual(liteState.hasFrame, true);
+        assert.ok(!liteState.links.includes('/admin.html'), 'Group admin page should not expose the shared main admin');
+        assert.ok(!String(liteState.bodyText || '').includes('BRS Group'), 'Group admin page should not mention the main group reference');
+        assert.ok(!String(liteState.bodyText || '').includes('Knight Group'), 'Group admin page should not mention the main group name');
+        assert.ok(!String(liteState.bodyText || '').includes('Blue Ridge Shadows'), 'Group admin page should not mention the main club');
       });
       console.log('Lite admin page verified');
     } finally {

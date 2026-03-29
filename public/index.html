@@ -23,10 +23,10 @@
       <details class="topbar-dropdown">
         <summary class="pill-link">Info</summary>
         <div class="topbar-dropdown-menu">
-          <a href="/user-guide.html" class="topbar-dropdown-item" data-group-link>User Guide</a>
-          <a href="/features.html" class="topbar-dropdown-item" data-group-link>Features</a>
-          <a href="/blue-ridge-outings.html" class="topbar-dropdown-item" data-group-link data-feature-link="includeOutings">Blue Ridge Outings</a>
-          <a href="/rules.html" class="topbar-dropdown-item" data-group-link>Weekend Game Rules</a>
+          <a href="/user-guide.html" class="topbar-dropdown-item" data-group-link data-main-only-link hidden>User Guide</a>
+          <a href="/features.html" class="topbar-dropdown-item" data-group-link data-main-only-link hidden>Features</a>
+          <a href="/blue-ridge-outings.html" class="topbar-dropdown-item" data-group-link data-feature-link="includeOutings" data-main-only-link hidden>Blue Ridge Outings</a>
+          <a href="/rules.html" class="topbar-dropdown-item" data-group-link data-main-only-link hidden>Weekend Game Rules</a>
           <a href="/handicaps.html" class="topbar-dropdown-item" data-group-link data-feature-link="includeHandicaps">Handicaps</a>
         </div>
       </details>
@@ -78,7 +78,7 @@
           <div class="event-controls">
             <button id="starterModeBtn" class="small" type="button" title="Toggle a stripped-down starter view for the selected day">Starter Mode</button>
             <span id="lastUpdated" class="event-meta">Updated just now</span>
-            <button id="requestClubTimeBtn" class="small" type="button" title="Request a tee time from the club for a selected date">Request a Tee Time for Blue Ridge Shadows</button>
+            <button id="requestClubTimeBtn" class="small" type="button" title="Request a tee time from the club for a selected date">Request a Tee Time</button>
           </div>
         </div>
         <div id="events"></div>
@@ -248,9 +248,46 @@
   
   <!-- Admin Link -->
   <div class="admin-link-wrap">
-    <a href="/admin.html" target="_blank" class="admin-link" data-group-link>Admin</a>
+    <a href="/admin.html" target="_blank" class="admin-link" data-group-admin-link>Admin</a>
   </div>
 
+  <script>
+    (() => {
+      try {
+        const rawGroup = String(new URLSearchParams(window.location.search).get('group') || '').trim().toLowerCase();
+        const groupSlug = rawGroup.replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '') || 'main';
+        const isMainGroup = groupSlug === 'main';
+        const withGroup = (pathname = '/') => {
+          const scopedUrl = new URL(pathname, window.location.origin);
+          if (scopedUrl.origin === window.location.origin && !isMainGroup && !scopedUrl.searchParams.has('group')) {
+            scopedUrl.searchParams.set('group', groupSlug);
+          }
+          return scopedUrl.origin === window.location.origin
+            ? `${scopedUrl.pathname}${scopedUrl.search}${scopedUrl.hash}`
+            : scopedUrl.toString();
+        };
+
+        const titleLink = document.querySelector('.topbar-title-link');
+        if (titleLink) titleLink.setAttribute('href', withGroup('/'));
+
+        document.querySelectorAll('[data-group-link]').forEach((node) => {
+          node.setAttribute('href', withGroup(node.getAttribute('href') || '/'));
+        });
+        document.querySelectorAll('[data-main-only-link]').forEach((node) => {
+          node.hidden = !isMainGroup;
+        });
+        document.querySelectorAll('[data-group-admin-link]').forEach((node) => {
+          if (isMainGroup) {
+            node.setAttribute('href', '/admin.html');
+            node.textContent = 'Admin';
+          } else {
+            node.setAttribute('href', `/groups/${encodeURIComponent(groupSlug)}/admin`);
+            node.textContent = 'Group Admin';
+          }
+        });
+      } catch (_) {}
+    })();
+  </script>
   <script src="/script.js" defer></script>
 </body>
 </html>

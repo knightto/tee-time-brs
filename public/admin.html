@@ -517,6 +517,35 @@
       font-size: 13px;
     }
 
+    .group-reference-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+    }
+
+    .group-reference-card {
+      border: 1px solid #d9e2ec;
+      border-radius: 14px;
+      background: #fff;
+      padding: 14px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .group-reference-title {
+      margin: 0;
+      font-size: 18px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .group-reference-meta {
+      margin: 0;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #475569;
+    }
+
     button.btn-test,
     button.btn-delete {
       border: none;
@@ -995,7 +1024,6 @@
     <h1 id="adminHeaderTitle">Admin</h1>
     <nav class="topbar-links">
       <a href="/" class="pill-link" id="adminHomeLink" data-admin-group-link>Tee Times</a>
-      <a href="/group-admin-lite.html" class="pill-link" id="adminLiteLink" data-admin-group-link>Lite Admin</a>
       <a href="/handicaps.html" class="pill-link" id="adminHandicapsLink" data-admin-group-link data-admin-feature-link="includeHandicaps">Handicaps</a>
       <a href="/handicap-import.html" class="pill-link" id="adminHandicapImportLink" data-admin-group-link data-admin-feature-link="includeHandicaps">Handicap Import</a>
     </nav>
@@ -1004,6 +1032,7 @@
     <nav class="section-nav">
       <a href="#quickActionsSection">Quick Actions</a>
       <a href="#tripTemplatesSection">Templates</a>
+      <a href="#groupReferencesSection">Group References</a>
       <a href="#siteInventorySection">Site Inventory</a>
       <a href="#backupsSection">Backups</a>
       <a href="#notificationsSection">Notifications</a>
@@ -1158,7 +1187,7 @@
             <div class="status-note warn" style="margin-bottom:10px;">This now creates a live shared-stack deployment under a dedicated group slug, with separate public, admin, minimal-admin, and calendar URLs. A separate database/env per group is still the lower-risk option if you want hard isolation.</div>
             <ul class="template-question-list">
               <li>What should the site be called for this group?</li>
-              <li>What short app name, group name, and group URL slug should be used?</li>
+              <li>What short app name, group name, group reference, and group URL slug should be used?</li>
               <li>What primary/secondary emails, reply-to email, club-request email, phones, icon, and theme color should ship in the package profile?</li>
               <li>Which optional modules should be included beyond the core tee-times and admin pages?</li>
               <li>Any deployment or branding notes that should stay with the package?</li>
@@ -1176,6 +1205,10 @@
                 <label>
                   <span>Group Name</span>
                   <input id="siteTemplateGroupNameInput" type="text" maxlength="120" value="Thursday Seniors Group" required>
+                </label>
+                <label>
+                  <span>Group Reference</span>
+                  <input id="siteTemplateGroupReferenceInput" type="text" maxlength="120" value="Thursday Seniors" required>
                 </label>
                 <label>
                   <span>Group / URL Slug</span>
@@ -1274,6 +1307,13 @@
           <div id="teeTimesSiteTemplateLinks" class="template-links"></div>
         </div>
       </div>
+    </section>
+
+    <section id="groupReferencesSection" class="admin-section">
+      <h2>Golf Group References</h2>
+      <p class="section-intro">Use these labels when asking for tee-time updates. This keeps the main site and separate group deployments clearly identified.</p>
+      <div id="groupReferenceStatus" class="test-result" style="display:block;">Loading golf groups...</div>
+      <div id="groupReferenceGrid" class="group-reference-grid"></div>
     </section>
 
     <section id="siteInventorySection" class="admin-section">
@@ -1979,6 +2019,7 @@
 
     function seedTeeTimesSiteTemplateDefaults() {
       const groupNameInput = document.getElementById('siteTemplateGroupNameInput');
+      const groupReferenceInput = document.getElementById('siteTemplateGroupReferenceInput');
       const siteTitleInput = document.getElementById('siteTemplateTitleInput');
       const shortTitleInput = document.getElementById('siteTemplateShortTitleInput');
       const clubNameInput = document.getElementById('siteTemplateClubNameInput');
@@ -1987,6 +2028,7 @@
       const mongoDbInput = document.getElementById('siteTemplateMongoDbInput');
 
       if (groupNameInput && !groupNameInput.value.trim()) groupNameInput.value = 'Thursday Seniors Group';
+      if (groupReferenceInput && !groupReferenceInput.value.trim()) groupReferenceInput.value = 'Thursday Seniors';
       if (siteTitleInput && !siteTitleInput.value.trim()) siteTitleInput.value = 'Thursday Seniors Tee Times';
       if (shortTitleInput && !shortTitleInput.value.trim()) shortTitleInput.value = 'Thursday Seniors';
       if (clubNameInput && !clubNameInput.value.trim()) clubNameInput.value = 'Thursday Seniors Group';
@@ -2015,11 +2057,16 @@
       const safeGuideFilename = String(guideFilename || '').trim() || 'deployment-guide.md';
       const safeAdminArtifactFilename = String(adminArtifactFilename || '').trim() || 'group-admin-lite.html';
       const deploymentLinks = deployment && deployment.links && typeof deployment.links === 'object' ? deployment.links : null;
+      const deploymentReference = String(
+        (deployment && deployment.publicProfile && deployment.publicProfile.groupReference)
+        || (deployment && deployment.profile && deployment.profile.groupReference)
+        || ''
+      ).trim();
       const deploymentLinkHtml = deploymentLinks ? `
         <a href="${escapeHtml(deploymentLinks.sitePath || '/')}" target="_blank" rel="noopener">Open Group Site</a>
         <a href="${escapeHtml(deploymentLinks.adminPath || '/admin.html')}" target="_blank" rel="noopener">Open Group Admin</a>
-        <a href="${escapeHtml(deploymentLinks.adminLitePath || '/group-admin-lite.html')}" target="_blank" rel="noopener">Open Lite Admin</a>
         <a href="${escapeHtml(deploymentLinks.calendarPath || '#')}" target="_blank" rel="noopener">Open Calendar Feed</a>
+        ${deploymentReference ? `<span style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid #d9e2ec;background:#fff;color:#475569;font-size:12px;font-weight:700;">Reference: ${escapeHtml(deploymentReference)}</span>` : ''}
         <span style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid #d9e2ec;background:#fff;color:#475569;font-size:12px;font-weight:700;">Group: ${escapeHtml(String(deployment.groupSlug || 'main'))}</span>
       ` : `
         <a href="/admin.html#tripTemplatesSection">Template Section</a>
@@ -2057,6 +2104,7 @@
         siteTitle: String(document.getElementById('siteTemplateTitleInput').value || '').trim(),
         shortTitle: String(document.getElementById('siteTemplateShortTitleInput').value || '').trim(),
         groupName: String(document.getElementById('siteTemplateGroupNameInput').value || '').trim(),
+        groupReference: String(document.getElementById('siteTemplateGroupReferenceInput').value || '').trim(),
         clubName: String(document.getElementById('siteTemplateClubNameInput').value || '').trim(),
         packageSlug: String(document.getElementById('siteTemplatePackageSlugInput').value || '').trim(),
         clubRequestLabel: String(document.getElementById('siteTemplateClubRequestLabelInput').value || '').trim(),
@@ -2191,9 +2239,82 @@
       }
     }
 
+    let siteGroupDirectoryState = {
+      groups: [],
+    };
+
     let siteInventoryState = {
       groups: [],
     };
+
+    function showGroupReferenceStatus(message, isSuccess = true) {
+      const el = document.getElementById('groupReferenceStatus');
+      if (!el) return;
+      el.textContent = message;
+      el.className = `test-result ${isSuccess ? 'success' : 'error'}`;
+      el.style.display = 'block';
+    }
+
+    function renderGroupReferences() {
+      const grid = document.getElementById('groupReferenceGrid');
+      if (!grid) return;
+      const groups = Array.isArray(siteGroupDirectoryState.groups) ? siteGroupDirectoryState.groups : [];
+      if (!groups.length) {
+        grid.innerHTML = '<div class="inventory-empty">No golf groups are registered yet.</div>';
+        return;
+      }
+
+      grid.innerHTML = groups.map((group) => {
+        const slug = String(group.groupSlug || '').trim() || 'main';
+        const reference = String(group.groupReference || group.groupName || group.siteTitle || slug).trim() || slug;
+        const links = group.links && typeof group.links === 'object' ? group.links : {};
+        const tagHtml = [
+          { label: group.isMainGroup ? 'Main Site' : 'Group Site', tone: group.isMainGroup ? 'open' : 'upcoming' },
+          { label: `Slug: ${slug}`, tone: 'type' },
+          { label: links.adminLitePath ? 'Group Ops Admin' : 'Full Admin Only', tone: links.adminLitePath ? 'open' : 'draft' },
+        ].map((tag) => `<span class="inventory-tag${tag.tone ? ` status-${escapeHtml(tag.tone)}` : ''}">${escapeHtml(tag.label)}</span>`).join('');
+        const linkHtml = [
+          links.sitePath ? { label: 'Open Site', href: links.sitePath } : null,
+          links.adminPath ? { label: 'Open Group Admin', href: links.adminPath } : null,
+          group.isMainGroup && links.adminQueryPath ? { label: 'Open Full Admin', href: links.adminQueryPath } : null,
+          links.calendarPath ? { label: 'Calendar Feed', href: links.calendarPath } : null,
+        ].filter(Boolean).map((link) => `<a href="${escapeHtml(link.href)}" target="_blank" rel="noopener">${escapeHtml(link.label)}</a>`).join('');
+        return `
+          <article class="group-reference-card">
+            <div>
+              <p class="group-reference-title">${escapeHtml(reference)}</p>
+              <p class="group-reference-meta">Site title: ${escapeHtml(String(group.siteTitle || 'Tee Times'))}</p>
+              <p class="group-reference-meta">Stored group name: ${escapeHtml(String(group.groupName || reference))}</p>
+            </div>
+            <div class="inventory-tag-list">${tagHtml}</div>
+            <div class="inventory-link-list">${linkHtml}</div>
+          </article>
+        `;
+      }).join('');
+    }
+
+    async function loadGroupReferences() {
+      showGroupReferenceStatus('Loading golf groups...', true);
+      try {
+        const response = await fetch(`/api/admin/site-groups?code=${encodeURIComponent(ADMIN_CODE)}`);
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || 'Failed to load golf groups.');
+        siteGroupDirectoryState = {
+          groups: Array.isArray(payload.groups) ? payload.groups : [],
+        };
+        renderGroupReferences();
+        showGroupReferenceStatus(`Loaded ${siteGroupDirectoryState.groups.length} golf group reference${siteGroupDirectoryState.groups.length === 1 ? '' : 's'}.`, true);
+      } catch (error) {
+        siteGroupDirectoryState = { groups: [] };
+        renderGroupReferences();
+        showGroupReferenceStatus(error.message || 'Failed to load golf groups.', false);
+      }
+    }
+
+    function initGroupReferenceSection() {
+      renderGroupReferences();
+      loadGroupReferences();
+    }
 
     function buildSiteCatalog() {
       return [
@@ -2481,6 +2602,7 @@
     function applyAdminSiteProfile(profile = {}, links = {}) {
       const siteTitle = String(profile.siteTitle || 'Tee Times').trim() || 'Tee Times';
       const groupName = String(profile.groupName || siteTitle).trim() || siteTitle;
+      const groupReference = String(profile.groupReference || groupName || siteTitle).trim() || siteTitle;
       const features = {
         includeHandicaps: true,
         includeTrips: true,
@@ -2491,19 +2613,17 @@
         ...((profile && profile.features) || {}),
       };
 
-      document.title = `${siteTitle} Admin`;
+      document.title = `${groupReference} Admin`;
       const headerTitle = document.getElementById('adminHeaderTitle');
       if (headerTitle) {
-        headerTitle.textContent = ADMIN_GROUP === 'main' ? 'Admin' : `${groupName} Admin`;
+        headerTitle.textContent = `${groupReference} Admin`;
       }
 
       const homeLink = document.getElementById('adminHomeLink');
       if (homeLink) homeLink.href = links.siteQueryPath || buildAdminGroupPageHref('/');
-      const liteLink = document.getElementById('adminLiteLink');
-      if (liteLink) liteLink.href = links.adminLiteQueryPath || buildAdminGroupPageHref('/group-admin-lite.html');
 
       document.querySelectorAll('[data-admin-group-link]').forEach((node) => {
-        if (node === homeLink || node === liteLink) return;
+        if (node === homeLink) return;
         const href = node.getAttribute('href') || '/';
         node.setAttribute('href', buildAdminGroupPageHref(href));
       });
@@ -2553,6 +2673,7 @@
       loadAdminSiteProfile();
       initRyderCupTemplateBuilder();
       initTeeTimesSiteTemplateBuilder();
+      initGroupReferenceSection();
       initSiteInventorySection();
       loadSubscribers();
       loadBackups();

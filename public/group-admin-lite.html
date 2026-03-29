@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#173224">
-  <title>Group Admin Lite</title>
+  <title>Group Admin</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <style>
     :root {
@@ -37,7 +37,7 @@
     }
 
     .shell {
-      max-width: 1080px;
+      max-width: 1180px;
       margin: 0 auto;
       display: grid;
       gap: 18px;
@@ -74,36 +74,75 @@
       opacity: 0.8;
     }
 
-    h1 {
+    h1, h2, h3 {
       margin: 0;
+    }
+
+    h1 {
       font-size: clamp(28px, 4vw, 40px);
       line-height: 1.05;
     }
 
-    .hero-meta {
+    h2 {
+      font-size: 22px;
+      line-height: 1.1;
+    }
+
+    .hero-meta,
+    .section-meta {
       margin: 0;
-      max-width: 760px;
+      max-width: 780px;
       font-size: 14px;
       color: rgba(255, 255, 255, 0.88);
     }
 
-    .hero-links {
+    .section-meta {
+      color: var(--muted);
+    }
+
+    .hero-links,
+    .actions {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
     }
 
-    .hero-link {
+    .hero-link,
+    button,
+    .subscriber-email-link {
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      padding: 10px 14px;
+      padding: 11px 16px;
       border-radius: 999px;
       border: 1px solid rgba(255, 255, 255, 0.32);
       background: rgba(255, 255, 255, 0.1);
       color: #fff;
       font-weight: 700;
       text-decoration: none;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    button {
+      border-color: transparent;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 800;
+    }
+
+    button.secondary {
+      background: #e7eeea;
+      color: var(--ink);
+    }
+
+    button.danger {
+      background: var(--danger);
+    }
+
+    button:disabled {
+      opacity: 0.6;
+      cursor: wait;
     }
 
     .hero-link:hover {
@@ -114,6 +153,11 @@
       padding: 24px;
       display: grid;
       gap: 18px;
+    }
+
+    .section-head {
+      display: grid;
+      gap: 6px;
     }
 
     .note {
@@ -154,8 +198,7 @@
     }
 
     input,
-    textarea,
-    select {
+    textarea {
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -166,58 +209,8 @@
     }
 
     textarea {
-      min-height: 110px;
+      min-height: 92px;
       resize: vertical;
-    }
-
-    .checks {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 12px;
-    }
-
-    .check {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 12px 14px;
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      background: #f9fcfa;
-      font-weight: 700;
-    }
-
-    .check input {
-      width: 18px;
-      height: 18px;
-      margin: 0;
-    }
-
-    .actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-    }
-
-    button {
-      border: none;
-      border-radius: 999px;
-      padding: 11px 18px;
-      font: inherit;
-      font-weight: 800;
-      cursor: pointer;
-      background: var(--accent);
-      color: #fff;
-    }
-
-    button.secondary {
-      background: #e7eeea;
-      color: var(--ink);
-    }
-
-    button:disabled {
-      opacity: 0.6;
-      cursor: wait;
     }
 
     .summary-list {
@@ -248,7 +241,75 @@
       word-break: break-word;
     }
 
-    @media (max-width: 720px) {
+    .frame-shell {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      overflow: hidden;
+      background: #e7eeea;
+      min-height: 640px;
+    }
+
+    iframe {
+      width: 100%;
+      min-height: 640px;
+      border: 0;
+      background: #fff;
+    }
+
+    .subscriber-toolbar {
+      display: grid;
+      gap: 14px;
+    }
+
+    .subscriber-toolbar form {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .subscriber-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .subscriber-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fbfdfc;
+    }
+
+    .subscriber-copy {
+      min-width: 0;
+      display: grid;
+      gap: 4px;
+    }
+
+    .subscriber-copy strong {
+      font-size: 14px;
+    }
+
+    .subscriber-copy span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .subscriber-empty {
+      padding: 18px;
+      border: 1px dashed var(--line);
+      border-radius: 16px;
+      color: var(--muted);
+      text-align: center;
+      background: #fbfdfc;
+      font-weight: 600;
+    }
+
+    @media (max-width: 820px) {
       body {
         padding: 12px 10px 24px;
       }
@@ -258,13 +319,20 @@
         padding: 18px;
       }
 
+      .subscriber-toolbar form,
+      .subscriber-card,
       .summary-item {
-        display: grid;
+        grid-template-columns: 1fr;
       }
 
       .summary-item span,
       .summary-item a {
         text-align: left;
+      }
+
+      iframe,
+      .frame-shell {
+        min-height: 540px;
       }
     }
   </style>
@@ -273,19 +341,22 @@
   <main class="shell">
     <section class="panel hero">
       <div class="hero-copy">
-        <p class="eyebrow">Minimal Group Admin</p>
+        <p class="eyebrow">Group Admin</p>
         <h1 id="pageTitle">Loading Group Admin...</h1>
-        <p class="hero-meta" id="pageMeta">This page only manages branding, contact settings, and feature flags for a deployed tee-times group. Daily tee-time operations stay on the full group admin page.</p>
+        <p class="hero-meta" id="pageMeta">Use this page to keep tee times and subscribers current for a separate tee-times group. Two points of contact can be stored here for quick handoff.</p>
       </div>
       <div class="hero-links">
-        <a class="hero-link" id="groupSiteLink" href="/" target="_blank" rel="noopener">Open Group Site</a>
-        <a class="hero-link" id="fullAdminLink" href="/admin.html" target="_blank" rel="noopener">Open Full Admin</a>
-        <a class="hero-link" id="calendarFeedLink" href="/api/events/calendar/month.ics" target="_blank" rel="noopener">Open Calendar Feed</a>
+        <a class="hero-link" id="groupSiteLink" href="#" target="_blank" rel="noopener">Open Group Site</a>
+        <a class="hero-link" id="calendarFeedLink" href="#" target="_blank" rel="noopener">Open Calendar Feed</a>
       </div>
     </section>
 
     <section class="panel">
       <div class="content">
+        <div class="section-head">
+          <h2>Contacts</h2>
+          <p class="section-meta">Keep the group reference, group title, and the two possible points of contact up to date here. The live tee-times board and subscriber tools are below.</p>
+        </div>
         <div id="statusNote" class="note">Enter the site admin code when prompted to load this group's settings.</div>
 
         <form id="profileForm" hidden>
@@ -295,36 +366,28 @@
               <input type="text" name="siteTitle" maxlength="120" required>
             </label>
             <label>
-              <span>Short App Title</span>
-              <input type="text" name="shortTitle" maxlength="60" required>
-            </label>
-            <label>
               <span>Group Name</span>
               <input type="text" name="groupName" maxlength="120" required>
+            </label>
+            <label>
+              <span>Group Reference</span>
+              <input type="text" name="groupReference" maxlength="120" required>
             </label>
             <label>
               <span>Group Slug</span>
               <input type="text" name="groupSlug" readonly>
             </label>
             <label>
-              <span>Club Name</span>
-              <input type="text" name="clubName" maxlength="120" required>
-            </label>
-            <label>
-              <span>Club Request Button Label</span>
-              <input type="text" name="clubRequestLabel" maxlength="160" required>
-            </label>
-            <label>
-              <span>Primary Contact Email</span>
+              <span>Primary POC Email</span>
               <input type="email" name="primaryContactEmail" maxlength="120" required>
             </label>
             <label>
-              <span>Secondary Contact Email</span>
+              <span>Secondary POC Email</span>
               <input type="email" name="secondaryContactEmail" maxlength="120">
             </label>
             <label>
               <span>Club Request Email</span>
-              <input type="email" name="clubRequestEmail" maxlength="120" required>
+              <input type="email" name="clubRequestEmail" maxlength="120">
             </label>
             <label>
               <span>Reply-To Email</span>
@@ -338,45 +401,9 @@
               <span>Club Phone</span>
               <input type="text" name="clubPhone" maxlength="40">
             </label>
-            <label>
-              <span>SMS / Text Phone</span>
-              <input type="text" name="smsPhone" maxlength="40">
-            </label>
-            <label>
-              <span>Theme Color</span>
-              <input type="text" name="themeColor" maxlength="20" required>
-            </label>
-            <label>
-              <span>Icon Asset Name</span>
-              <input type="text" name="iconAssetName" maxlength="80" required>
-            </label>
-            <label>
-              <span>Mongo DB Name</span>
-              <input type="text" name="mongoDbName" maxlength="80">
-            </label>
           </div>
-
-          <label>
-            <span>Admin Alert Phones</span>
-            <textarea name="adminAlertPhones" placeholder="One phone per line"></textarea>
-          </label>
-
-          <div class="checks">
-            <label class="check"><input type="checkbox" name="includeHandicaps"> Include handicaps</label>
-            <label class="check"><input type="checkbox" name="includeTrips"> Include trips</label>
-            <label class="check"><input type="checkbox" name="includeOutings"> Include outings</label>
-            <label class="check"><input type="checkbox" name="includeNotifications"> Include notifications</label>
-            <label class="check"><input type="checkbox" name="includeScheduler"> Include scheduler</label>
-            <label class="check"><input type="checkbox" name="includeBackups"> Include backups</label>
-          </div>
-
-          <label>
-            <span>Deployment Notes</span>
-            <textarea name="notes" placeholder="Any notes that should stay with this group deployment"></textarea>
-          </label>
-
           <div class="actions">
-            <button type="submit" id="saveProfileBtn">Save Group Profile</button>
+            <button type="submit" id="saveProfileBtn">Save Contacts</button>
             <button type="button" class="secondary" id="reloadProfileBtn">Reload</button>
           </div>
         </form>
@@ -385,28 +412,70 @@
 
     <section class="panel">
       <div class="content">
-        <div class="note warn">This page is intentionally limited. Tee-time creation, player movement, backups, subscriber messaging, and scheduler operations stay on the full group admin page.</div>
+        <div class="section-head">
+          <h2>Tee Times</h2>
+          <p class="section-meta">This live board is the separate group site. Use it to manage this group's tee sheets directly from the dedicated group admin.</p>
+        </div>
+        <div class="actions">
+          <button type="button" id="refreshTeeTimesBtn">Refresh Live Board</button>
+          <a class="subscriber-email-link" id="openSiteInlineLink" href="#" target="_blank" rel="noopener">Open Board in New Tab</a>
+        </div>
+        <div class="frame-shell">
+          <iframe id="teeTimesFrame" title="Live Tee Times Board" src="about:blank"></iframe>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="content">
+        <div class="section-head">
+          <h2>Subscribers</h2>
+          <p class="section-meta">Add or remove notification recipients for this group only. This is the right place to keep the group notification list current.</p>
+        </div>
+        <div id="subscriberNote" class="note">Loading subscribers...</div>
+        <div class="subscriber-toolbar">
+          <form id="subscriberForm">
+            <label>
+              <span>Email Address</span>
+              <input id="subscriberEmailInput" type="email" name="email" placeholder="golfer@example.com" required autocomplete="email">
+            </label>
+            <button type="submit" id="addSubscriberBtn">Add Subscriber</button>
+          </form>
+          <div class="summary-item">
+            <div>
+              <strong>Current Subscribers</strong>
+              <span>The list below is scoped to this group only.</span>
+            </div>
+            <span id="subscriberCount">0</span>
+          </div>
+          <div id="subscriberList" class="subscriber-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="content">
         <div class="summary-list" id="deploymentSummary">
           <div class="summary-item">
             <div>
               <strong>Group Site</strong>
-              <span>The separate public tee-times page for this group.</span>
+              <span>The public tee-times page for this group.</span>
             </div>
-            <a id="summarySiteLink" href="/" target="_blank" rel="noopener">/</a>
+            <a id="summarySiteLink" href="#" target="_blank" rel="noopener">/</a>
           </div>
           <div class="summary-item">
             <div>
-              <strong>Full Admin</strong>
-              <span>The main tee-time management page for this group.</span>
+              <strong>Group Admin</strong>
+              <span>The dedicated admin page for tee sheets, subscribers, and contacts for this group.</span>
             </div>
-            <a id="summaryAdminLink" href="/admin.html" target="_blank" rel="noopener">/admin.html</a>
+            <a id="summaryAdminLink" href="#" target="_blank" rel="noopener">/group-admin-lite.html</a>
           </div>
           <div class="summary-item">
             <div>
               <strong>Calendar Feed</strong>
-              <span>The dedicated ICS feed for all upcoming tee times in this group.</span>
+              <span>The dedicated ICS feed for this group's tee times.</span>
             </div>
-            <a id="summaryCalendarLink" href="/api/events/calendar/month.ics" target="_blank" rel="noopener">/api/events/calendar/month.ics</a>
+            <a id="summaryCalendarLink" href="#" target="_blank" rel="noopener">/api/events/calendar/month.ics</a>
           </div>
         </div>
       </div>
@@ -424,26 +493,41 @@
       const pageTitle = document.getElementById('pageTitle');
       const pageMeta = document.getElementById('pageMeta');
       const groupSiteLink = document.getElementById('groupSiteLink');
-      const fullAdminLink = document.getElementById('fullAdminLink');
       const calendarFeedLink = document.getElementById('calendarFeedLink');
       const summarySiteLink = document.getElementById('summarySiteLink');
       const summaryAdminLink = document.getElementById('summaryAdminLink');
       const summaryCalendarLink = document.getElementById('summaryCalendarLink');
+      const teeTimesFrame = document.getElementById('teeTimesFrame');
+      const refreshTeeTimesBtn = document.getElementById('refreshTeeTimesBtn');
+      const openSiteInlineLink = document.getElementById('openSiteInlineLink');
+      const subscriberForm = document.getElementById('subscriberForm');
+      const subscriberEmailInput = document.getElementById('subscriberEmailInput');
+      const addSubscriberBtn = document.getElementById('addSubscriberBtn');
+      const subscriberNote = document.getElementById('subscriberNote');
+      const subscriberCount = document.getElementById('subscriberCount');
+      const subscriberList = document.getElementById('subscriberList');
 
+      const MAIN_GROUP_SLUG = 'main';
       const groupSlug = (() => {
         try {
           const raw = String(new URLSearchParams(window.location.search).get('group') || '').trim().toLowerCase();
           const normalized = raw.replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
-          return normalized || 'main';
+          return normalized || '';
         } catch (_) {
-          return 'main';
+          return '';
         }
       })();
+      const isScopedGroup = !!groupSlug && groupSlug !== MAIN_GROUP_SLUG;
+      if (!isScopedGroup) {
+        window.location.replace('/admin.html');
+        return;
+      }
 
       const state = {
         code: '',
         profile: null,
         links: null,
+        subscribers: [],
       };
 
       function normalizeHexColor(value = '', fallback = '#173224') {
@@ -474,7 +558,7 @@
       function withGroup(url = '/') {
         try {
           const scopedUrl = new URL(url, window.location.origin);
-          if (scopedUrl.origin === window.location.origin && groupSlug !== 'main' && !scopedUrl.searchParams.has('group')) {
+          if (scopedUrl.origin === window.location.origin && isScopedGroup && !scopedUrl.searchParams.has('group')) {
             scopedUrl.searchParams.set('group', groupSlug);
           }
           return scopedUrl.origin === window.location.origin
@@ -492,55 +576,53 @@
         if (tone === 'error') statusNote.classList.add('error');
       }
 
+      function setSubscriberStatus(message, tone = 'info') {
+        subscriberNote.textContent = message;
+        subscriberNote.className = 'note';
+        if (tone === 'warn') subscriberNote.classList.add('warn');
+        if (tone === 'error') subscriberNote.classList.add('error');
+      }
+
+      function refreshFrame(force = false) {
+        const siteHref = state.links && state.links.sitePath ? state.links.sitePath : withGroup('/');
+        const targetUrl = new URL(siteHref, window.location.origin);
+        if (force) targetUrl.searchParams.set('_lite_rt', String(Date.now()));
+        teeTimesFrame.src = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`;
+      }
+
       function setLinks(links = {}) {
         const siteHref = links.sitePath || withGroup('/');
-        const adminHref = links.adminQueryPath || withGroup('/admin.html');
+        const adminHref = links.adminPath || withGroup('/groups/' + encodeURIComponent(groupSlug) + '/admin');
         const calendarHref = links.calendarPath || `/groups/${encodeURIComponent(groupSlug)}/calendar.ics`;
         groupSiteLink.href = siteHref;
-        fullAdminLink.href = adminHref;
         calendarFeedLink.href = calendarHref;
+        openSiteInlineLink.href = siteHref;
         summarySiteLink.href = siteHref;
         summarySiteLink.textContent = siteHref;
         summaryAdminLink.href = adminHref;
         summaryAdminLink.textContent = adminHref;
         summaryCalendarLink.href = calendarHref;
         summaryCalendarLink.textContent = calendarHref;
+        refreshFrame(false);
       }
 
       function fillForm(profile = {}) {
         form.elements.siteTitle.value = profile.siteTitle || '';
-        form.elements.shortTitle.value = profile.shortTitle || '';
         form.elements.groupName.value = profile.groupName || '';
+        form.elements.groupReference.value = profile.groupReference || profile.groupName || '';
         form.elements.groupSlug.value = profile.groupSlug || groupSlug;
-        form.elements.clubName.value = profile.clubName || '';
-        form.elements.clubRequestLabel.value = profile.clubRequestLabel || '';
         form.elements.primaryContactEmail.value = profile.primaryContactEmail || '';
         form.elements.secondaryContactEmail.value = profile.secondaryContactEmail || '';
         form.elements.clubRequestEmail.value = profile.clubRequestEmail || '';
         form.elements.replyToEmail.value = profile.replyToEmail || '';
         form.elements.supportPhone.value = profile.supportPhone || '';
         form.elements.clubPhone.value = profile.clubPhone || '';
-        form.elements.smsPhone.value = profile.smsPhone || '';
-        form.elements.themeColor.value = profile.themeColor || '#173224';
-        form.elements.iconAssetName.value = profile.iconAssetName || 'knight-club-icon.png';
-        form.elements.mongoDbName.value = profile.mongoDbName || '';
-        form.elements.adminAlertPhones.value = Array.isArray(profile.adminAlertPhones)
-          ? profile.adminAlertPhones.join('\n')
-          : String(profile.adminAlertPhones || '');
-        form.elements.notes.value = profile.notes || '';
-
-        const features = profile.features || {};
-        form.elements.includeHandicaps.checked = features.includeHandicaps !== false;
-        form.elements.includeTrips.checked = features.includeTrips !== false;
-        form.elements.includeOutings.checked = features.includeOutings !== false;
-        form.elements.includeNotifications.checked = features.includeNotifications !== false;
-        form.elements.includeScheduler.checked = features.includeScheduler !== false;
-        form.elements.includeBackups.checked = features.includeBackups !== false;
 
         const title = profile.siteTitle || 'Group Admin';
-        document.title = `${title} Lite Admin`;
-        pageTitle.textContent = `${profile.groupName || title} Lite Admin`;
-        pageMeta.textContent = `Group slug: ${profile.groupSlug || groupSlug}. Use this page for branding, contact settings, and feature toggles.`;
+        const groupReference = profile.groupReference || profile.groupName || title;
+        document.title = `${groupReference} Group Admin`;
+        pageTitle.textContent = `${groupReference} Group Admin`;
+        pageMeta.textContent = `Reference: ${groupReference}. Group slug: ${profile.groupSlug || groupSlug}. Keep tee times and subscribers current here, and store up to two points of contact for the group.`;
         applyTheme(profile.themeColor || '#173224');
       }
 
@@ -548,30 +630,49 @@
         const fd = new FormData(form);
         return {
           siteTitle: String(fd.get('siteTitle') || '').trim(),
-          shortTitle: String(fd.get('shortTitle') || '').trim(),
           groupName: String(fd.get('groupName') || '').trim(),
-          groupSlug: groupSlug,
-          clubName: String(fd.get('clubName') || '').trim(),
-          clubRequestLabel: String(fd.get('clubRequestLabel') || '').trim(),
+          groupReference: String(fd.get('groupReference') || '').trim(),
+          groupSlug,
           primaryContactEmail: String(fd.get('primaryContactEmail') || '').trim(),
           secondaryContactEmail: String(fd.get('secondaryContactEmail') || '').trim(),
           clubRequestEmail: String(fd.get('clubRequestEmail') || '').trim(),
           replyToEmail: String(fd.get('replyToEmail') || '').trim(),
           supportPhone: String(fd.get('supportPhone') || '').trim(),
           clubPhone: String(fd.get('clubPhone') || '').trim(),
-          smsPhone: String(fd.get('smsPhone') || '').trim(),
-          themeColor: String(fd.get('themeColor') || '').trim(),
-          iconAssetName: String(fd.get('iconAssetName') || '').trim(),
-          mongoDbName: String(fd.get('mongoDbName') || '').trim(),
-          adminAlertPhones: String(fd.get('adminAlertPhones') || '').trim(),
-          notes: String(fd.get('notes') || '').trim(),
-          includeHandicaps: form.elements.includeHandicaps.checked,
-          includeTrips: form.elements.includeTrips.checked,
-          includeOutings: form.elements.includeOutings.checked,
-          includeNotifications: form.elements.includeNotifications.checked,
-          includeScheduler: form.elements.includeScheduler.checked,
-          includeBackups: form.elements.includeBackups.checked,
         };
+      }
+
+      function formatDate(value = '') {
+        const date = new Date(value);
+        if (Number.isNaN(date.getTime())) return 'Unknown date';
+        return date.toLocaleString();
+      }
+
+      function renderSubscribers() {
+        const list = Array.isArray(state.subscribers) ? state.subscribers : [];
+        subscriberCount.textContent = String(list.length);
+        if (!list.length) {
+          subscriberList.innerHTML = '<div class="subscriber-empty">No subscribers are on this group yet.</div>';
+          return;
+        }
+        subscriberList.innerHTML = list.map((subscriber) => `
+          <article class="subscriber-card">
+            <div class="subscriber-copy">
+              <strong>${escapeHtml(String(subscriber.email || ''))}</strong>
+              <span>Added ${escapeHtml(formatDate(subscriber.createdAt))}</span>
+            </div>
+            <button type="button" class="danger" data-delete-subscriber="${escapeHtml(String(subscriber._id || ''))}">Remove</button>
+          </article>
+        `).join('');
+      }
+
+      function escapeHtml(value = '') {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
       }
 
       async function api(pathname, options = {}) {
@@ -590,12 +691,20 @@
         return payload;
       }
 
+      async function loadSubscribers() {
+        setSubscriberStatus('Loading subscribers...', 'warn');
+        const payload = await api('/api/admin/subscribers');
+        state.subscribers = Array.isArray(payload) ? payload : [];
+        renderSubscribers();
+        setSubscriberStatus(`Loaded ${state.subscribers.length} subscriber${state.subscribers.length === 1 ? '' : 's'} for this group.`, 'info');
+      }
+
       async function loadProfile() {
         if (!state.code) {
-          state.code = prompt(`Enter site admin code${groupSlug !== 'main' ? ` for ${groupSlug}` : ''}:`) || '';
+          state.code = prompt(`Enter site admin code for ${groupSlug}:`) || '';
         }
         if (!state.code) {
-          setStatus('Admin access required to open the minimal group admin page.', 'error');
+          setStatus('Admin access required to open the group admin page.', 'error');
           pageTitle.textContent = 'Admin Access Required';
           return;
         }
@@ -607,6 +716,7 @@
         setLinks(state.links || {});
         form.hidden = false;
         setStatus('Group profile loaded.', 'info');
+        await loadSubscribers();
       }
 
       form.addEventListener('submit', async (event) => {
@@ -623,9 +733,9 @@
           state.links = payload.links || state.links;
           fillForm(state.profile || {});
           setLinks(state.links || {});
-          setStatus('Group profile saved.', 'info');
+          setStatus('Group contacts saved.', 'info');
         } catch (error) {
-          setStatus(error.message || 'Failed to save group profile.', 'error');
+          setStatus(error.message || 'Failed to save group contacts.', 'error');
         } finally {
           saveProfileBtn.disabled = false;
           saveProfileBtn.textContent = originalLabel;
@@ -643,6 +753,59 @@
         } finally {
           reloadProfileBtn.disabled = false;
           reloadProfileBtn.textContent = originalLabel;
+        }
+      });
+
+      refreshTeeTimesBtn.addEventListener('click', () => {
+        refreshFrame(true);
+      });
+
+      subscriberForm.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const email = String(subscriberEmailInput.value || '').trim().toLowerCase();
+        if (!email) return;
+        addSubscriberBtn.disabled = true;
+        const originalLabel = addSubscriberBtn.textContent;
+        addSubscriberBtn.textContent = 'Adding...';
+        try {
+          const payload = await api('/api/admin/subscribers', {
+            method: 'POST',
+            body: JSON.stringify({ email }),
+          });
+          subscriberEmailInput.value = '';
+          await loadSubscribers();
+          setSubscriberStatus(payload && payload.isNew ? 'Subscriber added.' : 'Subscriber already existed for this group.', 'info');
+        } catch (error) {
+          setSubscriberStatus(error.message || 'Failed to add subscriber.', 'error');
+        } finally {
+          addSubscriberBtn.disabled = false;
+          addSubscriberBtn.textContent = originalLabel;
+        }
+      });
+
+      subscriberList.addEventListener('click', async (event) => {
+        const button = event.target.closest('[data-delete-subscriber]');
+        if (!button) return;
+        const subscriberId = String(button.getAttribute('data-delete-subscriber') || '').trim();
+        if (!subscriberId) return;
+        if (!confirm('Remove this subscriber from the group notification list?')) return;
+        button.disabled = true;
+        const originalLabel = button.textContent;
+        button.textContent = 'Removing...';
+        try {
+          await api(`/api/admin/subscribers/${encodeURIComponent(subscriberId)}`, {
+            method: 'DELETE',
+            headers: {
+              'x-admin-delete-code': state.code,
+              'x-delete-confirmed': 'true',
+            },
+          });
+          await loadSubscribers();
+          setSubscriberStatus('Subscriber removed.', 'info');
+        } catch (error) {
+          button.disabled = false;
+          button.textContent = originalLabel;
+          setSubscriberStatus(error.message || 'Failed to remove subscriber.', 'error');
         }
       });
 

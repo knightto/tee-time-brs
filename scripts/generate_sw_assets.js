@@ -6,7 +6,7 @@ const outFile = path.join(publicDir, 'sw-assets.js');
 
 const fixed = ['/', '/index.html'];
 const includeExt = new Set(['.html', '.css', '.js', '.json', '.svg', '.png', '.ico', '.webp']);
-const skip = new Set(['service-worker.js', 'sw-assets.js']);
+const skip = new Set(['service-worker.js', 'sw-assets.js', 'group-admin-lite.html']);
 
 function walk(dir, base = '') {
   const out = [];

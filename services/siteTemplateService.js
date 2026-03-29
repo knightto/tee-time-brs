@@ -67,6 +67,7 @@ function buildTeeTimesSiteDeploymentProfile(input = {}) {
   const siteTitle = cleanString(input.siteTitle) || 'Tee Times';
   const shortTitle = cleanString(input.shortTitle) || siteTitle;
   const groupName = cleanString(input.groupName) || 'Golf Group';
+  const groupReference = cleanString(input.groupReference) || groupName;
   const clubName = cleanString(input.clubName) || groupName;
   const packageSlug = cleanSlug(input.packageSlug || siteTitle || groupName);
   const groupSlug = cleanSlug(input.groupSlug || packageSlug || groupName || siteTitle);
@@ -98,6 +99,7 @@ function buildTeeTimesSiteDeploymentProfile(input = {}) {
     siteTitle,
     shortTitle,
     groupName,
+    groupReference,
     clubName,
     clubRequestLabel,
     primaryContactEmail,
@@ -120,6 +122,7 @@ function buildTeeTimesSiteDeploymentProfile(input = {}) {
 function buildMinimalGroupAdminPage({
   siteTitle,
   groupName,
+  groupReference,
   groupSlug,
   packageSlug,
   themeColor,
@@ -224,8 +227,8 @@ function buildMinimalGroupAdminPage({
 <body>
   <main class="shell">
     <h1>${siteTitle} Contact Admin</h1>
-    <p class="meta">${groupName} | group slug: ${groupSlug} | package slug: ${packageSlug}</p>
-    <p class="note">Starter admin page for group-specific contact details. The live shared-stack deployment uses ${routePaths && routePaths.adminLite ? routePaths.adminLite : '/group-admin-lite.html'} for the minimal admin surface.</p>
+    <p class="meta">${groupReference || groupName} | group slug: ${groupSlug} | package slug: ${packageSlug}</p>
+    <p class="note">Starter admin page for group-specific contact details. The live shared-stack deployment uses ${routePaths && routePaths.adminLite ? routePaths.adminLite : '/group-admin-lite.html'} for the dedicated group-operations admin surface covering tee times, subscribers, and group contacts. The main site keeps using the full admin page.</p>
     <form id="contactAdminForm">
       <div class="grid">
         <label>Primary Contact Email<input name="primaryContactEmail" type="email" value="${contactDirectory.primaryContactEmail || ''}"></label>
@@ -292,6 +295,7 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
     siteTitle,
     shortTitle,
     groupName,
+    groupReference,
     clubName,
     clubRequestLabel,
     primaryContactEmail,
@@ -342,12 +346,12 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
     },
     {
       key: 'group-admin-lite',
-      title: 'Minimal Group Admin',
+      title: 'Group Admin',
       path: '/public/group-admin-lite.html',
       deployedPath: routePaths.adminLite,
       enabled: true,
       category: 'core',
-      notes: 'Starter minimal admin page for editing group contact emails, branding, feature toggles, and deployment links.',
+      notes: 'Starter group-only admin page for live tee-time maintenance, subscriber management, and group contact handoff details.',
     },
     {
       key: 'handicaps',
@@ -385,7 +389,7 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
     'Notification and scheduled email rule controls',
     'Change-log visibility for tee-time modifications',
     'Template management from the admin page',
-    'Minimal group contact admin page for updating email and phone details',
+    'Group-only admin page for tee-time operations, subscriber maintenance, and contact details',
   ];
 
   const sourceFiles = [
@@ -492,7 +496,7 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
     `Brand the site title, short title, icon, and theme color for ${groupName}.`,
     `Set the club request copy to "${clubRequestLabel}" and point club email flows to ${clubRequestEmail}.`,
     `Seed the minimal group admin page with contact emails and phones for ${groupName}.`,
-    `Verify the dedicated URLs for the public page (${routePaths.site}), full admin (${routePaths.admin}), minimal admin (${routePaths.adminLite}), and calendar feed (${routePaths.calendar}).`,
+    `Verify the dedicated URLs for the public page (${routePaths.site}), full admin (${routePaths.admin}), group operations admin (${routePaths.adminLite}), and calendar feed (${routePaths.calendar}).`,
     'Configure site admin, destructive action, URL, and database environment variables.',
     'Provision hosting/runtime on Render or an equivalent Node web-service platform.',
     'Configure outbound email through Resend and verify sender/domain settings if email flows are enabled.',
@@ -521,6 +525,7 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
     `- Site title: ${siteTitle}`,
     `- Short app title: ${shortTitle}`,
     `- Group name: ${groupName}`,
+    `- Group reference: ${groupReference}`,
     `- Group slug: ${groupSlug}`,
     `- Package slug: ${packageSlug}`,
     `- Club name: ${clubName}`,
@@ -540,7 +545,7 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
     '## Dedicated URLs',
     `- Public page: ${routePaths.site}`,
     `- Full admin: ${routePaths.admin}`,
-    `- Minimal admin: ${routePaths.adminLite}`,
+    `- Group operations admin: ${routePaths.adminLite}`,
     `- Calendar feed: ${routePaths.calendar}`,
     '',
     '## Enabled Modules',
@@ -568,7 +573,7 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
     `- Admin alert phones: ${adminAlertPhones.length ? adminAlertPhones.join(', ') : 'Not specified'}`,
     '',
     '## Starter Admin Artifact',
-    '- `/public/group-admin-lite.html`: lightweight admin page for editing and exporting the group contact directory.',
+    '- `/public/group-admin-lite.html`: group-only admin page for tee-time maintenance, subscriber management, and group contacts.',
     '',
     '## Source Files Included In Scope',
     ...sourceFiles.map((entry) => `- ${entry}`),
@@ -587,11 +592,12 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
   const starterArtifacts = [
     {
       path: '/public/group-admin-lite.html',
-      description: 'Minimal admin page for editing and exporting group contact details.',
+      description: 'Minimal admin page for tee-time maintenance, subscriber management, and group contacts.',
       contentType: 'text/html',
       content: buildMinimalGroupAdminPage({
         siteTitle,
         groupName,
+        groupReference,
         groupSlug,
         packageSlug,
         themeColor,

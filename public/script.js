@@ -7,7 +7,7 @@ if ('serviceWorker' in navigator) {
     }
   };
   window.addEventListener('load', function() {
-    navigator.serviceWorker.register('/service-worker.js')
+    navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' })
       .then(reg => {
         console.log('Service Worker registered:', reg.scope);
         navigator.serviceWorker.addEventListener('controllerchange', () => {
@@ -114,8 +114,7 @@ if ('serviceWorker' in navigator) {
   const subscribeModal = $('#subscribeModal');
   const openSubscribeBtn = $('#openSubscribeBtn');
   const REFRESH_INTERVAL_MS = 60000;
-  const RESUME_REFRESH_MIN_GAP_MS = 45000;
-  const QUICK_RESUME_IGNORE_MS = 12000;
+  const RESUME_REFRESH_DEBOUNCE_MS = 1500;
 
   // Calendar elements
   const calendarGrid = $('#calendarGrid');
@@ -150,7 +149,6 @@ if ('serviceWorker' in navigator) {
   let autoRefreshTimer = null;
   let lastUpdatedAt = null;
   let lastResumeRefreshAt = 0;
-  let lastHiddenAt = 0;
   let monthSummarySignature = '';
   let selectedDateEventsSignature = '';
   let selectedDateRequestSeq = 0;
@@ -172,8 +170,9 @@ if ('serviceWorker' in navigator) {
     siteTitle: 'Tee Times',
     shortTitle: 'Tee Time',
     groupName: currentGroupSlug === 'main' ? 'Knight Group Tee Times' : '',
-    clubName: 'Blue Ridge Shadows',
-    clubRequestLabel: 'Request a Tee Time for Blue Ridge Shadows',
+    groupReference: currentGroupSlug === 'main' ? 'BRS Group' : '',
+    clubName: 'the club',
+    clubRequestLabel: 'Request a Tee Time',
     themeColor: '#173224',
     iconAssetName: 'knight-club-icon.png',
     iconPath: '/assets/knight-club-icon.png',
@@ -249,6 +248,15 @@ if ('serviceWorker' in navigator) {
     return String(currentSiteProfile.clubName || 'the club').trim() || 'the club';
   }
 
+  function isMainGroupSite() {
+    return currentGroupSlug === 'main';
+  }
+
+  function mobileFilterLabel(filterKey = '') {
+    if (filterKey === 'blue-ridge' && !isMainGroupSite()) return 'Home course';
+    return MOBILE_FILTER_LABELS[filterKey] || MOBILE_FILTER_LABELS.all;
+  }
+
   function applySiteTheme(themeColor = '#173224') {
     const safeTheme = normalizeHexColor(themeColor, '#173224');
     const root = document.documentElement;
@@ -293,9 +301,20 @@ if ('serviceWorker' in navigator) {
       const href = node.getAttribute('href') || '/';
       node.setAttribute('href', buildGroupPageHref(href));
     });
+    document.querySelectorAll('[data-group-admin-link]').forEach((node) => {
+      const isMainGroup = isMainGroupSite();
+      const href = isMainGroup
+        ? '/admin.html'
+        : (currentSiteLinks.adminPath || `/groups/${encodeURIComponent(currentGroupSlug)}/admin`);
+      node.setAttribute('href', href);
+      node.textContent = isMainGroup ? 'Admin' : 'Group Admin';
+    });
     document.querySelectorAll('[data-feature-link]').forEach((node) => {
       const featureKey = String(node.getAttribute('data-feature-link') || '').trim();
       node.hidden = !siteFeatureEnabled(featureKey);
+    });
+    document.querySelectorAll('[data-main-only-link]').forEach((node) => {
+      node.hidden = !isMainGroupSite();
     });
 
     if (openSubscribeBtn) openSubscribeBtn.hidden = !siteFeatureEnabled('includeNotifications');
@@ -888,6 +907,23 @@ if ('serviceWorker' in navigator) {
     ), 0);
   }
 
+  function slotPlayerCountIgnoring(teeTime = {}, options = {}) {
+    const ignoredPlayerId = String(options.ignorePlayerId || '').trim();
+    const players = ((teeTime && teeTime.players) || []);
+    if (!ignoredPlayerId) return players.length;
+    return players.filter((player) => !player || String(player._id) !== ignoredPlayerId).length;
+  }
+
+  function eventHasOtherOpenBaseSlot(ev = {}, teeTime = {}, options = {}) {
+    if (!ev || ev.isTeamEvent) return false;
+    const targetTeeId = String(teeTime && teeTime._id || '').trim();
+    return ((ev && ev.teeTimes) || []).some((entry) => {
+      if (!entry) return false;
+      if (targetTeeId && String(entry._id) === targetTeeId) return false;
+      return slotPlayerCountIgnoring(entry, options) < 4;
+    });
+  }
+
   function slotHasFifthPlayer(teeTime = {}) {
     return slotFifthCount(teeTime) > 0;
   }
@@ -898,7 +934,8 @@ if ('serviceWorker' in navigator) {
       !ev.isTeamEvent &&
       slotPlayerCount(teeTime) === 4 &&
       !slotHasFifthPlayer(teeTime) &&
-      eventFifthCount(ev, options) === 0
+      eventFifthCount(ev, options) === 0 &&
+      !eventHasOtherOpenBaseSlot(ev, teeTime, options)
     );
   }
 
@@ -913,17 +950,21 @@ if ('serviceWorker' in navigator) {
     const canAddFifth = slotCanAddFifth(ev, teeTime);
     const checkedInCount = slotCheckedInCount(teeTime);
     const openCount = Math.max(0, slotCap - count);
+    const addDisabled = ev && ev.isTeamEvent ? count >= slotCap : (count >= slotCap && !canAddFifth);
+    const addLabel = canAddFifth ? 'Add 5th' : 'Add Player';
     const allCheckedIn = count > 0 && checkedInCount === count;
     const urgentEmpty = !(ev && ev.isTeamEvent) && count === 0 && eventHasUrgentEmpty({ ...ev, teeTimes: [teeTime] });
     const slotClasses = ['starter-slot'];
     if (count === 0) slotClasses.push('starter-slot-empty');
     if (urgentEmpty) slotClasses.push('starter-slot-urgent');
     if (allCheckedIn) slotClasses.push('starter-slot-ready');
+    if (canAddFifth) slotClasses.push('starter-slot-can-add-fifth');
+    if (hasFifth) slotClasses.push('starter-slot-has-fifth');
     const playersMarkup = ((teeTime && teeTime.players) || []).map((player) => {
       const checkedIn = !!(player && player.checkedIn);
       const isFifth = !!(player && player.isFifth);
       const safeName = escapeHtml(String(player && player.name || 'Player'));
-      return `<li class="starter-player ${checkedIn ? 'is-checked' : ''}${isFifth ? ' is-fifth' : ''}">
+      return `<li class="starter-player ${checkedIn ? 'is-checked' : ''}${isFifth ? ' is-fifth' : ''}" draggable="true" data-drag-player="${escapeHtml(String(ev && ev._id || ''))}:${escapeHtml(String(teeTime && teeTime._id || ''))}:${escapeHtml(String(player && player._id || ''))}" title="${safeName}">
         <button class="starter-player-check ${checkedIn ? 'is-checked' : ''}" type="button" data-toggle-checkin="${ev._id}:${teeTime._id}:${player._id}:${checkedIn ? '1' : '0'}" aria-label="${checkedIn ? 'Clear check-in for' : 'Mark checked in for'} ${safeName}">${checkedIn ? '✓' : '○'}</button>
         <span class="starter-player-name"><span class="starter-player-text">${safeName}</span>${isFifth ? '<span class="player-status-badge player-status-badge-fifth">5th</span>' : ''}</span>
       </li>`;
@@ -937,13 +978,16 @@ if ('serviceWorker' in navigator) {
     const metaParts = [`${count}/${slotCap} in`, `${openCount} open`, `${checkedInCount} checked in`];
     if (hasFifth) metaParts.push('5th added');
     else if (canAddFifth) metaParts.push('5th available');
-    return `<article class="${slotClasses.join(' ')}">
+    return `<article class="${slotClasses.join(' ')}" data-drop-tee="${escapeHtml(String(ev && ev._id || ''))}:${escapeHtml(String(teeTime && teeTime._id || ''))}" data-slot-max="${slotCap}" data-player-count="${count}">
       <div class="starter-slot-header">
         <div>
           <div class="starter-slot-title">${escapeHtml(teeSlotLabel(ev, teeTime, idx))}</div>
           <div class="starter-slot-meta">${metaParts.join(' · ')}</div>
         </div>
-        <button class="starter-slot-bulk" type="button" data-checkin-all="${ev._id}:${teeTime._id}:${allCheckedIn ? '1' : '0'}" ${count ? '' : 'disabled'}>${allCheckedIn ? 'Clear' : 'Check In All'}</button>
+        <div class="starter-slot-actions">
+          <button class="starter-slot-add" type="button" data-add-player="${ev._id}:${teeTime._id}" ${addDisabled ? 'disabled' : ''}>${addLabel}</button>
+          <button class="starter-slot-bulk" type="button" data-checkin-all="${ev._id}:${teeTime._id}:${allCheckedIn ? '1' : '0'}" ${count ? '' : 'disabled'}>${allCheckedIn ? 'Clear' : 'Check In All'}</button>
+        </div>
       </div>
       <ul class="starter-player-list">${playersMarkup.join('')}</ul>
     </article>`;
@@ -1205,7 +1249,7 @@ if ('serviceWorker' in navigator) {
       mobileFilterStatus.textContent = `${dateLabel} · No events scheduled`;
       return;
     }
-    const filterLabel = MOBILE_FILTER_LABELS[activeMobileFilter] || MOBILE_FILTER_LABELS.all;
+    const filterLabel = mobileFilterLabel(activeMobileFilter);
     if (activeMobileFilter === 'all') {
       mobileFilterStatus.textContent = `${dateLabel} · ${totalCount} event${totalCount === 1 ? '' : 's'}`;
       return;
@@ -1521,14 +1565,23 @@ if ('serviceWorker' in navigator) {
     }
   }
 
+  function requestServiceWorkerRefresh() {
+    if (!('serviceWorker' in navigator)) return;
+    navigator.serviceWorker.getRegistration()
+      .then((registration) => {
+        if (!registration || typeof registration.update !== 'function') return;
+        return registration.update().catch(() => {});
+      })
+      .catch(() => {});
+  }
+
   function refreshOnResume(reason) {
-    if (!lastUpdatedAt) return;
+    if (document.hidden) return;
     const now = Date.now();
-    if (now - lastResumeRefreshAt < 1500) return;
-    if (now - lastUpdatedAt.getTime() < RESUME_REFRESH_MIN_GAP_MS) return;
-    if (lastHiddenAt && now - lastHiddenAt < QUICK_RESUME_IGNORE_MS) return;
+    if (now - lastResumeRefreshAt < RESUME_REFRESH_DEBOUNCE_MS) return;
     lastResumeRefreshAt = now;
     debugLog('info', `Resume refresh: ${reason}`);
+    requestServiceWorkerRefresh();
     load(true, { silent: true });
   }
 
@@ -1891,7 +1944,7 @@ if ('serviceWorker' in navigator) {
     if (allEvents.length === 0) {
       eventsEl.innerHTML = '<div style="color:#ffffff;padding:20px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.7)">No events scheduled for this date</div>';
     } else if (visibleEvents.length === 0) {
-      const filterLabel = MOBILE_FILTER_LABELS[activeMobileFilter] || MOBILE_FILTER_LABELS.all;
+      const filterLabel = mobileFilterLabel(activeMobileFilter);
       eventsEl.innerHTML = `<div style="color:#ffffff;padding:20px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.7)">No events match the ${escapeHtml(filterLabel.toLowerCase())} filter for this date</div>`;
     } else {
       if (starterMode) renderStarter(visibleEvents);
@@ -2075,10 +2128,7 @@ if ('serviceWorker' in navigator) {
   });
 
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      lastHiddenAt = Date.now();
-      return;
-    }
+    if (document.hidden) return;
     if (!document.hidden) refreshOnResume('visibility');
   });
   window.addEventListener('pageshow', (e) => {
@@ -2375,9 +2425,9 @@ if ('serviceWorker' in navigator) {
   }
 
   function clearTeeDragUi(){
-    document.querySelectorAll('.chip.is-dragging').forEach((node) => node.classList.remove('is-dragging'));
-    document.querySelectorAll('.tee.is-drop-target').forEach((node) => node.classList.remove('is-drop-target'));
-    document.querySelectorAll('.tee.is-drop-invalid').forEach((node) => node.classList.remove('is-drop-invalid'));
+    document.querySelectorAll('[data-drag-player].is-dragging').forEach((node) => node.classList.remove('is-dragging'));
+    document.querySelectorAll('[data-drop-tee].is-drop-target').forEach((node) => node.classList.remove('is-drop-target'));
+    document.querySelectorAll('[data-drop-tee].is-drop-invalid').forEach((node) => node.classList.remove('is-drop-invalid'));
   }
 
   function parseDragPlayerValue(value = ''){
@@ -2400,8 +2450,8 @@ if ('serviceWorker' in navigator) {
   function syncTeeDropUi(target){
     if (!teeDragState) return;
     clearTeeDragUi();
-    const dragChip = document.querySelector(`[data-drag-player="${CSS.escape(`${teeDragState.eventId}:${teeDragState.fromTeeId}:${teeDragState.playerId}`)}"]`);
-    if (dragChip) dragChip.classList.add('is-dragging');
+    const dragPlayer = document.querySelector(`[data-drag-player="${CSS.escape(`${teeDragState.eventId}:${teeDragState.fromTeeId}:${teeDragState.playerId}`)}"]`);
+    if (dragPlayer) dragPlayer.classList.add('is-dragging');
     if (!target) return;
     const [eventId, toTeeId] = String(target.dataset.dropTee || '').split(':');
     if (String(eventId) !== String(teeDragState.eventId) || String(toTeeId) === String(teeDragState.fromTeeId)) return;
@@ -2556,7 +2606,7 @@ if ('serviceWorker' in navigator) {
           confirmLabel: 'Confirm Player',
           hint: ev.isTeamEvent
             ? 'Only teams with room are listed.'
-            : 'Only tee times with room, plus the single event-wide 5th option when available, are listed.',
+            : 'Only tee times with room, plus the single event-wide 5th option after every other tee is full, are listed.',
           fields: [{
             name: 'name',
             label: 'Interested player',
@@ -2928,7 +2978,7 @@ if ('serviceWorker' in navigator) {
             ? `This tee time already has four golfers. The next player will be clearly marked as the 5th on ${slotLabel}.`
             : `Enter the golfer name to add to ${slotLabel}.`,
           confirmLabel: canAddFifth ? 'Add 5th Player' : 'Add Player',
-          hint: canAddFifth ? 'Only one marked 5th player is allowed per event.' : '',
+          hint: canAddFifth ? 'Only one marked 5th player is allowed per event, and every other tee time must already be full.' : '',
           fields: [{
             name: 'name',
             label: 'Player name',

@@ -27,16 +27,22 @@ function addMinutesToTime(time, minutesToAdd) {
 
 async function createEvent(base) {
   const uniqueOffset = Date.now() % (10 * 60);
+  const uniqueSuffix = `${Date.now()}-${Math.floor(Math.random() * 1000)}`;
   const teeTime = `${String(6 + Math.floor(uniqueOffset / 60)).padStart(2, '0')}:${String(uniqueOffset % 60).padStart(2, '0')}`;
+  const secondTeeTime = addMinutesToTime(teeTime, 9);
   const { response, body } = await api(base, '/api/events', {
     method: 'POST',
     body: JSON.stringify({
-      course: 'Fifth Limit Test',
+      course: `Fifth Limit Test ${uniqueSuffix}`,
       date: '2026-04-15',
-      notes: 'event fifth limit test',
+      notes: `event fifth limit test ${uniqueSuffix}`,
       isTeamEvent: false,
       teamSizeMax: 4,
-      teeTime
+      teeTime,
+      teeTimes: [
+        { time: teeTime, players: [] },
+        { time: secondTeeTime, players: [] }
+      ]
     })
   });
   assert.ok(response.ok, 'Event create failed');
@@ -67,11 +73,9 @@ async function main() {
 
   try {
     let event = await createEvent(base);
-    const extraTeeTime = addMinutesToTime(event.teeTimes[event.teeTimes.length - 1].time, 9);
-    event = await addTee(base, event._id, extraTeeTime);
-
     const firstTeeId = event.teeTimes[0]._id;
-    const secondTeeId = event.teeTimes.find((teeTime) => teeTime.time === extraTeeTime)._id;
+    const secondTeeId = event.teeTimes[1]._id;
+    const secondTeeTime = event.teeTimes[1].time;
 
     for (const name of ['A1', 'A2', 'A3', 'A4']) {
       const { response } = await addPlayer(base, event._id, firstTeeId, name);
@@ -79,21 +83,8 @@ async function main() {
     }
 
     let result = await addPlayer(base, event._id, firstTeeId, 'A5', true);
-    assert.ok(result.response.ok, 'Failed to add the first event-wide 5th player');
-    event = result.body;
-
-    const firstTeeAfterFifth = event.teeTimes.find((teeTime) => String(teeTime._id) === String(firstTeeId));
-    const firstFifthPlayer = (firstTeeAfterFifth.players || []).find((player) => player && player.isFifth);
-    assert.ok(firstFifthPlayer, 'Expected the first tee to have a marked 5th player');
-
-    for (const name of ['B1', 'B2', 'B3', 'B4']) {
-      const { response } = await addPlayer(base, event._id, secondTeeId, name);
-      assert.ok(response.ok, `Failed to add ${name} to second tee`);
-    }
-
-    result = await addPlayer(base, event._id, secondTeeId, 'B5', true);
-    assert.equal(result.response.status, 400, 'Direct add should reject a second 5-some');
-    assert.equal(result.body.error, 'only one 5-some is allowed per event');
+    assert.equal(result.response.status, 400, 'Direct add should reject a 5-some while another tee is still open');
+    assert.equal(result.body.error, 'fill every other tee time to four players before adding a 5th');
 
     result = await api(base, `/api/events/${event._id}/maybe`, {
       method: 'POST',
@@ -103,10 +94,55 @@ async function main() {
 
     result = await api(base, `/api/events/${event._id}/maybe/fill`, {
       method: 'POST',
+      body: JSON.stringify({ name: 'Waitlist Wendy', teeId: firstTeeId, asFifth: true })
+    });
+    assert.equal(result.response.status, 409, 'Maybe fill should reject a 5-some while another tee is still open');
+    assert.equal(result.body.error, 'fill every other tee time to four players before adding a 5th');
+
+    for (const name of ['B1', 'B2', 'B3', 'B4']) {
+      const { response } = await addPlayer(base, event._id, secondTeeId, name);
+      assert.ok(response.ok, `Failed to add ${name} to second tee`);
+    }
+
+    result = await addPlayer(base, event._id, firstTeeId, 'A5', true);
+    assert.ok(result.response.ok, 'Failed to add the first event-wide 5th player once other tees were full');
+    event = result.body;
+
+    const firstTeeAfterFifth = event.teeTimes.find((teeTime) => String(teeTime._id) === String(firstTeeId));
+    const firstFifthPlayer = (firstTeeAfterFifth.players || []).find((player) => player && player.isFifth);
+    assert.ok(firstFifthPlayer, 'Expected the first tee to have a marked 5th player');
+
+    result = await api(base, `/api/events/${event._id}/maybe/fill`, {
+      method: 'POST',
       body: JSON.stringify({ name: 'Waitlist Wendy', teeId: secondTeeId, asFifth: true })
     });
     assert.equal(result.response.status, 409, 'Maybe fill should reject a second 5-some');
     assert.equal(result.body.error, 'only one 5-some is allowed per event');
+
+    result = await addPlayer(base, event._id, secondTeeId, 'B5', true);
+    assert.equal(result.response.status, 400, 'Direct add should reject a second 5-some');
+    assert.equal(result.body.error, 'only one 5-some is allowed per event');
+
+    const thirdTeeTime = addMinutesToTime(secondTeeTime, 9);
+    event = await addTee(base, event._id, thirdTeeTime);
+    const thirdTeeId = event.teeTimes.find((teeTime) => teeTime.time === thirdTeeTime)._id;
+
+    result = await api(base, `/api/events/${event._id}/move-player`, {
+      method: 'POST',
+      body: JSON.stringify({
+        fromTeeId: firstTeeId,
+        toTeeId: secondTeeId,
+        playerId: firstFifthPlayer._id,
+        asFifth: true
+      })
+    });
+    assert.equal(result.response.status, 400, 'Moving a 5th should fail while another tee is still open');
+    assert.equal(result.body.error, 'fill every other tee time to four players before adding a 5th');
+
+    for (const name of ['C1', 'C2', 'C3', 'C4']) {
+      const { response } = await addPlayer(base, event._id, thirdTeeId, name);
+      assert.ok(response.ok, `Failed to add ${name} to third tee`);
+    }
 
     result = await api(base, `/api/events/${event._id}/move-player`, {
       method: 'POST',
