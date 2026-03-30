@@ -24,7 +24,7 @@
   --ink:#1a5a1a; --ink-2:#2d7a2d; --line:rgba(29,122,29,.15); --radius:16px;
   --shadow:0 10px 30px rgba(26,90,26,.25); --shadow-sm:0 4px 12px rgba(26,90,26,.15);
   --shadow-green:0 8px 24px rgba(29,122,29,.3);
-  --site-background-image:url('./assets/golf-background2.jpg');
+  --site-background-image:url('./assets/golf-background3.jpg');
 }
 *{box-sizing:border-box} html,body{height:100%}
 body{margin:0;color:var(--ink);font:400 16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
@@ -34,7 +34,7 @@ body{margin:0;color:var(--ink);font:400 16px/1.5 system-ui,-apple-system,Segoe U
   background-blend-mode:normal, overlay, normal;
 }
 body[data-site-group="main"]{
-  --site-background-image:url('./assets/golf-background2.jpg');
+  --site-background-image:url('./assets/golf-background3.jpg');
 }
 body[data-site-group="main"]{
   --golf-green-dark:#0f3d2e;
@@ -99,7 +99,7 @@ body[data-site-group="main"]::after{
   50%{transform:scale(1.07);opacity:1}
 }
 body[data-site-group="seniors"]{
-  --site-background-image:url('./assets/golf-background3.jpg');
+  --site-background-image:url('./assets/bandon1.jpg');
 }
 body[data-site-group="seniors"]{
   --golf-green-dark:#0c4a6e;

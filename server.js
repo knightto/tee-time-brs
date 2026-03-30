@@ -1494,6 +1494,17 @@ async function areSubscriberChangeNotificationsEnabled(groupSlug = DEFAULT_SITE_
   }
 }
 
+async function areTeeTimeEventLifecycleNotificationsEnabled(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  if (!Settings) return false;
+  try {
+    const setting = await Settings.findOne({ ...groupScopeFilter(groupSlug), key: 'teeTimeEventLifecycleNotificationsEnabled' });
+    return setting ? setting.value === true : false;
+  } catch (e) {
+    console.error('Error checking tee-time event lifecycle notification settings:', e);
+    return false;
+  }
+}
+
 const SCHEDULER_SETTINGS_CACHE_TTL_MS = 30 * 1000;
 let schedulerEnabledCache = new Map();
 let scheduledEmailRulesCache = new Map();
@@ -1756,6 +1767,16 @@ async function sendSubscriberChangeEmail(subject, html, options = {}) {
     return { ok: true, sent: 0, disabled: true, changeNotificationsDisabled: true };
   }
   return sendEmailToAll(subject, html, { ...options, groupSlug });
+}
+
+async function sendTeeTimeEventLifecycleEmail(subject, html, options = {}) {
+  const groupSlug = normalizeGroupSlug(options.groupSlug);
+  const lifecycleNotificationsEnabled = await areTeeTimeEventLifecycleNotificationsEnabled(groupSlug);
+  if (!lifecycleNotificationsEnabled) {
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'tee-time event lifecycle notifications disabled for group, skipping email', groupSlug }));
+    return { ok: true, sent: 0, disabled: true, teeTimeEventLifecycleDisabled: true };
+  }
+  return sendSubscriberChangeEmail(subject, html, { ...options, groupSlug });
 }
 
 /* ---------------- Formatting + dates ---------------- */
@@ -3846,15 +3867,17 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
     }
     res.status(201).json(created);
     const eventUrl = buildSiteEventUrl(created.groupSlug, created._id);
-    await sendSubscriberChangeEmail(`New Event: ${created.course} (${fmt.dateISO(created.date)})`,
-      frame('A New Golf Event Has Been Scheduled!',
-            `<p>The following event is now open for sign-up:</p>
-             <p><strong>Event:</strong> ${esc(fmt.dateShortTitle(created.date))}</p>
-             <p><strong>Course:</strong> ${esc(created.course||'')}</p>
-             <p><strong>Date:</strong> ${esc(fmt.dateLong(created.date))}</p>
-             ${(!created.isTeamEvent && created.teeTimes?.[0]?.time) ? `<p><strong>First Tee Time:</strong> ${esc(fmt.tee(created.teeTimes[0].time))}</p>`:''}
-             <p>Please <a href="${eventUrl}" style="color:#166534;text-decoration:underline">click here to view this event directly</a> or visit the sign-up page to secure your spot!</p>${btn('Go to Sign-up Page', eventUrl)}`),
-      { groupSlug: created.groupSlug });
+    if (normalizeGroupSlug(created.groupSlug) === 'seniors' && !created.isTeamEvent) {
+      await sendTeeTimeEventLifecycleEmail(`New Event: ${created.course} (${fmt.dateISO(created.date)})`,
+        frame('A New Golf Event Has Been Scheduled!',
+              `<p>The following event is now open for sign-up:</p>
+               <p><strong>Event:</strong> ${esc(fmt.dateShortTitle(created.date))}</p>
+               <p><strong>Course:</strong> ${esc(created.course||'')}</p>
+               <p><strong>Date:</strong> ${esc(fmt.dateLong(created.date))}</p>
+               ${created.teeTimes?.[0]?.time ? `<p><strong>First Tee Time:</strong> ${esc(fmt.tee(created.teeTimes[0].time))}</p>`:''}
+               <p>Please <a href="${eventUrl}" style="color:#166534;text-decoration:underline">click here to view this event directly</a> or visit the sign-up page to secure your spot!</p>${btn('Go to Sign-up Page', eventUrl)}`),
+        { groupSlug: created.groupSlug });
+    }
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
@@ -3911,15 +3934,17 @@ app.delete('/api/events/:id', async (req, res) => {
   res.json({ ok: true });
   
   // Notify subscribers about the cancellation (non-blocking)
-  sendSubscriberChangeEmail(`Event Cancelled: ${del.course} (${fmt.dateISO(del.date)})`,
-    frame('Golf Event Cancelled',
-          `<p>The following event has been cancelled:</p>
-           <p><strong>Event:</strong> ${esc(fmt.dateShortTitle(del.date))}</p>
-           <p><strong>Course:</strong> ${esc(del.course||'')}</p>
-           <p><strong>Date:</strong> ${esc(fmt.dateLong(del.date))}</p>
-           <p>We apologize for any inconvenience.</p>${btn('View Other Events', buildGroupAwarePath(SITE_URL, del.groupSlug))}`, del.groupSlug),
-    { groupSlug: del.groupSlug })
-    .catch(err => console.error('Failed to send deletion emails:', err));
+  if (normalizeGroupSlug(del.groupSlug) === 'seniors' && !del.isTeamEvent) {
+    sendTeeTimeEventLifecycleEmail(`Event Cancelled: ${del.course} (${fmt.dateISO(del.date)})`,
+      frame('Golf Event Cancelled',
+            `<p>The following event has been cancelled:</p>
+             <p><strong>Event:</strong> ${esc(fmt.dateShortTitle(del.date))}</p>
+             <p><strong>Course:</strong> ${esc(del.course||'')}</p>
+             <p><strong>Date:</strong> ${esc(fmt.dateLong(del.date))}</p>
+             <p>We apologize for any inconvenience.</p>${btn('View Other Events', buildGroupAwarePath(SITE_URL, del.groupSlug))}`, del.groupSlug),
+      { groupSlug: del.groupSlug })
+      .catch(err => console.error('Failed to send deletion emails:', err));
+  }
 });
 
 app.post('/api/events/:id/request-extra-tee-time', async (req, res) => {
@@ -5418,6 +5443,45 @@ app.put('/api/admin/settings/subscriber-change-notifications', async (req, res) 
     );
 
     res.json({ ok: true, subscriberChangeNotificationsEnabled, groupSlug });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/settings/tee-time-event-lifecycle-notifications', async (req, res) => {
+  if (!isSiteAdmin(req)) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  try {
+    const groupSlug = getGroupSlug(req);
+    const enabled = await areTeeTimeEventLifecycleNotificationsEnabled(groupSlug);
+    res.json({ teeTimeEventLifecycleNotificationsEnabled: enabled, groupSlug });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/admin/settings/tee-time-event-lifecycle-notifications', async (req, res) => {
+  if (!isSiteAdmin(req)) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  try {
+    if (!Settings) return res.status(500).json({ error: 'Settings model not available' });
+
+    const { teeTimeEventLifecycleNotificationsEnabled } = req.body || {};
+    if (typeof teeTimeEventLifecycleNotificationsEnabled !== 'boolean') {
+      return res.status(400).json({ error: 'teeTimeEventLifecycleNotificationsEnabled must be a boolean' });
+    }
+    const groupSlug = getGroupSlug(req);
+    await Settings.findOneAndUpdate(
+      scopedSettingQuery(groupSlug, 'teeTimeEventLifecycleNotificationsEnabled'),
+      { groupSlug, key: 'teeTimeEventLifecycleNotificationsEnabled', value: teeTimeEventLifecycleNotificationsEnabled },
+      { upsert: true, new: true }
+    );
+
+    res.json({ ok: true, teeTimeEventLifecycleNotificationsEnabled, groupSlug });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

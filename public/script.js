@@ -189,8 +189,8 @@ if ('serviceWorker' in navigator) {
   let currentSiteProfile = { ...defaultSiteProfile };
   let currentSiteLinks = {};
   const groupBackgroundImageMap = Object.freeze({
-    main: '/assets/golf-background2.jpg',
-    seniors: '/assets/golf-background3.jpg',
+    main: '/assets/golf-background3.jpg',
+    seniors: '/assets/bandon1.jpg',
   });
   const initialSelectedDateFromUrl = (() => {
     try {
