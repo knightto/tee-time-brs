@@ -78,7 +78,7 @@ app.set('trust proxy', 1);
 app.use(express.json());
 const PORT = process.env.PORT || 5000;
 const ADMIN_DELETE_CODE = process.env.ADMIN_DELETE_CODE || '';
-const SITE_ADMIN_WRITE_CODE = process.env.SITE_ADMIN_WRITE_CODE || '2000';
+const SITE_ADMIN_WRITE_CODE = process.env.SITE_ADMIN_WRITE_CODE || '123';
 const ADMIN_DESTRUCTIVE_CODE = process.env.ADMIN_DESTRUCTIVE_CODE || ADMIN_DELETE_CODE;
 const ADMIN_DESTRUCTIVE_CONFIRM_CODE = process.env.ADMIN_DESTRUCTIVE_CONFIRM_CODE || '';
 const SITE_URL = (process.env.SITE_URL || 'https://tee-time-brs.onrender.com/').replace(/\/$/, '') + '/';
@@ -737,7 +737,7 @@ app.post('/webhooks/resend', async (req, res) => {
           // Send notification email to all subscribers (same as /api/events) for brand new events only
           try {
             const eventUrl = buildSiteEventUrl(created.groupSlug || requestGroupSlug, created._id);
-            await sendEmailToAll(`New Event: ${created.course} (${fmt.dateISO(created.date)})`,
+            await sendSubscriberChangeEmail(`New Event: ${created.course} (${fmt.dateISO(created.date)})`,
               frame('A New Golf Event Has Been Scheduled!',
                 `<p>The following event is now open for sign-up:</p>
                  <p><strong>Event:</strong> ${esc(fmt.dateShortTitle(created.date))}</p>
@@ -765,7 +765,7 @@ app.post('/webhooks/resend', async (req, res) => {
             // Notify subscribers about the cancellation (non-blocking)
             const teeMatch = (primary.teeTimes || []).find(tt => tt && tt.time === eventPayload.teeTime);
             const teeLabel = teeMatch && teeMatch.time ? fmt.tee(teeMatch.time) : null;
-            sendEmailToAll(
+            sendSubscriberChangeEmail(
               `Event Cancelled: ${primary.course || 'Event'} (${fmt.dateISO(primary.date)})`,
               frame('Golf Event Cancelled',
                 `<p>The following event has been cancelled:</p>
@@ -1483,6 +1483,17 @@ async function areNotificationsEnabled(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   }
 }
 
+async function areSubscriberChangeNotificationsEnabled(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  if (!Settings) return true;
+  try {
+    const setting = await Settings.findOne({ ...groupScopeFilter(groupSlug), key: 'subscriberChangeNotificationsEnabled' });
+    return setting ? setting.value !== false : true;
+  } catch (e) {
+    console.error('Error checking subscriber change notification settings:', e);
+    return true;
+  }
+}
+
 const SCHEDULER_SETTINGS_CACHE_TTL_MS = 30 * 1000;
 let schedulerEnabledCache = new Map();
 let scheduledEmailRulesCache = new Map();
@@ -1567,6 +1578,38 @@ async function getScheduledEmailRules(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   }
   scheduledEmailRulesCache.set(cacheKey, { value: rules, ts: now });
   return rules;
+}
+
+function buildScheduledJobClaimKey(jobKey = '', scope = '') {
+  return `scheduledJobClaim:${String(jobKey || '').trim()}:${String(scope || '').trim()}`;
+}
+
+async function claimScheduledJobRunOnce(groupSlug = DEFAULT_SITE_GROUP_SLUG, jobKey = '', scope = '') {
+  if (!Settings) return true;
+  const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
+  const key = buildScheduledJobClaimKey(jobKey, scope);
+  try {
+    const result = await Settings.updateOne(
+      { groupSlug: normalizedGroupSlug, key },
+      {
+        $setOnInsert: {
+          groupSlug: normalizedGroupSlug,
+          key,
+          value: {
+            claimedAt: new Date().toISOString(),
+            jobKey: String(jobKey || '').trim(),
+            scope: String(scope || '').trim(),
+          },
+        },
+      },
+      { upsert: true }
+    );
+    return !!(result && result.upsertedCount);
+  } catch (error) {
+    if (error && error.code === 11000) return false;
+    console.error('Error claiming scheduled job run:', error);
+    return false;
+  }
 }
 
 function normalizeBackupSettings(rawValue) {
@@ -1703,6 +1746,16 @@ async function sendEmailToAll(subject, html, options = {}) {
     } catch {}
   }
   return { ok:true, sent };
+}
+
+async function sendSubscriberChangeEmail(subject, html, options = {}) {
+  const groupSlug = normalizeGroupSlug(options.groupSlug);
+  const changeNotificationsEnabled = await areSubscriberChangeNotificationsEnabled(groupSlug);
+  if (!changeNotificationsEnabled) {
+    console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'Subscriber change notifications disabled for group, skipping email', groupSlug }));
+    return { ok: true, sent: 0, disabled: true, changeNotificationsDisabled: true };
+  }
+  return sendEmailToAll(subject, html, { ...options, groupSlug });
 }
 
 /* ---------------- Formatting + dates ---------------- */
@@ -1948,9 +2001,11 @@ function getAllowedSiteAdminCodes(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   const storedConfig = getGroupAccessControlConfig(normalizedGroupSlug);
   const storedAdminCode = cleanAccessCode(storedConfig.adminCode || '');
   const overrideCode = cleanAccessCode(GROUP_SITE_ADMIN_CODE_OVERRIDES[normalizedGroupSlug] || '');
+  if (normalizedGroupSlug === DEFAULT_SITE_GROUP_SLUG && SITE_ADMIN_WRITE_CODE) {
+    allowedCodes.push(cleanAccessCode(SITE_ADMIN_WRITE_CODE));
+  }
   if (storedAdminCode) allowedCodes.push(storedAdminCode);
   else if (overrideCode) allowedCodes.push(overrideCode);
-  else if (normalizedGroupSlug === DEFAULT_SITE_GROUP_SLUG && SITE_ADMIN_WRITE_CODE) allowedCodes.push(cleanAccessCode(SITE_ADMIN_WRITE_CODE));
   else if (SITE_ADMIN_WRITE_CODE) {
     // Backward-compatible fallback for older scoped groups created before dedicated group codes were stored.
     allowedCodes.push(cleanAccessCode(SITE_ADMIN_WRITE_CODE));
@@ -3791,7 +3846,7 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
     }
     res.status(201).json(created);
     const eventUrl = buildSiteEventUrl(created.groupSlug, created._id);
-    await sendEmailToAll(`New Event: ${created.course} (${fmt.dateISO(created.date)})`,
+    await sendSubscriberChangeEmail(`New Event: ${created.course} (${fmt.dateISO(created.date)})`,
       frame('A New Golf Event Has Been Scheduled!',
             `<p>The following event is now open for sign-up:</p>
              <p><strong>Event:</strong> ${esc(fmt.dateShortTitle(created.date))}</p>
@@ -3856,7 +3911,7 @@ app.delete('/api/events/:id', async (req, res) => {
   res.json({ ok: true });
   
   // Notify subscribers about the cancellation (non-blocking)
-  sendEmailToAll(`Event Cancelled: ${del.course} (${fmt.dateISO(del.date)})`,
+  sendSubscriberChangeEmail(`Event Cancelled: ${del.course} (${fmt.dateISO(del.date)})`,
     frame('Golf Event Cancelled',
           `<p>The following event has been cancelled:</p>
            <p><strong>Event:</strong> ${esc(fmt.dateShortTitle(del.date))}</p>
@@ -4068,7 +4123,7 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
     );
     console.log('[tee-time] Team added', { eventId: ev._id, teamName: name, time });
     const eventUrl = buildSiteEventUrl(ev.groupSlug, ev._id);
-    sendEmailToAll(
+    sendSubscriberChangeEmail(
       `New Team Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
       frame('New Team Added!',
         `<p>A new team has been added:</p>
@@ -4121,7 +4176,7 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
   await ev.save();
   console.log('[tee-time] Tee time added', { eventId: ev._id, time: newTime });
   const eventUrl = buildSiteEventUrl(ev.groupSlug, ev._id, { time: newTime });
-  sendEmailToAll(
+  sendSubscriberChangeEmail(
     `New Tee Time Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
     frame('New Tee Time Added!',
       `<p>A new tee time has been added:</p>
@@ -4222,7 +4277,7 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
     await ev.save();
 
     // Notify subscribers (existing behavior) - fire and forget
-    sendEmailToAll(
+    sendSubscriberChangeEmail(
       `${ev.isTeamEvent ? 'Team' : 'Tee Time'} Removed: ${ev.course} (${fmt.dateISO(ev.date)})`,
       frame(`${ev.isTeamEvent ? 'Team' : 'Tee Time'} Removed`,
         `<p>A ${ev.isTeamEvent ? 'team' : 'tee time'} has been removed:</p>
@@ -4341,7 +4396,7 @@ app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPla
   // Send notification email only if notifications are enabled
   if (ev.notificationsEnabled !== false) {
     const teeLabel = getTeeLabel(ev, tt._id);
-    sendEmailToAll(
+    sendSubscriberChangeEmail(
       `Player Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
       frame('Player Signed Up!',
         `<p><strong>${esc(trimmedName)}</strong> has signed up for:</p>
@@ -4354,7 +4409,7 @@ app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPla
 
     const oneSpotLeft = tt.players.length === Math.max(1, maxSize - 1);
     if (oneSpotLeft) {
-      sendEmailToAll(
+      sendSubscriberChangeEmail(
         `Need 1 More: ${ev.course} (${fmt.dateISO(ev.date)})`,
         frame('One Spot Left',
           `<p>${esc(ev.isTeamEvent ? 'Team' : 'Tee time')} <strong>${esc(teeLabel)}</strong> has just one spot left.</p>
@@ -4410,7 +4465,7 @@ app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res
   });
 
     if (ev.notificationsEnabled !== false) {
-      sendEmailToAll(
+      sendSubscriberChangeEmail(
         `Player Removed: ${ev.course} (${fmt.dateISO(ev.date)})`,
         frame('Player Removed',
           `<p><strong>${esc(playerName)}</strong> has been removed from:</p>
@@ -5108,7 +5163,7 @@ app.post('/api/events/:id/maybe/fill', async (req, res) => {
     });
 
     if (ev.notificationsEnabled !== false) {
-      sendEmailToAll(
+      sendSubscriberChangeEmail(
         `Player Confirmed: ${ev.course} (${fmt.dateISO(ev.date)})`,
         frame('Maybe List Player Confirmed',
           `<p><strong>${esc(pickedName)}</strong> moved from maybe list to active ${esc(ev.isTeamEvent ? 'team' : 'tee time')}.</p>
@@ -5312,7 +5367,10 @@ app.put('/api/admin/settings/notifications', async (req, res) => {
   try {
     if (!Settings) return res.status(500).json({ error: 'Settings model not available' });
     
-    const { notificationsEnabled } = req.body;
+    const { notificationsEnabled } = req.body || {};
+    if (typeof notificationsEnabled !== 'boolean') {
+      return res.status(400).json({ error: 'notificationsEnabled must be a boolean' });
+    }
     const groupSlug = getGroupSlug(req);
     await Settings.findOneAndUpdate(
       scopedSettingQuery(groupSlug, 'notificationsEnabled'),
@@ -5321,6 +5379,45 @@ app.put('/api/admin/settings/notifications', async (req, res) => {
     );
     
     res.json({ ok: true, notificationsEnabled, groupSlug });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/settings/subscriber-change-notifications', async (req, res) => {
+  if (!isSiteAdmin(req)) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  try {
+    const groupSlug = getGroupSlug(req);
+    const enabled = await areSubscriberChangeNotificationsEnabled(groupSlug);
+    res.json({ subscriberChangeNotificationsEnabled: enabled, groupSlug });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.put('/api/admin/settings/subscriber-change-notifications', async (req, res) => {
+  if (!isSiteAdmin(req)) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  try {
+    if (!Settings) return res.status(500).json({ error: 'Settings model not available' });
+
+    const { subscriberChangeNotificationsEnabled } = req.body || {};
+    if (typeof subscriberChangeNotificationsEnabled !== 'boolean') {
+      return res.status(400).json({ error: 'subscriberChangeNotificationsEnabled must be a boolean' });
+    }
+    const groupSlug = getGroupSlug(req);
+    await Settings.findOneAndUpdate(
+      scopedSettingQuery(groupSlug, 'subscriberChangeNotificationsEnabled'),
+      { groupSlug, key: 'subscriberChangeNotificationsEnabled', value: subscriberChangeNotificationsEnabled },
+      { upsert: true, new: true }
+    );
+
+    res.json({ ok: true, subscriberChangeNotificationsEnabled, groupSlug });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -5366,7 +5463,7 @@ app.put('/api/admin/settings/scheduler', async (req, res) => {
       { groupSlug, key: 'schedulerEnabled', value: enabled },
       { upsert: true, new: true }
     );
-    schedulerEnabledCache.set(groupSlug, { value: enabled, ts: Date.now() });
+    schedulerEnabledCache.set(normalizeGroupSlug(groupSlug), { value: enabled, ts: Date.now() });
     res.json({ ok: true, schedulerEnabled: enabled, lockedByEnv: false, groupSlug });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -5410,7 +5507,7 @@ app.put('/api/admin/settings/scheduled-email-rules', async (req, res) => {
       { groupSlug, key: 'scheduledEmailRules', value: updated },
       { upsert: true, new: true }
     );
-    scheduledEmailRulesCache.set(groupSlug, { value: updated, ts: Date.now() });
+    scheduledEmailRulesCache.set(normalizeGroupSlug(groupSlug), { value: updated, ts: Date.now() });
     res.json({ ok: true, rules: updated, groupSlug });
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -5974,6 +6071,7 @@ if (require.main === module && !SCHEDULER_ENV_DISABLED) {
   const lastRunForYMD24ByGroup = new Map();
   const lastRunForYMD48ByGroup = new Map();
   const lastBrianAlertForYMDByGroup = new Map();
+  const lastNearlyFullAlertForYMDByGroup = new Map();
   const lastAdminCheckHourByGroup = new Map();
   const lastWeatherRefreshHourByGroup = new Map();
   let lastMonthlyBackupKey = null;
@@ -6013,28 +6111,39 @@ if (require.main === module && !SCHEDULER_ENV_DISABLED) {
 
         if (emailRules.brianTomorrowEmptyClubAlert && hour === 16 && minute === 0 && lastBrianAlertForYMDByGroup.get(groupSlug) !== ymdTomorrow) {
           lastBrianAlertForYMDByGroup.set(groupSlug, ymdTomorrow);
-          const result = await runBrianJonesTomorrowEmptyTeeAlert('auto-16:00', groupSlug);
-          console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'brian-empty-alert-complete', targetYMD: ymdTomorrow, result, groupSlug }));
+          if (await claimScheduledJobRunOnce(groupSlug, 'brianTomorrowEmptyClubAlert', ymdTomorrow)) {
+            const result = await runBrianJonesTomorrowEmptyTeeAlert('auto-16:00', groupSlug);
+            console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'brian-empty-alert-complete', targetYMD: ymdTomorrow, result, groupSlug }));
+          }
         }
 
         if (hour === 17 && minute === 0) {
           if (emailRules.reminder48Hour && lastRunForYMD48ByGroup.get(groupSlug) !== ymd48) {
             lastRunForYMD48ByGroup.set(groupSlug, ymd48);
-            await runReminderIfNeeded('auto-17:00-48hr', 2, groupSlug);
+            if (await claimScheduledJobRunOnce(groupSlug, 'reminder48Hour', ymd48)) {
+              await runReminderIfNeeded('auto-17:00-48hr', 2, groupSlug);
+            }
           }
           if (emailRules.reminder24Hour && lastRunForYMD24ByGroup.get(groupSlug) !== todayLocalYMD) {
             lastRunForYMD24ByGroup.set(groupSlug, todayLocalYMD);
-            await runReminderIfNeeded('auto-17:00-24hr', 1, groupSlug);
+            if (await claimScheduledJobRunOnce(groupSlug, 'reminder24Hour', todayLocalYMD)) {
+              await runReminderIfNeeded('auto-17:00-24hr', 1, groupSlug);
+            }
           }
-          if (emailRules.nearlyFullTeeTimes) {
-            await alertNearlyFullTeeTimes(groupSlug);
+          if (emailRules.nearlyFullTeeTimes && lastNearlyFullAlertForYMDByGroup.get(groupSlug) !== todayLocalYMD) {
+            lastNearlyFullAlertForYMDByGroup.set(groupSlug, todayLocalYMD);
+            if (await claimScheduledJobRunOnce(groupSlug, 'nearlyFullTeeTimes', todayLocalYMD)) {
+              await alertNearlyFullTeeTimes(groupSlug);
+            }
           }
         }
 
         if (emailRules.adminEmptyTeeAlerts && [0, 6, 12, 18].includes(hour) && minute === 0 && lastAdminCheckHourByGroup.get(groupSlug) !== hour) {
           lastAdminCheckHourByGroup.set(groupSlug, hour);
-          const result = await checkEmptyTeeTimesForAdminAlert(groupSlug);
-          console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'admin-check-complete', result, groupSlug }));
+          if (await claimScheduledJobRunOnce(groupSlug, 'adminEmptyTeeAlerts', `${todayLocalYMD}:${hour}`)) {
+            const result = await checkEmptyTeeTimesForAdminAlert(groupSlug);
+            console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'admin-check-complete', result, groupSlug }));
+          }
           if (hour === 0) lastAdminCheckHourByGroup.delete(groupSlug);
         }
 

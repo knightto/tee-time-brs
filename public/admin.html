@@ -1535,6 +1535,19 @@
 
       <div class="toggle-card" style="margin-top:10px;">
         <div>
+          <p class="toggle-title">Subscriber Change Emails</p>
+          <p class="toggle-text">Send subscriber emails for immediate event and tee-time changes such as new events, cancellations, sign-ups, removals, and added tee times.</p>
+        </div>
+        <label class="toggle-control">
+          <span id="changeNotifStatusText" class="toggle-status">Loading...</span>
+          <input type="checkbox" id="changeNotifToggle" onchange="toggleSubscriberChangeNotifications(this.checked)"
+                 class="toggle-input">
+        </label>
+      </div>
+      <div id="changeNotifResult" class="test-result"></div>
+
+      <div class="toggle-card" style="margin-top:10px;">
+        <div>
           <p class="toggle-title">Automated Scheduler</p>
           <p class="toggle-text">Runs timed jobs (4 PM empty-tee club alert, 5 PM reminders, admin checks, and weather refresh).</p>
         </div>
@@ -2812,6 +2825,7 @@
       loadSubscribers();
       loadBackups();
       loadNotificationSettings();
+      loadSubscriberChangeNotificationSettings();
       loadSchedulerSettings();
       loadScheduledEmailRuleSettings();
       checkGolfApiHealth(); // Check API health on load
@@ -3347,8 +3361,56 @@
       }
     }
 
+    async function loadSubscriberChangeNotificationSettings() {
+      try {
+        const response = await fetch(`/api/admin/settings/subscriber-change-notifications?code=${encodeURIComponent(ADMIN_CODE)}`);
+        if (!response.ok) throw new Error('Failed to load change notification settings');
+
+        const data = await response.json();
+        const checkbox = document.getElementById('changeNotifToggle');
+        const statusText = document.getElementById('changeNotifStatusText');
+
+        checkbox.checked = data.subscriberChangeNotificationsEnabled;
+        statusText.textContent = data.subscriberChangeNotificationsEnabled ? 'Enabled' : 'Disabled';
+        statusText.style.color = data.subscriberChangeNotificationsEnabled ? '#059669' : '#dc2626';
+      } catch (error) {
+        console.error('Error loading subscriber change notification settings:', error);
+      }
+    }
+
+    async function toggleSubscriberChangeNotifications(enabled) {
+      try {
+        showChangeNotifResult('Updating settings...');
+        const response = await fetch(`/api/admin/settings/subscriber-change-notifications?code=${encodeURIComponent(ADMIN_CODE)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subscriberChangeNotificationsEnabled: enabled })
+        });
+
+        if (!response.ok) throw new Error('Failed to update');
+
+        const statusText = document.getElementById('changeNotifStatusText');
+        statusText.textContent = enabled ? 'Enabled' : 'Disabled';
+        statusText.style.color = enabled ? '#059669' : '#dc2626';
+
+        showChangeNotifResult(`Subscriber change emails ${enabled ? 'enabled' : 'disabled'}`);
+      } catch (error) {
+        showChangeNotifResult(`Error: ${error.message}`, false);
+        loadSubscriberChangeNotificationSettings();
+      }
+    }
+
     function showNotifResult(message, isSuccess = true) {
       const resultDiv = document.getElementById('notifResult');
+      resultDiv.textContent = message;
+      resultDiv.style.display = 'block';
+      resultDiv.style.background = isSuccess ? '#d1fae5' : '#fee2e2';
+      resultDiv.style.color = isSuccess ? '#065f46' : '#991b1b';
+      setTimeout(() => { resultDiv.style.display = 'none'; }, 3000);
+    }
+
+    function showChangeNotifResult(message, isSuccess = true) {
+      const resultDiv = document.getElementById('changeNotifResult');
       resultDiv.textContent = message;
       resultDiv.style.display = 'block';
       resultDiv.style.background = isSuccess ? '#d1fae5' : '#fee2e2';
@@ -3364,18 +3426,20 @@
         const checkbox = document.getElementById('schedulerToggle');
         const statusText = document.getElementById('schedulerStatusText');
 
+        schedulerSettingsState.enabled = !!data.schedulerEnabled;
+        schedulerSettingsState.lockedByEnv = !!data.lockedByEnv;
         checkbox.checked = !!data.schedulerEnabled;
         if (data.lockedByEnv) {
           checkbox.disabled = true;
           statusText.textContent = 'Locked Off';
           statusText.style.color = '#b45309';
-          setScheduledRuleToggleDisabled(true);
+          updateScheduledRuleInteractivity();
           showSchedulerResult('ℹ Scheduler is locked by ENABLE_SCHEDULER=0 in environment.', true, true);
           return;
         }
 
         checkbox.disabled = false;
-        setScheduledRuleToggleDisabled(false);
+        updateScheduledRuleInteractivity();
         statusText.textContent = data.schedulerEnabled ? 'Enabled' : 'Disabled';
         statusText.style.color = data.schedulerEnabled ? '#059669' : '#dc2626';
       } catch (error) {
@@ -3395,10 +3459,13 @@
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) throw new Error(payload.error || 'Failed to update scheduler setting');
 
+        schedulerSettingsState.enabled = !!payload.schedulerEnabled;
+        schedulerSettingsState.lockedByEnv = !!payload.lockedByEnv;
         const statusText = document.getElementById('schedulerStatusText');
-        statusText.textContent = enabled ? 'Enabled' : 'Disabled';
-        statusText.style.color = enabled ? '#059669' : '#dc2626';
-        showSchedulerResult(`✅ Scheduler ${enabled ? 'enabled' : 'disabled'}`);
+        statusText.textContent = payload.schedulerEnabled ? 'Enabled' : 'Disabled';
+        statusText.style.color = payload.schedulerEnabled ? '#059669' : '#dc2626';
+        updateScheduledRuleInteractivity();
+        showSchedulerResult(`✅ Scheduler ${payload.schedulerEnabled ? 'enabled' : 'disabled'}`);
       } catch (error) {
         showSchedulerResult(`❌ Error: ${error.message}`, false);
         loadSchedulerSettings();
@@ -3414,6 +3481,11 @@
       if (!persist) setTimeout(() => { resultDiv.style.display = 'none'; }, 3000);
     }
 
+    const schedulerSettingsState = {
+      enabled: true,
+      lockedByEnv: false,
+    };
+
     const scheduledEmailRuleUi = {
       brianTomorrowEmptyClubAlert: { toggleId: 'ruleToggleBrianTomorrowEmptyClubAlert', statusId: 'ruleStatusBrianTomorrowEmptyClubAlert', label: '4 PM Club Alert' },
       reminder48Hour: { toggleId: 'ruleToggleReminder48Hour', statusId: 'ruleStatusReminder48Hour', label: '5 PM Reminder (48 Hours)' },
@@ -3421,6 +3493,10 @@
       nearlyFullTeeTimes: { toggleId: 'ruleToggleNearlyFullTeeTimes', statusId: 'ruleStatusNearlyFullTeeTimes', label: '5 PM Nearly-Full Alert' },
       adminEmptyTeeAlerts: { toggleId: 'ruleToggleAdminEmptyTeeAlerts', statusId: 'ruleStatusAdminEmptyTeeAlerts', label: 'Admin Empty-Tee Alerts' }
     };
+
+    function updateScheduledRuleInteractivity() {
+      setScheduledRuleToggleDisabled(schedulerSettingsState.lockedByEnv || !schedulerSettingsState.enabled);
+    }
 
     function setScheduledRuleToggleDisabled(disabled) {
       Object.values(scheduledEmailRuleUi).forEach(meta => {
@@ -3447,6 +3523,7 @@
         if (!response.ok) throw new Error('Failed to load scheduled email rules');
         const data = await response.json();
         const rules = data.rules || {};
+        updateScheduledRuleInteractivity();
         Object.keys(scheduledEmailRuleUi).forEach(ruleKey => {
           applyScheduledRuleState(ruleKey, rules[ruleKey] !== false);
         });
@@ -3459,6 +3536,11 @@
     async function toggleScheduledEmailRule(ruleKey, enabled) {
       const meta = scheduledEmailRuleUi[ruleKey];
       if (!meta) return;
+      if (schedulerSettingsState.lockedByEnv || !schedulerSettingsState.enabled) {
+        showScheduledRulesResult('Enable the scheduler before changing email rules.', false);
+        loadScheduledEmailRuleSettings();
+        return;
+      }
       try {
         showScheduledRulesResult(`⏳ Updating ${meta.label}...`);
         const response = await fetch(`/api/admin/settings/scheduled-email-rules?code=${encodeURIComponent(ADMIN_CODE)}`, {
