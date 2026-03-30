@@ -2276,6 +2276,10 @@ if ('serviceWorker' in navigator) {
         const totalCapacity = slotCount * slotCap;
         const openCount = Math.max(0, totalCapacity - registeredCount);
         const maybeCount = (ev.maybeList || []).length;
+        const isDayFullyBooked = !isTeams && slotCount > 0 && openCount === 0;
+        const fullDayAlert = isDayFullyBooked
+          ? `<div class="full-day-alert">All tee times are full for ${escapeHtml(fullDateLabel(toDateISO(ev.date)))}. You can request an additional time from the ${escapeHtml(clubContactLabel())}${fifthCount ? '.' : ' or ask them to allow a 5th in one of your tee times for that day.'}</div>`
+          : '';
         const summaryRow = `<div class="row" style="gap:8px;flex-wrap:wrap;margin:6px 0 10px 0;font-size:12px;color:var(--slate-700)">
           <span><strong>${registeredCount}</strong> registered</span>
           <span><strong>${checkedInCount}</strong> checked in</span>
@@ -2364,6 +2368,7 @@ if ('serviceWorker' in navigator) {
               </div>
             </div>
             ${summaryRow}
+            ${fullDayAlert}
             ${eventActionLegend}
             <div class="tees">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>
             ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}

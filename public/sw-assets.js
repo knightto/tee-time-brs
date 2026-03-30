@@ -23,6 +23,7 @@ self.__SW_ASSETS = [
   "/myrtle/lodging-and-maps.html",
   "/myrtle/prize-report.html",
   "/myrtle/trip-2026.html",
+  "/process-guide.html",
   "/pwa-shell.css",
   "/pwa-shell.js",
   "/rules.html",

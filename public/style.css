@@ -2508,6 +2508,17 @@ nav a:hover{
   color:rgba(255,255,255,.92) !important;
 }
 
+.full-day-alert{
+  margin:0 0 10px 0;
+  padding:8px 10px;
+  border:1px solid #fdba74;
+  border-radius:10px;
+  background:linear-gradient(135deg, rgba(255,247,237,.96) 0%, rgba(255,237,213,.92) 100%);
+  color:#9a3412;
+  font-size:12px;
+  line-height:1.4;
+}
+
 /* Compact tee card layout to reduce vertical space */
 .tee{
   min-height:72px;
