@@ -117,7 +117,7 @@
     </section>
 
     <section>
-      <h2>How The System Knows An Imported Email Is For BRS</h2>
+      <h2>How The System Routes Imported Tee Time Emails</h2>
       <div id="inboundRoutingCard" class="card">
         <p class="loading">Loading inbound routing details...</p>
       </div>
@@ -127,8 +127,9 @@
       <h2>How Subscriber Emails Work</h2>
       <ol class="step-list">
         <li>Subscribing on the public page creates or updates a subscriber record for the active group.</li>
-        <li>A confirmation email is sent from the configured Resend sender address with an unsubscribe link.</li>
-        <li>Every bulk subscriber email gets a personalized unsubscribe link appended to the message.</li>
+        <li>BRS and Seniors keep separate subscriber lists, so the same email address can be subscribed to both groups at the same time.</li>
+        <li>A confirmation email is sent from the configured Resend sender address with an unsubscribe link for that specific group subscription.</li>
+        <li>Every bulk subscriber email gets a personalized unsubscribe link appended to the message, and using it only removes that one group subscription.</li>
         <li>Admin subscriber management uses the same group-scoped subscriber collection as the public subscribe flow.</li>
       </ol>
     </section>
@@ -232,6 +233,7 @@
                 ${kvRow('Secondary Contact Email', group.secondaryContactEmail)}
                 ${kvRow('Club Request Email', group.clubRequestEmail)}
                 ${kvRow('Reply-To Email', group.replyToEmail)}
+                ${kvRow('Inbound Alias', group.inboundEmailAlias)}
               </div>
               <div style="margin-top:10px">
                 <span class="kv-label">Club CC Emails</span>
@@ -245,12 +247,14 @@
             <div class="kv-list" style="margin-bottom:12px;">
               ${kvRow('Inbound Address', payload.emailDelivery && payload.emailDelivery.inboundAddress)}
               ${kvRow('Webhook URL', payload.emailDelivery && payload.emailDelivery.webhookUrl)}
+              ${kvRow('Recipient Alias Pattern', inboundRouting.recipientAliasPattern)}
+              ${kvRow('Subject Tag Pattern', inboundRouting.subjectTagPattern)}
               ${kvRow('Default Imported Group Slug', inboundRouting.defaultGroupSlug)}
               ${kvRow('Default Imported Group Reference', inboundRouting.defaultGroupReference)}
               ${kvRow('Default Imported Group Name', inboundRouting.defaultGroupName)}
             </div>
             <p>${escapeHtml(inboundRouting.explanation || '')}</p>
-            <p class="muted">Current behavior: the email itself does not carry a dedicated group token that the importer reads. The known inbound address tells the system it is a tee-time import, but group routing falls back to the default main group.</p>
+            <p class="muted">Current behavior: if an inbound email uses neither the +group recipient alias nor the subject tag, the importer still falls back to the default main BRS group.</p>
           `;
 
           const rules = Array.isArray(payload.automation && payload.automation.scheduledRules) ? payload.automation.scheduledRules : [];

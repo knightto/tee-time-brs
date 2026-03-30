@@ -1184,7 +1184,7 @@
           </div>
           <div id="teeTimesSiteTemplateFormShell" class="template-form-shell" hidden>
             <p class="template-help" style="margin-bottom:10px;">Answer these setup questions before the group is deployed and the package files are generated.</p>
-            <div class="status-note warn" style="margin-bottom:10px;">This now creates a live shared-stack deployment under a dedicated group slug, with separate public, admin, minimal-admin, and calendar URLs. A separate database/env per group is still the lower-risk option if you want hard isolation.</div>
+            <div class="status-note warn" style="margin-bottom:10px;">This now creates a live shared-stack deployment under a dedicated group slug, with separate public, admin, minimal-admin, calendar, inbound-email alias, and scoped admin/delete codes. A separate database/env per group is still the lower-risk option if you want hard isolation.</div>
             <ul class="template-question-list">
               <li>What should the site be called for this group?</li>
               <li>What short app name, group name, group reference, and group URL slug should be used?</li>
@@ -1196,31 +1196,31 @@
               <div class="template-question-grid">
                 <label>
                   <span>Site Title</span>
-                  <input id="siteTemplateTitleInput" type="text" maxlength="120" value="Thursday Seniors Tee Times" required>
+                  <input id="siteTemplateTitleInput" type="text" maxlength="120" value="New Golf Group Tee Times" required>
                 </label>
                 <label>
                   <span>Short App Title</span>
-                  <input id="siteTemplateShortTitleInput" type="text" maxlength="60" value="Thursday Seniors" required>
+                  <input id="siteTemplateShortTitleInput" type="text" maxlength="60" value="New Golf Group" required>
                 </label>
                 <label>
                   <span>Group Name</span>
-                  <input id="siteTemplateGroupNameInput" type="text" maxlength="120" value="Thursday Seniors Group" required>
+                  <input id="siteTemplateGroupNameInput" type="text" maxlength="120" value="New Golf Group" required>
                 </label>
                 <label>
                   <span>Group Reference</span>
-                  <input id="siteTemplateGroupReferenceInput" type="text" maxlength="120" value="Thursday Seniors" required>
+                  <input id="siteTemplateGroupReferenceInput" type="text" maxlength="120" value="New Golf Group" required>
                 </label>
                 <label>
                   <span>Group / URL Slug</span>
-                  <input id="siteTemplatePackageSlugInput" type="text" maxlength="120" value="seniors" required>
+                  <input id="siteTemplatePackageSlugInput" type="text" maxlength="120" value="new-golf-group" required>
                 </label>
                 <label>
                   <span>Club Name</span>
-                  <input id="siteTemplateClubNameInput" type="text" maxlength="120" value="Thursday Seniors Group" required>
+                  <input id="siteTemplateClubNameInput" type="text" maxlength="120" value="New Golf Group" required>
                 </label>
                 <label>
                   <span>Club Request Button Label</span>
-                  <input id="siteTemplateClubRequestLabelInput" type="text" maxlength="140" value="Request a Tee Time for Thursday Seniors Group" required>
+                  <input id="siteTemplateClubRequestLabelInput" type="text" maxlength="140" value="Request a Tee Time for New Golf Group" required>
                 </label>
                 <label>
                   <span>Primary Contact Email</span>
@@ -1260,20 +1260,36 @@
                 </label>
                 <label>
                   <span>Mongo DB Name</span>
-                  <input id="siteTemplateMongoDbInput" type="text" maxlength="80" value="teetimes_seniors" required>
+                  <input id="siteTemplateMongoDbInput" type="text" maxlength="80" value="teetimes_new_golf_group" required>
+                </label>
+                <label>
+                  <span>Group Admin Code</span>
+                  <input id="siteTemplateAdminCodeInput" type="text" maxlength="40" placeholder="Required dedicated group code" required>
+                </label>
+                <label>
+                  <span>Group Delete Code</span>
+                  <input id="siteTemplateDeleteCodeInput" type="text" maxlength="40" placeholder="Usually match the group admin code" required>
+                </label>
+                <label>
+                  <span>Delete Confirm Code</span>
+                  <input id="siteTemplateConfirmCodeInput" type="text" maxlength="40" placeholder="Optional second confirmation code">
+                </label>
+                <label>
+                  <span>Inbound Email Alias</span>
+                  <input id="siteTemplateInboundAliasInput" type="email" maxlength="160" value="teetime+new-golf-group@xenailexou.resend.app" required>
                 </label>
               </div>
               <div class="template-question-grid">
                 <label class="check">
-                  <input id="siteTemplateIncludeHandicapsInput" type="checkbox" checked>
+                  <input id="siteTemplateIncludeHandicapsInput" type="checkbox">
                   Include handicaps pages
                 </label>
                 <label class="check">
-                  <input id="siteTemplateIncludeTripsInput" type="checkbox" checked>
+                  <input id="siteTemplateIncludeTripsInput" type="checkbox">
                   Include trip systems
                 </label>
                 <label class="check">
-                  <input id="siteTemplateIncludeOutingsInput" type="checkbox" checked>
+                  <input id="siteTemplateIncludeOutingsInput" type="checkbox">
                   Include outings system
                 </label>
                 <label class="check">
@@ -1285,7 +1301,7 @@
                   Include scheduler rules
                 </label>
                 <label class="check">
-                  <input id="siteTemplateIncludeBackupsInput" type="checkbox" checked>
+                  <input id="siteTemplateIncludeBackupsInput" type="checkbox">
                   Include backups
                 </label>
               </div>
@@ -1600,6 +1616,7 @@
 
     <section id="subscribersSection" class="admin-section section-subscribers">
       <h2>👥 Subscriber Management</h2>
+      <p style="margin: 6px 0 18px 0; color: #64748b;">This page manages the BRS Group subscriber list only. The same email address can also be subscribed to Seniors or any other group separately.</p>
 
       <div class="stats">
         <div class="stat-card">
@@ -2017,7 +2034,33 @@
       };
     }
 
-    function seedTeeTimesSiteTemplateDefaults() {
+    function normalizeTemplateSlug(value = '') {
+      const normalized = String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+      return normalized || 'new-golf-group';
+    }
+
+    function setAutoDerivedTemplateFieldValue(field, value, { force = false } = {}) {
+      if (!field) return;
+      const nextValue = String(value || '').trim();
+      const currentValue = String(field.value || '').trim();
+      const autoValue = String(field.dataset.autoValue || '').trim();
+      if (!force && currentValue && currentValue !== autoValue) return;
+      field.value = nextValue;
+      field.dataset.autoValue = nextValue;
+    }
+
+    function syncTemplateDeleteCode({ force = false } = {}) {
+      const adminCodeInput = document.getElementById('siteTemplateAdminCodeInput');
+      const deleteCodeInput = document.getElementById('siteTemplateDeleteCodeInput');
+      if (!adminCodeInput || !deleteCodeInput) return;
+      setAutoDerivedTemplateFieldValue(deleteCodeInput, String(adminCodeInput.value || '').trim(), { force });
+    }
+
+    function syncTeeTimesSiteTemplateDerivedFields({ force = false } = {}) {
       const groupNameInput = document.getElementById('siteTemplateGroupNameInput');
       const groupReferenceInput = document.getElementById('siteTemplateGroupReferenceInput');
       const siteTitleInput = document.getElementById('siteTemplateTitleInput');
@@ -2026,15 +2069,66 @@
       const clubRequestLabelInput = document.getElementById('siteTemplateClubRequestLabelInput');
       const slugInput = document.getElementById('siteTemplatePackageSlugInput');
       const mongoDbInput = document.getElementById('siteTemplateMongoDbInput');
+      const inboundAliasInput = document.getElementById('siteTemplateInboundAliasInput');
 
-      if (groupNameInput && !groupNameInput.value.trim()) groupNameInput.value = 'Thursday Seniors Group';
-      if (groupReferenceInput && !groupReferenceInput.value.trim()) groupReferenceInput.value = 'Thursday Seniors';
-      if (siteTitleInput && !siteTitleInput.value.trim()) siteTitleInput.value = 'Thursday Seniors Tee Times';
-      if (shortTitleInput && !shortTitleInput.value.trim()) shortTitleInput.value = 'Thursday Seniors';
-      if (clubNameInput && !clubNameInput.value.trim()) clubNameInput.value = 'Thursday Seniors Group';
-      if (clubRequestLabelInput && !clubRequestLabelInput.value.trim()) clubRequestLabelInput.value = 'Request a Tee Time for Thursday Seniors Group';
-      if (slugInput && !slugInput.value.trim()) slugInput.value = 'seniors';
-      if (mongoDbInput && !mongoDbInput.value.trim()) mongoDbInput.value = 'teetimes_seniors';
+      const groupName = String(groupNameInput && groupNameInput.value || '').trim() || 'New Golf Group';
+      const derivedReference = groupName.replace(/\s+group$/i, '').trim() || groupName;
+      setAutoDerivedTemplateFieldValue(groupReferenceInput, derivedReference, { force });
+
+      const groupReference = String(groupReferenceInput && groupReferenceInput.value || '').trim() || derivedReference;
+      const currentSlugValue = String(slugInput && slugInput.value || '').trim();
+      const currentSlugAutoValue = String(slugInput && slugInput.dataset.autoValue || '').trim();
+      const slugSource = (!currentSlugValue || currentSlugValue === currentSlugAutoValue)
+        ? (groupReference || groupName)
+        : currentSlugValue;
+      const slug = normalizeTemplateSlug(slugSource);
+
+      setAutoDerivedTemplateFieldValue(siteTitleInput, `${groupReference} Tee Times`, { force });
+      setAutoDerivedTemplateFieldValue(shortTitleInput, groupReference, { force });
+      setAutoDerivedTemplateFieldValue(clubNameInput, groupName, { force });
+      setAutoDerivedTemplateFieldValue(clubRequestLabelInput, `Request a Tee Time for ${groupName}`, { force });
+      setAutoDerivedTemplateFieldValue(slugInput, slug, { force });
+      setAutoDerivedTemplateFieldValue(mongoDbInput, `teetimes_${slug.replace(/-/g, '_')}`, { force });
+      setAutoDerivedTemplateFieldValue(inboundAliasInput, `teetime+${slug}@xenailexou.resend.app`, { force });
+      syncTemplateDeleteCode({ force });
+    }
+
+    function bindTeeTimesSiteTemplateDerivedInputs() {
+      const groupNameInput = document.getElementById('siteTemplateGroupNameInput');
+      const groupReferenceInput = document.getElementById('siteTemplateGroupReferenceInput');
+      const slugInput = document.getElementById('siteTemplatePackageSlugInput');
+      const adminCodeInput = document.getElementById('siteTemplateAdminCodeInput');
+
+      if (groupNameInput) {
+        groupNameInput.addEventListener('input', () => {
+          syncTeeTimesSiteTemplateDerivedFields();
+        });
+      }
+
+      if (groupReferenceInput) {
+        groupReferenceInput.addEventListener('input', () => {
+          syncTeeTimesSiteTemplateDerivedFields();
+        });
+      }
+
+      if (slugInput) {
+        slugInput.addEventListener('blur', () => {
+          slugInput.value = normalizeTemplateSlug(slugInput.value);
+          syncTeeTimesSiteTemplateDerivedFields();
+        });
+      }
+
+      if (adminCodeInput) {
+        adminCodeInput.addEventListener('input', () => {
+          syncTemplateDeleteCode();
+        });
+      }
+    }
+
+    function seedTeeTimesSiteTemplateDefaults() {
+      const groupNameInput = document.getElementById('siteTemplateGroupNameInput');
+      if (groupNameInput && !groupNameInput.value.trim()) groupNameInput.value = 'New Golf Group';
+      syncTeeTimesSiteTemplateDerivedFields({ force: true });
     }
 
     function showTeeTimesSiteTemplateResult(message, isSuccess = true) {
@@ -2062,12 +2156,17 @@
         || (deployment && deployment.profile && deployment.profile.groupReference)
         || ''
       ).trim();
+      const inboundAlias = String(
+        (deployment && deployment.profile && deployment.profile.inboundEmailAlias)
+        || ''
+      ).trim();
       const deploymentLinkHtml = deploymentLinks ? `
         <a href="${escapeHtml(deploymentLinks.sitePath || '/')}" target="_blank" rel="noopener">Open Group Site</a>
         <a href="${escapeHtml(deploymentLinks.adminPath || '/admin.html')}" target="_blank" rel="noopener">Open Group Admin</a>
         <a href="${escapeHtml(deploymentLinks.calendarPath || '#')}" target="_blank" rel="noopener">Open Calendar Feed</a>
         ${deploymentReference ? `<span style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid #d9e2ec;background:#fff;color:#475569;font-size:12px;font-weight:700;">Reference: ${escapeHtml(deploymentReference)}</span>` : ''}
         <span style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid #d9e2ec;background:#fff;color:#475569;font-size:12px;font-weight:700;">Group: ${escapeHtml(String(deployment.groupSlug || 'main'))}</span>
+        ${inboundAlias ? `<span style="display:inline-flex;align-items:center;padding:6px 10px;border-radius:999px;border:1px solid #d9e2ec;background:#fff;color:#475569;font-size:12px;font-weight:700;">Inbound: ${escapeHtml(inboundAlias)}</span>` : ''}
       ` : `
         <a href="/admin.html#tripTemplatesSection">Template Section</a>
         <a href="/" target="_blank" rel="noopener">Open Tee Times</a>
@@ -2119,6 +2218,10 @@
         themeColor: String(document.getElementById('siteTemplateThemeColorInput').value || '').trim(),
         iconAssetName: String(document.getElementById('siteTemplateIconInput').value || '').trim(),
         mongoDbName: String(document.getElementById('siteTemplateMongoDbInput').value || '').trim(),
+        adminCode: String(document.getElementById('siteTemplateAdminCodeInput').value || '').trim(),
+        deleteCode: String(document.getElementById('siteTemplateDeleteCodeInput').value || '').trim(),
+        confirmCode: String(document.getElementById('siteTemplateConfirmCodeInput').value || '').trim(),
+        inboundEmailAlias: String(document.getElementById('siteTemplateInboundAliasInput').value || '').trim(),
         includeHandicaps: Boolean(document.getElementById('siteTemplateIncludeHandicapsInput').checked),
         includeTrips: Boolean(document.getElementById('siteTemplateIncludeTripsInput').checked),
         includeOutings: Boolean(document.getElementById('siteTemplateIncludeOutingsInput').checked),
@@ -2133,7 +2236,7 @@
       if (event) event.preventDefault();
       try {
         const payload = collectTeeTimesSiteTemplatePayload();
-        if (!payload.siteTitle) throw new Error('Site title is required.');
+        validateTeeTimesSiteTemplatePayload(payload);
         const response = await fetch('/api/admin/templates/tee-times-site-package?guideOnly=1', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2178,16 +2281,23 @@
       setTimeout(() => URL.revokeObjectURL(href), 1000);
     }
 
+    function validateTeeTimesSiteTemplatePayload(payload) {
+      if (!payload.siteTitle) throw new Error('Site title is required.');
+      if (!payload.groupName) throw new Error('Group name is required.');
+      if (!payload.clubName) throw new Error('Club name is required.');
+      if (!payload.primaryContactEmail) throw new Error('Primary contact email is required.');
+      if (!payload.clubRequestEmail) throw new Error('Club request email is required.');
+      if (!payload.adminCode) throw new Error('Group admin code is required.');
+      if (!payload.deleteCode) throw new Error('Group delete code is required.');
+      if (!payload.inboundEmailAlias) throw new Error('Inbound email alias is required.');
+    }
+
     async function createTeeTimesSitePackage(event) {
       if (event) event.preventDefault();
       clearTeeTimesSiteTemplateLinks();
       try {
         const payload = collectTeeTimesSiteTemplatePayload();
-        if (!payload.siteTitle) throw new Error('Site title is required.');
-        if (!payload.groupName) throw new Error('Group name is required.');
-        if (!payload.clubName) throw new Error('Club name is required.');
-        if (!payload.primaryContactEmail) throw new Error('Primary contact email is required.');
-        if (!payload.clubRequestEmail) throw new Error('Club request email is required.');
+        validateTeeTimesSiteTemplatePayload(payload);
         showTeeTimesSiteTemplateResult('Deploying Tee Times group and building package...', true);
         const response = await fetch('/api/admin/templates/tee-times-site-package', {
           method: 'POST',
@@ -2220,6 +2330,7 @@
     function initTeeTimesSiteTemplateBuilder() {
       const els = getTeeTimesSiteTemplateElements();
       seedTeeTimesSiteTemplateDefaults();
+      bindTeeTimesSiteTemplateDerivedInputs();
       const guideLink = document.getElementById('downloadTeeTimesSiteTemplateGuideLink');
       if (guideLink) {
         guideLink.addEventListener('click', downloadTeeTimesSiteTemplateGuide);
@@ -2272,6 +2383,8 @@
           { label: group.isMainGroup ? 'Main Site' : 'Group Site', tone: group.isMainGroup ? 'open' : 'upcoming' },
           { label: `Slug: ${slug}`, tone: 'type' },
           { label: links.adminLitePath ? 'Group Ops Admin' : 'Full Admin Only', tone: links.adminLitePath ? 'open' : 'draft' },
+          { label: group.hasDedicatedAdminCode ? 'Own Admin Code' : 'Main Admin Fallback', tone: group.hasDedicatedAdminCode ? 'open' : 'draft' },
+          { label: group.hasDedicatedDeleteCode ? 'Own Delete Code' : 'Shared Delete Fallback', tone: group.hasDedicatedDeleteCode ? 'open' : 'draft' },
         ].map((tag) => `<span class="inventory-tag${tag.tone ? ` status-${escapeHtml(tag.tone)}` : ''}">${escapeHtml(tag.label)}</span>`).join('');
         const linkHtml = [
           links.sitePath ? { label: 'Open Site', href: links.sitePath } : null,
@@ -2285,6 +2398,7 @@
               <p class="group-reference-title">${escapeHtml(reference)}</p>
               <p class="group-reference-meta">Site title: ${escapeHtml(String(group.siteTitle || 'Tee Times'))}</p>
               <p class="group-reference-meta">Stored group name: ${escapeHtml(String(group.groupName || reference))}</p>
+              ${group.inboundEmailAlias ? `<p class="group-reference-meta">Inbound alias: ${escapeHtml(String(group.inboundEmailAlias || ''))}</p>` : ''}
             </div>
             <div class="inventory-tag-list">${tagHtml}</div>
             <div class="inventory-link-list">${linkHtml}</div>

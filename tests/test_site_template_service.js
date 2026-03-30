@@ -28,7 +28,13 @@ assert.strictEqual(pkg.deploymentProfile.secondaryContactEmail, 'assistant@bluer
 assert.strictEqual(pkg.deploymentProfile.replyToEmail, 'reply@blueridge.example');
 assert.strictEqual(pkg.contactDirectory.clubPhone, '540-555-2000');
 assert.deepStrictEqual(pkg.contactDirectory.adminAlertPhones, ['540-555-4000', '540-555-5000']);
-assert.strictEqual(pkg.features.includeTrips, true);
+assert.strictEqual(pkg.features.includeHandicaps, false);
+assert.strictEqual(pkg.features.includeTrips, false);
+assert.strictEqual(pkg.features.includeOutings, false);
+assert.strictEqual(pkg.features.includeBackups, false);
+assert.strictEqual(pkg.deploymentProfile.adminCode, 'change-me');
+assert.strictEqual(pkg.deploymentProfile.deleteCode, 'change-me');
+assert.strictEqual(pkg.deploymentProfile.inboundEmailAlias, 'teetime+blue-ridge-tee-times@xenailexou.resend.app');
 assert.strictEqual(pkg.deploymentLinks.site, '/groups/blue-ridge-tee-times');
 assert.strictEqual(pkg.deploymentLinks.adminLite, '/groups/blue-ridge-tee-times/admin-lite');
 assert.ok(pkg.includedPages.some((entry) => entry.key === 'admin' && entry.enabled), 'Admin page should be included');
@@ -48,6 +54,7 @@ assert.ok(Array.isArray(pkg.deploymentLoe) && pkg.deploymentLoe.length >= 4, 'Pa
 assert.ok(String(pkg.deploymentGuide || '').includes('## LOE For Group Deployment'), 'Package should include a human-readable deployment guide');
 assert.ok(String(pkg.deploymentGuide || '').includes('## Contact Directory'), 'Deployment guide should include contact directory section');
 assert.ok(String(pkg.deploymentGuide || '').includes('Group reference: BRS Weekend'), 'Deployment guide should include the group reference');
+assert.ok(String(pkg.deploymentGuide || '').includes('Inbound email alias: teetime+blue-ridge-tee-times@xenailexou.resend.app'), 'Deployment guide should include the inbound alias');
 assert.ok(pkg.deploymentChecklist.length >= 4, 'Package should include deployment checklist items');
 assert.ok(Array.isArray(pkg.starterArtifacts) && pkg.starterArtifacts.some((entry) => entry.path === '/public/group-admin-lite.html'), 'Package should include minimal group admin starter artifact');
 

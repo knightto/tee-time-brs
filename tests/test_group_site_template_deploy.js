@@ -16,12 +16,18 @@ async function main() {
   const base = `http://127.0.0.1:${port}`;
   const runId = Date.now();
   const groupSlug = `template-group-${runId}`;
+  const groupAdminCode = `grp${String(runId).slice(-4)}`;
+  const groupDeleteCode = `del${String(runId).slice(-4)}`;
+  const previewGroupSlug = `preview-group-${runId}`;
   const requestDate = '2031-04-17';
+  const seniorsDeleteCourse = `Seniors Isolation ${runId}`;
   let testFailed = false;
 
   async function cleanup() {
     await Event.deleteMany({ groupSlug }).catch(() => {});
+    await Event.deleteMany({ course: seniorsDeleteCourse }).catch(() => {});
     await Settings.deleteMany({ groupSlug }).catch(() => {});
+    await Settings.deleteMany({ groupSlug: previewGroupSlug }).catch(() => {});
     await Subscriber.deleteMany({ groupSlug }).catch(() => {});
   }
 
@@ -53,6 +59,9 @@ async function main() {
         themeColor: '#24513b',
         iconAssetName: 'knight-club-icon.png',
         mongoDbName: 'teetimes_template_smoke',
+        adminCode: groupAdminCode,
+        deleteCode: groupDeleteCode,
+        inboundEmailAlias: `teetime+${groupSlug}@xenailexou.resend.app`,
         includeHandicaps: false,
         includeTrips: true,
         includeOutings: false,
@@ -73,6 +82,8 @@ async function main() {
     assert.ok(storedProfile && storedProfile.value, 'Deployed group profile should be stored in settings');
     assert.strictEqual(storedProfile.value.clubName, 'Template Smoke Club');
     assert.strictEqual(storedProfile.value.features.includeScheduler, false);
+    assert.strictEqual(storedProfile.value.adminCode, groupAdminCode);
+    assert.strictEqual(storedProfile.value.deleteCode, groupDeleteCode);
 
     const publicProfileResponse = await fetch(`${base}/api/site-profile?group=${encodeURIComponent(groupSlug)}`);
     assert.strictEqual(publicProfileResponse.status, 200, 'Public site profile should load');
@@ -81,18 +92,31 @@ async function main() {
     assert.strictEqual(publicProfilePayload.profile.groupReference, 'Template Smoke');
     assert.strictEqual(publicProfilePayload.profile.features.includeHandicaps, false);
 
+    const scopedAdminOk = await fetch(`${base}/api/admin/site-profile?group=${encodeURIComponent(groupSlug)}&code=${encodeURIComponent(groupAdminCode)}`);
+    assert.strictEqual(scopedAdminOk.status, 200, 'Deployed group should accept its dedicated admin code');
+    const scopedAdminPayload = await scopedAdminOk.json();
+    assert.strictEqual(scopedAdminPayload.profile.adminCode, undefined, 'Scoped admin profile response should not leak the admin code');
+    assert.strictEqual(scopedAdminPayload.profile.deleteCode, undefined, 'Scoped admin profile response should not leak the delete code');
+    assert.strictEqual(scopedAdminPayload.profile.confirmCode, undefined, 'Scoped admin profile response should not leak the confirm code');
+
+    const scopedAdminWrong = await fetch(`${base}/api/admin/site-profile?group=${encodeURIComponent(groupSlug)}&code=${encodeURIComponent(ADMIN_CODE)}`);
+    assert.strictEqual(scopedAdminWrong.status, 403, 'Main admin code should not open a deployed scoped group admin');
+
     const operationsGuideApiResponse = await fetch(`${base}/api/operations-guide`);
     assert.strictEqual(operationsGuideApiResponse.status, 200, 'Operations guide API should load');
     const operationsGuidePayload = await operationsGuideApiResponse.json();
     assert.ok(Array.isArray(operationsGuidePayload.allOperationalEmails), 'Operations guide should include operational email list');
     assert.ok(operationsGuidePayload.allOperationalEmails.includes('teetime@xenailexou.resend.app'), 'Operations guide should expose the inbound Resend address');
+    assert.ok(operationsGuidePayload.allOperationalEmails.includes(`teetime+${groupSlug}@xenailexou.resend.app`), 'Operations guide should include the group-specific inbound alias');
     assert.strictEqual(operationsGuidePayload.inboundRouting.defaultGroupSlug, 'main', 'Operations guide should describe the default imported group');
+    assert.strictEqual(operationsGuidePayload.inboundRouting.recipientAliasPattern, 'teetime+<group>@xenailexou.resend.app', 'Operations guide should expose the inbound alias routing pattern');
+    assert.strictEqual(operationsGuidePayload.inboundRouting.subjectTagPattern, '[group:<slug>]', 'Operations guide should expose the subject tag routing pattern');
 
     const operationsGuidePageResponse = await fetch(`${base}/process-guide.html`);
     assert.strictEqual(operationsGuidePageResponse.status, 200, 'Operations guide page should load');
     const operationsGuideHtml = await operationsGuidePageResponse.text();
     assert.ok(operationsGuideHtml.includes('Operations Guide'), 'Operations guide page should contain the guide shell');
-    assert.ok(operationsGuideHtml.includes('How The System Knows An Imported Email Is For BRS'), 'Operations guide page should explain inbound BRS routing');
+    assert.ok(operationsGuideHtml.includes('How The System Routes Imported Tee Time Emails'), 'Operations guide page should explain inbound routing');
 
     const seniorsAdminOk = await fetch(`${base}/api/admin/site-profile?group=seniors&code=000`);
     assert.strictEqual(seniorsAdminOk.status, 200, 'Thursday Seniors admin should accept its scoped admin code');
@@ -102,6 +126,13 @@ async function main() {
 
     const mainAdminWrongCode = await fetch(`${base}/api/admin/site-profile?group=main&code=000`);
     assert.strictEqual(mainAdminWrongCode.status, 403, 'Main admin should not accept the Thursday Seniors admin code');
+
+    const seniorsPublicProfileResponse = await fetch(`${base}/api/site-profile?group=seniors`);
+    assert.strictEqual(seniorsPublicProfileResponse.status, 200, 'Seniors public site profile should load');
+    const seniorsPublicProfilePayload = await seniorsPublicProfileResponse.json();
+    assert.strictEqual(seniorsPublicProfilePayload.profile.features.includeHandicaps, false, 'Seniors should not expose the shared handicap module');
+    assert.strictEqual(seniorsPublicProfilePayload.profile.features.includeTrips, false, 'Seniors should not expose the shared trip module');
+    assert.strictEqual(seniorsPublicProfilePayload.profile.features.includeOutings, false, 'Seniors should not expose the shared outings module');
 
     const legacySeniorsRoute = await fetch(`${base}/groups/thursday-seniors-group`, { redirect: 'manual' });
     assert.strictEqual(legacySeniorsRoute.status, 302, 'Legacy Thursday Seniors route should redirect');
@@ -120,6 +151,29 @@ async function main() {
     assert.strictEqual(mainGroup.groupReference, 'BRS Group');
     assert.ok(deployedGroup, 'Golf group directory should include the deployed group');
     assert.strictEqual(deployedGroup.groupReference, 'Template Smoke');
+
+    const groupDirectoryForbidden = await fetch(`${base}/api/admin/site-groups?group=seniors&code=000`);
+    assert.strictEqual(groupDirectoryForbidden.status, 403, 'Scoped group admins should not access the global group directory');
+
+    const backupsForbidden = await fetch(`${base}/api/admin/backups?group=seniors&code=000`);
+    assert.strictEqual(backupsForbidden.status, 403, 'Scoped group admins should not access global backup endpoints');
+
+    const previewSaveResponse = await fetch(`${base}/api/admin/site-profile?group=${encodeURIComponent(previewGroupSlug)}&code=${encodeURIComponent(ADMIN_CODE)}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        siteTitle: 'Preview Group Tee Times',
+        groupName: 'Preview Group',
+        groupReference: 'Preview Group',
+        primaryContactEmail: 'preview@example.com',
+        clubRequestEmail: 'preview-club@example.com',
+      }),
+    });
+    assert.strictEqual(previewSaveResponse.status, 200, 'A new scoped group profile should save through the admin API');
+    const previewStoredProfile = await Settings.findOne({ groupSlug: previewGroupSlug, key: 'siteProfile' }).lean();
+    assert.ok(previewStoredProfile && previewStoredProfile.value, 'Preview group profile should persist');
+    assert.strictEqual(previewStoredProfile.value.adminCode, '', 'Saving a scoped group profile should not persist a placeholder admin code');
+    assert.strictEqual(previewStoredProfile.value.deleteCode, '', 'Saving a scoped group profile should not persist a placeholder delete code');
 
     const groupRedirect = await fetch(`${base}/groups/${groupSlug}`, { redirect: 'manual' });
     assert.strictEqual(groupRedirect.status, 302, 'Dedicated group site route should redirect');
@@ -156,7 +210,7 @@ async function main() {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-admin-code': ADMIN_CODE,
+        'x-admin-code': groupAdminCode,
       },
       body: JSON.stringify({ email: 'thursday.seniors@example.com' }),
     });
@@ -166,13 +220,36 @@ async function main() {
 
     const listSubscribersResponse = await fetch(`${base}/api/admin/subscribers?group=${encodeURIComponent(groupSlug)}`, {
       headers: {
-        'x-admin-code': ADMIN_CODE,
+        'x-admin-code': groupAdminCode,
       },
     });
     assert.strictEqual(listSubscribersResponse.status, 200, 'Group subscriber list should load through admin API');
     const subscribers = await listSubscribersResponse.json();
     assert.strictEqual(subscribers.length, 1, 'Group should have the seeded subscriber');
     assert.strictEqual(subscribers[0].email, 'thursday.seniors@example.com');
+
+    const createSeniorsEventResponse = await fetch(`${base}/api/events?group=seniors`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        course: seniorsDeleteCourse,
+        date: requestDate,
+        teeTime: '09:03',
+        isTeamEvent: false,
+      }),
+    });
+    assert.strictEqual(createSeniorsEventResponse.status, 201, 'Seniors event should be created');
+    const createdSeniorsEvent = await createSeniorsEventResponse.json();
+
+    const seniorsDeleteWithMainCode = await fetch(`${base}/api/events/${createdSeniorsEvent._id}?group=seniors&code=${encodeURIComponent(ADMIN_CODE)}`, {
+      method: 'DELETE',
+    });
+    assert.strictEqual(seniorsDeleteWithMainCode.status, 403, 'Main BRS admin code should not delete Seniors events');
+
+    const seniorsDeleteWithScopedCode = await fetch(`${base}/api/events/${createdSeniorsEvent._id}?group=seniors&code=000`, {
+      method: 'DELETE',
+    });
+    assert.strictEqual(seniorsDeleteWithScopedCode.status, 200, 'Seniors admin code should delete Seniors events');
 
     const createEventResponse = await fetch(`${base}/api/events?group=${encodeURIComponent(groupSlug)}`, {
       method: 'POST',

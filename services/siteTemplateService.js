@@ -6,6 +6,10 @@ function cleanEmail(value = '') {
   return cleanString(value).toLowerCase();
 }
 
+function cleanAccessCode(value = '') {
+  return cleanString(value).replace(/\s+/g, '');
+}
+
 function cleanSlug(value = '') {
   const safe = cleanString(value)
     .toLowerCase()
@@ -63,7 +67,7 @@ function buildGroupRoutePaths(groupSlug = '') {
   };
 }
 
-function buildTeeTimesSiteDeploymentProfile(input = {}) {
+function buildTeeTimesSiteDeploymentProfile(input = {}, options = {}) {
   const siteTitle = cleanString(input.siteTitle) || 'Tee Times';
   const shortTitle = cleanString(input.shortTitle) || siteTitle;
   const groupName = cleanString(input.groupName) || 'Golf Group';
@@ -71,6 +75,8 @@ function buildTeeTimesSiteDeploymentProfile(input = {}) {
   const clubName = cleanString(input.clubName) || groupName;
   const packageSlug = cleanSlug(input.packageSlug || siteTitle || groupName);
   const groupSlug = cleanSlug(input.groupSlug || packageSlug || groupName || siteTitle);
+  const isMainGroup = groupSlug === 'main';
+  const preserveBlankAccessCodes = Boolean(options && options.preserveBlankAccessCodes);
   const clubRequestLabel = cleanString(input.clubRequestLabel) || `Request a Tee Time for ${clubName}`;
   const primaryContactEmail = cleanEmail(input.primaryContactEmail) || 'admin@example.com';
   const secondaryContactEmail = cleanEmail(input.secondaryContactEmail) || '';
@@ -84,13 +90,18 @@ function buildTeeTimesSiteDeploymentProfile(input = {}) {
   const iconAssetName = cleanString(input.iconAssetName) || 'knight-club-icon.png';
   const mongoDbName = cleanString(input.mongoDbName) || `${packageSlug.replace(/-/g, '_')}_db`;
   const notes = cleanString(input.notes) || 'Deploy this package as a branded instance of the current tee-times + admin stack.';
+  const adminCode = cleanAccessCode(input.adminCode) || (preserveBlankAccessCodes ? '' : (isMainGroup ? '' : 'change-me'));
+  const deleteCode = cleanAccessCode(input.deleteCode) || adminCode;
+  const confirmCode = cleanAccessCode(input.confirmCode) || '';
+  const inboundEmailAlias = cleanEmail(input.inboundEmailAlias) || `teetime+${groupSlug}@xenailexou.resend.app`;
+  const sharedModuleDefault = isMainGroup;
   const features = {
-    includeHandicaps: resolveFeatureFlag(input, 'includeHandicaps', true),
-    includeTrips: resolveFeatureFlag(input, 'includeTrips', true),
-    includeOutings: resolveFeatureFlag(input, 'includeOutings', true),
+    includeHandicaps: resolveFeatureFlag(input, 'includeHandicaps', sharedModuleDefault),
+    includeTrips: resolveFeatureFlag(input, 'includeTrips', sharedModuleDefault),
+    includeOutings: resolveFeatureFlag(input, 'includeOutings', sharedModuleDefault),
     includeNotifications: resolveFeatureFlag(input, 'includeNotifications', true),
     includeScheduler: resolveFeatureFlag(input, 'includeScheduler', true),
-    includeBackups: resolveFeatureFlag(input, 'includeBackups', true),
+    includeBackups: resolveFeatureFlag(input, 'includeBackups', isMainGroup),
   };
 
   return {
@@ -110,6 +121,10 @@ function buildTeeTimesSiteDeploymentProfile(input = {}) {
     clubPhone,
     smsPhone,
     adminAlertPhones,
+    adminCode,
+    deleteCode,
+    confirmCode,
+    inboundEmailAlias,
     themeColor,
     iconAssetName,
     mongoDbName,
@@ -306,6 +321,10 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
     clubPhone,
     smsPhone,
     adminAlertPhones,
+    adminCode,
+    deleteCode,
+    confirmCode,
+    inboundEmailAlias,
     themeColor,
     iconAssetName,
     mongoDbName,
@@ -384,6 +403,7 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
     'Edit tee-time labels, start times, and team settings',
     'Move players across tee times with drag/drop and manual move tools',
     'Subscriber management and custom messaging',
+    'Group-scoped admin and delete code ownership',
     'Weather refresh and course verification utilities',
     'Backup creation, restore, and schedule settings',
     'Notification and scheduled email rule controls',
@@ -414,8 +434,8 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
     sourceFiles.push('/routes/outings.js', '/public/blue-ridge-outings.html', '/public/blue-ridge-outings-admin.html');
   }
   const environment = [
-    { name: 'SITE_ADMIN_WRITE_CODE', required: true, description: 'Site admin code for non-tee-time admin actions.' },
-    { name: 'ADMIN_DELETE_CODE', required: true, description: 'Delete/destructive admin code.' },
+    { name: 'SITE_ADMIN_WRITE_CODE', required: true, description: 'Main-site admin code for BRS / super-admin access in a shared-stack deployment.' },
+    { name: 'ADMIN_DELETE_CODE', required: true, description: 'Main-site delete/destructive admin code.' },
     { name: 'ADMIN_DESTRUCTIVE_CODE', required: false, description: 'Override destructive code if different from delete code.' },
     { name: 'ADMIN_DESTRUCTIVE_CONFIRM_CODE', required: false, description: 'Optional second confirmation code for destructive actions.' },
     { name: 'MONGO_URI', required: true, description: 'Primary MongoDB connection for tee times and site data.' },
@@ -496,7 +516,9 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
     `Brand the site title, short title, icon, and theme color for ${groupName}.`,
     `Set the club request copy to "${clubRequestLabel}" and point club email flows to ${clubRequestEmail}.`,
     `Seed the minimal group admin page with contact emails and phones for ${groupName}.`,
+    `Assign dedicated group access codes for ${groupName}: admin=${adminCode || 'set manually'}, delete=${deleteCode || 'set manually'}${confirmCode ? `, confirm=${confirmCode}` : ''}.`,
     `Verify the dedicated URLs for the public page (${routePaths.site}), full admin (${routePaths.admin}), group operations admin (${routePaths.adminLite}), and calendar feed (${routePaths.calendar}).`,
+    `Use the inbound tee-time alias ${inboundEmailAlias} or a [group:${groupSlug}] subject tag if this group will use email-driven tee-time imports.`,
     'Configure site admin, destructive action, URL, and database environment variables.',
     'Provision hosting/runtime on Render or an equivalent Node web-service platform.',
     'Configure outbound email through Resend and verify sender/domain settings if email flows are enabled.',
@@ -534,6 +556,10 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
     `- Club request email: ${clubRequestEmail}`,
     `- Secondary contact email: ${secondaryContactEmail || 'Not specified'}`,
     `- Reply-to email: ${replyToEmail || 'Not specified'}`,
+    `- Group admin code: ${adminCode || 'Not specified'}`,
+    `- Group delete code: ${deleteCode || 'Not specified'}`,
+    `- Group destructive confirm code: ${confirmCode || 'Not specified'}`,
+    `- Inbound email alias: ${inboundEmailAlias}`,
     `- Support phone: ${supportPhone || 'Not specified'}`,
     `- Club phone: ${clubPhone || 'Not specified'}`,
     `- SMS phone: ${smsPhone || 'Not specified'}`,
@@ -547,6 +573,7 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
     `- Full admin: ${routePaths.admin}`,
     `- Group operations admin: ${routePaths.adminLite}`,
     `- Calendar feed: ${routePaths.calendar}`,
+    `- Inbound email alias: ${inboundEmailAlias}`,
     '',
     '## Enabled Modules',
     `- Handicaps: ${features.includeHandicaps ? 'Yes' : 'No'}`,
@@ -562,11 +589,19 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
     '## Environment Variables',
     ...environment.map((entry) => `- ${entry.name}${entry.required ? ' [required]' : ' [optional]'}: ${entry.description}`),
     '',
+    '## Shared-Stack Isolation Notes',
+    '- In the shared-stack deployment model, group-specific admin/delete/confirm codes are stored in the group site profile rather than in top-level environment variables.',
+    '- Non-main groups default to handicaps, trips, and outings disabled so they do not surface shared BRS modules unless you explicitly enable them.',
+    '- Each group should keep its own inbound tee-time alias and contact routing values to avoid cross-group operational overlap.',
+    '',
     '## Contact Directory',
     `- Primary contact email: ${primaryContactEmail}`,
     `- Secondary contact email: ${secondaryContactEmail || 'Not specified'}`,
     `- Club request email: ${clubRequestEmail}`,
     `- Notification reply-to email: ${replyToEmail || 'Not specified'}`,
+    `- Group admin code: ${adminCode || 'Not specified'}`,
+    `- Group delete code: ${deleteCode || 'Not specified'}`,
+    `- Group destructive confirm code: ${confirmCode || 'Not specified'}`,
     `- Support phone: ${supportPhone || 'Not specified'}`,
     `- Club phone: ${clubPhone || 'Not specified'}`,
     `- SMS phone: ${smsPhone || 'Not specified'}`,
@@ -609,7 +644,7 @@ function buildTeeTimesSiteTemplatePackage(input = {}) {
 
   return {
     templateName: 'Tee Times Site Package',
-    packageVersion: 1,
+    packageVersion: 2,
     packageSlug,
     packageLabel: `${siteTitle} tee-times-site-package`,
     deploymentProfile,

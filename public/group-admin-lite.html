@@ -430,7 +430,7 @@
       <div class="content">
         <div class="section-head">
           <h2>Subscribers</h2>
-          <p class="section-meta">Add or remove notification recipients for this group only. This is the right place to keep the group notification list current.</p>
+          <p class="section-meta">Add or remove notification recipients for this group only. The same email can still be subscribed to BRS or another group separately.</p>
         </div>
         <div id="subscriberNote" class="note">Loading subscribers...</div>
         <div class="subscriber-toolbar">
@@ -477,6 +477,13 @@
             </div>
             <a id="summaryCalendarLink" href="#" target="_blank" rel="noopener">/api/events/calendar/month.ics</a>
           </div>
+          <div class="summary-item">
+            <div>
+              <strong>Inbound Email Alias</strong>
+              <span>Use this address or alias for tee-time email imports for this group.</span>
+            </div>
+            <span id="summaryInboundAlias" class="mono">teetime+group@xenailexou.resend.app</span>
+          </div>
         </div>
       </div>
     </section>
@@ -497,6 +504,7 @@
       const summarySiteLink = document.getElementById('summarySiteLink');
       const summaryAdminLink = document.getElementById('summaryAdminLink');
       const summaryCalendarLink = document.getElementById('summaryCalendarLink');
+      const summaryInboundAlias = document.getElementById('summaryInboundAlias');
       const teeTimesFrame = document.getElementById('teeTimesFrame');
       const refreshTeeTimesBtn = document.getElementById('refreshTeeTimesBtn');
       const openSiteInlineLink = document.getElementById('openSiteInlineLink');
@@ -603,6 +611,7 @@
         summaryAdminLink.textContent = adminHref;
         summaryCalendarLink.href = calendarHref;
         summaryCalendarLink.textContent = calendarHref;
+        if (summaryInboundAlias) summaryInboundAlias.textContent = String((state.profile && state.profile.inboundEmailAlias) || `teetime+${groupSlug}@xenailexou.resend.app`);
         refreshFrame(false);
       }
 

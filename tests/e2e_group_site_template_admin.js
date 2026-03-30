@@ -150,6 +150,9 @@ async function main() {
     supportPhone: '555-777-1000',
     clubPhone: '555-777-2000',
     smsPhone: '555-777-3000',
+    adminCode: `grp${String(runId).slice(-4)}`,
+    deleteCode: `del${String(runId).slice(-4)}`,
+    inboundEmailAlias: `teetime+${groupSlug}@xenailexou.resend.app`,
     themeColor: '#24513b',
     iconAssetName: 'knight-club-icon.png',
     includeHandicaps: false,
@@ -193,6 +196,12 @@ async function main() {
         await waitForExpression(send, `Boolean(document.getElementById('openTeeTimesSiteTemplateBtn'))`);
         await waitForExpression(send, `document.querySelectorAll('#groupReferenceGrid .group-reference-title').length >= 1`, 20000);
         await sleep(2500);
+        const defaultTemplateValues = await evaluate(send, `(() => ({
+          slug: document.getElementById('siteTemplatePackageSlugInput') && document.getElementById('siteTemplatePackageSlugInput').value,
+          adminCode: document.getElementById('siteTemplateAdminCodeInput') && document.getElementById('siteTemplateAdminCodeInput').value
+        }))()`);
+        assert.notStrictEqual(defaultTemplateValues.slug, 'seniors', 'Template builder should not default new groups to the Seniors slug');
+        assert.notStrictEqual(defaultTemplateValues.adminCode, '000', 'Template builder should not default new groups to the Seniors admin code');
         await evaluate(send, `(() => {
           const payload = ${JSON.stringify(payload)};
           document.getElementById('openTeeTimesSiteTemplateBtn').click();
@@ -218,6 +227,9 @@ async function main() {
           assign('siteTemplatePhoneInput', payload.supportPhone);
           assign('siteTemplateClubPhoneInput', payload.clubPhone);
           assign('siteTemplateSmsPhoneInput', payload.smsPhone);
+          assign('siteTemplateAdminCodeInput', payload.adminCode);
+          assign('siteTemplateDeleteCodeInput', payload.deleteCode);
+          assign('siteTemplateInboundAliasInput', payload.inboundEmailAlias);
           assign('siteTemplateThemeColorInput', payload.themeColor);
           assign('siteTemplateIconInput', payload.iconAssetName);
           assign('siteTemplateIncludeHandicapsInput', payload.includeHandicaps);
@@ -297,7 +309,7 @@ async function main() {
         await send('Page.enable');
         await send('Runtime.enable');
         await send('Page.addScriptToEvaluateOnNewDocument', {
-          source: `window.prompt = () => ${JSON.stringify(ADMIN_CODE)};`,
+          source: `window.prompt = () => ${JSON.stringify(payload.adminCode)};`,
         });
         await send('Page.navigate', { url: `${base}/groups/${groupSlug}/admin-lite` });
         await waitForExpression(send, `document.getElementById('profileForm') && document.getElementById('profileForm').hidden === false`, 20000);

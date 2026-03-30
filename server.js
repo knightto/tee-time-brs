@@ -61,6 +61,10 @@ const {
   buildTeeTimesSiteDeploymentProfile,
   buildTeeTimesSiteTemplatePackage,
 } = require('./services/siteTemplateService');
+const {
+  inferInboundGroupRouting,
+  isAllowedInboundRecipient,
+} = require('./utils/inboundGroupRouting');
 const { requestContext } = require('./middleware/requestContext');
 const { cacheJson } = require('./middleware/responseCache');
 const { validateBody, validateCreateEvent, validateAddPlayer } = require('./middleware/validate');
@@ -80,12 +84,23 @@ const ADMIN_DESTRUCTIVE_CONFIRM_CODE = process.env.ADMIN_DESTRUCTIVE_CONFIRM_COD
 const SITE_URL = (process.env.SITE_URL || 'https://tee-time-brs.onrender.com/').replace(/\/$/, '') + '/';
 const LOCAL_TZ = process.env.LOCAL_TZ || 'America/New_York';
 const DEFAULT_SITE_GROUP_SLUG = String(process.env.DEFAULT_SITE_GROUP_SLUG || 'main').trim().toLowerCase() || 'main';
+const RESEND_INBOUND_BASE_ADDRESS = 'teetime@xenailexou.resend.app';
 const GROUP_SLUG_ALIASES = Object.freeze({
   'thursday-seniors-group': 'seniors',
 });
 const GROUP_REFERENCE_OVERRIDES = Object.freeze({
   [DEFAULT_SITE_GROUP_SLUG]: 'BRS Group',
   seniors: 'Thursday Seniors',
+});
+const GROUP_PROFILE_ISOLATION_OVERRIDES = Object.freeze({
+  seniors: Object.freeze({
+    features: Object.freeze({
+      includeHandicaps: false,
+      includeTrips: false,
+      includeOutings: false,
+      includeBackups: false,
+    }),
+  }),
 });
 const GROUP_SITE_ADMIN_CODE_OVERRIDES = Object.freeze({
   seniors: '000',
@@ -410,7 +425,7 @@ app.get('/api/clubs/:clubId/golfers', async (req, res) => {
 // Admin import (CSV upload)
 app.post('/api/admin/clubs/:clubId/handicaps/import', upload.single('file'), async (req, res) => {
   try {
-    if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+    if (!isMainSiteAdminRequest(req)) return res.status(403).json({ error: 'Forbidden' });
     if (!Golfer || !HandicapSnapshot || !ImportBatch) return res.status(500).json({ error: 'Handicap models unavailable' });
     const clubId = req.params.clubId;
     const dryRun = String(req.query.dryRun || '').toLowerCase() === 'true';
@@ -433,7 +448,7 @@ app.post('/api/admin/clubs/:clubId/handicaps/import', upload.single('file'), asy
 
 app.get('/api/admin/import-batches', async (req, res) => {
   try {
-    if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+    if (!isMainSiteAdminRequest(req)) return res.status(403).json({ error: 'Forbidden' });
     if (!ImportBatch) return res.status(500).json({ error: 'ImportBatch model unavailable' });
     const q = {};
     if (req.query.clubId) q.clubId = req.query.clubId;
@@ -446,7 +461,7 @@ app.get('/api/admin/import-batches', async (req, res) => {
 
 app.get('/api/admin/import-batches/:batchId', async (req, res) => {
   try {
-    if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+    if (!isMainSiteAdminRequest(req)) return res.status(403).json({ error: 'Forbidden' });
     if (!ImportBatch) return res.status(500).json({ error: 'ImportBatch model unavailable' });
     const batch = await ImportBatch.findById(req.params.batchId).lean();
     if (!batch) return res.status(404).json({ error: 'Not found' });
@@ -487,7 +502,7 @@ app.post('/webhooks/resend', async (req, res) => {
     // Restrict to your expected sender and recipient for now
     const fromAddress = event.data.from || '';
     const toList = event.data.to || [];
-    const allowedTo = ['teetime@xenailexou.resend.app'];
+    const inboundBaseAddress = RESEND_INBOUND_BASE_ADDRESS;
     const allowedFrom = ['tommy.knight@gmail.com', 'no-reply@foreupsoftware.com'];
 
     const toAllowed =
@@ -495,7 +510,7 @@ app.post('/webhooks/resend', async (req, res) => {
       toList.some(
         (addr) =>
           typeof addr === 'string' &&
-          allowedTo.some((allowed) => addr.toLowerCase() === allowed.toLowerCase())
+          isAllowedInboundRecipient(addr, inboundBaseAddress)
       );
 
     const fromAllowed = allowedFrom.some(
@@ -543,6 +558,19 @@ app.post('/webhooks/resend', async (req, res) => {
         to: email.to,
         subject: email.subject,
       });
+      const inboundRouting = inferInboundGroupRouting({
+        eventTo: event.data && event.data.to,
+        emailTo: email.to,
+        subject: email.subject,
+        baseAddress: inboundBaseAddress,
+      });
+      const requestGroupSlug = normalizeGroupSlug(inboundRouting.groupSlug || getGroupSlug(req));
+      if (!(await isManagedGroupSlug(requestGroupSlug))) {
+        console.warn('[webhook] Ignored: unknown group alias', requestGroupSlug, inboundRouting.marker || '');
+        markProcessed();
+        return res.status(200).send('Ignored: unknown group alias');
+      }
+      console.log('[webhook] Inbound group routing:', inboundRouting.source, requestGroupSlug, inboundRouting.marker || '');
 
       const textBody = email.text || '';
       const textPreview = textBody.slice(0, 400);
@@ -631,20 +659,22 @@ app.post('/webhooks/resend', async (req, res) => {
       const findMatchingEvents = async () => {
         // Prefer exact course + time match, then time-only match on same date
         const queries = [];
+        const scopedGroupQuery = groupScopeFilter(requestGroupSlug);
         if (eventPayload.teeTime) {
           if (eventPayload.dedupeKey) {
-            queries.push({ dedupeKey: eventPayload.dedupeKey });
+            queries.push({ ...scopedGroupQuery, dedupeKey: eventPayload.dedupeKey });
           }
           if (eventPayload.course) {
             queries.push({
+              ...scopedGroupQuery,
               date: eventDateObj,
               'teeTimes.time': eventPayload.teeTime,
               course: new RegExp(`^${escapeRegex(eventPayload.course)}$`, 'i')
             });
           }
-          queries.push({ date: eventDateObj, 'teeTimes.time': eventPayload.teeTime });
+          queries.push({ ...scopedGroupQuery, date: eventDateObj, 'teeTimes.time': eventPayload.teeTime });
         } else {
-          queries.push({ date: eventDateObj });
+          queries.push({ ...scopedGroupQuery, date: eventDateObj });
         }
         for (const q of queries) {
           const found = await Event.find(q).sort({ createdAt: 1 });
@@ -673,7 +703,6 @@ app.post('/webhooks/resend', async (req, res) => {
         return ev.save();
       };
 
-      const requestGroupSlug = getGroupSlug(req);
       const createEventThroughApi = async (reason = 'CREATE') => {
         const body = { ...eventPayload, date: normalizedDate };
         const fetchRes = await fetch(`${SITE_URL}api/events?group=${encodeURIComponent(requestGroupSlug)}`, {
@@ -805,6 +834,10 @@ if (!skipMongoConnect) {
     .then(async () => {
       console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'Mongo connected', uri:mongoUri }));
       await ensureScopedSettingsIndexes();
+      await ensureScopedSubscriberIndexes();
+      await ensureCanonicalGroupAliasData();
+      await ensureGroupProfileIsolationDefaults();
+      await ensureGroupAccessControlCache();
     })
     .catch((e) => { console.error('Mongo connection error', e); process.exit(1); });
 } else {
@@ -868,6 +901,141 @@ async function ensureScopedSettingsIndexes() {
     await Settings.collection.createIndex({ groupSlug: 1, key: 1 }, { unique: true, name: 'groupSlug_1_key_1' });
   } catch (error) {
     console.error('Failed to ensure scoped settings indexes:', error);
+  }
+}
+
+async function ensureScopedSubscriberIndexes() {
+  if (!Subscriber || !Subscriber.collection) return;
+  try {
+    const mainGroupSlug = DEFAULT_SITE_GROUP_SLUG;
+    const legacySubscribers = await Subscriber.find({
+      $or: [
+        { groupSlug: { $exists: false } },
+        { groupSlug: null },
+        { groupSlug: '' },
+      ],
+    }).lean();
+
+    if (legacySubscribers.length) {
+      await Subscriber.updateMany(
+        {
+          $or: [
+            { groupSlug: { $exists: false } },
+            { groupSlug: null },
+            { groupSlug: '' },
+          ],
+        },
+        { $set: { groupSlug: mainGroupSlug } }
+      );
+      console.log(JSON.stringify({
+        t: new Date().toISOString(),
+        level: 'info',
+        msg: 'subscriber-group-backfill',
+        migrated: legacySubscribers.length,
+        groupSlug: mainGroupSlug,
+      }));
+    }
+
+    const indexes = await Subscriber.collection.indexes();
+    const legacyEmailIndex = indexes.find((index) => index && index.name === 'email_1' && index.unique);
+    if (legacyEmailIndex) {
+      await Subscriber.collection.dropIndex('email_1');
+      console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'subscriber-index-migrated', dropped:'email_1' }));
+    }
+    await Subscriber.collection.createIndex({ groupSlug: 1, email: 1 }, { unique: true, name: 'groupSlug_1_email_1' });
+  } catch (error) {
+    console.error('Failed to ensure scoped subscriber indexes:', error);
+  }
+}
+
+async function ensureCanonicalGroupAliasData() {
+  const aliasEntries = Object.entries(GROUP_SLUG_ALIASES);
+  if (!aliasEntries.length) return;
+  try {
+    for (const [legacySlug, canonicalSlug] of aliasEntries) {
+      if (Settings) {
+        const legacySettings = await Settings.find({ groupSlug: legacySlug }).sort({ updatedAt: -1, _id: -1 });
+        for (const legacySetting of legacySettings) {
+          const key = String(legacySetting && legacySetting.key || '').trim();
+          if (!key) continue;
+          const existingScoped = await Settings.findOne({ groupSlug: canonicalSlug, key }).sort({ updatedAt: -1, _id: -1 });
+          if (existingScoped) {
+            const legacyUpdatedAt = legacySetting && legacySetting.updatedAt ? new Date(legacySetting.updatedAt).getTime() : 0;
+            const scopedUpdatedAt = existingScoped && existingScoped.updatedAt ? new Date(existingScoped.updatedAt).getTime() : 0;
+            if (legacyUpdatedAt > scopedUpdatedAt) {
+              existingScoped.value = legacySetting.value;
+              await existingScoped.save();
+            }
+            await Settings.deleteOne({ _id: legacySetting._id });
+          } else {
+            legacySetting.groupSlug = canonicalSlug;
+            await legacySetting.save();
+          }
+        }
+      }
+
+      if (Subscriber) {
+        const legacySubscribers = await Subscriber.find({ groupSlug: legacySlug });
+        for (const legacySubscriber of legacySubscribers) {
+          const normalizedEmail = String(legacySubscriber.email || '').trim().toLowerCase();
+          if (!normalizedEmail) {
+            await Subscriber.deleteOne({ _id: legacySubscriber._id });
+            continue;
+          }
+          const existingScoped = await Subscriber.findOne({ groupSlug: canonicalSlug, email: normalizedEmail });
+          if (existingScoped) {
+            if (!existingScoped.unsubscribeToken && legacySubscriber.unsubscribeToken) {
+              existingScoped.unsubscribeToken = legacySubscriber.unsubscribeToken;
+              await existingScoped.save();
+            }
+            await Subscriber.deleteOne({ _id: legacySubscriber._id });
+          } else {
+            legacySubscriber.groupSlug = canonicalSlug;
+            await legacySubscriber.save();
+          }
+        }
+      }
+
+      if (Event) {
+        await Event.updateMany({ groupSlug: legacySlug }, { $set: { groupSlug: canonicalSlug } });
+      }
+      if (TeeTimeLog) {
+        await TeeTimeLog.updateMany({ groupSlug: legacySlug }, { $set: { groupSlug: canonicalSlug } });
+      }
+    }
+  } catch (error) {
+    console.error('Failed to canonicalize aliased group data:', error);
+  }
+}
+
+async function ensureGroupProfileIsolationDefaults() {
+  if (!Settings) return;
+  try {
+    for (const groupSlug of Object.keys(GROUP_PROFILE_ISOLATION_OVERRIDES)) {
+      const setting = await Settings.findOne(scopedSettingQuery(groupSlug, 'siteProfile'));
+      if (!setting || !setting.value || typeof setting.value !== 'object') continue;
+      const nextProfile = applyGroupProfileIsolation(groupSlug, setting.value);
+      if (JSON.stringify(setting.value) === JSON.stringify(nextProfile)) continue;
+      setting.value = nextProfile;
+      await setting.save();
+    }
+  } catch (error) {
+    console.error('Failed to enforce group profile isolation defaults:', error);
+  }
+}
+
+async function ensureGroupAccessControlCache() {
+  groupAccessControlCache.clear();
+  groupAccessControlCache.set(DEFAULT_SITE_GROUP_SLUG, normalizeStoredGroupAccessConfig(DEFAULT_SITE_GROUP_SLUG, {}));
+  if (!Settings) return;
+  try {
+    const profiles = await Settings.find({ key: 'siteProfile' }).lean();
+    for (const entry of profiles) {
+      const profile = entry && entry.value && typeof entry.value === 'object' ? entry.value : {};
+      setGroupAccessControlCache(entry.groupSlug || profile.groupSlug || DEFAULT_SITE_GROUP_SLUG, profile);
+    }
+  } catch (error) {
+    console.error('Failed to populate group access control cache:', error);
   }
 }
 
@@ -1342,6 +1510,7 @@ const BACKUP_STATUS_DEFAULTS = Object.freeze({
   lastFailureMessage: '',
 });
 let backupStatusCache = { value: { ...BACKUP_STATUS_DEFAULTS }, ts: 0 };
+const groupAccessControlCache = new Map();
 
 async function areSchedulerJobsEnabled(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   if (SCHEDULER_ENV_DISABLED) return false;
@@ -1438,7 +1607,7 @@ async function getBackupSettings() {
   let settings = { ...BACKUP_SETTINGS_DEFAULTS };
   if (Settings) {
     try {
-      const setting = await Settings.findOne({ key: 'backupSettings' });
+      const setting = await Settings.findOne(scopedSettingQuery(DEFAULT_SITE_GROUP_SLUG, 'backupSettings'));
       settings = normalizeBackupSettings(setting && setting.value);
     } catch (e) {
       console.error('Error checking backup settings:', e);
@@ -1467,7 +1636,7 @@ async function getBackupStatus() {
   let status = { ...BACKUP_STATUS_DEFAULTS };
   if (Settings) {
     try {
-      const setting = await Settings.findOne({ key: 'backupStatus' });
+      const setting = await Settings.findOne(scopedSettingQuery(DEFAULT_SITE_GROUP_SLUG, 'backupStatus'));
       status = normalizeBackupStatus(setting && setting.value);
     } catch (e) {
       console.error('Error checking backup status:', e);
@@ -1481,8 +1650,8 @@ async function saveBackupStatus(nextStatus) {
   const status = normalizeBackupStatus(nextStatus);
   if (Settings) {
     await Settings.findOneAndUpdate(
-      { key: 'backupStatus' },
-      { key: 'backupStatus', value: status },
+      scopedSettingQuery(DEFAULT_SITE_GROUP_SLUG, 'backupStatus'),
+      { groupSlug: DEFAULT_SITE_GROUP_SLUG, key: 'backupStatus', value: status },
       { upsert: true, new: true }
     );
   }
@@ -1771,14 +1940,18 @@ function getGroupSlugVariants(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
 
 function getAllowedSiteAdminCodes(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
-  const overrideCode = String(GROUP_SITE_ADMIN_CODE_OVERRIDES[normalizedGroupSlug] || '').trim();
   const allowedCodes = [];
-  if (overrideCode) allowedCodes.push(overrideCode);
-  else if (SITE_ADMIN_WRITE_CODE) allowedCodes.push(SITE_ADMIN_WRITE_CODE);
-  if (ADMIN_DESTRUCTIVE_CODE && !allowedCodes.includes(ADMIN_DESTRUCTIVE_CODE)) {
-    allowedCodes.push(ADMIN_DESTRUCTIVE_CODE);
+  const storedConfig = getGroupAccessControlConfig(normalizedGroupSlug);
+  const storedAdminCode = cleanAccessCode(storedConfig.adminCode || '');
+  const overrideCode = cleanAccessCode(GROUP_SITE_ADMIN_CODE_OVERRIDES[normalizedGroupSlug] || '');
+  if (storedAdminCode) allowedCodes.push(storedAdminCode);
+  else if (overrideCode) allowedCodes.push(overrideCode);
+  else if (normalizedGroupSlug === DEFAULT_SITE_GROUP_SLUG && SITE_ADMIN_WRITE_CODE) allowedCodes.push(cleanAccessCode(SITE_ADMIN_WRITE_CODE));
+  else if (SITE_ADMIN_WRITE_CODE) {
+    // Backward-compatible fallback for older scoped groups created before dedicated group codes were stored.
+    allowedCodes.push(cleanAccessCode(SITE_ADMIN_WRITE_CODE));
   }
-  return allowedCodes;
+  return Array.from(new Set(allowedCodes.filter(Boolean)));
 }
 
 function normalizeGroupSlug(value = '') {
@@ -1874,6 +2047,67 @@ function uniqueEmailList(values = []) {
     .filter(Boolean)));
 }
 
+function cleanAccessCode(value = '') {
+  return String(value || '').trim().replace(/\s+/g, '');
+}
+
+function normalizeStoredGroupAccessConfig(groupSlug = DEFAULT_SITE_GROUP_SLUG, profile = {}) {
+  const normalizedGroupSlug = normalizeGroupSlug(groupSlug || profile.groupSlug || DEFAULT_SITE_GROUP_SLUG);
+  const overrideCode = cleanAccessCode(GROUP_SITE_ADMIN_CODE_OVERRIDES[normalizedGroupSlug] || '');
+  const adminCode = cleanAccessCode(profile.adminCode || '') || overrideCode;
+  const deleteCode = cleanAccessCode(profile.deleteCode || '') || adminCode;
+  const confirmCode = cleanAccessCode(profile.confirmCode || '');
+  return { adminCode, deleteCode, confirmCode };
+}
+
+function setGroupAccessControlCache(groupSlug = DEFAULT_SITE_GROUP_SLUG, profile = {}) {
+  const normalizedGroupSlug = normalizeGroupSlug(groupSlug || profile.groupSlug || DEFAULT_SITE_GROUP_SLUG);
+  const config = normalizeStoredGroupAccessConfig(normalizedGroupSlug, profile);
+  groupAccessControlCache.set(normalizedGroupSlug, config);
+  return config;
+}
+
+function getGroupAccessControlConfig(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
+  if (!groupAccessControlCache.has(normalizedGroupSlug)) {
+    return setGroupAccessControlCache(normalizedGroupSlug, {});
+  }
+  return groupAccessControlCache.get(normalizedGroupSlug) || { adminCode: '', deleteCode: '', confirmCode: '' };
+}
+
+function applyGroupProfileIsolation(groupSlug = DEFAULT_SITE_GROUP_SLUG, profile = {}) {
+  const normalizedGroupSlug = normalizeGroupSlug(groupSlug || profile.groupSlug || DEFAULT_SITE_GROUP_SLUG);
+  const override = GROUP_PROFILE_ISOLATION_OVERRIDES[normalizedGroupSlug];
+  const accessConfig = normalizeStoredGroupAccessConfig(normalizedGroupSlug, profile);
+  const defaultInboundAlias = normalizedGroupSlug === DEFAULT_SITE_GROUP_SLUG
+    ? RESEND_INBOUND_BASE_ADDRESS
+    : `teetime+${normalizedGroupSlug}@${RESEND_INBOUND_BASE_ADDRESS.split('@')[1]}`;
+  const inboundEmailAlias = String(profile.inboundEmailAlias || defaultInboundAlias).trim().toLowerCase();
+  if (!override) {
+    return {
+      ...(profile && typeof profile === 'object' ? profile : {}),
+      groupSlug: normalizedGroupSlug,
+      adminCode: accessConfig.adminCode,
+      deleteCode: accessConfig.deleteCode,
+      confirmCode: accessConfig.confirmCode,
+      inboundEmailAlias,
+    };
+  }
+  return {
+    ...(profile && typeof profile === 'object' ? profile : {}),
+    ...override,
+    groupSlug: normalizedGroupSlug,
+    adminCode: accessConfig.adminCode,
+    deleteCode: accessConfig.deleteCode,
+    confirmCode: accessConfig.confirmCode,
+    inboundEmailAlias,
+    features: {
+      ...(((profile && typeof profile === 'object' && profile.features) || {})),
+      ...((override && override.features) || {}),
+    },
+  };
+}
+
 function buildDefaultSiteProfileInput(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
   const adminEmails = uniqueEmailList(ADMIN_EMAILS);
@@ -1882,7 +2116,7 @@ function buildDefaultSiteProfileInput(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   const siteTitle = isMainGroup ? 'Tee Times' : `${defaultLabel} Tee Times`;
   const clubName = isMainGroup ? 'Blue Ridge Shadows' : defaultLabel;
   const groupName = isMainGroup ? 'Knight Group Tee Times' : defaultLabel;
-  return {
+  return applyGroupProfileIsolation(normalizedGroupSlug, {
     groupSlug: normalizedGroupSlug,
     packageSlug: normalizedGroupSlug,
     siteTitle,
@@ -1899,18 +2133,22 @@ function buildDefaultSiteProfileInput(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
     clubPhone: '',
     smsPhone: '',
     adminAlertPhones: [],
+    adminCode: '',
+    deleteCode: '',
+    confirmCode: '',
+    inboundEmailAlias: isMainGroup ? RESEND_INBOUND_BASE_ADDRESS : `teetime+${normalizedGroupSlug}@${RESEND_INBOUND_BASE_ADDRESS.split('@')[1]}`,
     themeColor: '#173224',
     iconAssetName: 'knight-club-icon.png',
     notes: isMainGroup ? 'Main Tee Times site profile.' : '',
     features: {
-      includeHandicaps: true,
-      includeTrips: true,
-      includeOutings: true,
+      includeHandicaps: isMainGroup,
+      includeTrips: isMainGroup,
+      includeOutings: isMainGroup,
       includeNotifications: true,
       includeScheduler: true,
-      includeBackups: true,
+      includeBackups: isMainGroup,
     },
-  };
+  });
 }
 
 function resolveSiteIconPath(iconAssetName = '') {
@@ -1948,46 +2186,84 @@ function buildGroupDeploymentLinks(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
 
 function toPublicSiteProfile(profile = {}) {
   const normalizedGroupSlug = normalizeGroupSlug(profile.groupSlug || DEFAULT_SITE_GROUP_SLUG);
+  const isolatedProfile = applyGroupProfileIsolation(normalizedGroupSlug, profile);
   const routePaths = buildGroupRoutePaths(normalizedGroupSlug);
   return {
     groupSlug: normalizedGroupSlug,
-    siteTitle: String(profile.siteTitle || 'Tee Times').trim() || 'Tee Times',
-    shortTitle: String(profile.shortTitle || profile.siteTitle || 'Tee Time').trim() || 'Tee Time',
-    groupName: String(profile.groupName || '').trim(),
-    groupReference: resolveGroupReference(normalizedGroupSlug, profile),
-    clubName: String(profile.clubName || '').trim(),
-    clubRequestLabel: String(profile.clubRequestLabel || '').trim(),
-    themeColor: String(profile.themeColor || '#173224').trim() || '#173224',
-    iconAssetName: String(profile.iconAssetName || '').trim(),
-    iconPath: resolveSiteIconPath(profile.iconAssetName),
-    features: profile.features && typeof profile.features === 'object' ? profile.features : buildDefaultSiteProfileInput(normalizedGroupSlug).features,
+    siteTitle: String(isolatedProfile.siteTitle || 'Tee Times').trim() || 'Tee Times',
+    shortTitle: String(isolatedProfile.shortTitle || isolatedProfile.siteTitle || 'Tee Time').trim() || 'Tee Time',
+    groupName: String(isolatedProfile.groupName || '').trim(),
+    groupReference: resolveGroupReference(normalizedGroupSlug, isolatedProfile),
+    clubName: String(isolatedProfile.clubName || '').trim(),
+    clubRequestLabel: String(isolatedProfile.clubRequestLabel || '').trim(),
+    themeColor: String(isolatedProfile.themeColor || '#173224').trim() || '#173224',
+    iconAssetName: String(isolatedProfile.iconAssetName || '').trim(),
+    iconPath: resolveSiteIconPath(isolatedProfile.iconAssetName),
+    features: isolatedProfile.features && typeof isolatedProfile.features === 'object' ? isolatedProfile.features : buildDefaultSiteProfileInput(normalizedGroupSlug).features,
     routePaths,
     links: buildGroupDeploymentLinks(normalizedGroupSlug),
   };
+}
+
+function toAdminEditableSiteProfile(profile = {}) {
+  const isolatedProfile = applyGroupProfileIsolation(profile.groupSlug || DEFAULT_SITE_GROUP_SLUG, profile);
+  const safeProfile = { ...isolatedProfile };
+  delete safeProfile.adminCode;
+  delete safeProfile.deleteCode;
+  delete safeProfile.confirmCode;
+  return safeProfile;
 }
 
 async function getSiteProfile(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
   const defaults = buildDefaultSiteProfileInput(normalizedGroupSlug);
   if (!Settings) {
-    return buildTeeTimesSiteDeploymentProfile(defaults);
+    return buildTeeTimesSiteDeploymentProfile(defaults, { preserveBlankAccessCodes: true });
   }
   try {
     const setting = await Settings.findOne(scopedSettingQuery(normalizedGroupSlug, 'siteProfile')).lean();
     const storedValue = setting && setting.value && typeof setting.value === 'object' ? setting.value : {};
     return buildTeeTimesSiteDeploymentProfile({
-      ...defaults,
-      ...storedValue,
+      ...applyGroupProfileIsolation(normalizedGroupSlug, {
+        ...defaults,
+        ...storedValue,
+      }),
       features: {
         ...(defaults.features || {}),
         ...((storedValue && storedValue.features) || {}),
+        ...(((GROUP_PROFILE_ISOLATION_OVERRIDES[normalizedGroupSlug] || {}).features) || {}),
       },
       groupSlug: normalizedGroupSlug,
       packageSlug: storedValue.packageSlug || normalizedGroupSlug,
-    });
+    }, { preserveBlankAccessCodes: true });
   } catch (error) {
     console.error('Error loading site profile:', error);
-    return buildTeeTimesSiteDeploymentProfile(defaults);
+    return buildTeeTimesSiteDeploymentProfile(defaults, { preserveBlankAccessCodes: true });
+  }
+}
+
+async function isManagedGroupSlug(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
+  if (normalizedGroupSlug === DEFAULT_SITE_GROUP_SLUG) return true;
+  const managedGroups = await getAllManagedGroupSlugs();
+  return managedGroups.includes(normalizedGroupSlug);
+}
+
+async function getSubscriptionGroupContext(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
+  try {
+    const profile = await getSiteProfile(normalizedGroupSlug);
+    return {
+      groupSlug: normalizedGroupSlug,
+      groupReference: resolveGroupReference(normalizedGroupSlug, profile),
+      siteTitle: String(profile.siteTitle || 'Tee Times').trim() || 'Tee Times',
+    };
+  } catch (_) {
+    return {
+      groupSlug: normalizedGroupSlug,
+      groupReference: resolveGroupReference(normalizedGroupSlug, {}),
+      siteTitle: 'Tee Times',
+    };
   }
 }
 
@@ -1995,7 +2271,7 @@ async function saveSiteProfile(groupSlug = DEFAULT_SITE_GROUP_SLUG, input = {}) 
   if (!Settings) throw new Error('Settings model not available');
   const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
   const currentProfile = await getSiteProfile(normalizedGroupSlug);
-  const nextProfile = buildTeeTimesSiteDeploymentProfile({
+  const nextProfile = buildTeeTimesSiteDeploymentProfile(applyGroupProfileIsolation(normalizedGroupSlug, {
     ...currentProfile,
     ...input,
     features: {
@@ -2004,13 +2280,14 @@ async function saveSiteProfile(groupSlug = DEFAULT_SITE_GROUP_SLUG, input = {}) 
     },
     groupSlug: normalizedGroupSlug,
     packageSlug: input && input.packageSlug ? input.packageSlug : (currentProfile.packageSlug || normalizedGroupSlug),
-  });
+  }), { preserveBlankAccessCodes: true });
 
   await Settings.findOneAndUpdate(
     scopedSettingQuery(normalizedGroupSlug, 'siteProfile'),
     { groupSlug: normalizedGroupSlug, key: 'siteProfile', value: nextProfile },
     { upsert: true, new: true, setDefaultsOnInsert: true }
   );
+  setGroupAccessControlCache(normalizedGroupSlug, nextProfile);
 
   const notificationsEnabled = nextProfile.features.includeNotifications !== false;
   const schedulerEnabled = nextProfile.features.includeScheduler !== false;
@@ -2071,6 +2348,7 @@ async function buildOperationsGuidePayload() {
       secondaryContactEmail: String(profile.secondaryContactEmail || '').trim(),
       clubRequestEmail: String(profile.clubRequestEmail || '').trim(),
       replyToEmail: String(profile.replyToEmail || '').trim(),
+      inboundEmailAlias: String(profile.inboundEmailAlias || '').trim(),
       clubCcEmails: contacts.clubCcEmails,
     });
   }
@@ -2081,7 +2359,7 @@ async function buildOperationsGuidePayload() {
   });
   const defaultInboundGroup = groups.find((group) => group.groupSlug === DEFAULT_SITE_GROUP_SLUG) || null;
 
-  const resendInboundAddress = 'teetime@xenailexou.resend.app';
+  const resendInboundAddress = RESEND_INBOUND_BASE_ADDRESS;
   const resendAllowedSenders = ['tommy.knight@gmail.com', 'no-reply@foreupsoftware.com'];
   const allEmails = uniqueEmailList([
     ADMIN_EMAILS,
@@ -2095,6 +2373,7 @@ async function buildOperationsGuidePayload() {
       group.secondaryContactEmail,
       group.clubRequestEmail,
       group.replyToEmail,
+      group.inboundEmailAlias,
       group.clubCcEmails,
     ]),
   ]);
@@ -2121,7 +2400,9 @@ async function buildOperationsGuidePayload() {
       defaultGroupSlug: DEFAULT_SITE_GROUP_SLUG,
       defaultGroupReference: defaultInboundGroup ? defaultInboundGroup.groupReference : resolveGroupReference(DEFAULT_SITE_GROUP_SLUG, {}),
       defaultGroupName: defaultInboundGroup ? defaultInboundGroup.groupName : '',
-      explanation: 'Imported tee-time emails are not currently tagged with a specific group identifier. The Render-hosted /webhooks/resend route accepts the known inbound address plus an allowed-sender list, then falls back to the default site group, so those emails are created under the main BRS tee-times group.',
+      recipientAliasPattern: `${resendInboundAddress.replace('@', '+<group>@')}`,
+      subjectTagPattern: '[group:<slug>]',
+      explanation: 'Imported tee-time emails can now be routed to a specific group by sending them to a +group alias on the inbound Resend address, or by including a [group:<slug>] tag in the subject. If neither marker is present, the Render-hosted /webhooks/resend route still falls back to the default site group, so untagged emails are created under the main BRS tee-times group.',
     },
     adminEmails: ADMIN_EMAILS,
     defaultClubEmail: CLUB_EMAIL,
@@ -2194,9 +2475,28 @@ function isSiteAdminCode(code = '', groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   return getAllowedSiteAdminCodes(groupSlug).includes(String(code || '').trim());
 }
 
+function isMainSiteAdminRequest(req) {
+  return isSiteAdminCode(getScopedAdminCode(req), DEFAULT_SITE_GROUP_SLUG);
+}
+
+function getAllowedDestructiveAdminCodes(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
+  const storedConfig = getGroupAccessControlConfig(normalizedGroupSlug);
+  const storedDeleteCode = cleanAccessCode(storedConfig.deleteCode || '');
+  if (normalizedGroupSlug === DEFAULT_SITE_GROUP_SLUG) {
+    return ADMIN_DESTRUCTIVE_CODE ? [cleanAccessCode(ADMIN_DESTRUCTIVE_CODE)] : [];
+  }
+  if (storedDeleteCode) return [storedDeleteCode];
+  return getAllowedSiteAdminCodes(normalizedGroupSlug);
+}
+
+function isAdminDeleteCode(code = '', groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  return getAllowedDestructiveAdminCodes(groupSlug).includes(String(code || '').trim());
+}
+
 function isAdminDelete(req) {
   const code = getDestructiveAdminCode(req);
-  return Boolean(ADMIN_DESTRUCTIVE_CODE && code === ADMIN_DESTRUCTIVE_CODE);
+  return isAdminDeleteCode(code, getGroupSlug(req));
 }
 
 function hasDeleteActionConfirmed(req) {
@@ -2209,16 +2509,21 @@ function hasDeleteActionConfirmed(req) {
   return raw === '1' || raw === 'true' || raw === 'yes' || raw === 'on';
 }
 
-function hasDestructiveConfirm(req) {
-  if (!ADMIN_DESTRUCTIVE_CONFIRM_CODE) return true;
-  return getDestructiveConfirmCode(req) === ADMIN_DESTRUCTIVE_CONFIRM_CODE;
+function hasDestructiveConfirmForGroup(req, groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
+  const storedConfig = getGroupAccessControlConfig(normalizedGroupSlug);
+  const requiredCode = normalizedGroupSlug === DEFAULT_SITE_GROUP_SLUG
+    ? cleanAccessCode(ADMIN_DESTRUCTIVE_CONFIRM_CODE)
+    : cleanAccessCode(storedConfig.confirmCode || '');
+  if (!requiredCode) return true;
+  return getDestructiveConfirmCode(req) === requiredCode;
 }
 
 app.post('/api/admin/templates/tee-times-site-package', async (req, res) => {
   try {
     const guideOnly = String(req.query.guideOnly || req.body?.guideOnly || '').trim().toLowerCase();
     const allowGuideOnly = guideOnly === '1' || guideOnly === 'true' || guideOnly === 'yes';
-    if (!allowGuideOnly && !isSiteAdmin(req)) {
+    if (!isMainSiteAdminRequest(req)) {
       return res.status(403).json({ error: 'Admin code required' });
     }
     const pkg = buildTeeTimesSiteTemplatePackage(req.body || {});
@@ -2228,6 +2533,20 @@ app.post('/api/admin/templates/tee-times-site-package', async (req, res) => {
       const groupSlug = normalizeGroupSlug(pkg.deploymentProfile && pkg.deploymentProfile.groupSlug
         ? pkg.deploymentProfile.groupSlug
         : pkg.packageSlug);
+      const adminCode = cleanAccessCode(pkg.deploymentProfile && pkg.deploymentProfile.adminCode || '');
+      const deleteCode = cleanAccessCode(pkg.deploymentProfile && pkg.deploymentProfile.deleteCode || '');
+      const inboundEmailAlias = String(pkg.deploymentProfile && pkg.deploymentProfile.inboundEmailAlias || '').trim().toLowerCase();
+      if (groupSlug !== DEFAULT_SITE_GROUP_SLUG) {
+        if (!adminCode || adminCode === 'change-me') {
+          return res.status(400).json({ error: 'A dedicated non-placeholder group admin code is required for live deployment' });
+        }
+        if (!deleteCode || deleteCode === 'change-me') {
+          return res.status(400).json({ error: 'A dedicated non-placeholder group delete code is required for live deployment' });
+        }
+        if (!inboundEmailAlias) {
+          return res.status(400).json({ error: 'A group inbound email alias is required for live deployment' });
+        }
+      }
       const existing = await Settings.findOne(scopedSettingQuery(groupSlug, 'siteProfile')).lean();
       const savedProfile = await saveSiteProfile(groupSlug, pkg.deploymentProfile || {});
       deployment = {
@@ -2280,7 +2599,7 @@ app.get('/api/admin/site-profile', async (req, res) => {
     const groupSlug = getGroupSlug(req);
     const profile = await getSiteProfile(groupSlug);
     return res.json({
-      profile,
+      profile: toAdminEditableSiteProfile(profile),
       publicProfile: toPublicSiteProfile(profile),
       links: buildGroupDeploymentLinks(groupSlug),
     });
@@ -2291,17 +2610,22 @@ app.get('/api/admin/site-profile', async (req, res) => {
 
 app.get('/api/admin/site-groups', async (req, res) => {
   try {
-    if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    if (!isMainSiteAdminRequest(req)) return res.status(403).json({ error: 'Admin code required' });
     const groupSlugs = await getAllManagedGroupSlugs();
     const groups = await Promise.all(groupSlugs.map(async (groupSlug) => {
-      const profile = toPublicSiteProfile(await getSiteProfile(groupSlug));
+      const storedProfile = await getSiteProfile(groupSlug);
+      const profile = toPublicSiteProfile(storedProfile);
       const links = buildGroupDeploymentLinks(groupSlug);
+      const accessConfig = normalizeStoredGroupAccessConfig(groupSlug, storedProfile);
       return {
         groupSlug: normalizeGroupSlug(groupSlug),
         isMainGroup: normalizeGroupSlug(groupSlug) === DEFAULT_SITE_GROUP_SLUG,
         groupReference: resolveGroupReference(groupSlug, profile),
         groupName: String(profile.groupName || profile.siteTitle || '').trim(),
         siteTitle: String(profile.siteTitle || '').trim(),
+        inboundEmailAlias: String(storedProfile.inboundEmailAlias || '').trim(),
+        hasDedicatedAdminCode: Boolean(accessConfig.adminCode),
+        hasDedicatedDeleteCode: Boolean(accessConfig.deleteCode),
         links,
       };
     }));
@@ -2324,7 +2648,7 @@ app.put('/api/admin/site-profile', async (req, res) => {
     const profile = await saveSiteProfile(groupSlug, req.body || {});
     return res.json({
       ok: true,
-      profile,
+      profile: toAdminEditableSiteProfile(profile),
       publicProfile: toPublicSiteProfile(profile),
       links: buildGroupDeploymentLinks(groupSlug),
     });
@@ -4864,16 +5188,27 @@ app.post('/api/subscribe', async (req, res) => {
   try {
     const { subscriber: s, isNew } = await ensureSubscriberRecord(groupSlug, email);
     const subscriberEmail = String(s.email || '').trim().toLowerCase();
+    const groupContext = await getSubscriptionGroupContext(groupSlug);
     console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'subscriber added', email: subscriberEmail, isNew }));
     
     // Send response immediately
-    res.json({ ok: true, id: s._id.toString(), isNew });
+    res.json({
+      ok: true,
+      id: s._id.toString(),
+      isNew,
+      groupSlug: groupContext.groupSlug,
+      groupReference: groupContext.groupReference,
+    });
     
     // Send confirmation email asynchronously (don't block the response)
     console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'sending confirmation', to: subscriberEmail }));
     const unsubLink = `${SITE_URL}api/unsubscribe/${s.unsubscribeToken}`;
-    const subject = 'Golf Notifications - Subscription Confirmed';
-    const message = `<p>Thanks for subscribing! You'll receive email notifications when new golf events are posted.</p><p><a href="${unsubLink}">Click here to unsubscribe</a></p>`;
+    const subject = `${groupContext.groupReference} Notifications - Subscription Confirmed`;
+    const message = `
+      <p>Thanks for subscribing to <strong>${esc(groupContext.groupReference)}</strong> notifications.</p>
+      <p>This subscription only applies to that golf group. If you also subscribe to another group, that list stays separate.</p>
+      <p><a href="${unsubLink}">Click here to unsubscribe from ${esc(groupContext.groupReference)}</a></p>
+    `;
     
     sendEmail(subscriberEmail, subject, message)
       .then(result => {
@@ -4899,10 +5234,12 @@ app.post('/api/admin/subscribers', async (req, res) => {
   try {
     const groupSlug = getGroupSlug(req);
     const { subscriber, isNew } = await ensureSubscriberRecord(groupSlug, email);
+    const groupContext = await getSubscriptionGroupContext(groupSlug);
     return res.status(isNew ? 201 : 200).json({
       ok: true,
       isNew,
-      groupSlug,
+      groupSlug: groupContext.groupSlug,
+      groupReference: groupContext.groupReference,
       subscriber: {
         _id: subscriber._id,
         email: subscriber.email,
@@ -4931,12 +5268,13 @@ app.get('/api/unsubscribe/:token', async (req, res) => {
       `);
     }
     
+    const groupContext = await getSubscriptionGroupContext(subscriber.groupSlug);
     await Subscriber.findByIdAndDelete(subscriber._id);
     
     res.send(`
       <!DOCTYPE html>
       <html><head><title>Unsubscribed</title><style>body{font-family:system-ui;max-width:600px;margin:50px auto;padding:20px;text-align:center}h1{color:#10b981}</style></head>
-      <body><h1>✅ Unsubscribed Successfully</h1><p>You've been removed from the notification list.</p><p>You will no longer receive golf event updates.</p></body></html>
+      <body><h1>✅ Unsubscribed Successfully</h1><p>You've been removed from the <strong>${esc(groupContext.groupReference)}</strong> notification list.</p><p>If you were subscribed to any other golf groups, those subscriptions are still active.</p></body></html>
     `);
   } catch (e) {
     console.error('Unsubscribe error:', e);
@@ -5132,7 +5470,7 @@ app.get('/api/admin/tee-time-log', async (req, res) => {
 
 /* Admin - Create/List/Download Backups */
 app.get('/api/admin/backups', async (req, res) => {
-  if (!isSiteAdmin(req)) {
+  if (!isMainSiteAdminRequest(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
@@ -5158,7 +5496,7 @@ app.get('/api/admin/backups', async (req, res) => {
 });
 
 app.get('/api/admin/settings/backups', async (req, res) => {
-  if (!isSiteAdmin(req)) {
+  if (!isMainSiteAdminRequest(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
@@ -5171,15 +5509,15 @@ app.get('/api/admin/settings/backups', async (req, res) => {
 });
 
 app.put('/api/admin/settings/backups', async (req, res) => {
-  if (!isSiteAdmin(req)) {
+  if (!isMainSiteAdminRequest(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   try {
     if (!Settings) return res.status(500).json({ error: 'Settings model not available' });
     const settings = normalizeBackupSettings(req.body || {});
     await Settings.findOneAndUpdate(
-      { key: 'backupSettings' },
-      { key: 'backupSettings', value: settings },
+      scopedSettingQuery(DEFAULT_SITE_GROUP_SLUG, 'backupSettings'),
+      { groupSlug: DEFAULT_SITE_GROUP_SLUG, key: 'backupSettings', value: settings },
       { upsert: true, new: true }
     );
     backupSettingsCache = { value: settings, ts: Date.now() };
@@ -5190,7 +5528,7 @@ app.put('/api/admin/settings/backups', async (req, res) => {
 });
 
 app.post('/api/admin/backups', async (req, res) => {
-  if (!isSiteAdmin(req)) {
+  if (!isMainSiteAdminRequest(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   if (backupJobPromise) {
@@ -5213,10 +5551,10 @@ app.post('/api/admin/backups', async (req, res) => {
 });
 
 app.post('/api/admin/backups/:backupId/restore', async (req, res) => {
-  if (!isAdminDelete(req)) {
+  if (!isAdminDeleteCode(getDestructiveAdminCode(req), DEFAULT_SITE_GROUP_SLUG)) {
     return res.status(403).json({ error: 'Delete code required' });
   }
-  if (!hasDestructiveConfirm(req)) {
+  if (!hasDestructiveConfirmForGroup(req, DEFAULT_SITE_GROUP_SLUG)) {
     return res.status(403).json({ error: 'Destructive confirmation code required' });
   }
   if (backupJobPromise || restoreJobPromise) {
@@ -5264,7 +5602,7 @@ app.post('/api/admin/backups/:backupId/restore', async (req, res) => {
 });
 
 app.get('/api/admin/backups/:backupId/files/:fileName', async (req, res) => {
-  if (!isSiteAdmin(req)) {
+  if (!isMainSiteAdminRequest(req)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   const backupId = String(req.params.backupId || '').trim();
@@ -5533,7 +5871,7 @@ app.get('/admin/empty-tee-report', async (req, res) => {
 
 /* Verify golf course data quality: GET /admin/verify-courses?code=... */
 app.get('/admin/verify-courses', async (req, res) => {
-  if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Forbidden' });
+  if (!isMainSiteAdminRequest(req)) return res.status(403).json({ error: 'Forbidden' });
   
   if (!GOLF_API_KEY && !GOLF_API_KEY_BACKUP) {
     return res.json({ 

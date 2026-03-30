@@ -136,6 +136,7 @@ if ('serviceWorker' in navigator) {
   const requestClubPreferredTimeInput = $('#requestClubPreferredTime');
   const requestClubRequesterNameInput = $('#requestClubRequesterName');
   const requestClubNameOptions = $('#requestClubNameOptions');
+  const subscribeScopeNote = $('#subscribeScopeNote');
   const STARTER_EVENT_PREFS_KEY = 'teeTimeStarterEventViews';
 
   // State
@@ -177,12 +178,12 @@ if ('serviceWorker' in navigator) {
     iconAssetName: 'knight-club-icon.png',
     iconPath: '/assets/knight-club-icon.png',
     features: {
-      includeHandicaps: true,
-      includeTrips: true,
-      includeOutings: true,
+      includeHandicaps: currentGroupSlug === 'main',
+      includeTrips: currentGroupSlug === 'main',
+      includeOutings: currentGroupSlug === 'main',
       includeNotifications: true,
       includeScheduler: true,
-      includeBackups: true,
+      includeBackups: currentGroupSlug === 'main',
     },
   };
   let currentSiteProfile = { ...defaultSiteProfile };
@@ -246,6 +247,15 @@ if ('serviceWorker' in navigator) {
 
   function clubContactLabel() {
     return String(currentSiteProfile.clubName || 'the club').trim() || 'the club';
+  }
+
+  function subscriptionGroupLabel() {
+    return String(
+      currentSiteProfile.groupReference
+      || currentSiteProfile.groupName
+      || currentSiteProfile.siteTitle
+      || 'this group'
+    ).trim() || 'this group';
   }
 
   function isMainGroupSite() {
@@ -326,6 +336,9 @@ if ('serviceWorker' in navigator) {
     });
 
     if (openSubscribeBtn) openSubscribeBtn.hidden = !siteFeatureEnabled('includeNotifications');
+    if (subscribeScopeNote) {
+      subscribeScopeNote.textContent = `This subscribes you to ${subscriptionGroupLabel()} email updates only. You can subscribe to other golf groups separately.`;
+    }
 
     const themeMeta = document.querySelector('meta[name="theme-color"]');
     if (themeMeta) themeMeta.setAttribute('content', currentSiteProfile.themeColor);
@@ -1749,10 +1762,11 @@ if ('serviceWorker' in navigator) {
       if(subMsg) {
         subMsg.style.color='var(--green-700)';
         subMsg.style.fontWeight='600';
+        const groupLabel = String(result && result.groupReference || subscriptionGroupLabel()).trim() || 'this group';
         if (result.isNew) {
-          subMsg.textContent = '✓ Email subscription confirmed!';
+          subMsg.textContent = `✓ Subscribed to ${groupLabel} updates!`;
         } else {
-          subMsg.textContent = '✓ Already subscribed!';
+          subMsg.textContent = `✓ Already subscribed to ${groupLabel}!`;
         }
       }
       setTimeout(() => {
