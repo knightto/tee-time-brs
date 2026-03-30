@@ -179,6 +179,10 @@ function buildCanonicalGroupQueryRedirectPath(req, pathname = req.path || '/') {
 }
 
 // Define routes before static middleware to ensure they take precedence
+app.get('/healthz', (_req, res) => {
+  res.type('text/plain').status(200).send('ok');
+});
+
 app.get('/', (req, res) => {
   const canonicalRedirect = buildCanonicalGroupQueryRedirectPath(req, '/');
   if (canonicalRedirect) return res.redirect(302, canonicalRedirect);
