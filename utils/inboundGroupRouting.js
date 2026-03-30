@@ -44,6 +44,18 @@ function parseGroupSlugFromSubject(subject = '') {
   if (!text) return '';
   const tagged = text.match(/\[\s*group\s*:\s*([a-z0-9-]+)\s*\]/i);
   if (tagged && tagged[1]) return sanitizeGroupSlugToken(tagged[1]);
+  if (/\bseniors\b/i.test(text)) return 'seniors';
+  return '';
+}
+
+function parseGroupSlugFromFirstBodyLine(bodyText = '') {
+  const lines = String(bodyText || '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => String(line || '').trim())
+    .filter(Boolean);
+  const firstLine = lines[0] || '';
+  if (/\bseniors\b/i.test(firstLine)) return 'seniors';
   return '';
 }
 
@@ -78,6 +90,16 @@ function inferInboundGroupRouting(input = {}) {
     return { groupSlug: subjectSlug, source: 'subject-tag', marker: String(input.subject || '').trim() };
   }
 
+  const bodySlug = parseGroupSlugFromFirstBodyLine(input.bodyText);
+  if (bodySlug) {
+    const firstLine = String(input.bodyText || '')
+      .replace(/\r\n?/g, '\n')
+      .split('\n')
+      .map((line) => String(line || '').trim())
+      .find(Boolean) || '';
+    return { groupSlug: bodySlug, source: 'body-first-line', marker: firstLine };
+  }
+
   return { groupSlug: '', source: 'default', marker: '' };
 }
 
@@ -85,6 +107,7 @@ module.exports = {
   sanitizeGroupSlugToken,
   parseGroupSlugFromInboundAddress,
   parseGroupSlugFromSubject,
+  parseGroupSlugFromFirstBodyLine,
   isAllowedInboundRecipient,
   inferInboundGroupRouting,
 };

@@ -566,6 +566,7 @@ app.post('/webhooks/resend', async (req, res) => {
         eventTo: event.data && event.data.to,
         emailTo: email.to,
         subject: email.subject,
+        bodyText: email.text || '',
         baseAddress: inboundBaseAddress,
       });
       const requestGroupSlug = normalizeGroupSlug(inboundRouting.groupSlug || getGroupSlug(req));
