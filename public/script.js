@@ -174,7 +174,7 @@ if ('serviceWorker' in navigator) {
     groupReference: currentGroupSlug === 'main' ? 'BRS Group' : '',
     clubName: 'the club',
     clubRequestLabel: 'Request a Tee Time',
-    themeColor: '#173224',
+    themeColor: currentGroupSlug === 'seniors' ? '#0c4a6e' : '#0f3d2e',
     iconAssetName: currentGroupSlug === 'seniors' ? 'seniors.png' : 'brs-tee-manager-logo.png',
     iconPath: currentGroupSlug === 'seniors' ? '/assets/seniors.png' : '/assets/brs-tee-manager-logo.png',
     features: {
@@ -190,7 +190,7 @@ if ('serviceWorker' in navigator) {
   let currentSiteLinks = {};
   const groupBackgroundImageMap = Object.freeze({
     main: '/assets/golf-background2.jpg',
-    seniors: '/assets/golf-background4.jpg',
+    seniors: '/assets/golf-background3.jpg',
   });
   const initialSelectedDateFromUrl = (() => {
     try {

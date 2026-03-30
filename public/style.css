@@ -36,8 +36,135 @@ body{margin:0;color:var(--ink);font:400 16px/1.5 system-ui,-apple-system,Segoe U
 body[data-site-group="main"]{
   --site-background-image:url('./assets/golf-background2.jpg');
 }
+body[data-site-group="main"]{
+  --golf-green-dark:#0f3d2e;
+  --golf-green:#166534;
+  --golf-green-light:#22c55e;
+  --golf-green-fairway:#65a30d;
+  --golf-green-pale:#dcfce7;
+  --golf-accent:#0ea5e9;
+  --golf-flag:#f59e0b;
+  --golf-sand:#fef3c7;
+  --golf-water:#38bdf8;
+  --panel:rgba(255,255,255,.93);
+  --panel-ghost:rgba(248,250,252,.88);
+  --ink:#143524;
+  --ink-2:#0f766e;
+  --line:rgba(21,128,61,.14);
+  --radius:22px;
+  --shadow:0 20px 40px rgba(15,61,46,.18);
+  --shadow-sm:0 10px 22px rgba(21,128,61,.12);
+  --shadow-green:0 18px 40px rgba(21,128,61,.18);
+  background:
+    radial-gradient(circle at 18% 12%, rgba(56,189,248,.18) 0%, transparent 18%),
+    radial-gradient(circle at 82% 16%, rgba(250,204,21,.14) 0%, transparent 14%),
+    linear-gradient(180deg, rgba(15,61,46,.18) 0%, rgba(21,128,61,.08) 30%, rgba(255,255,255,0) 56%),
+    var(--site-background-image) center/cover fixed no-repeat;
+  background-blend-mode:screen,screen,normal,normal;
+  position:relative;
+  overflow-x:hidden;
+}
+body[data-site-group="main"]::before{
+  content:'';
+  position:fixed;
+  inset:-4% auto auto -3%;
+  width:min(360px, 34vw);
+  aspect-ratio:1;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,.58) 0%, rgba(34,197,94,.16) 40%, transparent 72%),
+    url('./assets/brs-tee-manager-logo.png') center/contain no-repeat;
+  opacity:.18;
+  pointer-events:none;
+  z-index:-1;
+  animation:mainThemeFloat 14s ease-in-out infinite;
+}
+body[data-site-group="main"]::after{
+  content:'';
+  position:fixed;
+  inset:auto -8% 10% auto;
+  width:min(360px, 34vw);
+  height:min(360px, 34vw);
+  background:radial-gradient(circle at 50% 50%, rgba(14,165,233,.14) 0%, rgba(34,197,94,.08) 42%, transparent 74%);
+  filter:blur(10px);
+  pointer-events:none;
+  z-index:-1;
+  animation:mainThemePulse 10s ease-in-out infinite;
+}
+@keyframes mainThemeFloat{
+  0%,100%{transform:translate3d(0,0,0) rotate(-2deg)}
+  50%{transform:translate3d(10px,8px,0) rotate(1deg)}
+}
+@keyframes mainThemePulse{
+  0%,100%{transform:scale(1);opacity:.75}
+  50%{transform:scale(1.07);opacity:1}
+}
 body[data-site-group="seniors"]{
-  --site-background-image:url('./assets/golf-background4.jpg');
+  --site-background-image:url('./assets/golf-background3.jpg');
+}
+body[data-site-group="seniors"]{
+  --golf-green-dark:#0c4a6e;
+  --golf-green:#166534;
+  --golf-green-light:#22c55e;
+  --golf-green-fairway:#84cc16;
+  --golf-green-pale:#d9f99d;
+  --golf-accent:#2563eb;
+  --golf-flag:#f59e0b;
+  --golf-sand:#fde68a;
+  --golf-water:#38bdf8;
+  --green-700:#166534;
+  --green-600:#15803d;
+  --green-500:#65a30d;
+  --panel:rgba(255,255,255,.92);
+  --panel-ghost:rgba(240,253,250,.88);
+  --ink:#15324a;
+  --ink-2:#166534;
+  --line:rgba(8,84,132,.16);
+  --radius:22px;
+  --shadow:0 20px 40px rgba(10,82,122,.18);
+  --shadow-sm:0 10px 22px rgba(15,118,110,.12);
+  --shadow-green:0 18px 40px rgba(22,101,52,.18);
+  background:
+    radial-gradient(circle at 18% 18%, rgba(125,211,252,.36) 0%, transparent 24%),
+    radial-gradient(circle at 78% 14%, rgba(250,204,21,.26) 0%, transparent 16%),
+    linear-gradient(180deg, rgba(7,61,92,.18) 0%, rgba(22,101,52,.08) 32%, rgba(255,255,255,0) 58%),
+    var(--site-background-image) center/cover fixed no-repeat;
+  background-blend-mode:screen,screen,normal,normal;
+  position:relative;
+  overflow-x:hidden;
+}
+body[data-site-group="seniors"]::before{
+  content:'';
+  position:fixed;
+  inset:-5% auto auto -4%;
+  width:min(440px, 48vw);
+  aspect-ratio:1;
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,.7) 0%, rgba(125,211,252,.34) 34%, rgba(59,130,246,.08) 58%, transparent 72%),
+    url('./assets/seniors.png') center/contain no-repeat;
+  opacity:.28;
+  pointer-events:none;
+  z-index:-1;
+  animation:seniorsFloat 12s ease-in-out infinite;
+}
+body[data-site-group="seniors"]::after{
+  content:'';
+  position:fixed;
+  inset:auto -12% 8% auto;
+  width:min(420px, 42vw);
+  height:min(420px, 42vw);
+  background:radial-gradient(circle at 50% 50%, rgba(245,158,11,.18) 0%, rgba(250,204,21,.08) 38%, transparent 72%);
+  filter:blur(10px);
+  pointer-events:none;
+  z-index:-1;
+  animation:seniorsPulse 9s ease-in-out infinite;
+}
+@keyframes seniorsFloat{
+  0%,100%{transform:translate3d(0,0,0) rotate(-2deg)}
+  50%{transform:translate3d(14px,10px,0) rotate(1deg)}
+}
+@keyframes seniorsPulse{
+  0%,100%{transform:scale(1);opacity:.8}
+  50%{transform:scale(1.08);opacity:1}
 }
 header{position:sticky;top:0;z-index:10;display:flex;gap:12px;align-items:center;justify-content:space-between;
   padding:14px 20px;background:linear-gradient(135deg, var(--golf-green-dark) 0%, var(--golf-green) 100%);
@@ -91,6 +218,107 @@ main{padding:20px}
   object-fit:cover;
   box-shadow:0 4px 10px rgba(0,0,0,.28);
   background:rgba(255,255,255,.14);
+}
+body[data-site-group="main"] .topbar{
+  padding:14px 18px;
+  background:linear-gradient(135deg, rgba(15,61,46,.96) 0%, rgba(22,101,52,.94) 44%, rgba(14,165,233,.78) 100%);
+  border-bottom:4px solid #fbbf24;
+  box-shadow:0 14px 30px rgba(15,61,46,.28);
+}
+body[data-site-group="main"] .topbar-logo{
+  width:54px;
+  height:54px;
+  border-radius:18px;
+  background:linear-gradient(135deg, rgba(255,255,255,.92), rgba(220,252,231,.74));
+  box-shadow:0 10px 24px rgba(15,61,46,.24);
+  animation:mainLogoBob 6s ease-in-out infinite;
+}
+body[data-site-group="main"] .topbar h1{
+  font-family:"Trebuchet MS","Segoe UI","Gill Sans",sans-serif;
+  font-size:27px;
+  letter-spacing:.03em;
+  text-shadow:0 3px 12px rgba(5,31,48,.28);
+}
+body[data-site-group="main"] .topbar h1::before{
+  content:'';
+  display:none;
+}
+body[data-site-group="main"] .pill-link{
+  border:1px solid rgba(255,255,255,.24);
+  background:rgba(255,255,255,.12);
+  border-radius:999px;
+}
+body[data-site-group="main"] .pill-primary{
+  background:linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  border-color:rgba(120,53,15,.28);
+  color:#4a2706;
+}
+@keyframes mainLogoBob{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-3px)}
+}
+body[data-site-group="seniors"] .topbar{
+  padding:14px 18px;
+  background:linear-gradient(135deg, rgba(8,84,132,.96) 0%, rgba(37,99,235,.92) 36%, rgba(22,101,52,.92) 100%);
+  border-bottom:4px solid #fbbf24;
+  box-shadow:0 14px 30px rgba(8,84,132,.32);
+}
+body[data-site-group="seniors"] .topbar-logo{
+  width:54px;
+  height:54px;
+  border-radius:18px;
+  background:linear-gradient(135deg, rgba(255,255,255,.9), rgba(191,219,254,.72));
+  box-shadow:0 10px 24px rgba(8,84,132,.28);
+  animation:seniorsBob 6s ease-in-out infinite;
+}
+body[data-site-group="seniors"] .topbar h1{
+  font-family:"Trebuchet MS","Segoe UI","Gill Sans",sans-serif;
+  font-size:27px;
+  letter-spacing:.03em;
+  text-shadow:0 3px 12px rgba(5,31,48,.34);
+}
+body[data-site-group="seniors"] .topbar h1::before{
+  content:'';
+  display:none;
+}
+body[data-site-group="seniors"] #topbarTitleText{
+  position:relative;
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+}
+body[data-site-group="seniors"] #topbarTitleText::after{
+  content:'Seniors';
+  display:inline-block;
+  padding:5px 10px 3px;
+  border-radius:999px;
+  background:linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%);
+  color:#5b2b04;
+  font-size:11px;
+  font-weight:900;
+  letter-spacing:.12em;
+  text-transform:uppercase;
+  box-shadow:0 6px 14px rgba(180,83,9,.22);
+}
+body[data-site-group="seniors"] .pill-link{
+  border:1px solid rgba(255,255,255,.28);
+  background:rgba(255,255,255,.12);
+  border-radius:999px;
+}
+body[data-site-group="seniors"] .pill-link:hover{
+  background:rgba(255,255,255,.2);
+}
+body[data-site-group="seniors"] .pill-primary{
+  background:linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  border-color:rgba(120,53,15,.28);
+  color:#4a2706;
+}
+body[data-site-group="seniors"] .pill-primary:hover{
+  background:linear-gradient(135deg, #fcd34d 0%, #f59e0b 100%);
+}
+@keyframes seniorsBob{
+  0%,100%{transform:translateY(0)}
+  50%{transform:translateY(-3px)}
 }
 .topbar-title-link:hover{
   text-decoration:underline;
@@ -424,6 +652,60 @@ main{padding:20px}
   box-shadow:var(--shadow-green);
   transform:scale(1.08);
 }
+body[data-site-group="seniors"] .calendar-sidebar{
+  background:linear-gradient(180deg, rgba(255,255,255,.9) 0%, rgba(239,253,250,.86) 100%);
+  border:1px solid rgba(56,189,248,.22);
+  box-shadow:0 24px 44px rgba(8,84,132,.14);
+}
+body[data-site-group="main"] .calendar-sidebar{
+  background:linear-gradient(180deg, rgba(255,255,255,.92) 0%, rgba(240,253,244,.88) 100%);
+  border:1px solid rgba(34,197,94,.18);
+  box-shadow:0 24px 44px rgba(15,61,46,.14);
+}
+body[data-site-group="seniors"] .calendar-day{
+  border-radius:14px;
+  background:linear-gradient(180deg, rgba(255,255,255,.82) 0%, rgba(186,230,253,.22) 100%);
+}
+body[data-site-group="main"] .calendar-day{
+  border-radius:14px;
+  background:linear-gradient(180deg, rgba(255,255,255,.84) 0%, rgba(220,252,231,.24) 100%);
+}
+body[data-site-group="seniors"] .calendar-day:hover{
+  background:linear-gradient(135deg, #38bdf8 0%, #22c55e 100%);
+}
+body[data-site-group="main"] .calendar-day:hover{
+  background:linear-gradient(135deg, #22c55e 0%, #0ea5e9 100%);
+}
+body[data-site-group="seniors"] .calendar-day.selected{
+  background:linear-gradient(135deg, #2563eb 0%, #16a34a 100%);
+  box-shadow:0 10px 18px rgba(37,99,235,.26);
+}
+body[data-site-group="main"] .calendar-day.selected{
+  background:linear-gradient(135deg, #166534 0%, #0ea5e9 100%);
+  box-shadow:0 10px 18px rgba(21,128,61,.24);
+}
+body[data-site-group="seniors"] .calendar-actions button,
+body[data-site-group="seniors"] button.primary{
+  border-radius:999px;
+  border-color:#14532d;
+  background:linear-gradient(135deg, #0ea5e9 0%, #16a34a 52%, #84cc16 100%);
+  box-shadow:0 12px 20px rgba(21,128,61,.18);
+}
+body[data-site-group="main"] .calendar-actions button,
+body[data-site-group="main"] button.primary{
+  border-radius:999px;
+  border-color:#14532d;
+  background:linear-gradient(135deg, #22c55e 0%, #16a34a 44%, #0ea5e9 100%);
+  box-shadow:0 12px 20px rgba(21,128,61,.18);
+}
+body[data-site-group="main"] .calendar-actions button:hover,
+body[data-site-group="main"] button.primary:hover{
+  background:linear-gradient(135deg, #15803d 0%, #166534 46%, #0284c7 100%);
+}
+body[data-site-group="seniors"] .calendar-actions button:hover,
+body[data-site-group="seniors"] button.primary:hover{
+  background:linear-gradient(135deg, #0284c7 0%, #15803d 56%, #65a30d 100%);
+}
 
 .calendar-day.has-events::after{
   content:'⛳';
@@ -578,6 +860,20 @@ main{padding:20px}
   color:#ffffff;
   text-shadow:0 2px 8px rgba(0,0,0,0.5);
 }
+body[data-site-group="seniors"] .events-header h2{
+  font-family:"Trebuchet MS","Segoe UI","Gill Sans",sans-serif;
+  font-size:30px;
+  letter-spacing:.02em;
+  color:#f8fafc;
+  text-shadow:0 4px 18px rgba(5,31,48,.42);
+}
+body[data-site-group="main"] .events-header h2{
+  font-family:"Trebuchet MS","Segoe UI","Gill Sans",sans-serif;
+  font-size:30px;
+  letter-spacing:.02em;
+  color:#f8fafc;
+  text-shadow:0 4px 18px rgba(5,31,48,.36);
+}
 
 #events{max-width:100%;margin:0;display:grid;gap:18px;grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}
 body.starter-mode #events{
@@ -617,6 +913,124 @@ body.starter-mode #events{
   transform:rotate(-15deg);
 }
 
+body[data-site-group="seniors"] .card,
+body[data-site-group="seniors"] .starter-card,
+body[data-site-group="seniors"] .handicap-card{
+  background:linear-gradient(180deg, rgba(255,255,255,.96) 0%, rgba(240,253,250,.94) 100%);
+  border:1px solid rgba(56,189,248,.22);
+  border-radius:24px;
+  box-shadow:0 18px 40px rgba(8,84,132,.14);
+}
+body[data-site-group="main"] .card,
+body[data-site-group="main"] .starter-card,
+body[data-site-group="main"] .handicap-card{
+  background:linear-gradient(180deg, rgba(255,255,255,.96) 0%, rgba(244,252,244,.94) 100%);
+  border:1px solid rgba(34,197,94,.18);
+  border-radius:24px;
+  box-shadow:0 18px 40px rgba(15,61,46,.12);
+}
+body[data-site-group="main"] .card::before{
+  top:-38px;
+  right:-24px;
+  width:120px;
+  height:120px;
+  background:radial-gradient(circle, rgba(34,197,94,.12) 0%, transparent 70%);
+}
+body[data-site-group="main"] .card::after{
+  content:'';
+  right:16px;
+  bottom:14px;
+  width:58px;
+  height:58px;
+  opacity:.12;
+  background:url('./assets/brs-tee-manager-logo.png') center/contain no-repeat;
+  transform:none;
+}
+body[data-site-group="main"] .card-header,
+body[data-site-group="main"] .tee-header{
+  background:linear-gradient(180deg, rgba(255,255,255,.92) 0%, rgba(220,252,231,.44) 100%);
+  border-bottom:1px solid rgba(34,197,94,.16);
+}
+body[data-site-group="main"] .card-title,
+body[data-site-group="main"] .starter-card-title{
+  font-family:"Trebuchet MS","Segoe UI","Gill Sans",sans-serif;
+  color:#10452f;
+}
+body[data-site-group="main"] .card-title::before{
+  content:'';
+  display:none;
+}
+body[data-site-group="main"] .card-title-row::before{
+  content:'⛳';
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:28px;
+  height:28px;
+  margin-right:8px;
+  border-radius:50%;
+  background:linear-gradient(180deg, #dcfce7 0%, #86efac 100%);
+  color:#166534;
+  font-size:15px;
+  box-shadow:0 6px 14px rgba(34,197,94,.2);
+}
+body[data-site-group="main"] .card-date,
+body[data-site-group="main"] .event-meta,
+body[data-site-group="main"] .starter-card-note,
+body[data-site-group="main"] .muted{
+  color:#35566c;
+}
+body[data-site-group="seniors"] .card::before{
+  top:-38px;
+  right:-24px;
+  width:120px;
+  height:120px;
+  background:radial-gradient(circle, rgba(56,189,248,.12) 0%, transparent 70%);
+}
+body[data-site-group="seniors"] .card::after{
+  content:'';
+  right:16px;
+  bottom:14px;
+  width:58px;
+  height:58px;
+  opacity:.16;
+  background:url('./assets/seniors.png') center/contain no-repeat;
+  transform:none;
+}
+body[data-site-group="seniors"] .card-header,
+body[data-site-group="seniors"] .tee-header{
+  background:linear-gradient(180deg, rgba(255,255,255,.92) 0%, rgba(219,234,254,.44) 100%);
+  border-bottom:1px solid rgba(56,189,248,.18);
+}
+body[data-site-group="seniors"] .card-title,
+body[data-site-group="seniors"] .starter-card-title{
+  font-family:"Trebuchet MS","Segoe UI","Gill Sans",sans-serif;
+  color:#0f3f61;
+}
+body[data-site-group="seniors"] .card-title::before{
+  content:'';
+  display:none;
+}
+body[data-site-group="seniors"] .card-title-row::before{
+  content:'☀';
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:28px;
+  height:28px;
+  margin-right:8px;
+  border-radius:50%;
+  background:linear-gradient(180deg, #fde68a 0%, #fbbf24 100%);
+  color:#7c2d12;
+  font-size:15px;
+  box-shadow:0 6px 14px rgba(245,158,11,.22);
+}
+body[data-site-group="seniors"] .card-date,
+body[data-site-group="seniors"] .event-meta,
+body[data-site-group="seniors"] .starter-card-note,
+body[data-site-group="seniors"] .muted{
+  color:#33556d;
+}
 .starter-card{
   background:linear-gradient(135deg, rgba(255,255,255,.98) 0%, rgba(244,252,244,.94) 100%);
   border:2px solid rgba(34,197,94,.22);
@@ -2092,6 +2506,73 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
 
 .tee-actions .icon{
   padding:.12rem .4rem;
+}
+
+body[data-site-group="seniors"] .tee{
+  border-radius:18px;
+  border:1px solid rgba(132,204,22,.3);
+  background:linear-gradient(180deg, rgba(255,255,255,.96) 0%, rgba(236,253,245,.95) 100%);
+  box-shadow:0 10px 22px rgba(21,128,61,.08);
+}
+body[data-site-group="main"] .tee{
+  border-radius:18px;
+  border:1px solid rgba(101,163,13,.26);
+  background:linear-gradient(180deg, rgba(255,255,255,.96) 0%, rgba(240,253,244,.95) 100%);
+  box-shadow:0 10px 22px rgba(21,128,61,.08);
+}
+body[data-site-group="main"] .tee.tee-full{
+  background:linear-gradient(180deg, rgba(239,246,255,.96) 0%, rgba(226,232,240,.94) 100%);
+  border-color:rgba(148,163,184,.34);
+}
+body[data-site-group="main"] .tee-time{
+  color:#10452f;
+}
+body[data-site-group="main"] .tee-summary,
+body[data-site-group="main"] .tee-meta{
+  color:#35566c;
+}
+body[data-site-group="main"] button,
+body[data-site-group="main"] .small,
+body[data-site-group="main"] .handicap-link,
+body[data-site-group="main"] .card-actions .button-row > button{
+  border-radius:999px;
+}
+body[data-site-group="main"] dialog{
+  border-radius:24px;
+  box-shadow:0 28px 56px rgba(15,61,46,.18);
+}
+body[data-site-group="seniors"] .tee.tee-full{
+  background:linear-gradient(180deg, rgba(239,246,255,.96) 0%, rgba(226,232,240,.94) 100%);
+  border-color:rgba(148,163,184,.34);
+}
+body[data-site-group="seniors"] .tee-time{
+  color:#0f3f61;
+}
+body[data-site-group="seniors"] .tee-summary,
+body[data-site-group="seniors"] .tee-meta{
+  color:#33556d;
+}
+body[data-site-group="seniors"] button,
+body[data-site-group="seniors"] .small,
+body[data-site-group="seniors"] .handicap-link,
+body[data-site-group="seniors"] .card-actions .button-row > button{
+  border-radius:999px;
+}
+body[data-site-group="seniors"] .card-actions .button-row > button[data-del]{
+  background:linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+  border-color:#fb923c;
+  color:#9a3412;
+}
+body[data-site-group="seniors"] dialog{
+  border-radius:24px;
+  box-shadow:0 28px 56px rgba(8,84,132,.24);
+}
+body[data-site-group="seniors"] .calendar-month-link{
+  border-color:rgba(14,165,233,.28);
+  background:rgba(224,242,254,.74);
+}
+body[data-site-group="seniors"] .calendar-month-link:hover{
+  background:rgba(186,230,253,.9);
 }
 
 .tee-time{
