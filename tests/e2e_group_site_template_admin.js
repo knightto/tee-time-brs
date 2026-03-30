@@ -264,7 +264,9 @@ async function main() {
         await waitForExpression(send, `document.querySelector('.topbar-title-link') && document.querySelector('.topbar-title-link').textContent === ${JSON.stringify(payload.siteTitle)}`, 20000);
         const siteState = await evaluate(send, `(() => ({
           title: document.querySelector('.topbar-title-link') && document.querySelector('.topbar-title-link').textContent,
+          titleHref: document.querySelector('.topbar-title-link') && document.querySelector('.topbar-title-link').getAttribute('href'),
           requestLabel: document.getElementById('requestClubTimeBtn') && document.getElementById('requestClubTimeBtn').textContent,
+          infoMenuHidden: document.querySelector('.topbar-dropdown')?.hidden === true,
           handicapsHidden: document.querySelector('[data-feature-link="includeHandicaps"]')?.hidden === true,
           adminLinkHref: document.querySelector('[data-group-admin-link]') && document.querySelector('[data-group-admin-link]').getAttribute('href'),
           adminLinkText: document.querySelector('[data-group-admin-link]') && document.querySelector('[data-group-admin-link]').textContent,
@@ -272,7 +274,9 @@ async function main() {
           bodyText: document.body && document.body.innerText
         }))()`);
         assert.strictEqual(siteState.title, payload.siteTitle);
+        assert.strictEqual(siteState.titleHref, null);
         assert.strictEqual(siteState.requestLabel, payload.clubRequestLabel);
+        assert.strictEqual(siteState.infoMenuHidden, true);
         assert.strictEqual(siteState.handicapsHidden, true);
         assert.strictEqual(siteState.adminLinkHref, `/groups/${groupSlug}/admin`);
         assert.strictEqual(siteState.adminLinkText, 'Group Admin');

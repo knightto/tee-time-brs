@@ -25,6 +25,7 @@
         <div class="topbar-dropdown-menu">
           <a href="/user-guide.html" class="topbar-dropdown-item" data-group-link data-main-only-link hidden>User Guide</a>
           <a href="/features.html" class="topbar-dropdown-item" data-group-link data-main-only-link hidden>Features</a>
+          <a href="/process-guide.html" class="topbar-dropdown-item" data-group-link data-main-only-link hidden>Operations Guide</a>
           <a href="/blue-ridge-outings.html" class="topbar-dropdown-item" data-group-link data-feature-link="includeOutings" data-main-only-link hidden>Blue Ridge Outings</a>
           <a href="/rules.html" class="topbar-dropdown-item" data-group-link data-main-only-link hidden>Weekend Game Rules</a>
           <a href="/handicaps.html" class="topbar-dropdown-item" data-group-link data-feature-link="includeHandicaps">Handicaps</a>
@@ -255,7 +256,8 @@
     (() => {
       try {
         const rawGroup = String(new URLSearchParams(window.location.search).get('group') || '').trim().toLowerCase();
-        const groupSlug = rawGroup.replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '') || 'main';
+        const normalizedGroup = rawGroup.replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
+        const groupSlug = (normalizedGroup === 'thursday-seniors-group' ? 'seniors' : normalizedGroup) || 'main';
         const isMainGroup = groupSlug === 'main';
         const withGroup = (pathname = '/') => {
           const scopedUrl = new URL(pathname, window.location.origin);
@@ -268,7 +270,17 @@
         };
 
         const titleLink = document.querySelector('.topbar-title-link');
-        if (titleLink) titleLink.setAttribute('href', withGroup('/'));
+        if (titleLink) {
+          if (isMainGroup) {
+            titleLink.setAttribute('href', withGroup('/'));
+            titleLink.setAttribute('title', 'Refresh to calendar view');
+          } else {
+            titleLink.removeAttribute('href');
+            titleLink.removeAttribute('title');
+          }
+        }
+        const topbarDropdown = document.querySelector('.topbar-dropdown');
+        if (topbarDropdown) topbarDropdown.hidden = !isMainGroup;
 
         document.querySelectorAll('[data-group-link]').forEach((node) => {
           node.setAttribute('href', withGroup(node.getAttribute('href') || '/'));

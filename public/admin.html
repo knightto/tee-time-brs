@@ -1212,7 +1212,7 @@
                 </label>
                 <label>
                   <span>Group / URL Slug</span>
-                  <input id="siteTemplatePackageSlugInput" type="text" maxlength="120" value="thursday-seniors-group" required>
+                  <input id="siteTemplatePackageSlugInput" type="text" maxlength="120" value="seniors" required>
                 </label>
                 <label>
                   <span>Club Name</span>
@@ -1260,7 +1260,7 @@
                 </label>
                 <label>
                   <span>Mongo DB Name</span>
-                  <input id="siteTemplateMongoDbInput" type="text" maxlength="80" value="teetimes_thursday_seniors" required>
+                  <input id="siteTemplateMongoDbInput" type="text" maxlength="80" value="teetimes_seniors" required>
                 </label>
               </div>
               <div class="template-question-grid">
@@ -2033,8 +2033,8 @@
       if (shortTitleInput && !shortTitleInput.value.trim()) shortTitleInput.value = 'Thursday Seniors';
       if (clubNameInput && !clubNameInput.value.trim()) clubNameInput.value = 'Thursday Seniors Group';
       if (clubRequestLabelInput && !clubRequestLabelInput.value.trim()) clubRequestLabelInput.value = 'Request a Tee Time for Thursday Seniors Group';
-      if (slugInput && !slugInput.value.trim()) slugInput.value = 'thursday-seniors-group';
-      if (mongoDbInput && !mongoDbInput.value.trim()) mongoDbInput.value = 'teetimes_thursday_seniors';
+      if (slugInput && !slugInput.value.trim()) slugInput.value = 'seniors';
+      if (mongoDbInput && !mongoDbInput.value.trim()) mongoDbInput.value = 'teetimes_seniors';
     }
 
     function showTeeTimesSiteTemplateResult(message, isSuccess = true) {
@@ -2579,7 +2579,7 @@
       try {
         const raw = String(new URLSearchParams(window.location.search).get('group') || '').trim().toLowerCase();
         const normalized = raw.replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
-        return normalized || 'main';
+        return (normalized === 'thursday-seniors-group' ? 'seniors' : normalized) || 'main';
       } catch (_) {
         return 'main';
       }

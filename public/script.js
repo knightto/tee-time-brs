@@ -160,7 +160,7 @@ if ('serviceWorker' in navigator) {
     try {
       const raw = String(new URLSearchParams(window.location.search).get('group') || '').trim().toLowerCase();
       const normalized = raw.replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
-      return normalized || 'main';
+      return (normalized === 'thursday-seniors-group' ? 'seniors' : normalized) || 'main';
     } catch (_) {
       return 'main';
     }
@@ -289,8 +289,16 @@ if ('serviceWorker' in navigator) {
     const topbarTitleLink = document.querySelector('.topbar-title-link');
     if (topbarTitleLink) {
       topbarTitleLink.textContent = currentSiteProfile.siteTitle || defaultSiteProfile.siteTitle;
-      topbarTitleLink.href = buildGroupPageHref('/');
+      if (isMainGroupSite()) {
+        topbarTitleLink.href = buildGroupPageHref('/');
+        topbarTitleLink.title = 'Refresh to calendar view';
+      } else {
+        topbarTitleLink.removeAttribute('href');
+        topbarTitleLink.removeAttribute('title');
+      }
     }
+    const topbarDropdown = document.querySelector('.topbar-dropdown');
+    if (topbarDropdown) topbarDropdown.hidden = !isMainGroupSite();
 
     if (requestClubTimeBtn) {
       requestClubTimeBtn.textContent = currentSiteProfile.clubRequestLabel || defaultSiteProfile.clubRequestLabel;

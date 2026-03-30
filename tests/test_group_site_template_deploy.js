@@ -81,6 +81,36 @@ async function main() {
     assert.strictEqual(publicProfilePayload.profile.groupReference, 'Template Smoke');
     assert.strictEqual(publicProfilePayload.profile.features.includeHandicaps, false);
 
+    const operationsGuideApiResponse = await fetch(`${base}/api/operations-guide`);
+    assert.strictEqual(operationsGuideApiResponse.status, 200, 'Operations guide API should load');
+    const operationsGuidePayload = await operationsGuideApiResponse.json();
+    assert.ok(Array.isArray(operationsGuidePayload.allOperationalEmails), 'Operations guide should include operational email list');
+    assert.ok(operationsGuidePayload.allOperationalEmails.includes('teetime@xenailexou.resend.app'), 'Operations guide should expose the inbound Resend address');
+    assert.strictEqual(operationsGuidePayload.inboundRouting.defaultGroupSlug, 'main', 'Operations guide should describe the default imported group');
+
+    const operationsGuidePageResponse = await fetch(`${base}/process-guide.html`);
+    assert.strictEqual(operationsGuidePageResponse.status, 200, 'Operations guide page should load');
+    const operationsGuideHtml = await operationsGuidePageResponse.text();
+    assert.ok(operationsGuideHtml.includes('Operations Guide'), 'Operations guide page should contain the guide shell');
+    assert.ok(operationsGuideHtml.includes('How The System Knows An Imported Email Is For BRS'), 'Operations guide page should explain inbound BRS routing');
+
+    const seniorsAdminOk = await fetch(`${base}/api/admin/site-profile?group=seniors&code=000`);
+    assert.strictEqual(seniorsAdminOk.status, 200, 'Thursday Seniors admin should accept its scoped admin code');
+
+    const seniorsAdminOldCode = await fetch(`${base}/api/admin/site-profile?group=seniors&code=${encodeURIComponent(ADMIN_CODE)}`);
+    assert.strictEqual(seniorsAdminOldCode.status, 403, 'Thursday Seniors admin should reject the main site admin code');
+
+    const mainAdminWrongCode = await fetch(`${base}/api/admin/site-profile?group=main&code=000`);
+    assert.strictEqual(mainAdminWrongCode.status, 403, 'Main admin should not accept the Thursday Seniors admin code');
+
+    const legacySeniorsRoute = await fetch(`${base}/groups/thursday-seniors-group`, { redirect: 'manual' });
+    assert.strictEqual(legacySeniorsRoute.status, 302, 'Legacy Thursday Seniors route should redirect');
+    assert.strictEqual(legacySeniorsRoute.headers.get('location'), '/?group=seniors');
+
+    const legacySeniorsQuery = await fetch(`${base}/?group=thursday-seniors-group`, { redirect: 'manual' });
+    assert.strictEqual(legacySeniorsQuery.status, 302, 'Legacy Thursday Seniors query should redirect to canonical slug');
+    assert.strictEqual(legacySeniorsQuery.headers.get('location'), '/?group=seniors');
+
     const groupDirectoryResponse = await fetch(`${base}/api/admin/site-groups?code=${encodeURIComponent(ADMIN_CODE)}`);
     assert.strictEqual(groupDirectoryResponse.status, 200, 'Golf group directory should load');
     const groupDirectoryPayload = await groupDirectoryResponse.json();

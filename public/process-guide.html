@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#1f4f46">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <link rel="apple-touch-icon" href="/icons/icon-192.png">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <title>Operations Guide - Tee Times</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { background:#f8fafc; }
+    .guide-wrap { max-width:1100px; margin:32px auto; padding:24px; background:linear-gradient(135deg,#f0fdfa 0%,#ccfbf1 100%); border:2px solid #99f6e4; border-radius:14px; box-shadow:0 8px 24px rgba(15,23,42,0.12); }
+    .guide-wrap h1 { margin:0 0 12px 0; color:#134e4a; font-size:30px; display:flex; align-items:center; gap:10px; }
+    .guide-wrap h2 { margin:24px 0 10px 0; color:#115e59; font-size:19px; }
+    .guide-wrap p, .guide-wrap li { color:#0f172a; line-height:1.65; }
+    .guide-wrap ul, .guide-wrap ol { margin:0 0 16px 22px; }
+    .pill { display:inline-flex; align-items:center; gap:6px; background:#134e4a; color:#f0fdfa; padding:6px 10px; border-radius:999px; font-size:12px; font-weight:700; letter-spacing:0.01em; }
+    .page-links { display:flex; gap:12px; flex-wrap:wrap; margin:14px 0 8px 0; }
+    .page-links a, .guide-wrap a { color:#0f766e; font-weight:700; text-decoration:none; }
+    .callout { background:#f0fdfa; border:1px solid #99f6e4; border-radius:10px; padding:12px 14px; margin:12px 0; font-size:13px; color:#0f172a; }
+    .grid { display:grid; gap:14px; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); }
+    .card { background:#ffffff; border:1px solid #ccfbf1; border-radius:12px; padding:14px; box-shadow:0 3px 10px rgba(15,23,42,0.05); }
+    .card h3 { margin:0 0 8px 0; color:#115e59; font-size:16px; }
+    .kv-list { display:grid; gap:8px; }
+    .kv-row { display:grid; gap:4px; }
+    .kv-label { font-size:12px; font-weight:800; color:#0f766e; text-transform:uppercase; letter-spacing:0.04em; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size:13px; word-break:break-word; }
+    .email-list { display:grid; gap:8px; }
+    .email-chip { display:inline-flex; align-items:center; padding:6px 10px; border-radius:999px; background:#ecfeff; border:1px solid #a5f3fc; color:#155e75; font-size:13px; font-weight:700; width:fit-content; }
+    .step-list { margin-left:18px; }
+    .muted { color:#475569; font-size:13px; }
+    .loading { color:#115e59; font-weight:700; }
+    .error { color:#991b1b; font-weight:700; }
+    .back-link { display:inline-block; margin-top:18px; color:#0f766e; text-decoration:none; font-weight:700; }
+    @media (max-width: 720px) {
+      .guide-wrap { margin:16px; padding:18px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="guide-wrap">
+    <h1><span class="pill">Tee Times</span> Operations Guide</h1>
+    <p class="callout">This page is a live operational reference. It pulls the current public URL, group routing emails, Render/Resend endpoints, and active contact addresses from the running site configuration. Admin codes, API keys, and other secrets are intentionally excluded.</p>
+    <div class="page-links">
+      <a href="/">Back to Tee Times</a>
+      <a href="/user-guide.html">Open User Guide</a>
+      <a href="/features.html">Open Features Page</a>
+      <a href="/admin.html">Open Admin Page</a>
+    </div>
+
+    <section>
+      <h2>What This System Does</h2>
+      <ol class="step-list">
+        <li>Golf events are created either manually in the tee-time UI or automatically from forwarded confirmation emails.</li>
+        <li>Events, subscribers, settings, and logs are stored in MongoDB through the Node/Express app hosted on Render.</li>
+        <li>Outbound emails are sent through Resend using the HTTP API first and SMTP fallback second.</li>
+        <li>Subscribers receive new-event, cancellation, reminder, and alert emails when notifications are enabled for their group.</li>
+        <li>Club request emails and extra-tee-time emails are routed to the group’s configured club request address and CC list.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Live Platforms</h2>
+      <div id="platformGrid" class="grid">
+        <div class="card"><p class="loading">Loading platform details...</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>All Operational Emails</h2>
+      <p class="muted">Every non-empty operational address currently in use by runtime config or stored group profiles.</p>
+      <div id="allEmails" class="email-list">
+        <p class="loading">Loading email addresses...</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Group Contact Routing</h2>
+      <div id="groupGrid" class="grid">
+        <div class="card"><p class="loading">Loading group routing...</p></div>
+      </div>
+    </section>
+
+    <section>
+      <h2>How Manual Tee-Time Requests Work</h2>
+      <ol class="step-list">
+        <li>The calendar-level <strong>Request a Tee Time</strong> button posts to <span class="mono">/api/request-club-time</span>.</li>
+        <li>The event-level <strong>Request Club Time</strong> button posts to <span class="mono">/api/events/:id/request-extra-tee-time</span>.</li>
+        <li>The server looks up the current group profile, reads that group’s <strong>club request email</strong>, and builds the CC list from the group’s point-of-contact emails.</li>
+        <li>The message is sent through Resend HTTP first. If that fails, the server falls back to <span class="mono">smtp.resend.com</span>.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>What Happens When Events Change</h2>
+      <ol class="step-list">
+        <li>Creating an event from the calendar UI posts to <span class="mono">/api/events</span> and stores the event in MongoDB.</li>
+        <li>Deleting or cancelling an event updates the event record or removes it, then sends a cancellation notice to subscribers.</li>
+        <li>Player moves, adds, removals, and check-ins are recorded in the tee-time change log.</li>
+        <li>When a brand-new event is created, subscriber notifications are sent for that group if notifications are enabled.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>How Email Import Works</h2>
+      <ol class="step-list">
+        <li>Club tee-time emails are forwarded to the Resend inbound address shown below.</li>
+        <li>Resend posts an <span class="mono">email.received</span> webhook to <span class="mono">/webhooks/resend</span>.</li>
+        <li>The app only accepts the known inbound recipient and a small allowed-sender list.</li>
+        <li>The full email is fetched back from Resend, parsed, normalized, and either matched to an existing event or used to create/cancel one.</li>
+        <li>When a new event is created from email, subscribers are notified the same way they are for a manual event create.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>How The System Knows An Imported Email Is For BRS</h2>
+      <div id="inboundRoutingCard" class="card">
+        <p class="loading">Loading inbound routing details...</p>
+      </div>
+    </section>
+
+    <section>
+      <h2>How Subscriber Emails Work</h2>
+      <ol class="step-list">
+        <li>Subscribing on the public page creates or updates a subscriber record for the active group.</li>
+        <li>A confirmation email is sent from the configured Resend sender address with an unsubscribe link.</li>
+        <li>Every bulk subscriber email gets a personalized unsubscribe link appended to the message.</li>
+        <li>Admin subscriber management uses the same group-scoped subscriber collection as the public subscribe flow.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Where Data Lives</h2>
+      <ul>
+        <li>Render hosts the Node/Express app and serves the public page, admin page, group pages, APIs, and webhook endpoints.</li>
+        <li>MongoDB stores events, subscribers, settings, scheduler rules, backups metadata, handicaps, and tee-time audit logs.</li>
+        <li>Resend handles outbound delivery and inbound tee-time email receipt for the import workflow.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>Automatic Email Schedule</h2>
+      <div id="automationCard" class="card">
+        <p class="loading">Loading scheduler details...</p>
+      </div>
+    </section>
+
+    <a class="back-link" href="/">&larr; Back to Tee Times</a>
+  </main>
+
+  <script>
+    (() => {
+      'use strict';
+
+      function escapeHtml(value = '') {
+        return String(value || '')
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function renderEmailList(items = []) {
+        const unique = Array.from(new Set((items || []).map((item) => String(item || '').trim()).filter(Boolean)));
+        if (!unique.length) return '<p class="muted">No email addresses are currently configured.</p>';
+        return unique.map((item) => `<span class="email-chip mono">${escapeHtml(item)}</span>`).join('');
+      }
+
+      function kvRow(label, value) {
+        const safeValue = String(value || '').trim();
+        return `<div class="kv-row"><span class="kv-label">${escapeHtml(label)}</span><span class="${safeValue.includes('@') || safeValue.includes('http') || safeValue.includes('/') ? 'mono' : ''}">${escapeHtml(safeValue || 'Not set')}</span></div>`;
+      }
+
+      async function loadGuide() {
+        const platformGrid = document.getElementById('platformGrid');
+        const allEmails = document.getElementById('allEmails');
+        const groupGrid = document.getElementById('groupGrid');
+        const automationCard = document.getElementById('automationCard');
+        const inboundRoutingCard = document.getElementById('inboundRoutingCard');
+
+        try {
+          const response = await fetch('/api/operations-guide');
+          const payload = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(payload.error || `HTTP ${response.status}`);
+
+          platformGrid.innerHTML = `
+            <article class="card">
+              <h3>Render</h3>
+              <div class="kv-list">
+                ${kvRow('Public Site URL', payload.hosting && payload.hosting.publicSiteUrl)}
+                ${kvRow('Render Dashboard', payload.hosting && payload.hosting.dashboardUrl)}
+                ${kvRow('Provider', payload.hosting && payload.hosting.platform)}
+              </div>
+            </article>
+            <article class="card">
+              <h3>Resend</h3>
+              <div class="kv-list">
+                ${kvRow('Resend Website', payload.emailDelivery && payload.emailDelivery.dashboardUrl)}
+                ${kvRow('API URL', payload.emailDelivery && payload.emailDelivery.apiUrl)}
+                ${kvRow('SMTP Host', payload.emailDelivery && payload.emailDelivery.smtpHost)}
+                ${kvRow('From Address', payload.emailDelivery && payload.emailDelivery.fromAddress)}
+                ${kvRow('Inbound Address', payload.emailDelivery && payload.emailDelivery.inboundAddress)}
+                ${kvRow('Webhook URL', payload.emailDelivery && payload.emailDelivery.webhookUrl)}
+              </div>
+            </article>
+            <article class="card">
+              <h3>Inbound Email Filter</h3>
+              <p class="muted">Only these sender addresses are currently accepted for the automated tee-time email import flow.</p>
+              <div class="email-list">${renderEmailList(payload.emailDelivery && payload.emailDelivery.allowedInboundSenders)}</div>
+            </article>
+          `;
+
+          allEmails.innerHTML = renderEmailList(payload.allOperationalEmails);
+
+          const groups = Array.isArray(payload.groups) ? payload.groups : [];
+          groupGrid.innerHTML = groups.map((group) => `
+            <article class="card">
+              <h3>${escapeHtml(group.groupReference || group.groupName || group.siteTitle || group.groupSlug)}</h3>
+              <div class="kv-list">
+                ${kvRow('Group Slug', group.groupSlug)}
+                ${kvRow('Site Title', group.siteTitle)}
+                ${kvRow('Group Name', group.groupName)}
+                ${kvRow('Public URL', group.siteUrl)}
+                ${kvRow('Admin URL', group.adminUrl)}
+                ${kvRow('Calendar URL', group.calendarUrl)}
+                ${kvRow('Primary Contact Email', group.primaryContactEmail)}
+                ${kvRow('Secondary Contact Email', group.secondaryContactEmail)}
+                ${kvRow('Club Request Email', group.clubRequestEmail)}
+                ${kvRow('Reply-To Email', group.replyToEmail)}
+              </div>
+              <div style="margin-top:10px">
+                <span class="kv-label">Club CC Emails</span>
+                <div class="email-list">${renderEmailList(group.clubCcEmails)}</div>
+              </div>
+            </article>
+          `).join('') || '<div class="card"><p class="muted">No group profiles found.</p></div>';
+
+          const inboundRouting = payload.inboundRouting || {};
+          inboundRoutingCard.innerHTML = `
+            <div class="kv-list" style="margin-bottom:12px;">
+              ${kvRow('Inbound Address', payload.emailDelivery && payload.emailDelivery.inboundAddress)}
+              ${kvRow('Webhook URL', payload.emailDelivery && payload.emailDelivery.webhookUrl)}
+              ${kvRow('Default Imported Group Slug', inboundRouting.defaultGroupSlug)}
+              ${kvRow('Default Imported Group Reference', inboundRouting.defaultGroupReference)}
+              ${kvRow('Default Imported Group Name', inboundRouting.defaultGroupName)}
+            </div>
+            <p>${escapeHtml(inboundRouting.explanation || '')}</p>
+            <p class="muted">Current behavior: the email itself does not carry a dedicated group token that the importer reads. The known inbound address tells the system it is a tee-time import, but group routing falls back to the default main group.</p>
+          `;
+
+          const rules = Array.isArray(payload.automation && payload.automation.scheduledRules) ? payload.automation.scheduledRules : [];
+          automationCard.innerHTML = `
+            <div class="kv-list" style="margin-bottom:12px;">
+              ${kvRow('Time Zone', payload.automation && payload.automation.timeZone)}
+              ${kvRow('Scheduler Enabled By Env', payload.automation && payload.automation.schedulerEnabledByEnv ? 'Yes' : 'No')}
+              ${kvRow('Generated', payload.generatedAt)}
+            </div>
+            <ul>
+              ${rules.map((rule) => `<li><strong>${escapeHtml(rule.schedule)}:</strong> ${escapeHtml(rule.summary)} Audience: ${escapeHtml(rule.audience)}.</li>`).join('')}
+            </ul>
+          `;
+        } catch (error) {
+          const message = escapeHtml(error && error.message ? error.message : 'Failed to load operations guide.');
+          platformGrid.innerHTML = `<div class="card"><p class="error">${message}</p></div>`;
+          allEmails.innerHTML = `<p class="error">${message}</p>`;
+          groupGrid.innerHTML = `<div class="card"><p class="error">${message}</p></div>`;
+          automationCard.innerHTML = `<p class="error">${message}</p>`;
+          inboundRoutingCard.innerHTML = `<p class="error">${message}</p>`;
+        }
+      }
+
+      loadGuide();
+    })();
+  </script>
+</body>
+</html>

@@ -80,9 +80,15 @@ const ADMIN_DESTRUCTIVE_CONFIRM_CODE = process.env.ADMIN_DESTRUCTIVE_CONFIRM_COD
 const SITE_URL = (process.env.SITE_URL || 'https://tee-time-brs.onrender.com/').replace(/\/$/, '') + '/';
 const LOCAL_TZ = process.env.LOCAL_TZ || 'America/New_York';
 const DEFAULT_SITE_GROUP_SLUG = String(process.env.DEFAULT_SITE_GROUP_SLUG || 'main').trim().toLowerCase() || 'main';
+const GROUP_SLUG_ALIASES = Object.freeze({
+  'thursday-seniors-group': 'seniors',
+});
 const GROUP_REFERENCE_OVERRIDES = Object.freeze({
   [DEFAULT_SITE_GROUP_SLUG]: 'BRS Group',
-  'thursday-seniors-group': 'Thursday Seniors',
+  seniors: 'Thursday Seniors',
+});
+const GROUP_SITE_ADMIN_CODE_OVERRIDES = Object.freeze({
+  seniors: '000',
 });
 const CALENDAR_EVENT_DURATION_MINUTES = Math.max(30, Number(process.env.CALENDAR_EVENT_DURATION_MINUTES || 270) || 270);
 const BACKUP_ROOT = path.join(__dirname, 'backups');
@@ -141,12 +147,32 @@ function applyNoStoreHeaders(res) {
   res.setHeader('Expires', '0');
 }
 
+function buildCanonicalGroupQueryRedirectPath(req, pathname = req.path || '/') {
+  const rawGroup = String(req.query && req.query.group || '').trim();
+  if (!rawGroup) return '';
+  const sanitizedGroup = sanitizeGroupSlug(rawGroup);
+  const canonicalGroup = normalizeGroupSlug(rawGroup);
+  if (!sanitizedGroup || sanitizedGroup === canonicalGroup) return '';
+  const target = new URL(buildAbsoluteSiteUrl(pathname));
+  Object.entries(req.query || {}).forEach(([key, rawValue]) => {
+    const value = Array.isArray(rawValue) ? rawValue[rawValue.length - 1] : rawValue;
+    if (value === undefined || value === null || value === '') return;
+    if (key === 'group') target.searchParams.set('group', canonicalGroup);
+    else target.searchParams.set(key, String(value));
+  });
+  return `${target.pathname}${target.search}${target.hash}`;
+}
+
 // Define routes before static middleware to ensure they take precedence
-app.get('/', (_req, res) => {
+app.get('/', (req, res) => {
+  const canonicalRedirect = buildCanonicalGroupQueryRedirectPath(req, '/');
+  if (canonicalRedirect) return res.redirect(302, canonicalRedirect);
   applyNoStoreHeaders(res);
   return res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 app.get('/admin.html', (req, res) => {
+  const canonicalRedirect = buildCanonicalGroupQueryRedirectPath(req, '/admin.html');
+  if (canonicalRedirect) return res.redirect(302, canonicalRedirect);
   const groupSlug = getGroupSlug(req);
   if (groupSlug !== DEFAULT_SITE_GROUP_SLUG) {
     return res.redirect(302, buildRedirectWithGroupPath('/group-admin-lite.html', groupSlug, req.query));
@@ -155,6 +181,8 @@ app.get('/admin.html', (req, res) => {
   return res.sendFile(path.join(__dirname, 'public', 'admin.html'));
 });
 app.get('/group-admin-lite.html', (req, res) => {
+  const canonicalRedirect = buildCanonicalGroupQueryRedirectPath(req, '/group-admin-lite.html');
+  if (canonicalRedirect) return res.redirect(302, canonicalRedirect);
   const groupSlug = getGroupSlug(req);
   if (groupSlug === DEFAULT_SITE_GROUP_SLUG) {
     return res.redirect(302, buildRedirectWithGroupPath('/admin.html', DEFAULT_SITE_GROUP_SLUG, req.query));
@@ -1722,7 +1750,7 @@ function getScopedAdminCode(req) {
   return String(req.headers['x-admin-code'] || req.query.code || req.body?.code || '').trim();
 }
 
-function normalizeGroupSlug(value = '') {
+function sanitizeGroupSlug(value = '') {
   const normalized = String(value || '')
     .trim()
     .toLowerCase()
@@ -1730,6 +1758,32 @@ function normalizeGroupSlug(value = '') {
     .replace(/-+/g, '-')
     .replace(/^-+|-+$/g, '');
   return normalized || DEFAULT_SITE_GROUP_SLUG;
+}
+
+function getGroupSlugVariants(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  const canonicalGroupSlug = normalizeGroupSlug(groupSlug);
+  const variants = new Set([canonicalGroupSlug]);
+  Object.entries(GROUP_SLUG_ALIASES).forEach(([legacySlug, targetSlug]) => {
+    if (targetSlug === canonicalGroupSlug) variants.add(legacySlug);
+  });
+  return Array.from(variants);
+}
+
+function getAllowedSiteAdminCodes(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
+  const overrideCode = String(GROUP_SITE_ADMIN_CODE_OVERRIDES[normalizedGroupSlug] || '').trim();
+  const allowedCodes = [];
+  if (overrideCode) allowedCodes.push(overrideCode);
+  else if (SITE_ADMIN_WRITE_CODE) allowedCodes.push(SITE_ADMIN_WRITE_CODE);
+  if (ADMIN_DESTRUCTIVE_CODE && !allowedCodes.includes(ADMIN_DESTRUCTIVE_CODE)) {
+    allowedCodes.push(ADMIN_DESTRUCTIVE_CODE);
+  }
+  return allowedCodes;
+}
+
+function normalizeGroupSlug(value = '') {
+  const sanitized = sanitizeGroupSlug(value);
+  return GROUP_SLUG_ALIASES[sanitized] || sanitized || DEFAULT_SITE_GROUP_SLUG;
 }
 
 function getGroupSlug(req, fallback = DEFAULT_SITE_GROUP_SLUG) {
@@ -1754,7 +1808,9 @@ function groupScopeFilter(groupSlug = DEFAULT_SITE_GROUP_SLUG, fieldName = 'grou
       ],
     };
   }
-  return { [fieldName]: normalizedGroupSlug };
+  const variants = getGroupSlugVariants(normalizedGroupSlug);
+  if (variants.length === 1) return { [fieldName]: normalizedGroupSlug };
+  return { [fieldName]: { $in: variants } };
 }
 
 function scopeQuery(req, extra = {}) {
@@ -1995,6 +2051,97 @@ async function getGroupContactTargets(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   };
 }
 
+async function buildOperationsGuidePayload() {
+  const groupSlugs = await getAllManagedGroupSlugs();
+  const groups = [];
+  for (const groupSlug of groupSlugs) {
+    const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
+    const profile = await getSiteProfile(normalizedGroupSlug);
+    const links = buildGroupDeploymentLinks(normalizedGroupSlug);
+    const contacts = await getGroupContactTargets(normalizedGroupSlug);
+    groups.push({
+      groupSlug: normalizedGroupSlug,
+      groupReference: resolveGroupReference(normalizedGroupSlug, profile),
+      siteTitle: String(profile.siteTitle || '').trim(),
+      groupName: String(profile.groupName || '').trim(),
+      siteUrl: buildAbsoluteSiteUrl(links.sitePath),
+      adminUrl: buildAbsoluteSiteUrl(links.adminPath),
+      calendarUrl: buildAbsoluteSiteUrl(links.calendarPath),
+      primaryContactEmail: String(profile.primaryContactEmail || '').trim(),
+      secondaryContactEmail: String(profile.secondaryContactEmail || '').trim(),
+      clubRequestEmail: String(profile.clubRequestEmail || '').trim(),
+      replyToEmail: String(profile.replyToEmail || '').trim(),
+      clubCcEmails: contacts.clubCcEmails,
+    });
+  }
+  groups.sort((left, right) => {
+    if (left.groupSlug === DEFAULT_SITE_GROUP_SLUG && right.groupSlug !== DEFAULT_SITE_GROUP_SLUG) return -1;
+    if (left.groupSlug !== DEFAULT_SITE_GROUP_SLUG && right.groupSlug === DEFAULT_SITE_GROUP_SLUG) return 1;
+    return String(left.groupReference || '').localeCompare(String(right.groupReference || ''));
+  });
+  const defaultInboundGroup = groups.find((group) => group.groupSlug === DEFAULT_SITE_GROUP_SLUG) || null;
+
+  const resendInboundAddress = 'teetime@xenailexou.resend.app';
+  const resendAllowedSenders = ['tommy.knight@gmail.com', 'no-reply@foreupsoftware.com'];
+  const allEmails = uniqueEmailList([
+    ADMIN_EMAILS,
+    CLUB_EMAIL,
+    String(process.env.RESEND_FROM || '').trim(),
+    resendInboundAddress,
+    resendAllowedSenders,
+    String(process.env.CLUB_CANCEL_CC || '').split(','),
+    ...groups.flatMap((group) => [
+      group.primaryContactEmail,
+      group.secondaryContactEmail,
+      group.clubRequestEmail,
+      group.replyToEmail,
+      group.clubCcEmails,
+    ]),
+  ]);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    hosting: {
+      platform: 'Render',
+      publicSiteUrl: SITE_URL,
+      dashboardUrl: 'https://dashboard.render.com/',
+      serviceNote: 'The live tee-time site is hosted on Render and the canonical public URL comes from SITE_URL.',
+    },
+    emailDelivery: {
+      provider: 'Resend',
+      dashboardUrl: 'https://resend.com/',
+      apiUrl: 'https://api.resend.com/emails',
+      smtpHost: 'smtp.resend.com',
+      fromAddress: String(process.env.RESEND_FROM || '').trim(),
+      inboundAddress: resendInboundAddress,
+      webhookUrl: buildAbsoluteSiteUrl('/webhooks/resend'),
+      allowedInboundSenders: resendAllowedSenders,
+    },
+    inboundRouting: {
+      defaultGroupSlug: DEFAULT_SITE_GROUP_SLUG,
+      defaultGroupReference: defaultInboundGroup ? defaultInboundGroup.groupReference : resolveGroupReference(DEFAULT_SITE_GROUP_SLUG, {}),
+      defaultGroupName: defaultInboundGroup ? defaultInboundGroup.groupName : '',
+      explanation: 'Imported tee-time emails are not currently tagged with a specific group identifier. The Render-hosted /webhooks/resend route accepts the known inbound address plus an allowed-sender list, then falls back to the default site group, so those emails are created under the main BRS tee-times group.',
+    },
+    adminEmails: ADMIN_EMAILS,
+    defaultClubEmail: CLUB_EMAIL,
+    clubCancelCcEmails: uniqueEmailList(String(process.env.CLUB_CANCEL_CC || '').split(',')),
+    allOperationalEmails: allEmails,
+    groups,
+    automation: {
+      timeZone: LOCAL_TZ,
+      schedulerEnabledByEnv: !SCHEDULER_ENV_DISABLED,
+      scheduledRules: [
+        { key: 'brianTomorrowEmptyClubAlert', schedule: '4:00 PM daily', audience: 'club/admin routing email', summary: 'Sends tomorrow empty-tee alerts to the club routing address.' },
+        { key: 'reminder48Hour', schedule: '5:00 PM daily', audience: 'subscribers', summary: 'Sends 48-hour empty-tee reminders to subscribers.' },
+        { key: 'reminder24Hour', schedule: '5:00 PM daily', audience: 'subscribers', summary: 'Sends 24-hour empty-tee reminders to subscribers.' },
+        { key: 'nearlyFullTeeTimes', schedule: '5:00 PM daily', audience: 'subscribers', summary: 'Sends nearly-full tee-time alerts when an event is more than 50% full within 4 days.' },
+        { key: 'adminEmptyTeeAlerts', schedule: 'Every 6 hours at 12:00 AM, 6:00 AM, 12:00 PM, and 6:00 PM', audience: 'admin alert recipients', summary: 'Sends grouped admin empty-tee alerts.' },
+      ],
+    },
+  };
+}
+
 function inferGroupSlugFromReferrer(req, fallback = DEFAULT_SITE_GROUP_SLUG) {
   try {
     const referrer = String(req.get('referer') || req.get('referrer') || '').trim();
@@ -2040,13 +2187,11 @@ function getDestructiveConfirmCode(req) {
 
 function isSiteAdmin(req) {
   const code = getScopedAdminCode(req);
-  if (SITE_ADMIN_WRITE_CODE && code === SITE_ADMIN_WRITE_CODE) return true;
-  if (ADMIN_DESTRUCTIVE_CODE && code === ADMIN_DESTRUCTIVE_CODE) return true;
-  return false;
+  return getAllowedSiteAdminCodes(getGroupSlug(req)).includes(code);
 }
 
-function isSiteAdminCode(code = '') {
-  return Boolean(SITE_ADMIN_WRITE_CODE && String(code || '').trim() === SITE_ADMIN_WRITE_CODE);
+function isSiteAdminCode(code = '', groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  return getAllowedSiteAdminCodes(groupSlug).includes(String(code || '').trim());
 }
 
 function isAdminDelete(req) {
@@ -2117,6 +2262,15 @@ app.get('/api/site-profile', async (req, res) => {
     });
   } catch (error) {
     return res.status(500).json({ error: error && error.message ? error.message : 'Failed to load site profile' });
+  }
+});
+
+app.get('/api/operations-guide', async (_req, res) => {
+  try {
+    const payload = await buildOperationsGuidePayload();
+    return res.json(payload);
+  } catch (error) {
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to load operations guide' });
   }
 });
 
@@ -5132,7 +5286,7 @@ app.post('/api/admin/send-custom-message', async (req, res) => {
   const { code, subject, message } = req.body;
   const groupSlug = getGroupSlug(req);
   
-  if (!isSiteAdminCode(code)) {
+  if (!isSiteAdminCode(code, groupSlug)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
   

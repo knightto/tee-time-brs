@@ -512,7 +512,7 @@
         try {
           const raw = String(new URLSearchParams(window.location.search).get('group') || '').trim().toLowerCase();
           const normalized = raw.replace(/[^a-z0-9-]+/g, '-').replace(/-+/g, '-').replace(/^-+|-+$/g, '');
-          return normalized || '';
+          return (normalized === 'thursday-seniors-group' ? 'seniors' : normalized) || '';
         } catch (_) {
           return '';
         }
