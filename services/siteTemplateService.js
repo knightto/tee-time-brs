@@ -87,7 +87,7 @@ function buildTeeTimesSiteDeploymentProfile(input = {}, options = {}) {
   const smsPhone = cleanString(input.smsPhone) || '';
   const adminAlertPhones = cleanStringList(input.adminAlertPhones);
   const themeColor = cleanHexColor(input.themeColor, '#173224');
-  const iconAssetName = cleanString(input.iconAssetName) || 'knight-club-icon.png';
+  const iconAssetName = cleanString(input.iconAssetName) || 'brs-tee-manager-logo.png';
   const mongoDbName = cleanString(input.mongoDbName) || `${packageSlug.replace(/-/g, '_')}_db`;
   const notes = cleanString(input.notes) || 'Deploy this package as a branded instance of the current tee-times + admin stack.';
   const adminCode = cleanAccessCode(input.adminCode) || (preserveBlankAccessCodes ? '' : (isMainGroup ? '' : 'change-me'));

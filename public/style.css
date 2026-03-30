@@ -24,13 +24,20 @@
   --ink:#1a5a1a; --ink-2:#2d7a2d; --line:rgba(29,122,29,.15); --radius:16px;
   --shadow:0 10px 30px rgba(26,90,26,.25); --shadow-sm:0 4px 12px rgba(26,90,26,.15);
   --shadow-green:0 8px 24px rgba(29,122,29,.3);
+  --site-background-image:url('./assets/golf-background2.jpg');
 }
 *{box-sizing:border-box} html,body{height:100%}
 body{margin:0;color:var(--ink);font:400 16px/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
   background:linear-gradient(135deg, rgba(26,90,26,.75) 0%, rgba(45,122,45,.60) 50%, rgba(26,90,26,.75) 100%),
   repeating-linear-gradient(90deg, transparent, transparent 100px, rgba(255,255,255,.03) 100px, rgba(255,255,255,.03) 102px),
-  url('./assets/cool-golf-clear-water-hazards-in-autumn-enlr3jq4slsvb0rd.jpg') center/cover fixed no-repeat;
+  var(--site-background-image) center/cover fixed no-repeat;
   background-blend-mode:normal, overlay, normal;
+}
+body[data-site-group="main"]{
+  --site-background-image:url('./assets/golf-background2.jpg');
+}
+body[data-site-group="seniors"]{
+  --site-background-image:url('./assets/golf-background4.jpg');
 }
 header{position:sticky;top:0;z-index:10;display:flex;gap:12px;align-items:center;justify-content:space-between;
   padding:14px 20px;background:linear-gradient(135deg, var(--golf-green-dark) 0%, var(--golf-green) 100%);
@@ -71,6 +78,19 @@ main{padding:20px}
 .topbar-title-link{
   color:inherit;
   text-decoration:none;
+}
+.topbar-brand{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+}
+.topbar-logo{
+  width:42px;
+  height:42px;
+  border-radius:50%;
+  object-fit:cover;
+  box-shadow:0 4px 10px rgba(0,0,0,.28);
+  background:rgba(255,255,255,.14);
 }
 .topbar-title-link:hover{
   text-decoration:underline;
@@ -1415,8 +1435,14 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   }
   
   body{
-    background:linear-gradient(135deg, rgba(26,90,26,.9) 0%, rgba(45,122,45,.8) 100%);
-    background-attachment:scroll;
+    background:linear-gradient(135deg, rgba(26,90,26,.9) 0%, rgba(45,122,45,.8) 100%),
+    repeating-linear-gradient(90deg, transparent, transparent 100px, rgba(255,255,255,.03) 100px, rgba(255,255,255,.03) 102px),
+    var(--site-background-image) center/cover scroll no-repeat;
+    background-blend-mode:normal, overlay, normal;
+  }
+  .topbar-logo{
+    width:36px;
+    height:36px;
   }
   
   header{

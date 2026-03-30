@@ -2142,7 +2142,7 @@ function buildDefaultSiteProfileInput(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
     confirmCode: '',
     inboundEmailAlias: isMainGroup ? RESEND_INBOUND_BASE_ADDRESS : `teetime+${normalizedGroupSlug}@${RESEND_INBOUND_BASE_ADDRESS.split('@')[1]}`,
     themeColor: '#173224',
-    iconAssetName: 'knight-club-icon.png',
+    iconAssetName: normalizedGroupSlug === 'seniors' ? 'seniors.png' : 'brs-tee-manager-logo.png',
     notes: isMainGroup ? 'Main Tee Times site profile.' : '',
     features: {
       includeHandicaps: isMainGroup,
@@ -2158,6 +2158,9 @@ function buildDefaultSiteProfileInput(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
 function resolveSiteIconPath(iconAssetName = '') {
   const assetName = String(iconAssetName || '').trim();
   if (!assetName) return '/icons/icon-512.png';
+  if (assetName === 'knight-club-icon.png' || assetName === '/assets/knight-club-icon.png') {
+    return '/assets/brs-tee-manager-logo.png';
+  }
   if (assetName.startsWith('/')) return assetName;
   return `/assets/${assetName}`;
 }

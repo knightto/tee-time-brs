@@ -175,8 +175,8 @@ if ('serviceWorker' in navigator) {
     clubName: 'the club',
     clubRequestLabel: 'Request a Tee Time',
     themeColor: '#173224',
-    iconAssetName: 'knight-club-icon.png',
-    iconPath: '/assets/knight-club-icon.png',
+    iconAssetName: currentGroupSlug === 'seniors' ? 'seniors.png' : 'brs-tee-manager-logo.png',
+    iconPath: currentGroupSlug === 'seniors' ? '/assets/seniors.png' : '/assets/brs-tee-manager-logo.png',
     features: {
       includeHandicaps: currentGroupSlug === 'main',
       includeTrips: currentGroupSlug === 'main',
@@ -188,6 +188,10 @@ if ('serviceWorker' in navigator) {
   };
   let currentSiteProfile = { ...defaultSiteProfile };
   let currentSiteLinks = {};
+  const groupBackgroundImageMap = Object.freeze({
+    main: '/assets/golf-background2.jpg',
+    seniors: '/assets/golf-background4.jpg',
+  });
   const initialSelectedDateFromUrl = (() => {
     try {
       const dateISO = String(new URLSearchParams(window.location.search).get('date') || '').trim();
@@ -223,7 +227,10 @@ if ('serviceWorker' in navigator) {
 
   function resolveSiteIconPath(iconAssetName = '') {
     const safe = String(iconAssetName || '').trim();
-    if (!safe) return '/assets/knight-club-icon.png';
+    if (!safe) return currentGroupSlug === 'seniors' ? '/assets/seniors.png' : '/assets/brs-tee-manager-logo.png';
+    if (safe === 'knight-club-icon.png' || safe === '/assets/knight-club-icon.png') {
+      return currentGroupSlug === 'seniors' ? '/assets/seniors.png' : '/assets/brs-tee-manager-logo.png';
+    }
     return safe.startsWith('/') ? safe : `/assets/${safe}`;
   }
 
@@ -280,6 +287,13 @@ if ('serviceWorker' in navigator) {
     root.style.setProperty('--green-700', shiftHexColor(safeTheme, -16));
   }
 
+  function applySiteBackground(groupSlug = currentGroupSlug) {
+    const normalizedGroup = String(groupSlug || '').trim().toLowerCase() || 'main';
+    const backgroundImage = groupBackgroundImageMap[normalizedGroup] || groupBackgroundImageMap.main;
+    document.documentElement.style.setProperty('--site-background-image', `url('${backgroundImage}')`);
+    if (document.body) document.body.setAttribute('data-site-group', normalizedGroup);
+  }
+
   function applySiteProfile(profile = {}, links = {}) {
     currentSiteProfile = {
       ...defaultSiteProfile,
@@ -295,10 +309,13 @@ if ('serviceWorker' in navigator) {
 
     document.title = currentSiteProfile.siteTitle || defaultSiteProfile.siteTitle;
     applySiteTheme(currentSiteProfile.themeColor);
+    applySiteBackground(currentSiteProfile.groupSlug || currentGroupSlug);
 
     const topbarTitleLink = document.querySelector('.topbar-title-link');
+    const topbarTitleText = document.getElementById('topbarTitleText');
+    const topbarLogo = document.getElementById('topbarLogo');
     if (topbarTitleLink) {
-      topbarTitleLink.textContent = currentSiteProfile.siteTitle || defaultSiteProfile.siteTitle;
+      if (topbarTitleText) topbarTitleText.textContent = currentSiteProfile.siteTitle || defaultSiteProfile.siteTitle;
       if (isMainGroupSite()) {
         topbarTitleLink.href = buildGroupPageHref('/');
         topbarTitleLink.title = 'Refresh to calendar view';
@@ -306,6 +323,10 @@ if ('serviceWorker' in navigator) {
         topbarTitleLink.removeAttribute('href');
         topbarTitleLink.removeAttribute('title');
       }
+    }
+    if (topbarLogo) {
+      topbarLogo.src = currentSiteProfile.iconPath || defaultSiteProfile.iconPath;
+      topbarLogo.alt = `${currentSiteProfile.siteTitle || defaultSiteProfile.siteTitle} logo`;
     }
     const topbarDropdown = document.querySelector('.topbar-dropdown');
     if (topbarDropdown) topbarDropdown.hidden = !isMainGroupSite();

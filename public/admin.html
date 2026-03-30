@@ -41,6 +41,21 @@
       -webkit-overflow-scrolling: touch;
     }
 
+    .admin-brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .admin-logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      object-fit: cover;
+      box-shadow: 0 4px 10px rgba(0,0,0,.22);
+      background: rgba(255,255,255,.14);
+    }
+
     .section-nav a {
       flex: 0 0 auto;
       white-space: nowrap;
@@ -1021,7 +1036,7 @@
 </head>
 <body>
   <header class="topbar">
-    <h1 id="adminHeaderTitle">Admin</h1>
+    <h1><span class="admin-brand"><img id="adminHeaderLogo" class="admin-logo" src="/assets/brs-tee-manager-logo.png" alt="BRS Tee Times logo"><span id="adminHeaderTitle">Admin</span></span></h1>
     <nav class="topbar-links">
       <a href="/" class="pill-link" id="adminHomeLink" data-admin-group-link>Tee Times</a>
       <a href="/handicaps.html" class="pill-link" id="adminHandicapsLink" data-admin-group-link data-admin-feature-link="includeHandicaps">Handicaps</a>
@@ -1256,7 +1271,7 @@
                 </label>
                 <label>
                   <span>Icon Asset Name</span>
-                  <input id="siteTemplateIconInput" type="text" maxlength="80" value="knight-club-icon.png" required>
+                  <input id="siteTemplateIconInput" type="text" maxlength="80" value="brs-tee-manager-logo.png" required>
                 </label>
                 <label>
                   <span>Mongo DB Name</span>
@@ -2729,8 +2744,13 @@
 
       document.title = `${groupReference} Admin`;
       const headerTitle = document.getElementById('adminHeaderTitle');
+      const headerLogo = document.getElementById('adminHeaderLogo');
       if (headerTitle) {
         headerTitle.textContent = `${groupReference} Admin`;
+      }
+      if (headerLogo) {
+        headerLogo.src = String(profile.iconPath || '/assets/brs-tee-manager-logo.png').trim() || '/assets/brs-tee-manager-logo.png';
+        headerLogo.alt = `${groupReference} logo`;
       }
 
       const homeLink = document.getElementById('adminHomeLink');

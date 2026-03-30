@@ -47,8 +47,8 @@
     installBar.className = 'pwa-install-bar';
     installBar.innerHTML = `
       <div class="pwa-install-copy">
-        <strong>Install Tee Time BRS</strong>
-        <span id="pwaInstallMessage">Add the app to your home screen for a full-screen golf trip view.</span>
+        <strong>Add to Home Screen</strong>
+        <span id="pwaInstallMessage">Install for quicker access.</span>
       </div>
       <div class="pwa-install-actions">
         <button id="pwaInstallButton" class="pwa-install-btn" type="button">Install</button>
@@ -103,7 +103,7 @@
 
   function maybeShowIosTip() {
     if (!isIosSafari() || isStandalone() || dismissed(IOS_TIP_KEY)) return;
-    setInstallMessage('On iPhone or iPad, use Share and then Add to Home Screen for the standalone golf app.', 'Got It');
+    setInstallMessage('Use Share, then Add to Home Screen.', 'Got It');
     showInstallBar();
   }
 
@@ -111,7 +111,7 @@
     event.preventDefault();
     if (dismissed(DISMISS_KEY) || isStandalone()) return;
     deferredPrompt = event;
-    setInstallMessage('Install the app for a cleaner standalone golf-trip experience with bottom navigation and offline shell support.', 'Install');
+    setInstallMessage('Install for quicker access.', 'Install');
     showInstallBar();
   });
 
