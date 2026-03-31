@@ -61,6 +61,43 @@
       color: #fff;
     }
 
+    .hero-brand {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 18px;
+      align-items: center;
+    }
+
+    .hero-logo-wrap {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 148px;
+      height: 148px;
+      border-radius: 36px;
+      background: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(219, 234, 254, 0.72));
+      box-shadow: 0 18px 36px rgba(7, 61, 92, 0.22);
+      overflow: hidden;
+    }
+
+    .hero-logo-wrap::before {
+      content: '';
+      position: absolute;
+      inset: 10px;
+      border-radius: 28px;
+      background: radial-gradient(circle at 50% 35%, rgba(125, 211, 252, 0.36), rgba(255, 255, 255, 0) 70%);
+      pointer-events: none;
+    }
+
+    .hero-logo {
+      width: 120px;
+      height: 120px;
+      object-fit: contain;
+      filter: drop-shadow(0 10px 18px rgba(8, 84, 132, 0.2));
+      z-index: 1;
+    }
+
     .hero-copy {
       display: grid;
       gap: 6px;
@@ -98,6 +135,22 @@
 
     .section-meta {
       color: var(--muted);
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: fit-content;
+      padding: 7px 12px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.18);
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      color: rgba(255, 255, 255, 0.94);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
     .hero-links,
@@ -147,6 +200,93 @@
 
     .hero-link:hover {
       background: rgba(255, 255, 255, 0.16);
+    }
+
+    body[data-admin-group="seniors"] {
+      --accent: #0c4a6e;
+      --accent-dark: #15324a;
+      --panel: rgba(255, 255, 255, 0.92);
+      --ink: #15324a;
+      --muted: #3f6172;
+      --line: rgba(8, 84, 132, 0.16);
+      --bg: #eff6ff;
+      background:
+        radial-gradient(circle at 18% 18%, rgba(125, 211, 252, 0.34) 0%, transparent 24%),
+        radial-gradient(circle at 78% 14%, rgba(250, 204, 21, 0.22) 0%, transparent 16%),
+        linear-gradient(180deg, rgba(7, 61, 92, 0.18) 0%, rgba(22, 101, 52, 0.08) 32%, rgba(255, 255, 255, 0) 58%),
+        url('/assets/bandon1.jpg') center/cover fixed no-repeat;
+      background-blend-mode: screen, screen, normal, normal;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    body[data-admin-group="seniors"]::before {
+      content: '';
+      position: fixed;
+      inset: -4% auto auto -2%;
+      width: min(440px, 42vw);
+      aspect-ratio: 1;
+      background:
+        radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.72) 0%, rgba(125, 211, 252, 0.34) 34%, rgba(59, 130, 246, 0.08) 58%, transparent 72%),
+        url('/assets/seniors.png') center/contain no-repeat;
+      opacity: 0.2;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    body[data-admin-group="seniors"] .panel {
+      border: 1px solid rgba(255, 255, 255, 0.5);
+      border-radius: 24px;
+      box-shadow: 0 20px 40px rgba(10, 82, 122, 0.16);
+      backdrop-filter: blur(8px);
+    }
+
+    body[data-admin-group="seniors"] .hero {
+      position: relative;
+      background:
+        radial-gradient(circle at 22% 28%, rgba(125, 211, 252, 0.3), transparent 22%),
+        radial-gradient(circle at 78% 18%, rgba(250, 204, 21, 0.24), transparent 18%),
+        linear-gradient(135deg, rgba(255, 255, 255, 0.14), transparent 58%),
+        linear-gradient(135deg, #0c4a6e, #166534 58%, #2563eb 100%);
+      overflow: hidden;
+    }
+
+    body[data-admin-group="seniors"] .hero::after {
+      content: '';
+      position: absolute;
+      inset: auto -40px -80px auto;
+      width: 240px;
+      height: 240px;
+      background: radial-gradient(circle, rgba(245, 158, 11, 0.22) 0%, rgba(245, 158, 11, 0) 68%);
+      filter: blur(8px);
+      pointer-events: none;
+    }
+
+    body[data-admin-group="seniors"] .hero-meta {
+      color: rgba(240, 249, 255, 0.95);
+      font-size: 15px;
+    }
+
+    body[data-admin-group="seniors"] .hero-link {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.24);
+      box-shadow: 0 8px 18px rgba(7, 61, 92, 0.16);
+    }
+
+    body[data-admin-group="seniors"] .content {
+      gap: 20px;
+    }
+
+    body[data-admin-group="seniors"] .panel-toggle-label,
+    body[data-admin-group="seniors"] button.secondary {
+      background: linear-gradient(135deg, #eff6ff, #dbeafe);
+      border-color: rgba(37, 99, 235, 0.16);
+    }
+
+    body[data-admin-group="seniors"] .note {
+      border-color: rgba(125, 211, 252, 0.28);
+      background: rgba(239, 246, 255, 0.9);
+      color: #15324a;
     }
 
     .content {
@@ -263,6 +403,12 @@
       font: inherit;
       color: var(--ink);
       background: #fff;
+    }
+
+    input[readonly] {
+      background: #f4f8f6;
+      color: var(--muted);
+      cursor: not-allowed;
     }
 
     textarea {
@@ -495,6 +641,22 @@
         padding: 18px;
       }
 
+      .hero-brand {
+        grid-template-columns: 1fr;
+        justify-items: start;
+      }
+
+      .hero-logo-wrap {
+        width: 118px;
+        height: 118px;
+        border-radius: 28px;
+      }
+
+      .hero-logo {
+        width: 94px;
+        height: 94px;
+      }
+
       .subscriber-toolbar form,
       .subscriber-card,
       .roster-card,
@@ -523,10 +685,16 @@
 <body>
   <main class="shell">
     <section class="panel hero">
-      <div class="hero-copy">
-        <p class="eyebrow">Group Admin</p>
-        <h1 id="pageTitle">Loading Group Admin...</h1>
-        <p class="hero-meta" id="pageMeta">Use this page to keep tee times and subscribers current for a separate tee-times group. Two points of contact can be stored here for quick handoff.</p>
+      <div class="hero-brand">
+        <div class="hero-logo-wrap">
+          <img class="hero-logo" id="heroLogo" src="/assets/seniors.png" alt="Group logo">
+        </div>
+        <div class="hero-copy">
+          <p class="eyebrow">Group Admin</p>
+          <span class="hero-badge" id="heroBadge">Tee Times Admin</span>
+          <h1 id="pageTitle">Loading Group Admin...</h1>
+          <p class="hero-meta" id="pageMeta">Use this page to keep tee times and subscribers current for a separate tee-times group. Two points of contact can be stored here for quick handoff.</p>
+        </div>
       </div>
       <div class="hero-links">
         <a class="hero-link" id="groupSiteLink" href="#" target="_blank" rel="noopener">Open Group Site</a>
@@ -541,20 +709,21 @@
           <p class="section-meta">Keep the group reference, group title, and the two possible points of contact up to date here. The live tee-times board and subscriber tools are below.</p>
         </div>
         <div id="statusNote" class="note">Enter the site admin code when prompted to load this group's settings.</div>
+        <div class="note warn">Site Title, Group Name, Group Reference, and Group Slug are locked to avoid breaking Seniors page routing and identity.</div>
 
         <form id="profileForm" hidden>
           <div class="grid">
             <label>
               <span>Site Title</span>
-              <input type="text" name="siteTitle" maxlength="120" required>
+              <input type="text" name="siteTitle" maxlength="120" required readonly>
             </label>
             <label>
               <span>Group Name</span>
-              <input type="text" name="groupName" maxlength="120" required>
+              <input type="text" name="groupName" maxlength="120" required readonly>
             </label>
             <label>
               <span>Group Reference</span>
-              <input type="text" name="groupReference" maxlength="120" required>
+              <input type="text" name="groupReference" maxlength="120" required readonly>
             </label>
             <label>
               <span>Group Slug</span>
@@ -874,6 +1043,8 @@
       const reloadProfileBtn = document.getElementById('reloadProfileBtn');
       const pageTitle = document.getElementById('pageTitle');
       const pageMeta = document.getElementById('pageMeta');
+      const heroLogo = document.getElementById('heroLogo');
+      const heroBadge = document.getElementById('heroBadge');
       const groupSiteLink = document.getElementById('groupSiteLink');
       const calendarFeedLink = document.getElementById('calendarFeedLink');
       const summarySiteLink = document.getElementById('summarySiteLink');
@@ -933,6 +1104,8 @@
         window.location.replace('/admin.html');
         return;
       }
+      document.body.dataset.adminGroup = groupSlug;
+      const isSeniorsAdminGroup = groupSlug === 'seniors';
 
       const state = {
         code: '',
@@ -992,40 +1165,32 @@
         }
       }
 
+      function setNoteStatus(element, message, tone = 'info') {
+        if (!element) return;
+        element.textContent = message;
+        element.className = 'note';
+        if (tone === 'warn') element.classList.add('warn');
+        if (tone === 'error') element.classList.add('error');
+      }
+
       function setStatus(message, tone = 'info') {
-        statusNote.textContent = message;
-        statusNote.className = 'note';
-        if (tone === 'warn') statusNote.classList.add('warn');
-        if (tone === 'error') statusNote.classList.add('error');
+        setNoteStatus(statusNote, message, tone);
       }
 
       function setSubscriberStatus(message, tone = 'info') {
-        subscriberNote.textContent = message;
-        subscriberNote.className = 'note';
-        if (tone === 'warn') subscriberNote.classList.add('warn');
-        if (tone === 'error') subscriberNote.classList.add('error');
+        setNoteStatus(subscriberNote, message, tone);
       }
 
       function setSeniorsRosterStatus(message, tone = 'info') {
-        if (!seniorsRosterNote) return;
-        seniorsRosterNote.textContent = message;
-        seniorsRosterNote.className = 'note';
-        if (tone === 'warn') seniorsRosterNote.classList.add('warn');
-        if (tone === 'error') seniorsRosterNote.classList.add('error');
+        setNoteStatus(seniorsRosterNote, message, tone);
       }
 
       function setNotificationStatus(message, tone = 'info') {
-        notificationNote.textContent = message;
-        notificationNote.className = 'note';
-        if (tone === 'warn') notificationNote.classList.add('warn');
-        if (tone === 'error') notificationNote.classList.add('error');
+        setNoteStatus(notificationNote, message, tone);
       }
 
       function setScheduledRuleStatus(message, tone = 'info') {
-        scheduledRuleNote.textContent = message;
-        scheduledRuleNote.className = 'note';
-        if (tone === 'warn') scheduledRuleNote.classList.add('warn');
-        if (tone === 'error') scheduledRuleNote.classList.add('error');
+        setNoteStatus(scheduledRuleNote, message, tone);
       }
 
       function setToggleStatus(statusId, enabled) {
@@ -1047,7 +1212,7 @@
       }
 
       function initSeniorsSectionToggles() {
-        if (groupSlug !== 'seniors') return;
+        if (!isSeniorsAdminGroup) return;
         const panels = Array.from(document.querySelectorAll('.shell > .panel:not(.hero)'));
         panels.forEach((panel, index) => {
           if (panel.dataset.collapsible === 'true') return;
@@ -1147,6 +1312,17 @@
         document.title = `${groupReference} Group Admin`;
         pageTitle.textContent = `${groupReference} Group Admin`;
         pageMeta.textContent = `Reference: ${groupReference}. Group slug: ${profile.groupSlug || groupSlug}. Keep tee times and subscribers current here, and store up to two points of contact for the group.`;
+        if (heroBadge) {
+          heroBadge.textContent = isSeniorsAdminGroup
+            ? 'Blue Ridge Shadows Seniors'
+            : 'Tee Times Admin';
+        }
+        if (heroLogo) {
+          heroLogo.src = isSeniorsAdminGroup
+            ? '/assets/seniors.png'
+            : '/assets/brs-tee-manager-logo.png';
+          heroLogo.alt = `${groupReference} logo`;
+        }
         applyTheme(profile.themeColor || '#173224');
       }
 
@@ -1275,7 +1451,7 @@
       }
 
       async function loadSeniorsRoster() {
-        if (groupSlug !== 'seniors') return;
+        if (!isSeniorsAdminGroup) return;
         setSeniorsRosterStatus('Loading Seniors roster...', 'warn');
         const payload = await api('/api/admin/seniors-roster');
         state.seniorsRoster = Array.isArray(payload) ? payload : [];
@@ -1296,6 +1472,7 @@
         const payload = await api('/api/admin/settings/notifications');
         notifToggle.checked = !!payload.notificationsEnabled;
         setToggleStatus('notifStatusText', !!payload.notificationsEnabled);
+        setNotificationStatus('Notification settings loaded.', 'info');
       }
 
       async function toggleGlobalNotifications(enabled) {
@@ -1325,7 +1502,7 @@
       }
 
       async function loadTeeTimeEventLifecycleNotificationSettings() {
-        if (groupSlug !== 'seniors') {
+        if (!isSeniorsAdminGroup) {
           if (teeTimeLifecycleNotifCard) teeTimeLifecycleNotifCard.hidden = true;
           return;
         }
@@ -1441,7 +1618,7 @@
         fillForm(state.profile || {});
         setLinks(state.links || {});
         form.hidden = false;
-        if (seniorsRosterSection) seniorsRosterSection.hidden = groupSlug !== 'seniors';
+        if (seniorsRosterSection) seniorsRosterSection.hidden = !isSeniorsAdminGroup;
         setStatus('Group profile loaded.', 'info');
         await loadAdminSections();
       }

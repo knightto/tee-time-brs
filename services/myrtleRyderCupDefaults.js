@@ -160,10 +160,6 @@ const CANONICAL_TEAM_B_RANKS = MYRTLE_RYDER_CUP_TEAMS.teamB.map((name) => {
 }).filter(Number.isInteger);
 const CANONICAL_RANK_BY_NAME = new Map(MYRTLE_RYDER_CUP_PLAYERS.map((player) => [player.name, player.rank]));
 
-const MYRTLE_RYDER_CUP_HARD_CONSTRAINTS = [];
-
-const MYRTLE_RYDER_CUP_REQUESTED_GROUPINGS = [];
-
 const MYRTLE_RYDER_CUP_ROUND_SEEDS = [
   {
     title: 'Round 1',

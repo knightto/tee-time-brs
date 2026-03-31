@@ -2983,7 +2983,17 @@ app.put('/api/admin/site-profile', async (req, res) => {
   try {
     if (!isSiteAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
     const groupSlug = getGroupSlug(req);
-    const profile = await saveSiteProfile(groupSlug, req.body || {});
+    const incoming = { ...(req.body || {}) };
+    if (normalizeGroupSlug(groupSlug) === 'seniors') {
+      const currentProfile = await getSiteProfile(groupSlug);
+      Object.assign(incoming, {
+        siteTitle: currentProfile.siteTitle,
+        groupName: currentProfile.groupName,
+        groupReference: currentProfile.groupReference,
+        groupSlug: currentProfile.groupSlug,
+      });
+    }
+    const profile = await saveSiteProfile(groupSlug, incoming);
     return res.json({
       ok: true,
       profile: toAdminEditableSiteProfile(profile),

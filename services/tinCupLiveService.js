@@ -41,23 +41,6 @@ const SIDE_GAME_DEFS = {
   longPutt: { label: 'Long Putt', days: ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4', 'Scramble'] },
   secretSnowman: { label: 'Secret Snowman', days: ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4'] },
 };
-const SEED_SIDE_GAME_WINNERS = Object.freeze({
-  longPutt: Object.freeze({
-    'Day 1': 'Matt',
-    'Day 2A': 'Tommy',
-    'Day 2B': 'Steve',
-    'Day 3': 'Rick',
-    'Day 4': 'David',
-    Scramble: 'Manny',
-  }),
-  secretSnowman: Object.freeze({
-    'Day 1': 'Spiro',
-    'Day 2A': 'Bob',
-    'Day 2B': 'CSamm',
-    'Day 3': 'Pat',
-    'Day 4': 'Brian',
-  }),
-});
 const COMPETITIVE_DAYS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4'];
 const ALL_HOLES = Array.from({ length: 18 }, (_, index) => index + 1);
 const DAY_HOLE_STROKE_INDEX = Object.freeze({
@@ -688,8 +671,6 @@ function summarizePlayerCard(playerCard, hcp, dayKey = '') {
   while (holes.length < 18) holes.push(null);
   let grossTotal = 0;
   let netTotal = 0;
-  let frontGross = 0;
-  let backGross = 0;
   let frontNet = 0;
   let backNet = 0;
   let frontPlayed = 0;
@@ -711,11 +692,9 @@ function summarizePlayerCard(playerCard, hcp, dayKey = '') {
     grossTotal += gross;
     netTotal += net;
     if (holeNo <= 9) {
-      frontGross += gross;
       frontNet += net;
       frontPlayed += 1;
     } else {
-      backGross += gross;
       backNet += net;
       backPlayed += 1;
     }
@@ -1957,10 +1936,6 @@ function setPlayerPenalty(state, playerName, payload = {}) {
   return buildPenaltyTable(state);
 }
 
-function getSeedGrossScore(dayKey, slotIndex, player, holeNumber) {
-  return getSeedGrossScoreWithRandomizer(dayKey, slotIndex, player, holeNumber, null);
-}
-
 function getSeedGrossScoreWithRandomizer(dayKey, slotIndex, player, holeNumber, randomizer = null) {
   const playerKey = normalize(player && player.name);
   const playerIndex = Math.max(0, PLAYERS.findIndex((entry) => normalize(entry.name) === playerKey));
@@ -1982,24 +1957,6 @@ function getSeedGrossScoreWithRandomizer(dayKey, slotIndex, player, holeNumber, 
     if (randomizer.int(100) < 8) gross -= 1;
   }
   return Math.max(3, Math.min(8, gross));
-}
-
-function getSeedMarkerWinner(players = [], dayKey, slotIndex, holeNumber, offset = 0) {
-  return getSeedMarkerWinnerWithRandomizer(players, dayKey, slotIndex, holeNumber, offset, null);
-}
-
-function getSeedMarkerWinnerWithRandomizer(players = [], dayKey, slotIndex, holeNumber, offset = 0, randomizer = null) {
-  const dayIndex = Math.max(0, MATCH_DAY_OPTIONS.indexOf(dayKey));
-  let best = null;
-  players.forEach((player, playerIndex) => {
-    const gross = getSeedGrossScoreWithRandomizer(dayKey, slotIndex, player, holeNumber, randomizer);
-    const baseTieBreaker = ((playerIndex + 1) * (holeNumber + dayIndex + offset + Number(slotIndex) + 1)) % 17;
-    const tieBreaker = randomizer ? (baseTieBreaker + randomizer.int(17)) % 17 : baseTieBreaker;
-    if (!best || gross < best.gross || (gross === best.gross && tieBreaker < best.tieBreaker)) {
-      best = { name: player.name, gross, tieBreaker };
-    }
-  });
-  return best ? best.name : '';
 }
 
 function createSeedRandomizer() {

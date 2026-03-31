@@ -109,7 +109,6 @@ if ('serviceWorker' in navigator) {
   const createModeInput = $('#createMode');
   const seniorsRegistrationModeInput = $('#seniorsRegistrationMode');
   const seniorsEventTypeRow = $('#seniorsEventTypeRow');
-  const seniorsEventTypeSelect = $('#seniorsEventType');
   const seniorsSignupInfoRow = $('#seniorsSignupInfoRow');
   const seniorsSignupInfoText = $('#seniorsSignupInfoText');
   const teeTimeRow = $('#teeTimeRow');
