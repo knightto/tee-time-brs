@@ -180,6 +180,24 @@
         <div id="weatherPreview" style="display:none;background:white;padding:6px;border-radius:6px;margin-top:8px;border:2px solid #93c5fd;text-align:center;font-size:12px"></div>
       </div>
 
+      <div id="seniorsEventTypeRow" hidden style="background:linear-gradient(135deg,#eff6ff 0%,#e0f2fe 100%);padding:12px;border-radius:8px;margin-bottom:12px">
+        <label style="display:block;margin-bottom:0">
+          <span style="display:flex;align-items:center;gap:4px;font-weight:600;color:#0f4c81;margin-bottom:6px;font-size:14px">
+            <span>🏆</span> Seniors Event Type
+          </span>
+          <select name="seniorsEventType" id="seniorsEventType" style="width:100%;padding:8px;border:2px solid #7dd3fc;border-radius:6px;font-size:14px;background:white">
+            <option value="tee-times">Tee Times</option>
+            <option value="regular-shotgun">Regular Shotgun</option>
+            <option value="interclub-match">Interclub Match</option>
+            <option value="outing">Other Outing</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="seniorsSignupInfoRow" hidden style="background:linear-gradient(135deg,#fefce8 0%,#fef3c7 100%);padding:12px;border-radius:8px;margin-bottom:12px">
+        <p id="seniorsSignupInfoText" style="margin:0;color:#92400e;font-size:13px;font-weight:600">This Seniors event uses a simple signup list. No tee times will be created.</p>
+      </div>
+
       <!-- Tee-time fields (shown only for Tee-Time events) -->
       <div id="teeTimeRow" style="background:linear-gradient(135deg,#fef3c7 0%,#fde68a 100%);padding:12px;border-radius:8px;margin-bottom:12px">
         <label>
@@ -248,6 +266,7 @@
 
       <!-- internal: chosen create mode -->
       <input type="hidden" name="mode" id="createMode" value="tees">
+      <input type="hidden" name="seniorsRegistrationMode" id="seniorsRegistrationMode" value="tee-times">
 
       <menu>
         <button type="button" data-cancel>Cancel</button>

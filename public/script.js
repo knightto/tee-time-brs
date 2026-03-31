@@ -107,6 +107,11 @@ if ('serviceWorker' in navigator) {
   const newTeeBtn = $('#newTeeBtn');
   const newTeamBtn = $('#newTeamBtn');
   const createModeInput = $('#createMode');
+  const seniorsRegistrationModeInput = $('#seniorsRegistrationMode');
+  const seniorsEventTypeRow = $('#seniorsEventTypeRow');
+  const seniorsEventTypeSelect = $('#seniorsEventType');
+  const seniorsSignupInfoRow = $('#seniorsSignupInfoRow');
+  const seniorsSignupInfoText = $('#seniorsSignupInfoText');
   const teeTimeRow = $('#teeTimeRow');
   const teamSizeRow = $('#teamSizeRow');
   const subForm = $('#subscribeForm');
@@ -158,6 +163,7 @@ if ('serviceWorker' in navigator) {
   let starterMode = false;
   let teeDragState = null;
   let starterEventViewIds = loadStarterEventViewIds();
+  let seniorsRosterChoices = [];
   const currentGroupSlug = (() => {
     try {
       const raw = String(new URLSearchParams(window.location.search).get('group') || '').trim().toLowerCase();
@@ -293,6 +299,24 @@ if ('serviceWorker' in navigator) {
     root.style.setProperty('--green-700', shiftHexColor(safeTheme, -16));
   }
 
+  function isSeniorsGroupSite() {
+    return currentGroupSlug === 'seniors';
+  }
+
+  function isSeniorsEventOnly(ev = {}) {
+    return isSeniorsGroupSite() && String(ev && ev.seniorsRegistrationMode || '').trim().toLowerCase() === 'event-only';
+  }
+
+  function seniorsEventTypeLabel(value = '') {
+    switch (String(value || '').trim().toLowerCase()) {
+      case 'regular-shotgun': return 'Regular Shotgun';
+      case 'interclub-match': return 'Interclub Match';
+      case 'outing': return 'Other Outing';
+      case 'tee-times': return 'Tee Times';
+      default: return 'Golf Event';
+    }
+  }
+
   function applySiteBackground(groupSlug = currentGroupSlug) {
     const normalizedGroup = String(groupSlug || '').trim().toLowerCase() || 'main';
     const backgroundImage = groupBackgroundImageMap[normalizedGroup] || groupBackgroundImageMap.main;
@@ -341,6 +365,15 @@ if ('serviceWorker' in navigator) {
       requestClubTimeBtn.textContent = currentSiteProfile.clubRequestLabel || defaultSiteProfile.clubRequestLabel;
       requestClubTimeBtn.title = `Request a tee time from ${clubContactLabel()}`;
     }
+    if (newTeeBtn && newTeamBtn) {
+      if (isSeniorsGroupSite()) {
+        newTeeBtn.textContent = 'New Event + Tee Times';
+        newTeamBtn.textContent = 'New Signup Event';
+      } else {
+        newTeeBtn.textContent = 'New Tee-Time Event';
+        newTeamBtn.textContent = 'New Team Event';
+      }
+    }
 
     document.querySelectorAll('[data-group-link]').forEach((node) => {
       const href = node.getAttribute('href') || '/';
@@ -386,6 +419,53 @@ if ('serviceWorker' in navigator) {
     }
   }
 
+  async function loadPublicSeniorsRosterChoices() {
+    if (!isSeniorsGroupSite()) {
+      seniorsRosterChoices = [];
+      return;
+    }
+    try {
+      const payload = await api('/api/seniors-roster/public');
+      seniorsRosterChoices = Array.isArray(payload) ? payload : [];
+    } catch (err) {
+      console.error('Failed to load Seniors roster choices:', err);
+      seniorsRosterChoices = [];
+    }
+  }
+
+  async function ensurePublicSeniorsRosterChoices() {
+    if (!isSeniorsGroupSite()) return [];
+    if (!Array.isArray(seniorsRosterChoices) || !seniorsRosterChoices.length) {
+      await loadPublicSeniorsRosterChoices();
+    }
+    return seniorsRosterChoices;
+  }
+
+  async function promptForSeniorsRosterGolfer(options = {}) {
+    const golfers = await ensurePublicSeniorsRosterChoices();
+    if (!golfers.length) throw new Error('No active golfers are on the Seniors roster yet');
+    const rosterOptions = golfers.map((golfer) => ({
+      value: golfer.name,
+      label: Number.isFinite(golfer.handicapIndex)
+        ? `${golfer.name} (${golfer.handicapIndex})`
+        : golfer.name,
+    }));
+    const values = await openActionDialog({
+      title: options.title || 'Seniors Signup',
+      message: options.message || 'Choose your name from the Seniors roster.',
+      confirmLabel: options.confirmLabel || 'Sign Up',
+      fields: [{
+        name: 'name',
+        label: 'Golfer',
+        type: 'select',
+        value: rosterOptions[0].value,
+        options: rosterOptions,
+        required: true,
+      }]
+    });
+    return String(values && values.name || '').trim();
+  }
+
   if (initialSelectedDateFromUrl) {
     selectedDate = initialSelectedDateFromUrl;
     currentDate = new Date(`${initialSelectedDateFromUrl}T12:00:00`);
@@ -404,8 +484,19 @@ if ('serviceWorker' in navigator) {
           <select id="editModeSelect" name="mode">
             <option value="tees">Tee times</option>
             <option value="teams">Teams</option>
+            <option value="signup">Simple signup</option>
           </select>
         </label>
+        <div id="editSeniorsEventFields" hidden>
+          <label>Seniors event type
+            <select name="seniorsEventType">
+              <option value="tee-times">Tee Times</option>
+              <option value="regular-shotgun">Regular Shotgun</option>
+              <option value="interclub-match">Interclub Match</option>
+              <option value="outing">Other Outing</option>
+            </select>
+          </label>
+        </div>
         <div id="editTeamSizeRow">
           <label>Team size max <input name="teamSizeMax" type="number" min="2" max="4" value="4"></label>
         </div>
@@ -510,6 +601,7 @@ if ('serviceWorker' in navigator) {
   const editModal = $('#editModal');
   const editForm = $('#editForm');
   const editModeSelect = $('#editModeSelect');
+  const editSeniorsEventFields = $('#editSeniorsEventFields');
   const editTeamSizeRow = $('#editTeamSizeRow');
   const moveModal = $('#moveModal');
   const moveForm = $('#moveForm');
@@ -1614,7 +1706,12 @@ if ('serviceWorker' in navigator) {
           : u.toString();
         } catch (_) {}
     }
-    if (currentGroupSlug === 'seniors' && method !== 'GET' && !String(mergedHeaders['x-admin-code'] || '').trim()) {
+    const seniorsPublicWriteAllowed = currentGroupSlug === 'seniors' && (
+      (method === 'POST' && /^\/api\/events\/[^/]+\/tee-times\/[^/]+\/players(?:\?|$)/.test(String(requestPath || '')))
+      || (method === 'POST' && /^\/api\/events\/[^/]+\/seniors-register(?:\?|$)/.test(String(requestPath || '')))
+      || (method === 'POST' && /^\/api\/subscribe(?:\?|$)/.test(String(requestPath || '')))
+    );
+    if (currentGroupSlug === 'seniors' && method !== 'GET' && !seniorsPublicWriteAllowed && !String(mergedHeaders['x-admin-code'] || '').trim()) {
       const code = await requestSeniorsAdminCode('this Seniors update');
       if (!code) throw new Error('Admin code 000 required for Seniors changes');
       mergedHeaders['x-admin-code'] = code;
@@ -1675,28 +1772,43 @@ if ('serviceWorker' in navigator) {
   }
 
   // Create Event: open modal in the requested mode (tees or teams)
-  on(newTeeBtn, 'click', () => {
-    if (createModeInput) createModeInput.value = 'tees';
-    if (teeTimeRow) teeTimeRow.hidden = false;
+  function setSeniorsCreateMode(mode = 'tee-times') {
+    const signupOnly = isSeniorsGroupSite() && mode === 'event-only';
+    if (createModeInput) createModeInput.value = signupOnly ? 'tees' : 'tees';
+    if (seniorsRegistrationModeInput) seniorsRegistrationModeInput.value = signupOnly ? 'event-only' : 'tee-times';
+    if (seniorsEventTypeRow) seniorsEventTypeRow.hidden = !isSeniorsGroupSite();
+    if (seniorsSignupInfoRow) seniorsSignupInfoRow.hidden = !signupOnly;
+    if (seniorsSignupInfoText) {
+      seniorsSignupInfoText.textContent = signupOnly
+        ? 'This Seniors event uses a simple signup list. No tee times will be created.'
+        : 'This Seniors event will create tee times and allow golfers to sign up for open spots.';
+    }
+    if (teeTimeRow) teeTimeRow.hidden = signupOnly;
     if (teamSizeRow) teamSizeRow.hidden = true;
-    if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = true;
+    if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = !signupOnly;
     if (eventForm?.elements?.['teamStartTime']) eventForm.elements['teamStartTime'].required = false;
+  }
+
+  function openCreateDialog(mode = 'tees') {
+    if (isSeniorsGroupSite()) {
+      setSeniorsCreateMode(mode === 'signup' ? 'event-only' : 'tee-times');
+      if (newTeeBtn) newTeeBtn.textContent = 'New Event + Tee Times';
+      if (newTeamBtn) newTeamBtn.textContent = 'New Signup Event';
+    } else {
+      if (createModeInput) createModeInput.value = mode;
+      if (teeTimeRow) teeTimeRow.hidden = mode !== 'tees';
+      if (teamSizeRow) teamSizeRow.hidden = mode !== 'teams';
+      if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = mode === 'tees';
+      if (eventForm?.elements?.['teamStartTime']) eventForm.elements['teamStartTime'].required = mode === 'teams';
+    }
     if (selectedDate && eventForm?.elements?.['date']) {
       eventForm.elements['date'].value = selectedDate;
     }
     modal?.showModal?.();
-  });
-  on(newTeamBtn, 'click', () => {
-    if (createModeInput) createModeInput.value = 'teams';
-    if (teeTimeRow) teeTimeRow.hidden = true;
-    if (teamSizeRow) teamSizeRow.hidden = false;
-    if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = false;
-    if (eventForm?.elements?.['teamStartTime']) eventForm.elements['teamStartTime'].required = true;
-    if (selectedDate && eventForm?.elements?.['date']) {
-      eventForm.elements['date'].value = selectedDate;
-    }
-    modal?.showModal?.();
-  });
+  }
+
+  on(newTeeBtn, 'click', () => openCreateDialog('tees'));
+  on(newTeamBtn, 'click', () => openCreateDialog(isSeniorsGroupSite() ? 'signup' : 'teams'));
 
   // Team start type toggle
   const teamStartType = $('#teamStartType');
@@ -1737,14 +1849,18 @@ if ('serviceWorker' in navigator) {
       const isTeams = (body.mode === 'teams');
       const courseName = body.course;
       const payload = {
+        groupSlug: currentGroupSlug,
         course: courseName,
         courseInfo: selectedCourseData || {},
         date: body.date,
         notes: body.notes || '',
-        isTeamEvent: isTeams,
+        isTeamEvent: isSeniorsGroupSite() ? false : isTeams,
         teamSizeMax: isTeams ? Number(body.teamSizeMax || 4) : 4
       };
-      if (isTeams) {
+      if (isSeniorsGroupSite()) {
+        payload.seniorsRegistrationMode = String(body.seniorsRegistrationMode || 'tee-times').trim();
+        payload.seniorsEventType = String(body.seniorsEventType || (payload.seniorsRegistrationMode === 'event-only' ? 'outing' : 'tee-times')).trim();
+      } else if (isTeams) {
         payload.teamStartType = body.teamStartType || 'shotgun';
         payload.teamStartTime = body.teamStartTime;
       } else {
@@ -1771,6 +1887,7 @@ if ('serviceWorker' in navigator) {
       await api('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       modal?.close?.();
       eventForm.reset();
+      if (seniorsRegistrationModeInput) seniorsRegistrationModeInput.value = 'tee-times';
       if (courseInfoCard) courseInfoCard.style.display = 'none';
       selectedCourseData = null;
       load();
@@ -1783,7 +1900,12 @@ if ('serviceWorker' in navigator) {
   // Edit mode toggle
   on(editModeSelect, 'change', ()=>{
     const teams = editModeSelect.value === 'teams';
+    const signupOnly = editModeSelect.value === 'signup';
     if (editTeamSizeRow) editTeamSizeRow.hidden = !teams;
+    if (editSeniorsEventFields) editSeniorsEventFields.hidden = !isSeniorsGroupSite();
+    if (editForm?.elements?.['teamSizeMax']) editForm.elements['teamSizeMax'].disabled = !teams;
+    if (editForm?.elements?.['seniorsEventType']) editForm.elements['seniorsEventType'].disabled = !isSeniorsGroupSite();
+    if (editForm?.elements?.['mode']) editForm.elements['mode'].value = signupOnly ? 'signup' : editModeSelect.value;
   });
 
   // Edit save
@@ -1796,9 +1918,13 @@ if ('serviceWorker' in navigator) {
         course: data.course,
         date: data.date,
         notes: data.notes || '',
-        isTeamEvent: data.mode === 'teams',
+        isTeamEvent: !isSeniorsGroupSite() && data.mode === 'teams',
         teamSizeMax: data.mode === 'teams' ? Number(data.teamSizeMax || 4) : 4
       };
+      if (isSeniorsGroupSite()) {
+        payload.seniorsRegistrationMode = data.mode === 'signup' ? 'event-only' : 'tee-times';
+        payload.seniorsEventType = String(data.seniorsEventType || (payload.seniorsRegistrationMode === 'event-only' ? 'outing' : 'tee-times')).trim();
+      }
       await api(`/api/events/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
       editModal?.close?.(); load();
     }catch(err){ console.error(err); alert('Save failed'); }
@@ -2332,6 +2458,8 @@ if ('serviceWorker' in navigator) {
         }
         const card=document.createElement('div'); card.className='card';
         const isTeams = !!ev.isTeamEvent;
+        const seniorsEventOnly = isSeniorsEventOnly(ev);
+        const seniorsRegistrations = Array.isArray(ev && ev.seniorsRegistrations) ? ev.seniorsRegistrations : [];
         let teesArr = ev.teeTimes || [];
         if (!isTeams) {
           // Sort tee times by time (HH:MM) ascending
@@ -2344,25 +2472,36 @@ if ('serviceWorker' in navigator) {
         }
         const slotCap = isTeams ? (ev.teamSizeMax || 4) : 4;
         const slotCount = teesArr.length;
-        const registeredCount = teesArr.reduce((sum, tt) => sum + ((tt.players || []).length), 0);
+        const registeredCount = seniorsEventOnly
+          ? seniorsRegistrations.length
+          : teesArr.reduce((sum, tt) => sum + ((tt.players || []).length), 0);
         const checkedInCount = teesArr.reduce((sum, tt) => sum + ((tt.players || []).filter((p) => !!p.checkedIn).length), 0);
         const fifthCount = eventFifthCount(ev);
         const totalCapacity = slotCount * slotCap;
         const openCount = Math.max(0, totalCapacity - registeredCount);
         const maybeCount = (ev.maybeList || []).length;
-        const isDayFullyBooked = !isTeams && slotCount > 0 && openCount === 0;
+        const isDayFullyBooked = !seniorsEventOnly && !isTeams && slotCount > 0 && openCount === 0;
         const fullDayAlert = isDayFullyBooked
           ? `<div class="full-day-alert">All tee times are full for ${escapeHtml(fullDateLabel(toDateISO(ev.date)))}. You can request an additional time from the ${escapeHtml(clubContactLabel())}${fifthCount ? '.' : ' or ask them to allow a 5th in one of your tee times for that day.'}</div>`
           : '';
         const summaryRow = `<div class="row" style="gap:8px;flex-wrap:wrap;margin:6px 0 10px 0;font-size:12px;color:var(--slate-700)">
           <span><strong>${registeredCount}</strong> registered</span>
-          <span><strong>${checkedInCount}</strong> checked in</span>
-          <span><strong>${openCount}</strong> open</span>
-          ${fifthCount ? `<span><strong>${fifthCount}</strong> fifth${fifthCount === 1 ? '' : 's'}</span>` : ''}
-          <span><strong>${maybeCount}</strong> maybe</span>
-          <span><strong>${slotCount}</strong> ${isTeams ? 'teams' : 'tee times'}</span>
+          ${seniorsEventOnly ? '' : `<span><strong>${checkedInCount}</strong> checked in</span>`}
+          ${seniorsEventOnly ? '' : `<span><strong>${openCount}</strong> open</span>`}
+          ${seniorsEventOnly ? '' : (fifthCount ? `<span><strong>${fifthCount}</strong> fifth${fifthCount === 1 ? '' : 's'}</span>` : '')}
+          ${seniorsEventOnly ? '' : `<span><strong>${maybeCount}</strong> maybe</span>`}
+          <span><strong>${seniorsEventOnly ? registeredCount : slotCount}</strong> ${seniorsEventOnly ? (registeredCount === 1 ? 'signup' : 'signups') : (isTeams ? 'teams' : 'tee times')}</span>
         </div>`;
         const tees = teesArr.map((tt,idx)=>teeRow(ev,tt,idx,isTeams)).join('');
+        const seniorsRegistrationRows = seniorsRegistrations.map((registration) => {
+          const safe = String(registration && registration.name || '').replace(/"/g, '&quot;');
+          return `<span class="chip" title="${safe}">
+            <span class="chip-label"><span class="chip-name">${escapeHtml(String(registration && registration.name || 'Golfer'))}</span></span>
+            <span class="chip-actions">
+              <button class="icon small danger" title="Remove" data-remove-seniors-registration="${ev._id}:${registration._id}">×</button>
+            </span>
+          </span>`;
+        }).join('');
         // Render maybe list
         const maybeList = (ev.maybeList || []).map((name, idx) => {
           const safe = String(name).replace(/"/g, '&quot;');
@@ -2385,6 +2524,21 @@ if ('serviceWorker' in navigator) {
             </div>
           </div>
         `;
+        const seniorsRegistrationSection = seniorsEventOnly ? `
+          <div class="maybe-section">
+            <div class="maybe-header">
+              <h4>Signups</h4>
+              <div class="maybe-controls">
+                <button class="small maybe-btn" data-seniors-register="${ev._id}">Sign Up</button>
+                <button class="small maybe-btn" data-export-seniors-event="${ev._id}">Export CSV</button>
+                <button class="small maybe-btn" data-extract-seniors-event="${ev._id}">Extract List</button>
+              </div>
+            </div>
+            <div class="maybe-list">
+              ${seniorsRegistrationRows || '<em style="color:var(--slate-700);font-size:11px;opacity:0.7">No golfers yet</em>'}
+            </div>
+          </div>
+        ` : '';
         const weatherSummary = weatherSummaryMarkup(ev);
         // Course details
         const courseDetailsBits = [];
@@ -2402,6 +2556,12 @@ if ('serviceWorker' in navigator) {
         }
         const courseDetails = courseDetailsBits.length
           ? `<div class="course-details">${courseDetailsBits.join('')}</div>`
+          : '';
+        const seniorsEventMeta = isSeniorsGroupSite() && ev.seniorsEventType
+          ? `<div class="row" style="gap:8px;flex-wrap:wrap;margin:4px 0 8px 0">
+              <span class="pill-link" style="cursor:default">${escapeHtml(seniorsEventTypeLabel(ev.seniorsEventType))}</span>
+              ${seniorsEventOnly ? '<span class="pill-link" style="cursor:default">Simple Signup</span>' : ''}
+            </div>`
           : '';
         const eventActionLegend = `
           <div class="event-action-legend" aria-label="Golfer action legend">
@@ -2430,21 +2590,23 @@ if ('serviceWorker' in navigator) {
             </div>
           </div>
           <div class="card-content">
-            ${maybeSection}
-            <div class="empty-tee-note"><span>RED</span> = empty tee time</div>
+            ${seniorsEventMeta}
+            ${seniorsEventOnly ? seniorsRegistrationSection : maybeSection}
+            ${seniorsEventOnly ? '' : '<div class="empty-tee-note"><span>RED</span> = empty tee time</div>'}
             <div class="card-actions">
               <button class="small event-actions-toggle" data-toggle-actions title="Show/hide event actions">Actions</button>
               <div class="button-row">
                 <button class="small" data-toggle-starter-event="${ev._id}" title="Switch this event to the compact starter view">Starter View</button>
-                ${isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<div class="time-action-pair"><button class="small" data-add-tee="${ev._id}">Add Existing Time</button><button class="small" data-request-extra-tee="${ev._id}" title="Email ${escapeHtml(clubContactLabel())} to request an additional tee time">Request Club Time</button></div>`}
-                ${isTeams ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Pairings</button>`}
+                ${seniorsEventOnly ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<div class="time-action-pair"><button class="small" data-add-tee="${ev._id}">Add Existing Time</button><button class="small" data-request-extra-tee="${ev._id}" title="Email ${escapeHtml(clubContactLabel())} to request an additional tee time">Request Club Time</button></div>`)}
+                ${seniorsEventOnly || isTeams ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Pairings</button>`}
+                ${isSeniorsGroupSite() ? `<button class="small" data-export-seniors-event="${ev._id}" title="Export the registration list">Export</button><button class="small" data-extract-seniors-event="${ev._id}" title="Extract names and emails">Extract</button>` : ''}
                 <button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button>
               </div>
             </div>
             ${summaryRow}
             ${fullDayAlert}
-            ${eventActionLegend}
-            <div class="tees">${tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>')}</div>
+            ${seniorsEventOnly ? '' : eventActionLegend}
+            <div class="tees">${seniorsEventOnly ? '' : (tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>'))}</div>
             ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
             <div class="event-bottom-actions">
               <button class="small event-audit-btn event-bottom-audit-btn" data-audit="${ev._id}" title="View Audit Log" aria-label="View Audit Log">View Audit</button>
@@ -2620,7 +2782,7 @@ if ('serviceWorker' in navigator) {
   });
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-ics],[data-toggle-starter-event]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-ics],[data-toggle-starter-event],[data-seniors-register],[data-remove-seniors-registration],[data-export-seniors-event],[data-extract-seniors-event]')||e.target);
     try{
       if(t.dataset.toggleStarterEvent){
         const eventId = String(t.dataset.toggleStarterEvent || '').trim();
@@ -2649,6 +2811,66 @@ if ('serviceWorker' in navigator) {
       if(t.dataset.calendarIcs){
         const id = String(t.dataset.calendarIcs);
         window.location.assign(`/api/events/${encodeURIComponent(id)}/calendar.ics?group=${encodeURIComponent(currentGroupSlug)}`);
+        return;
+      }
+      if(t.dataset.exportSeniorsEvent){
+        const eventId = String(t.dataset.exportSeniorsEvent || '').trim();
+        const code = await requestSeniorsAdminCode('exporting this Seniors registration list');
+        if (!code) return;
+        window.open(`/api/admin/events/${encodeURIComponent(eventId)}/seniors-registrations/export.csv?group=${encodeURIComponent(currentGroupSlug)}&code=${encodeURIComponent(code)}`, '_blank');
+        return;
+      }
+      if(t.dataset.extractSeniorsEvent){
+        const eventId = String(t.dataset.extractSeniorsEvent || '').trim();
+        const code = await requestSeniorsAdminCode('extracting this Seniors registration list');
+        if (!code) return;
+        window.open(`/api/admin/events/${encodeURIComponent(eventId)}/seniors-registrations/extract.txt?format=name-email&group=${encodeURIComponent(currentGroupSlug)}&code=${encodeURIComponent(code)}`, '_blank');
+        return;
+      }
+      if(t.dataset.seniorsRegister){
+        const id = String(t.dataset.seniorsRegister || '').trim();
+        const name = await promptForSeniorsRosterGolfer({
+          title: 'Seniors Event Signup',
+          message: 'Choose your name from the active Seniors roster to sign up for this event.',
+          confirmLabel: 'Sign Up'
+        });
+        if (!name) return;
+        try {
+          const result = await api(`/api/events/${id}/seniors-register`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name })
+          });
+          await updateEventCard(id, result && result.event ? result.event : null);
+          showToast('Signup confirmed.', 'success');
+        } catch (err) {
+          console.error(err);
+          showToast('Signup failed: ' + (err.message || 'Unknown error'), 'error');
+        }
+        return;
+      }
+      if(t.dataset.removeSeniorsRegistration){
+        const [eventId, registrationId] = String(t.dataset.removeSeniorsRegistration || '').split(':');
+        const ev = await getEventForAction(eventId);
+        const registration = Array.isArray(ev && ev.seniorsRegistrations)
+          ? ev.seniorsRegistrations.find((entry) => String(entry && entry._id) === String(registrationId))
+          : null;
+        const golferName = String(registration && registration.name || 'this golfer').trim() || 'this golfer';
+        const confirmed = await openActionDialog({
+          title: 'Remove Signup',
+          message: `Remove ${golferName} from this Seniors event?`,
+          confirmLabel: 'Remove Signup',
+          confirmClass: 'dialog-danger'
+        });
+        if (confirmed === null) return;
+        try {
+          const updated = await api(`/api/events/${eventId}/seniors-registrations/${registrationId}`, { method: 'DELETE' });
+          await updateEventCard(eventId, updated && updated.event ? updated.event : null);
+          showToast('Signup removed.', 'success');
+        } catch (err) {
+          console.error(err);
+          showToast('Remove failed: ' + (err.message || 'Unknown error'), 'error');
+        }
         return;
       }
       if(t.dataset.addMaybe){
@@ -3076,22 +3298,33 @@ if ('serviceWorker' in navigator) {
         const teeDetails = findTeeTimeDetails(ev, teeId);
         const slotLabel = teeDetails.label || (ev.isTeamEvent ? 'this team' : 'this tee time');
         const canAddFifth = slotCanAddFifth(ev, teeDetails.teeTime);
-        const playerValues = await openActionDialog({
-          title: canAddFifth ? 'Add 5th Player' : 'Add Player',
-          message: canAddFifth
-            ? `This tee time already has four golfers. The next player will be clearly marked as the 5th on ${slotLabel}.`
-            : `Enter the golfer name to add to ${slotLabel}.`,
-          confirmLabel: canAddFifth ? 'Add 5th Player' : 'Add Player',
-          hint: canAddFifth ? 'Only one marked 5th player is allowed per event, and every other tee time must already be full.' : '',
-          fields: [{
-            name: 'name',
-            label: 'Player name',
-            placeholder: 'Golfer name',
-            required: true,
-            autocomplete: 'name'
-          }]
-        });
-        const name = String(playerValues && playerValues.name || '').trim();
+        let name = '';
+        if (isSeniorsGroupSite()) {
+          name = await promptForSeniorsRosterGolfer({
+            title: canAddFifth ? 'Add 5th Golfer' : 'Sign Up Golfer',
+            message: canAddFifth
+              ? `This tee time already has four golfers. The next golfer will be clearly marked as the 5th on ${slotLabel}.`
+              : `Choose the golfer to add to ${slotLabel}.`,
+            confirmLabel: canAddFifth ? 'Add 5th Golfer' : 'Sign Up',
+          });
+        } else {
+          const playerValues = await openActionDialog({
+            title: canAddFifth ? 'Add 5th Player' : 'Add Player',
+            message: canAddFifth
+              ? `This tee time already has four golfers. The next player will be clearly marked as the 5th on ${slotLabel}.`
+              : `Enter the golfer name to add to ${slotLabel}.`,
+            confirmLabel: canAddFifth ? 'Add 5th Player' : 'Add Player',
+            hint: canAddFifth ? 'Only one marked 5th player is allowed per event, and every other tee time must already be full.' : '',
+            fields: [{
+              name: 'name',
+              label: 'Player name',
+              placeholder: 'Golfer name',
+              required: true,
+              autocomplete: 'name'
+            }]
+          });
+          name = String(playerValues && playerValues.name || '').trim();
+        }
         if(!name) return;
         const origText = t.textContent;
         try {
@@ -3124,8 +3357,16 @@ if ('serviceWorker' in navigator) {
         editForm.elements['course'].value=ev.course||'';
         editForm.elements['date'].value=(String(ev.date).slice(0,10));
         editForm.elements['notes'].value=ev.notes||'';
-        editModeSelect.value = ev.isTeamEvent ? 'teams' : 'tees';
+        if (isSeniorsGroupSite()) {
+          editModeSelect.value = isSeniorsEventOnly(ev) ? 'signup' : 'tees';
+          if (editForm.elements['seniorsEventType']) {
+            editForm.elements['seniorsEventType'].value = String(ev.seniorsEventType || (isSeniorsEventOnly(ev) ? 'outing' : 'tee-times')).trim();
+          }
+        } else {
+          editModeSelect.value = ev.isTeamEvent ? 'teams' : 'tees';
+        }
         editTeamSizeRow.hidden = !ev.isTeamEvent;
+        if (editSeniorsEventFields) editSeniorsEventFields.hidden = !isSeniorsGroupSite();
         if (ev.isTeamEvent) editForm.elements['teamSizeMax'].value = ev.teamSizeMax || 4;
         editModal.showModal();
         return;
@@ -3554,6 +3795,7 @@ if ('serviceWorker' in navigator) {
   updateStarterModeButtons();
   updateLastUpdated('Loading…');
   initSiteProfile();
+  loadPublicSeniorsRosterChoices();
   load();
   startAutoRefresh();
 })();

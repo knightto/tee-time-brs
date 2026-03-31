@@ -160,6 +160,62 @@
       gap: 6px;
     }
 
+    .panel-toggle {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      background: transparent;
+      color: var(--ink);
+      text-align: left;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .panel-toggle:hover {
+      background: transparent;
+    }
+
+    .panel-toggle-copy {
+      min-width: 0;
+      display: grid;
+      gap: 4px;
+    }
+
+    .panel-toggle-copy span {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .panel-toggle-label {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 88px;
+      padding: 8px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #f4f8f6;
+      color: var(--ink);
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
+
+    .panel-body {
+      display: grid;
+      gap: 18px;
+    }
+
+    .panel[data-collapsed="true"] .panel-body {
+      display: none;
+    }
+
     .note {
       padding: 14px 16px;
       border-radius: 14px;
@@ -990,6 +1046,66 @@
         setScheduledRuleToggleDisabled(state.schedulerLockedByEnv || !state.schedulerEnabled);
       }
 
+      function initSeniorsSectionToggles() {
+        if (groupSlug !== 'seniors') return;
+        const panels = Array.from(document.querySelectorAll('.shell > .panel:not(.hero)'));
+        panels.forEach((panel, index) => {
+          if (panel.dataset.collapsible === 'true') return;
+          const content = panel.querySelector(':scope > .content');
+          if (!content) return;
+          const children = Array.from(content.children);
+          if (!children.length) return;
+          const sectionHead = content.querySelector(':scope > .section-head');
+          const heading = sectionHead ? sectionHead.querySelector('h2') : null;
+          const meta = sectionHead ? sectionHead.querySelector('.section-meta') : null;
+          const summaryList = content.querySelector(':scope > .summary-list');
+          const title = heading
+            ? heading.textContent.trim()
+            : (summaryList && summaryList.id === 'deploymentSummary' ? 'Deployment Summary' : `Section ${index + 1}`);
+          const summary = meta
+            ? meta.textContent.trim()
+            : (summaryList && summaryList.id === 'deploymentSummary'
+              ? 'Open direct links and inbound email details for this group.'
+              : 'Open this section to manage group settings.');
+
+          const toggle = document.createElement('button');
+          toggle.type = 'button';
+          toggle.className = 'panel-toggle';
+          toggle.innerHTML = `
+            <span class="panel-toggle-copy">
+              <strong>${escapeHtml(title)}</strong>
+              <span>${escapeHtml(summary)}</span>
+            </span>
+            <span class="panel-toggle-label">Expand</span>
+          `;
+
+          const body = document.createElement('div');
+          body.className = 'panel-body';
+          children.forEach((child) => body.appendChild(child));
+
+          content.appendChild(toggle);
+          content.appendChild(body);
+          content.insertBefore(toggle, content.firstChild);
+
+          panel.dataset.collapsible = 'true';
+          panel.dataset.collapsed = 'true';
+
+          const updateToggle = () => {
+            const collapsed = panel.dataset.collapsed !== 'false';
+            toggle.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+            const label = toggle.querySelector('.panel-toggle-label');
+            if (label) label.textContent = collapsed ? 'Expand' : 'Minimize';
+          };
+
+          toggle.addEventListener('click', () => {
+            panel.dataset.collapsed = panel.dataset.collapsed === 'false' ? 'true' : 'false';
+            updateToggle();
+          });
+
+          updateToggle();
+        });
+      }
+
       function refreshFrame(force = false) {
         const siteHref = state.links && state.links.sitePath ? state.links.sitePath : withGroup('/');
         const targetUrl = new URL(siteHref, window.location.origin);
@@ -1588,6 +1704,8 @@
           setSubscriberStatus(error.message || 'Failed to remove subscriber.', 'error');
         }
       });
+
+      initSeniorsSectionToggles();
 
       loadProfile().catch((error) => {
         setStatus(error.message || 'Failed to load group profile.', 'error');

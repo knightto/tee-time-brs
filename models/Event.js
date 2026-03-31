@@ -16,6 +16,16 @@ const SlotSchema = new mongoose.Schema({
   players: { type: [PlayerSchema], default: [] }
 }, { _id: true });
 
+const SeniorsRegistrationSchema = new mongoose.Schema({
+  golferId: { type: mongoose.Schema.Types.ObjectId, default: null },
+  name: { type: String, required: true, trim: true },
+  email: { type: String, trim: true, lowercase: true, default: '' },
+  phone: { type: String, trim: true, default: '' },
+  ghinNumber: { type: String, trim: true, default: '' },
+  handicapIndex: { type: Number, default: null },
+  createdAt: { type: Date, default: Date.now }
+}, { _id: true });
+
 const EventSchema = new mongoose.Schema({
   groupSlug: { type: String, required: true, trim: true, lowercase: true, default: 'main' },
   course: { type: String, required: true, trim: true },
@@ -36,8 +46,11 @@ const EventSchema = new mongoose.Schema({
   date:   { type: Date,   required: true },
   notes:  { type: String, default: '' },
   isTeamEvent: { type: Boolean, default: false },
+  seniorsEventType: { type: String, default: '' },
+  seniorsRegistrationMode: { type: String, default: '' },
   teamSizeMax: { type: Number, default: 4, min: 2, max: 4 },
   teeTimes: { type: [SlotSchema], default: [] },
+  seniorsRegistrations: { type: [SeniorsRegistrationSchema], default: [] },
   maybeList: { type: [String], default: [] },  // Array of player names interested but not committed
   weather: {
     condition: { type: String, default: null },  // 'sunny', 'cloudy', 'rainy', 'stormy', etc.
@@ -55,8 +68,11 @@ const EventSchema = new mongoose.Schema({
 EventSchema.pre('validate', function(next){
   const ev = this;
   if (!Array.isArray(ev.teeTimes)) ev.teeTimes = [];
+  if (!Array.isArray(ev.seniorsRegistrations)) ev.seniorsRegistrations = [];
+  const seniorsEventOnly = String(ev.groupSlug || '').trim().toLowerCase() === 'seniors'
+    && String(ev.seniorsRegistrationMode || '').trim().toLowerCase() === 'event-only';
 
-  if (!ev.isTeamEvent) {
+  if (!ev.isTeamEvent && !seniorsEventOnly) {
     // Non-team events must have a time on every slot
     for (const slot of ev.teeTimes) {
       if (!slot.time) {

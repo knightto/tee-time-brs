@@ -2668,6 +2668,154 @@ function normalizeSeniorsGolferInput(raw = {}) {
   return payload;
 }
 
+function normalizeSeniorsEventType(value = '') {
+  const raw = String(value || '').trim().toLowerCase();
+  const allowed = new Set(['regular-shotgun', 'interclub-match', 'outing', 'tee-times']);
+  if (allowed.has(raw)) return raw;
+  return '';
+}
+
+function seniorsEventTypeLabel(value = '') {
+  switch (normalizeSeniorsEventType(value)) {
+    case 'regular-shotgun': return 'Regular Shotgun';
+    case 'interclub-match': return 'Interclub Match';
+    case 'outing': return 'Other Outing';
+    case 'tee-times': return 'Tee Times';
+    default: return 'Golf Event';
+  }
+}
+
+function normalizeSeniorsRegistrationMode(value = '', groupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  if (normalizeGroupSlug(groupSlug) !== 'seniors') return '';
+  const raw = String(value || '').trim().toLowerCase();
+  if (raw === 'event-only' || raw === 'tee-times') return raw;
+  return '';
+}
+
+function isSeniorsEventOnlyEvent(ev = {}) {
+  return normalizeGroupSlug(ev && ev.groupSlug) === 'seniors'
+    && normalizeSeniorsRegistrationMode(ev && ev.seniorsRegistrationMode, ev && ev.groupSlug) === 'event-only';
+}
+
+function isUpcomingOrCurrentEventDate(dateValue) {
+  const date = asUTCDate(dateValue);
+  if (Number.isNaN(date.getTime())) return false;
+  const now = new Date();
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  const eventDay = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  return eventDay >= today;
+}
+
+async function getActiveSeniorsRosterMap() {
+  const map = new Map();
+  if (!SeniorsGolfer) return map;
+  const golfers = await SeniorsGolfer.find({ groupSlug: 'seniors', active: true }).sort({ nameKey: 1 }).lean();
+  golfers.forEach((golfer) => {
+    const key = normalizeSeniorsGolferName(golfer && golfer.name).toLowerCase();
+    if (key && !map.has(key)) map.set(key, golfer);
+  });
+  return map;
+}
+
+async function resolveSeniorsRosterGolferByName(name = '') {
+  if (!SeniorsGolfer) return null;
+  const normalizedName = normalizeSeniorsGolferName(name).toLowerCase();
+  if (!normalizedName) return null;
+  return SeniorsGolfer.findOne({ groupSlug: 'seniors', nameKey: normalizedName, active: true }).lean();
+}
+
+async function buildSeniorsParticipantRows(ev, options = {}) {
+  const participants = [];
+  if (!ev || normalizeGroupSlug(ev.groupSlug) !== 'seniors') return participants;
+  const includeContact = !!options.includeContact;
+  if (isSeniorsEventOnlyEvent(ev)) {
+    for (const registration of (ev.seniorsRegistrations || [])) {
+      participants.push({
+        source: 'registration',
+        id: String(registration && registration._id || ''),
+        name: String(registration && registration.name || '').trim(),
+        email: includeContact ? String(registration && registration.email || '').trim().toLowerCase() : '',
+        phone: includeContact ? String(registration && registration.phone || '').trim() : '',
+        ghinNumber: includeContact ? String(registration && registration.ghinNumber || '').trim() : '',
+        handicapIndex: includeContact && Number.isFinite(registration && registration.handicapIndex) ? registration.handicapIndex : null,
+        slotLabel: '',
+      });
+    }
+    return participants;
+  }
+
+  const rosterMap = includeContact ? await getActiveSeniorsRosterMap() : new Map();
+  for (const teeTime of (ev.teeTimes || [])) {
+    const teeLabel = ev.isTeamEvent ? String(teeTime && teeTime.name || 'Team').trim() : fmt.tee(teeTime && teeTime.time || '');
+    for (const player of ((teeTime && teeTime.players) || [])) {
+      const name = String(player && player.name || '').trim();
+      const golfer = includeContact ? rosterMap.get(normalizeSeniorsGolferName(name).toLowerCase()) : null;
+      participants.push({
+        source: 'tee-time',
+        id: String(player && player._id || ''),
+        name,
+        email: includeContact ? String(golfer && golfer.email || '').trim().toLowerCase() : '',
+        phone: includeContact ? String(golfer && golfer.phone || '').trim() : '',
+        ghinNumber: includeContact ? String(golfer && golfer.ghinNumber || '').trim() : '',
+        handicapIndex: includeContact && Number.isFinite(golfer && golfer.handicapIndex) ? golfer.handicapIndex : null,
+        slotLabel: teeLabel,
+      });
+    }
+  }
+  return participants;
+}
+
+async function sendSeniorsRegistrationConfirmationEmail(ev, golfer, slotLabel = '') {
+  if (!ev || !golfer) return { ok: false, reason: 'missing-data' };
+  const email = String(golfer.email || '').trim().toLowerCase();
+  if (!email) return { ok: false, reason: 'no-email' };
+  const typeLabel = seniorsEventTypeLabel(ev.seniorsEventType || (isSeniorsEventOnlyEvent(ev) ? 'outing' : 'tee-times'));
+  const eventUrl = buildSiteEventUrl(ev.groupSlug, ev._id);
+  const html = frame('Seniors Event Registration Confirmed',
+    `<p>Your registration is confirmed.</p>
+     <p><strong>Event Type:</strong> ${esc(typeLabel)}</p>
+     <p><strong>Event:</strong> ${esc(ev.course || '')}</p>
+     <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
+     ${slotLabel ? `<p><strong>${ev.isTeamEvent ? 'Team' : 'Tee Time'}:</strong> ${esc(slotLabel)}</p>` : ''}
+     <p>If you need to withdraw, please call Ken Roko.</p>${btn('View Event', eventUrl)}`);
+  await sendEmail(email, `${typeLabel} Registration Confirmed: ${ev.course} (${fmt.dateISO(ev.date)})`, html);
+  return { ok: true, email };
+}
+
+async function sendSeniorsTwoDayRegistrantReminders(groupSlug = 'seniors') {
+  const scopedGroupSlug = normalizeGroupSlug(groupSlug);
+  if (scopedGroupSlug !== 'seniors') return { ok: true, sent: 0, events: 0, skipped: true };
+  const targetDate = ymdLocalPlusDays(2);
+  const start = new Date(`${targetDate}T00:00:00.000Z`);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  const events = await Event.find({
+    ...groupScopeFilter(scopedGroupSlug),
+    date: { $gte: start, $lt: end }
+  }).lean();
+  let sent = 0;
+  for (const ev of events) {
+    const participants = await buildSeniorsParticipantRows(ev, { includeContact: true });
+    const seenEmails = new Set();
+    for (const participant of participants) {
+      const email = String(participant.email || '').trim().toLowerCase();
+      if (!email || seenEmails.has(email)) continue;
+      seenEmails.add(email);
+      const typeLabel = seniorsEventTypeLabel(ev.seniorsEventType || (isSeniorsEventOnlyEvent(ev) ? 'outing' : 'tee-times'));
+      const eventUrl = buildSiteEventUrl(ev.groupSlug, ev._id);
+      const html = frame('Seniors Event Reminder',
+        `<p>This is your two-day reminder for an upcoming Seniors event.</p>
+         <p><strong>Event Type:</strong> ${esc(typeLabel)}</p>
+         <p><strong>Event:</strong> ${esc(ev.course || '')}</p>
+         <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
+         ${participant.slotLabel ? `<p><strong>${ev.isTeamEvent ? 'Team' : 'Tee Time'}:</strong> ${esc(participant.slotLabel)}</p>` : ''}
+         <p>If you need to withdraw, please call Ken Roko.</p>${btn('View Event', eventUrl)}`);
+      await sendEmail(email, `Reminder: ${ev.course} (${fmt.dateISO(ev.date)})`, html);
+      sent += 1;
+    }
+  }
+  return { ok: true, sent, events: events.length, targetDate };
+}
+
 function csvCell(value = '') {
   return String(value === null || value === undefined ? '' : value).replace(/\r?\n/g, ' ').trim();
 }
@@ -3848,6 +3996,126 @@ app.get('/api/events/:id', cacheJson(10 * 1000), async (req, res) => {
   }
 });
 
+app.get('/api/seniors-roster/public', cacheJson(30 * 1000), async (req, res) => {
+  try {
+    if (normalizeGroupSlug(getGroupSlug(req)) !== 'seniors') return res.json([]);
+    if (!SeniorsGolfer) return res.status(500).json({ error: 'Seniors golfer model not available' });
+    const golfers = await SeniorsGolfer.find({ groupSlug: 'seniors', active: true }).sort({ nameKey: 1 }).lean();
+    return res.json(golfers.map((golfer) => ({
+      _id: golfer._id,
+      name: golfer.name,
+      ghinNumber: golfer.ghinNumber || '',
+      handicapIndex: Number.isFinite(golfer.handicapIndex) ? golfer.handicapIndex : null,
+    })));
+  } catch (error) {
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to load Seniors roster' });
+  }
+});
+
+app.post('/api/events/:id/seniors-register', async (req, res) => {
+  try {
+    if (normalizeGroupSlug(getGroupSlug(req)) !== 'seniors') return res.status(404).json({ error: 'Seniors registration is not available for this group' });
+    const ev = await findScopedEventById(req, req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Event not found' });
+    if (!isUpcomingOrCurrentEventDate(ev.date)) return res.status(400).json({ error: 'Registration is only available for current or future events' });
+
+    const golferName = String(req.body && req.body.name || '').trim();
+    if (!golferName) return res.status(400).json({ error: 'name required' });
+    const golfer = await resolveSeniorsRosterGolferByName(golferName);
+    if (!golfer) return res.status(404).json({ error: 'Golfer is not on the active Seniors roster' });
+
+    const normalizedName = normalizeSeniorsGolferName(golfer.name).toLowerCase();
+    const alreadyRegisteredEventOnly = (ev.seniorsRegistrations || []).some((entry) => normalizeSeniorsGolferName(entry && entry.name).toLowerCase() === normalizedName);
+    const alreadyRegisteredTeeTime = (ev.teeTimes || []).some((teeTime) => ((teeTime && teeTime.players) || []).some((player) => normalizeSeniorsGolferName(player && player.name).toLowerCase() === normalizedName));
+    if (alreadyRegisteredEventOnly || alreadyRegisteredTeeTime) {
+      return res.status(409).json({ error: 'Golfer is already registered for this event' });
+    }
+
+    if (!isSeniorsEventOnlyEvent(ev)) {
+      return res.status(400).json({ error: 'This event uses tee times. Sign up on an open tee time instead.' });
+    }
+
+    ev.seniorsRegistrations.push({
+      golferId: golfer._id,
+      name: golfer.name,
+      email: golfer.email || '',
+      phone: golfer.phone || '',
+      ghinNumber: golfer.ghinNumber || '',
+      handicapIndex: Number.isFinite(golfer.handicapIndex) ? golfer.handicapIndex : null,
+    });
+    await ev.save();
+
+    await sendSeniorsRegistrationConfirmationEmail(ev, golfer);
+    return res.json({ ok: true, event: ev });
+  } catch (error) {
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to register golfer' });
+  }
+});
+
+app.delete('/api/events/:id/seniors-registrations/:registrationId', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
+  try {
+    if (normalizeGroupSlug(getGroupSlug(req)) !== 'seniors') return res.status(404).json({ error: 'Seniors registration is not available for this group' });
+    const ev = await findScopedEventById(req, req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Event not found' });
+    const registration = ev.seniorsRegistrations.id(req.params.registrationId);
+    if (!registration) return res.status(404).json({ error: 'Registration not found' });
+    registration.deleteOne();
+    await ev.save();
+    return res.json({ ok: true, event: ev });
+  } catch (error) {
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to remove registration' });
+  }
+});
+
+app.get('/api/admin/events/:id/seniors-registrations/export.csv', async (req, res) => {
+  if (requireSeniorsGroupAdmin(req, res)) return;
+  try {
+    const ev = await Event.findOne({ ...groupScopeFilter('seniors'), _id: req.params.id }).lean();
+    if (!ev) return res.status(404).json({ error: 'Event not found' });
+    const rows = await buildSeniorsParticipantRows(ev, { includeContact: true });
+    const csv = buildCsv([
+      ['Name', 'Email', 'Phone', 'GHIN', 'Handicap', 'Slot', 'Event Type', 'Date', 'Course'],
+      ...rows.map((row) => [
+        row.name,
+        row.email || '',
+        row.phone || '',
+        row.ghinNumber || '',
+        Number.isFinite(row.handicapIndex) ? row.handicapIndex : '',
+        row.slotLabel || '',
+        seniorsEventTypeLabel(ev.seniorsEventType || (isSeniorsEventOnlyEvent(ev) ? 'outing' : 'tee-times')),
+        fmt.dateISO(ev.date),
+        ev.course || '',
+      ]),
+    ]);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="seniors-event-${req.params.id}-registrations.csv"`);
+    return res.send(`\ufeff${csv}`);
+  } catch (error) {
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to export event registrations' });
+  }
+});
+
+app.get('/api/admin/events/:id/seniors-registrations/extract.txt', async (req, res) => {
+  if (requireSeniorsGroupAdmin(req, res)) return;
+  try {
+    const ev = await Event.findOne({ ...groupScopeFilter('seniors'), _id: req.params.id }).lean();
+    if (!ev) return res.status(404).json({ error: 'Event not found' });
+    const format = String(req.query.format || 'name-email').trim().toLowerCase();
+    const rows = await buildSeniorsParticipantRows(ev, { includeContact: true });
+    const lines = rows.map((row) => {
+      if (format === 'emails') return row.email || '';
+      if (format === 'names') return row.name || '';
+      return row.email ? `${row.name} <${row.email}>` : row.name;
+    }).filter(Boolean);
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="seniors-event-${req.params.id}-${format}.txt"`);
+    return res.send(lines.join('\n'));
+  } catch (error) {
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to extract event registrations' });
+  }
+});
+
 app.get('/api/events/:id/calendar.ics', async (req, res) => {
   try {
     const ev = await findScopedEventById(req, req.params.id, { lean: true });
@@ -3866,9 +4134,15 @@ app.get('/api/events/:id/calendar.ics', async (req, res) => {
 app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
   if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
-    const { course, courseInfo, date, teeTime, teeTimes, notes, isTeamEvent, teamSizeMax, teamStartType, teamStartTime } = req.body || {};
+    const groupSlug = getGroupSlug(req);
+    const { course, courseInfo, date, teeTime, teeTimes, notes, isTeamEvent, teamSizeMax, teamStartType, teamStartTime, seniorsEventType, seniorsRegistrationMode } = req.body || {};
+    const normalizedSeniorsRegistrationMode = normalizeSeniorsRegistrationMode(seniorsRegistrationMode, groupSlug);
+    const seniorsEventOnly = normalizedSeniorsRegistrationMode === 'event-only';
+    const normalizedSeniorsEventType = normalizeSeniorsEventType(seniorsEventType || (seniorsEventOnly ? 'outing' : 'tee-times'));
     let tt;
-    if (isTeamEvent) {
+    if (seniorsEventOnly) {
+      tt = [];
+    } else if (isTeamEvent) {
       // Generate 3 default teams for team events
       const startType = teamStartType || 'shotgun';
       if (!teamStartTime) return res.status(400).json({ error: 'teamStartTime required for team events' });
@@ -3912,12 +4186,14 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
     let created;
     try {
       created = await Event.create({
-        groupSlug: getGroupSlug(req),
+        groupSlug,
         course,
         courseInfo: normalizedCourseInfo,
         date: eventDate,
         notes,
-        isTeamEvent: !!isTeamEvent,
+        isTeamEvent: seniorsEventOnly ? false : !!isTeamEvent,
+        seniorsEventType: normalizeGroupSlug(groupSlug) === 'seniors' ? normalizedSeniorsEventType : '',
+        seniorsRegistrationMode: normalizeGroupSlug(groupSlug) === 'seniors' ? normalizedSeniorsRegistrationMode : '',
         teamSizeMax: Math.max(2, Math.min(4, Number(teamSizeMax || 4))),
         teeTimes: tt,
         dedupeKey: dedupeKey || undefined,
@@ -3942,10 +4218,12 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
     }
     res.status(201).json(created);
     const eventUrl = buildSiteEventUrl(created.groupSlug, created._id);
-    if (normalizeGroupSlug(created.groupSlug) === 'seniors' && !created.isTeamEvent) {
+    if (normalizeGroupSlug(created.groupSlug) === 'seniors') {
+      const typeLabel = seniorsEventTypeLabel(created.seniorsEventType || (isSeniorsEventOnlyEvent(created) ? 'outing' : 'tee-times'));
       await sendTeeTimeEventLifecycleEmail(`New Event: ${created.course} (${fmt.dateISO(created.date)})`,
         frame('A New Golf Event Has Been Scheduled!',
               `<p>The following event is now open for sign-up:</p>
+               <p><strong>Event Type:</strong> ${esc(typeLabel)}</p>
                <p><strong>Event:</strong> ${esc(fmt.dateShortTitle(created.date))}</p>
                <p><strong>Course:</strong> ${esc(created.course||'')}</p>
                <p><strong>Date:</strong> ${esc(fmt.dateLong(created.date))}</p>
@@ -3962,7 +4240,7 @@ app.put('/api/events/:id', async (req, res) => {
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     const body = req.body || {};
-    const { course, courseInfo, date, notes, isTeamEvent, teamSizeMax } = body;
+    const { course, courseInfo, date, notes, isTeamEvent, teamSizeMax, seniorsEventType, seniorsRegistrationMode } = body;
     const hasCourseInfo = Object.prototype.hasOwnProperty.call(body, 'courseInfo');
     let weatherNeedsRefresh = false;
 
@@ -3988,7 +4266,18 @@ app.put('/api/events/:id', async (req, res) => {
       weatherNeedsRefresh = true;
     }
     if (notes !== undefined) ev.notes = String(notes);
-    if (isTeamEvent !== undefined) ev.isTeamEvent = !!isTeamEvent;
+    const normalizedGroupSlug = normalizeGroupSlug(ev.groupSlug);
+    if (normalizedGroupSlug === 'seniors') {
+      if (seniorsEventType !== undefined) ev.seniorsEventType = normalizeSeniorsEventType(seniorsEventType);
+      if (seniorsRegistrationMode !== undefined) {
+        ev.seniorsRegistrationMode = normalizeSeniorsRegistrationMode(seniorsRegistrationMode, ev.groupSlug);
+        if (ev.seniorsRegistrationMode === 'event-only') {
+          ev.isTeamEvent = false;
+          ev.teeTimes = [];
+        }
+      }
+    }
+    if (isTeamEvent !== undefined && !isSeniorsEventOnlyEvent(ev)) ev.isTeamEvent = !!isTeamEvent;
     if (teamSizeMax !== undefined) ev.teamSizeMax = Math.max(2, Math.min(4, Number(teamSizeMax || 4)));
     if (weatherNeedsRefresh) {
       const weatherData = await fetchWeatherForEvent(ev);
@@ -4457,7 +4746,6 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
 });
 
 app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPlayer), async (req, res) => {
-  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   const { name, asFifth } = req.body || {};
   if (!name) return res.status(400).json({ error: 'name required' });
   const trimmedName = String(name).trim();
@@ -4490,6 +4778,12 @@ app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPla
   }
   const maxSize = slotCapacityForEvent(ev);
 
+  let seniorsGolfer = null;
+  if (normalizeGroupSlug(ev.groupSlug) === 'seniors') {
+    seniorsGolfer = await resolveSeniorsRosterGolferByName(trimmedName);
+    if (!seniorsGolfer) return res.status(404).json({ error: 'Golfer is not on the active Seniors roster' });
+  }
+
   // Anti-chaos check: duplicate name prevention
   if (isDuplicatePlayerName(ev, trimmedName)) {
     return res.status(409).json({ error: 'duplicate player name', message: 'A player with this name already exists. Use a nickname (e.g., "John S" or "John 2").' });
@@ -4504,6 +4798,11 @@ app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPla
     teeId: tt._id,
     teeLabel: getTeeLabel(ev, tt._id)
   });
+
+  if (seniorsGolfer) {
+    sendSeniorsRegistrationConfirmationEmail(ev, seniorsGolfer, getTeeLabel(ev, tt._id))
+      .catch((err) => console.error('[add_player] Failed to send Seniors confirmation email:', err));
+  }
 
   // Send notification email only if notifications are enabled
   if (ev.notificationsEnabled !== false) {
@@ -6533,6 +6832,9 @@ if (require.main === module && !SCHEDULER_ENV_DISABLED) {
             lastRunForYMD48ByGroup.set(groupSlug, ymd48);
             if (await claimScheduledJobRunOnce(groupSlug, 'reminder48Hour', ymd48)) {
               await runReminderIfNeeded('auto-17:00-48hr', 2, groupSlug);
+            }
+            if (groupSlug === 'seniors' && await claimScheduledJobRunOnce(groupSlug, 'seniorsRegistrantReminder48Hour', ymd48)) {
+              await sendSeniorsTwoDayRegistrantReminders(groupSlug);
             }
           }
           if (emailRules.reminder24Hour && lastRunForYMD24ByGroup.get(groupSlug) !== todayLocalYMD) {
