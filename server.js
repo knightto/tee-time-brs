@@ -55,7 +55,7 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
-const { importHandicapsFromCsv } = require('./services/handicapImportService');
+const { importHandicapsFromCsv, parseCsv } = require('./services/handicapImportService');
 const {
   buildGroupRoutePaths,
   buildTeeTimesSiteDeploymentProfile,
@@ -862,6 +862,7 @@ let AuditLog; try { AuditLog = require('./models/AuditLog'); } catch { AuditLog 
 let Settings; try { Settings = require('./models/Settings'); } catch { Settings = null; }
 let Handicap; try { Handicap = require('./models/Handicap'); } catch { Handicap = null; }
 let Golfer; try { Golfer = require('./models/Golfer'); } catch { Golfer = null; }
+let SeniorsGolfer; try { SeniorsGolfer = require('./models/SeniorsGolfer'); } catch { SeniorsGolfer = null; }
 let HandicapSnapshot; try { HandicapSnapshot = require('./models/HandicapSnapshot'); } catch { HandicapSnapshot = null; }
 let ImportBatch; try { ImportBatch = require('./models/ImportBatch'); } catch { ImportBatch = null; }
 let TeeTimeLog; try { TeeTimeLog = require('./models/TeeTimeLog'); } catch { TeeTimeLog = null; }
@@ -2625,6 +2626,54 @@ function requireSeniorsSiteAdminForWrite(req, res) {
   if (isSiteAdmin(req)) return false;
   res.status(403).json({ error: 'Admin code 000 required for Seniors changes' });
   return true;
+}
+
+function requireSeniorsGroupAdmin(req, res) {
+  if (normalizeGroupSlug(getGroupSlug(req)) !== 'seniors') {
+    res.status(404).json({ error: 'Seniors roster is only available for the Seniors group' });
+    return true;
+  }
+  if (!isSiteAdmin(req)) {
+    res.status(403).json({ error: 'Admin code required' });
+    return true;
+  }
+  return false;
+}
+
+function normalizeSeniorsGolferName(value = '') {
+  return String(value || '').trim().replace(/\s+/g, ' ');
+}
+
+function normalizeSeniorsGolferInput(raw = {}) {
+  const name = normalizeSeniorsGolferName(raw.name);
+  if (!name) throw new Error('name required');
+
+  const payload = {
+    name,
+    email: String(raw.email || '').trim().toLowerCase(),
+    phone: String(raw.phone || '').trim(),
+    ghinNumber: String(raw.ghinNumber || '').trim(),
+    notes: String(raw.notes || '').trim(),
+    active: raw.active === undefined ? true : !!raw.active,
+  };
+
+  if (raw.handicapIndex === '' || raw.handicapIndex === null || raw.handicapIndex === undefined) {
+    payload.handicapIndex = null;
+  } else {
+    const handicapIndex = Number(raw.handicapIndex);
+    if (!Number.isFinite(handicapIndex)) throw new Error('handicapIndex must be a number');
+    payload.handicapIndex = handicapIndex;
+  }
+
+  return payload;
+}
+
+function csvCell(value = '') {
+  return String(value === null || value === undefined ? '' : value).replace(/\r?\n/g, ' ').trim();
+}
+
+function buildCsv(rows = []) {
+  return rows.map((row) => row.map((value) => `"${csvCell(value).replace(/"/g, '""')}"`).join(',')).join('\n');
 }
 
 app.post('/api/admin/templates/tee-times-site-package', async (req, res) => {
@@ -4746,6 +4795,172 @@ app.post('/api/events/:id/pairings/apply', async (req, res) => {
 const GOLF_API_KEY = process.env.GOLF_API_KEY || '';
 const GOLF_API_KEY_BACKUP = process.env.GOLF_API_KEY_BACKUP || '';
 const GOLF_API_BASE = 'https://api.golfcourseapi.com/v1';
+const LOCAL_GOLF_COURSES = Object.freeze([
+  {
+    id: 'custom-1',
+    name: 'Blue Ridge Shadows Golf Club',
+    city: 'Front Royal',
+    state: 'VA',
+    phone: '(540) 631-9661',
+    website: 'https://blueridgeshadows.com',
+    holes: 18,
+    par: 72
+  },
+  {
+    id: 'custom-2',
+    name: 'Caverns Country Club Resort',
+    city: 'Luray',
+    state: 'VA',
+    phone: '(540) 743-7111',
+    website: 'https://cavernscc.com',
+    holes: 18,
+    par: 72
+  },
+  {
+    id: 'custom-3',
+    name: 'Rock Harbor Golf Club',
+    city: 'Winchester',
+    state: 'VA',
+    phone: '(540) 722-7111',
+    website: 'https://www.rockharborgolf.com',
+    holes: 18,
+    par: 72
+  },
+  {
+    id: 'custom-4',
+    name: 'Shenandoah Valley Golf Club',
+    city: 'Front Royal',
+    state: 'VA',
+    phone: '(540) 636-4653',
+    website: 'https://svgcgolf.com',
+    holes: 27,
+    par: 72
+  },
+  {
+    id: 'custom-5',
+    name: 'Shenvalee Golf Resort',
+    city: 'New Market',
+    state: 'VA',
+    phone: '(540) 740-3181',
+    website: 'https://shenvalee.com',
+    holes: 27,
+    par: 72
+  },
+  {
+    id: 'custom-6',
+    name: 'The Club at Ironwood',
+    city: 'Greenville',
+    state: 'VA',
+    phone: '(540) 337-1234',
+    website: null,
+    holes: 18,
+    par: 72
+  },
+  {
+    id: 'custom-7',
+    name: 'World Tour Golf Links',
+    city: 'Myrtle Beach',
+    state: 'SC',
+    phone: null,
+    website: null,
+    holes: 18,
+    par: 72
+  },
+  {
+    id: 'custom-8',
+    name: 'Wild Wing Avocet',
+    city: 'Conway',
+    state: 'SC',
+    phone: null,
+    website: null,
+    holes: 18,
+    par: 72
+  },
+  {
+    id: 'custom-9',
+    name: 'MB National Kings North',
+    city: 'Myrtle Beach',
+    state: 'SC',
+    phone: null,
+    website: null,
+    holes: 18,
+    par: 72
+  },
+  {
+    id: 'custom-10',
+    name: 'River Hills',
+    city: 'Little River',
+    state: 'SC',
+    phone: null,
+    website: null,
+    holes: 18,
+    par: 72
+  },
+  {
+    id: 'custom-11',
+    name: 'Long Bay',
+    city: 'Longs',
+    state: 'SC',
+    phone: null,
+    website: null,
+    holes: 18,
+    par: 72
+  },
+  {
+    id: 'custom-12',
+    name: 'Cacapon Resort Golf Course',
+    city: 'Berkeley Springs',
+    state: 'WV',
+    phone: null,
+    website: null,
+    holes: 18,
+    par: 72
+  },
+  {
+    id: 'custom-13',
+    name: 'Bryce Resort',
+    city: 'Basye',
+    state: 'VA',
+    phone: null,
+    website: null,
+    holes: 18,
+    par: 71
+  },
+  {
+    id: 'custom-14',
+    name: 'Lakeview Golf Club',
+    city: 'Harrisonburg',
+    state: 'VA',
+    phone: null,
+    website: null,
+    holes: 18,
+    par: 72
+  },
+  {
+    id: 'custom-15',
+    name: 'Spotswood Country Club',
+    city: 'Harrisonburg',
+    state: 'VA',
+    phone: null,
+    website: null,
+    holes: 18,
+    par: 72
+  },
+  {
+    id: 'custom-16',
+    name: 'Orchard Creek',
+    city: 'Waynesboro',
+    state: 'VA',
+    phone: null,
+    website: null,
+    holes: 18,
+    par: 72
+  }
+]);
+
+function buildLocalGolfCourses() {
+  return LOCAL_GOLF_COURSES.map((course) => ({ ...course }));
+}
 
 // Helper: Try API request with fallback to backup key
 async function fetchGolfAPI(url, primaryKey = GOLF_API_KEY, backupKey = GOLF_API_KEY_BACKUP) {
@@ -4818,119 +5033,7 @@ function validateCourseData(course) {
 }
 
 app.get('/api/golf-courses/list', async (req, res) => {
-  // Define local Shenandoah Valley courses (always included at top)
-  const localCourses = [
-    { 
-      id: 'custom-1', 
-      name: 'Blue Ridge Shadows Golf Club',
-      city: 'Front Royal',
-      state: 'VA',
-      phone: '(540) 631-9661',
-      website: 'https://blueridgeshadows.com',
-      holes: 18,
-      par: 72
-    },
-    { 
-      id: 'custom-2', 
-      name: 'Caverns Country Club Resort',
-      city: 'Luray',
-      state: 'VA',
-      phone: '(540) 743-7111',
-      website: 'https://cavernscc.com',
-      holes: 18,
-      par: 72
-    },
-    { 
-      id: 'custom-3', 
-      name: 'Rock Harbor Golf Club',
-      city: 'Winchester',
-      state: 'VA',
-      phone: '(540) 722-7111',
-      website: 'https://www.rockharborgolf.com',
-      holes: 18,
-      par: 72
-    },
-    { 
-      id: 'custom-4', 
-      name: 'Shenandoah Valley Golf Club',
-      city: 'Front Royal',
-      state: 'VA',
-      phone: '(540) 636-4653',
-      website: 'https://svgcgolf.com',
-      holes: 27,
-      par: 72
-    },
-    { 
-      id: 'custom-5', 
-      name: 'Shenvalee Golf Resort',
-      city: 'New Market',
-      state: 'VA',
-      phone: '(540) 740-3181',
-      website: 'https://shenvalee.com',
-      holes: 27,
-      par: 72
-    },
-    { 
-      id: 'custom-6', 
-      name: 'The Club at Ironwood',
-      city: 'Greenville',
-      state: 'VA',
-      phone: '(540) 337-1234',
-      website: null,
-      holes: 18,
-      par: 72
-    },
-    {
-      id: 'custom-7',
-      name: 'World Tour Golf Links',
-      city: 'Myrtle Beach',
-      state: 'SC',
-      phone: null,
-      website: null,
-      holes: 18,
-      par: 72
-    },
-    {
-      id: 'custom-8',
-      name: 'Wild Wing Avocet',
-      city: 'Conway',
-      state: 'SC',
-      phone: null,
-      website: null,
-      holes: 18,
-      par: 72
-    },
-    {
-      id: 'custom-9',
-      name: 'MB National Kings North',
-      city: 'Myrtle Beach',
-      state: 'SC',
-      phone: null,
-      website: null,
-      holes: 18,
-      par: 72
-    },
-    {
-      id: 'custom-10',
-      name: 'River Hills',
-      city: 'Little River',
-      state: 'SC',
-      phone: null,
-      website: null,
-      holes: 18,
-      par: 72
-    },
-    {
-      id: 'custom-11',
-      name: 'Long Bay',
-      city: 'Longs',
-      state: 'SC',
-      phone: null,
-      website: null,
-      holes: 18,
-      par: 72
-    }
-  ];
+  const localCourses = buildLocalGolfCourses();
 
   // If no API keys, return only local courses
   if (!GOLF_API_KEY && !GOLF_API_KEY_BACKUP) {
@@ -5010,20 +5113,7 @@ app.get('/api/golf-courses/list', async (req, res) => {
 app.get('/api/golf-courses/search', async (req, res) => {
   const query = req.query.q || '';
   
-  // Define local courses (same as above)
-  const localCourses = [
-    { id: 'custom-1', name: 'Blue Ridge Shadows Golf Club', city: 'Front Royal', state: 'VA', phone: '(540) 631-9661', website: 'https://blueridgeshadows.com', holes: 18, par: 72 },
-    { id: 'custom-2', name: 'Caverns Country Club Resort', city: 'Luray', state: 'VA', phone: '(540) 743-7111', website: 'https://cavernscc.com', holes: 18, par: 72 },
-    { id: 'custom-3', name: 'Rock Harbor Golf Club', city: 'Winchester', state: 'VA', phone: '(540) 722-7111', website: 'https://www.rockharborgolf.com', holes: 18, par: 72 },
-    { id: 'custom-4', name: 'Shenandoah Valley Golf Club', city: 'Front Royal', state: 'VA', phone: '(540) 636-4653', website: 'https://svgcgolf.com', holes: 27, par: 72 },
-    { id: 'custom-5', name: 'Shenvalee Golf Resort', city: 'New Market', state: 'VA', phone: '(540) 740-3181', website: 'https://shenvalee.com', holes: 27, par: 72 },
-    { id: 'custom-6', name: 'The Club at Ironwood', city: 'Greenville', state: 'VA', phone: '(540) 337-1234', website: null, holes: 18, par: 72 },
-    { id: 'custom-7', name: 'World Tour Golf Links', city: 'Myrtle Beach', state: 'SC', phone: null, website: null, holes: 18, par: 72 },
-    { id: 'custom-8', name: 'Wild Wing Avocet', city: 'Conway', state: 'SC', phone: null, website: null, holes: 18, par: 72 },
-    { id: 'custom-9', name: 'MB National Kings North', city: 'Myrtle Beach', state: 'SC', phone: null, website: null, holes: 18, par: 72 },
-    { id: 'custom-10', name: 'River Hills', city: 'Little River', state: 'SC', phone: null, website: null, holes: 18, par: 72 },
-    { id: 'custom-11', name: 'Long Bay', city: 'Longs', state: 'SC', phone: null, website: null, holes: 18, par: 72 }
-  ];
+  const localCourses = buildLocalGolfCourses();
   
   if (!query || query.length < 2) {
     // Return local courses for short/empty queries
@@ -5706,6 +5796,175 @@ app.delete('/api/admin/subscribers/:id', async (req, res) => {
   } catch (e) {
     console.error('Delete subscriber error:', e);
     res.status(500).json({ error: e.message });
+  }
+});
+
+/* Seniors roster */
+app.get('/api/admin/seniors-roster', async (req, res) => {
+  if (requireSeniorsGroupAdmin(req, res)) return;
+  try {
+    if (!SeniorsGolfer) return res.status(500).json({ error: 'Seniors golfer model not available' });
+    const golfers = await SeniorsGolfer.find({ groupSlug: 'seniors' }).sort({ active: -1, nameKey: 1 }).lean();
+    return res.json(golfers);
+  } catch (error) {
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to load Seniors roster' });
+  }
+});
+
+app.post('/api/admin/seniors-roster', async (req, res) => {
+  if (requireSeniorsGroupAdmin(req, res)) return;
+  try {
+    if (!SeniorsGolfer) return res.status(500).json({ error: 'Seniors golfer model not available' });
+    const payload = normalizeSeniorsGolferInput(req.body || {});
+    const created = await SeniorsGolfer.create({ groupSlug: 'seniors', ...payload });
+    return res.status(201).json({ ok: true, golfer: created });
+  } catch (error) {
+    if (error && error.code === 11000) return res.status(409).json({ error: 'Golfer already exists on the Seniors roster' });
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to add golfer' });
+  }
+});
+
+app.put('/api/admin/seniors-roster/:id', async (req, res) => {
+  if (requireSeniorsGroupAdmin(req, res)) return;
+  try {
+    if (!SeniorsGolfer) return res.status(500).json({ error: 'Seniors golfer model not available' });
+    const payload = normalizeSeniorsGolferInput(req.body || {});
+    const updated = await SeniorsGolfer.findOneAndUpdate(
+      { _id: req.params.id, groupSlug: 'seniors' },
+      { $set: payload },
+      { new: true, runValidators: true }
+    );
+    if (!updated) return res.status(404).json({ error: 'Golfer not found' });
+    return res.json({ ok: true, golfer: updated });
+  } catch (error) {
+    if (error && error.code === 11000) return res.status(409).json({ error: 'Golfer already exists on the Seniors roster' });
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to update golfer' });
+  }
+});
+
+app.delete('/api/admin/seniors-roster/:id', async (req, res) => {
+  if (requireSeniorsGroupAdmin(req, res)) return;
+  try {
+    if (!SeniorsGolfer) return res.status(500).json({ error: 'Seniors golfer model not available' });
+    const deleted = await SeniorsGolfer.findOneAndDelete({ _id: req.params.id, groupSlug: 'seniors' });
+    if (!deleted) return res.status(404).json({ error: 'Golfer not found' });
+    return res.json({ ok: true });
+  } catch (error) {
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to remove golfer' });
+  }
+});
+
+app.get('/api/admin/seniors-roster/export.csv', async (req, res) => {
+  if (requireSeniorsGroupAdmin(req, res)) return;
+  try {
+    if (!SeniorsGolfer) return res.status(500).json({ error: 'Seniors golfer model not available' });
+    const golfers = await SeniorsGolfer.find({ groupSlug: 'seniors' }).sort({ active: -1, nameKey: 1 }).lean();
+    const csv = buildCsv([
+      ['Name', 'Email', 'Phone', 'GHIN', 'Handicap', 'Active', 'Notes', 'Updated At'],
+      ...golfers.map((golfer) => [
+        golfer.name,
+        golfer.email || '',
+        golfer.phone || '',
+        golfer.ghinNumber || '',
+        Number.isFinite(golfer.handicapIndex) ? golfer.handicapIndex : '',
+        golfer.active ? 'Yes' : 'No',
+        golfer.notes || '',
+        golfer.updatedAt ? new Date(golfer.updatedAt).toISOString() : '',
+      ]),
+    ]);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="seniors-roster.csv"');
+    return res.send(`\ufeff${csv}`);
+  } catch (error) {
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to export Seniors roster' });
+  }
+});
+
+app.get('/api/admin/seniors-roster/extract.txt', async (req, res) => {
+  if (requireSeniorsGroupAdmin(req, res)) return;
+  try {
+    if (!SeniorsGolfer) return res.status(500).json({ error: 'Seniors golfer model not available' });
+    const format = String(req.query.format || 'name-email').trim().toLowerCase();
+    const golfers = await SeniorsGolfer.find({ groupSlug: 'seniors', active: true }).sort({ nameKey: 1 }).lean();
+    const lines = golfers.map((golfer) => {
+      if (format === 'emails') return golfer.email || '';
+      if (format === 'names') return golfer.name || '';
+      return golfer.email ? `${golfer.name} <${golfer.email}>` : golfer.name;
+    }).filter(Boolean);
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="seniors-roster-${format}.txt"`);
+    return res.send(lines.join('\n'));
+  } catch (error) {
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to extract Seniors roster' });
+  }
+});
+
+app.post('/api/admin/seniors-roster/import', upload.single('file'), async (req, res) => {
+  if (requireSeniorsGroupAdmin(req, res)) return;
+  try {
+    if (!SeniorsGolfer) return res.status(500).json({ error: 'Seniors golfer model not available' });
+    if (!req.file) return res.status(400).json({ error: 'file required' });
+
+    const rows = parseCsv(req.file.buffer.toString('utf8') || '');
+    if (!rows.length) return res.status(400).json({ error: 'Empty file' });
+
+    const headers = rows[0].map((value) => String(value || '').trim().toLowerCase());
+    const headerIndex = Object.fromEntries(headers.map((header, index) => [header, index]));
+    const pick = (values, keys) => {
+      for (const key of keys) {
+        const idx = headerIndex[key];
+        if (Number.isInteger(idx)) return values[idx] !== undefined ? values[idx] : '';
+      }
+      return '';
+    };
+
+    if (!headers.includes('name') && !headers.includes('full_name')) {
+      return res.status(400).json({ error: 'CSV must include a Name or full_name column' });
+    }
+
+    let processed = 0;
+    let created = 0;
+    let updated = 0;
+    const errors = [];
+
+    for (let i = 1; i < rows.length; i += 1) {
+      const values = rows[i];
+      if (!values || values.every((value) => !String(value || '').trim())) continue;
+      processed += 1;
+      try {
+        const payload = normalizeSeniorsGolferInput({
+          name: pick(values, ['name', 'full_name', 'golfer', 'player']),
+          email: pick(values, ['email', 'email_address']),
+          phone: pick(values, ['phone', 'phone_number', 'mobile']),
+          ghinNumber: pick(values, ['ghin', 'ghin_number']),
+          handicapIndex: pick(values, ['handicap', 'handicap_index']),
+          notes: pick(values, ['notes']),
+          active: !['no', 'false', '0', 'inactive'].includes(String(pick(values, ['active'])).trim().toLowerCase()),
+        });
+        const nameKey = normalizeSeniorsGolferName(payload.name).toLowerCase();
+        const existing = await SeniorsGolfer.findOne({ groupSlug: 'seniors', nameKey });
+        if (existing) {
+          existing.name = payload.name;
+          existing.email = payload.email;
+          existing.phone = payload.phone;
+          existing.ghinNumber = payload.ghinNumber;
+          existing.handicapIndex = payload.handicapIndex;
+          existing.notes = payload.notes;
+          existing.active = payload.active;
+          await existing.save();
+          updated += 1;
+        } else {
+          await SeniorsGolfer.create({ groupSlug: 'seniors', ...payload });
+          created += 1;
+        }
+      } catch (error) {
+        errors.push({ rowNumber: i + 1, error: error && error.message ? error.message : 'Invalid row' });
+      }
+    }
+
+    return res.json({ ok: true, processed, created, updated, errorCount: errors.length, errors: errors.slice(0, 100) });
+  } catch (error) {
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to import Seniors roster' });
   }
 });
 

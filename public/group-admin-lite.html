@@ -198,7 +198,8 @@
     }
 
     input,
-    textarea {
+    textarea,
+    select {
       width: 100%;
       border: 1px solid var(--line);
       border-radius: 12px;
@@ -259,6 +260,71 @@
     .subscriber-toolbar {
       display: grid;
       gap: 14px;
+    }
+
+    .roster-toolbar {
+      display: grid;
+      gap: 14px;
+    }
+
+    .roster-form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 10px;
+    }
+
+    .roster-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .roster-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .roster-card {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: start;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #fbfdfc;
+    }
+
+    .roster-copy {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .roster-copy strong {
+      font-size: 15px;
+    }
+
+    .roster-copy span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .roster-card-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: flex-end;
+    }
+
+    .roster-empty {
+      padding: 18px;
+      border: 1px dashed var(--line);
+      border-radius: 16px;
+      color: var(--muted);
+      text-align: center;
+      background: #fbfdfc;
+      font-weight: 600;
     }
 
     .subscriber-toolbar form {
@@ -375,6 +441,7 @@
 
       .subscriber-toolbar form,
       .subscriber-card,
+      .roster-card,
       .summary-item,
       .toggle-card {
         grid-template-columns: 1fr;
@@ -482,6 +549,76 @@
         </div>
         <div class="frame-shell">
           <iframe id="teeTimesFrame" title="Live Tee Times Board" src="about:blank"></iframe>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="seniorsRosterSection" hidden>
+      <div class="content">
+        <div class="section-head">
+          <h2>Seniors Roster</h2>
+          <p class="section-meta">Admin-only golfer roster for Seniors events. Contact details stay admin-only and support CSV import plus Excel-friendly export.</p>
+        </div>
+        <div id="seniorsRosterNote" class="note">Loading Seniors roster...</div>
+        <div class="roster-toolbar">
+          <form id="seniorsRosterForm">
+            <div class="roster-form-grid">
+              <label>
+                <span>Golfer Name</span>
+                <input id="seniorsRosterNameInput" type="text" name="name" placeholder="Golfer name" required>
+              </label>
+              <label>
+                <span>Email <em style="font-style:normal;font-weight:600;color:var(--muted)">(optional)</em></span>
+                <input id="seniorsRosterEmailInput" type="email" name="email" placeholder="golfer@example.com" autocomplete="email">
+              </label>
+              <label>
+                <span>Phone <em style="font-style:normal;font-weight:600;color:var(--muted)">(optional)</em></span>
+                <input id="seniorsRosterPhoneInput" type="text" name="phone" placeholder="540-555-1212" autocomplete="tel">
+              </label>
+              <label>
+                <span>GHIN <em style="font-style:normal;font-weight:600;color:var(--muted)">(optional)</em></span>
+                <input id="seniorsRosterGhinInput" type="text" name="ghinNumber" placeholder="1234567" inputmode="numeric">
+              </label>
+              <label>
+                <span>Handicap <em style="font-style:normal;font-weight:600;color:var(--muted)">(optional)</em></span>
+                <input id="seniorsRosterHandicapInput" type="number" name="handicapIndex" placeholder="12.4" step="0.1" min="-10" max="60" inputmode="decimal">
+              </label>
+              <label>
+                <span>Status</span>
+                <select id="seniorsRosterActiveInput" name="active">
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
+              </label>
+            </div>
+            <label>
+              <span>Notes <em style="font-style:normal;font-weight:600;color:var(--muted)">(optional)</em></span>
+              <textarea id="seniorsRosterNotesInput" name="notes" rows="2" placeholder="Optional roster notes"></textarea>
+            </label>
+            <div class="roster-actions">
+              <button type="submit" id="saveSeniorsGolferBtn">Add Golfer</button>
+              <button type="button" class="secondary" id="resetSeniorsGolferBtn">Clear Form</button>
+            </div>
+          </form>
+          <form id="seniorsRosterImportForm">
+            <div class="roster-actions">
+              <label style="min-width:260px;">
+                <span>Import CSV</span>
+                <input id="seniorsRosterImportFile" type="file" accept=".csv,text/csv" required>
+              </label>
+              <button type="submit" id="importSeniorsRosterBtn">Import Roster CSV</button>
+              <button type="button" class="secondary" id="exportSeniorsRosterBtn">Download CSV</button>
+              <button type="button" class="secondary" id="extractSeniorsRosterBtn">Extract Names + Emails</button>
+            </div>
+          </form>
+          <div class="summary-item">
+            <div>
+              <strong>Roster Golfers</strong>
+              <span>These records are separate from the public subscriber list and are only visible here.</span>
+            </div>
+            <span id="seniorsRosterCount">0</span>
+          </div>
+          <div id="seniorsRosterList" class="roster-list"></div>
         </div>
       </div>
     </section>
@@ -690,6 +827,25 @@
       const teeTimesFrame = document.getElementById('teeTimesFrame');
       const refreshTeeTimesBtn = document.getElementById('refreshTeeTimesBtn');
       const openSiteInlineLink = document.getElementById('openSiteInlineLink');
+      const seniorsRosterSection = document.getElementById('seniorsRosterSection');
+      const seniorsRosterForm = document.getElementById('seniorsRosterForm');
+      const seniorsRosterNote = document.getElementById('seniorsRosterNote');
+      const seniorsRosterNameInput = document.getElementById('seniorsRosterNameInput');
+      const seniorsRosterEmailInput = document.getElementById('seniorsRosterEmailInput');
+      const seniorsRosterPhoneInput = document.getElementById('seniorsRosterPhoneInput');
+      const seniorsRosterGhinInput = document.getElementById('seniorsRosterGhinInput');
+      const seniorsRosterHandicapInput = document.getElementById('seniorsRosterHandicapInput');
+      const seniorsRosterActiveInput = document.getElementById('seniorsRosterActiveInput');
+      const seniorsRosterNotesInput = document.getElementById('seniorsRosterNotesInput');
+      const saveSeniorsGolferBtn = document.getElementById('saveSeniorsGolferBtn');
+      const resetSeniorsGolferBtn = document.getElementById('resetSeniorsGolferBtn');
+      const seniorsRosterImportForm = document.getElementById('seniorsRosterImportForm');
+      const seniorsRosterImportFile = document.getElementById('seniorsRosterImportFile');
+      const importSeniorsRosterBtn = document.getElementById('importSeniorsRosterBtn');
+      const exportSeniorsRosterBtn = document.getElementById('exportSeniorsRosterBtn');
+      const extractSeniorsRosterBtn = document.getElementById('extractSeniorsRosterBtn');
+      const seniorsRosterCount = document.getElementById('seniorsRosterCount');
+      const seniorsRosterList = document.getElementById('seniorsRosterList');
       const subscriberForm = document.getElementById('subscriberForm');
       const subscriberEmailInput = document.getElementById('subscriberEmailInput');
       const subscriberGhinInput = document.getElementById('subscriberGhinInput');
@@ -726,6 +882,8 @@
         code: '',
         profile: null,
         links: null,
+        seniorsRoster: [],
+        editingSeniorsGolferId: '',
         subscribers: [],
         schedulerEnabled: false,
         schedulerLockedByEnv: false,
@@ -790,6 +948,14 @@
         subscriberNote.className = 'note';
         if (tone === 'warn') subscriberNote.classList.add('warn');
         if (tone === 'error') subscriberNote.classList.add('error');
+      }
+
+      function setSeniorsRosterStatus(message, tone = 'info') {
+        if (!seniorsRosterNote) return;
+        seniorsRosterNote.textContent = message;
+        seniorsRosterNote.className = 'note';
+        if (tone === 'warn') seniorsRosterNote.classList.add('warn');
+        if (tone === 'error') seniorsRosterNote.classList.add('error');
       }
 
       function setNotificationStatus(message, tone = 'info') {
@@ -909,6 +1075,49 @@
         `).join('');
       }
 
+      function resetSeniorsRosterForm() {
+        state.editingSeniorsGolferId = '';
+        if (seniorsRosterForm) seniorsRosterForm.reset();
+        if (seniorsRosterActiveInput) seniorsRosterActiveInput.value = 'true';
+        if (saveSeniorsGolferBtn) saveSeniorsGolferBtn.textContent = 'Add Golfer';
+      }
+
+      function collectSeniorsRosterPayload() {
+        return {
+          name: String(seniorsRosterNameInput.value || '').trim(),
+          email: String(seniorsRosterEmailInput.value || '').trim(),
+          phone: String(seniorsRosterPhoneInput.value || '').trim(),
+          ghinNumber: String(seniorsRosterGhinInput.value || '').trim(),
+          handicapIndex: String(seniorsRosterHandicapInput.value || '').trim(),
+          active: seniorsRosterActiveInput.value !== 'false',
+          notes: String(seniorsRosterNotesInput.value || '').trim(),
+        };
+      }
+
+      function renderSeniorsRoster() {
+        const list = Array.isArray(state.seniorsRoster) ? state.seniorsRoster : [];
+        if (seniorsRosterCount) seniorsRosterCount.textContent = String(list.length);
+        if (!seniorsRosterList) return;
+        if (!list.length) {
+          seniorsRosterList.innerHTML = '<div class="roster-empty">No golfers are on the Seniors roster yet.</div>';
+          return;
+        }
+        seniorsRosterList.innerHTML = list.map((golfer) => `
+          <article class="roster-card">
+            <div class="roster-copy">
+              <strong>${escapeHtml(String(golfer.name || ''))}</strong>
+              <span>Email: ${escapeHtml(String(golfer.email || 'Not set'))} • Phone: ${escapeHtml(String(golfer.phone || 'Not set'))}</span>
+              <span>GHIN: ${escapeHtml(String(golfer.ghinNumber || 'Not set'))} • Handicap: ${escapeHtml(Number.isFinite(golfer.handicapIndex) ? String(golfer.handicapIndex) : 'Not set')}</span>
+              <span>Status: ${golfer.active ? 'Active' : 'Inactive'}${golfer.notes ? ` • Notes: ${escapeHtml(String(golfer.notes || ''))}` : ''}</span>
+            </div>
+            <div class="roster-card-actions">
+              <button type="button" class="secondary" data-edit-seniors-golfer="${escapeHtml(String(golfer._id || ''))}">Edit</button>
+              <button type="button" class="danger" data-delete-seniors-golfer="${escapeHtml(String(golfer._id || ''))}">Remove</button>
+            </div>
+          </article>
+        `).join('');
+      }
+
       function escapeHtml(value = '') {
         return String(value || '')
           .replace(/&/g, '&amp;')
@@ -932,6 +1141,30 @@
           throw new Error(payload.error || payload.message || `HTTP ${response.status}`);
         }
         return payload;
+      }
+
+      async function uploadAdminFile(pathname, file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await fetch(withGroup(pathname), {
+          method: 'POST',
+          headers: {
+            'x-admin-code': state.code,
+          },
+          body: formData,
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.error || payload.message || `HTTP ${response.status}`);
+        return payload;
+      }
+
+      async function loadSeniorsRoster() {
+        if (groupSlug !== 'seniors') return;
+        setSeniorsRosterStatus('Loading Seniors roster...', 'warn');
+        const payload = await api('/api/admin/seniors-roster');
+        state.seniorsRoster = Array.isArray(payload) ? payload : [];
+        renderSeniorsRoster();
+        setSeniorsRosterStatus(`Loaded ${state.seniorsRoster.length} golfer${state.seniorsRoster.length === 1 ? '' : 's'} on the Seniors roster.`, 'info');
       }
 
       async function loadSubscribers() {
@@ -1073,7 +1306,9 @@
         fillForm(state.profile || {});
         setLinks(state.links || {});
         form.hidden = false;
+        if (seniorsRosterSection) seniorsRosterSection.hidden = groupSlug !== 'seniors';
         setStatus('Group profile loaded.', 'info');
+        await loadSeniorsRoster();
         await loadSubscribers();
         await loadNotificationSettings();
         await loadSubscriberChangeNotificationSettings();
@@ -1174,6 +1409,128 @@
           }
         });
       });
+
+      if (seniorsRosterForm) {
+        seniorsRosterForm.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const payload = collectSeniorsRosterPayload();
+          if (!payload.name) return;
+          saveSeniorsGolferBtn.disabled = true;
+          const originalLabel = saveSeniorsGolferBtn.textContent;
+          let saved = false;
+          saveSeniorsGolferBtn.textContent = state.editingSeniorsGolferId ? 'Saving...' : 'Adding...';
+          try {
+            if (state.editingSeniorsGolferId) {
+              await api(`/api/admin/seniors-roster/${encodeURIComponent(state.editingSeniorsGolferId)}`, {
+                method: 'PUT',
+                body: JSON.stringify(payload),
+              });
+              setSeniorsRosterStatus('Golfer updated on the Seniors roster.', 'info');
+            } else {
+              await api('/api/admin/seniors-roster', {
+                method: 'POST',
+                body: JSON.stringify(payload),
+              });
+              setSeniorsRosterStatus('Golfer added to the Seniors roster.', 'info');
+            }
+            saved = true;
+            resetSeniorsRosterForm();
+            await loadSeniorsRoster();
+          } catch (error) {
+            setSeniorsRosterStatus(error.message || 'Failed to save golfer.', 'error');
+          } finally {
+            saveSeniorsGolferBtn.disabled = false;
+            if (!saved) saveSeniorsGolferBtn.textContent = originalLabel;
+          }
+        });
+      }
+
+      if (resetSeniorsGolferBtn) {
+        resetSeniorsGolferBtn.addEventListener('click', () => {
+          resetSeniorsRosterForm();
+          setSeniorsRosterStatus('Roster form cleared.', 'info');
+        });
+      }
+
+      if (seniorsRosterImportForm) {
+        seniorsRosterImportForm.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const file = seniorsRosterImportFile && seniorsRosterImportFile.files && seniorsRosterImportFile.files[0];
+          if (!file) {
+            setSeniorsRosterStatus('Choose a CSV file before importing.', 'error');
+            return;
+          }
+          importSeniorsRosterBtn.disabled = true;
+          const originalLabel = importSeniorsRosterBtn.textContent;
+          importSeniorsRosterBtn.textContent = 'Importing...';
+          try {
+            const result = await uploadAdminFile('/api/admin/seniors-roster/import', file);
+            seniorsRosterImportForm.reset();
+            await loadSeniorsRoster();
+            setSeniorsRosterStatus(`Import complete: ${result.created || 0} created, ${result.updated || 0} updated, ${result.errorCount || 0} errors.`, (result.errorCount || 0) ? 'warn' : 'info');
+          } catch (error) {
+            setSeniorsRosterStatus(error.message || 'Failed to import roster CSV.', 'error');
+          } finally {
+            importSeniorsRosterBtn.disabled = false;
+            importSeniorsRosterBtn.textContent = originalLabel;
+          }
+        });
+      }
+
+      if (exportSeniorsRosterBtn) {
+        exportSeniorsRosterBtn.addEventListener('click', () => {
+          window.open(withGroup(`/api/admin/seniors-roster/export.csv?code=${encodeURIComponent(state.code)}`), '_blank');
+        });
+      }
+
+      if (extractSeniorsRosterBtn) {
+        extractSeniorsRosterBtn.addEventListener('click', () => {
+          window.open(withGroup(`/api/admin/seniors-roster/extract.txt?format=name-email&code=${encodeURIComponent(state.code)}`), '_blank');
+        });
+      }
+
+      if (seniorsRosterList) {
+        seniorsRosterList.addEventListener('click', async (event) => {
+          const editButton = event.target.closest('[data-edit-seniors-golfer]');
+          if (editButton) {
+            const golferId = String(editButton.getAttribute('data-edit-seniors-golfer') || '').trim();
+            const golfer = (state.seniorsRoster || []).find((entry) => String(entry._id) === golferId);
+            if (!golfer) return;
+            state.editingSeniorsGolferId = golferId;
+            seniorsRosterNameInput.value = golfer.name || '';
+            seniorsRosterEmailInput.value = golfer.email || '';
+            seniorsRosterPhoneInput.value = golfer.phone || '';
+            seniorsRosterGhinInput.value = golfer.ghinNumber || '';
+            seniorsRosterHandicapInput.value = Number.isFinite(golfer.handicapIndex) ? String(golfer.handicapIndex) : '';
+            seniorsRosterActiveInput.value = golfer.active === false ? 'false' : 'true';
+            seniorsRosterNotesInput.value = golfer.notes || '';
+            saveSeniorsGolferBtn.textContent = 'Save Golfer';
+            setSeniorsRosterStatus(`Editing ${golfer.name}.`, 'info');
+            seniorsRosterNameInput.focus();
+            return;
+          }
+
+          const deleteButton = event.target.closest('[data-delete-seniors-golfer]');
+          if (!deleteButton) return;
+          const golferId = String(deleteButton.getAttribute('data-delete-seniors-golfer') || '').trim();
+          const golfer = (state.seniorsRoster || []).find((entry) => String(entry._id) === golferId);
+          if (!golfer) return;
+          if (!confirm(`Remove ${golfer.name} from the Seniors roster?`)) return;
+          deleteButton.disabled = true;
+          const originalLabel = deleteButton.textContent;
+          deleteButton.textContent = 'Removing...';
+          try {
+            await api(`/api/admin/seniors-roster/${encodeURIComponent(golferId)}`, { method: 'DELETE' });
+            if (state.editingSeniorsGolferId === golferId) resetSeniorsRosterForm();
+            await loadSeniorsRoster();
+            setSeniorsRosterStatus(`${golfer.name} removed from the Seniors roster.`, 'info');
+          } catch (error) {
+            deleteButton.disabled = false;
+            deleteButton.textContent = originalLabel;
+            setSeniorsRosterStatus(error.message || 'Failed to remove golfer.', 'error');
+          }
+        });
+      }
 
       subscriberForm.addEventListener('submit', async (event) => {
         event.preventDefault();

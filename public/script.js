@@ -137,6 +137,7 @@ if ('serviceWorker' in navigator) {
   const requestClubRequesterNameInput = $('#requestClubRequesterName');
   const requestClubNameOptions = $('#requestClubNameOptions');
   const subscribeScopeNote = $('#subscribeScopeNote');
+  const seniorsWithdrawalNote = $('#seniorsWithdrawalNote');
   const STARTER_EVENT_PREFS_KEY = 'teeTimeStarterEventViews';
 
   // State
@@ -365,6 +366,7 @@ if ('serviceWorker' in navigator) {
     if (subscribeScopeNote) {
       subscribeScopeNote.textContent = `This subscribes you to ${subscriptionGroupLabel()} email updates only. You can subscribe to other golf groups separately.`;
     }
+    if (seniorsWithdrawalNote) seniorsWithdrawalNote.hidden = currentGroupSlug !== 'seniors';
 
     const themeMeta = document.querySelector('meta[name="theme-color"]');
     if (themeMeta) themeMeta.setAttribute('content', currentSiteProfile.themeColor);
