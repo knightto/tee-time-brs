@@ -253,7 +253,12 @@ if ('serviceWorker' in navigator) {
   }
 
   function clubContactLabel() {
+    if (currentGroupSlug === 'seniors') return 'Brian Jones';
     return String(currentSiteProfile.clubName || 'the club').trim() || 'the club';
+  }
+
+  function isBlueRidgeShadowsCourse(courseName = '') {
+    return String(courseName || '').trim().toLowerCase().includes('blue ridge shadows');
   }
 
   function subscriptionGroupLabel() {
@@ -2836,17 +2841,20 @@ if ('serviceWorker' in navigator) {
         const [eventId, teeId] = t.dataset.delTee.split(':');
         const ev = await getEventForAction(eventId);
         const isTeamEvent = !!(ev && ev.isTeamEvent);
+        const canNotifyClub = !isTeamEvent && isBlueRidgeShadowsCourse(ev && ev.course);
         const teeDetails = findTeeTimeDetails(ev, teeId);
         const slotLabel = teeDetails.label || (isTeamEvent ? 'this team' : 'this tee time');
         const deleteValues = await openActionDialog({
           title: isTeamEvent ? 'Remove Team' : 'Remove Tee Time',
           message: isTeamEvent
             ? `Remove ${slotLabel}? This cannot be undone.`
-            : `Remove ${slotLabel}? Choose whether to only remove it here or also notify ${clubContactLabel()}.`,
+            : canNotifyClub
+              ? `Remove ${slotLabel}? Choose whether to only remove it here or also notify ${clubContactLabel()}.`
+              : `Remove ${slotLabel}? This cannot be undone.`,
           confirmLabel: isTeamEvent ? 'Remove Team' : 'Remove Tee Time',
           confirmClass: 'dialog-danger',
           fields: [
-            !isTeamEvent ? {
+            canNotifyClub ? {
               name: 'notifyClub',
               label: 'Club notification',
               type: 'select',
@@ -2859,7 +2867,7 @@ if ('serviceWorker' in navigator) {
           ]
         });
         if (deleteValues === null) return;
-        const notifyClub = !isTeamEvent && String(deleteValues.notifyClub || 'no') === 'yes';
+        const notifyClub = canNotifyClub && String(deleteValues.notifyClub || 'no') === 'yes';
         t.disabled = true;
         t.textContent = notifyClub ? 'Sending...' : 'Removing...';
         try {

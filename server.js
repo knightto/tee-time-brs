@@ -105,6 +105,12 @@ const GROUP_PROFILE_ISOLATION_OVERRIDES = Object.freeze({
 const GROUP_SITE_ADMIN_CODE_OVERRIDES = Object.freeze({
   seniors: '000',
 });
+const GROUP_CONTACT_TARGET_OVERRIDES = Object.freeze({
+  seniors: Object.freeze({
+    clubEmail: 'brian.jones@blueridgeshadows.com',
+    clubLabel: 'Brian Jones',
+  }),
+});
 const CALENDAR_EVENT_DURATION_MINUTES = Math.max(30, Number(process.env.CALENDAR_EVENT_DURATION_MINUTES || 270) || 270);
 const BACKUP_ROOT = path.join(__dirname, 'backups');
 const SITE_BACKUP_TARGETS = [
@@ -2113,6 +2119,12 @@ function titleFromGroupSlug(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
     .join(' ') || 'Tee Times';
 }
 
+function isBlueRidgeShadowsCourseName(value = '') {
+  const normalized = String(value || '').trim().toLowerCase();
+  if (!normalized) return false;
+  return normalized.includes('blue ridge shadows');
+}
+
 function resolveGroupReference(groupSlug = DEFAULT_SITE_GROUP_SLUG, profile = {}) {
   const normalizedGroupSlug = normalizeGroupSlug(groupSlug || profile.groupSlug || DEFAULT_SITE_GROUP_SLUG);
   const explicit = String(profile.groupReference || '').trim();
@@ -2394,6 +2406,8 @@ async function saveSiteProfile(groupSlug = DEFAULT_SITE_GROUP_SLUG, input = {}) 
 
 async function getGroupContactTargets(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   const profile = await getSiteProfile(groupSlug);
+  const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
+  const override = GROUP_CONTACT_TARGET_OVERRIDES[normalizedGroupSlug] || {};
   const adminEmails = uniqueEmailList([
     profile.primaryContactEmail,
     profile.secondaryContactEmail,
@@ -2407,7 +2421,8 @@ async function getGroupContactTargets(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   return {
     profile,
     groupLabel: String(profile.groupName || profile.siteTitle || 'Tee Times').trim() || 'Tee Times',
-    clubEmail: String(profile.clubRequestEmail || CLUB_EMAIL).trim() || CLUB_EMAIL,
+    clubLabel: String(override.clubLabel || profile.clubName || 'the club').trim() || 'the club',
+    clubEmail: String(override.clubEmail || profile.clubRequestEmail || CLUB_EMAIL).trim() || CLUB_EMAIL,
     adminEmails,
     clubCcEmails,
   };
@@ -4316,6 +4331,9 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
 
     let mailMethod = null;
     let mailError = null;
+    if (notifyClub && !isBlueRidgeShadowsCourseName(ev.course)) {
+      return res.status(400).json({ error: 'Club notification is only available for Blue Ridge Shadows tee times.' });
+    }
     if (notifyClub) {
       const { clubEmail, clubCcEmails, groupLabel } = await getGroupContactTargets(ev.groupSlug);
       const subj = `Cancel tee time: ${ev.course || 'Course'} ${fmt.dateISO(ev.date)} ${teeLabel} - ${groupLabel}`;
