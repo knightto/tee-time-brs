@@ -3266,7 +3266,11 @@ if ('serviceWorker' in navigator) {
         return;
       }
       if(t.dataset.del){
-        const code = await requestDeleteCode('deleting this event'); if(!code) return;
+        const isSeniorsDelete = currentGroupSlug === 'seniors';
+        const code = isSeniorsDelete
+          ? await requestSeniorsAdminCode('deleting this Seniors event')
+          : await requestDeleteCode('deleting this event');
+        if(!code) return;
         t.disabled = true;
         t.textContent = 'Deleting...';
         t.style.background = '#dc2626';
@@ -3274,7 +3278,9 @@ if ('serviceWorker' in navigator) {
         try {
           await api(`/api/events/${t.dataset.del}`,{
             method:'DELETE',
-            headers: { 'x-admin-delete-code': code }
+            headers: isSeniorsDelete
+              ? { 'x-admin-code': code, 'x-admin-delete-code': code }
+              : { 'x-admin-delete-code': code }
           });
           await updateEventCard(t.dataset.del);
         } catch(err) {
