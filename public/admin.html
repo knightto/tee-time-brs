@@ -2979,9 +2979,13 @@
         const subscriberRows = subscribers.map((s) => {
           const email = String(s.email || s.emailAddress || '').trim();
           const displayEmail = email || '(no email)';
+          const ghinNumber = String(s.ghinNumber || '').trim() || '—';
+          const handicapIndex = Number.isFinite(s.handicapIndex) ? String(s.handicapIndex) : '—';
           return `
             <tr>
               <td data-label="Email">${escapeHtml(displayEmail)}</td>
+              <td data-label="GHIN">${escapeHtml(ghinNumber)}</td>
+              <td data-label="Handicap">${escapeHtml(handicapIndex)}</td>
               <td data-label="Subscribed">${s.createdAt ? new Date(s.createdAt).toLocaleDateString() : 'Unknown'}</td>
               <td data-label="Actions">
                 <button class="btn-delete" onclick="deleteSubscriber('${s._id}', '${escapeHtml(email)}')">Delete</button>
@@ -2995,6 +2999,8 @@
             <thead>
               <tr>
                 <th>Email</th>
+                <th>GHIN</th>
+                <th>Handicap</th>
                 <th>Subscribed</th>
                 <th>Actions</th>
               </tr>

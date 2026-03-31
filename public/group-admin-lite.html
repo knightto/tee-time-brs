@@ -263,7 +263,7 @@
 
     .subscriber-toolbar form {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) auto;
+      grid-template-columns: minmax(0, 1.4fr) minmax(120px, .7fr) minmax(120px, .7fr) auto;
       gap: 10px;
       align-items: end;
     }
@@ -499,6 +499,14 @@
               <span>Email Address</span>
               <input id="subscriberEmailInput" type="email" name="email" placeholder="golfer@example.com" required autocomplete="email">
             </label>
+            <label>
+              <span>GHIN <em style="font-style:normal;font-weight:600;color:var(--muted)">(optional)</em></span>
+              <input id="subscriberGhinInput" type="text" name="ghinNumber" placeholder="1234567" inputmode="numeric" autocomplete="off">
+            </label>
+            <label>
+              <span>Handicap <em style="font-style:normal;font-weight:600;color:var(--muted)">(optional)</em></span>
+              <input id="subscriberHandicapInput" type="number" name="handicapIndex" placeholder="12.4" step="0.1" min="-10" max="60" inputmode="decimal">
+            </label>
             <button type="submit" id="addSubscriberBtn">Add Subscriber</button>
           </form>
           <div class="summary-item">
@@ -684,6 +692,8 @@
       const openSiteInlineLink = document.getElementById('openSiteInlineLink');
       const subscriberForm = document.getElementById('subscriberForm');
       const subscriberEmailInput = document.getElementById('subscriberEmailInput');
+      const subscriberGhinInput = document.getElementById('subscriberGhinInput');
+      const subscriberHandicapInput = document.getElementById('subscriberHandicapInput');
       const addSubscriberBtn = document.getElementById('addSubscriberBtn');
       const subscriberNote = document.getElementById('subscriberNote');
       const subscriberCount = document.getElementById('subscriberCount');
@@ -892,6 +902,7 @@
             <div class="subscriber-copy">
               <strong>${escapeHtml(String(subscriber.email || ''))}</strong>
               <span>Added ${escapeHtml(formatDate(subscriber.createdAt))}</span>
+              <span>GHIN: ${escapeHtml(String(subscriber.ghinNumber || 'Not set'))} • Handicap: ${escapeHtml(Number.isFinite(subscriber.handicapIndex) ? String(subscriber.handicapIndex) : 'Not set')}</span>
             </div>
             <button type="button" class="danger" data-delete-subscriber="${escapeHtml(String(subscriber._id || ''))}">Remove</button>
           </article>
@@ -1167,6 +1178,8 @@
       subscriberForm.addEventListener('submit', async (event) => {
         event.preventDefault();
         const email = String(subscriberEmailInput.value || '').trim().toLowerCase();
+        const ghinNumber = String(subscriberGhinInput.value || '').trim();
+        const handicapIndex = String(subscriberHandicapInput.value || '').trim();
         if (!email) return;
         addSubscriberBtn.disabled = true;
         const originalLabel = addSubscriberBtn.textContent;
@@ -1174,9 +1187,15 @@
         try {
           const payload = await api('/api/admin/subscribers', {
             method: 'POST',
-            body: JSON.stringify({ email }),
+            body: JSON.stringify({
+              email,
+              ...(ghinNumber ? { ghinNumber } : {}),
+              ...(handicapIndex ? { handicapIndex } : {}),
+            }),
           });
           subscriberEmailInput.value = '';
+          subscriberGhinInput.value = '';
+          subscriberHandicapInput.value = '';
           await loadSubscribers();
           setSubscriberStatus(payload && payload.isNew ? 'Subscriber added.' : 'Subscriber already existed for this group.', 'info');
         } catch (error) {

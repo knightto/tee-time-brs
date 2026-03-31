@@ -2619,6 +2619,14 @@ function hasDestructiveConfirmForGroup(req, groupSlug = DEFAULT_SITE_GROUP_SLUG)
   return getDestructiveConfirmCode(req) === requiredCode;
 }
 
+function requireSeniorsSiteAdminForWrite(req, res) {
+  const groupSlug = getGroupSlug(req);
+  if (normalizeGroupSlug(groupSlug) !== 'seniors') return false;
+  if (isSiteAdmin(req)) return false;
+  res.status(403).json({ error: 'Admin code 000 required for Seniors changes' });
+  return true;
+}
+
 app.post('/api/admin/templates/tee-times-site-package', async (req, res) => {
   try {
     const guideOnly = String(req.query.guideOnly || req.body?.guideOnly || '').trim().toLowerCase();
@@ -3807,6 +3815,7 @@ app.get('/api/events/:id/calendar.ics', async (req, res) => {
 });
 
 app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const { course, courseInfo, date, teeTime, teeTimes, notes, isTeamEvent, teamSizeMax, teamStartType, teamStartTime } = req.body || {};
     let tt;
@@ -3899,6 +3908,7 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
 });
 
 app.put('/api/events/:id', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
@@ -3943,6 +3953,7 @@ app.put('/api/events/:id', async (req, res) => {
 });
 
 app.delete('/api/events/:id', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   if (!isAdminDelete(req)) return res.status(403).json({ error: 'Delete code required' });
   const del = await Event.findOneAndDelete(scopeQuery(req, { _id: req.params.id }));
   if (!del) return res.status(404).json({ error: 'Not found' });
@@ -3965,6 +3976,7 @@ app.delete('/api/events/:id', async (req, res) => {
 });
 
 app.post('/api/events/:id/request-extra-tee-time', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
@@ -4017,6 +4029,7 @@ app.post('/api/events/:id/request-extra-tee-time', async (req, res) => {
 });
 
 app.post('/api/request-club-time', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const requestDateRaw = String(req.body?.date || '').trim();
     const preferredTimeRaw = String(req.body?.preferredTime || '').trim();
@@ -4073,6 +4086,7 @@ app.post('/api/request-club-time', async (req, res) => {
 
 // Remove duplicate tee-time events for the same date/time/tee-count, keeping the requested event
 app.post('/api/events/:id/dedupe', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
@@ -4125,6 +4139,7 @@ app.post('/api/events/:id/dedupe', async (req, res) => {
 
 /* tee/team, players, move endpoints remain as in your current server.js */
 app.post('/api/events/:id/tee-times', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   // Clean logging: only log errors or important info
   const ev = await findScopedEventById(req, req.params.id);
   if (!ev) {
@@ -4245,6 +4260,7 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
 
 // Edit tee time or team name
 app.put('/api/events/:id/tee-times/:teeId', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
@@ -4287,6 +4303,7 @@ app.put('/api/events/:id/tee-times/:teeId', async (req, res) => {
 
 
 app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const confirmedDelete = hasDeleteActionConfirmed(req);
     const hasDeleteCode = isAdminDelete(req);
@@ -4391,6 +4408,7 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
 });
 
 app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPlayer), async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   const { name, asFifth } = req.body || {};
   if (!name) return res.status(400).json({ error: 'name required' });
   const trimmedName = String(name).trim();
@@ -4470,6 +4488,7 @@ app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPla
   res.json(ev);
 });
 app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const confirmedDelete = hasDeleteActionConfirmed(req);
     if (!isAdminDelete(req) && !confirmedDelete) return res.status(403).json({ error: 'Removal confirmation required' });
@@ -4528,6 +4547,7 @@ app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res
   }
 });
 app.post('/api/events/:id/move-player', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   const { fromTeeId, toTeeId, playerId, asFifth } = req.body || {};
   if (!fromTeeId || !toTeeId || !playerId) return res.status(400).json({ error: 'fromTeeId, toTeeId, playerId required' });
   const ev = await findScopedEventById(req, req.params.id);
@@ -4576,6 +4596,7 @@ app.post('/api/events/:id/move-player', async (req, res) => {
 });
 
 app.post('/api/events/:id/tee-times/:teeId/players/:playerId/check-in', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const checkedIn = req.body && req.body.checkedIn;
     if (typeof checkedIn !== 'boolean') return res.status(400).json({ error: 'checkedIn boolean required' });
@@ -4603,6 +4624,7 @@ app.post('/api/events/:id/tee-times/:teeId/players/:playerId/check-in', async (r
 });
 
 app.post('/api/events/:id/tee-times/:teeId/check-in-all', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const checkedIn = req.body && req.body.checkedIn;
     if (typeof checkedIn !== 'boolean') return res.status(400).json({ error: 'checkedIn boolean required' });
@@ -4628,6 +4650,7 @@ app.post('/api/events/:id/tee-times/:teeId/check-in-all', async (req, res) => {
 });
 
 app.post('/api/events/:id/pairings/suggest', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const ev = await findScopedEventById(req, req.params.id, { lean: true });
     if (!ev) return res.status(404).json({ error: 'Not found' });
@@ -4647,6 +4670,7 @@ app.post('/api/events/:id/pairings/suggest', async (req, res) => {
 });
 
 app.post('/api/events/:id/pairings/apply', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
@@ -5073,6 +5097,7 @@ app.get('/api/golf-courses/search', async (req, res) => {
 /* ---------------- Weather ---------------- */
 // Refresh weather for an event
 app.post('/api/events/:id/weather', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
@@ -5089,6 +5114,7 @@ app.post('/api/events/:id/weather', async (req, res) => {
 
 // Refresh weather for all events
 app.post('/api/events/weather/refresh-all', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const events = await Event.find(scopeQuery(req));
     let updated = 0;
@@ -5132,6 +5158,7 @@ process.on('uncaughtException', (err) => {
 /* ---------------- Maybe List ---------------- */
 // Add player to maybe list
 app.post('/api/events/:id/maybe', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const { name } = req.body || {};
     if (!name) return res.status(400).json({ error: 'name required' });
@@ -5156,6 +5183,7 @@ app.post('/api/events/:id/maybe', async (req, res) => {
 
 // Promote a maybe-list player into an open tee/team slot
 app.post('/api/events/:id/maybe/fill', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const { name, teeId, asFifth } = req.body || {};
     const ev = await findScopedEventById(req, req.params.id);
@@ -5230,6 +5258,7 @@ app.post('/api/events/:id/maybe/fill', async (req, res) => {
 
 // Remove player from maybe list
 app.delete('/api/events/:id/maybe/:index', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
@@ -5264,28 +5293,53 @@ app.get('/api/events/:id/audit-log', async (req, res) => {
 });
 
 /* ---------------- Subscribers ---------------- */
-async function ensureSubscriberRecord(groupSlug = DEFAULT_SITE_GROUP_SLUG, email = '') {
+async function ensureSubscriberRecord(groupSlug = DEFAULT_SITE_GROUP_SLUG, email = '', details = {}) {
   if (!Subscriber) throw new Error('subscriber model missing');
   const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
   const normalizedEmail = String(email || '').trim().toLowerCase();
   if (!normalizedEmail) throw new Error('email required');
+  const subscriberFields = {};
+  if (Object.prototype.hasOwnProperty.call(details, 'ghinNumber')) {
+    const normalizedGhin = String(details.ghinNumber || '').trim();
+    if (normalizedGhin) subscriberFields.ghinNumber = normalizedGhin;
+  }
+  if (Object.prototype.hasOwnProperty.call(details, 'handicapIndex')) {
+    const rawHandicap = details.handicapIndex;
+    if (rawHandicap !== '' && rawHandicap !== null && rawHandicap !== undefined) {
+      const handicapIndex = Number(rawHandicap);
+      if (!Number.isFinite(handicapIndex)) throw new Error('handicapIndex must be a number');
+      subscriberFields.handicapIndex = handicapIndex;
+    }
+  }
 
   let existing = await Subscriber.findOne({ ...groupScopeFilter(normalizedGroupSlug), email: normalizedEmail });
   if (existing) {
+    let changed = false;
+    if (Object.prototype.hasOwnProperty.call(subscriberFields, 'ghinNumber') && subscriberFields.ghinNumber !== String(existing.ghinNumber || '')) {
+      existing.ghinNumber = subscriberFields.ghinNumber;
+      changed = true;
+    }
+    if (Object.prototype.hasOwnProperty.call(subscriberFields, 'handicapIndex') && subscriberFields.handicapIndex !== existing.handicapIndex) {
+      existing.handicapIndex = subscriberFields.handicapIndex;
+      changed = true;
+    }
     if (!existing.unsubscribeToken) {
       existing.unsubscribeToken = require('crypto').randomBytes(32).toString('hex');
+      changed = true;
+    }
+    if (changed) {
       await existing.save();
     }
     return { subscriber: existing, isNew: false };
   }
 
-  const created = new Subscriber({ groupSlug: normalizedGroupSlug, email: normalizedEmail });
+  const created = new Subscriber({ groupSlug: normalizedGroupSlug, email: normalizedEmail, ...subscriberFields });
   await created.save();
   return { subscriber: created, isNew: true };
 }
 
 app.post('/api/subscribe', async (req, res) => {
-  const { email } = req.body || {};
+  const { email, ghinNumber, handicapIndex } = req.body || {};
   const groupSlug = getGroupSlug(req);
   
   console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'subscribe request received', email: email ? '***' : null }));
@@ -5293,7 +5347,10 @@ app.post('/api/subscribe', async (req, res) => {
   if (!email) return res.status(400).json({ error: 'email required' });
   
   try {
-    const { subscriber: s, isNew } = await ensureSubscriberRecord(groupSlug, email);
+    const subscriberDetails = {};
+    if (ghinNumber !== undefined) subscriberDetails.ghinNumber = ghinNumber;
+    if (handicapIndex !== undefined) subscriberDetails.handicapIndex = handicapIndex;
+    const { subscriber: s, isNew } = await ensureSubscriberRecord(groupSlug, email, subscriberDetails);
     const subscriberEmail = String(s.email || '').trim().toLowerCase();
     const groupContext = await getSubscriptionGroupContext(groupSlug);
     console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'subscriber added', email: subscriberEmail, isNew }));
@@ -5305,6 +5362,12 @@ app.post('/api/subscribe', async (req, res) => {
       isNew,
       groupSlug: groupContext.groupSlug,
       groupReference: groupContext.groupReference,
+      subscriber: {
+        _id: s._id.toString(),
+        email: s.email,
+        ghinNumber: s.ghinNumber || '',
+        handicapIndex: Number.isFinite(s.handicapIndex) ? s.handicapIndex : null,
+      },
     });
     
     // Send confirmation email asynchronously (don't block the response)
@@ -5335,12 +5398,15 @@ app.post('/api/admin/subscribers', async (req, res) => {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  const { email } = req.body || {};
+  const { email, ghinNumber, handicapIndex } = req.body || {};
   if (!email) return res.status(400).json({ error: 'email required' });
 
   try {
     const groupSlug = getGroupSlug(req);
-    const { subscriber, isNew } = await ensureSubscriberRecord(groupSlug, email);
+    const subscriberDetails = {};
+    if (ghinNumber !== undefined) subscriberDetails.ghinNumber = ghinNumber;
+    if (handicapIndex !== undefined) subscriberDetails.handicapIndex = handicapIndex;
+    const { subscriber, isNew } = await ensureSubscriberRecord(groupSlug, email, subscriberDetails);
     const groupContext = await getSubscriptionGroupContext(groupSlug);
     return res.status(isNew ? 201 : 200).json({
       ok: true,
@@ -5350,6 +5416,8 @@ app.post('/api/admin/subscribers', async (req, res) => {
       subscriber: {
         _id: subscriber._id,
         email: subscriber.email,
+        ghinNumber: subscriber.ghinNumber || '',
+        handicapIndex: Number.isFinite(subscriber.handicapIndex) ? subscriber.handicapIndex : null,
         unsubscribeToken: subscriber.unsubscribeToken,
         createdAt: subscriber.createdAt,
         updatedAt: subscriber.updatedAt,

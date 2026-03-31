@@ -757,6 +757,7 @@ if ('serviceWorker' in navigator) {
   }
 
   const DELETE_CODE_STORAGE_KEY = 'teeTimeDeleteCode';
+  const SENIORS_ADMIN_CODE_STORAGE_KEY = 'teeTimeSeniorsAdminCode';
 
   function getStoredDeleteCode() {
     try {
@@ -770,6 +771,40 @@ if ('serviceWorker' in navigator) {
     try {
       if (code) sessionStorage.setItem(DELETE_CODE_STORAGE_KEY, code);
     } catch (_) {}
+  }
+
+  function getStoredSeniorsAdminCode() {
+    try {
+      return String(sessionStorage.getItem(SENIORS_ADMIN_CODE_STORAGE_KEY) || '').trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function rememberSeniorsAdminCode(code) {
+    try {
+      if (code) sessionStorage.setItem(SENIORS_ADMIN_CODE_STORAGE_KEY, code);
+    } catch (_) {}
+  }
+
+  async function requestSeniorsAdminCode(label = 'this change') {
+    const values = await openActionDialog({
+      title: 'Seniors Admin Code',
+      message: `Enter admin code 000 for ${label}.`,
+      confirmLabel: 'Continue',
+      fields: [{
+        name: 'adminCode',
+        label: 'Admin code',
+        type: 'password',
+        value: getStoredSeniorsAdminCode(),
+        placeholder: 'Seniors admin code',
+        required: true,
+        autocomplete: 'current-password'
+      }]
+    });
+    const code = String(values && values.adminCode || '').trim();
+    if (code) rememberSeniorsAdminCode(code);
+    return code;
   }
 
   async function requestDeleteCode(label = 'this action') {
@@ -1575,7 +1610,12 @@ if ('serviceWorker' in navigator) {
         requestPath = u.origin === window.location.origin
           ? `${u.pathname}${u.search}${u.hash}`
           : u.toString();
-      } catch (_) {}
+        } catch (_) {}
+    }
+    if (currentGroupSlug === 'seniors' && method !== 'GET' && !String(mergedHeaders['x-admin-code'] || '').trim()) {
+      const code = await requestSeniorsAdminCode('this Seniors update');
+      if (!code) throw new Error('Admin code 000 required for Seniors changes');
+      mergedHeaders['x-admin-code'] = code;
     }
     debugLog('info', `API Request: ${method} ${requestPath}`, opts?.body ? JSON.parse(opts.body) : null);
     
@@ -1782,7 +1822,13 @@ if ('serviceWorker' in navigator) {
     }
     try{
       const formData = new FormData(subForm);
-      const payload = { email: formData.get('email') };
+      const payload = {
+        email: formData.get('email'),
+      };
+      const ghinNumber = String(formData.get('ghinNumber') || '').trim();
+      const handicapIndex = String(formData.get('handicapIndex') || '').trim();
+      if (ghinNumber) payload.ghinNumber = ghinNumber;
+      if (handicapIndex) payload.handicapIndex = handicapIndex;
       
       const result = await api('/api/subscribe',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
       if(subMsg) {
