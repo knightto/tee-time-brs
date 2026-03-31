@@ -613,7 +613,7 @@
       <div class="content">
         <div class="section-head">
           <h2>Seniors Roster</h2>
-          <p class="section-meta">Admin-only golfer roster for Seniors events. Contact details stay admin-only and support CSV import plus Excel-friendly export.</p>
+          <p class="section-meta">Admin-only golfer roster for Seniors events. Contact details stay admin-only and support CSV or Excel import plus native Excel export.</p>
         </div>
         <div id="seniorsRosterNote" class="note">Loading Seniors roster...</div>
         <div class="roster-toolbar">
@@ -659,11 +659,11 @@
           <form id="seniorsRosterImportForm">
             <div class="roster-actions">
               <label style="min-width:260px;">
-                <span>Import CSV</span>
-                <input id="seniorsRosterImportFile" type="file" accept=".csv,text/csv" required>
+                <span>Import CSV or Excel</span>
+                <input id="seniorsRosterImportFile" type="file" accept=".csv,text/csv,.xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" required>
               </label>
-              <button type="submit" id="importSeniorsRosterBtn">Import Roster CSV</button>
-              <button type="button" class="secondary" id="exportSeniorsRosterBtn">Download CSV</button>
+              <button type="submit" id="importSeniorsRosterBtn">Import Roster File</button>
+              <button type="button" class="secondary" id="exportSeniorsRosterBtn">Download Excel</button>
               <button type="button" class="secondary" id="extractSeniorsRosterBtn">Extract Names + Emails</button>
             </div>
           </form>
@@ -1051,14 +1051,14 @@
         const panels = Array.from(document.querySelectorAll('.shell > .panel:not(.hero)'));
         panels.forEach((panel, index) => {
           if (panel.dataset.collapsible === 'true') return;
-          const content = panel.querySelector(':scope > .content');
+          const content = Array.from(panel.children).find((child) => child.classList && child.classList.contains('content'));
           if (!content) return;
           const children = Array.from(content.children);
           if (!children.length) return;
-          const sectionHead = content.querySelector(':scope > .section-head');
+          const sectionHead = children.find((child) => child.classList && child.classList.contains('section-head')) || null;
           const heading = sectionHead ? sectionHead.querySelector('h2') : null;
           const meta = sectionHead ? sectionHead.querySelector('.section-meta') : null;
-          const summaryList = content.querySelector(':scope > .summary-list');
+          const summaryList = children.find((child) => child.classList && child.classList.contains('summary-list')) || null;
           const title = heading
             ? heading.textContent.trim()
             : (summaryList && summaryList.id === 'deploymentSummary' ? 'Deployment Summary' : `Section ${index + 1}`);
@@ -1384,6 +1384,25 @@
         setScheduledRuleStatus('Scheduled email rules loaded.', 'info');
       }
 
+      async function loadAdminSections() {
+        const tasks = [
+          { name: 'Seniors roster', run: () => loadSeniorsRoster() },
+          { name: 'Subscribers', run: () => loadSubscribers() },
+          { name: 'Notifications', run: () => loadNotificationSettings() },
+          { name: 'Subscriber change emails', run: () => loadSubscriberChangeNotificationSettings() },
+          { name: 'Seniors tee-time lifecycle emails', run: () => loadTeeTimeEventLifecycleNotificationSettings() },
+          { name: 'Scheduler', run: () => loadSchedulerSettings() },
+          { name: 'Scheduled email rules', run: () => loadScheduledEmailRules() },
+        ];
+        const results = await Promise.allSettled(tasks.map((task) => task.run()));
+        const failures = results
+          .map((result, index) => ({ result, task: tasks[index] }))
+          .filter(({ result }) => result.status === 'rejected');
+        if (!failures.length) return;
+        const summary = failures.map(({ task, result }) => `${task.name}: ${result.reason && result.reason.message ? result.reason.message : 'Failed to load'}`).join(' | ');
+        setStatus(`Group profile loaded, but some admin sections failed: ${summary}`, 'warn');
+      }
+
       async function toggleScheduledEmailRule(ruleKey, enabled) {
         if (state.schedulerLockedByEnv || !state.schedulerEnabled) {
           setScheduledRuleStatus('Enable the scheduler before changing email rules.', 'error');
@@ -1424,13 +1443,7 @@
         form.hidden = false;
         if (seniorsRosterSection) seniorsRosterSection.hidden = groupSlug !== 'seniors';
         setStatus('Group profile loaded.', 'info');
-        await loadSeniorsRoster();
-        await loadSubscribers();
-        await loadNotificationSettings();
-        await loadSubscriberChangeNotificationSettings();
-        await loadTeeTimeEventLifecycleNotificationSettings();
-        await loadSchedulerSettings();
-        await loadScheduledEmailRules();
+        await loadAdminSections();
       }
 
       form.addEventListener('submit', async (event) => {
@@ -1573,7 +1586,7 @@
           event.preventDefault();
           const file = seniorsRosterImportFile && seniorsRosterImportFile.files && seniorsRosterImportFile.files[0];
           if (!file) {
-            setSeniorsRosterStatus('Choose a CSV file before importing.', 'error');
+            setSeniorsRosterStatus('Choose a CSV or Excel file before importing.', 'error');
             return;
           }
           importSeniorsRosterBtn.disabled = true;
@@ -1583,9 +1596,10 @@
             const result = await uploadAdminFile('/api/admin/seniors-roster/import', file);
             seniorsRosterImportForm.reset();
             await loadSeniorsRoster();
-            setSeniorsRosterStatus(`Import complete: ${result.created || 0} created, ${result.updated || 0} updated, ${result.errorCount || 0} errors.`, (result.errorCount || 0) ? 'warn' : 'info');
+            const sourceLabel = result && result.importedFileType === 'excel' ? 'Excel import' : 'Import';
+            setSeniorsRosterStatus(`${sourceLabel} complete: ${result.created || 0} created, ${result.updated || 0} updated, ${result.errorCount || 0} errors.`, (result.errorCount || 0) ? 'warn' : 'info');
           } catch (error) {
-            setSeniorsRosterStatus(error.message || 'Failed to import roster CSV.', 'error');
+            setSeniorsRosterStatus(error.message || 'Failed to import roster file.', 'error');
           } finally {
             importSeniorsRosterBtn.disabled = false;
             importSeniorsRosterBtn.textContent = originalLabel;
@@ -1595,7 +1609,7 @@
 
       if (exportSeniorsRosterBtn) {
         exportSeniorsRosterBtn.addEventListener('click', () => {
-          window.open(withGroup(`/api/admin/seniors-roster/export.csv?code=${encodeURIComponent(state.code)}`), '_blank');
+          window.open(withGroup(`/api/admin/seniors-roster/export.xlsx?code=${encodeURIComponent(state.code)}`), '_blank');
         });
       }
 

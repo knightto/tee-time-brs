@@ -48,6 +48,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const compression = require('compression');
 const { EJSON } = require('bson');
+const XLSX = require('xlsx');
 // Secondary connection for Myrtle Trip (kept in separate module to avoid circular requires)
 const { initSecondaryConn, getSecondaryConn } = require('./secondary-conn');
 initSecondaryConn();
@@ -2824,6 +2825,38 @@ function buildCsv(rows = []) {
   return rows.map((row) => row.map((value) => `"${csvCell(value).replace(/"/g, '""')}"`).join(',')).join('\n');
 }
 
+function buildWorkbookBuffer(sheetName = 'Sheet1', rows = []) {
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.aoa_to_sheet(
+    rows.map((row) => Array.isArray(row) ? row.map((value) => value === null || value === undefined ? '' : value) : [])
+  );
+  XLSX.utils.book_append_sheet(workbook, worksheet, String(sheetName || 'Sheet1').slice(0, 31) || 'Sheet1');
+  return XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' });
+}
+
+function parseSpreadsheetRows(file) {
+  if (!file || !file.buffer) return [];
+  const originalName = String(file.originalname || '').trim().toLowerCase();
+  const mimeType = String(file.mimetype || '').trim().toLowerCase();
+  const isExcelFile = /\.(xlsx|xls)$/i.test(originalName)
+    || mimeType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    || mimeType === 'application/vnd.ms-excel';
+  if (!isExcelFile) {
+    return parseCsv(file.buffer.toString('utf8') || '');
+  }
+  const workbook = XLSX.read(file.buffer, { type: 'buffer' });
+  const firstSheetName = Array.isArray(workbook.SheetNames) && workbook.SheetNames.length
+    ? workbook.SheetNames[0]
+    : '';
+  if (!firstSheetName || !workbook.Sheets[firstSheetName]) return [];
+  return XLSX.utils.sheet_to_json(workbook.Sheets[firstSheetName], {
+    header: 1,
+    raw: false,
+    defval: '',
+    blankrows: false,
+  });
+}
+
 app.post('/api/admin/templates/tee-times-site-package', async (req, res) => {
   try {
     const guideOnly = String(req.query.guideOnly || req.body?.guideOnly || '').trim().toLowerCase();
@@ -4074,7 +4107,36 @@ app.get('/api/admin/events/:id/seniors-registrations/export.csv', async (req, re
     const ev = await Event.findOne({ ...groupScopeFilter('seniors'), _id: req.params.id }).lean();
     if (!ev) return res.status(404).json({ error: 'Event not found' });
     const rows = await buildSeniorsParticipantRows(ev, { includeContact: true });
-    const csv = buildCsv([
+    const exportRows = [
+      ['Name', 'Email', 'Phone', 'GHIN', 'Handicap', 'Slot', 'Event Type', 'Date', 'Course'],
+      ...rows.map((row) => [
+        row.name,
+        row.email || '',
+        row.phone || '',
+        row.ghinNumber || '',
+        Number.isFinite(row.handicapIndex) ? row.handicapIndex : '',
+        row.slotLabel || '',
+        seniorsEventTypeLabel(ev.seniorsEventType || (isSeniorsEventOnlyEvent(ev) ? 'outing' : 'tee-times')),
+        fmt.dateISO(ev.date),
+        ev.course || '',
+      ]),
+    ];
+    const csv = buildCsv(exportRows);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="seniors-event-${req.params.id}-registrations.csv"`);
+    return res.send(`\ufeff${csv}`);
+  } catch (error) {
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to export event registrations' });
+  }
+});
+
+app.get('/api/admin/events/:id/seniors-registrations/export.xlsx', async (req, res) => {
+  if (requireSeniorsGroupAdmin(req, res)) return;
+  try {
+    const ev = await Event.findOne({ ...groupScopeFilter('seniors'), _id: req.params.id }).lean();
+    if (!ev) return res.status(404).json({ error: 'Event not found' });
+    const rows = await buildSeniorsParticipantRows(ev, { includeContact: true });
+    const workbook = buildWorkbookBuffer('Registrations', [
       ['Name', 'Email', 'Phone', 'GHIN', 'Handicap', 'Slot', 'Event Type', 'Date', 'Course'],
       ...rows.map((row) => [
         row.name,
@@ -4088,9 +4150,9 @@ app.get('/api/admin/events/:id/seniors-registrations/export.csv', async (req, re
         ev.course || '',
       ]),
     ]);
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="seniors-event-${req.params.id}-registrations.csv"`);
-    return res.send(`\ufeff${csv}`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="seniors-event-${req.params.id}-registrations.xlsx"`);
+    return res.send(workbook);
   } catch (error) {
     return res.status(500).json({ error: error && error.message ? error.message : 'Failed to export event registrations' });
   }
@@ -6158,7 +6220,34 @@ app.get('/api/admin/seniors-roster/export.csv', async (req, res) => {
   try {
     if (!SeniorsGolfer) return res.status(500).json({ error: 'Seniors golfer model not available' });
     const golfers = await SeniorsGolfer.find({ groupSlug: 'seniors' }).sort({ active: -1, nameKey: 1 }).lean();
-    const csv = buildCsv([
+    const exportRows = [
+      ['Name', 'Email', 'Phone', 'GHIN', 'Handicap', 'Active', 'Notes', 'Updated At'],
+      ...golfers.map((golfer) => [
+        golfer.name,
+        golfer.email || '',
+        golfer.phone || '',
+        golfer.ghinNumber || '',
+        Number.isFinite(golfer.handicapIndex) ? golfer.handicapIndex : '',
+        golfer.active ? 'Yes' : 'No',
+        golfer.notes || '',
+        golfer.updatedAt ? new Date(golfer.updatedAt).toISOString() : '',
+      ]),
+    ];
+    const csv = buildCsv(exportRows);
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="seniors-roster.csv"');
+    return res.send(`\ufeff${csv}`);
+  } catch (error) {
+    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to export Seniors roster' });
+  }
+});
+
+app.get('/api/admin/seniors-roster/export.xlsx', async (req, res) => {
+  if (requireSeniorsGroupAdmin(req, res)) return;
+  try {
+    if (!SeniorsGolfer) return res.status(500).json({ error: 'Seniors golfer model not available' });
+    const golfers = await SeniorsGolfer.find({ groupSlug: 'seniors' }).sort({ active: -1, nameKey: 1 }).lean();
+    const workbook = buildWorkbookBuffer('Seniors Roster', [
       ['Name', 'Email', 'Phone', 'GHIN', 'Handicap', 'Active', 'Notes', 'Updated At'],
       ...golfers.map((golfer) => [
         golfer.name,
@@ -6171,9 +6260,9 @@ app.get('/api/admin/seniors-roster/export.csv', async (req, res) => {
         golfer.updatedAt ? new Date(golfer.updatedAt).toISOString() : '',
       ]),
     ]);
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="seniors-roster.csv"');
-    return res.send(`\ufeff${csv}`);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="seniors-roster.xlsx"');
+    return res.send(workbook);
   } catch (error) {
     return res.status(500).json({ error: error && error.message ? error.message : 'Failed to export Seniors roster' });
   }
@@ -6204,7 +6293,7 @@ app.post('/api/admin/seniors-roster/import', upload.single('file'), async (req, 
     if (!SeniorsGolfer) return res.status(500).json({ error: 'Seniors golfer model not available' });
     if (!req.file) return res.status(400).json({ error: 'file required' });
 
-    const rows = parseCsv(req.file.buffer.toString('utf8') || '');
+    const rows = parseSpreadsheetRows(req.file);
     if (!rows.length) return res.status(400).json({ error: 'Empty file' });
 
     const headers = rows[0].map((value) => String(value || '').trim().toLowerCase());
@@ -6218,7 +6307,7 @@ app.post('/api/admin/seniors-roster/import', upload.single('file'), async (req, 
     };
 
     if (!headers.includes('name') && !headers.includes('full_name')) {
-      return res.status(400).json({ error: 'CSV must include a Name or full_name column' });
+      return res.status(400).json({ error: 'Spreadsheet must include a Name or full_name column' });
     }
 
     let processed = 0;
@@ -6261,7 +6350,15 @@ app.post('/api/admin/seniors-roster/import', upload.single('file'), async (req, 
       }
     }
 
-    return res.json({ ok: true, processed, created, updated, errorCount: errors.length, errors: errors.slice(0, 100) });
+    return res.json({
+      ok: true,
+      processed,
+      created,
+      updated,
+      errorCount: errors.length,
+      errors: errors.slice(0, 100),
+      importedFileType: /\.(xlsx|xls)$/i.test(String(req.file.originalname || '')) ? 'excel' : 'csv',
+    });
   } catch (error) {
     return res.status(500).json({ error: error && error.message ? error.message : 'Failed to import Seniors roster' });
   }

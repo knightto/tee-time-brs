@@ -2530,7 +2530,7 @@ if ('serviceWorker' in navigator) {
               <h4>Signups</h4>
               <div class="maybe-controls">
                 <button class="small maybe-btn" data-seniors-register="${ev._id}">Sign Up</button>
-                <button class="small maybe-btn" data-export-seniors-event="${ev._id}">Export CSV</button>
+                <button class="small maybe-btn" data-export-seniors-event="${ev._id}">Export Excel</button>
                 <button class="small maybe-btn" data-extract-seniors-event="${ev._id}">Extract List</button>
               </div>
             </div>
@@ -2599,7 +2599,7 @@ if ('serviceWorker' in navigator) {
                 <button class="small" data-toggle-starter-event="${ev._id}" title="Switch this event to the compact starter view">Starter View</button>
                 ${seniorsEventOnly ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<div class="time-action-pair"><button class="small" data-add-tee="${ev._id}">Add Existing Time</button><button class="small" data-request-extra-tee="${ev._id}" title="Email ${escapeHtml(clubContactLabel())} to request an additional tee time">Request Club Time</button></div>`)}
                 ${seniorsEventOnly || isTeams ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Pairings</button>`}
-                ${isSeniorsGroupSite() ? `<button class="small" data-export-seniors-event="${ev._id}" title="Export the registration list">Export</button><button class="small" data-extract-seniors-event="${ev._id}" title="Extract names and emails">Extract</button>` : ''}
+                ${isSeniorsGroupSite() && !seniorsEventOnly ? `<button class="small" data-export-seniors-event="${ev._id}" title="Export the registration list">Export</button><button class="small" data-extract-seniors-event="${ev._id}" title="Extract names and emails">Extract</button>` : ''}
                 <button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button>
               </div>
             </div>
@@ -2817,7 +2817,7 @@ if ('serviceWorker' in navigator) {
         const eventId = String(t.dataset.exportSeniorsEvent || '').trim();
         const code = await requestSeniorsAdminCode('exporting this Seniors registration list');
         if (!code) return;
-        window.open(`/api/admin/events/${encodeURIComponent(eventId)}/seniors-registrations/export.csv?group=${encodeURIComponent(currentGroupSlug)}&code=${encodeURIComponent(code)}`, '_blank');
+        window.open(`/api/admin/events/${encodeURIComponent(eventId)}/seniors-registrations/export.xlsx?group=${encodeURIComponent(currentGroupSlug)}&code=${encodeURIComponent(code)}`, '_blank');
         return;
       }
       if(t.dataset.extractSeniorsEvent){
