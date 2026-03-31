@@ -48,15 +48,40 @@ function parseGroupSlugFromSubject(subject = '') {
   return '';
 }
 
-function parseGroupSlugFromFirstBodyLine(bodyText = '') {
-  const lines = String(bodyText || '')
+function decodeHtmlText(value = '') {
+  return String(value || '')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/p>/gi, '\n')
+    .replace(/<\/div>/gi, '\n')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&#39;/gi, "'")
+    .replace(/&quot;/gi, '"');
+}
+
+function collectLeadBodyLines(input = {}) {
+  const combined = [
+    String(input.bodyText || ''),
+    decodeHtmlText(input.bodyHtml || ''),
+  ].filter(Boolean).join('\n');
+  return combined
     .replace(/\r\n?/g, '\n')
     .split('\n')
     .map((line) => String(line || '').trim())
-    .filter(Boolean);
-  const firstLine = lines[0] || '';
-  if (/\bseniors\b/i.test(firstLine)) return 'seniors';
-  return '';
+    .filter(Boolean)
+    .slice(0, 6);
+}
+
+function parseGroupSlugFromLeadBody(input = {}) {
+  const leadLines = collectLeadBodyLines(input);
+  const markerLine = leadLines.find((line) => /\bseniors\b/i.test(line));
+  if (markerLine) return { groupSlug: 'seniors', marker: markerLine };
+  return { groupSlug: '', marker: '' };
 }
 
 function collectRecipientAddresses(value) {
@@ -90,14 +115,9 @@ function inferInboundGroupRouting(input = {}) {
     return { groupSlug: subjectSlug, source: 'subject-tag', marker: String(input.subject || '').trim() };
   }
 
-  const bodySlug = parseGroupSlugFromFirstBodyLine(input.bodyText);
-  if (bodySlug) {
-    const firstLine = String(input.bodyText || '')
-      .replace(/\r\n?/g, '\n')
-      .split('\n')
-      .map((line) => String(line || '').trim())
-      .find(Boolean) || '';
-    return { groupSlug: bodySlug, source: 'body-first-line', marker: firstLine };
+  const bodyRouting = parseGroupSlugFromLeadBody(input);
+  if (bodyRouting.groupSlug) {
+    return { groupSlug: bodyRouting.groupSlug, source: 'body-lead-lines', marker: bodyRouting.marker };
   }
 
   return { groupSlug: '', source: 'default', marker: '' };
@@ -107,7 +127,7 @@ module.exports = {
   sanitizeGroupSlugToken,
   parseGroupSlugFromInboundAddress,
   parseGroupSlugFromSubject,
-  parseGroupSlugFromFirstBodyLine,
+  parseGroupSlugFromLeadBody,
   isAllowedInboundRecipient,
   inferInboundGroupRouting,
 };
