@@ -1,17 +1,24 @@
 function validateBody(validator) {
   return (req, res, next) => {
-    const err = validator(req.body || {});
+    const err = validator(req.body || {}, req);
     if (err) return res.status(400).json({ error: err });
     next();
   };
 }
 
-function validateCreateEvent(body) {
+function validateCreateEvent(body, req = null) {
   if (!body || typeof body !== 'object') return 'body required';
   if (!String(body.course || '').trim()) return 'course required';
   if (!body.date) return 'date required';
-  const isSeniorsEventOnly = String(body.groupSlug || '').trim().toLowerCase() === 'seniors'
-    && String(body.seniorsRegistrationMode || '').trim().toLowerCase() === 'event-only';
+  const requestGroupSlug = String(
+    body.groupSlug
+      || req?.query?.group
+      || req?.headers?.['x-group-slug']
+      || ''
+  ).trim().toLowerCase();
+  const seniorsRegistrationMode = String(body.seniorsRegistrationMode || '').trim().toLowerCase();
+  const isSeniorsEventOnly = seniorsRegistrationMode === 'event-only'
+    && (!requestGroupSlug || requestGroupSlug === 'seniors');
   if (body.isTeamEvent) {
     if (!String(body.teamStartTime || '').trim()) return 'teamStartTime required for team events';
   } else if (!isSeniorsEventOnly) {

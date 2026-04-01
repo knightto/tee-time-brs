@@ -102,31 +102,31 @@ body[data-site-group="seniors"]{
   --site-background-image:url('./assets/bandon1.jpg');
 }
 body[data-site-group="seniors"]{
-  --golf-green-dark:#0c4a6e;
-  --golf-green:#166534;
-  --golf-green-light:#22c55e;
-  --golf-green-fairway:#84cc16;
-  --golf-green-pale:#d9f99d;
-  --golf-accent:#2563eb;
-  --golf-flag:#f59e0b;
-  --golf-sand:#fde68a;
-  --golf-water:#38bdf8;
-  --green-700:#166534;
-  --green-600:#15803d;
-  --green-500:#65a30d;
-  --panel:rgba(255,255,255,.92);
-  --panel-ghost:rgba(240,253,250,.88);
-  --ink:#15324a;
-  --ink-2:#166534;
-  --line:rgba(8,84,132,.16);
+  --golf-green-dark:#2f4a2f;
+  --golf-green:#456b47;
+  --golf-green-light:#78a05b;
+  --golf-green-fairway:#d7b36a;
+  --golf-green-pale:#f3e6c2;
+  --golf-accent:#8f5a2a;
+  --golf-flag:#d97706;
+  --golf-sand:#f3d7a2;
+  --golf-water:#7da6b8;
+  --green-700:#456b47;
+  --green-600:#5d8650;
+  --green-500:#87a95d;
+  --panel:rgba(255,248,238,.92);
+  --panel-ghost:rgba(248,239,225,.88);
+  --ink:#3d3123;
+  --ink-2:#6f5a33;
+  --line:rgba(143,90,42,.16);
   --radius:22px;
-  --shadow:0 20px 40px rgba(10,82,122,.18);
-  --shadow-sm:0 10px 22px rgba(15,118,110,.12);
-  --shadow-green:0 18px 40px rgba(22,101,52,.18);
+  --shadow:0 20px 40px rgba(75,54,28,.18);
+  --shadow-sm:0 10px 22px rgba(111,90,51,.12);
+  --shadow-green:0 18px 40px rgba(95,134,80,.18);
   background:
-    radial-gradient(circle at 18% 18%, rgba(125,211,252,.36) 0%, transparent 24%),
-    radial-gradient(circle at 78% 14%, rgba(250,204,21,.26) 0%, transparent 16%),
-    linear-gradient(180deg, rgba(7,61,92,.18) 0%, rgba(22,101,52,.08) 32%, rgba(255,255,255,0) 58%),
+    radial-gradient(circle at 18% 18%, rgba(243,215,162,.34) 0%, transparent 24%),
+    radial-gradient(circle at 78% 14%, rgba(217,179,106,.26) 0%, transparent 16%),
+    linear-gradient(180deg, rgba(67,86,56,.18) 0%, rgba(143,90,42,.08) 32%, rgba(255,255,255,0) 58%),
     var(--site-background-image) center/cover fixed no-repeat;
   background-blend-mode:screen,screen,normal,normal;
   position:relative;
@@ -139,7 +139,7 @@ body[data-site-group="seniors"]::before{
   width:min(440px, 48vw);
   aspect-ratio:1;
   background:
-    radial-gradient(circle at 50% 50%, rgba(255,255,255,.7) 0%, rgba(125,211,252,.34) 34%, rgba(59,130,246,.08) 58%, transparent 72%),
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,.7) 0%, rgba(243,215,162,.32) 34%, rgba(143,90,42,.08) 58%, transparent 72%),
     url('./assets/seniors.png') center/contain no-repeat;
   opacity:.28;
   pointer-events:none;
@@ -152,7 +152,7 @@ body[data-site-group="seniors"]::after{
   inset:auto -12% 8% auto;
   width:min(420px, 42vw);
   height:min(420px, 42vw);
-  background:radial-gradient(circle at 50% 50%, rgba(245,158,11,.18) 0%, rgba(250,204,21,.08) 38%, transparent 72%);
+  background:radial-gradient(circle at 50% 50%, rgba(143,90,42,.18) 0%, rgba(243,215,162,.1) 38%, transparent 72%);
   filter:blur(10px);
   pointer-events:none;
   z-index:-1;
@@ -259,23 +259,23 @@ body[data-site-group="main"] .pill-primary{
 }
 body[data-site-group="seniors"] .topbar{
   padding:14px 18px;
-  background:linear-gradient(135deg, rgba(8,84,132,.96) 0%, rgba(37,99,235,.92) 36%, rgba(22,101,52,.92) 100%);
-  border-bottom:4px solid #fbbf24;
-  box-shadow:0 14px 30px rgba(8,84,132,.32);
+  background:linear-gradient(135deg, rgba(57,76,49,.97) 0%, rgba(95,134,80,.94) 42%, rgba(143,90,42,.88) 100%);
+  border-bottom:4px solid #e7bc6f;
+  box-shadow:0 14px 30px rgba(75,54,28,.28);
 }
 body[data-site-group="seniors"] .topbar-logo{
   width:54px;
   height:54px;
   border-radius:18px;
-  background:linear-gradient(135deg, rgba(255,255,255,.9), rgba(191,219,254,.72));
-  box-shadow:0 10px 24px rgba(8,84,132,.28);
+  background:linear-gradient(135deg, rgba(255,250,242,.94), rgba(243,215,162,.72));
+  box-shadow:0 10px 24px rgba(75,54,28,.24);
   animation:seniorsBob 6s ease-in-out infinite;
 }
 body[data-site-group="seniors"] .topbar h1{
   font-family:"Trebuchet MS","Segoe UI","Gill Sans",sans-serif;
   font-size:27px;
   letter-spacing:.03em;
-  text-shadow:0 3px 12px rgba(5,31,48,.34);
+  text-shadow:0 3px 12px rgba(56,39,16,.34);
 }
 body[data-site-group="seniors"] .topbar h1::before{
   content:'';
@@ -292,13 +292,13 @@ body[data-site-group="seniors"] #topbarTitleText::after{
   display:inline-block;
   padding:5px 10px 3px;
   border-radius:999px;
-  background:linear-gradient(180deg, #fbbf24 0%, #f59e0b 100%);
-  color:#5b2b04;
+  background:linear-gradient(180deg, #f3d7a2 0%, #d7b36a 100%);
+  color:#5a3b17;
   font-size:11px;
   font-weight:900;
   letter-spacing:.12em;
   text-transform:uppercase;
-  box-shadow:0 6px 14px rgba(180,83,9,.22);
+  box-shadow:0 6px 14px rgba(90,59,23,.18);
 }
 body[data-site-group="seniors"] .pill-link{
   border:1px solid rgba(255,255,255,.28);
@@ -309,12 +309,12 @@ body[data-site-group="seniors"] .pill-link:hover{
   background:rgba(255,255,255,.2);
 }
 body[data-site-group="seniors"] .pill-primary{
-  background:linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-  border-color:rgba(120,53,15,.28);
-  color:#4a2706;
+  background:linear-gradient(135deg, #d7b36a 0%, #b98445 100%);
+  border-color:rgba(90,59,23,.24);
+  color:#3f2910;
 }
 body[data-site-group="seniors"] .pill-primary:hover{
-  background:linear-gradient(135deg, #fcd34d 0%, #f59e0b 100%);
+  background:linear-gradient(135deg, #e3c281 0%, #c38e4c 100%);
 }
 @keyframes seniorsBob{
   0%,100%{transform:translateY(0)}

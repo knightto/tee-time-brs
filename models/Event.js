@@ -92,6 +92,14 @@ EventSchema.pre('validate', function(next){
 EventSchema.index({ groupSlug: 1, date: 1 });
 EventSchema.index({ isTeamEvent: 1 });
 EventSchema.index({ 'teeTimes._id': 1 });
-EventSchema.index({ groupSlug: 1, dedupeKey: 1 }, { unique: true, sparse: true });
+EventSchema.index(
+  { groupSlug: 1, dedupeKey: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      dedupeKey: { $type: 'string' },
+    },
+  }
+);
 
 module.exports = mongoose.model('Event', EventSchema);

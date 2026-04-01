@@ -406,6 +406,34 @@ if ('serviceWorker' in navigator) {
     if (appleTitleMeta) appleTitleMeta.setAttribute('content', currentSiteProfile.shortTitle || currentSiteProfile.siteTitle || defaultSiteProfile.shortTitle);
     const appleTouchIcon = document.querySelector('link[rel="apple-touch-icon"]');
     if (appleTouchIcon) appleTouchIcon.setAttribute('href', currentSiteProfile.iconPath);
+    const manifestLink = document.getElementById('appManifestLink');
+    if (manifestLink) {
+      manifestLink.setAttribute('href', (currentSiteLinks && currentSiteLinks.manifestPath) || `/manifest.json?group=${encodeURIComponent(currentGroupSlug)}`);
+    }
+    if (document.body) {
+      document.body.dataset.pwaGroup = currentGroupSlug;
+      document.body.dataset.pwaTitle = currentSiteProfile.shortTitle || currentSiteProfile.siteTitle || defaultSiteProfile.shortTitle;
+      document.body.dataset.pwaInstallMessage = isSeniorsGroupSite()
+        ? 'Install the Seniors tee sheet for quick phone access.'
+        : 'Install for quicker access.';
+      document.body.dataset.pwaInstallTitle = isSeniorsGroupSite()
+        ? 'Install Seniors App'
+        : 'Add to Home Screen';
+    }
+
+    const runningStandalone = (() => {
+      try {
+        return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      } catch (_) {
+        return window.navigator.standalone === true;
+      }
+    })();
+    if (isSeniorsGroupSite() && runningStandalone) {
+      document.querySelectorAll('[data-group-admin-link]').forEach((node) => {
+        node.hidden = true;
+      });
+      if (topbarDropdown) topbarDropdown.hidden = true;
+    }
   }
 
   async function initSiteProfile() {
@@ -881,6 +909,7 @@ if ('serviceWorker' in navigator) {
   }
 
   async function requestSeniorsAdminCode(label = 'this change') {
+    const storedCode = getStoredSeniorsAdminCode();
     const values = await openActionDialog({
       title: 'Seniors Admin Code',
       message: `Enter admin code 000 for ${label}.`,
@@ -889,7 +918,7 @@ if ('serviceWorker' in navigator) {
         name: 'adminCode',
         label: 'Admin code',
         type: 'password',
-        value: getStoredSeniorsAdminCode(),
+        value: storedCode,
         placeholder: 'Seniors admin code',
         required: true,
         autocomplete: 'current-password'
@@ -1119,6 +1148,7 @@ if ('serviceWorker' in navigator) {
   }
 
   function starterSlotMarkup(ev, teeTime = {}, idx = 0) {
+    const allowBoardManagement = true;
     const slotCap = ev && ev.isTeamEvent ? Number((ev && ev.teamSizeMax) || 4) : 4;
     const count = slotPlayerCount(teeTime);
     const hasFifth = slotHasFifthPlayer(teeTime);
@@ -1140,14 +1170,14 @@ if ('serviceWorker' in navigator) {
       const isFifth = !!(player && player.isFifth);
       const safeName = escapeHtml(String(player && player.name || 'Player'));
       return `<li class="starter-player ${checkedIn ? 'is-checked' : ''}${isFifth ? ' is-fifth' : ''}" draggable="true" data-drag-player="${escapeHtml(String(ev && ev._id || ''))}:${escapeHtml(String(teeTime && teeTime._id || ''))}:${escapeHtml(String(player && player._id || ''))}" title="${safeName}">
-        <button class="starter-player-check ${checkedIn ? 'is-checked' : ''}" type="button" data-toggle-checkin="${ev._id}:${teeTime._id}:${player._id}:${checkedIn ? '1' : '0'}" aria-label="${checkedIn ? 'Clear check-in for' : 'Mark checked in for'} ${safeName}">${checkedIn ? '✓' : '○'}</button>
+        ${allowBoardManagement ? `<button class="starter-player-check ${checkedIn ? 'is-checked' : ''}" type="button" data-toggle-checkin="${ev._id}:${teeTime._id}:${player._id}:${checkedIn ? '1' : '0'}" aria-label="${checkedIn ? 'Clear check-in for' : 'Mark checked in for'} ${safeName}">${checkedIn ? '✓' : '○'}</button>` : ''}
         <span class="starter-player-name"><span class="starter-player-text">${safeName}</span>${isFifth ? '<span class="player-status-badge player-status-badge-fifth">5th</span>' : ''}</span>
       </li>`;
     });
-    for (let i = 0; i < openCount; i += 1) {
+    for (let i = 0; allowBoardManagement && i < openCount; i += 1) {
       playersMarkup.push(`<li class="starter-player starter-player-open"><button class="starter-player-check is-open" type="button" data-add-player="${escapeHtml(String(ev && ev._id || ''))}:${escapeHtml(String(teeTime && teeTime._id || ''))}" title="Add player to ${escapeHtml(teeSlotLabel(ev, teeTime, idx))}">+</button><span class="starter-player-name">Open</span></li>`);
     }
-    if (canAddFifth) {
+    if (allowBoardManagement && canAddFifth) {
       playersMarkup.push(`<li class="starter-player starter-player-open starter-player-fifth-open"><button class="starter-player-check" type="button" data-add-player="${escapeHtml(String(ev && ev._id || ''))}:${escapeHtml(String(teeTime && teeTime._id || ''))}" title="Add a marked 5th player to ${escapeHtml(teeSlotLabel(ev, teeTime, idx))}">+5</button><span class="starter-player-name"><span class="starter-player-text">Add 5th</span><span class="player-status-badge player-status-badge-fifth">Rare</span></span></li>`);
     }
     const metaParts = [`${count}/${slotCap} in`, `${openCount} open`, `${checkedInCount} checked in`];
@@ -1160,8 +1190,8 @@ if ('serviceWorker' in navigator) {
           <div class="starter-slot-meta">${metaParts.join(' · ')}</div>
         </div>
         <div class="starter-slot-actions">
-          <button class="starter-slot-add" type="button" data-add-player="${ev._id}:${teeTime._id}" ${addDisabled ? 'disabled' : ''}>${addLabel}</button>
-          <button class="starter-slot-bulk" type="button" data-checkin-all="${ev._id}:${teeTime._id}:${allCheckedIn ? '1' : '0'}" ${count ? '' : 'disabled'}>${allCheckedIn ? 'Clear' : 'Check In All'}</button>
+          ${allowBoardManagement ? `<button class="starter-slot-add" type="button" data-add-player="${ev._id}:${teeTime._id}" ${addDisabled ? 'disabled' : ''}>${addLabel}</button>
+          <button class="starter-slot-bulk" type="button" data-checkin-all="${ev._id}:${teeTime._id}:${allCheckedIn ? '1' : '0'}" ${count ? '' : 'disabled'}>${allCheckedIn ? 'Clear' : 'Check In All'}</button>` : ''}
         </div>
       </div>
       <ul class="starter-player-list">${playersMarkup.join('')}</ul>
@@ -1706,7 +1736,11 @@ if ('serviceWorker' in navigator) {
         } catch (_) {}
     }
     const seniorsPublicWriteAllowed = currentGroupSlug === 'seniors' && (
-      (method === 'POST' && /^\/api\/events\/[^/]+\/tee-times\/[^/]+\/players(?:\?|$)/.test(String(requestPath || '')))
+      ((method === 'POST' || method === 'PUT' || method === 'DELETE') && /^\/api\/events(?:\/[^/]+)?(?:\?|$)/.test(String(requestPath || '')))
+      || ((method === 'DELETE' || method === 'POST') && /^\/api\/events\/[^/]+\/tee-times\/[^/]+\/players(?:\/[^/]+)?(?:\/check-in)?(?:\?|$)/.test(String(requestPath || '')))
+      || (method === 'POST' && /^\/api\/events\/[^/]+\/move-player(?:\?|$)/.test(String(requestPath || '')))
+      || (method === 'POST' && /^\/api\/events\/[^/]+\/pairings\/(?:suggest|apply)(?:\?|$)/.test(String(requestPath || '')))
+      || (method === 'POST' && /^\/api\/request-club-time(?:\?|$)/.test(String(requestPath || '')))
       || (method === 'POST' && /^\/api\/events\/[^/]+\/seniors-register(?:\?|$)/.test(String(requestPath || '')))
       || (method === 'POST' && /^\/api\/subscribe(?:\?|$)/.test(String(requestPath || '')))
     );
@@ -1845,6 +1879,10 @@ if ('serviceWorker' in navigator) {
     e.preventDefault();
     try{
       const body = normalizeForm(eventForm);
+      const isSeniors = isSeniorsGroupSite();
+      const seniorsRegistrationMode = isSeniors
+        ? String(body.seniorsRegistrationMode || 'tee-times').trim().toLowerCase()
+        : '';
       const isTeams = (body.mode === 'teams');
       const courseName = body.course;
       const payload = {
@@ -1853,16 +1891,17 @@ if ('serviceWorker' in navigator) {
         courseInfo: selectedCourseData || {},
         date: body.date,
         notes: body.notes || '',
-        isTeamEvent: isSeniorsGroupSite() ? false : isTeams,
+        isTeamEvent: isSeniors ? false : isTeams,
         teamSizeMax: isTeams ? Number(body.teamSizeMax || 4) : 4
       };
-      if (isSeniorsGroupSite()) {
-        payload.seniorsRegistrationMode = String(body.seniorsRegistrationMode || 'tee-times').trim();
+      if (isSeniors) {
+        payload.seniorsRegistrationMode = seniorsRegistrationMode === 'event-only' ? 'event-only' : 'tee-times';
         payload.seniorsEventType = String(body.seniorsEventType || (payload.seniorsRegistrationMode === 'event-only' ? 'outing' : 'tee-times')).trim();
-      } else if (isTeams) {
+      }
+      if (!isSeniors && isTeams) {
         payload.teamStartType = body.teamStartType || 'shotgun';
         payload.teamStartTime = body.teamStartTime;
-      } else {
+      } else if (!isSeniors || payload.seniorsRegistrationMode !== 'event-only') {
         const teeTime = body.teeTime;
         let count = 4;
         if (body.teeTimesCount) {
@@ -2479,6 +2518,7 @@ if ('serviceWorker' in navigator) {
         const totalCapacity = slotCount * slotCap;
         const openCount = Math.max(0, totalCapacity - registeredCount);
         const maybeCount = (ev.maybeList || []).length;
+        const showMaybeList = !isSeniorsGroupSite();
         const isDayFullyBooked = !seniorsEventOnly && !isTeams && slotCount > 0 && openCount === 0;
         const fullDayAlert = isDayFullyBooked
           ? `<div class="full-day-alert">All tee times are full for ${escapeHtml(fullDateLabel(toDateISO(ev.date)))}. You can request an additional time from the ${escapeHtml(clubContactLabel())}${fifthCount ? '.' : ' or ask them to allow a 5th in one of your tee times for that day.'}</div>`
@@ -2488,7 +2528,7 @@ if ('serviceWorker' in navigator) {
           ${seniorsEventOnly ? '' : `<span><strong>${checkedInCount}</strong> checked in</span>`}
           ${seniorsEventOnly ? '' : `<span><strong>${openCount}</strong> open</span>`}
           ${seniorsEventOnly ? '' : (fifthCount ? `<span><strong>${fifthCount}</strong> fifth${fifthCount === 1 ? '' : 's'}</span>` : '')}
-          ${seniorsEventOnly ? '' : `<span><strong>${maybeCount}</strong> maybe</span>`}
+          ${seniorsEventOnly || !showMaybeList ? '' : `<span><strong>${maybeCount}</strong> maybe</span>`}
           <span><strong>${seniorsEventOnly ? registeredCount : slotCount}</strong> ${seniorsEventOnly ? (registeredCount === 1 ? 'signup' : 'signups') : (isTeams ? 'teams' : 'tee times')}</span>
         </div>`;
         const tees = teesArr.map((tt,idx)=>teeRow(ev,tt,idx,isTeams)).join('');
@@ -2509,7 +2549,7 @@ if ('serviceWorker' in navigator) {
             <button class="icon small danger" title="Remove" data-remove-maybe="${ev._id}:${idx}">×</button>
           </span>`;
         }).join('');
-        const maybeSection = `
+        const maybeSection = showMaybeList ? `
           <div class="maybe-section">
             <div class="maybe-header">
               <h4>🤔 Maybe List</h4>
@@ -2522,7 +2562,7 @@ if ('serviceWorker' in navigator) {
               ${maybeList || '<em style="color:var(--slate-700);font-size:11px;opacity:0.7">No one yet</em>'}
             </div>
           </div>
-        `;
+        ` : '';
         const seniorsRegistrationSection = seniorsEventOnly ? `
           <div class="maybe-section">
             <div class="maybe-header">
@@ -2562,6 +2602,7 @@ if ('serviceWorker' in navigator) {
               ${seniorsEventOnly ? '<span class="pill-link" style="cursor:default">Simple Signup</span>' : ''}
             </div>`
           : '';
+        const showGolferControlsLegend = !isSeniorsGroupSite();
         const eventActionLegend = `
           <div class="event-action-legend" aria-label="Golfer action legend">
             <span class="event-action-title">Golfer Controls</span>
@@ -2596,15 +2637,15 @@ if ('serviceWorker' in navigator) {
               <button class="small event-actions-toggle" data-toggle-actions title="Show/hide event actions">Actions</button>
               <div class="button-row">
                 <button class="small" data-toggle-starter-event="${ev._id}" title="Switch this event to the compact starter view">Starter View</button>
-                ${seniorsEventOnly ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<div class="time-action-pair"><button class="small" data-add-tee="${ev._id}">Add Existing Time</button><button class="small" data-request-extra-tee="${ev._id}" title="Email ${escapeHtml(clubContactLabel())} to request an additional tee time">Request Club Time</button></div>`)}
-                ${seniorsEventOnly || isTeams ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Pairings</button>`}
-                ${isSeniorsGroupSite() && !seniorsEventOnly ? `<button class="small" data-export-seniors-event="${ev._id}" title="Export the registration list">Export</button><button class="small" data-extract-seniors-event="${ev._id}" title="Extract names and emails">Extract</button>` : ''}
-                <button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button>
+                ${seniorsEventOnly ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<button class="small" data-add-tee="${ev._id}">Add Existing Time</button>`)}
+                ${seniorsEventOnly || isTeams || isSeniorsGroupSite() ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Pairings</button>`}
+                ${isSeniorsGroupSite() ? '' : `<button class="small" data-export-seniors-event="${ev._id}" title="Export the registration list">Export</button><button class="small" data-extract-seniors-event="${ev._id}" title="Extract names and emails">Extract</button>`}
+                ${!isSeniorsGroupSite() ? `<button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button>` : ''}
               </div>
             </div>
             ${summaryRow}
             ${fullDayAlert}
-            ${seniorsEventOnly ? '' : eventActionLegend}
+            ${seniorsEventOnly || !showGolferControlsLegend ? '' : eventActionLegend}
             <div class="tees">${seniorsEventOnly ? '' : (tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>'))}</div>
             ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
             <div class="event-bottom-actions">
@@ -2800,6 +2841,10 @@ if ('serviceWorker' in navigator) {
         return;
       }
       if(t.dataset.calendarGoogle){
+        if (currentGroupSlug === 'seniors') {
+          showToast('Google calendar link is not available on the Seniors page.', 'error');
+          return;
+        }
         const ok = await openExternalCalendarUrlSafely(async () => {
           const ev = await getEventForAction(t.dataset.calendarGoogle);
           return ev ? buildGoogleCalendarUrl(ev) : '';
@@ -2813,6 +2858,10 @@ if ('serviceWorker' in navigator) {
         return;
       }
       if(t.dataset.exportSeniorsEvent){
+        if (currentGroupSlug === 'seniors') {
+          showToast('Export is not available on the Seniors tee times page.', 'error');
+          return;
+        }
         const eventId = String(t.dataset.exportSeniorsEvent || '').trim();
         const code = await requestSeniorsAdminCode('exporting this Seniors registration list');
         if (!code) return;
@@ -2820,6 +2869,10 @@ if ('serviceWorker' in navigator) {
         return;
       }
       if(t.dataset.extractSeniorsEvent){
+        if (currentGroupSlug === 'seniors') {
+          showToast('Extract is not available on the Seniors tee times page.', 'error');
+          return;
+        }
         const eventId = String(t.dataset.extractSeniorsEvent || '').trim();
         const code = await requestSeniorsAdminCode('extracting this Seniors registration list');
         if (!code) return;
@@ -2873,6 +2926,10 @@ if ('serviceWorker' in navigator) {
         return;
       }
       if(t.dataset.addMaybe){
+        if (currentGroupSlug === 'seniors') {
+          showToast('Maybe List is not available on the Seniors page.', 'error');
+          return;
+        }
         const id=t.dataset.addMaybe;
         const maybeValues = await openActionDialog({
           title: 'Add to Maybe List',
@@ -2903,6 +2960,10 @@ if ('serviceWorker' in navigator) {
         }
       }
       if(t.dataset.fillMaybe){
+        if (currentGroupSlug === 'seniors') {
+          showToast('Maybe List is not available on the Seniors page.', 'error');
+          return;
+        }
         const id = t.dataset.fillMaybe;
         const ev = await getEventForAction(id);
         if (!ev) {
@@ -2971,6 +3032,10 @@ if ('serviceWorker' in navigator) {
         return;
       }
       if(t.dataset.removeMaybe){
+        if (currentGroupSlug === 'seniors') {
+          showToast('Maybe List is not available on the Seniors page.', 'error');
+          return;
+        }
         const [id, index] = t.dataset.removeMaybe.split(':');
         const confirmed = await openActionDialog({
           title: 'Remove Maybe Player',
@@ -2989,6 +3054,10 @@ if ('serviceWorker' in navigator) {
         return;
       }
       if(t.dataset.requestExtraTee){
+        if (currentGroupSlug === 'seniors') {
+          showToast('Request Club Time is not available on the Seniors page.', 'error');
+          return;
+        }
         const id = t.dataset.requestExtraTee;
         const noteValues = await openActionDialog({
           title: 'Request Additional Tee Time',
@@ -3061,6 +3130,10 @@ if ('serviceWorker' in navigator) {
         return;
       }
       if(t.dataset.suggestPairings){
+        if (currentGroupSlug === 'seniors') {
+          showToast('Pairings is not available on the Seniors page.', 'error');
+          return;
+        }
         const id = t.dataset.suggestPairings;
         const original = t.textContent;
         t.disabled = true;
@@ -3266,9 +3339,8 @@ if ('serviceWorker' in navigator) {
         return;
       }
       if(t.dataset.del){
-        const isSeniorsDelete = currentGroupSlug === 'seniors';
-        const code = isSeniorsDelete
-          ? await requestSeniorsAdminCode('deleting this Seniors event')
+        const code = currentGroupSlug === 'seniors'
+          ? 'seniors-delete'
           : await requestDeleteCode('deleting this event');
         if(!code) return;
         t.disabled = true;
@@ -3278,8 +3350,8 @@ if ('serviceWorker' in navigator) {
         try {
           await api(`/api/events/${t.dataset.del}`,{
             method:'DELETE',
-            headers: isSeniorsDelete
-              ? { 'x-admin-code': code, 'x-admin-delete-code': code }
+            headers: currentGroupSlug === 'seniors'
+              ? { 'x-delete-confirmed': 'true' }
               : { 'x-admin-delete-code': code }
           });
           await updateEventCard(t.dataset.del);

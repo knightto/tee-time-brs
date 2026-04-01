@@ -43,12 +43,18 @@
 
   function ensureInstallBar() {
     if (installBar) return installBar;
+    const installTitle = document.body && document.body.dataset && document.body.dataset.pwaInstallTitle
+      ? document.body.dataset.pwaInstallTitle
+      : 'Add to Home Screen';
+    const installMessage = document.body && document.body.dataset && document.body.dataset.pwaInstallMessage
+      ? document.body.dataset.pwaInstallMessage
+      : 'Install for quicker access.';
     installBar = document.createElement('div');
     installBar.className = 'pwa-install-bar';
     installBar.innerHTML = `
       <div class="pwa-install-copy">
-        <strong>Add to Home Screen</strong>
-        <span id="pwaInstallMessage">Install for quicker access.</span>
+        <strong id="pwaInstallTitle">${installTitle}</strong>
+        <span id="pwaInstallMessage">${installMessage}</span>
       </div>
       <div class="pwa-install-actions">
         <button id="pwaInstallButton" class="pwa-install-btn" type="button">Install</button>
@@ -85,8 +91,13 @@
 
   function setInstallMessage(message, installLabel = 'Install') {
     const bar = ensureInstallBar();
+    const titleEl = bar.querySelector('#pwaInstallTitle');
     const messageEl = bar.querySelector('#pwaInstallMessage');
     const installButton = bar.querySelector('#pwaInstallButton');
+    const defaultTitle = document.body && document.body.dataset && document.body.dataset.pwaInstallTitle
+      ? document.body.dataset.pwaInstallTitle
+      : 'Add to Home Screen';
+    if (titleEl) titleEl.textContent = defaultTitle;
     if (messageEl) messageEl.textContent = message;
     if (installButton) installButton.textContent = installLabel;
   }

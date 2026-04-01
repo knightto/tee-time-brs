@@ -235,7 +235,7 @@ app.get('/manifest.json', async (req, res) => {
         icons: [{ src: iconPath, sizes: '192x192', type: 'image/png' }],
       },
     ];
-    if (links.adminLitePath) {
+    if (links.adminLitePath && profile.groupSlug !== 'seniors') {
       shortcuts.push({
         name: 'Group Admin',
         short_name: 'Group Admin',
@@ -848,6 +848,7 @@ if (!skipMongoConnect) {
       console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'Mongo connected', uri:mongoUri }));
       await ensureScopedSettingsIndexes();
       await ensureScopedSubscriberIndexes();
+      await ensureEventIndexes();
       await ensureCanonicalGroupAliasData();
       await ensureGroupProfileIsolationDefaults();
       await ensureGroupAccessControlCache();
@@ -1490,6 +1491,35 @@ async function areNotificationsEnabled(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
   } catch (e) {
     console.error('Error checking notification settings:', e);
     return true; // Fail open - allow notifications
+  }
+}
+
+async function ensureEventIndexes() {
+  if (!Event || !Event.collection) return;
+  try {
+    const indexes = await Event.collection.indexes();
+    const dedupeIndex = indexes.find((index) => index && index.name === 'groupSlug_1_dedupeKey_1');
+    const needsMigration = !dedupeIndex
+      || !dedupeIndex.unique
+      || !dedupeIndex.partialFilterExpression
+      || JSON.stringify(dedupeIndex.partialFilterExpression) !== JSON.stringify({ dedupeKey: { $type: 'string' } });
+    if (needsMigration && dedupeIndex) {
+      await Event.collection.dropIndex('groupSlug_1_dedupeKey_1');
+      console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'event-index-migrated', dropped:'groupSlug_1_dedupeKey_1' }));
+    }
+    if (needsMigration) {
+      await Event.collection.createIndex(
+        { groupSlug: 1, dedupeKey: 1 },
+        {
+          unique: true,
+          name: 'groupSlug_1_dedupeKey_1',
+          partialFilterExpression: { dedupeKey: { $type: 'string' } },
+        }
+      );
+      console.log(JSON.stringify({ t:new Date().toISOString(), level:'info', msg:'event-index-migrated', created:'groupSlug_1_dedupeKey_1' }));
+    }
+  } catch (error) {
+    console.error('Failed to ensure event indexes:', error);
   }
 }
 
@@ -2645,26 +2675,47 @@ function normalizeSeniorsGolferName(value = '') {
   return String(value || '').trim().replace(/\s+/g, ' ');
 }
 
+function normalizeOptionalRosterNumber(value) {
+  if (value === '' || value === null || value === undefined) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) throw new Error('rosterNumber must be a number');
+  return parsed;
+}
+
+function normalizeOptionalHandicap(value, fieldName = 'handicapIndex') {
+  if (value === '' || value === null || value === undefined) return null;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) throw new Error(`${fieldName} must be a number`);
+  return parsed;
+}
+
 function normalizeSeniorsGolferInput(raw = {}) {
   const name = normalizeSeniorsGolferName(raw.name);
   if (!name) throw new Error('name required');
 
+  const handicapGold = normalizeOptionalHandicap(raw.handicapGold, 'handicapGold');
+  const handicapRed = normalizeOptionalHandicap(raw.handicapRed, 'handicapRed');
+  const handicapIndex = raw.handicapIndex === '' || raw.handicapIndex === null || raw.handicapIndex === undefined
+    ? (handicapGold ?? handicapRed)
+    : normalizeOptionalHandicap(raw.handicapIndex, 'handicapIndex');
+
   const payload = {
+    rosterNumber: normalizeOptionalRosterNumber(raw.rosterNumber),
     name,
+    firstName: String(raw.firstName || '').trim(),
+    lastName: String(raw.lastName || '').trim(),
+    preferredFirstName: String(raw.preferredFirstName || '').trim(),
+    preferredLastName: String(raw.preferredLastName || '').trim(),
     email: String(raw.email || '').trim().toLowerCase(),
     phone: String(raw.phone || '').trim(),
+    address: String(raw.address || '').trim(),
     ghinNumber: String(raw.ghinNumber || '').trim(),
+    handicapGold,
+    handicapRed,
+    handicapIndex,
     notes: String(raw.notes || '').trim(),
     active: raw.active === undefined ? true : !!raw.active,
   };
-
-  if (raw.handicapIndex === '' || raw.handicapIndex === null || raw.handicapIndex === undefined) {
-    payload.handicapIndex = null;
-  } else {
-    const handicapIndex = Number(raw.handicapIndex);
-    if (!Number.isFinite(handicapIndex)) throw new Error('handicapIndex must be a number');
-    payload.handicapIndex = handicapIndex;
-  }
 
   return payload;
 }
@@ -2723,6 +2774,27 @@ async function resolveSeniorsRosterGolferByName(name = '') {
   const normalizedName = normalizeSeniorsGolferName(name).toLowerCase();
   if (!normalizedName) return null;
   return SeniorsGolfer.findOne({ groupSlug: 'seniors', nameKey: normalizedName, active: true }).lean();
+}
+
+function buildManualSeniorsGolferRecord(name = '') {
+  const trimmedName = normalizeSeniorsGolferName(name);
+  if (!trimmedName) return null;
+  return {
+    _id: null,
+    rosterNumber: null,
+    name: trimmedName,
+    firstName: '',
+    lastName: '',
+    preferredFirstName: '',
+    preferredLastName: '',
+    email: '',
+    phone: '',
+    address: '',
+    ghinNumber: '',
+    handicapGold: null,
+    handicapRed: null,
+    handicapIndex: null,
+  };
 }
 
 async function buildSeniorsParticipantRows(ev, options = {}) {
@@ -3410,6 +3482,18 @@ function buildDedupeKey(dateVal, teeTimes = [], isTeam = false) {
   if (!times.length) return null;
   return `${dateISO}|${times.join(',')}`;
 }
+
+function buildEventStorageDedupeKey(dateVal, teeTimes = [], isTeam = false, groupSlug = DEFAULT_SITE_GROUP_SLUG, seniorsRegistrationMode = '', stableId = '') {
+  const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
+  const normalizedSeniorsRegistrationMode = normalizeSeniorsRegistrationMode(seniorsRegistrationMode, normalizedGroupSlug);
+  if (normalizedGroupSlug === 'seniors' && normalizedSeniorsRegistrationMode === 'event-only') {
+    const d = asUTCDate(dateVal);
+    const dateISO = isNaN(d) ? 'undated' : d.toISOString().slice(0, 10);
+    const uniquePart = String(stableId || new mongoose.Types.ObjectId()).trim();
+    return `seniors-event-only|${dateISO}|${uniquePart}`;
+  }
+  return buildDedupeKey(dateVal, teeTimes, isTeam);
+}
 function btn(label='Go to Sign-up Page', href = SITE_URL){
   return `<p style="margin:24px 0"><a href="${esc(href || SITE_URL)}" style="background:#2563eb;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;display:inline-block">${esc(label)}</a></p>`;
 }
@@ -4064,8 +4148,8 @@ app.post('/api/events/:id/seniors-register', async (req, res) => {
 
     const golferName = String(req.body && req.body.name || '').trim();
     if (!golferName) return res.status(400).json({ error: 'name required' });
-    const golfer = await resolveSeniorsRosterGolferByName(golferName);
-    if (!golfer) return res.status(404).json({ error: 'Golfer is not on the active Seniors roster' });
+    const golfer = await resolveSeniorsRosterGolferByName(golferName) || buildManualSeniorsGolferRecord(golferName);
+    if (!golfer) return res.status(400).json({ error: 'name required' });
 
     const normalizedName = normalizeSeniorsGolferName(golfer.name).toLowerCase();
     const alreadyRegisteredEventOnly = (ev.seniorsRegistrations || []).some((entry) => normalizeSeniorsGolferName(entry && entry.name).toLowerCase() === normalizedName);
@@ -4079,7 +4163,7 @@ app.post('/api/events/:id/seniors-register', async (req, res) => {
     }
 
     ev.seniorsRegistrations.push({
-      golferId: golfer._id,
+      golferId: golfer._id || null,
       name: golfer.name,
       email: golfer.email || '',
       phone: golfer.phone || '',
@@ -4088,7 +4172,9 @@ app.post('/api/events/:id/seniors-register', async (req, res) => {
     });
     await ev.save();
 
-    await sendSeniorsRegistrationConfirmationEmail(ev, golfer);
+    if (golfer.email) {
+      await sendSeniorsRegistrationConfirmationEmail(ev, golfer);
+    }
     return res.json({ ok: true, event: ev });
   } catch (error) {
     return res.status(500).json({ error: error && error.message ? error.message : 'Failed to register golfer' });
@@ -4204,12 +4290,14 @@ app.get('/api/events/:id/calendar.ics', async (req, res) => {
 });
 
 app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
-  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const groupSlug = getGroupSlug(req);
     const { course, courseInfo, date, teeTime, teeTimes, notes, isTeamEvent, teamSizeMax, teamStartType, teamStartTime, seniorsEventType, seniorsRegistrationMode } = req.body || {};
-    const normalizedSeniorsRegistrationMode = normalizeSeniorsRegistrationMode(seniorsRegistrationMode, groupSlug);
-    const seniorsEventOnly = normalizedSeniorsRegistrationMode === 'event-only';
+    const requestedSeniorsRegistrationMode = String(seniorsRegistrationMode || '').trim().toLowerCase();
+    const seniorsEventOnly = normalizeGroupSlug(groupSlug) === 'seniors' && requestedSeniorsRegistrationMode === 'event-only';
+    const normalizedSeniorsRegistrationMode = normalizeGroupSlug(groupSlug) === 'seniors'
+      ? (seniorsEventOnly ? 'event-only' : 'tee-times')
+      : normalizeSeniorsRegistrationMode(seniorsRegistrationMode, groupSlug);
     const normalizedSeniorsEventType = normalizeSeniorsEventType(seniorsEventType || (seniorsEventOnly ? 'outing' : 'tee-times'));
     let tt;
     if (seniorsEventOnly) {
@@ -4240,7 +4328,13 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
       tt = Array.isArray(teeTimes) && teeTimes.length ? teeTimes : genTeeTimes(teeTime, 3, 9);
     }
     const eventDate = /^\d{4}-\d{2}-\d{2}$/.test(String(date||'')) ? new Date(String(date)+'T12:00:00Z') : asUTCDate(date);
-    const dedupeKey = buildDedupeKey(eventDate, tt, !!isTeamEvent);
+    const dedupeKey = buildEventStorageDedupeKey(
+      eventDate,
+      tt,
+      !!isTeamEvent,
+      groupSlug,
+      normalizedSeniorsRegistrationMode
+    );
     const normalizedCourseInfo = normalizeCourseInfo(courseInfo || {});
     const weatherData = await fetchWeatherForEvent({
       course,
@@ -4248,7 +4342,7 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
       date: eventDate,
     });
     
-    if (dedupeKey) {
+    if (dedupeKey && !seniorsEventOnly) {
       const existing = await Event.findOne(scopeQuery(req, { dedupeKey }));
       if (existing) {
         return res.status(200).json(existing);
@@ -4282,7 +4376,7 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
       });
     } catch (err) {
       // If another request created the event at the same time, return the existing one
-      if (err && err.code === 11000 && dedupeKey) {
+      if (err && err.code === 11000 && dedupeKey && !seniorsEventOnly) {
         const existing = await Event.findOne(scopeQuery(req, { dedupeKey }));
         if (existing) return res.status(200).json(existing);
       }
@@ -4307,7 +4401,6 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
 });
 
 app.put('/api/events/:id', async (req, res) => {
-  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
@@ -4355,16 +4448,23 @@ app.put('/api/events/:id', async (req, res) => {
       const weatherData = await fetchWeatherForEvent(ev);
       assignWeatherToEvent(ev, weatherData);
     }
-    // Recompute dedupeKey for tee-time events after changes
-    ev.dedupeKey = buildDedupeKey(ev.date, ev.teeTimes, ev.isTeamEvent) || undefined;
+    ev.dedupeKey = buildEventStorageDedupeKey(
+      ev.date,
+      ev.teeTimes,
+      ev.isTeamEvent,
+      ev.groupSlug,
+      ev.seniorsRegistrationMode,
+      ev._id
+    ) || undefined;
     await ev.save();
     res.json(ev);
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
 app.delete('/api/events/:id', async (req, res) => {
-  if (requireSeniorsSiteAdminForWrite(req, res)) return;
-  if (!isAdminDelete(req)) return res.status(403).json({ error: 'Delete code required' });
+  if (normalizeGroupSlug(getGroupSlug(req)) !== 'seniors' && !isAdminDelete(req)) {
+    return res.status(403).json({ error: 'Delete code required' });
+  }
   const del = await Event.findOneAndDelete(scopeQuery(req, { _id: req.params.id }));
   if (!del) return res.status(404).json({ error: 'Not found' });
   
@@ -4386,7 +4486,6 @@ app.delete('/api/events/:id', async (req, res) => {
 });
 
 app.post('/api/events/:id/request-extra-tee-time', async (req, res) => {
-  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
@@ -4439,7 +4538,6 @@ app.post('/api/events/:id/request-extra-tee-time', async (req, res) => {
 });
 
 app.post('/api/request-club-time', async (req, res) => {
-  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const requestDateRaw = String(req.body?.date || '').trim();
     const preferredTimeRaw = String(req.body?.preferredTime || '').trim();
@@ -4496,7 +4594,6 @@ app.post('/api/request-club-time', async (req, res) => {
 
 // Remove duplicate tee-time events for the same date/time/tee-count, keeping the requested event
 app.post('/api/events/:id/dedupe', async (req, res) => {
-  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
@@ -4549,7 +4646,6 @@ app.post('/api/events/:id/dedupe', async (req, res) => {
 
 /* tee/team, players, move endpoints remain as in your current server.js */
 app.post('/api/events/:id/tee-times', async (req, res) => {
-  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   // Clean logging: only log errors or important info
   const ev = await findScopedEventById(req, req.params.id);
   if (!ev) {
@@ -4670,7 +4766,6 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
 
 // Edit tee time or team name
 app.put('/api/events/:id/tee-times/:teeId', async (req, res) => {
-  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
@@ -4713,7 +4808,6 @@ app.put('/api/events/:id/tee-times/:teeId', async (req, res) => {
 
 
 app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
-  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const confirmedDelete = hasDeleteActionConfirmed(req);
     const hasDeleteCode = isAdminDelete(req);
@@ -4852,8 +4946,7 @@ app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPla
 
   let seniorsGolfer = null;
   if (normalizeGroupSlug(ev.groupSlug) === 'seniors') {
-    seniorsGolfer = await resolveSeniorsRosterGolferByName(trimmedName);
-    if (!seniorsGolfer) return res.status(404).json({ error: 'Golfer is not on the active Seniors roster' });
+    seniorsGolfer = await resolveSeniorsRosterGolferByName(trimmedName) || buildManualSeniorsGolferRecord(trimmedName);
   }
 
   // Anti-chaos check: duplicate name prevention
@@ -4871,7 +4964,7 @@ app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPla
     teeLabel: getTeeLabel(ev, tt._id)
   });
 
-  if (seniorsGolfer) {
+  if (seniorsGolfer && seniorsGolfer.email) {
     sendSeniorsRegistrationConfirmationEmail(ev, seniorsGolfer, getTeeLabel(ev, tt._id))
       .catch((err) => console.error('[add_player] Failed to send Seniors confirmation email:', err));
   }
@@ -4908,7 +5001,6 @@ app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPla
   res.json(ev);
 });
 app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res) => {
-  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const confirmedDelete = hasDeleteActionConfirmed(req);
     if (!isAdminDelete(req) && !confirmedDelete) return res.status(403).json({ error: 'Removal confirmation required' });
@@ -4967,7 +5059,6 @@ app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res
   }
 });
 app.post('/api/events/:id/move-player', async (req, res) => {
-  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   const { fromTeeId, toTeeId, playerId, asFifth } = req.body || {};
   if (!fromTeeId || !toTeeId || !playerId) return res.status(400).json({ error: 'fromTeeId, toTeeId, playerId required' });
   const ev = await findScopedEventById(req, req.params.id);
@@ -5016,7 +5107,6 @@ app.post('/api/events/:id/move-player', async (req, res) => {
 });
 
 app.post('/api/events/:id/tee-times/:teeId/players/:playerId/check-in', async (req, res) => {
-  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const checkedIn = req.body && req.body.checkedIn;
     if (typeof checkedIn !== 'boolean') return res.status(400).json({ error: 'checkedIn boolean required' });
@@ -5044,7 +5134,6 @@ app.post('/api/events/:id/tee-times/:teeId/players/:playerId/check-in', async (r
 });
 
 app.post('/api/events/:id/tee-times/:teeId/check-in-all', async (req, res) => {
-  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const checkedIn = req.body && req.body.checkedIn;
     if (typeof checkedIn !== 'boolean') return res.status(400).json({ error: 'checkedIn boolean required' });
@@ -5070,7 +5159,6 @@ app.post('/api/events/:id/tee-times/:teeId/check-in-all', async (req, res) => {
 });
 
 app.post('/api/events/:id/pairings/suggest', async (req, res) => {
-  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const ev = await findScopedEventById(req, req.params.id, { lean: true });
     if (!ev) return res.status(404).json({ error: 'Not found' });
@@ -5090,7 +5178,6 @@ app.post('/api/events/:id/pairings/suggest', async (req, res) => {
 });
 
 app.post('/api/events/:id/pairings/apply', async (req, res) => {
-  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
@@ -6231,12 +6318,20 @@ app.get('/api/admin/seniors-roster/export.csv', async (req, res) => {
     if (!SeniorsGolfer) return res.status(500).json({ error: 'Seniors golfer model not available' });
     const golfers = await SeniorsGolfer.find({ groupSlug: 'seniors' }).sort({ active: -1, nameKey: 1 }).lean();
     const exportRows = [
-      ['Name', 'Email', 'Phone', 'GHIN', 'Handicap', 'Active', 'Notes', 'Updated At'],
+      ['Roster Number', 'Name', 'First Name', 'Last Name', 'Preferred First', 'Preferred Last', 'Email', 'Phone', 'Address', 'GHIN', 'Handicap Gold', 'Handicap Red', 'Handicap', 'Active', 'Notes', 'Updated At'],
       ...golfers.map((golfer) => [
+        Number.isFinite(golfer.rosterNumber) ? golfer.rosterNumber : '',
         golfer.name,
+        golfer.firstName || '',
+        golfer.lastName || '',
+        golfer.preferredFirstName || '',
+        golfer.preferredLastName || '',
         golfer.email || '',
         golfer.phone || '',
+        golfer.address || '',
         golfer.ghinNumber || '',
+        Number.isFinite(golfer.handicapGold) ? golfer.handicapGold : '',
+        Number.isFinite(golfer.handicapRed) ? golfer.handicapRed : '',
         Number.isFinite(golfer.handicapIndex) ? golfer.handicapIndex : '',
         golfer.active ? 'Yes' : 'No',
         golfer.notes || '',
@@ -6258,12 +6353,20 @@ app.get('/api/admin/seniors-roster/export.xlsx', async (req, res) => {
     if (!SeniorsGolfer) return res.status(500).json({ error: 'Seniors golfer model not available' });
     const golfers = await SeniorsGolfer.find({ groupSlug: 'seniors' }).sort({ active: -1, nameKey: 1 }).lean();
     const workbook = buildWorkbookBuffer('Seniors Roster', [
-      ['Name', 'Email', 'Phone', 'GHIN', 'Handicap', 'Active', 'Notes', 'Updated At'],
+      ['Roster Number', 'Name', 'First Name', 'Last Name', 'Preferred First', 'Preferred Last', 'Email', 'Phone', 'Address', 'GHIN', 'Handicap Gold', 'Handicap Red', 'Handicap', 'Active', 'Notes', 'Updated At'],
       ...golfers.map((golfer) => [
+        Number.isFinite(golfer.rosterNumber) ? golfer.rosterNumber : '',
         golfer.name,
+        golfer.firstName || '',
+        golfer.lastName || '',
+        golfer.preferredFirstName || '',
+        golfer.preferredLastName || '',
         golfer.email || '',
         golfer.phone || '',
+        golfer.address || '',
         golfer.ghinNumber || '',
+        Number.isFinite(golfer.handicapGold) ? golfer.handicapGold : '',
+        Number.isFinite(golfer.handicapRed) ? golfer.handicapRed : '',
         Number.isFinite(golfer.handicapIndex) ? golfer.handicapIndex : '',
         golfer.active ? 'Yes' : 'No',
         golfer.notes || '',
@@ -6306,18 +6409,33 @@ app.post('/api/admin/seniors-roster/import', upload.single('file'), async (req, 
     const rows = parseSpreadsheetRows(req.file);
     if (!rows.length) return res.status(400).json({ error: 'Empty file' });
 
-    const headers = rows[0].map((value) => String(value || '').trim().toLowerCase());
-    const headerIndex = Object.fromEntries(headers.map((header, index) => [header, index]));
-    const pick = (values, keys) => {
-      for (const key of keys) {
-        const idx = headerIndex[key];
-        if (Number.isInteger(idx)) return values[idx] !== undefined ? values[idx] : '';
-      }
-      return '';
-    };
+    let dataRows = rows;
+    let rowOffset = 1;
+    let useTemplateRosterLayout = false;
+    const templateHeaderRow = rows.findIndex((values) => String(values[2] || '').trim().toUpperCase() === 'PLAYER ROSTER');
+    const templateFieldRow = templateHeaderRow >= 0 ? templateHeaderRow + 1 : -1;
+    if (templateHeaderRow >= 0 && rows[templateFieldRow] && String(rows[templateFieldRow][6] || '').trim().toUpperCase() === 'FIRST NAME') {
+      useTemplateRosterLayout = true;
+      dataRows = rows.slice(templateFieldRow + 1);
+      rowOffset = templateFieldRow + 2;
+    }
 
-    if (!headers.includes('name') && !headers.includes('full_name')) {
-      return res.status(400).json({ error: 'Spreadsheet must include a Name or full_name column' });
+    let pick = () => '';
+    let hasNameColumn = false;
+    if (!useTemplateRosterLayout) {
+      const headers = rows[0].map((value) => String(value || '').trim().toLowerCase());
+      const headerIndex = Object.fromEntries(headers.map((header, index) => [header, index]));
+      pick = (values, keys) => {
+        for (const key of keys) {
+          const idx = headerIndex[key];
+          if (Number.isInteger(idx)) return values[idx] !== undefined ? values[idx] : '';
+        }
+        return '';
+      };
+      hasNameColumn = headers.includes('name') || headers.includes('full_name');
+      if (!hasNameColumn) {
+        return res.status(400).json({ error: 'Spreadsheet must include a Name/full_name column or use the BRS Seniors roster workbook format' });
+      }
     }
 
     let processed = 0;
@@ -6325,27 +6443,61 @@ app.post('/api/admin/seniors-roster/import', upload.single('file'), async (req, 
     let updated = 0;
     const errors = [];
 
-    for (let i = 1; i < rows.length; i += 1) {
-      const values = rows[i];
+    for (let i = 0; i < dataRows.length; i += 1) {
+      const values = dataRows[i];
       if (!values || values.every((value) => !String(value || '').trim())) continue;
       processed += 1;
       try {
-        const payload = normalizeSeniorsGolferInput({
-          name: pick(values, ['name', 'full_name', 'golfer', 'player']),
-          email: pick(values, ['email', 'email_address']),
-          phone: pick(values, ['phone', 'phone_number', 'mobile']),
-          ghinNumber: pick(values, ['ghin', 'ghin_number']),
-          handicapIndex: pick(values, ['handicap', 'handicap_index']),
-          notes: pick(values, ['notes']),
-          active: !['no', 'false', '0', 'inactive'].includes(String(pick(values, ['active'])).trim().toLowerCase()),
-        });
+        const payload = useTemplateRosterLayout
+          ? normalizeSeniorsGolferInput({
+            rosterNumber: values[0],
+            name: values[2],
+            firstName: values[6],
+            lastName: values[7],
+            preferredFirstName: values[9],
+            preferredLastName: values[10],
+            address: values[20],
+            email: values[25],
+            ghinNumber: values[8],
+            handicapGold: values[11],
+            handicapRed: values[12],
+            handicapIndex: values[11] !== '' && values[11] !== null && values[11] !== undefined ? values[11] : values[12],
+            notes: '',
+            active: true,
+          })
+          : normalizeSeniorsGolferInput({
+            rosterNumber: pick(values, ['roster_number', 'roster', 'number']),
+            name: pick(values, ['name', 'full_name', 'golfer', 'player']),
+            firstName: pick(values, ['first_name', 'firstname']),
+            lastName: pick(values, ['last_name', 'lastname']),
+            preferredFirstName: pick(values, ['preferred_first_name', 'preferred_first', 'fn']),
+            preferredLastName: pick(values, ['preferred_last_name', 'preferred_last', 'ln']),
+            email: pick(values, ['email', 'email_address']),
+            phone: pick(values, ['phone', 'phone_number', 'mobile']),
+            address: pick(values, ['address', 'street_address']),
+            ghinNumber: pick(values, ['ghin', 'ghin_number']),
+            handicapGold: pick(values, ['handicap_gold', 'hdcp_gold']),
+            handicapRed: pick(values, ['handicap_red', 'hdcp_red']),
+            handicapIndex: pick(values, ['handicap', 'handicap_index']),
+            notes: pick(values, ['notes']),
+            active: !['no', 'false', '0', 'inactive'].includes(String(pick(values, ['active'])).trim().toLowerCase()),
+          });
+        if (!payload.name) continue;
         const nameKey = normalizeSeniorsGolferName(payload.name).toLowerCase();
         const existing = await SeniorsGolfer.findOne({ groupSlug: 'seniors', nameKey });
         if (existing) {
+          existing.rosterNumber = payload.rosterNumber;
           existing.name = payload.name;
+          existing.firstName = payload.firstName;
+          existing.lastName = payload.lastName;
+          existing.preferredFirstName = payload.preferredFirstName;
+          existing.preferredLastName = payload.preferredLastName;
           existing.email = payload.email;
           existing.phone = payload.phone;
+          existing.address = payload.address;
           existing.ghinNumber = payload.ghinNumber;
+          existing.handicapGold = payload.handicapGold;
+          existing.handicapRed = payload.handicapRed;
           existing.handicapIndex = payload.handicapIndex;
           existing.notes = payload.notes;
           existing.active = payload.active;
@@ -6356,7 +6508,7 @@ app.post('/api/admin/seniors-roster/import', upload.single('file'), async (req, 
           created += 1;
         }
       } catch (error) {
-        errors.push({ rowNumber: i + 1, error: error && error.message ? error.message : 'Invalid row' });
+        errors.push({ rowNumber: i + rowOffset, error: error && error.message ? error.message : 'Invalid row' });
       }
     }
 

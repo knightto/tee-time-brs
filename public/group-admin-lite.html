@@ -766,7 +766,7 @@
       <div class="content">
         <div class="section-head">
           <h2>Tee Times</h2>
-          <p class="section-meta">This live board is the separate group site. Use it to manage this group's tee sheets directly from the dedicated group admin.</p>
+          <p class="section-meta" id="teeTimesSectionMeta">This live board is the separate group site. Use it to manage this group's tee sheets directly from the dedicated group admin.</p>
         </div>
         <div class="actions">
           <button type="button" id="refreshTeeTimesBtn">Refresh Live Board</button>
@@ -789,8 +789,28 @@
           <form id="seniorsRosterForm">
             <div class="roster-form-grid">
               <label>
+                <span>Roster #</span>
+                <input id="seniorsRosterNumberInput" type="number" name="rosterNumber" placeholder="1" min="1" step="1" inputmode="numeric">
+              </label>
+              <label>
                 <span>Golfer Name</span>
                 <input id="seniorsRosterNameInput" type="text" name="name" placeholder="Golfer name" required>
+              </label>
+              <label>
+                <span>First Name</span>
+                <input id="seniorsRosterFirstNameInput" type="text" name="firstName" placeholder="First name">
+              </label>
+              <label>
+                <span>Last Name</span>
+                <input id="seniorsRosterLastNameInput" type="text" name="lastName" placeholder="Last name">
+              </label>
+              <label>
+                <span>Preferred First</span>
+                <input id="seniorsRosterPreferredFirstNameInput" type="text" name="preferredFirstName" placeholder="Preferred first">
+              </label>
+              <label>
+                <span>Preferred Last</span>
+                <input id="seniorsRosterPreferredLastNameInput" type="text" name="preferredLastName" placeholder="Preferred last">
               </label>
               <label>
                 <span>Email <em style="font-style:normal;font-weight:600;color:var(--muted)">(optional)</em></span>
@@ -805,7 +825,15 @@
                 <input id="seniorsRosterGhinInput" type="text" name="ghinNumber" placeholder="1234567" inputmode="numeric">
               </label>
               <label>
-                <span>Handicap <em style="font-style:normal;font-weight:600;color:var(--muted)">(optional)</em></span>
+                <span>Handicap Gold <em style="font-style:normal;font-weight:600;color:var(--muted)">(optional)</em></span>
+                <input id="seniorsRosterHandicapGoldInput" type="number" name="handicapGold" placeholder="12.4" step="0.1" min="-10" max="60" inputmode="decimal">
+              </label>
+              <label>
+                <span>Handicap Red <em style="font-style:normal;font-weight:600;color:var(--muted)">(optional)</em></span>
+                <input id="seniorsRosterHandicapRedInput" type="number" name="handicapRed" placeholder="12.4" step="0.1" min="-10" max="60" inputmode="decimal">
+              </label>
+              <label>
+                <span>Primary Handicap <em style="font-style:normal;font-weight:600;color:var(--muted)">(optional)</em></span>
                 <input id="seniorsRosterHandicapInput" type="number" name="handicapIndex" placeholder="12.4" step="0.1" min="-10" max="60" inputmode="decimal">
               </label>
               <label>
@@ -816,6 +844,10 @@
                 </select>
               </label>
             </div>
+            <label>
+              <span>Address <em style="font-style:normal;font-weight:600;color:var(--muted)">(optional)</em></span>
+              <textarea id="seniorsRosterAddressInput" name="address" rows="2" placeholder="Street, city, state"></textarea>
+            </label>
             <label>
               <span>Notes <em style="font-style:normal;font-weight:600;color:var(--muted)">(optional)</em></span>
               <textarea id="seniorsRosterNotesInput" name="notes" rows="2" placeholder="Optional roster notes"></textarea>
@@ -1052,15 +1084,24 @@
       const summaryCalendarLink = document.getElementById('summaryCalendarLink');
       const summaryInboundAlias = document.getElementById('summaryInboundAlias');
       const teeTimesFrame = document.getElementById('teeTimesFrame');
+      const teeTimesSectionMeta = document.getElementById('teeTimesSectionMeta');
       const refreshTeeTimesBtn = document.getElementById('refreshTeeTimesBtn');
       const openSiteInlineLink = document.getElementById('openSiteInlineLink');
       const seniorsRosterSection = document.getElementById('seniorsRosterSection');
       const seniorsRosterForm = document.getElementById('seniorsRosterForm');
       const seniorsRosterNote = document.getElementById('seniorsRosterNote');
+      const seniorsRosterNumberInput = document.getElementById('seniorsRosterNumberInput');
       const seniorsRosterNameInput = document.getElementById('seniorsRosterNameInput');
+      const seniorsRosterFirstNameInput = document.getElementById('seniorsRosterFirstNameInput');
+      const seniorsRosterLastNameInput = document.getElementById('seniorsRosterLastNameInput');
+      const seniorsRosterPreferredFirstNameInput = document.getElementById('seniorsRosterPreferredFirstNameInput');
+      const seniorsRosterPreferredLastNameInput = document.getElementById('seniorsRosterPreferredLastNameInput');
       const seniorsRosterEmailInput = document.getElementById('seniorsRosterEmailInput');
       const seniorsRosterPhoneInput = document.getElementById('seniorsRosterPhoneInput');
+      const seniorsRosterAddressInput = document.getElementById('seniorsRosterAddressInput');
       const seniorsRosterGhinInput = document.getElementById('seniorsRosterGhinInput');
+      const seniorsRosterHandicapGoldInput = document.getElementById('seniorsRosterHandicapGoldInput');
+      const seniorsRosterHandicapRedInput = document.getElementById('seniorsRosterHandicapRedInput');
       const seniorsRosterHandicapInput = document.getElementById('seniorsRosterHandicapInput');
       const seniorsRosterActiveInput = document.getElementById('seniorsRosterActiveInput');
       const seniorsRosterNotesInput = document.getElementById('seniorsRosterNotesInput');
@@ -1106,6 +1147,7 @@
       }
       document.body.dataset.adminGroup = groupSlug;
       const isSeniorsAdminGroup = groupSlug === 'seniors';
+      const SENIORS_ADMIN_CODE_STORAGE_KEY = 'teeTimeSeniorsAdminCode';
 
       const state = {
         code: '',
@@ -1117,6 +1159,12 @@
         schedulerEnabled: false,
         schedulerLockedByEnv: false,
       };
+
+      function rememberSeniorsAdminCode(code) {
+        try {
+          if (code) sessionStorage.setItem(SENIORS_ADMIN_CODE_STORAGE_KEY, String(code).trim());
+        } catch (_) {}
+      }
 
       const scheduledRuleConfig = {
         brianTomorrowEmptyClubAlert: { toggleId: 'ruleToggleBrianTomorrowEmptyClubAlert', statusId: 'ruleStatusBrianTomorrowEmptyClubAlert', label: '4 PM Club Alert' },
@@ -1272,19 +1320,24 @@
       }
 
       function refreshFrame(force = false) {
-        const siteHref = state.links && state.links.sitePath ? state.links.sitePath : withGroup('/');
+        const siteHref = isSeniorsAdminGroup
+          ? withGroup('/')
+          : (state.links && state.links.sitePath ? state.links.sitePath : withGroup('/'));
         const targetUrl = new URL(siteHref, window.location.origin);
+        if (isSeniorsAdminGroup) targetUrl.searchParams.set('admin_view', '1');
         if (force) targetUrl.searchParams.set('_lite_rt', String(Date.now()));
         teeTimesFrame.src = `${targetUrl.pathname}${targetUrl.search}${targetUrl.hash}`;
       }
 
       function setLinks(links = {}) {
         const siteHref = links.sitePath || withGroup('/');
+        const inlineSiteUrl = new URL(isSeniorsAdminGroup ? withGroup('/') : siteHref, window.location.origin);
+        if (isSeniorsAdminGroup) inlineSiteUrl.searchParams.set('admin_view', '1');
         const adminHref = links.adminPath || withGroup('/groups/' + encodeURIComponent(groupSlug) + '/admin');
         const calendarHref = links.calendarPath || `/groups/${encodeURIComponent(groupSlug)}/calendar.ics`;
         groupSiteLink.href = siteHref;
         calendarFeedLink.href = calendarHref;
-        openSiteInlineLink.href = siteHref;
+        openSiteInlineLink.href = `${inlineSiteUrl.pathname}${inlineSiteUrl.search}${inlineSiteUrl.hash}`;
         summarySiteLink.href = siteHref;
         summarySiteLink.textContent = siteHref;
         summaryAdminLink.href = adminHref;
@@ -1311,7 +1364,14 @@
         const groupReference = profile.groupReference || profile.groupName || title;
         document.title = `${groupReference} Group Admin`;
         pageTitle.textContent = `${groupReference} Group Admin`;
-        pageMeta.textContent = `Reference: ${groupReference}. Group slug: ${profile.groupSlug || groupSlug}. Keep tee times and subscribers current here, and store up to two points of contact for the group.`;
+        pageMeta.textContent = isSeniorsAdminGroup
+          ? ''
+          : `Reference: ${groupReference}. Group slug: ${profile.groupSlug || groupSlug}. Keep tee times and subscribers current here, and store up to two points of contact for the group.`;
+        if (teeTimesSectionMeta) {
+          teeTimesSectionMeta.textContent = isSeniorsAdminGroup
+            ? 'This board is running in Seniors admin mode. Use it here to add, edit, or remove events, tee times, and players.'
+            : "This live board is the separate group site. Use it to manage this group's tee sheets directly from the dedicated group admin.";
+        }
         if (heroBadge) {
           heroBadge.textContent = isSeniorsAdminGroup
             ? 'Blue Ridge Shadows Seniors'
@@ -1376,10 +1436,18 @@
 
       function collectSeniorsRosterPayload() {
         return {
+          rosterNumber: String(seniorsRosterNumberInput.value || '').trim(),
           name: String(seniorsRosterNameInput.value || '').trim(),
+          firstName: String(seniorsRosterFirstNameInput.value || '').trim(),
+          lastName: String(seniorsRosterLastNameInput.value || '').trim(),
+          preferredFirstName: String(seniorsRosterPreferredFirstNameInput.value || '').trim(),
+          preferredLastName: String(seniorsRosterPreferredLastNameInput.value || '').trim(),
           email: String(seniorsRosterEmailInput.value || '').trim(),
           phone: String(seniorsRosterPhoneInput.value || '').trim(),
+          address: String(seniorsRosterAddressInput.value || '').trim(),
           ghinNumber: String(seniorsRosterGhinInput.value || '').trim(),
+          handicapGold: String(seniorsRosterHandicapGoldInput.value || '').trim(),
+          handicapRed: String(seniorsRosterHandicapRedInput.value || '').trim(),
           handicapIndex: String(seniorsRosterHandicapInput.value || '').trim(),
           active: seniorsRosterActiveInput.value !== 'false',
           notes: String(seniorsRosterNotesInput.value || '').trim(),
@@ -1397,9 +1465,11 @@
         seniorsRosterList.innerHTML = list.map((golfer) => `
           <article class="roster-card">
             <div class="roster-copy">
-              <strong>${escapeHtml(String(golfer.name || ''))}</strong>
+              <strong>${escapeHtml(String(golfer.name || ''))}${Number.isFinite(golfer.rosterNumber) ? ` • #${escapeHtml(String(golfer.rosterNumber))}` : ''}</strong>
               <span>Email: ${escapeHtml(String(golfer.email || 'Not set'))} • Phone: ${escapeHtml(String(golfer.phone || 'Not set'))}</span>
-              <span>GHIN: ${escapeHtml(String(golfer.ghinNumber || 'Not set'))} • Handicap: ${escapeHtml(Number.isFinite(golfer.handicapIndex) ? String(golfer.handicapIndex) : 'Not set')}</span>
+              <span>${[golfer.firstName || golfer.lastName ? `First/Last: ${escapeHtml(String(golfer.firstName || ''))} ${escapeHtml(String(golfer.lastName || ''))}`.trim() : '', golfer.preferredFirstName || golfer.preferredLastName ? `Preferred: ${escapeHtml(String(golfer.preferredFirstName || ''))} ${escapeHtml(String(golfer.preferredLastName || ''))}`.trim() : ''].filter(Boolean).join(' • ') || 'No split-name fields set'}</span>
+              <span>GHIN: ${escapeHtml(String(golfer.ghinNumber || 'Not set'))} • Gold: ${escapeHtml(Number.isFinite(golfer.handicapGold) ? String(golfer.handicapGold) : 'Not set')} • Red: ${escapeHtml(Number.isFinite(golfer.handicapRed) ? String(golfer.handicapRed) : 'Not set')} • Primary: ${escapeHtml(Number.isFinite(golfer.handicapIndex) ? String(golfer.handicapIndex) : 'Not set')}</span>
+              ${golfer.address ? `<span>Address: ${escapeHtml(String(golfer.address || ''))}</span>` : ''}
               <span>Status: ${golfer.active ? 'Active' : 'Inactive'}${golfer.notes ? ` • Notes: ${escapeHtml(String(golfer.notes || ''))}` : ''}</span>
             </div>
             <div class="roster-card-actions">
@@ -1615,6 +1685,7 @@
         const payload = await api('/api/admin/site-profile');
         state.profile = payload.profile || null;
         state.links = payload.links || {};
+        if (isSeniorsAdminGroup) rememberSeniorsAdminCode(state.code);
         fillForm(state.profile || {});
         setLinks(state.links || {});
         form.hidden = false;
@@ -1804,10 +1875,18 @@
             const golfer = (state.seniorsRoster || []).find((entry) => String(entry._id) === golferId);
             if (!golfer) return;
             state.editingSeniorsGolferId = golferId;
+            seniorsRosterNumberInput.value = Number.isFinite(golfer.rosterNumber) ? String(golfer.rosterNumber) : '';
             seniorsRosterNameInput.value = golfer.name || '';
+            seniorsRosterFirstNameInput.value = golfer.firstName || '';
+            seniorsRosterLastNameInput.value = golfer.lastName || '';
+            seniorsRosterPreferredFirstNameInput.value = golfer.preferredFirstName || '';
+            seniorsRosterPreferredLastNameInput.value = golfer.preferredLastName || '';
             seniorsRosterEmailInput.value = golfer.email || '';
             seniorsRosterPhoneInput.value = golfer.phone || '';
+            seniorsRosterAddressInput.value = golfer.address || '';
             seniorsRosterGhinInput.value = golfer.ghinNumber || '';
+            seniorsRosterHandicapGoldInput.value = Number.isFinite(golfer.handicapGold) ? String(golfer.handicapGold) : '';
+            seniorsRosterHandicapRedInput.value = Number.isFinite(golfer.handicapRed) ? String(golfer.handicapRed) : '';
             seniorsRosterHandicapInput.value = Number.isFinite(golfer.handicapIndex) ? String(golfer.handicapIndex) : '';
             seniorsRosterActiveInput.value = golfer.active === false ? 'false' : 'true';
             seniorsRosterNotesInput.value = golfer.notes || '';
