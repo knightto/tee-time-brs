@@ -2497,6 +2497,7 @@ if ('serviceWorker' in navigator) {
         const card=document.createElement('div'); card.className='card';
         const isTeams = !!ev.isTeamEvent;
         const seniorsEventOnly = isSeniorsEventOnly(ev);
+        const isSeniorsGroup = currentGroupSlug === 'seniors' || isSeniorsGroupSite();
         const seniorsRegistrations = Array.isArray(ev && ev.seniorsRegistrations) ? ev.seniorsRegistrations : [];
         let teesArr = ev.teeTimes || [];
         if (!isTeams) {
@@ -2518,7 +2519,7 @@ if ('serviceWorker' in navigator) {
         const totalCapacity = slotCount * slotCap;
         const openCount = Math.max(0, totalCapacity - registeredCount);
         const maybeCount = (ev.maybeList || []).length;
-        const showMaybeList = !isSeniorsGroupSite();
+        const showMaybeList = !isSeniorsGroup;
         const isDayFullyBooked = !seniorsEventOnly && !isTeams && slotCount > 0 && openCount === 0;
         const fullDayAlert = isDayFullyBooked
           ? `<div class="full-day-alert">All tee times are full for ${escapeHtml(fullDateLabel(toDateISO(ev.date)))}. You can request an additional time from the ${escapeHtml(clubContactLabel())}${fifthCount ? '.' : ' or ask them to allow a 5th in one of your tee times for that day.'}</div>`
@@ -2570,7 +2571,7 @@ if ('serviceWorker' in navigator) {
               <div class="maybe-controls">
                 <button class="small maybe-btn" data-seniors-register="${ev._id}">Sign Up</button>
                 <button class="small maybe-btn" data-export-seniors-event="${ev._id}">Export Excel</button>
-                ${isSeniorsGroupSite() ? '' : `<button class="small maybe-btn" data-extract-seniors-event="${ev._id}">Extract List</button>`}
+                ${isSeniorsGroup ? '' : `<button class="small maybe-btn" data-extract-seniors-event="${ev._id}">Extract List</button>`}
               </div>
             </div>
             <div class="maybe-list">
@@ -2596,13 +2597,13 @@ if ('serviceWorker' in navigator) {
         const courseDetails = courseDetailsBits.length
           ? `<div class="course-details">${courseDetailsBits.join('')}</div>`
           : '';
-        const seniorsEventMeta = isSeniorsGroupSite() && ev.seniorsEventType
+        const seniorsEventMeta = isSeniorsGroup && ev.seniorsEventType
           ? `<div class="row" style="gap:8px;flex-wrap:wrap;margin:4px 0 8px 0">
               <span class="pill-link" style="cursor:default">${escapeHtml(seniorsEventTypeLabel(ev.seniorsEventType))}</span>
               ${seniorsEventOnly ? '<span class="pill-link" style="cursor:default">Simple Signup</span>' : ''}
             </div>`
           : '';
-        const showGolferControlsLegend = !isSeniorsGroupSite();
+        const showGolferControlsLegend = !isSeniorsGroup;
         const eventActionLegend = `
           <div class="event-action-legend" aria-label="Golfer action legend">
             <span class="event-action-title">Golfer Controls</span>
@@ -2637,10 +2638,11 @@ if ('serviceWorker' in navigator) {
               <button class="small event-actions-toggle" data-toggle-actions title="Show/hide event actions">Actions</button>
               <div class="button-row">
                 <button class="small" data-toggle-starter-event="${ev._id}" title="Switch this event to the compact starter view">Starter View</button>
-                ${seniorsEventOnly || isSeniorsGroupSite() ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<button class="small" data-add-tee="${ev._id}">Add Existing Time</button>`)}
-                ${seniorsEventOnly || isTeams || isSeniorsGroupSite() ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Suggest Pairings</button>`}
-                ${isSeniorsGroupSite() ? '' : `<button class="small" data-export-seniors-event="${ev._id}" title="Export the registration list">Export</button><button class="small" data-extract-seniors-event="${ev._id}" title="Extract names and emails">Extract</button>`}
-                ${!isSeniorsGroupSite() ? `<button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Add to Calendar</button>` : ''}
+                ${seniorsEventOnly || isSeniorsGroup ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<button class="small" data-add-tee="${ev._id}">Add Existing Time</button>`)}
+                ${seniorsEventOnly || isTeams || isSeniorsGroup ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Suggest Pairings</button>`}
+                <button class="small" data-export-seniors-event="${ev._id}" title="Export the registration list">Export</button>
+                ${isSeniorsGroup ? '' : `<button class="small" data-extract-seniors-event="${ev._id}" title="Extract names and emails">Extract</button>`}
+                <button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Add to Calendar</button>
               </div>
             </div>
             ${summaryRow}

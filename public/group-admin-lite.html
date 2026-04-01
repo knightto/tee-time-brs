@@ -702,7 +702,7 @@
       </div>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="contactsSection">
       <div class="content">
         <div class="section-head">
           <h2>Contacts</h2>
@@ -762,7 +762,7 @@
       </div>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="teeTimesSection">
       <div class="content">
         <div class="section-head">
           <h2>Tee Times</h2>
@@ -880,7 +880,7 @@
       </div>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="subscribersSection">
       <div class="content">
         <div class="section-head">
           <h2>Subscribers</h2>
@@ -915,7 +915,7 @@
       </div>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="notificationsSection">
       <div class="content">
         <div class="section-head">
           <h2>Notifications</h2>
@@ -967,7 +967,7 @@
       </div>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="scheduledRulesSection">
       <div class="content">
         <div class="section-head">
           <h2>Scheduled Email Rules</h2>
@@ -1077,6 +1077,11 @@
       const pageMeta = document.getElementById('pageMeta');
       const heroLogo = document.getElementById('heroLogo');
       const heroBadge = document.getElementById('heroBadge');
+      const contactsSection = document.getElementById('contactsSection');
+      const teeTimesSection = document.getElementById('teeTimesSection');
+      const subscribersSection = document.getElementById('subscribersSection');
+      const notificationsSection = document.getElementById('notificationsSection');
+      const scheduledRulesSection = document.getElementById('scheduledRulesSection');
       const groupSiteLink = document.getElementById('groupSiteLink');
       const calendarFeedLink = document.getElementById('calendarFeedLink');
       const summarySiteLink = document.getElementById('summarySiteLink');
@@ -1148,6 +1153,24 @@
       document.body.dataset.adminGroup = groupSlug;
       const isSeniorsAdminGroup = groupSlug === 'seniors';
       const SENIORS_ADMIN_CODE_STORAGE_KEY = 'teeTimeSeniorsAdminCode';
+
+      function applySeniorsSectionOrder() {
+        if (!isSeniorsAdminGroup) return;
+        const parent = contactsSection && contactsSection.parentElement;
+        if (!parent) return;
+        [
+          seniorsRosterSection,
+          teeTimesSection,
+          subscribersSection,
+          notificationsSection,
+          scheduledRulesSection,
+          contactsSection,
+        ].forEach((section) => {
+          if (section && section.parentElement === parent) parent.appendChild(section);
+        });
+      }
+
+      applySeniorsSectionOrder();
 
       const state = {
         code: '',
