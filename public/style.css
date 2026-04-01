@@ -1159,13 +1159,45 @@ body[data-site-group="seniors"] .row{
   font-size:11px !important;
 }
 body[data-site-group="seniors"] .card-title-row{
-  margin-bottom:-2px;
+  margin-bottom:0;
+  min-height:0;
 }
 body[data-site-group="seniors"] .card-header-left{
   gap:4px;
 }
 body[data-site-group="seniors"] .tee{
   min-height:0;
+}
+body[data-site-group="seniors"] #seniorsWithdrawalNote{
+  margin:8px 0 14px;
+  padding:0 6px;
+  position:relative;
+  z-index:1;
+}
+body[data-site-group="seniors"] .card-title-row .card-title{
+  padding-right:84px;
+  padding-left:8px;
+  line-height:1.08;
+}
+body[data-site-group="seniors"] .event-top-actions{
+  top:2px;
+  gap:5px;
+}
+body[data-site-group="seniors"] .event-top-btn{
+  width:26px;
+  min-width:26px;
+  height:26px;
+  border-radius:999px;
+}
+body[data-site-group="seniors"] .course-details{
+  display:grid;
+  grid-template-columns:repeat(2, minmax(0, max-content));
+  justify-content:center;
+  gap:4px 16px;
+}
+body[data-site-group="seniors"] .course-details span:last-child{
+  grid-column:1 / -1;
+  justify-self:center;
 }
 .starter-card{
   background:linear-gradient(135deg, rgba(255,255,255,.98) 0%, rgba(244,252,244,.94) 100%);
