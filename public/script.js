@@ -2570,7 +2570,7 @@ if ('serviceWorker' in navigator) {
               <div class="maybe-controls">
                 <button class="small maybe-btn" data-seniors-register="${ev._id}">Sign Up</button>
                 <button class="small maybe-btn" data-export-seniors-event="${ev._id}">Export Excel</button>
-                <button class="small maybe-btn" data-extract-seniors-event="${ev._id}">Extract List</button>
+                ${isSeniorsGroupSite() ? '' : `<button class="small maybe-btn" data-extract-seniors-event="${ev._id}">Extract List</button>`}
               </div>
             </div>
             <div class="maybe-list">
@@ -2637,10 +2637,10 @@ if ('serviceWorker' in navigator) {
               <button class="small event-actions-toggle" data-toggle-actions title="Show/hide event actions">Actions</button>
               <div class="button-row">
                 <button class="small" data-toggle-starter-event="${ev._id}" title="Switch this event to the compact starter view">Starter View</button>
-                ${seniorsEventOnly ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<button class="small" data-add-tee="${ev._id}">Add Existing Time</button>`)}
-                ${seniorsEventOnly || isTeams || isSeniorsGroupSite() ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Pairings</button>`}
+                ${seniorsEventOnly || isSeniorsGroupSite() ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<button class="small" data-add-tee="${ev._id}">Add Existing Time</button>`)}
+                ${seniorsEventOnly || isTeams || isSeniorsGroupSite() ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Suggest Pairings</button>`}
                 ${isSeniorsGroupSite() ? '' : `<button class="small" data-export-seniors-event="${ev._id}" title="Export the registration list">Export</button><button class="small" data-extract-seniors-event="${ev._id}" title="Extract names and emails">Extract</button>`}
-                ${!isSeniorsGroupSite() ? `<button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Google</button>` : ''}
+                ${!isSeniorsGroupSite() ? `<button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Add to Calendar</button>` : ''}
               </div>
             </div>
             ${summaryRow}
