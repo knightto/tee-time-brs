@@ -302,6 +302,19 @@ if ('serviceWorker' in navigator) {
     return currentGroupSlug === 'seniors';
   }
 
+  function isSeniorsAdminView() {
+    if (!isSeniorsGroupSite()) return false;
+    try {
+      return String(new URLSearchParams(window.location.search).get('admin_view') || '').trim() === '1';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function canManageSeniorsCalendar() {
+    return !isSeniorsGroupSite() || isSeniorsAdminView();
+  }
+
   function isSeniorsEventOnly(ev = {}) {
     return isSeniorsGroupSite() && String(ev && ev.seniorsRegistrationMode || '').trim().toLowerCase() === 'event-only';
   }
@@ -1736,12 +1749,12 @@ if ('serviceWorker' in navigator) {
         } catch (_) {}
     }
     const seniorsPublicWriteAllowed = currentGroupSlug === 'seniors' && (
-      ((method === 'POST' || method === 'PUT' || method === 'DELETE') && /^\/api\/events(?:\/[^/]+)?(?:\?|$)/.test(String(requestPath || '')))
-      || ((method === 'DELETE' || method === 'POST') && /^\/api\/events\/[^/]+\/tee-times\/[^/]+\/players(?:\/[^/]+)?(?:\/check-in)?(?:\?|$)/.test(String(requestPath || '')))
+      ((method === 'DELETE' || method === 'POST') && /^\/api\/events\/[^/]+\/tee-times\/[^/]+\/players(?:\/[^/]+)?(?:\?|$)/.test(String(requestPath || '')))
+      || (method === 'POST' && /^\/api\/events\/[^/]+\/tee-times\/[^/]+\/players\/[^/]+\/check-in(?:\?|$)/.test(String(requestPath || '')))
+      || (method === 'POST' && /^\/api\/events\/[^/]+\/tee-times\/[^/]+\/check-in-all(?:\?|$)/.test(String(requestPath || '')))
       || (method === 'POST' && /^\/api\/events\/[^/]+\/move-player(?:\?|$)/.test(String(requestPath || '')))
-      || (method === 'POST' && /^\/api\/events\/[^/]+\/pairings\/(?:suggest|apply)(?:\?|$)/.test(String(requestPath || '')))
-      || (method === 'POST' && /^\/api\/request-club-time(?:\?|$)/.test(String(requestPath || '')))
       || (method === 'POST' && /^\/api\/events\/[^/]+\/seniors-register(?:\?|$)/.test(String(requestPath || '')))
+      || (method === 'DELETE' && /^\/api\/events\/[^/]+\/seniors-registrations\/[^/]+(?:\?|$)/.test(String(requestPath || '')))
       || (method === 'POST' && /^\/api\/subscribe(?:\?|$)/.test(String(requestPath || '')))
     );
     if (currentGroupSlug === 'seniors' && method !== 'GET' && !seniorsPublicWriteAllowed && !String(mergedHeaders['x-admin-code'] || '').trim()) {
@@ -2570,8 +2583,8 @@ if ('serviceWorker' in navigator) {
               <h4>Signups</h4>
               <div class="maybe-controls">
                 <button class="small maybe-btn" data-seniors-register="${ev._id}">Sign Up</button>
-                <button class="small maybe-btn" data-export-seniors-event="${ev._id}">Export Excel</button>
-                ${isSeniorsGroup ? '' : `<button class="small maybe-btn" data-extract-seniors-event="${ev._id}">Extract List</button>`}
+                ${canManageSeniorsCalendar() ? `<button class="small maybe-btn" data-export-seniors-event="${ev._id}">Export Excel</button>` : ''}
+                ${isSeniorsGroup && !canManageSeniorsCalendar() ? '' : `<button class="small maybe-btn" data-extract-seniors-event="${ev._id}">Extract List</button>`}
               </div>
             </div>
             <div class="maybe-list">
@@ -2612,6 +2625,10 @@ if ('serviceWorker' in navigator) {
             </div>`
           : '';
         const showGolferControlsLegend = !isSeniorsGroup;
+        const showSeniorsCalendarAdminActions = canManageSeniorsCalendar();
+        const showEventTopActions = !isSeniorsGroup || showSeniorsCalendarAdminActions;
+        const showSeniorsExportActions = !isSeniorsGroup || showSeniorsCalendarAdminActions;
+        const showBottomAuditAction = !isSeniorsGroup || showSeniorsCalendarAdminActions;
         const eventActionLegend = `
           <div class="event-action-legend" aria-label="Golfer action legend">
             <span class="event-action-title">Golfer Controls</span>
@@ -2626,7 +2643,7 @@ if ('serviceWorker' in navigator) {
             <div class="card-header-left">
               <div class="card-title-row">
                 <h3 class="card-title">${courseTitleMarkup(ev)}</h3>
-                <div class="event-top-actions">
+                <div class="event-top-actions"${showEventTopActions ? '' : ' hidden'}>
                   <button class="event-top-btn event-top-edit" data-edit="${ev._id}" title="Edit Event" aria-label="Edit Event">✏</button>
                   <button class="event-top-btn event-top-delete" data-del="${ev._id}" title="Delete Event" aria-label="Delete Event">✕</button>
                 </div>
@@ -2646,10 +2663,10 @@ if ('serviceWorker' in navigator) {
               <button class="small event-actions-toggle" data-toggle-actions title="Show/hide event actions">Actions</button>
               <div class="button-row">
                 <button class="small" data-toggle-starter-event="${ev._id}" title="Switch this event to the compact starter view">Starter View</button>
-                ${seniorsEventOnly || isSeniorsGroup ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<button class="small" data-add-tee="${ev._id}">Add Existing Time</button>`)}
-                ${seniorsEventOnly || isTeams || isSeniorsGroup ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Suggest Pairings</button>`}
-                <button class="small" data-export-seniors-event="${ev._id}" title="Export the registration list">Export</button>
-                ${isSeniorsGroup ? '' : `<button class="small" data-extract-seniors-event="${ev._id}" title="Extract names and emails">Extract</button>`}
+                ${seniorsEventOnly || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<button class="small" data-add-tee="${ev._id}">Add Existing Time</button>`)}
+                ${seniorsEventOnly || isTeams || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Suggest Pairings</button>`}
+                ${showSeniorsExportActions ? `<button class="small" data-export-seniors-event="${ev._id}" title="Export the registration list">Export</button>` : ''}
+                ${isSeniorsGroup && !showSeniorsCalendarAdminActions ? '' : `<button class="small" data-extract-seniors-event="${ev._id}" title="Extract names and emails">Extract</button>`}
                 <button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Add to Calendar</button>
               </div>
             </div>
@@ -2658,7 +2675,7 @@ if ('serviceWorker' in navigator) {
             ${seniorsEventOnly || !showGolferControlsLegend ? '' : eventActionLegend}
             <div class="tees">${seniorsEventOnly ? '' : (tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>'))}</div>
             ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
-            <div class="event-bottom-actions">
+            <div class="event-bottom-actions"${showBottomAuditAction ? '' : ' hidden'}>
               <button class="small event-audit-btn event-bottom-audit-btn" data-audit="${ev._id}" title="View Audit Log" aria-label="View Audit Log">View Audit</button>
             </div>
           </div>`;
@@ -2669,6 +2686,7 @@ if ('serviceWorker' in navigator) {
   }
 
   function teeRow(ev, tt, idx, isTeams){
+    const allowSeniorsCalendarManagement = canManageSeniorsCalendar();
     const chips = (tt.players || []).map(p => {
       // keep a safe-quoted title for tooltips so long names can be seen on hover
       const safe = String(p.name || '').replace(/"/g, '&quot;');
@@ -2714,7 +2732,7 @@ if ('serviceWorker' in navigator) {
     if (urgentEmpty) teeClasses.push('tee-empty-urgent');
     // Only show edit button for teams, not tee times
     let editBtn = '';
-    if (isTeams) {
+    if (isTeams && allowSeniorsCalendarManagement) {
       const editTitle = 'Edit team name';
       editBtn = `<button class="icon small" title="${editTitle}" data-edit-tee="${ev._id}:${tt._id}">✎</button>`;
     }
@@ -2726,7 +2744,7 @@ if ('serviceWorker' in navigator) {
         <div class="tee-summary" style="font-size:11px;color:var(--slate-700)">${summaryText}</div>
         <div class="tee-actions">
           ${editBtn}
-          <button class="icon small danger" title="${delTitle}" data-del-tee="${ev._id}:${tt._id}">×</button>
+          ${allowSeniorsCalendarManagement ? `<button class="icon small danger" title="${delTitle}" data-del-tee="${ev._id}:${tt._id}">×</button>` : ''}
         </div>
       </div>
       <div class="tee-players">${chips}</div>
@@ -3349,10 +3367,14 @@ if ('serviceWorker' in navigator) {
         return;
       }
       if(t.dataset.del){
+        if (isSeniorsGroupSite() && !canManageSeniorsCalendar()) {
+          showToast('Use the Seniors admin page to edit or delete events.', 'error');
+          return;
+        }
         const code = currentGroupSlug === 'seniors'
-          ? 'seniors-delete'
+          ? null
           : await requestDeleteCode('deleting this event');
-        if(!code) return;
+        if (currentGroupSlug !== 'seniors' && !code) return;
         t.disabled = true;
         t.textContent = 'Deleting...';
         t.style.background = '#dc2626';
@@ -3361,7 +3383,7 @@ if ('serviceWorker' in navigator) {
           await api(`/api/events/${t.dataset.del}`,{
             method:'DELETE',
             headers: currentGroupSlug === 'seniors'
-              ? { 'x-delete-confirmed': 'true' }
+              ? {}
               : { 'x-admin-delete-code': code }
           });
           await updateEventCard(t.dataset.del);

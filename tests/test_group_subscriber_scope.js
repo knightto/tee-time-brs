@@ -5,7 +5,7 @@ const app = require('../server');
 const { getSecondaryConn } = require('../secondary-conn');
 const Subscriber = require('../models/Subscriber');
 
-const MAIN_ADMIN_CODE = process.env.SITE_ADMIN_WRITE_CODE || '2000';
+const MAIN_ADMIN_CODE = process.env.SITE_ADMIN_WRITE_CODE || process.env.SITE_ACCESS_CODE || '123';
 const SENIORS_ADMIN_CODE = '000';
 
 async function main() {

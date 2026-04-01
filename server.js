@@ -4182,7 +4182,6 @@ app.post('/api/events/:id/seniors-register', async (req, res) => {
 });
 
 app.delete('/api/events/:id/seniors-registrations/:registrationId', async (req, res) => {
-  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     if (normalizeGroupSlug(getGroupSlug(req)) !== 'seniors') return res.status(404).json({ error: 'Seniors registration is not available for this group' });
     const ev = await findScopedEventById(req, req.params.id);
@@ -4290,6 +4289,7 @@ app.get('/api/events/:id/calendar.ics', async (req, res) => {
 });
 
 app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const groupSlug = getGroupSlug(req);
     const { course, courseInfo, date, teeTime, teeTimes, notes, isTeamEvent, teamSizeMax, teamStartType, teamStartTime, seniorsEventType, seniorsRegistrationMode } = req.body || {};
@@ -4401,6 +4401,7 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
 });
 
 app.put('/api/events/:id', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
@@ -4462,7 +4463,9 @@ app.put('/api/events/:id', async (req, res) => {
 });
 
 app.delete('/api/events/:id', async (req, res) => {
-  if (normalizeGroupSlug(getGroupSlug(req)) !== 'seniors' && !isAdminDelete(req)) {
+  if (normalizeGroupSlug(getGroupSlug(req)) === 'seniors') {
+    if (requireSeniorsSiteAdminForWrite(req, res)) return;
+  } else if (!isAdminDelete(req)) {
     return res.status(403).json({ error: 'Delete code required' });
   }
   const del = await Event.findOneAndDelete(scopeQuery(req, { _id: req.params.id }));
@@ -4646,6 +4649,7 @@ app.post('/api/events/:id/dedupe', async (req, res) => {
 
 /* tee/team, players, move endpoints remain as in your current server.js */
 app.post('/api/events/:id/tee-times', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   // Clean logging: only log errors or important info
   const ev = await findScopedEventById(req, req.params.id);
   if (!ev) {
@@ -4766,6 +4770,7 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
 
 // Edit tee time or team name
 app.put('/api/events/:id/tee-times/:teeId', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
@@ -4808,6 +4813,7 @@ app.put('/api/events/:id/tee-times/:teeId', async (req, res) => {
 
 
 app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
+  if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const confirmedDelete = hasDeleteActionConfirmed(req);
     const hasDeleteCode = isAdminDelete(req);

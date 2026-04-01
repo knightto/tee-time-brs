@@ -7,7 +7,7 @@ const Event = require('../models/Event');
 const Settings = require('../models/Settings');
 const Subscriber = require('../models/Subscriber');
 
-const ADMIN_CODE = process.env.SITE_ADMIN_WRITE_CODE || '2000';
+const ADMIN_CODE = process.env.SITE_ADMIN_WRITE_CODE || process.env.SITE_ACCESS_CODE || '123';
 
 async function main() {
   const server = app.listen(0);
@@ -238,8 +238,44 @@ async function main() {
         isTeamEvent: false,
       }),
     });
-    assert.strictEqual(createSeniorsEventResponse.status, 201, 'Seniors event should be created');
-    const createdSeniorsEvent = await createSeniorsEventResponse.json();
+    assert.strictEqual(createSeniorsEventResponse.status, 403, 'Public seniors event creation should require scoped admin access');
+
+    const createSeniorsEventWithCodeResponse = await fetch(`${base}/api/events?group=seniors&code=000`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        course: seniorsDeleteCourse,
+        date: requestDate,
+        teeTime: '09:03',
+        isTeamEvent: false,
+      }),
+    });
+    assert.strictEqual(createSeniorsEventWithCodeResponse.status, 201, 'Scoped seniors admin code should create seniors events');
+    const createdSeniorsEvent = await createSeniorsEventWithCodeResponse.json();
+
+    const createdSeniorsTeeId = createdSeniorsEvent && createdSeniorsEvent.teeTimes && createdSeniorsEvent.teeTimes[0] && createdSeniorsEvent.teeTimes[0]._id;
+    assert.ok(createdSeniorsTeeId, 'Created seniors event should include a tee time');
+
+    const addSeniorsPlayerResponse = await fetch(`${base}/api/events/${createdSeniorsEvent._id}/tee-times/${createdSeniorsTeeId}/players?group=seniors`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Public Seniors Player' }),
+    });
+    assert.strictEqual(addSeniorsPlayerResponse.status, 200, 'Public seniors player signup should still be allowed');
+    const addSeniorsPlayerPayload = await addSeniorsPlayerResponse.json();
+    const createdSeniorsPlayerId = addSeniorsPlayerPayload
+      && addSeniorsPlayerPayload.teeTimes
+      && addSeniorsPlayerPayload.teeTimes[0]
+      && addSeniorsPlayerPayload.teeTimes[0].players
+      && addSeniorsPlayerPayload.teeTimes[0].players[0]
+      && addSeniorsPlayerPayload.teeTimes[0].players[0]._id;
+    assert.ok(createdSeniorsPlayerId, 'Created seniors player should be returned');
+
+    const removeSeniorsPlayerResponse = await fetch(`${base}/api/events/${createdSeniorsEvent._id}/tee-times/${createdSeniorsTeeId}/players/${createdSeniorsPlayerId}?group=seniors`, {
+      method: 'DELETE',
+      headers: { 'x-delete-confirmed': 'true' },
+    });
+    assert.strictEqual(removeSeniorsPlayerResponse.status, 200, 'Public seniors player removal should still be allowed');
 
     const seniorsDeleteWithMainCode = await fetch(`${base}/api/events/${createdSeniorsEvent._id}?group=seniors&code=${encodeURIComponent(ADMIN_CODE)}`, {
       method: 'DELETE',

@@ -13,7 +13,7 @@ const Subscriber = require('../models/Subscriber');
 
 const PORT = Number(process.env.E2E_GROUP_TEMPLATE_PORT || 0);
 const DEBUG_PORT = Number(process.env.E2E_GROUP_TEMPLATE_DEBUG_PORT || 9246);
-const ADMIN_CODE = process.env.SITE_ADMIN_WRITE_CODE || '2000';
+const ADMIN_CODE = process.env.SITE_ADMIN_WRITE_CODE || process.env.SITE_ACCESS_CODE || '123';
 const BROWSER_CANDIDATES = [
   process.env.E2E_BROWSER_BIN,
   'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
