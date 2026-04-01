@@ -3,6 +3,7 @@ const crypto = require('crypto');
 const DAY_OPTIONS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 2 Total', 'Day 3', 'Day 4'];
 const MATCH_DAY_OPTIONS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4', 'Practice'];
 const TIN_CUP_RANK_POINTS = [12, 10, 8.5, 7, 5.75, 4.5, 3, 1.25, 0, 0, 0, 0, 0, 0, 0, 0];
+const PRACTICE_DAY_KEY = 'Practice';
 
 const PLAYERS = [
   { name: 'Matt', handicap: 10.8 }, { name: 'Rick', handicap: 15.3 }, { name: 'OB', handicap: 11.2 }, { name: 'Kyle', handicap: 8.2 },
@@ -491,8 +492,10 @@ function maybeAutoDrawSecretSnowman(state, payload = {}) {
 }
 
 function getDaySlots(dayKey = '') {
+  const cleanDayKey = clean(dayKey);
+  if (cleanDayKey === PRACTICE_DAY_KEY) return [];
   return FOURSOMES.map((group, index) => {
-    const dayPlayers = (group.playersByDay && group.playersByDay[dayKey]) || [];
+    const dayPlayers = (group.playersByDay && group.playersByDay[cleanDayKey]) || [];
     return {
       slotIndex: index,
       label: `Group ${index + 1}`,
@@ -635,6 +638,7 @@ function verifySlotCode(state, dayKey, slotIndex, code) {
 }
 
 function getDayHandicapMap(dayKey) {
+  if (clean(dayKey) === PRACTICE_DAY_KEY) return new Map();
   const map = new Map();
   for (const group of FOURSOMES) {
     const dayPlayers = (group.playersByDay && group.playersByDay[dayKey]) || [];
@@ -740,6 +744,7 @@ function getDayPlayerSummaries(state, dayKey) {
 }
 
 function getDayMatrixByPlayer(dayKey) {
+  if (clean(dayKey) === PRACTICE_DAY_KEY) return new Map();
   const rules = [{ pairs: [[0, 1], [2, 3]] }, { pairs: [[0, 2], [1, 3]] }, { pairs: [[0, 3], [1, 2]] }];
   const rows = [];
   FOURSOMES.forEach((group) => {

@@ -692,6 +692,20 @@
       background: rgba(21,38,28,0.58);
       display: grid;
       gap: 5px;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+    .trip-slot.trip-slot-editable {
+      border-style: dashed;
+    }
+    .trip-slot.trip-slot-drag-over {
+      border-color: rgba(200,154,75,0.92);
+      background: rgba(200,154,75,0.16);
+      box-shadow: 0 0 0 2px rgba(200,154,75,0.18);
+    }
+    .trip-slot.trip-slot-over-capacity {
+      border-color: rgba(240,82,82,0.82);
+      background: rgba(110, 18, 18, 0.34);
+      box-shadow: 0 0 0 1px rgba(240,82,82,0.22);
     }
     @keyframes tripFirstTeeFlash {
       0%, 100% {
@@ -727,6 +741,43 @@
       color: #edf3e1;
       background: rgba(255,255,255,0.08);
       line-height: 1.2;
+    }
+    .trip-player-chip.trip-player-chip-draggable {
+      cursor: grab;
+      user-select: none;
+    }
+    .trip-player-chip.trip-player-chip-draggable:active {
+      cursor: grabbing;
+    }
+    .trip-player-chip.trip-player-chip-dragging {
+      opacity: 0.45;
+    }
+    .trip-slot-count {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 42px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(232,255,219,0.14);
+      background: rgba(255,255,255,0.06);
+      font-size: 0.72rem;
+      color: #edf3e1;
+    }
+    .trip-slot-count.trip-slot-count-over {
+      border-color: rgba(248,113,113,0.42);
+      background: rgba(127,29,29,0.48);
+      color: #fecaca;
+    }
+    .trip-slot-drag-note {
+      margin: 0 0 8px;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(200,154,75,0.24);
+      background: rgba(200,154,75,0.12);
+      color: #f7ecd0;
+      font-size: 0.8rem;
+      line-height: 1.45;
     }
     .trip-event-actions {
       display: flex;
@@ -1337,7 +1388,6 @@
           'Day 2B': [{ name: 'Kyle', hcp: 4 }, { name: 'Tommy', hcp: 5 }, { name: 'CSamm', hcp: 13 }, { name: 'David', hcp: 8 }],
           'Day 3': [{ name: 'Kyle', hcp: 4 }, { name: 'Steve', hcp: 8 }, { name: 'Mil', hcp: 8 }, { name: 'Tony', hcp: 8 }],
           'Day 4': [{ name: 'Matt', hcp: 6 }, { name: 'Rick', hcp: 8 }, { name: 'OB', hcp: 6 }, { name: 'Kyle', hcp: 4 }],
-          Practice: [{ name: 'Matt', hcp: 6 }, { name: 'Rick', hcp: 8 }, { name: 'OB', hcp: 6 }, { name: 'Kyle', hcp: 4 }],
           Scramble: [{ name: 'Bob', hcp: 13 }, { name: 'Steve', hcp: 8 }, { name: 'OB', hcp: 6 }, { name: 'David', hcp: 8 }]
         }
       },
@@ -1349,7 +1399,6 @@
           'Day 2B': [{ name: 'Matt', hcp: 6 }, { name: 'Steve', hcp: 8 }, { name: 'Brian', hcp: 12 }, { name: 'Spiro', hcp: 14 }],
           'Day 3': [{ name: 'Matt', hcp: 6 }, { name: 'Bob', hcp: 13 }, { name: 'Tommy', hcp: 5 }, { name: 'John', hcp: 7 }],
           'Day 4': [{ name: 'Manny', hcp: 13 }, { name: 'Steve', hcp: 8 }, { name: 'Tommy', hcp: 5 }, { name: 'Pat', hcp: 10 }],
-          Practice: [{ name: 'Manny', hcp: 13 }, { name: 'Steve', hcp: 8 }, { name: 'Tommy', hcp: 5 }, { name: 'Pat', hcp: 10 }],
           Scramble: [{ name: 'Rick', hcp: 8 }, { name: 'Tommy', hcp: 5 }, { name: 'Mil', hcp: 8 }, { name: 'Spiro', hcp: 14 }]
         }
       },
@@ -1361,7 +1410,6 @@
           'Day 2B': [{ name: 'OB', hcp: 6 }, { name: 'John', hcp: 7 }, { name: 'Mil', hcp: 8 }, { name: 'Pat', hcp: 10 }],
           'Day 3': [{ name: 'Manny', hcp: 13 }, { name: 'CSamm', hcp: 13 }, { name: 'Spiro', hcp: 14 }, { name: 'OB', hcp: 6 }],
           'Day 4': [{ name: 'Mil', hcp: 8 }, { name: 'CSamm', hcp: 13 }, { name: 'Brian', hcp: 12 }, { name: 'Bob', hcp: 13 }],
-          Practice: [{ name: 'Mil', hcp: 8 }, { name: 'CSamm', hcp: 13 }, { name: 'Brian', hcp: 12 }, { name: 'Bob', hcp: 13 }],
           Scramble: [{ name: 'Kyle', hcp: 4 }, { name: 'Manny', hcp: 13 }, { name: 'John', hcp: 7 }, { name: 'Brian', hcp: 12 }]
         }
       },
@@ -1373,7 +1421,6 @@
           'Day 2B': [{ name: 'Manny', hcp: 13 }, { name: 'Rick', hcp: 8 }, { name: 'Bob', hcp: 13 }, { name: 'Tony', hcp: 8 }],
           'Day 3': [{ name: 'Pat', hcp: 10 }, { name: 'Brian', hcp: 12 }, { name: 'David', hcp: 8 }, { name: 'Rick', hcp: 8 }],
           'Day 4': [{ name: 'David', hcp: 8 }, { name: 'John', hcp: 7 }, { name: 'Tony', hcp: 8 }, { name: 'Spiro', hcp: 14 }],
-          Practice: [{ name: 'David', hcp: 8 }, { name: 'John', hcp: 7 }, { name: 'Tony', hcp: 8 }, { name: 'Spiro', hcp: 14 }],
           Scramble: [{ name: 'Pat', hcp: 10 }, { name: 'Matt', hcp: 6 }, { name: 'CSamm', hcp: 13 }, { name: 'Tony', hcp: 8 }]
         }
       }
@@ -1524,6 +1571,7 @@
     let useSecondaryTripDb = false;
     let tinCupScoringState = null;
     let tinCupLeaderboardDay = 'Day 1';
+    let tripDraggedPracticePlayer = null;
     const DEFAULT_TIN_CUP_LIVE_SETTINGS = {
       enableLiveFoursomeScoring: true,
       enableFoursomeCodes: true,
@@ -1696,7 +1744,7 @@
       time: toHHMM(slot.time),
       players: Array.isArray(slot.players) ? slot.players.map((name) => String(name || '').trim()).filter(Boolean) : []
     });
-    const normalizeRound = (raw = {}) => {
+    const normalizeRound = (raw = {}, sourceIndex = -1) => {
       const normalizedSlots = Array.isArray(raw.teeTimes)
         ? raw.teeTimes.map((slot, index) => normalizeRoundSlot(slot, index)).filter((slot) => slot.time || slot.players.length || slot.label)
         : [];
@@ -1715,7 +1763,8 @@
         time: roundTime,
         confirmation: String(raw.confirmation || '').trim(),
         readMoreUrl: String(raw.readMoreUrl || '').trim(),
-        teeTimes: normalizedSlots
+        teeTimes: normalizedSlots,
+        _sourceIndex: Number.isInteger(sourceIndex) ? sourceIndex : -1
       };
     };
     const sortRounds = (rounds = []) => {
@@ -1735,8 +1784,9 @@
     };
     const getTripRounds = () => {
       const source = Array.isArray(trip?.rounds) && trip.rounds.length ? trip.rounds : DEFAULT_ROUNDS;
-      return sortRounds(source.map(normalizeRound));
+      return sortRounds(source.map((round, index) => normalizeRound(round, index)));
     };
+    const isPracticeTemplateDay = (templateDay = null) => templateDay && templateDay.key === 'Practice';
     const getRoundDateOrder = (rounds = []) => {
       const uniqueDates = [];
       rounds.forEach((round) => {
@@ -1867,6 +1917,10 @@
     };
     const buildTemplateSlotsForDay = (dayKey = '', firstTime = '') => {
       const foursomes = getTemplateFoursomesForDay(dayKey);
+      if (!foursomes.length && dayKey === 'Practice') {
+        const practiceGroupCount = Math.max(1, Math.ceil(getTinCupPlayers().length / 4));
+        return buildTripSlots(firstTime, Array.from({ length: practiceGroupCount }, () => []));
+      }
       const groups = foursomes.map((foursome) => foursome.players.map((p) => p.name));
       return buildTripSlots(firstTime, groups);
     };
@@ -3086,9 +3140,73 @@
         : existingSlots;
     }
 
+    async function saveTripRounds(nextRounds = []) {
+      if (!tripId) {
+        alert('Tin Cup trip is in preview mode until a database trip record is created.');
+        return false;
+      }
+      const code = getAdminCode();
+      if (!code) return false;
+      const res = await fetch(tripApi(`/api/trips/${tripId}`), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-admin-code': code,
+        },
+        body: JSON.stringify({ rounds: nextRounds }),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(payload && payload.error ? payload.error : 'Failed to save practice tee sheet.');
+      }
+      trip = payload;
+      return true;
+    }
+
+    async function movePracticeRoundPlayer(sourceRoundIndex, sourceSlotIndex, targetRoundIndex, targetSlotIndex, playerName = '') {
+      const normalizedName = String(playerName || '').trim();
+      if (!normalizedName) return false;
+      if (!trip || !Array.isArray(trip.rounds)) {
+        alert('Load the Tin Cup trip before editing practice groups.');
+        return false;
+      }
+      const rounds = trip.rounds.map((round) => ({
+        ...round,
+        teeTimes: Array.isArray(round && round.teeTimes)
+          ? round.teeTimes.map((slot, index) => normalizeRoundSlot(slot, index))
+          : [],
+      }));
+      const sourceRound = rounds[sourceRoundIndex];
+      const targetRound = rounds[targetRoundIndex];
+      if (!sourceRound || !targetRound) return false;
+      const sourceSlot = Array.isArray(sourceRound.teeTimes) ? sourceRound.teeTimes[sourceSlotIndex] : null;
+      const targetSlot = Array.isArray(targetRound.teeTimes) ? targetRound.teeTimes[targetSlotIndex] : null;
+      if (!sourceSlot || !targetSlot) return false;
+      if (sourceRoundIndex === targetRoundIndex && sourceSlotIndex === targetSlotIndex) return false;
+
+      const sourcePlayers = Array.isArray(sourceSlot.players) ? sourceSlot.players.slice() : [];
+      const targetPlayers = Array.isArray(targetSlot.players) ? targetSlot.players.slice() : [];
+      const sourcePlayerIndex = sourcePlayers.findIndex((name) => String(name || '').trim() === normalizedName);
+      if (sourcePlayerIndex < 0) return false;
+      if (targetPlayers.length >= 5) {
+        alert('A practice group can hold up to 5 golfers for logistics moves.');
+        return false;
+      }
+
+      sourcePlayers.splice(sourcePlayerIndex, 1);
+      targetPlayers.push(normalizedName);
+      sourceSlot.players = sourcePlayers;
+      targetSlot.players = targetPlayers;
+
+      await saveTripRounds(rounds);
+      renderAll();
+      return true;
+    }
+
     function renderSidebarTeeSheet(dayRounds = [], templateDay = null) {
       const sidebarEl = document.getElementById('tripSidebarTeeSheet');
       if (!sidebarEl) return;
+      const practiceEditMode = isPracticeTemplateDay(templateDay);
       if (!Array.isArray(dayRounds) || !dayRounds.length) {
         sidebarEl.innerHTML = `
           <h3>Tee Sheet</h3>
@@ -3098,19 +3216,27 @@
       }
       sidebarEl.innerHTML = `
         <h3>Tee Sheet</h3>
+        ${practiceEditMode ? '<div class="trip-slot-drag-note">Practice groups can be adjusted here. Drag a golfer into another group to move them. Groups may temporarily hold 5 golfers and any group over 4 is highlighted.</div>' : ''}
         ${dayRounds.map((round) => {
           const firstTime = getRoundPrimaryTime(round);
           const slots = getRoundSlotsForDisplay(round, templateDay);
           const slotMarkup = slots.map((slot, index) => {
             const label = slot.label || `TT#${index + 1}`;
+            const players = Array.isArray(slot.players) ? slot.players : [];
+            const overCapacity = players.length > 4;
+            const countMarkup = `<span class="trip-slot-count${overCapacity ? ' trip-slot-count-over' : ''}">${players.length}/4</span>`;
             const playersMarkup = (slot.players || []).length
-              ? slot.players.map((name) => `<span class="trip-player-chip">${escapeHtml(name)}</span>`).join('')
+              ? slot.players.map((name) => {
+                  const safeName = String(name || '').trim();
+                  if (!practiceEditMode) return `<span class="trip-player-chip">${escapeHtml(safeName)}</span>`;
+                  return `<span class="trip-player-chip trip-player-chip-draggable" draggable="true" data-practice-player-name="${quoteAttr(safeName)}" data-practice-round-index="${round._sourceIndex}" data-practice-slot-index="${index}">${escapeHtml(safeName)}</span>`;
+                }).join('')
               : '<span class="trip-player-chip">Open</span>';
               return `
-              <div class="trip-slot">
+              <div class="trip-slot${practiceEditMode ? ' trip-slot-editable' : ''}${overCapacity ? ' trip-slot-over-capacity' : ''}"${practiceEditMode ? ` data-practice-drop-slot="1" data-practice-round-index="${round._sourceIndex}" data-practice-slot-index="${index}"` : ''}>
                 <div class="trip-slot-head">
                   <span>${escapeHtml(label)}</span>
-                  <span>${escapeHtml(formatTime12(slot.time) || '--')}</span>
+                  <span>${escapeHtml(formatTime12(slot.time) || '--')} ${countMarkup}</span>
                 </div>
                 <div class="trip-slot-players">${playersMarkup}</div>
               </div>
@@ -3124,6 +3250,68 @@
           `;
         }).join('')}
       `;
+      if (practiceEditMode) bindPracticeRoundDragAndDrop(sidebarEl);
+    }
+
+    function bindPracticeRoundDragAndDrop(sidebarEl) {
+      if (!sidebarEl) return;
+      sidebarEl.querySelectorAll('[data-practice-player-name]').forEach((chip) => {
+        chip.addEventListener('dragstart', (event) => {
+          const playerName = String(chip.getAttribute('data-practice-player-name') || '').trim();
+          const sourceRoundIndex = Number(chip.getAttribute('data-practice-round-index'));
+          const sourceSlotIndex = Number(chip.getAttribute('data-practice-slot-index'));
+          if (!playerName || !Number.isInteger(sourceRoundIndex) || !Number.isInteger(sourceSlotIndex)) {
+            event.preventDefault();
+            return;
+          }
+          tripDraggedPracticePlayer = { playerName, sourceRoundIndex, sourceSlotIndex };
+          chip.classList.add('trip-player-chip-dragging');
+          if (event.dataTransfer) {
+            event.dataTransfer.effectAllowed = 'move';
+            event.dataTransfer.setData('text/plain', playerName);
+          }
+        });
+        chip.addEventListener('dragend', () => {
+          chip.classList.remove('trip-player-chip-dragging');
+          sidebarEl.querySelectorAll('.trip-slot-drag-over').forEach((slot) => slot.classList.remove('trip-slot-drag-over'));
+          tripDraggedPracticePlayer = null;
+        });
+      });
+      sidebarEl.querySelectorAll('[data-practice-drop-slot]').forEach((slotEl) => {
+        slotEl.addEventListener('dragover', (event) => {
+          if (!tripDraggedPracticePlayer) return;
+          event.preventDefault();
+          if (event.dataTransfer) event.dataTransfer.dropEffect = 'move';
+          slotEl.classList.add('trip-slot-drag-over');
+        });
+        slotEl.addEventListener('dragleave', () => {
+          slotEl.classList.remove('trip-slot-drag-over');
+        });
+        slotEl.addEventListener('drop', async (event) => {
+          if (!tripDraggedPracticePlayer) return;
+          event.preventDefault();
+          slotEl.classList.remove('trip-slot-drag-over');
+          const targetRoundIndex = Number(slotEl.getAttribute('data-practice-round-index'));
+          const targetSlotIndex = Number(slotEl.getAttribute('data-practice-slot-index'));
+          if (!Number.isInteger(targetRoundIndex) || !Number.isInteger(targetSlotIndex)) {
+            tripDraggedPracticePlayer = null;
+            return;
+          }
+          const dragged = tripDraggedPracticePlayer;
+          tripDraggedPracticePlayer = null;
+          try {
+            await movePracticeRoundPlayer(
+              dragged.sourceRoundIndex,
+              dragged.sourceSlotIndex,
+              targetRoundIndex,
+              targetSlotIndex,
+              dragged.playerName,
+            );
+          } catch (error) {
+            alert(error && error.message ? error.message : 'Failed to move golfer.');
+          }
+        });
+      });
     }
 
     function renderTripSchedule(rounds = []) {

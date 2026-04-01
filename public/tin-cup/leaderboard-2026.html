@@ -737,6 +737,7 @@
       });
     }
     function getDayMatrixByPlayer(dayKey) {
+      if (String(dayKey || '').trim() === 'Practice') return new Map();
       const rules = [{ pairs: [[0, 1], [2, 3]] }, { pairs: [[0, 2], [1, 3]] }, { pairs: [[0, 3], [1, 2]] }];
       const rows = [];
       FOURSOMES.forEach((group) => {

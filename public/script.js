@@ -2581,21 +2581,29 @@ if ('serviceWorker' in navigator) {
         ` : '';
         const weatherSummary = weatherSummaryMarkup(ev);
         // Course details
-        const courseDetailsBits = [];
+        const courseDetailPrimaryBits = [];
+        const courseDetailSecondaryBits = [];
         if (ev.courseInfo && ev.courseInfo.city && ev.courseInfo.state) {
-          courseDetailsBits.push(`<span>📍 ${escapeHtml(ev.courseInfo.city)}, ${escapeHtml(ev.courseInfo.state)}</span>`);
+          courseDetailPrimaryBits.push(`<span class="course-detail-item">📍 ${escapeHtml(ev.courseInfo.city)}, ${escapeHtml(ev.courseInfo.state)}</span>`);
         }
         if (ev.courseInfo && ev.courseInfo.phone) {
-          courseDetailsBits.push(`<span>📞 ${escapeHtml(ev.courseInfo.phone)}</span>`);
+          courseDetailPrimaryBits.push(`<span class="course-detail-item">📞 ${escapeHtml(ev.courseInfo.phone)}</span>`);
         }
         if (ev.courseInfo && ev.courseInfo.website) {
-          courseDetailsBits.push(`<span><a href="${escapeHtml(ev.courseInfo.website)}" target="_blank" rel="noopener">🔗 Website</a></span>`);
+          courseDetailSecondaryBits.push(`<span class="course-detail-item"><a href="${escapeHtml(ev.courseInfo.website)}" target="_blank" rel="noopener">🔗 Website</a></span>`);
         }
         if (ev.courseInfo && ev.courseInfo.holes && ev.courseInfo.par) {
-          courseDetailsBits.push(`<span>⛳ ${escapeHtml(ev.courseInfo.holes)} holes, Par ${escapeHtml(ev.courseInfo.par)}</span>`);
+          courseDetailSecondaryBits.push(`<span class="course-detail-item">⛳ ${escapeHtml(ev.courseInfo.holes)} holes, Par ${escapeHtml(ev.courseInfo.par)}</span>`);
         }
-        const courseDetails = courseDetailsBits.length
-          ? `<div class="course-details">${courseDetailsBits.join('')}</div>`
+        const courseDetailRows = [];
+        if (courseDetailPrimaryBits.length) {
+          courseDetailRows.push(`<div class="course-details-row">${courseDetailPrimaryBits.join('')}</div>`);
+        }
+        if (courseDetailSecondaryBits.length) {
+          courseDetailRows.push(`<div class="course-details-row">${courseDetailSecondaryBits.join('')}</div>`);
+        }
+        const courseDetails = courseDetailRows.length
+          ? `<div class="course-details">${courseDetailRows.join('')}</div>`
           : '';
         const seniorsEventMeta = isSeniorsGroup && ev.seniorsEventType
           ? `<div class="row" style="gap:8px;flex-wrap:wrap;margin:4px 0 8px 0">

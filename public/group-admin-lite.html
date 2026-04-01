@@ -1029,7 +1029,7 @@
       </div>
     </section>
 
-    <section class="panel">
+    <section class="panel" id="deploymentSummarySection">
       <div class="content">
         <div class="summary-list" id="deploymentSummary">
           <div class="summary-item">
@@ -1082,6 +1082,7 @@
       const subscribersSection = document.getElementById('subscribersSection');
       const notificationsSection = document.getElementById('notificationsSection');
       const scheduledRulesSection = document.getElementById('scheduledRulesSection');
+      const deploymentSummarySection = document.getElementById('deploymentSummarySection');
       const groupSiteLink = document.getElementById('groupSiteLink');
       const calendarFeedLink = document.getElementById('calendarFeedLink');
       const summarySiteLink = document.getElementById('summarySiteLink');
@@ -1165,6 +1166,7 @@
           notificationsSection,
           scheduledRulesSection,
           contactsSection,
+          deploymentSummarySection,
         ].forEach((section) => {
           if (section && section.parentElement === parent) parent.appendChild(section);
         });

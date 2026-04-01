@@ -55,16 +55,16 @@ function run() {
   const state = defaultTinCupLiveState();
   const leaderboard = seedAllScores(state, { reset: true });
 
-  assert.strictEqual(Object.keys(state.scorecards || {}).length, 24, 'Seeding should populate all 24 Tin Cup scorecards');
+  assert.strictEqual(Object.keys(state.scorecards || {}).length, 20, 'Seeding should populate all 20 competitive Tin Cup scorecards');
   const holeCount = Object.values(state.scorecards || {}).reduce((sum, card) => {
     const players = card && card.players && typeof card.players === 'object' ? Object.values(card.players) : [];
     return sum + players.reduce((playerSum, player) => playerSum + (Array.isArray(player && player.holes) ? player.holes.filter((gross) => Number.isFinite(Number(gross))).length : 0), 0);
   }, 0);
-  assert.strictEqual(holeCount, 1728, 'Seeding should create 1,728 gross scores across all rounds');
+  assert.strictEqual(holeCount, 1440, 'Seeding should create 1,440 gross scores across competitive rounds');
 
   assert.strictEqual((leaderboard.totals || []).length, 16, 'Leaderboard should contain all 16 Tin Cup players');
   assert.strictEqual(leaderboard.matchBoards['Day 1'].length, 16, 'Day 1 match board should contain all players');
-  assert.strictEqual(leaderboard.matchBoards['Practice'].length, 16, 'Practice match board should contain all players');
+  assert.strictEqual(leaderboard.matchBoards['Practice'].length, 0, 'Practice match board should stay empty until practice groups are assigned');
 
   const matt = leaderboard.totals.find((row) => row.name === 'Matt');
   const spiro = leaderboard.totals.find((row) => row.name === 'Spiro');
@@ -231,8 +231,8 @@ function run() {
   assert(summaryRow && summaryRow.tripName === 'Tin Cup 2026', 'Competition export should include a trip summary row');
   const mattExport = exportRows.find((row) => row.rowType === 'player_total' && row.playerName === 'Matt');
   assert(mattExport && currentMatt && mattExport.tripTotal === currentMatt.total, 'Competition export should include per-player final totals');
-  const practiceExport = exportRows.find((row) => row.rowType === 'match_day' && row.dayKey === 'Practice' && row.playerName === 'Matt');
-  assert(practiceExport, 'Competition export should include practice match rows');
+  const practiceExport = exportRows.find((row) => row.rowType === 'match_day' && row.dayKey === 'Practice');
+  assert.strictEqual(practiceExport, undefined, 'Competition export should omit practice match rows until practice groups are assigned');
   const mattScorecardExport = exportRows.find((row) => row.rowType === 'scorecard_player' && row.dayKey === 'Day 1' && row.playerName === 'Matt');
   assert(mattScorecardExport && Object.prototype.hasOwnProperty.call(mattScorecardExport, 'hole18'), 'Competition export should include full hole-by-hole scorecard rows');
   const markerExport = exportRows.find((row) => row.rowType === 'marker' && row.type === 'ctp');

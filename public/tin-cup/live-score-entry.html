@@ -826,6 +826,7 @@
     }
 
     function getDaySlots(dayKey = '') {
+      if (String(dayKey || '').trim() === 'Practice') return [];
       return FOURSOMES.map((group, index) => ({
         slotIndex: index,
         label: `Group ${index + 1}`,
@@ -1823,6 +1824,7 @@
       const rules = [{ label: 'Front 9', pairs: [[0, 1], [2, 3]] }, { label: 'Back 9 #1', pairs: [[0, 2], [1, 3]] }, { label: 'Back 9 #2', pairs: [[0, 3], [1, 2]] }];
       const rows = [];
       FOURSOMES.forEach((group) => {
+        if (String(dayKey || '').trim() === 'Practice') return;
         const players = (group.playersByDay && group.playersByDay[dayKey]) || [];
         if (players.length < 4) return;
         const byPlayer = new Map(players.map((p) => [norm(p.name), { player: p.name, segments: [] }]));
