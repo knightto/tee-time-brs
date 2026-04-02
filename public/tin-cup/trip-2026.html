@@ -1216,6 +1216,7 @@
       }
     }
   </style>
+  <link rel="stylesheet" href="/tin-cup/theme.css">
 </head>
 <body>
   <div class="container">
@@ -1334,10 +1335,12 @@
         address: '1010 Midland Road, Southern Pines, NC 28387',
         date: '2026-05-12',
         time: '14:05',
-        teeTimes: [
-          { label: 'TT#1', time: '14:05', players: [] },
-          { label: 'TT#2', time: '15:00', players: [] }
-        ]
+        teeTimes: buildTripSlots('14:05', [
+          ['Mil', 'Spiro', 'OB', 'David'],
+          ['Bob', 'Steve', 'Pat', 'Tony'],
+          ['CSamm', 'John', 'Tommy', 'Manny'],
+          ['Brian', 'Rick', 'Kyle', 'Matt']
+        ])
       },
       {
         course: 'Day 1 - Pine Needles',

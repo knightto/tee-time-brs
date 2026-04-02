@@ -1,0 +1,169 @@
+:root {
+  --tin-cup-bg-image: url('/assets/golf-course-golf-bag-idyllic-forest-cart-summer-landscape-park-69200010.webp');
+  --tin-cup-sky: rgba(146, 198, 235, 0.22);
+  --tin-cup-fairway: rgba(120, 173, 106, 0.22);
+  --tin-cup-sand: rgba(234, 199, 122, 0.18);
+  --tin-cup-ink-dark: #17311f;
+}
+
+body {
+  background:
+    radial-gradient(circle at 14% 18%, var(--tin-cup-sand), transparent 26%),
+    radial-gradient(circle at 84% 14%, var(--tin-cup-sky), transparent 24%),
+    linear-gradient(180deg, rgba(9, 29, 19, 0.82) 0%, rgba(12, 32, 21, 0.68) 24%, rgba(10, 22, 17, 0.9) 100%),
+    var(--tin-cup-bg-image) center top / cover fixed no-repeat !important;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(135deg, rgba(255,255,255,0.05), transparent 34%),
+    radial-gradient(circle at 50% 78%, var(--tin-cup-fairway), transparent 38%);
+  opacity: 0.95;
+  z-index: 0;
+}
+
+body > * {
+  position: relative;
+  z-index: 1;
+}
+
+.hero,
+.panel,
+.card,
+.section,
+.guide-card,
+.podium-card,
+.status-chip,
+.condo-group,
+.participant-card,
+#unassignedSidebar,
+.action-card,
+.dashboard-summary-item,
+.trip-sidebar-tee-sheet,
+.trip-events-container,
+.tin-cup-score-card,
+.trip-map-panel,
+.guide-pill,
+.guide-link,
+.mobile-status-chip,
+.bottom-nav-link {
+  backdrop-filter: blur(10px);
+}
+
+.hero,
+.panel,
+.card,
+.section,
+.guide-card {
+  background:
+    linear-gradient(160deg, rgba(34, 71, 46, 0.92) 0%, rgba(19, 43, 29, 0.94) 100%) !important;
+  border-color: rgba(233, 245, 222, 0.18) !important;
+  box-shadow:
+    0 20px 44px rgba(5, 16, 10, 0.34),
+    inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+header.hero,
+.hero {
+  background:
+    linear-gradient(135deg, rgba(46, 92, 61, 0.96) 0%, rgba(24, 54, 34, 0.96) 58%, rgba(83, 122, 71, 0.92) 100%) !important;
+}
+
+.wrap,
+.container,
+.guide-wrap {
+  position: relative;
+}
+
+.hero-subhead,
+.hero-subtitle,
+.hero-meta,
+.muted,
+.participant-meta,
+.dashboard-summary-item,
+.mobile-status-chip,
+.bottom-nav-link,
+.secondary-link-row a {
+  color: #dfe9d6 !important;
+}
+
+.chip,
+.guide-pill,
+.guide-link,
+.mobile-status-chip,
+.bottom-nav-link,
+.status-chip,
+.dashboard-summary-item,
+.action-card {
+  background: rgba(255, 250, 242, 0.08) !important;
+  border-color: rgba(244, 226, 183, 0.18) !important;
+}
+
+.action-card,
+.trip-event-card,
+.participant-card,
+.tin-cup-score-card,
+.trip-sidebar-tee-sheet .panel,
+.trip-map-panel .panel {
+  background:
+    linear-gradient(145deg, rgba(255,255,255,0.05), rgba(255,255,255,0.03)) !important;
+}
+
+.chip::before,
+.guide-pill::before,
+.guide-link::before,
+.golf-title::before,
+.scorecard-link-title::before,
+.hole-nav-hole::before {
+  filter: drop-shadow(0 0 6px rgba(244, 208, 128, 0.2));
+}
+
+a {
+  color: #f4d58b;
+}
+
+a:hover {
+  color: #ffe3a8;
+}
+
+input,
+select,
+textarea,
+button {
+  box-shadow: none;
+}
+
+input,
+select,
+textarea {
+  border-color: rgba(233, 245, 222, 0.16) !important;
+  background: rgba(13, 33, 22, 0.88) !important;
+}
+
+button,
+.cta {
+  background:
+    linear-gradient(135deg, rgba(216, 170, 82, 0.24), rgba(124, 167, 103, 0.18)) !important;
+  border-color: rgba(236, 206, 140, 0.28) !important;
+}
+
+button:hover,
+.cta:hover {
+  background:
+    linear-gradient(135deg, rgba(232, 189, 107, 0.32), rgba(145, 189, 121, 0.24)) !important;
+}
+
+.app-bottom-nav {
+  background: rgba(14, 31, 22, 0.94) !important;
+  border-color: rgba(234, 219, 179, 0.16) !important;
+}
+
+@media (max-width: 900px) {
+  body {
+    background-attachment: scroll !important;
+  }
+}
