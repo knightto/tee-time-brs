@@ -121,6 +121,9 @@ if ('serviceWorker' in navigator) {
   const REFRESH_INTERVAL_MS = 60000;
   const RESUME_REFRESH_DEBOUNCE_MS = 1500;
   const WHATSAPP_INVITE_URL = 'https://chat.whatsapp.com/GxMZUQT0LJhL4g1Lto3WwT';
+  const WHATSAPP_POPUP_NAME = 'brsWhatsAppChat';
+  const WHATSAPP_POPUP_FEATURES = 'popup=yes,width=520,height=780,menubar=no,toolbar=no,location=yes,status=no,resizable=yes,scrollbars=yes';
+  let whatsappPopupRef = null;
 
   // Calendar elements
   const calendarGrid = $('#calendarGrid');
@@ -1990,14 +1993,35 @@ if ('serviceWorker' in navigator) {
     console.log('Subscribe button clicked!');
     subscribeModal?.showModal?.();
   });
+  function focusWindowSafe(target) {
+    try {
+      if (target && typeof target.focus === 'function') target.focus();
+    } catch (_) {}
+  }
+
+  function navigatePopupSafe(target, url) {
+    try {
+      if (!target || target.closed) return false;
+      target.location = url;
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   function openLiveWhatsAppChat() {
     if (!WHATSAPP_INVITE_URL) return;
     const isSmallScreen = window.matchMedia && window.matchMedia('(max-width: 760px)').matches;
-    const popupFeatures = 'popup=yes,width=480,height=760,menubar=no,toolbar=no,location=yes,status=no,resizable=yes,scrollbars=yes';
+    if (whatsappPopupRef && !whatsappPopupRef.closed) {
+      navigatePopupSafe(whatsappPopupRef, WHATSAPP_INVITE_URL);
+      focusWindowSafe(whatsappPopupRef);
+      return;
+    }
     if (!isSmallScreen) {
-      const popup = window.open(WHATSAPP_INVITE_URL, 'brsWhatsAppChat', popupFeatures);
-      if (popup) {
-        try { popup.focus(); } catch (_) {}
+      const popup = window.open(WHATSAPP_INVITE_URL, WHATSAPP_POPUP_NAME, WHATSAPP_POPUP_FEATURES);
+      if (popup && !popup.closed) {
+        whatsappPopupRef = popup;
+        focusWindowSafe(popup);
         return;
       }
     }
