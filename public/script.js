@@ -117,8 +117,10 @@ if ('serviceWorker' in navigator) {
   const subMsg = $('#subMsg');
   const subscribeModal = $('#subscribeModal');
   const openSubscribeBtn = $('#openSubscribeBtn');
+  const openMessagesBtn = $('#openMessagesBtn');
   const REFRESH_INTERVAL_MS = 60000;
   const RESUME_REFRESH_DEBOUNCE_MS = 1500;
+  const WHATSAPP_INVITE_URL = 'https://chat.whatsapp.com/GxMZUQT0LJhL4g1Lto3WwT';
 
   // Calendar elements
   const calendarGrid = $('#calendarGrid');
@@ -372,6 +374,7 @@ if ('serviceWorker' in navigator) {
     }
     const topbarDropdown = document.querySelector('.topbar-dropdown');
     if (topbarDropdown) topbarDropdown.hidden = !isMainGroupSite();
+    if (openMessagesBtn) openMessagesBtn.hidden = !isMainGroupSite();
 
     if (requestClubTimeBtn) {
       requestClubTimeBtn.textContent = currentSiteProfile.clubRequestLabel || defaultSiteProfile.clubRequestLabel;
@@ -1986,6 +1989,22 @@ if ('serviceWorker' in navigator) {
   on(openSubscribeBtn, 'click', () => {
     console.log('Subscribe button clicked!');
     subscribeModal?.showModal?.();
+  });
+  function openLiveWhatsAppChat() {
+    if (!WHATSAPP_INVITE_URL) return;
+    const isSmallScreen = window.matchMedia && window.matchMedia('(max-width: 760px)').matches;
+    const popupFeatures = 'popup=yes,width=480,height=760,menubar=no,toolbar=no,location=yes,status=no,resizable=yes,scrollbars=yes';
+    if (!isSmallScreen) {
+      const popup = window.open(WHATSAPP_INVITE_URL, 'brsWhatsAppChat', popupFeatures);
+      if (popup) {
+        try { popup.focus(); } catch (_) {}
+        return;
+      }
+    }
+    window.open(WHATSAPP_INVITE_URL, '_blank', 'noopener');
+  }
+  on(openMessagesBtn, 'click', async () => {
+    openLiveWhatsAppChat();
   });
   on(subscribeModal, 'click', (e) => {
     if (e.target.dataset.cancel) subscribeModal?.close();
