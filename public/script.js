@@ -121,7 +121,6 @@ if ('serviceWorker' in navigator) {
   const REFRESH_INTERVAL_MS = 60000;
   const RESUME_REFRESH_DEBOUNCE_MS = 1500;
   const WHATSAPP_INVITE_URL = 'https://chat.whatsapp.com/GxMZUQT0LJhL4g1Lto3WwT';
-  const WHATSAPP_POPUP_TIMEOUT_MS = 25000;
 
   // Calendar elements
   const calendarGrid = $('#calendarGrid');
@@ -163,7 +162,6 @@ if ('serviceWorker' in navigator) {
   let selectedDateRequestSeq = 0;
   let activeMobileFilter = 'all';
   let starterMode = false;
-  let starterQuickFilter = 'needs-action';
   let teeDragState = null;
   let starterEventViewIds = loadStarterEventViewIds();
   let seniorsRosterChoices = [];
@@ -217,14 +215,6 @@ if ('serviceWorker' in navigator) {
     'urgent-empty': 'Urgent empty',
     'blue-ridge': 'Blue Ridge only',
     'team-events': 'Team events',
-  };
-  const STARTER_FILTER_LABELS = {
-    all: 'All',
-    'needs-action': 'Needs Action',
-    open: 'Open',
-    unchecked: 'Unchecked',
-    ready: 'Ready',
-    urgent: 'Urgent',
   };
 
   function normalizeHexColor(value = '', fallback = '#173224') {
@@ -1173,7 +1163,8 @@ if ('serviceWorker' in navigator) {
     return ((teeTime && teeTime.players) || []).filter((player) => !!(player && player.checkedIn)).length;
   }
 
-  function starterSlotViewModel(ev, teeTime = {}, idx = 0) {
+  function starterSlotMarkup(ev, teeTime = {}, idx = 0) {
+    const allowBoardManagement = true;
     const slotCap = ev && ev.isTeamEvent ? Number((ev && ev.teamSizeMax) || 4) : 4;
     const count = slotPlayerCount(teeTime);
     const hasFifth = slotHasFifthPlayer(teeTime);
@@ -1184,93 +1175,6 @@ if ('serviceWorker' in navigator) {
     const addLabel = canAddFifth ? 'Add 5th' : 'Add Player';
     const allCheckedIn = count > 0 && checkedInCount === count;
     const urgentEmpty = !(ev && ev.isTeamEvent) && count === 0 && eventHasUrgentEmpty({ ...ev, teeTimes: [teeTime] });
-    const uncheckedCount = Math.max(0, count - checkedInCount);
-    const needsAction = urgentEmpty || openCount > 0 || uncheckedCount > 0 || hasFifth || canAddFifth;
-    return {
-      ev,
-      teeTime,
-      idx,
-      slotCap,
-      count,
-      hasFifth,
-      canAddFifth,
-      checkedInCount,
-      openCount,
-      addDisabled,
-      addLabel,
-      allCheckedIn,
-      urgentEmpty,
-      uncheckedCount,
-      needsAction,
-      label: teeSlotLabel(ev, teeTime, idx),
-    };
-  }
-
-  function starterSlotMatchesFilter(slotView = {}) {
-    switch (starterQuickFilter) {
-      case 'open':
-        return slotView.openCount > 0 || slotView.canAddFifth;
-      case 'unchecked':
-        return slotView.uncheckedCount > 0;
-      case 'ready':
-        return slotView.count > 0 && slotView.uncheckedCount === 0 && slotView.openCount === 0 && !slotView.hasFifth;
-      case 'urgent':
-        return slotView.urgentEmpty || slotView.hasFifth;
-      case 'all':
-        return true;
-      case 'needs-action':
-      default:
-        return !!slotView.needsAction;
-    }
-  }
-
-  function buildStarterBoardSummary(events = []) {
-    return (events || []).reduce((summary, ev) => {
-      const teeTimes = Array.isArray(ev && ev.teeTimes) ? ev.teeTimes : [];
-      teeTimes.forEach((teeTime, idx) => {
-        const slotView = starterSlotViewModel(ev, teeTime, idx);
-        summary.totalSlots += 1;
-        summary.totalGolfers += slotView.count;
-        summary.open += slotView.openCount;
-        summary.unchecked += slotView.uncheckedCount;
-        if (slotView.urgentEmpty) summary.urgent += 1;
-        if (slotView.hasFifth) summary.fifths += 1;
-        if (slotView.count > 0 && slotView.uncheckedCount === 0 && slotView.openCount === 0 && !slotView.hasFifth) summary.ready += 1;
-      });
-      return summary;
-    }, {
-      totalSlots: 0,
-      totalGolfers: 0,
-      open: 0,
-      unchecked: 0,
-      urgent: 0,
-      fifths: 0,
-      ready: 0,
-    });
-  }
-
-  function starterToolbarMarkup(events = []) {
-    const summary = buildStarterBoardSummary(events);
-    return `<section class="starter-toolbar">
-      <div class="starter-toolbar-stats">
-        <span>${summary.totalSlots} slots</span>
-        <span>${summary.totalGolfers} golfers</span>
-        <span>${summary.open} open</span>
-        <span>${summary.unchecked} unchecked</span>
-        ${summary.urgent ? `<span class="is-urgent">${summary.urgent} urgent empty</span>` : ''}
-        ${summary.fifths ? `<span class="is-warn">${summary.fifths} with 5th</span>` : ''}
-        <span class="is-ready">${summary.ready} ready</span>
-      </div>
-      <div class="starter-toolbar-filters" role="group" aria-label="Starter board filters">
-        ${Object.entries(STARTER_FILTER_LABELS).map(([key, label]) => `<button class="starter-filter-btn${starterQuickFilter === key ? ' is-active' : ''}" type="button" data-starter-filter="${escapeHtml(key)}" aria-pressed="${starterQuickFilter === key ? 'true' : 'false'}">${escapeHtml(label)}</button>`).join('')}
-      </div>
-    </section>`;
-  }
-
-  function starterSlotMarkup(ev, teeTime = {}, idx = 0) {
-    const allowBoardManagement = true;
-    const slotView = starterSlotViewModel(ev, teeTime, idx);
-    const { slotCap, count, hasFifth, canAddFifth, checkedInCount, openCount, addDisabled, addLabel, allCheckedIn, urgentEmpty } = slotView;
     const slotClasses = ['starter-slot'];
     if (count === 0) slotClasses.push('starter-slot-empty');
     if (urgentEmpty) slotClasses.push('starter-slot-urgent');
@@ -1298,7 +1202,7 @@ if ('serviceWorker' in navigator) {
     return `<article class="${slotClasses.join(' ')}" data-drop-tee="${escapeHtml(String(ev && ev._id || ''))}:${escapeHtml(String(teeTime && teeTime._id || ''))}" data-slot-max="${slotCap}" data-player-count="${count}">
       <div class="starter-slot-header">
         <div>
-          <div class="starter-slot-title">${escapeHtml(slotView.label)}</div>
+          <div class="starter-slot-title">${escapeHtml(teeSlotLabel(ev, teeTime, idx))}</div>
           <div class="starter-slot-meta">${metaParts.join(' · ')}</div>
         </div>
         <div class="starter-slot-actions">
@@ -1312,14 +1216,10 @@ if ('serviceWorker' in navigator) {
 
   function starterCardMarkup(ev, options = {}) {
     const capacity = eventCapacitySummary(ev);
-    const starterSlots = capacity.teeTimes
-      .map((teeTime, idx) => ({ teeTime, idx, slotView: starterSlotViewModel(ev, teeTime, idx) }))
-      .filter(({ slotView }) => starterSlotMatchesFilter(slotView));
     const checkedInCount = capacity.teeTimes.reduce((sum, teeTime) => sum + slotCheckedInCount(teeTime), 0);
     const maybeCount = Array.isArray(ev && ev.maybeList) ? ev.maybeList.length : 0;
     const notes = String(ev && ev.notes || '').trim();
     const showToggle = !starterMode && options.allowToggle !== false;
-    if (!starterSlots.length) return '';
     return `<section class="starter-card${options.inline ? ' starter-card-inline' : ''}" data-event-id="${escapeHtml(String(ev && ev._id || ''))}">
       <div class="starter-card-header">
         <div class="starter-card-head-copy">
@@ -1341,15 +1241,14 @@ if ('serviceWorker' in navigator) {
       </div>
       ${notes ? `<div class="starter-card-note">${escapeHtml(notes)}</div>` : ''}
       <div class="starter-slot-grid">
-        ${starterSlots.length ? starterSlots.map(({ teeTime, idx }) => starterSlotMarkup(ev, teeTime, idx)).join('') : '<div class="starter-empty">No tee times match the current starter filter.</div>'}
+        ${capacity.teeTimes.length ? capacity.teeTimes.map((teeTime, idx) => starterSlotMarkup(ev, teeTime, idx)).join('') : '<div class="starter-empty">No tee times set.</div>'}
       </div>
     </section>`;
   }
 
   function renderStarter(list) {
     window.requestAnimationFrame(() => {
-      const cards = list.map((ev) => starterCardMarkup(ev, { allowToggle: false })).filter(Boolean);
-      eventsEl.innerHTML = `${starterToolbarMarkup(list)}${cards.length ? cards.join('') : '<div class="starter-empty">No tee times match the current starter filter.</div>'}`;
+      eventsEl.innerHTML = list.map((ev) => starterCardMarkup(ev, { allowToggle: false })).join('');
     });
   }
 
@@ -2099,12 +1998,6 @@ if ('serviceWorker' in navigator) {
       const popup = window.open(WHATSAPP_INVITE_URL, 'brsWhatsAppChat', popupFeatures);
       if (popup) {
         try { popup.focus(); } catch (_) {}
-        window.setTimeout(() => {
-          try {
-            if (popup && !popup.closed) popup.close();
-          } catch (_) {}
-          try { window.focus(); } catch (_) {}
-        }, WHATSAPP_POPUP_TIMEOUT_MS);
         return;
       }
     }
@@ -2976,15 +2869,8 @@ if ('serviceWorker' in navigator) {
   });
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-ics],[data-toggle-starter-event],[data-starter-filter],[data-seniors-register],[data-remove-seniors-registration],[data-export-seniors-event],[data-extract-seniors-event]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-ics],[data-toggle-starter-event],[data-seniors-register],[data-remove-seniors-registration],[data-export-seniors-event],[data-extract-seniors-event]')||e.target);
     try{
-      if (t.dataset.starterFilter) {
-        const nextFilter = String(t.dataset.starterFilter || '').trim();
-        if (!STARTER_FILTER_LABELS[nextFilter]) return;
-        starterQuickFilter = nextFilter;
-        renderEventsForDate();
-        return;
-      }
       if(t.dataset.toggleStarterEvent){
         const eventId = String(t.dataset.toggleStarterEvent || '').trim();
         if (!eventId) return;
