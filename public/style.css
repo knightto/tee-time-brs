@@ -2098,6 +2098,62 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   }
 }
 
+@media (max-width:820px), (hover:none) and (pointer:coarse) {
+  body[data-site-group="main"]{
+    background:
+      linear-gradient(180deg, rgba(15,61,46,.28) 0%, rgba(21,128,61,.12) 52%, rgba(255,255,255,0) 100%),
+      var(--site-background-image) center top / cover scroll no-repeat;
+    background-blend-mode:normal, normal;
+  }
+
+  body[data-site-group="seniors"]{
+    background:
+      linear-gradient(180deg, rgba(67,86,56,.28) 0%, rgba(143,90,42,.14) 52%, rgba(255,255,255,0) 100%),
+      var(--site-background-image) center top / cover scroll no-repeat;
+    background-blend-mode:normal, normal;
+  }
+
+  body[data-site-group="main"]::before,
+  body[data-site-group="main"]::after,
+  body[data-site-group="seniors"]::before,
+  body[data-site-group="seniors"]::after{
+    content:none;
+    animation:none;
+    filter:none;
+  }
+
+  .topbar{
+    position:static;
+    box-shadow:0 6px 16px rgba(0,0,0,.18);
+    backdrop-filter:none;
+    -webkit-backdrop-filter:none;
+  }
+
+  .topbar-logo,
+  body[data-site-group="main"] .topbar-logo,
+  body[data-site-group="seniors"] .topbar-logo{
+    animation:none;
+  }
+
+  .card::before,
+  .card::after{
+    content:none;
+  }
+
+  .calendar-sidebar,
+  .card,
+  .starter-card,
+  .tee{
+    box-shadow:0 10px 22px rgba(15,23,42,.08);
+  }
+
+  #events > .card,
+  #events > .starter-card,
+  .tees > .tee{
+    contain:layout style;
+  }
+}
+
 @media (max-width:640px){
   main{
     padding:12px;
