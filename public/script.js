@@ -118,12 +118,18 @@ if ('serviceWorker' in navigator) {
   const subscribeModal = $('#subscribeModal');
   const openSubscribeBtn = $('#openSubscribeBtn');
   const openMessagesBtn = $('#openMessagesBtn');
+  const messagesDrawer = $('#messagesDrawer');
+  const messagesDrawerStatus = $('#messagesDrawerStatus');
+  const closeMessagesDrawerBtn = $('#closeMessagesDrawerBtn');
+  const launchMessagesBtn = $('#launchMessagesBtn');
+  const refocusMessagesBtn = $('#refocusMessagesBtn');
   const REFRESH_INTERVAL_MS = 60000;
   const RESUME_REFRESH_DEBOUNCE_MS = 1500;
   const WHATSAPP_INVITE_URL = 'https://chat.whatsapp.com/GxMZUQT0LJhL4g1Lto3WwT';
   const WHATSAPP_POPUP_NAME = 'brsWhatsAppChat';
   const WHATSAPP_POPUP_FEATURES = 'popup=yes,width=520,height=780,menubar=no,toolbar=no,location=yes,status=no,resizable=yes,scrollbars=yes';
   let whatsappPopupRef = null;
+  let whatsappDrawerTimer = null;
 
   // Calendar elements
   const calendarGrid = $('#calendarGrid');
@@ -1998,6 +2004,28 @@ if ('serviceWorker' in navigator) {
       if (target && typeof target.focus === 'function') target.focus();
     } catch (_) {}
   }
+  function setMessagesDrawerStatus(message = '') {
+    if (messagesDrawerStatus) messagesDrawerStatus.textContent = String(message || '').trim();
+  }
+  function showMessagesDrawer(message = '') {
+    if (!messagesDrawer) return;
+    if (message) setMessagesDrawerStatus(message);
+    messagesDrawer.hidden = false;
+    window.clearTimeout(whatsappDrawerTimer);
+    whatsappDrawerTimer = window.setTimeout(() => {
+      if (messagesDrawer) messagesDrawer.hidden = true;
+    }, 12000);
+  }
+  function hideMessagesDrawer() {
+    if (!messagesDrawer) return;
+    window.clearTimeout(whatsappDrawerTimer);
+    messagesDrawer.hidden = true;
+  }
+  function syncMessagesLauncherState() {
+    const hasPopup = !!(whatsappPopupRef && !whatsappPopupRef.closed);
+    if (refocusMessagesBtn) refocusMessagesBtn.disabled = !hasPopup;
+    return hasPopup;
+  }
 
   function navigatePopupSafe(target, url) {
     try {
@@ -2015,6 +2043,8 @@ if ('serviceWorker' in navigator) {
     if (whatsappPopupRef && !whatsappPopupRef.closed) {
       navigatePopupSafe(whatsappPopupRef, WHATSAPP_INVITE_URL);
       focusWindowSafe(whatsappPopupRef);
+      syncMessagesLauncherState();
+      showMessagesDrawer('WhatsApp is already open. Refocused the chat window.');
       return;
     }
     if (!isSmallScreen) {
@@ -2022,16 +2052,40 @@ if ('serviceWorker' in navigator) {
       if (popup && !popup.closed) {
         whatsappPopupRef = popup;
         focusWindowSafe(popup);
+        syncMessagesLauncherState();
+        showMessagesDrawer('Opened WhatsApp in a side window. Sign in there once if needed, then later clicks should just refocus it.');
         return;
       }
     }
     window.open(WHATSAPP_INVITE_URL, '_blank', 'noopener');
+    syncMessagesLauncherState();
+    showMessagesDrawer('Opened WhatsApp outside the tee sheet. Use your browser Back button or app switcher to return here.');
+  }
+  function refocusLiveWhatsAppChat() {
+    if (whatsappPopupRef && !whatsappPopupRef.closed) {
+      focusWindowSafe(whatsappPopupRef);
+      showMessagesDrawer('Refocused the existing WhatsApp chat window.');
+      return;
+    }
+    openLiveWhatsAppChat();
   }
   on(openMessagesBtn, 'click', async () => {
     openLiveWhatsAppChat();
   });
+  on(launchMessagesBtn, 'click', () => {
+    openLiveWhatsAppChat();
+  });
+  on(refocusMessagesBtn, 'click', () => {
+    refocusLiveWhatsAppChat();
+  });
+  on(closeMessagesDrawerBtn, 'click', () => {
+    hideMessagesDrawer();
+  });
   on(subscribeModal, 'click', (e) => {
     if (e.target.dataset.cancel) subscribeModal?.close();
+  });
+  on(messagesDrawer, 'click', (e) => {
+    if (e.target === messagesDrawer) hideMessagesDrawer();
   });
 
   // Subscribe
