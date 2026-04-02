@@ -2654,9 +2654,32 @@ function hasDestructiveConfirmForGroup(req, groupSlug = DEFAULT_SITE_GROUP_SLUG)
 function requireSeniorsSiteAdminForWrite(req, res) {
   const groupSlug = getGroupSlug(req);
   if (normalizeGroupSlug(groupSlug) !== 'seniors') return false;
-  if (isSiteAdmin(req)) return false;
+  if (isSiteAdmin(req) || isSeniorsAdminViewRequest(req)) return false;
   res.status(403).json({ error: 'Admin code 000 required for Seniors changes' });
   return true;
+}
+
+function isSeniorsAdminViewRequest(req) {
+  if (normalizeGroupSlug(getGroupSlug(req)) !== 'seniors') return false;
+  const referer = String(req.get('referer') || req.get('referrer') || '').trim();
+  let refererFlag = '';
+  if (referer) {
+    try {
+      const refererUrl = new URL(referer, APP_ORIGIN || 'http://localhost');
+      refererFlag = String(
+        refererUrl.searchParams.get('admin_view')
+          || (/\/group-admin-lite\.html$/i.test(refererUrl.pathname) && String(refererUrl.searchParams.get('group') || '').trim().toLowerCase() === 'seniors' ? '1' : '')
+      ).trim().toLowerCase();
+    } catch (_) {}
+  }
+  const adminViewFlag = String(
+    req.query?.admin_view
+      || req.body?.admin_view
+      || req.get('x-seniors-admin-view')
+      || refererFlag
+      || ''
+  ).trim().toLowerCase();
+  return adminViewFlag === '1' || adminViewFlag === 'true';
 }
 
 function requireSeniorsGroupAdmin(req, res) {
@@ -3806,6 +3829,23 @@ async function logAudit(eventId, action, playerName, data = {}) {
   }
 }
 
+function buildEventCreatedAuditEntry(ev = {}) {
+  if (!ev || !ev._id || !ev.createdAt) return null;
+  return {
+    _id: `created-${String(ev._id)}`,
+    eventId: ev._id,
+    action: 'create_event',
+    playerName: 'SYSTEM',
+    teeId: null,
+    fromTeeId: null,
+    toTeeId: null,
+    teeLabel: '',
+    fromTeeLabel: '',
+    toTeeLabel: '',
+    timestamp: ev.createdAt,
+  };
+}
+
 /* ---------------- Core API (unchanged parts trimmed for brevity) ---------------- */
 function genTeeTimes(startHHMM, count=3, mins=10) {
   if (!startHHMM) startHHMM = '08:00'; // Default to 08:00 if no time provided
@@ -4250,26 +4290,6 @@ app.get('/api/admin/events/:id/seniors-registrations/export.xlsx', async (req, r
     return res.send(workbook);
   } catch (error) {
     return res.status(500).json({ error: error && error.message ? error.message : 'Failed to export event registrations' });
-  }
-});
-
-app.get('/api/admin/events/:id/seniors-registrations/extract.txt', async (req, res) => {
-  if (requireSeniorsGroupAdmin(req, res)) return;
-  try {
-    const ev = await Event.findOne({ ...groupScopeFilter('seniors'), _id: req.params.id }).lean();
-    if (!ev) return res.status(404).json({ error: 'Event not found' });
-    const format = String(req.query.format || 'name-email').trim().toLowerCase();
-    const rows = await buildSeniorsParticipantRows(ev, { includeContact: true });
-    const lines = rows.map((row) => {
-      if (format === 'emails') return row.email || '';
-      if (format === 'names') return row.name || '';
-      return row.email ? `${row.name} <${row.email}>` : row.name;
-    }).filter(Boolean);
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.setHeader('Content-Disposition', `attachment; filename="seniors-event-${req.params.id}-${format}.txt"`);
-    return res.send(lines.join('\n'));
-  } catch (error) {
-    return res.status(500).json({ error: error && error.message ? error.message : 'Failed to extract event registrations' });
   }
 });
 
@@ -4815,9 +4835,11 @@ app.put('/api/events/:id/tee-times/:teeId', async (req, res) => {
 app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
   if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
+    const seniorsDelete = normalizeGroupSlug(getGroupSlug(req)) === 'seniors';
+    const seniorsAdminDelete = isSeniorsAdminViewRequest(req);
     const confirmedDelete = hasDeleteActionConfirmed(req);
     const hasDeleteCode = isAdminDelete(req);
-    if (!hasDeleteCode && !confirmedDelete) return res.status(403).json({ error: 'Removal confirmation required' });
+    if (!seniorsDelete && !seniorsAdminDelete && !hasDeleteCode && !confirmedDelete) return res.status(403).json({ error: 'Removal confirmation required' });
     const notifyClub = String(req.query.notifyClub || '0') === '1';
     console.log('[tee-time] Remove request', {
       eventId: req.params.id,
@@ -5008,8 +5030,10 @@ app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPla
 });
 app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res) => {
   try {
+    const seniorsDelete = normalizeGroupSlug(getGroupSlug(req)) === 'seniors';
+    const seniorsAdminDelete = isSeniorsAdminViewRequest(req);
     const confirmedDelete = hasDeleteActionConfirmed(req);
-    if (!isAdminDelete(req) && !confirmedDelete) return res.status(403).json({ error: 'Removal confirmation required' });
+    if (!seniorsDelete && !seniorsAdminDelete && !isAdminDelete(req) && !confirmedDelete) return res.status(403).json({ error: 'Removal confirmation required' });
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     const tt = ev.teeTimes.id(req.params.teeId);
@@ -5836,11 +5860,15 @@ app.delete('/api/events/:id/maybe/:index', async (req, res) => {
 app.get('/api/events/:id/audit-log', async (req, res) => {
   try {
     if (!AuditLog) return res.status(501).json({ error: 'Audit log not available' });
+    const ev = await findScopedEventById(req, req.params.id, { lean: true });
+    if (!ev) return res.status(404).json({ error: 'Event not found' });
     const logs = await AuditLog.find({ eventId: req.params.id })
-      .sort({ timestamp: -1 })
+      .sort({ timestamp: 1 })
       .limit(200)
       .lean();
-    res.json(logs);
+    const hasCreateEntry = logs.some((log) => String(log && log.action || '').trim() === 'create_event');
+    const createdEntry = hasCreateEntry ? null : buildEventCreatedAuditEntry(ev);
+    res.json(createdEntry ? [createdEntry, ...logs] : logs);
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

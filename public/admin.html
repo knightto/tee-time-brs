@@ -1546,19 +1546,6 @@
       </div>
       <div id="changeNotifResult" class="test-result"></div>
 
-      <div class="toggle-card" id="teeTimeLifecycleNotifCard" style="margin-top:10px;" hidden>
-        <div>
-          <p class="toggle-title">Seniors Tee-Time Event Add/Remove Emails</p>
-          <p class="toggle-text">Email all Seniors subscribers when a full tee-time event is added or removed.</p>
-        </div>
-        <label class="toggle-control">
-          <span id="teeTimeLifecycleNotifStatusText" class="toggle-status">Loading...</span>
-          <input type="checkbox" id="teeTimeLifecycleNotifToggle" onchange="toggleTeeTimeEventLifecycleNotifications(this.checked)"
-                 class="toggle-input">
-        </label>
-      </div>
-      <div id="teeTimeLifecycleNotifResult" class="test-result"></div>
-
       <div class="toggle-card" style="margin-top:10px;">
         <div>
           <p class="toggle-title">Automated Scheduler</p>
@@ -2886,7 +2873,6 @@
       loadBackups();
       loadNotificationSettings();
       loadSubscriberChangeNotificationSettings();
-      loadTeeTimeEventLifecycleNotificationSettings();
       loadSchedulerSettings();
       loadScheduledEmailRuleSettings();
       checkGolfApiHealth(); // Check API health on load
@@ -3471,54 +3457,6 @@
       }
     }
 
-    async function loadTeeTimeEventLifecycleNotificationSettings() {
-      const card = document.getElementById('teeTimeLifecycleNotifCard');
-      const result = document.getElementById('teeTimeLifecycleNotifResult');
-      if (ADMIN_GROUP !== 'seniors') {
-        if (card) card.hidden = true;
-        if (result) result.style.display = 'none';
-        return;
-      }
-      if (card) card.hidden = false;
-      try {
-        const response = await fetch(`/api/admin/settings/tee-time-event-lifecycle-notifications?code=${encodeURIComponent(ADMIN_CODE)}`);
-        if (!response.ok) throw new Error('Failed to load tee-time event notification settings');
-
-        const data = await response.json();
-        const checkbox = document.getElementById('teeTimeLifecycleNotifToggle');
-        const statusText = document.getElementById('teeTimeLifecycleNotifStatusText');
-
-        checkbox.checked = data.teeTimeEventLifecycleNotificationsEnabled;
-        statusText.textContent = data.teeTimeEventLifecycleNotificationsEnabled ? 'Enabled' : 'Disabled';
-        statusText.style.color = data.teeTimeEventLifecycleNotificationsEnabled ? '#059669' : '#dc2626';
-      } catch (error) {
-        console.error('Error loading tee-time event lifecycle notification settings:', error);
-      }
-    }
-
-    async function toggleTeeTimeEventLifecycleNotifications(enabled) {
-      if (ADMIN_GROUP !== 'seniors') return;
-      try {
-        showTeeTimeLifecycleNotifResult('Updating settings...');
-        const response = await fetch(`/api/admin/settings/tee-time-event-lifecycle-notifications?code=${encodeURIComponent(ADMIN_CODE)}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ teeTimeEventLifecycleNotificationsEnabled: enabled })
-        });
-
-        if (!response.ok) throw new Error('Failed to update');
-
-        const statusText = document.getElementById('teeTimeLifecycleNotifStatusText');
-        statusText.textContent = enabled ? 'Enabled' : 'Disabled';
-        statusText.style.color = enabled ? '#059669' : '#dc2626';
-
-        showTeeTimeLifecycleNotifResult(`Seniors tee-time event emails ${enabled ? 'enabled' : 'disabled'}`);
-      } catch (error) {
-        showTeeTimeLifecycleNotifResult(`Error: ${error.message}`, false);
-        loadTeeTimeEventLifecycleNotificationSettings();
-      }
-    }
-
     function showNotifResult(message, isSuccess = true) {
       const resultDiv = document.getElementById('notifResult');
       resultDiv.textContent = message;
@@ -3544,15 +3482,6 @@
 
     function showChangeNotifResult(message, isSuccess = true) {
       const resultDiv = document.getElementById('changeNotifResult');
-      resultDiv.textContent = message;
-      resultDiv.style.display = 'block';
-      resultDiv.style.background = isSuccess ? '#d1fae5' : '#fee2e2';
-      resultDiv.style.color = isSuccess ? '#065f46' : '#991b1b';
-      setTimeout(() => { resultDiv.style.display = 'none'; }, 3000);
-    }
-
-    function showTeeTimeLifecycleNotifResult(message, isSuccess = true) {
-      const resultDiv = document.getElementById('teeTimeLifecycleNotifResult');
       resultDiv.textContent = message;
       resultDiv.style.display = 'block';
       resultDiv.style.background = isSuccess ? '#d1fae5' : '#fee2e2';

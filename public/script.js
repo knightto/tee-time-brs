@@ -314,7 +314,22 @@ if ('serviceWorker' in navigator) {
   function isSeniorsAdminView() {
     if (!isSeniorsGroupSite()) return false;
     try {
-      return String(new URLSearchParams(window.location.search).get('admin_view') || '').trim() === '1';
+      const searchParams = new URLSearchParams(window.location.search);
+      if (String(searchParams.get('admin_view') || '').trim() === '1') return true;
+      if (window.top && window.top !== window) {
+        const topUrl = new URL(window.top.location.href, window.location.origin);
+        if (/\/group-admin-lite\.html$/i.test(topUrl.pathname) && String(topUrl.searchParams.get('group') || '').trim().toLowerCase() === 'seniors') {
+          return true;
+        }
+      }
+      if (document.referrer) {
+        const refUrl = new URL(document.referrer, window.location.origin);
+        if (String(refUrl.searchParams.get('admin_view') || '').trim() === '1') return true;
+        if (/\/group-admin-lite\.html$/i.test(refUrl.pathname) && String(refUrl.searchParams.get('group') || '').trim().toLowerCase() === 'seniors') {
+          return true;
+        }
+      }
+      return false;
     } catch (_) {
       return false;
     }
@@ -490,10 +505,38 @@ if ('serviceWorker' in navigator) {
     return seniorsRosterChoices;
   }
 
+  function normalizeGolferName(value = '') {
+    return String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+  }
+
+  function getAssignedSeniorsGolferNamesForEvent(ev) {
+    const assigned = new Set();
+    for (const teeTime of (ev && ev.teeTimes) || []) {
+      for (const player of (teeTime && teeTime.players) || []) {
+        const normalized = normalizeGolferName(player && player.name);
+        if (normalized) assigned.add(normalized);
+      }
+    }
+    for (const registration of (ev && ev.seniorsRegistrations) || []) {
+      const normalized = normalizeGolferName(registration && registration.name);
+      if (normalized) assigned.add(normalized);
+    }
+    return assigned;
+  }
+
   async function promptForSeniorsRosterGolfer(options = {}) {
     const golfers = await ensurePublicSeniorsRosterChoices();
     if (!golfers.length) throw new Error('No active golfers are on the Seniors roster yet');
-    const rosterOptions = golfers.map((golfer) => ({
+    const excludedNames = new Set(
+      Array.isArray(options.excludeNames)
+        ? options.excludeNames.map((name) => normalizeGolferName(name)).filter(Boolean)
+        : []
+    );
+    const availableGolfers = golfers.filter((golfer) => !excludedNames.has(normalizeGolferName(golfer && golfer.name)));
+    if (!availableGolfers.length) {
+      throw new Error(options.emptyMessage || 'Every active Seniors golfer is already assigned for this event');
+    }
+    const rosterOptions = availableGolfers.map((golfer) => ({
       value: golfer.name,
       label: Number.isFinite(golfer.handicapIndex)
         ? `${golfer.name} (${golfer.handicapIndex})`
@@ -1832,9 +1875,15 @@ if ('serviceWorker' in navigator) {
       const scopedUrl = new URL(requestPath, window.location.origin);
       if (scopedUrl.origin === window.location.origin && (scopedUrl.pathname.startsWith('/api/') || scopedUrl.pathname.startsWith('/admin/'))) {
         if (!scopedUrl.searchParams.has('group')) scopedUrl.searchParams.set('group', currentGroupSlug);
+        if (currentGroupSlug === 'seniors' && isSeniorsAdminView() && !scopedUrl.searchParams.has('admin_view')) {
+          scopedUrl.searchParams.set('admin_view', '1');
+        }
         requestPath = `${scopedUrl.pathname}${scopedUrl.search}${scopedUrl.hash}`;
       }
     } catch (_) {}
+    if (currentGroupSlug === 'seniors' && isSeniorsAdminView()) {
+      mergedHeaders['x-seniors-admin-view'] = mergedHeaders['x-seniors-admin-view'] || '1';
+    }
     if (method === 'GET') {
       // Force fresh API reads, especially after mobile app resume.
       mergedHeaders['Cache-Control'] = mergedHeaders['Cache-Control'] || 'no-cache';
@@ -1857,7 +1906,7 @@ if ('serviceWorker' in navigator) {
       || (method === 'DELETE' && /^\/api\/events\/[^/]+\/seniors-registrations\/[^/]+(?:\?|$)/.test(String(requestPath || '')))
       || (method === 'POST' && /^\/api\/subscribe(?:\?|$)/.test(String(requestPath || '')))
     );
-    if (currentGroupSlug === 'seniors' && method !== 'GET' && !seniorsPublicWriteAllowed && !String(mergedHeaders['x-admin-code'] || '').trim()) {
+    if (currentGroupSlug === 'seniors' && !isSeniorsAdminView() && method !== 'GET' && !seniorsPublicWriteAllowed && !String(mergedHeaders['x-admin-code'] || '').trim()) {
       const code = await requestSeniorsAdminCode('this Seniors update');
       if (!code) throw new Error('Admin code 000 required for Seniors changes');
       mergedHeaders['x-admin-code'] = code;
@@ -2684,7 +2733,6 @@ if ('serviceWorker' in navigator) {
               <div class="maybe-controls">
                 <button class="small maybe-btn" data-seniors-register="${ev._id}">Sign Up</button>
                 ${canManageSeniorsCalendar() ? `<button class="small maybe-btn" data-export-seniors-event="${ev._id}">Export Excel</button>` : ''}
-                ${isSeniorsGroup && !canManageSeniorsCalendar() ? '' : `<button class="small maybe-btn" data-extract-seniors-event="${ev._id}">Extract List</button>`}
               </div>
             </div>
             <div class="maybe-list">
@@ -2950,7 +2998,7 @@ if ('serviceWorker' in navigator) {
   });
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-ics],[data-toggle-starter-event],[data-starter-filter],[data-seniors-register],[data-remove-seniors-registration],[data-export-seniors-event],[data-extract-seniors-event]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-ics],[data-toggle-starter-event],[data-starter-filter],[data-seniors-register],[data-remove-seniors-registration],[data-export-seniors-event]')||e.target);
     try{
       if (t.dataset.starterFilter) {
         const nextFilter = String(t.dataset.starterFilter || '').trim();
@@ -3003,24 +3051,23 @@ if ('serviceWorker' in navigator) {
         window.open(`/api/admin/events/${encodeURIComponent(eventId)}/seniors-registrations/export.xlsx?group=${encodeURIComponent(currentGroupSlug)}&code=${encodeURIComponent(code)}`, '_blank');
         return;
       }
-      if(t.dataset.extractSeniorsEvent){
-        if (currentGroupSlug === 'seniors') {
-          showToast('Extract is not available on the Seniors tee times page.', 'error');
-          return;
-        }
-        const eventId = String(t.dataset.extractSeniorsEvent || '').trim();
-        const code = await requestSeniorsAdminCode('extracting this Seniors registration list');
-        if (!code) return;
-        window.open(`/api/admin/events/${encodeURIComponent(eventId)}/seniors-registrations/extract.txt?format=name-email&group=${encodeURIComponent(currentGroupSlug)}&code=${encodeURIComponent(code)}`, '_blank');
-        return;
-      }
       if(t.dataset.seniorsRegister){
         const id = String(t.dataset.seniorsRegister || '').trim();
-        const name = await promptForSeniorsRosterGolfer({
-          title: 'Seniors Event Signup',
-          message: 'Choose your name from the active Seniors roster to sign up for this event.',
-          confirmLabel: 'Sign Up'
-        });
+        const ev = await getEventForAction(id);
+        const assignedNames = Array.from(getAssignedSeniorsGolferNamesForEvent(ev));
+        let name = '';
+        try {
+          name = await promptForSeniorsRosterGolfer({
+            title: 'Seniors Event Signup',
+            message: 'Choose your name from the active Seniors roster to sign up for this event.',
+            confirmLabel: 'Sign Up',
+            excludeNames: assignedNames,
+            emptyMessage: 'Every active Seniors golfer is already assigned to a tee time for this event'
+          });
+        } catch (err) {
+          showToast(err.message || 'No eligible Seniors golfers are available for this event.', 'error');
+          return;
+        }
         if (!name) return;
         try {
           const result = await api(`/api/events/${id}/seniors-register`, {
@@ -3516,13 +3563,21 @@ if ('serviceWorker' in navigator) {
         const canAddFifth = slotCanAddFifth(ev, teeDetails.teeTime);
         let name = '';
         if (isSeniorsGroupSite()) {
-          name = await promptForSeniorsRosterGolfer({
-            title: canAddFifth ? 'Add 5th Golfer' : 'Sign Up Golfer',
-            message: canAddFifth
-              ? `This tee time already has four golfers. The next golfer will be clearly marked as the 5th on ${slotLabel}.`
-              : `Choose the golfer to add to ${slotLabel}.`,
-            confirmLabel: canAddFifth ? 'Add 5th Golfer' : 'Sign Up',
-          });
+          const assignedNames = Array.from(getAssignedSeniorsGolferNamesForEvent(ev));
+          try {
+            name = await promptForSeniorsRosterGolfer({
+              title: canAddFifth ? 'Add 5th Golfer' : 'Sign Up Golfer',
+              message: canAddFifth
+                ? `This tee time already has four golfers. The next golfer will be clearly marked as the 5th on ${slotLabel}.`
+                : `Choose the golfer to add to ${slotLabel}.`,
+              confirmLabel: canAddFifth ? 'Add 5th Golfer' : 'Sign Up',
+              excludeNames: assignedNames,
+              emptyMessage: 'Every active Seniors golfer is already assigned to a tee time for this event'
+            });
+          } catch (err) {
+            showToast(err.message || 'No eligible Seniors golfers are available for this event.', 'error');
+            return;
+          }
         } else {
           const playerValues = await openActionDialog({
             title: canAddFifth ? 'Add 5th Player' : 'Add Player',
@@ -3696,6 +3751,9 @@ if ('serviceWorker' in navigator) {
       const items = logs.map(log => {
         const ts = new Date(log.timestamp).toLocaleString();
         let desc = '';
+        if (log.action === 'create_event') {
+          desc = '🆕 Event created';
+        } else
         if (log.action === 'add_player') {
           desc = `➕ Added <strong>${log.playerName}</strong> to ${log.teeLabel}`;
         } else if (log.action === 'remove_player') {
@@ -3710,6 +3768,9 @@ if ('serviceWorker' in navigator) {
           desc = `✅ Checked in all players at ${log.teeLabel}`;
         } else if (log.action === 'bulk_clear_check_in') {
           desc = `⬜ Cleared check-in for all players at ${log.teeLabel}`;
+        }
+        if (!desc) {
+          desc = `<strong>${escapeHtml(String(log.action || 'audit'))}</strong>`;
         }
         return `<div style="padding:8px;border-bottom:1px solid var(--slate-200)">
           <div style="font-size:14px;color:var(--slate-900)">${desc}</div>

@@ -1135,12 +1135,28 @@ router.get('/:tripId/audit-log', async (req, res) => {
     if (!trip) return res.status(404).json({ error: 'Trip not found' });
     const rawLimit = Number(req.query.limit);
     const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(1000, Math.floor(rawLimit))) : 250;
-    const rows = await TripAuditLogModel.find({ tripId: trip._id }).sort({ timestamp: -1 }).limit(limit).lean();
+    const rows = await TripAuditLogModel.find({ tripId: trip._id }).sort({ timestamp: 1 }).limit(limit).lean();
+    const hasCreateEntry = rows.some((row) => String(row && row.action || '').trim() === 'trip_created');
+    const createdRow = !hasCreateEntry && trip.createdAt ? {
+      _id: `created-${String(trip._id)}`,
+      tripId: trip._id,
+      action: 'trip_created',
+      actor: 'admin',
+      method: 'CREATE',
+      route: `/api/trips/${trip._id}`,
+      summary: 'Trip created',
+      details: {
+        name: trip.name || '',
+        location: trip.location || '',
+      },
+      timestamp: trip.createdAt,
+    } : null;
+    const auditRows = createdRow ? [createdRow, ...rows] : rows;
     return res.json({
       tripId: String(trip._id),
       startedAt: getTripStartDate(trip),
-      count: rows.length,
-      rows,
+      count: auditRows.length,
+      rows: auditRows,
     });
   } catch (error) {
     return sendTripRouteError(res, error);

@@ -1520,6 +1520,7 @@
           headers: {
             'Content-Type': 'application/json',
             'x-admin-code': state.code,
+            ...(isSeniorsAdminGroup ? { 'x-seniors-admin-view': '1' } : {}),
             ...(options.headers || {}),
           },
         });
@@ -1537,6 +1538,7 @@
           method: 'POST',
           headers: {
             'x-admin-code': state.code,
+            ...(isSeniorsAdminGroup ? { 'x-seniors-admin-view': '1' } : {}),
           },
           body: formData,
         });
