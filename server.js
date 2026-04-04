@@ -83,6 +83,13 @@ const SITE_ADMIN_WRITE_CODE = process.env.SITE_ADMIN_WRITE_CODE || '123';
 const ADMIN_DESTRUCTIVE_CODE = process.env.ADMIN_DESTRUCTIVE_CODE || ADMIN_DELETE_CODE;
 const ADMIN_DESTRUCTIVE_CONFIRM_CODE = process.env.ADMIN_DESTRUCTIVE_CONFIRM_CODE || '';
 const SITE_URL = (process.env.SITE_URL || 'https://tee-time-brs.onrender.com/').replace(/\/$/, '') + '/';
+const APP_ORIGIN = (() => {
+  try {
+    return new URL(SITE_URL).origin;
+  } catch (_) {
+    return 'http://localhost';
+  }
+})();
 const LOCAL_TZ = process.env.LOCAL_TZ || 'America/New_York';
 const DEFAULT_SITE_GROUP_SLUG = String(process.env.DEFAULT_SITE_GROUP_SLUG || 'main').trim().toLowerCase() || 'main';
 const RESEND_INBOUND_BASE_ADDRESS = 'teetime@xenailexou.resend.app';
