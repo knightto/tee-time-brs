@@ -194,6 +194,7 @@ main{padding:20px}
   margin:0;
   font-size:22px;
   font-weight:800;
+  min-width:0;
   color:#fff;
   letter-spacing:.2px;
   text-shadow:0 2px 4px rgba(0,0,0,.25);
@@ -203,13 +204,17 @@ main{padding:20px}
   filter:drop-shadow(0 2px 3px rgba(0,0,0,.2));
 }
 .topbar-title-link{
+  display:block;
+  min-width:0;
   color:inherit;
   text-decoration:none;
 }
 .topbar-brand{
-  display:inline-flex;
+  display:grid;
+  grid-template-columns:auto minmax(0, 1fr);
   align-items:center;
   gap:10px;
+  min-width:0;
 }
 .topbar-logo{
   width:42px;
@@ -218,6 +223,12 @@ main{padding:20px}
   object-fit:cover;
   box-shadow:0 4px 10px rgba(0,0,0,.28);
   background:rgba(255,255,255,.14);
+}
+#topbarTitleText{
+  display:block;
+  min-width:0;
+  line-height:1.08;
+  text-wrap:balance;
 }
 body[data-site-group="main"] .topbar{
   padding:14px 18px;
@@ -348,6 +359,7 @@ body[data-site-group="seniors"] .pill-primary:hover{
   text-decoration:none;
   font-weight:600;
   font-size:13px;
+  white-space:nowrap;
   background:rgba(255,255,255,0.06);
   transition:all 0.2s ease;
 }
@@ -2076,6 +2088,100 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
 }
 
 @media (max-width:768px) {
+  .topbar{
+    display:grid;
+    grid-template-columns:minmax(0, 1fr) auto;
+    align-items:center;
+    gap:10px;
+    padding:10px 12px;
+  }
+
+  body[data-site-group="main"] .topbar,
+  body[data-site-group="seniors"] .topbar{
+    padding:10px 12px;
+  }
+
+  .topbar h1,
+  body[data-site-group="main"] .topbar h1,
+  body[data-site-group="seniors"] .topbar h1{
+    font-size:clamp(18px, 5.6vw, 24px);
+    line-height:1.02;
+  }
+
+  .topbar-brand{
+    gap:9px;
+  }
+
+  .topbar-logo,
+  body[data-site-group="main"] .topbar-logo,
+  body[data-site-group="seniors"] .topbar-logo{
+    width:44px;
+    height:44px;
+    border-radius:14px;
+  }
+
+  .topbar .topbar-links{
+    margin-left:0;
+    justify-self:end;
+    align-self:start;
+    flex-direction:column;
+    align-items:flex-end;
+    gap:6px;
+    flex-wrap:nowrap;
+  }
+
+  .topbar .pill-link{
+    min-height:30px;
+    padding:6px 10px;
+    font-size:12px;
+  }
+
+  body[data-site-group="seniors"] #topbarTitleText{
+    display:block;
+  }
+
+  body[data-site-group="seniors"] #topbarTitleText::after{
+    display:none;
+  }
+
+  .main-layout{
+    gap:12px;
+  }
+
+  .calendar-sidebar{
+    max-width:none;
+    padding:16px;
+    border-radius:20px;
+  }
+
+  .calendar-header{
+    margin-bottom:12px;
+    gap:10px;
+  }
+
+  .calendar-header h2{
+    font-size:17px;
+  }
+
+  .calendar-header button.icon{
+    padding:6px 10px;
+    font-size:18px;
+  }
+
+  .calendar-grid{
+    gap:3px;
+    margin-bottom:16px;
+  }
+
+  .calendar-day-header{
+    padding:6px 2px;
+    font-size:11px;
+  }
+
+  .calendar-actions{
+    padding-top:12px;
+  }
+
   #starterModeBtn{
     order:-1;
     min-height:38px;
@@ -2250,12 +2356,40 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
 
 @media (max-width:640px){
   main{
-    padding:12px;
+    padding:10px;
   }
   
   #events{
     grid-template-columns:1fr;
     gap:10px;
+  }
+
+  .topbar{
+    gap:8px 10px;
+  }
+
+  .topbar h1,
+  body[data-site-group="main"] .topbar h1,
+  body[data-site-group="seniors"] .topbar h1{
+    font-size:clamp(17px, 6.3vw, 22px);
+  }
+
+  .topbar .topbar-links{
+    gap:5px;
+  }
+
+  .topbar .pill-link{
+    padding:5px 9px;
+    font-size:11px;
+  }
+
+  .calendar-sidebar{
+    padding:14px;
+  }
+
+  .calendar-month-link{
+    font-size:10px;
+    padding:2px 7px;
   }
   
   .events-header{
@@ -2268,8 +2402,8 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   }
 
   .topbar-dropdown-menu{
-    right:auto;
-    left:0;
+    right:0;
+    left:auto;
     min-width:220px;
   }
 }
