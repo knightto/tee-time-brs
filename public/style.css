@@ -2468,6 +2468,261 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   }
 }
 
+/* Event card cleanup layer: organize summary/actions/maybe blocks consistently */
+.card-content{
+  gap:10px;
+}
+
+body[data-site-group="seniors"] .card-content{
+  padding:12px 12px 10px;
+  gap:10px;
+}
+
+.event-summary-row{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(110px, 1fr));
+  gap:8px;
+  width:100%;
+}
+
+.event-summary-chip{
+  display:grid;
+  gap:2px;
+  min-height:48px;
+  padding:8px 10px;
+  border-radius:14px;
+  border:1px solid rgba(148,163,184,.22);
+  background:linear-gradient(180deg, rgba(255,255,255,.94) 0%, rgba(248,250,252,.92) 100%);
+  box-shadow:0 8px 18px rgba(15,23,42,.05);
+}
+
+.event-summary-chip strong{
+  font-size:18px;
+  line-height:1;
+  color:var(--green-700);
+}
+
+.event-summary-chip span{
+  color:var(--slate-700);
+  font-size:11px;
+  font-weight:700;
+  letter-spacing:.02em;
+}
+
+.event-toolbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:8px;
+  flex-wrap:wrap;
+  width:100%;
+}
+
+.event-toolbar-actions{
+  margin-left:auto;
+  display:flex;
+  align-items:center;
+  gap:6px;
+}
+
+.event-actions-toggle{
+  min-height:34px;
+  padding:.28rem .78rem;
+  border-radius:999px;
+}
+
+.empty-tee-note{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:5px 10px;
+  border-radius:999px;
+  border:1px solid rgba(248,113,113,.2);
+  background:rgba(255,255,255,.72);
+  color:var(--slate-700);
+  margin:0;
+}
+
+.empty-tee-note span:first-child{
+  color:#dc2626;
+  font-weight:800;
+  text-transform:uppercase;
+}
+
+.maybe-section{
+  display:grid;
+  gap:10px;
+  padding:10px 12px;
+  margin-bottom:0;
+  border-radius:16px;
+  background:linear-gradient(135deg, rgba(255,249,235,.96) 0%, rgba(255,255,255,.94) 100%);
+  border:1px solid rgba(245,158,11,.22);
+  box-shadow:0 10px 22px rgba(120,53,15,.06);
+}
+
+.maybe-header{
+  position:static;
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  margin-bottom:0;
+  padding-right:0;
+}
+
+.maybe-header-copy{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:8px;
+  flex-wrap:wrap;
+}
+
+.maybe-header h4{
+  font-size:14px;
+  font-weight:800;
+  color:var(--slate-800);
+}
+
+.maybe-count-pill{
+  display:inline-flex;
+  align-items:center;
+  min-height:24px;
+  padding:3px 8px;
+  border-radius:999px;
+  border:1px solid rgba(148,163,184,.22);
+  background:rgba(255,255,255,.86);
+  color:var(--slate-700);
+  font-size:11px;
+  font-weight:700;
+}
+
+.maybe-count-pill.is-empty{
+  color:#92400e;
+  background:rgba(255,247,237,.92);
+  border-color:rgba(245,158,11,.2);
+}
+
+.maybe-controls{
+  position:static;
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:flex-end;
+  align-items:center;
+  gap:6px;
+}
+
+.maybe-controls .maybe-btn{
+  min-height:31px;
+  padding:.24rem .72rem;
+  border-radius:999px;
+  font-size:12px;
+  font-weight:700;
+}
+
+.maybe-list{
+  gap:6px;
+  min-height:24px;
+  margin-top:0;
+}
+
+.maybe-empty-text{
+  color:var(--slate-700);
+  font-size:12px;
+  font-style:italic;
+  opacity:.82;
+}
+
+.maybe-chip{
+  min-height:28px;
+  gap:6px;
+  padding:3px 8px;
+  border-radius:999px;
+  font-size:12px;
+}
+
+.card-actions{
+  gap:0;
+}
+
+.card-actions .button-row{
+  max-width:none;
+  margin-inline:0;
+}
+
+@media (max-width:768px){
+  .event-summary-row{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+    gap:6px;
+  }
+
+  .event-summary-chip{
+    min-height:44px;
+    padding:7px 9px;
+  }
+
+  .event-summary-chip strong{
+    font-size:16px;
+  }
+
+  .maybe-section{
+    padding:10px;
+    gap:8px;
+  }
+
+  .maybe-header{
+    gap:8px;
+  }
+
+  .maybe-header-copy{
+    gap:6px;
+  }
+
+  .maybe-header h4{
+    font-size:13px;
+  }
+
+  .maybe-controls{
+    width:100%;
+    justify-content:flex-start;
+  }
+
+  .maybe-controls .maybe-btn{
+    flex:1 1 140px;
+    justify-content:center;
+  }
+
+  .event-toolbar{
+    gap:6px;
+  }
+
+  .empty-tee-note{
+    padding:4px 9px;
+    font-size:10px;
+  }
+}
+
+@media (max-width:480px){
+  .event-summary-row{
+    grid-template-columns:repeat(2, minmax(0, 1fr));
+  }
+
+  .event-summary-chip{
+    padding:7px 8px;
+  }
+
+  .maybe-controls .maybe-btn{
+    flex:1 1 calc(50% - 3px);
+    min-height:30px;
+    font-size:11px;
+  }
+
+  .event-toolbar-actions{
+    width:100%;
+    justify-content:flex-end;
+  }
+}
+
 /* Event header organization: keep all content above Maybe List evenly spaced */
 .card-header{
   gap:14px;

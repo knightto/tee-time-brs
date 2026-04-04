@@ -2686,15 +2686,34 @@ if ('serviceWorker' in navigator) {
         const fullDayAlert = isDayFullyBooked
           ? `<div class="full-day-alert">All tee times are full for ${escapeHtml(fullDateLabel(toDateISO(ev.date)))}. You can request an additional time from the ${escapeHtml(clubContactLabel())}${fifthCount ? '.' : ' or ask them to allow a 5th in one of your tee times for that day.'}</div>`
           : '';
-        const summaryRow = `<div class="row" style="gap:8px;flex-wrap:wrap;margin:6px 0 10px 0;font-size:12px;color:var(--slate-700)">
-          <span><strong>${registeredCount}</strong> registered</span>
-          ${seniorsEventOnly ? '' : `<span><strong>${checkedInCount}</strong> checked in</span>`}
-          ${seniorsEventOnly ? '' : `<span><strong>${openCount}</strong> open</span>`}
-          ${seniorsEventOnly ? '' : (fifthCount ? `<span><strong>${fifthCount}</strong> fifth${fifthCount === 1 ? '' : 's'}</span>` : '')}
-          ${seniorsEventOnly || !showMaybeList ? '' : `<span><strong>${maybeCount}</strong> maybe</span>`}
-          <span><strong>${seniorsEventOnly ? registeredCount : slotCount}</strong> ${seniorsEventOnly ? (registeredCount === 1 ? 'signup' : 'signups') : (isTeams ? 'teams' : 'tee times')}</span>
+        const summaryItems = seniorsEventOnly
+          ? [{
+              value: registeredCount,
+              label: registeredCount === 1 ? 'signup' : 'signups',
+            }]
+          : [
+              { value: registeredCount, label: 'registered' },
+              { value: checkedInCount, label: 'checked in' },
+              { value: openCount, label: 'open' },
+              ...(fifthCount ? [{ value: fifthCount, label: `fifth${fifthCount === 1 ? '' : 's'}` }] : []),
+              ...(showMaybeList ? [{ value: maybeCount, label: 'maybe' }] : []),
+              {
+                value: slotCount,
+                label: isTeams ? (slotCount === 1 ? 'team' : 'teams') : (slotCount === 1 ? 'tee time' : 'tee times'),
+              },
+            ];
+        const summaryRow = `<div class="event-summary-row" aria-label="Event summary">
+          ${summaryItems.map((item) => `
+            <span class="event-summary-chip">
+              <strong>${escapeHtml(String(item.value))}</strong>
+              <span>${escapeHtml(String(item.label))}</span>
+            </span>
+          `).join('')}
         </div>`;
         const tees = teesArr.map((tt,idx)=>teeRow(ev,tt,idx,isTeams)).join('');
+        const maybeCountBadge = `<span class="maybe-count-pill${maybeCount ? '' : ' is-empty'}">${maybeCount ? `${maybeCount} waiting` : 'Empty'}</span>`;
+        const signupCount = seniorsRegistrations.length;
+        const signupCountBadge = `<span class="maybe-count-pill${signupCount ? '' : ' is-empty'}">${signupCount ? `${signupCount} signed up` : 'Empty'}</span>`;
         const seniorsRegistrationRows = seniorsRegistrations.map((registration) => {
           const safe = String(registration && registration.name || '').replace(/"/g, '&quot;');
           return `<span class="chip" title="${safe}">
@@ -2715,28 +2734,34 @@ if ('serviceWorker' in navigator) {
         const maybeSection = showMaybeList ? `
           <div class="maybe-section">
             <div class="maybe-header">
-              <h4>🤔 Maybe List</h4>
+              <div class="maybe-header-copy">
+                <h4>🤔 Maybe List</h4>
+                ${maybeCountBadge}
+              </div>
               <div class="maybe-controls">
                 <button class="small maybe-btn" data-add-maybe="${ev._id}">+ Interested</button>
                 <button class="small maybe-btn" data-fill-maybe="${ev._id}" title="Move someone from maybe list into an open spot">Fill Spot</button>
               </div>
             </div>
             <div class="maybe-list">
-              ${maybeList || '<em style="color:var(--slate-700);font-size:11px;opacity:0.7">No one yet</em>'}
+              ${maybeList || '<span class="maybe-empty-text">No one yet</span>'}
             </div>
           </div>
         ` : '';
         const seniorsRegistrationSection = seniorsEventOnly ? `
           <div class="maybe-section">
             <div class="maybe-header">
-              <h4>Signups</h4>
+              <div class="maybe-header-copy">
+                <h4>Signups</h4>
+                ${signupCountBadge}
+              </div>
               <div class="maybe-controls">
                 <button class="small maybe-btn" data-seniors-register="${ev._id}">Sign Up</button>
                 ${canManageSeniorsCalendar() ? `<button class="small maybe-btn" data-export-seniors-event="${ev._id}">Export Excel</button>` : ''}
               </div>
             </div>
             <div class="maybe-list">
-              ${seniorsRegistrationRows || '<em style="color:var(--slate-700);font-size:11px;opacity:0.7">No golfers yet</em>'}
+              ${seniorsRegistrationRows || '<span class="maybe-empty-text">No golfers yet</span>'}
             </div>
           </div>
         ` : '';
@@ -2777,6 +2802,14 @@ if ('serviceWorker' in navigator) {
         const showEventTopActions = !isSeniorsGroup || showSeniorsCalendarAdminActions;
         const showSeniorsExportActions = !isSeniorsGroup || showSeniorsCalendarAdminActions;
         const showBottomAuditAction = !isSeniorsGroup || showSeniorsCalendarAdminActions;
+        const eventToolsRow = `
+          <div class="event-toolbar">
+            ${seniorsEventOnly ? '' : '<div class="empty-tee-note"><span>Red</span><span>empty tee time</span></div>'}
+            <div class="event-toolbar-actions">
+              <button class="small event-actions-toggle" data-toggle-actions title="Show/hide event actions">Actions</button>
+            </div>
+          </div>
+        `;
         const eventActionLegend = `
           <div class="event-action-legend" aria-label="Golfer action legend">
             <span class="event-action-title">Golfer Controls</span>
@@ -2806,9 +2839,10 @@ if ('serviceWorker' in navigator) {
           <div class="card-content">
             ${seniorsEventMeta}
             ${seniorsEventOnly ? seniorsRegistrationSection : maybeSection}
-            ${seniorsEventOnly ? '' : '<div class="empty-tee-note"><span>RED</span> = empty tee time</div>'}
+            ${summaryRow}
+            ${eventToolsRow}
+            ${fullDayAlert}
             <div class="card-actions">
-              <button class="small event-actions-toggle" data-toggle-actions title="Show/hide event actions">Actions</button>
               <div class="button-row">
                 <button class="small" data-toggle-starter-event="${ev._id}" title="Switch this event to the compact starter view">Starter View</button>
                 ${seniorsEventOnly || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<button class="small" data-add-tee="${ev._id}">Add Existing Time</button>`)}
@@ -2818,8 +2852,6 @@ if ('serviceWorker' in navigator) {
                 <button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Add to Calendar</button>
               </div>
             </div>
-            ${summaryRow}
-            ${fullDayAlert}
             ${seniorsEventOnly || !showGolferControlsLegend ? '' : eventActionLegend}
             <div class="tees">${seniorsEventOnly ? '' : (tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>'))}</div>
             ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}

@@ -1076,6 +1076,10 @@ app.use('/api', buildSystemRouter({
 /* ---------------- Admin Configuration ---------------- */
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || 'tommy.knight@gmail.com,jvhyers@gmail.com').split(',').map(e => e.trim()).filter(Boolean);
 const CLUB_EMAIL = process.env.CLUB_CANCEL_EMAIL || 'Brian.Jones@blueridgeshadows.com';
+const BRS_TEE_RETURN_CC_EMAILS = uniqueEmailList([
+  String(process.env.BRS_TEE_RETURN_CC || '').split(','),
+  'tommy.knight@gmail.com',
+]);
 const SCHEDULER_ENV_DISABLED = process.env.ENABLE_SCHEDULER === '0';
 const SCHEDULED_EMAIL_RULE_DEFAULTS = Object.freeze({
   brianTomorrowEmptyClubAlert: true,
@@ -2465,6 +2469,14 @@ async function getGroupContactTargets(groupSlug = DEFAULT_SITE_GROUP_SLUG) {
     adminEmails,
     clubCcEmails,
   };
+}
+
+function clubCancelCcRecipientsForEvent(eventLike = {}, baseCcEmails = []) {
+  const normalizedGroupSlug = normalizeGroupSlug(eventLike && eventLike.groupSlug);
+  const safeBaseList = uniqueEmailList(baseCcEmails);
+  if (normalizedGroupSlug !== DEFAULT_SITE_GROUP_SLUG) return safeBaseList;
+  if (!isBlueRidgeShadowsCourseName(eventLike && eventLike.course)) return safeBaseList;
+  return uniqueEmailList([safeBaseList, BRS_TEE_RETURN_CC_EMAILS]);
 }
 
 async function buildOperationsGuidePayload() {
@@ -4892,6 +4904,7 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
     }
     if (notifyClub) {
       const { clubEmail, clubCcEmails, groupLabel } = await getGroupContactTargets(ev.groupSlug);
+      const ccList = clubCancelCcRecipientsForEvent(ev, clubCcEmails);
       const subj = `Cancel tee time: ${ev.course || 'Course'} ${fmt.dateISO(ev.date)} ${teeLabel} - ${groupLabel}`;
       const html = `<p>Please cancel the tee time below:</p>
         <ul>
@@ -4902,7 +4915,7 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
           <li><strong>Source:</strong> Tee Time booking app</li>
         </ul>
         <p>Please remove this tee time from your system to release it back to inventory. If already cancelled, no further action needed.</p>`;
-      const cc = clubCcEmails.length ? clubCcEmails.join(',') : '';
+      const cc = ccList.length ? ccList.join(',') : '';
       const httpRes = await sendEmailViaResendApi(clubEmail, subj, html, cc ? { cc } : undefined);
       if (httpRes.ok) {
         mailMethod = 'http';
@@ -7251,3 +7264,4 @@ module.exports.nextTeeTimeForEvent = nextTeeTimeForEvent;
 module.exports.buildEventIcs = buildEventIcs;
 module.exports.eventCalendarTiming = eventCalendarTiming;
 module.exports.buildEventsIcs = buildEventsIcs;
+module.exports.clubCancelCcRecipientsForEvent = clubCancelCcRecipientsForEvent;
