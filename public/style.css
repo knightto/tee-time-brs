@@ -2723,6 +2723,90 @@ body[data-site-group="seniors"] .card-content{
   }
 }
 
+@media (max-width:520px){
+  body[data-site-group="main"] .event-summary-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:5px;
+  }
+
+  body[data-site-group="main"] .event-summary-chip{
+    display:inline-flex;
+    flex:0 0 auto;
+    align-items:baseline;
+    gap:4px;
+    min-height:0;
+    padding:5px 8px;
+    border-radius:999px;
+    box-shadow:none;
+  }
+
+  body[data-site-group="main"] .event-summary-chip strong{
+    flex:0 0 auto;
+    font-size:14px;
+    line-height:1;
+    white-space:nowrap;
+  }
+
+  body[data-site-group="main"] .event-summary-chip span{
+    font-size:10px;
+    line-height:1;
+    letter-spacing:0;
+    white-space:nowrap;
+  }
+
+  body[data-site-group="main"] .maybe-section{
+    gap:6px;
+    padding:8px 9px;
+    border-radius:14px;
+    box-shadow:0 6px 14px rgba(120,53,15,.05);
+  }
+
+  body[data-site-group="main"] .maybe-header{
+    align-items:center;
+    gap:6px;
+  }
+
+  body[data-site-group="main"] .maybe-header-copy{
+    gap:6px;
+  }
+
+  body[data-site-group="main"] .maybe-header h4{
+    font-size:13px;
+  }
+
+  body[data-site-group="main"] .maybe-count-pill{
+    min-height:20px;
+    padding:2px 7px;
+    font-size:10px;
+  }
+
+  body[data-site-group="main"] .maybe-controls{
+    width:auto;
+    margin-left:auto;
+    justify-content:flex-end;
+    gap:4px;
+  }
+
+  body[data-site-group="main"] .maybe-controls .maybe-btn{
+    flex:0 0 auto;
+    min-height:27px;
+    padding:.16rem .56rem;
+    font-size:10.5px;
+    box-shadow:none;
+  }
+
+  body[data-site-group="main"] .maybe-list{
+    min-height:18px;
+    gap:4px;
+  }
+
+  body[data-site-group="main"] .maybe-empty-text{
+    font-size:11px;
+    line-height:1.2;
+  }
+}
+
 /* Event header organization: keep all content above Maybe List evenly spaced */
 .card-header{
   gap:14px;
