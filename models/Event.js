@@ -52,6 +52,11 @@ const EventSchema = new mongoose.Schema({
   teeTimes: { type: [SlotSchema], default: [] },
   seniorsRegistrations: { type: [SeniorsRegistrationSchema], default: [] },
   maybeList: { type: [String], default: [] },  // Array of player names interested but not committed
+  skinsPops: {
+    sharedHoles: { type: [Number], default: [] },
+    bonusHoles: { type: [Number], default: [] },
+    generatedAt: { type: Date, default: null }
+  },
   weather: {
     condition: { type: String, default: null },  // 'sunny', 'cloudy', 'rainy', 'stormy', etc.
     icon: { type: String, default: null },       // Weather emoji

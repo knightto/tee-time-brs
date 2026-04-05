@@ -3035,6 +3035,36 @@ body[data-site-group="seniors"] .card-content{
   background:rgba(255,255,255,.35);
 }
 
+.event-sidegame-box{
+  display:grid;
+  gap:6px;
+  margin:10px 0 2px;
+  padding:10px 12px;
+  border:1px solid rgba(21,128,61,.18);
+  border-radius:12px;
+  background:linear-gradient(135deg, rgba(240,253,244,.96) 0%, rgba(236,253,245,.9) 100%);
+}
+
+.event-sidegame-title{
+  font-size:12px;
+  font-weight:800;
+  letter-spacing:.18px;
+  text-transform:uppercase;
+  color:var(--green-700);
+}
+
+.event-sidegame-copy{
+  font-size:.92rem;
+  color:var(--slate-800);
+  line-height:1.4;
+}
+
+.event-sidegame-meta{
+  font-size:.8rem;
+  color:var(--slate-600);
+  line-height:1.35;
+}
+
 .card-actions{
   gap:10px;
 }
@@ -3087,6 +3117,14 @@ body[data-site-group="seniors"] .card-content{
 @media (max-width:480px){
   .card-header-left{
     gap:7px;
+  }
+
+  .event-sidegame-box{
+    padding:9px 10px;
+  }
+
+  .event-sidegame-copy{
+    font-size:.88rem;
   }
 
    .card-actions .button-row > button,

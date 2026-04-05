@@ -833,6 +833,113 @@ if ('serviceWorker' in navigator) {
     } catch { return '—'; }
   }
   function fmtTime(hhmm){ if(!hhmm) return ''; const m=/^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(hhmm); if(!m) return hhmm; let h=parseInt(m[1],10); const min=m[2]; const ap=h>=12?'PM':'AM'; h=h%12||12; return `${h}:${min} ${ap}`; }
+  const EVENT_TIME_ZONE = 'America/New_York';
+  function parseTimeZoneOffsetLabel(label = 'GMT') {
+    const match = /^GMT(?:(\+|-)(\d{1,2})(?::?(\d{2}))?)?$/.exec(String(label || '').trim());
+    if (!match) return 0;
+    const sign = match[1] === '-' ? -1 : 1;
+    const hours = Number(match[2] || 0);
+    const minutes = Number(match[3] || 0);
+    return sign * ((hours * 60) + minutes);
+  }
+  function timeZoneOffsetMinutesAt(date = new Date(), timeZone = EVENT_TIME_ZONE) {
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        timeZoneName: 'shortOffset',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }).formatToParts(date);
+      const label = parts.find((part) => part.type === 'timeZoneName')?.value || 'GMT';
+      return parseTimeZoneOffsetLabel(label);
+    } catch (_) {
+      return 0;
+    }
+  }
+  function eventLocalDateTimeToUtc(dateValue, rawTime, timeZone = EVENT_TIME_ZONE) {
+    const dateISO = toDateISO(dateValue);
+    const match = /^(\d{1,2}):(\d{2})$/.exec(String(rawTime || '').trim());
+    if (!dateISO || !match) return null;
+    const hours = Number(match[1]);
+    const minutes = Number(match[2]);
+    if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
+    const [year, month, day] = dateISO.split('-').map(Number);
+    const offsetMinutes = timeZoneOffsetMinutesAt(new Date(`${dateISO}T12:00:00Z`), timeZone);
+    return new Date(Date.UTC(year, month - 1, day, 0, (hours * 60) + minutes - offsetMinutes, 0, 0));
+  }
+  function weekendGameEligibleEvent(ev = {}) {
+    if (!isMainGroupSite()) return false;
+    if (!ev || ev.isTeamEvent || isSeniorsEventOnly(ev)) return false;
+    const dateISO = toDateISO(ev.date);
+    if (!dateISO) return false;
+    const weekday = new Date(`${dateISO}T12:00:00Z`).getUTCDay();
+    if (weekday !== 0 && weekday !== 6) return false;
+    return Array.isArray(ev.teeTimes) && ev.teeTimes.some((slot) => /^(\d{1,2}):(\d{2})$/.test(String(slot && slot.time || '').trim()));
+  }
+  function lastScheduledTeeTimeDate(ev = {}) {
+    let latest = null;
+    for (const teeTime of (ev && ev.teeTimes) || []) {
+      const candidate = eventLocalDateTimeToUtc(ev && ev.date, teeTime && teeTime.time, EVENT_TIME_ZONE);
+      if (!candidate || Number.isNaN(candidate.getTime())) continue;
+      if (!latest || candidate.getTime() > latest.getTime()) latest = candidate;
+    }
+    return latest;
+  }
+  function skinsPopsUnlockAt(ev = {}) {
+    const latest = lastScheduledTeeTimeDate(ev);
+    return latest ? new Date(latest.getTime() + (4 * 60 * 60 * 1000)) : null;
+  }
+  function formatEventZoneDateTime(date) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+    const label = date.toLocaleString(undefined, {
+      timeZone: EVENT_TIME_ZONE,
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+    return `${label} ET`;
+  }
+  function normalizeHoleList(list = []) {
+    return Array.from(new Set((Array.isArray(list) ? list : [])
+      .map((value) => Number(value))
+      .filter((value) => Number.isInteger(value) && value >= 1 && value <= 18)))
+      .sort((a, b) => a - b);
+  }
+  function weekendGameSkinsPopsState(ev = {}) {
+    const eligible = weekendGameEligibleEvent(ev);
+    const unlockAt = eligible ? skinsPopsUnlockAt(ev) : null;
+    const ready = !!(unlockAt && Date.now() >= unlockAt.getTime());
+    const sharedHoles = normalizeHoleList(ev && ev.skinsPops && ev.skinsPops.sharedHoles);
+    const bonusHoles = normalizeHoleList(ev && ev.skinsPops && ev.skinsPops.bonusHoles);
+    const generatedAtRaw = ev && ev.skinsPops && ev.skinsPops.generatedAt;
+    const generatedAt = generatedAtRaw ? new Date(generatedAtRaw) : null;
+    const hasDraw = sharedHoles.length === 4 && bonusHoles.length === 2;
+    return { eligible, unlockAt, ready, sharedHoles, bonusHoles, generatedAt, hasDraw };
+  }
+  function weekendGameSkinsPopsMarkup(ev = {}) {
+    const state = weekendGameSkinsPopsState(ev);
+    if (!state.eligible) return '';
+    let bodyHtml = '';
+    let metaHtml = '';
+    if (state.hasDraw) {
+      bodyHtml = `<div class="event-sidegame-copy"><strong>12–15 and 18+:</strong> ${state.sharedHoles.join(', ')}</div>
+        <div class="event-sidegame-copy"><strong>18+ extra:</strong> ${state.bonusHoles.join(', ')}</div>`;
+      metaHtml = `<div class="event-sidegame-meta">Drawn ${formatEventZoneDateTime(state.generatedAt) || 'recently'}.</div>`;
+    } else if (state.unlockAt) {
+      metaHtml = state.ready
+        ? '<div class="event-sidegame-meta">Ready to draw from the Actions menu.</div>'
+        : `<div class="event-sidegame-meta">Unlocks 4 hours after the last tee time: ${escapeHtml(formatEventZoneDateTime(state.unlockAt))}.</div>`;
+    } else {
+      metaHtml = '<div class="event-sidegame-meta">Needs valid tee times before the draw can unlock.</div>';
+    }
+    return `<div class="event-sidegame-box">
+      <div class="event-sidegame-title">Skins Pops</div>
+      ${bodyHtml}
+      ${metaHtml}
+    </div>`;
+  }
   function escapeHtml(value = '') {
     return String(value).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   }
@@ -1019,8 +1126,23 @@ if ('serviceWorker' in navigator) {
     return `${y}-${m}-${day}`;
   }
 
+  const MAIN_ADMIN_CODE_STORAGE_KEY = 'teeTimeMainAdminCode';
   const DELETE_CODE_STORAGE_KEY = 'teeTimeDeleteCode';
   const SENIORS_ADMIN_CODE_STORAGE_KEY = 'teeTimeSeniorsAdminCode';
+
+  function getStoredMainAdminCode() {
+    try {
+      return String(sessionStorage.getItem(MAIN_ADMIN_CODE_STORAGE_KEY) || '').trim();
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function rememberMainAdminCode(code) {
+    try {
+      if (code) sessionStorage.setItem(MAIN_ADMIN_CODE_STORAGE_KEY, code);
+    } catch (_) {}
+  }
 
   function getStoredDeleteCode() {
     try {
@@ -1068,6 +1190,26 @@ if ('serviceWorker' in navigator) {
     });
     const code = String(values && values.adminCode || '').trim();
     if (code) rememberSeniorsAdminCode(code);
+    return code;
+  }
+
+  async function requestMainAdminCode(label = 'this change') {
+    const values = await openActionDialog({
+      title: 'Admin Code',
+      message: `Enter the main admin code for ${label}.`,
+      confirmLabel: 'Continue',
+      fields: [{
+        name: 'adminCode',
+        label: 'Admin code',
+        type: 'password',
+        value: getStoredMainAdminCode(),
+        placeholder: 'Main admin code',
+        required: true,
+        autocomplete: 'current-password'
+      }]
+    });
+    const code = String(values && values.adminCode || '').trim();
+    if (code) rememberMainAdminCode(code);
     return code;
   }
 
@@ -3431,6 +3573,13 @@ if ('serviceWorker' in navigator) {
         const showEventTopActions = !isSeniorsGroup || showSeniorsCalendarAdminActions;
         const showSeniorsExportActions = isSeniorsGroup && showSeniorsCalendarAdminActions;
         const showBottomAuditAction = !isSeniorsGroup || showSeniorsCalendarAdminActions;
+        const skinsPopsState = weekendGameSkinsPopsState(ev);
+        const skinsPopsActionTitle = skinsPopsState.ready
+          ? (skinsPopsState.hasDraw ? 'Draw a new set of random skins pop holes for this event' : 'Draw the random skins pop holes for this event')
+          : (skinsPopsState.unlockAt
+            ? `Available ${formatEventZoneDateTime(skinsPopsState.unlockAt)}`
+            : 'Needs valid tee times before this draw can unlock');
+        const skinsPopsSummary = weekendGameSkinsPopsMarkup(ev);
         const eventActionLegend = `
           <div class="event-action-legend" aria-label="Golfer action legend">
             <span class="event-action-title">Golfer Controls</span>
@@ -3470,11 +3619,13 @@ if ('serviceWorker' in navigator) {
                 <button class="small" data-share-event="${ev._id}" title="Share this event">Share Event</button>
                 ${seniorsEventOnly || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add ${slotWords.singular}</button>` : `<button class="small" data-add-tee="${ev._id}">Add Existing Time</button>`)}
                 ${seniorsEventOnly || isTeams || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Suggest Pairings</button>`}
+                ${skinsPopsState.eligible ? `<button class="small" data-randomize-skins-pops="${ev._id}" title="${escapeHtml(skinsPopsActionTitle)}"${skinsPopsState.ready ? '' : ' disabled'}>${skinsPopsState.hasDraw ? 'Re-draw Skins Pops' : 'Draw Skins Pops'}</button>` : ''}
                 ${showSeniorsExportActions ? `<button class="small" data-export-seniors-event="${ev._id}" title="Export the registration list">Export</button>` : ''}
                 <button class="small" data-calendar-google="${ev._id}"${googleCalendarUrl ? ` data-calendar-google-url="${escapeHtml(googleCalendarUrl)}"` : ''} title="Add this event to Google Calendar">Add to Calendar</button>
               </div>
             </div>
             ${seniorsEventOnly || !showGolferControlsLegend ? '' : eventActionLegend}
+            ${skinsPopsSummary}
             <div class="tees">${seniorsEventOnly ? '' : (tees || (isTeams ? `<em>No ${slotWords.pluralLower}</em>` : '<em>No tee times</em>'))}</div>
             ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
             ${seniorsEventOnly ? '' : '<div class="event-bottom-meta"><div class="empty-tee-note"><span>Red</span><span>empty tee time</span></div></div>'}
@@ -3656,7 +3807,7 @@ if ('serviceWorker' in navigator) {
   });
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-ics],[data-toggle-starter-event],[data-starter-filter],[data-seniors-register],[data-remove-seniors-registration],[data-export-seniors-event],[data-share-event]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-randomize-skins-pops],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-ics],[data-toggle-starter-event],[data-starter-filter],[data-seniors-register],[data-remove-seniors-registration],[data-export-seniors-event],[data-share-event]')||e.target);
     try{
       if (t.dataset.starterFilter) {
         const nextFilter = String(t.dataset.starterFilter || '').trim();
@@ -4030,6 +4181,52 @@ if ('serviceWorker' in navigator) {
         } catch (err) {
           console.error(err);
           showToast('Pairing action failed: ' + (err.message || 'Unknown error'), 'error');
+        } finally {
+          t.disabled = false;
+          t.textContent = original;
+        }
+        return;
+      }
+      if(t.dataset.randomizeSkinsPops){
+        const id = String(t.dataset.randomizeSkinsPops || '').trim();
+        const ev = await getEventForAction(id);
+        const drawState = weekendGameSkinsPopsState(ev);
+        if (!drawState.eligible) {
+          showToast('Skins pops are only available for main-group weekend tee-time events.', 'error');
+          return;
+        }
+        if (!drawState.ready) {
+          showToast(drawState.unlockAt ? `Skins pops unlock ${formatEventZoneDateTime(drawState.unlockAt)}.` : 'This event needs valid tee times before skins pops can unlock.', 'error');
+          return;
+        }
+        const confirmed = await openActionDialog({
+          title: drawState.hasDraw ? 'Re-draw Skins Pops' : 'Draw Skins Pops',
+          message: drawState.hasDraw
+            ? 'Generate a new random set of pop holes? This will replace the current saved draw.'
+            : 'Randomly draw the shared 4 pop holes and the extra 2 holes for 18+ handicaps?',
+          confirmLabel: drawState.hasDraw ? 'Re-draw' : 'Draw Pops'
+        });
+        if (confirmed === null) return;
+        const code = await requestMainAdminCode('drawing skins pop holes');
+        if (!code) return;
+        const original = t.textContent;
+        t.disabled = true;
+        t.textContent = drawState.hasDraw ? 'Re-drawing…' : 'Drawing…';
+        try {
+          const result = await api(`/api/events/${id}/skins-pops/randomize`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-admin-code': code
+            },
+            body: JSON.stringify({})
+          });
+          if (isQueuedApiResult(result)) return;
+          await updateEventCard(id, result && result.event ? result.event : null);
+          showToast('Skins pop holes saved.', 'success');
+        } catch (err) {
+          console.error(err);
+          showToast('Skins pop draw failed: ' + (err.message || 'Unknown error'), 'error');
         } finally {
           t.disabled = false;
           t.textContent = original;
@@ -4430,28 +4627,7 @@ if ('serviceWorker' in navigator) {
       }
       const items = logs.map(log => {
         const ts = new Date(log.timestamp).toLocaleString();
-        let desc = '';
-        if (log.action === 'create_event') {
-          desc = '🆕 Event created';
-        } else
-        if (log.action === 'add_player') {
-          desc = `➕ Added <strong>${log.playerName}</strong> to ${log.teeLabel}`;
-        } else if (log.action === 'remove_player') {
-          desc = `➖ Removed <strong>${log.playerName}</strong> from ${log.teeLabel}`;
-        } else if (log.action === 'move_player') {
-          desc = `↔️ Moved <strong>${log.playerName}</strong> from ${log.fromTeeLabel} to ${log.toTeeLabel}`;
-        } else if (log.action === 'check_in_player') {
-          desc = `✅ Checked in <strong>${log.playerName}</strong> at ${log.teeLabel}`;
-        } else if (log.action === 'undo_check_in_player') {
-          desc = `⬜ Marked not checked in: <strong>${log.playerName}</strong> at ${log.teeLabel}`;
-        } else if (log.action === 'bulk_check_in') {
-          desc = `✅ Checked in all players at ${log.teeLabel}`;
-        } else if (log.action === 'bulk_clear_check_in') {
-          desc = `⬜ Cleared check-in for all players at ${log.teeLabel}`;
-        }
-        if (!desc) {
-          desc = `<strong>${escapeHtml(String(log.action || 'audit'))}</strong>`;
-        }
+        const desc = escapeHtml(String(log.message || log.action || 'audit'));
         return `<div style="padding:8px;border-bottom:1px solid var(--slate-200)">
           <div style="font-size:14px;color:var(--slate-900)">${desc}</div>
           <div style="font-size:12px;color:var(--slate-700);margin-top:4px">${ts}</div>

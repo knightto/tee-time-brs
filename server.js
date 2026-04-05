@@ -1856,6 +1856,86 @@ function parseHHMMToMinutes(rawTime = '') {
   return (hours * 60) + minutes;
 }
 
+function parseTimeZoneOffsetMinutes(label = 'GMT') {
+  const match = /^GMT(?:(\+|-)(\d{1,2})(?::?(\d{2}))?)?$/.exec(String(label || '').trim());
+  if (!match) return 0;
+  const sign = match[1] === '-' ? -1 : 1;
+  const hours = Number(match[2] || 0);
+  const minutes = Number(match[3] || 0);
+  return sign * ((hours * 60) + minutes);
+}
+
+function timeZoneOffsetMinutesAt(date = new Date(), timeZone = LOCAL_TZ) {
+  try {
+    const parts = new Intl.DateTimeFormat('en-US', {
+      timeZone,
+      timeZoneName: 'shortOffset',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(date);
+    const label = parts.find((part) => part.type === 'timeZoneName')?.value || 'GMT';
+    return parseTimeZoneOffsetMinutes(label);
+  } catch (_) {
+    return 0;
+  }
+}
+
+function eventLocalDateTimeToUtc(dateValue, rawTime, timeZone = LOCAL_TZ) {
+  const dateISO = fmt.dateISO(dateValue);
+  const minutes = parseHHMMToMinutes(rawTime);
+  if (!dateISO || minutes === null) return null;
+  const [year, month, day] = dateISO.split('-').map(Number);
+  const offsetMinutes = timeZoneOffsetMinutesAt(asUTCDate(dateISO), timeZone);
+  return new Date(Date.UTC(year, month - 1, day, 0, minutes - offsetMinutes, 0, 0));
+}
+
+function lastScheduledTeeTimeForEvent(ev = {}) {
+  let latest = null;
+  for (const teeTime of (ev.teeTimes || [])) {
+    const candidate = eventLocalDateTimeToUtc(ev.date, teeTime && teeTime.time, LOCAL_TZ);
+    if (!candidate || Number.isNaN(candidate.getTime())) continue;
+    if (!latest || candidate.getTime() > latest.getTime()) latest = candidate;
+  }
+  return latest;
+}
+
+function weekendGameEligibleEvent(ev = {}) {
+  if (!ev) return false;
+  if (normalizeGroupSlug(ev.groupSlug) !== DEFAULT_SITE_GROUP_SLUG) return false;
+  if (ev.isTeamEvent) return false;
+  const dateISO = fmt.dateISO(ev.date);
+  if (!dateISO) return false;
+  const weekday = new Date(`${dateISO}T12:00:00Z`).getUTCDay();
+  if (weekday !== 0 && weekday !== 6) return false;
+  return Array.isArray(ev.teeTimes) && ev.teeTimes.some((slot) => parseHHMMToMinutes(slot && slot.time) !== null);
+}
+
+function skinsPopsUnlockAt(ev = {}) {
+  const lastTee = lastScheduledTeeTimeForEvent(ev);
+  if (!lastTee) return null;
+  return new Date(lastTee.getTime() + (4 * 60 * 60 * 1000));
+}
+
+function buildWeekendSkinsPopsDraw() {
+  const crypto = require('crypto');
+  const remaining = Array.from({ length: 17 }, (_, index) => index + 1);
+  const pickUnique = (count) => {
+    const picks = [];
+    for (let i = 0; i < count && remaining.length; i += 1) {
+      const index = crypto.randomInt(remaining.length);
+      picks.push(remaining.splice(index, 1)[0]);
+    }
+    picks.sort((a, b) => a - b);
+    return picks;
+  };
+  return {
+    sharedHoles: pickUnique(4),
+    bonusHoles: pickUnique(2),
+    generatedAt: new Date(),
+  };
+}
+
 function calendarDateParts(dateVal) {
   const d = asUTCDate(dateVal);
   if (Number.isNaN(d.getTime())) return null;
@@ -3838,22 +3918,179 @@ function findNextOpenSlot(ev, preferredTeeId = null) {
   return null;
 }
 
+function auditContextFromEvent(ev = {}) {
+  return {
+    groupSlug: normalizeGroupSlug(ev.groupSlug),
+    eventCourse: String(ev.course || '').trim(),
+    eventDateISO: fmt.dateISO(ev.date),
+    isTeamEvent: !!ev.isTeamEvent,
+  };
+}
+
+function captureEventAuditSnapshot(ev = {}) {
+  return {
+    course: String(ev.course || '').trim(),
+    dateISO: fmt.dateISO(ev.date),
+    notes: String(ev.notes || ''),
+    isTeamEvent: !!ev.isTeamEvent,
+    teamSizeMax: Number(ev.teamSizeMax || 4),
+    seniorsEventType: String(ev.seniorsEventType || '').trim().toLowerCase(),
+    seniorsRegistrationMode: String(ev.seniorsRegistrationMode || '').trim().toLowerCase(),
+    teeCount: Array.isArray(ev.teeTimes) ? ev.teeTimes.length : 0,
+    courseInfoKey: JSON.stringify(normalizeCourseInfo(ev.courseInfo || {})),
+  };
+}
+
+function buildEventUpdateAuditMessage(before = {}, after = {}) {
+  const changed = [];
+  if (before.course !== after.course) changed.push('course');
+  if (before.dateISO !== after.dateISO) changed.push('date');
+  if (before.notes !== after.notes) changed.push('notes');
+  if (before.isTeamEvent !== after.isTeamEvent) changed.push('format');
+  if (before.teamSizeMax !== after.teamSizeMax) changed.push('team size');
+  if (before.seniorsEventType !== after.seniorsEventType) changed.push('Seniors event type');
+  if (before.seniorsRegistrationMode !== after.seniorsRegistrationMode) changed.push('registration mode');
+  if (before.teeCount !== after.teeCount) changed.push('slot count');
+  if (before.courseInfoKey !== after.courseInfoKey) changed.push('course details');
+  return changed.length
+    ? `Updated event details: ${changed.join(', ')}.`
+    : 'Updated event details.';
+}
+
+function formatAuditSlotLabel(label = '', isTeamEvent = false) {
+  const trimmed = String(label || '').trim();
+  if (!trimmed) return isTeamEvent ? 'team' : 'tee time';
+  if (isTeamEvent) return trimmed;
+  return /^\d{1,2}:\d{2}$/.test(trimmed) ? fmt.tee(trimmed) : trimmed;
+}
+
+function buildAuditMessage(action = '', playerName = '', data = {}) {
+  const normalizedAction = String(action || '').trim().toLowerCase();
+  const subject = String(playerName || '').trim();
+  const teeLabel = formatAuditSlotLabel(data.teeLabel, data.isTeamEvent);
+  const fromTeeLabel = formatAuditSlotLabel(data.fromTeeLabel, data.isTeamEvent);
+  const toTeeLabel = formatAuditSlotLabel(data.toTeeLabel, data.isTeamEvent);
+  switch (normalizedAction) {
+    case 'create_event':
+      return `Created event ${data.eventCourse || 'event'} on ${data.eventDateISO || 'the selected date'}.`;
+    case 'update_event':
+      return 'Updated event details.';
+    case 'delete_event':
+      return `Deleted event ${data.eventCourse || 'event'} on ${data.eventDateISO || 'the selected date'}.`;
+    case 'request_extra_tee_time':
+      return 'Requested an additional tee time from the club.';
+    case 'add_player':
+      return `Added ${subject || 'player'} to ${teeLabel}.`;
+    case 'remove_player':
+      return `Removed ${subject || 'player'} from ${teeLabel}.`;
+    case 'move_player':
+      return `Moved ${subject || 'player'} from ${fromTeeLabel} to ${toTeeLabel}.`;
+    case 'check_in_player':
+      return `Checked in ${subject || 'player'} at ${teeLabel}.`;
+    case 'undo_check_in_player':
+      return `Cleared check-in for ${subject || 'player'} at ${teeLabel}.`;
+    case 'bulk_check_in':
+      return `Checked in all players at ${teeLabel}.`;
+    case 'bulk_clear_check_in':
+      return `Cleared check-in for all players at ${teeLabel}.`;
+    case 'add_maybe':
+      return `Added ${subject || 'player'} to the maybe list.`;
+    case 'remove_maybe':
+      return `Removed ${subject || 'player'} from the maybe list.`;
+    case 'fill_maybe':
+      return `Moved ${subject || 'player'} from the maybe list to ${teeLabel}.`;
+    case 'seniors_register':
+      return `Registered ${subject || 'player'} for this Seniors event.`;
+    case 'remove_seniors_registration':
+      return `Removed ${subject || 'player'} from this Seniors event.`;
+    case 'apply_pairings': {
+      const groupCount = Number(data.details && data.details.groupCount || 0);
+      const playerCount = Number(data.details && data.details.playerCount || 0);
+      if (groupCount || playerCount) {
+        return `Applied pairings across ${groupCount || 0} group${groupCount === 1 ? '' : 's'} for ${playerCount || 0} player${playerCount === 1 ? '' : 's'}.`;
+      }
+      return 'Applied pairings.';
+    }
+    case 'randomize_skins_pops': {
+      const shared = Array.isArray(data.details && data.details.sharedHoles) ? data.details.sharedHoles.join(', ') : '';
+      const bonus = Array.isArray(data.details && data.details.bonusHoles) ? data.details.bonusHoles.join(', ') : '';
+      if (shared && bonus) return `Randomized skins pop holes. Shared: ${shared}. Bonus 18+: ${bonus}.`;
+      return 'Randomized skins pop holes.';
+    }
+    case 'refresh_weather':
+      return 'Refreshed weather for this event.';
+    default:
+      return normalizedAction ? normalizedAction.replace(/_/g, ' ') : 'audit entry';
+  }
+}
+
+function buildLegacyTeeAuditEntry(log = {}) {
+  if (!log || !log._id) return null;
+  const isTeamEvent = !!log.isTeamEvent;
+  const noun = isTeamEvent ? 'team' : 'tee time';
+  const beforeLabel = formatAuditSlotLabel(log.labelBefore, isTeamEvent);
+  const afterLabel = formatAuditSlotLabel(log.labelAfter, isTeamEvent);
+  let message = '';
+  if (log.action === 'add') {
+    message = `Added ${noun} ${afterLabel}.`;
+  } else if (log.action === 'update') {
+    message = `Updated ${noun} from ${beforeLabel} to ${afterLabel}.`;
+  } else if (log.action === 'delete') {
+    message = `Deleted ${noun} ${beforeLabel}.`;
+    if (log.notifyClub) message += ' Club notification requested.';
+    if (log.mailError) message += ` Email error: ${String(log.mailError).trim()}.`;
+  } else {
+    message = `${noun} ${String(log.action || 'change').trim()}.`;
+  }
+  return {
+    _id: `tee-log-${String(log._id)}`,
+    groupSlug: normalizeGroupSlug(log.groupSlug),
+    eventId: log.eventId,
+    action: `tee_time_${String(log.action || '').trim().toLowerCase()}`,
+    playerName: '',
+    teeId: log.teeId || null,
+    fromTeeId: null,
+    toTeeId: null,
+    teeLabel: String(log.labelAfter || log.labelBefore || '').trim(),
+    fromTeeLabel: '',
+    toTeeLabel: '',
+    eventCourse: String(log.course || '').trim(),
+    eventDateISO: String(log.dateISO || '').trim(),
+    isTeamEvent,
+    message,
+    details: {
+      notifyClub: !!log.notifyClub,
+      mailMethod: log.mailMethod || null,
+      mailError: log.mailError || null,
+      source: 'legacy_tee_time_log',
+    },
+    timestamp: log.createdAt || new Date(),
+  };
+}
+
 // Log audit entry
 async function logAudit(eventId, action, playerName, data = {}) {
   if (!AuditLog) return;
   try {
-    await AuditLog.create({
+    const payload = {
+      groupSlug: normalizeGroupSlug(data.groupSlug),
       eventId,
-      action,
-      playerName: String(playerName).trim(),
-      teeId: data.teeId,
-      fromTeeId: data.fromTeeId,
-      toTeeId: data.toTeeId,
-      teeLabel: data.teeLabel,
-      fromTeeLabel: data.fromTeeLabel,
-      toTeeLabel: data.toTeeLabel,
-      timestamp: new Date()
-    });
+      action: String(action || '').trim().toLowerCase(),
+      playerName: String(playerName || '').trim(),
+      teeId: data.teeId || null,
+      fromTeeId: data.fromTeeId || null,
+      toTeeId: data.toTeeId || null,
+      teeLabel: String(data.teeLabel || '').trim(),
+      fromTeeLabel: String(data.fromTeeLabel || '').trim(),
+      toTeeLabel: String(data.toTeeLabel || '').trim(),
+      eventCourse: String(data.eventCourse || '').trim(),
+      eventDateISO: String(data.eventDateISO || '').trim(),
+      isTeamEvent: !!data.isTeamEvent,
+      details: data.details && typeof data.details === 'object' ? data.details : {},
+      timestamp: new Date(),
+    };
+    payload.message = String(data.message || buildAuditMessage(payload.action, payload.playerName, payload)).trim();
+    await AuditLog.create(payload);
   } catch (e) {
     console.error('Audit log failed:', e.message);
   }
@@ -3861,8 +4098,10 @@ async function logAudit(eventId, action, playerName, data = {}) {
 
 function buildEventCreatedAuditEntry(ev = {}) {
   if (!ev || !ev._id || !ev.createdAt) return null;
+  const context = auditContextFromEvent(ev);
   return {
     _id: `created-${String(ev._id)}`,
+    groupSlug: context.groupSlug,
     eventId: ev._id,
     action: 'create_event',
     playerName: 'SYSTEM',
@@ -3872,6 +4111,11 @@ function buildEventCreatedAuditEntry(ev = {}) {
     teeLabel: '',
     fromTeeLabel: '',
     toTeeLabel: '',
+    eventCourse: context.eventCourse,
+    eventDateISO: context.eventDateISO,
+    isTeamEvent: context.isTeamEvent,
+    message: buildAuditMessage('create_event', 'SYSTEM', context),
+    details: {},
     timestamp: ev.createdAt,
   };
 }
@@ -4267,6 +4511,10 @@ app.post('/api/events/:id/seniors-register', async (req, res) => {
       handicapIndex: Number.isFinite(golfer.handicapIndex) ? golfer.handicapIndex : null,
     });
     await ev.save();
+    await logAudit(ev._id, 'seniors_register', golfer.name, {
+      ...auditContextFromEvent(ev),
+      details: { registrationId: ev.seniorsRegistrations[ev.seniorsRegistrations.length - 1]?._id || null },
+    });
 
     if (golfer.email) {
       await sendSeniorsRegistrationConfirmationEmail(ev, golfer);
@@ -4284,8 +4532,13 @@ app.delete('/api/events/:id/seniors-registrations/:registrationId', async (req, 
     if (!ev) return res.status(404).json({ error: 'Event not found' });
     const registration = ev.seniorsRegistrations.id(req.params.registrationId);
     if (!registration) return res.status(404).json({ error: 'Registration not found' });
+    const golferName = String(registration.name || '').trim();
     registration.deleteOne();
     await ev.save();
+    await logAudit(ev._id, 'remove_seniors_registration', golferName, {
+      ...auditContextFromEvent(ev),
+      details: { registrationId: req.params.registrationId },
+    });
     return res.json({ ok: true, event: ev });
   } catch (error) {
     return res.status(500).json({ error: error && error.message ? error.message : 'Failed to remove registration' });
@@ -4448,6 +4701,15 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
       }
       throw err;
     }
+    await logAudit(created._id, 'create_event', 'SYSTEM', {
+      ...auditContextFromEvent(created),
+      message: `Created event ${created.course || 'event'} on ${fmt.dateISO(created.date) || 'the selected date'} with ${(created.teeTimes || []).length} ${created.isTeamEvent ? 'group' : 'tee time'}${(created.teeTimes || []).length === 1 ? '' : 's'}.`,
+      details: {
+        teeCount: Array.isArray(created.teeTimes) ? created.teeTimes.length : 0,
+        seniorsEventType: created.seniorsEventType || '',
+        seniorsRegistrationMode: created.seniorsRegistrationMode || '',
+      },
+    });
     res.status(201).json(created);
     const eventUrl = buildSiteEventUrl(created.groupSlug, created._id);
     if (normalizeGroupSlug(created.groupSlug) === 'seniors') {
@@ -4471,6 +4733,7 @@ app.put('/api/events/:id', async (req, res) => {
   try {
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
+    const beforeAudit = captureEventAuditSnapshot(ev);
     const body = req.body || {};
     const { course, courseInfo, date, notes, isTeamEvent, teamSizeMax, seniorsEventType, seniorsRegistrationMode } = body;
     const hasCourseInfo = Object.prototype.hasOwnProperty.call(body, 'courseInfo');
@@ -4538,6 +4801,15 @@ app.put('/api/events/:id', async (req, res) => {
       ev._id
     ) || undefined;
     await ev.save();
+    const afterAudit = captureEventAuditSnapshot(ev);
+    await logAudit(ev._id, 'update_event', 'SYSTEM', {
+      ...auditContextFromEvent(ev),
+      message: buildEventUpdateAuditMessage(beforeAudit, afterAudit),
+      details: {
+        before: beforeAudit,
+        after: afterAudit,
+      },
+    });
     res.json(ev);
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
@@ -4550,6 +4822,14 @@ app.delete('/api/events/:id', async (req, res) => {
   }
   const del = await Event.findOneAndDelete(scopeQuery(req, { _id: req.params.id }));
   if (!del) return res.status(404).json({ error: 'Not found' });
+  await logAudit(del._id, 'delete_event', 'SYSTEM', {
+    ...auditContextFromEvent(del),
+    message: `Deleted event ${del.course || 'event'} on ${fmt.dateISO(del.date) || 'the selected date'}.`,
+    details: {
+      teeCount: Array.isArray(del.teeTimes) ? del.teeTimes.length : 0,
+      seniorsRegistrationCount: Array.isArray(del.seniorsRegistrations) ? del.seniorsRegistrations.length : 0,
+    },
+  });
   
   // Send response immediately
   res.json({ ok: true });
@@ -4602,11 +4882,19 @@ app.post('/api/events/:id/request-extra-tee-time', async (req, res) => {
 
     const httpRes = await sendEmailViaResendApi(clubEmail, subj, html, ccList.length ? { cc: ccList } : undefined);
     if (httpRes.ok) {
+      await logAudit(ev._id, 'request_extra_tee_time', 'SYSTEM', {
+        ...auditContextFromEvent(ev),
+        details: { mailMethod: 'http', teeCount, noteProvided: !!note },
+      });
       return res.json({ ok: true, mailMethod: 'http', to: clubEmail, cc: ccList });
     }
 
     const smtpRes = await sendEmail(smtpRecipients, subj, html);
     if (smtpRes && smtpRes.ok) {
+      await logAudit(ev._id, 'request_extra_tee_time', 'SYSTEM', {
+        ...auditContextFromEvent(ev),
+        details: { mailMethod: 'smtp', teeCount, noteProvided: !!note },
+      });
       return res.json({ ok: true, mailMethod: 'smtp', to: smtpRecipients });
     }
 
@@ -4718,6 +5006,23 @@ app.post('/api/events/:id/dedupe', async (req, res) => {
 
     const toRemove = matches.filter((m) => String(m._id) !== String(keepId)).map((m) => m._id);
     const delResult = await Event.deleteMany({ ...groupScopeFilter(ev.groupSlug), _id: { $in: toRemove } });
+    const removedEvents = matches.filter((m) => String(m._id) !== String(keepId));
+    await logAudit(keepId, 'dedupe_event', 'SYSTEM', {
+      ...auditContextFromEvent(ev),
+      message: `Removed ${removedEvents.length} duplicate event${removedEvents.length === 1 ? '' : 's'} and kept this event as the canonical record.`,
+      details: {
+        removedEventIds: removedEvents.map((entry) => String(entry._id)),
+      },
+    });
+    for (const removedEvent of removedEvents) {
+      await logAudit(removedEvent._id, 'delete_event', 'SYSTEM', {
+        ...auditContextFromEvent(removedEvent),
+        message: `Deleted duplicate event during dedupe. Kept event ${String(keepId)} as the canonical record.`,
+        details: {
+          keptEventId: String(keepId),
+        },
+      });
+    }
     console.log('[dedupe] Removed duplicate events', { keepId: String(keepId), removed: delResult.deletedCount, ids: toRemove.map(String) });
 
     return res.json({ ok: true, keptId: keepId, removed: delResult.deletedCount, removedIds: toRemove, matched: matches.length });
@@ -5049,19 +5354,22 @@ app.post('/api/events/:id/tee-times/:teeId/players', validateBody(validateAddPla
   await ev.save();
 
   // Audit log
+  const addPlayerTeeLabel = getTeeLabel(ev, tt._id);
   await logAudit(ev._id, 'add_player', trimmedName, {
+    ...auditContextFromEvent(ev),
     teeId: tt._id,
-    teeLabel: getTeeLabel(ev, tt._id)
+    teeLabel: addPlayerTeeLabel,
+    details: { asFifth: !!capacity.asFifth }
   });
 
   if (seniorsGolfer && seniorsGolfer.email) {
-    sendSeniorsRegistrationConfirmationEmail(ev, seniorsGolfer, getTeeLabel(ev, tt._id))
+    sendSeniorsRegistrationConfirmationEmail(ev, seniorsGolfer, addPlayerTeeLabel)
       .catch((err) => console.error('[add_player] Failed to send Seniors confirmation email:', err));
   }
 
   // Send notification email only if notifications are enabled
   if (ev.notificationsEnabled !== false) {
-    const teeLabel = getTeeLabel(ev, tt._id);
+    const teeLabel = addPlayerTeeLabel;
     sendSubscriberChangeEmail(
       `Player Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
       frame('Player Signed Up!',
@@ -5127,10 +5435,11 @@ app.delete('/api/events/:id/tee-times/:teeId/players/:playerId', async (req, res
     await ev.save();
 
     // Audit log
-  await logAudit(ev._id, 'remove_player', playerName, {
-    teeId: tt._id,
-    teeLabel: teeLabel
-  });
+    await logAudit(ev._id, 'remove_player', playerName, {
+      ...auditContextFromEvent(ev),
+      teeId: tt._id,
+      teeLabel,
+    });
 
     if (ev.notificationsEnabled !== false) {
       sendSubscriberChangeEmail(
@@ -5189,10 +5498,12 @@ app.post('/api/events/:id/move-player', async (req, res) => {
   
   // Audit log
   await logAudit(ev._id, 'move_player', playerName, {
+    ...auditContextFromEvent(ev),
     fromTeeId: fromTT._id,
     toTeeId: toTT._id,
     fromTeeLabel: getTeeLabel(ev, fromTT._id),
-    toTeeLabel: getTeeLabel(ev, toTT._id)
+    toTeeLabel: getTeeLabel(ev, toTT._id),
+    details: { asFifth: !!capacity.asFifth }
   });
   
   res.json(ev);
@@ -5215,6 +5526,7 @@ app.post('/api/events/:id/tee-times/:teeId/players/:playerId/check-in', async (r
     await ev.save();
 
     await logAudit(ev._id, checkedIn ? 'check_in_player' : 'undo_check_in_player', p.name, {
+      ...auditContextFromEvent(ev),
       teeId: tt._id,
       teeLabel: getTeeLabel(ev, tt._id)
     });
@@ -5240,8 +5552,10 @@ app.post('/api/events/:id/tee-times/:teeId/check-in-all', async (req, res) => {
     await ev.save();
 
     await logAudit(ev._id, checkedIn ? 'bulk_check_in' : 'bulk_clear_check_in', 'ALL_PLAYERS', {
+      ...auditContextFromEvent(ev),
       teeId: tt._id,
-      teeLabel: getTeeLabel(ev, tt._id)
+      teeLabel: getTeeLabel(ev, tt._id),
+      details: { playerCount: tt.players.length }
     });
 
     res.json(ev);
@@ -5335,7 +5649,49 @@ app.post('/api/events/:id/pairings/apply', async (req, res) => {
     }
 
     await ev.save();
+    await logAudit(ev._id, 'apply_pairings', 'SYSTEM', {
+      ...auditContextFromEvent(ev),
+      details: {
+        groupCount: materialized.length,
+        playerCount: materialized.reduce((sum, group) => sum + group.names.length, 0),
+      },
+    });
     res.json(ev);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/events/:id/skins-pops/randomize', async (req, res) => {
+  try {
+    if (!isMainSiteAdminRequest(req)) return res.status(403).json({ error: 'Admin code required' });
+    const ev = await findScopedEventById(req, req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    if (!weekendGameEligibleEvent(ev)) {
+      return res.status(400).json({ error: 'Skins pops are only available for main-group weekend tee-time events.' });
+    }
+    const unlockAt = skinsPopsUnlockAt(ev);
+    if (!unlockAt) {
+      return res.status(400).json({ error: 'Event is missing valid tee-time data.' });
+    }
+    const now = new Date();
+    if (now.getTime() < unlockAt.getTime()) {
+      return res.status(400).json({
+        error: `Skins pops unlock at ${unlockAt.toLocaleString('en-US', { timeZone: LOCAL_TZ, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}${LOCAL_TZ === 'America/New_York' ? ' ET' : ''}`,
+        availableAt: unlockAt.toISOString(),
+      });
+    }
+
+    ev.skinsPops = buildWeekendSkinsPopsDraw();
+    await ev.save();
+    await logAudit(ev._id, 'randomize_skins_pops', 'SKINS_POPS', {
+      ...auditContextFromEvent(ev),
+      details: {
+        sharedHoles: ev.skinsPops && ev.skinsPops.sharedHoles || [],
+        bonusHoles: ev.skinsPops && ev.skinsPops.bonusHoles || [],
+      },
+    });
+    res.json({ ok: true, event: ev });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
@@ -5746,6 +6102,13 @@ app.post('/api/events/:id/weather', async (req, res) => {
     assignWeatherToEvent(ev, weatherData);
     
     await ev.save();
+    await logAudit(ev._id, 'refresh_weather', 'SYSTEM', {
+      ...auditContextFromEvent(ev),
+      details: {
+        condition: ev.weather && ev.weather.condition || null,
+        temp: ev.weather && ev.weather.temp || null,
+      },
+    });
     res.json(ev);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -5815,6 +6178,10 @@ app.post('/api/events/:id/maybe', async (req, res) => {
     
     ev.maybeList.push(trimmedName);
     await ev.save();
+    await logAudit(ev._id, 'add_maybe', trimmedName, {
+      ...auditContextFromEvent(ev),
+      details: { maybeCount: ev.maybeList.length },
+    });
     res.json(ev);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -5869,10 +6236,14 @@ app.post('/api/events/:id/maybe/fill', async (req, res) => {
     await ev.save();
 
     const teeLabel = getTeeLabel(ev, slot._id);
-    await logAudit(ev._id, 'add_player', pickedName, {
+    await logAudit(ev._id, 'fill_maybe', pickedName, {
+      ...auditContextFromEvent(ev),
       teeId: slot._id,
       teeLabel,
-      source: 'maybe_list'
+      details: {
+        asFifth: !!addAsFifth,
+        maybeCount: ev.maybeList.length,
+      },
     });
 
     if (ev.notificationsEnabled !== false) {
@@ -5910,8 +6281,13 @@ app.delete('/api/events/:id/maybe/:index', async (req, res) => {
       return res.status(404).json({ error: 'Invalid index' });
     }
     
+    const removedName = String(ev.maybeList[index] || '').trim();
     ev.maybeList.splice(index, 1);
     await ev.save();
+    await logAudit(ev._id, 'remove_maybe', removedName, {
+      ...auditContextFromEvent(ev),
+      details: { maybeCount: ev.maybeList.length },
+    });
     res.json(ev);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -5922,12 +6298,22 @@ app.delete('/api/events/:id/maybe/:index', async (req, res) => {
 app.get('/api/events/:id/audit-log', async (req, res) => {
   try {
     if (!AuditLog) return res.status(501).json({ error: 'Audit log not available' });
+    const normalizedGroupSlug = normalizeGroupSlug(getGroupSlug(req));
     const ev = await findScopedEventById(req, req.params.id, { lean: true });
-    if (!ev) return res.status(404).json({ error: 'Event not found' });
-    const logs = await AuditLog.find({ eventId: req.params.id })
-      .sort({ timestamp: 1 })
-      .limit(200)
-      .lean();
+    const auditQuery = ev
+      ? { eventId: req.params.id }
+      : { eventId: req.params.id, groupSlug: normalizedGroupSlug };
+    const [auditLogs, legacyTeeLogs] = await Promise.all([
+      AuditLog.find(auditQuery).sort({ timestamp: 1 }).limit(200).lean(),
+      TeeTimeLog
+        ? TeeTimeLog.find({ eventId: req.params.id, groupSlug: normalizedGroupSlug }).sort({ createdAt: 1 }).limit(200).lean()
+        : Promise.resolve([]),
+    ]);
+    const logs = auditLogs
+      .concat((legacyTeeLogs || []).map((entry) => buildLegacyTeeAuditEntry(entry)).filter(Boolean))
+      .sort((left, right) => new Date(left.timestamp).getTime() - new Date(right.timestamp).getTime())
+      .slice(0, 200);
+    if (!ev && !logs.length) return res.status(404).json({ error: 'Event not found' });
     const hasCreateEntry = logs.some((log) => String(log && log.action || '').trim() === 'create_event');
     const createdEntry = hasCreateEntry ? null : buildEventCreatedAuditEntry(ev);
     res.json(createdEntry ? [createdEntry, ...logs] : logs);
@@ -7304,6 +7690,12 @@ module.exports = app;
 module.exports.nextTeamNameForEvent = nextTeamNameForEvent;
 module.exports.nextTeeTimeForEvent = nextTeeTimeForEvent;
 module.exports.buildInitialGroupedSlots = buildInitialGroupedSlots;
+module.exports.buildWeekendSkinsPopsDraw = buildWeekendSkinsPopsDraw;
+module.exports.skinsPopsUnlockAt = skinsPopsUnlockAt;
+module.exports.weekendGameEligibleEvent = weekendGameEligibleEvent;
+module.exports.buildAuditMessage = buildAuditMessage;
+module.exports.buildLegacyTeeAuditEntry = buildLegacyTeeAuditEntry;
+module.exports.buildEventUpdateAuditMessage = buildEventUpdateAuditMessage;
 module.exports.buildEventIcs = buildEventIcs;
 module.exports.eventCalendarTiming = eventCalendarTiming;
 module.exports.buildEventsIcs = buildEventsIcs;
