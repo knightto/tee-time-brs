@@ -112,6 +112,9 @@ if ('serviceWorker' in navigator) {
   const seniorsSignupInfoRow = $('#seniorsSignupInfoRow');
   const seniorsSignupInfoText = $('#seniorsSignupInfoText');
   const teeTimeRow = $('#teeTimeRow');
+  const seniorsShotgunRow = $('#seniorsShotgunRow');
+  const seniorsEventTypeSelect = $('#seniorsEventType');
+  const seniorsShotgunStartTimeInput = $('#seniorsShotgunStartTime');
   const teamSizeRow = $('#teamSizeRow');
   const subForm = $('#subscribeForm');
   const subMsg = $('#subMsg');
@@ -128,12 +131,15 @@ if ('serviceWorker' in navigator) {
   const selectedDateTitle = $('#selectedDateTitle');
   const monthCalendarBtn = $('#monthCalendarBtn');
   const starterModeBtn = $('#starterModeBtn');
+  const shareDayBtn = $('#shareDayBtn');
   const requestClubTimeBtn = $('#requestClubTimeBtn');
   const refreshBtn = $('#refreshBtn');
   const lastUpdatedEl = $('#lastUpdated');
   const mobileQuickBar = $('#mobileQuickBar');
   const mobileFilterBar = $('#mobileFilterBar');
   const mobileFilterStatus = $('#mobileFilterStatus');
+  const pullRefreshIndicator = $('#pullRefreshIndicator');
+  const pullRefreshText = $('#pullRefreshText');
   const calendarSidebar = document.querySelector('.calendar-sidebar');
   const eventsContainer = document.querySelector('.events-container');
   const requestClubTimeModal = $('#requestClubTimeModal');
@@ -161,6 +167,10 @@ if ('serviceWorker' in navigator) {
   let monthSummarySignature = '';
   let selectedDateEventsSignature = '';
   let selectedDateRequestSeq = 0;
+  let pendingDeepLinkedEventId = '';
+  let pullRefreshActive = false;
+  let pullRefreshStartY = 0;
+  let pullRefreshDistance = 0;
   let activeMobileFilter = 'all';
   let starterMode = false;
   let starterQuickFilter = 'needs-action';
@@ -213,6 +223,15 @@ if ('serviceWorker' in navigator) {
       return '';
     }
   })();
+  const initialSelectedEventFromUrl = (() => {
+    try {
+      return String(new URLSearchParams(window.location.search).get('event') || '').trim();
+    } catch (_) {
+      return '';
+    }
+  })();
+  const MOBILE_PULL_REFRESH_THRESHOLD = 84;
+  const MOBILE_PULL_REFRESH_MAX_DISTANCE = 116;
 
   const MOBILE_FILTER_LABELS = {
     all: 'All events',
@@ -359,6 +378,29 @@ if ('serviceWorker' in navigator) {
     }
   }
 
+  function normalizeSeniorsEventTypeValue(value = '') {
+    const normalized = String(value || '').trim().toLowerCase();
+    return ['regular-shotgun', 'interclub-match', 'outing', 'tee-times'].includes(normalized) ? normalized : '';
+  }
+
+  function isSeniorsGroupedEventType(value = '') {
+    return normalizeSeniorsEventTypeValue(value) === 'regular-shotgun';
+  }
+
+  function isGroupedSeniorsEvent(ev = {}) {
+    return !!(ev && ev.isTeamEvent && isSeniorsGroupedEventType(ev.seniorsEventType));
+  }
+
+  function slotWordsForEvent(ev = {}) {
+    if (ev && ev.isTeamEvent) {
+      if (isGroupedSeniorsEvent(ev)) {
+        return { singular: 'Group', singularLower: 'group', plural: 'Groups', pluralLower: 'groups' };
+      }
+      return { singular: 'Team', singularLower: 'team', plural: 'Teams', pluralLower: 'teams' };
+    }
+    return { singular: 'Tee Time', singularLower: 'tee time', plural: 'Tee Times', pluralLower: 'tee times' };
+  }
+
   function applySiteBackground(groupSlug = currentGroupSlug) {
     const normalizedGroup = String(groupSlug || '').trim().toLowerCase() || 'main';
     const backgroundImage = groupBackgroundImageMap[normalizedGroup] || groupBackgroundImageMap.main;
@@ -401,7 +443,7 @@ if ('serviceWorker' in navigator) {
       topbarLogo.alt = `${currentSiteProfile.siteTitle || defaultSiteProfile.siteTitle} logo`;
     }
     const topbarDropdown = document.querySelector('.topbar-dropdown');
-    if (topbarDropdown) topbarDropdown.hidden = !isMainGroupSite();
+    if (topbarDropdown) topbarDropdown.hidden = false;
 
     if (requestClubTimeBtn) {
       requestClubTimeBtn.textContent = currentSiteProfile.clubRequestLabel || defaultSiteProfile.clubRequestLabel;
@@ -428,16 +470,6 @@ if ('serviceWorker' in navigator) {
         : (currentSiteLinks.adminPath || `/groups/${encodeURIComponent(currentGroupSlug)}/admin`);
       node.setAttribute('href', href);
       node.textContent = isMainGroup ? 'Admin' : 'Group Admin';
-    });
-    document.querySelectorAll('[data-group-admin-icon-link]').forEach((node) => {
-      const isMainGroup = isMainGroupSite();
-      const href = isMainGroup
-        ? '/admin.html'
-        : (currentSiteLinks.adminPath || `/groups/${encodeURIComponent(currentGroupSlug)}/admin`);
-      const label = isMainGroup ? 'Admin' : 'Group Admin';
-      node.setAttribute('href', href);
-      node.setAttribute('aria-label', label);
-      node.setAttribute('title', label);
     });
     document.querySelectorAll('[data-feature-link]').forEach((node) => {
       const featureKey = String(node.getAttribute('data-feature-link') || '').trim();
@@ -483,9 +515,6 @@ if ('serviceWorker' in navigator) {
     })();
     if (isSeniorsGroupSite() && runningStandalone) {
       document.querySelectorAll('[data-group-admin-link]').forEach((node) => {
-        node.hidden = true;
-      });
-      document.querySelectorAll('[data-group-admin-icon-link]').forEach((node) => {
         node.hidden = true;
       });
       if (topbarDropdown) topbarDropdown.hidden = true;
@@ -580,6 +609,9 @@ if ('serviceWorker' in navigator) {
   if (initialSelectedDateFromUrl) {
     selectedDate = initialSelectedDateFromUrl;
     currentDate = new Date(`${initialSelectedDateFromUrl}T12:00:00`);
+  }
+  if (initialSelectedEventFromUrl) {
+    pendingDeepLinkedEventId = initialSelectedEventFromUrl;
   }
   if (mobileQuickBar && document.body) {
     document.body.classList.add('has-mobile-bottom-nav');
@@ -746,9 +778,15 @@ if ('serviceWorker' in navigator) {
     lastUpdatedEl.textContent = text;
   }
 
+  function setLastUpdatedState(state = 'idle', text = '') {
+    if (!lastUpdatedEl) return;
+    lastUpdatedEl.dataset.state = state;
+    if (text) lastUpdatedEl.textContent = text;
+  }
+
   function stampLastUpdated(){
     lastUpdatedAt = new Date();
-    updateLastUpdated(`Updated ${lastUpdatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+    setLastUpdatedState('synced', `Last synced ${lastUpdatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
   }
 
   function buildRefreshSignature(value) {
@@ -759,10 +797,27 @@ if ('serviceWorker' in navigator) {
     }
   }
 
-  function setLoading(isBusy){
-    if (!refreshBtn) return;
-    refreshBtn.disabled = !!isBusy;
-    refreshBtn.textContent = isBusy ? 'Refreshing…' : 'Refresh';
+  function setLoading(isBusy, options = {}){
+    const silent = !!options.silent;
+    document.body.classList.toggle('is-syncing', !!isBusy);
+    if (refreshBtn) {
+      refreshBtn.disabled = !!isBusy;
+      refreshBtn.classList.toggle('is-syncing', !!isBusy);
+      refreshBtn.setAttribute('aria-busy', isBusy ? 'true' : 'false');
+      const label = refreshBtn.querySelector('.event-control-label');
+      if (label) label.textContent = isBusy ? 'Syncing' : 'Refresh';
+    }
+    if (isBusy) {
+      if (pullRefreshText) pullRefreshText.textContent = 'Refreshing tee sheet…';
+      setLastUpdatedState('syncing', silent ? 'Background sync in progress…' : 'Syncing live tee sheet…');
+      return;
+    }
+    if (pullRefreshText && !document.body.classList.contains('is-pull-refresh-active')) {
+      pullRefreshText.textContent = 'Pull to refresh';
+    }
+    if (lastUpdatedEl && lastUpdatedEl.dataset.state === 'syncing' && lastUpdatedAt) {
+      setLastUpdatedState('synced', `Last synced ${lastUpdatedAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`);
+    }
   }
 
   function fmtDate(val){
@@ -1373,6 +1428,7 @@ if ('serviceWorker' in navigator) {
 
   function starterCardMarkup(ev, options = {}) {
     const capacity = eventCapacitySummary(ev);
+    const slotWords = slotWordsForEvent(ev);
     const starterSlots = capacity.teeTimes
       .map((teeTime, idx) => ({ teeTime, idx, slotView: starterSlotViewModel(ev, teeTime, idx) }))
       .filter(({ slotView }) => starterSlotMatchesFilter(slotView));
@@ -1380,6 +1436,12 @@ if ('serviceWorker' in navigator) {
     const maybeCount = Array.isArray(ev && ev.maybeList) ? ev.maybeList.length : 0;
     const notes = String(ev && ev.notes || '').trim();
     const showToggle = !starterMode && options.allowToggle !== false;
+    const headerActions = [
+      `<button class="small starter-card-toggle" type="button" data-share-event="${escapeHtml(String(ev && ev._id || ''))}" title="Share this event">Share</button>`
+    ];
+    if (showToggle) {
+      headerActions.push(`<button class="small starter-card-toggle" type="button" data-toggle-starter-event="${escapeHtml(String(ev && ev._id || ''))}" title="Return this event to the full card">Full Card</button>`);
+    }
     if (!starterSlots.length) return '';
     return `<section class="starter-card${options.inline ? ' starter-card-inline' : ''}" data-event-id="${escapeHtml(String(ev && ev._id || ''))}">
       <div class="starter-card-header">
@@ -1390,10 +1452,10 @@ if ('serviceWorker' in navigator) {
             ${weatherSummaryMarkup(ev)}
           </div>
         </div>
-        ${showToggle ? `<button class="small starter-card-toggle" type="button" data-toggle-starter-event="${escapeHtml(String(ev && ev._id || ''))}" title="Return this event to the full card">Full Card</button>` : ''}
+        <div class="starter-card-header-actions">${headerActions.join('')}</div>
       </div>
       <div class="starter-card-summary">
-        <span>${capacity.teeTimes.length} ${capacity.isTeamEvent ? (capacity.teeTimes.length === 1 ? 'team' : 'teams') : (capacity.teeTimes.length === 1 ? 'tee time' : 'tee times')}</span>
+        <span>${capacity.teeTimes.length} ${capacity.isTeamEvent ? (capacity.teeTimes.length === 1 ? slotWords.singularLower : slotWords.pluralLower) : (capacity.teeTimes.length === 1 ? 'tee time' : 'tee times')}</span>
         <span>${capacity.registeredCount} golfer${capacity.registeredCount === 1 ? '' : 's'}</span>
         <span>${capacity.openCount} open</span>
         <span>${checkedInCount} checked in</span>
@@ -1411,6 +1473,7 @@ if ('serviceWorker' in navigator) {
     window.requestAnimationFrame(() => {
       const cards = list.map((ev) => starterCardMarkup(ev, { allowToggle: false })).filter(Boolean);
       eventsEl.innerHTML = `${starterToolbarMarkup(list)}${cards.length ? cards.join('') : '<div class="starter-empty">No tee times match the current starter filter.</div>'}`;
+      schedulePendingDeepLinkedEventFocus();
     });
   }
 
@@ -1430,7 +1493,8 @@ if ('serviceWorker' in navigator) {
 
   function teeSlotLabel(ev, teeTime = {}, idx = 0) {
     if (ev && ev.isTeamEvent) {
-      return teeTime && teeTime.name ? String(teeTime.name) : `Team ${idx + 1}`;
+      const slotWords = slotWordsForEvent(ev);
+      return teeTime && teeTime.name ? String(teeTime.name) : `${slotWords.singular} ${idx + 1}`;
     }
     return teeTime && teeTime.time ? fmtTime(teeTime.time) : `Tee ${idx + 1}`;
   }
@@ -1513,11 +1577,18 @@ if ('serviceWorker' in navigator) {
     return url.toString();
   }
 
+  function buildSelectedEventShareUrl(eventId = '', dateISO = selectedDate) {
+    const url = new URL(buildSelectedDateShareUrl(dateISO));
+    if (eventId) url.searchParams.set('event', String(eventId).trim());
+    return url.toString();
+  }
+
   function syncSelectedDateUrl(dateISO = '') {
     try {
       const url = new URL(window.location.href);
       if (dateISO) url.searchParams.set('date', dateISO);
       else url.searchParams.delete('date');
+      url.searchParams.delete('event');
       window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
     } catch (_) {}
   }
@@ -1536,10 +1607,11 @@ if ('serviceWorker' in navigator) {
     });
     for (const ev of sortedEvents) {
       const capacity = eventCapacitySummary(ev);
+      const slotWords = slotWordsForEvent(ev);
       const timeLabels = sortedEventTimes(ev).map((time) => fmtTime(time));
       const detailParts = [];
       if (capacity.isTeamEvent) {
-        detailParts.push(`${capacity.teeTimes.length} team${capacity.teeTimes.length === 1 ? '' : 's'}`);
+        detailParts.push(`${capacity.teeTimes.length} ${capacity.teeTimes.length === 1 ? slotWords.singularLower : slotWords.pluralLower}`);
       } else {
         if (timeLabels.length) detailParts.push(timeLabels.join(', '));
         detailParts.push(`${capacity.teeTimes.length} tee time${capacity.teeTimes.length === 1 ? '' : 's'}`);
@@ -1591,6 +1663,120 @@ if ('serviceWorker' in navigator) {
     }
     await copyTextToClipboard(`${shareText}\n\nOpen the day: ${shareUrl}`);
     showToast('Day summary and link copied.', 'success');
+  }
+
+  function buildEventShareSummary(ev) {
+    if (!ev) return 'Golf event';
+    const capacity = eventCapacitySummary(ev);
+    const slotWords = slotWordsForEvent(ev);
+    const timeLabels = sortedEventTimes(ev).map((time) => fmtTime(time)).filter(Boolean);
+    const lines = [`${String(ev.course || 'Golf Event').trim()} · ${fullDateLabel(toDateISO(ev.date))}`];
+    if (capacity.isTeamEvent) {
+      lines.push(`${capacity.teeTimes.length} ${capacity.teeTimes.length === 1 ? slotWords.singularLower : slotWords.pluralLower} · ${capacity.registeredCount} golfer${capacity.registeredCount === 1 ? '' : 's'}`);
+    } else {
+      if (timeLabels.length) lines.push(`Times: ${timeLabels.join(', ')}`);
+      lines.push(`${capacity.teeTimes.length} tee time${capacity.teeTimes.length === 1 ? '' : 's'} · ${capacity.registeredCount} golfer${capacity.registeredCount === 1 ? '' : 's'} · ${capacity.openCount} open`);
+    }
+    if (Array.isArray(ev.maybeList) && ev.maybeList.length) {
+      lines.push(`${ev.maybeList.length} maybe waiting`);
+    }
+    if (ev.notes) {
+      lines.push(String(ev.notes).trim());
+    }
+    return lines.join('\n');
+  }
+
+  async function shareEventById(eventId = '') {
+    const ev = await getEventForAction(eventId);
+    if (!ev) throw new Error('Unable to load this event right now.');
+    const dateISO = toDateISO(ev.date);
+    const shareText = buildEventShareSummary(ev);
+    const shareUrl = buildSelectedEventShareUrl(ev._id, dateISO);
+    const shareTitle = `${String(ev.course || 'Golf Event').trim()} · ${fullDateLabel(dateISO)}`;
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
+        showToast('Event share opened.', 'success');
+        return;
+      } catch (err) {
+        if (err && err.name === 'AbortError') return;
+        console.error(err);
+      }
+    }
+    await copyTextToClipboard(`${shareText}\n\nOpen this event: ${shareUrl}`);
+    showToast('Event summary and link copied.', 'success');
+  }
+
+  function markLinkedEventCard(node) {
+    if (!node) return;
+    node.classList.remove('deep-link-highlight');
+    void node.offsetWidth;
+    node.classList.add('deep-link-highlight');
+    window.setTimeout(() => node.classList.remove('deep-link-highlight'), 2600);
+  }
+
+  function focusPendingDeepLinkedEvent() {
+    const eventId = String(pendingDeepLinkedEventId || '').trim();
+    if (!eventId || !eventsEl) return false;
+    let target = null;
+    try {
+      target = eventsEl.querySelector(`[data-event-id="${CSS.escape(eventId)}"]`);
+    } catch (_) {
+      target = eventsEl.querySelector(`[data-event-id="${eventId.replace(/"/g, '\\"')}"]`);
+    }
+    if (!target) return false;
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    markLinkedEventCard(target);
+    pendingDeepLinkedEventId = '';
+    return true;
+  }
+
+  function schedulePendingDeepLinkedEventFocus() {
+    if (!pendingDeepLinkedEventId) return;
+    window.requestAnimationFrame(() => {
+      focusPendingDeepLinkedEvent();
+    });
+  }
+
+  function isMobileViewport() {
+    return window.matchMedia('(max-width: 768px)').matches;
+  }
+
+  function atTopOfPage() {
+    return (window.scrollY || window.pageYOffset || document.documentElement.scrollTop || 0) <= 0;
+  }
+
+  function resetPullRefreshUi() {
+    pullRefreshActive = false;
+    pullRefreshDistance = 0;
+    document.body.classList.remove('is-pull-refresh-active', 'is-pull-refresh-ready');
+    if (pullRefreshIndicator) pullRefreshIndicator.style.setProperty('--pull-distance', '0px');
+    if (pullRefreshText) pullRefreshText.textContent = document.body.classList.contains('is-syncing') ? 'Refreshing tee sheet…' : 'Pull to refresh';
+  }
+
+  function updatePullRefreshUi(distance = 0, isReady = false) {
+    if (!pullRefreshIndicator) return;
+    pullRefreshDistance = distance;
+    document.body.classList.add('is-pull-refresh-active');
+    document.body.classList.toggle('is-pull-refresh-ready', !!isReady);
+    pullRefreshIndicator.style.setProperty('--pull-distance', `${Math.max(0, distance)}px`);
+    if (pullRefreshText) pullRefreshText.textContent = isReady ? 'Release to refresh' : 'Pull to refresh';
+  }
+
+  function canStartPullRefresh(target) {
+    if (!isMobileViewport() || !atTopOfPage() || isLoading) return false;
+    if (document.querySelector('dialog[open]')) return false;
+    return !(target && target.closest && target.closest('input, textarea, select, button, summary, dialog, [contenteditable="true"]'));
+  }
+
+  async function resolveInitialRouteSelection() {
+    if (!initialSelectedEventFromUrl || selectedDate) return;
+    const ev = await fetchEventById(initialSelectedEventFromUrl);
+    const dateISO = toDateISO(ev && ev.date);
+    if (!dateISO) return;
+    selectedDate = dateISO;
+    currentDate = new Date(`${dateISO}T12:00:00`);
+    pendingDeepLinkedEventId = initialSelectedEventFromUrl;
   }
 
   function updateMobileFilterButtons() {
@@ -1677,32 +1863,31 @@ if ('serviceWorker' in navigator) {
   }
 
   function calendarTitle(ev) {
-    const mode = ev && ev.isTeamEvent ? 'Team Event' : 'Tee-Time Event';
+    const slotWords = slotWordsForEvent(ev);
+    const mode = ev && ev.isTeamEvent ? `${slotWords.singular} Event` : 'Tee-Time Event';
     const course = ev && ev.course ? String(ev.course).trim() : 'Golf Event';
     return `${course} (${mode})`;
   }
 
   function calendarDescription(ev) {
+    const slotWords = slotWordsForEvent(ev);
     const lines = ['Tee Time Manager Event'];
     if (ev && ev.course) lines.push(`Course: ${String(ev.course).trim()}`);
     lines.push(`Date: ${fmtDate(ev && ev.date)}`);
     const slotLines = ((ev && ev.teeTimes) || [])
       .map((tt, idx) => {
         if (tt && tt.time) {
-          if (ev && ev.isTeamEvent) return `${tt.name || `Team ${idx + 1}`}: ${fmtTime(tt.time)}`;
+          if (ev && ev.isTeamEvent) return `${tt.name || `${slotWords.singular} ${idx + 1}`}: ${fmtTime(tt.time)}`;
           return `Tee ${idx + 1}: ${fmtTime(tt.time)}`;
         }
-        if (ev && ev.isTeamEvent) return tt && tt.name ? String(tt.name) : `Team ${idx + 1}`;
+        if (ev && ev.isTeamEvent) return tt && tt.name ? String(tt.name) : `${slotWords.singular} ${idx + 1}`;
         return '';
       })
       .filter(Boolean);
-    if (slotLines.length) lines.push(`${ev && ev.isTeamEvent ? 'Teams' : 'Tee Times'}: ${slotLines.join(', ')}`);
+    if (slotLines.length) lines.push(`${ev && ev.isTeamEvent ? slotWords.plural : 'Tee Times'}: ${slotLines.join(', ')}`);
     if (ev && ev.notes) lines.push(`Notes: ${String(ev.notes).trim()}`);
     if (ev && ev._id) {
-      const eventUrl = new URL('/', window.location.origin);
-      if (currentGroupSlug !== 'main') eventUrl.searchParams.set('group', currentGroupSlug);
-      eventUrl.searchParams.set('event', String(ev._id));
-      lines.push(`Event Link: ${eventUrl.toString()}`);
+      lines.push(`Event Link: ${buildSelectedEventShareUrl(ev._id, toDateISO(ev.date))}`);
     }
     return lines.join('\n');
   }
@@ -2315,15 +2500,30 @@ if ('serviceWorker' in navigator) {
     if (seniorsRegistrationModeInput) seniorsRegistrationModeInput.value = signupOnly ? 'event-only' : 'tee-times';
     if (seniorsEventTypeRow) seniorsEventTypeRow.hidden = !isSeniorsGroupSite();
     if (seniorsSignupInfoRow) seniorsSignupInfoRow.hidden = !signupOnly;
-    if (seniorsSignupInfoText) {
-      seniorsSignupInfoText.textContent = signupOnly
-        ? 'This Seniors event uses a simple signup list. No tee times will be created.'
+    if (seniorsSignupInfoText && signupOnly) {
+      seniorsSignupInfoText.textContent = 'This Seniors event uses a simple signup list. No tee times will be created.';
+    }
+    if (teamSizeRow) teamSizeRow.hidden = true;
+    if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = false;
+    if (seniorsShotgunStartTimeInput) seniorsShotgunStartTimeInput.required = false;
+    if (eventForm?.elements?.['teamStartTime']) eventForm.elements['teamStartTime'].required = false;
+    updateSeniorsCreateFields();
+  }
+
+  function updateSeniorsCreateFields() {
+    if (!isSeniorsGroupSite()) return;
+    const signupOnly = String(seniorsRegistrationModeInput && seniorsRegistrationModeInput.value || '').trim().toLowerCase() === 'event-only';
+    const seniorsEventType = normalizeSeniorsEventTypeValue(seniorsEventTypeSelect && seniorsEventTypeSelect.value);
+    const groupedShotgun = !signupOnly && isSeniorsGroupedEventType(seniorsEventType);
+    if (teeTimeRow) teeTimeRow.hidden = signupOnly || groupedShotgun;
+    if (seniorsShotgunRow) seniorsShotgunRow.hidden = signupOnly || !groupedShotgun;
+    if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = !signupOnly && !groupedShotgun;
+    if (seniorsShotgunStartTimeInput) seniorsShotgunStartTimeInput.required = groupedShotgun;
+    if (seniorsSignupInfoText && !signupOnly) {
+      seniorsSignupInfoText.textContent = groupedShotgun
+        ? 'This Seniors event will create grouped foursomes for a shotgun start and allow golfers to sign up into those groups.'
         : 'This Seniors event will create tee times and allow golfers to sign up for open spots.';
     }
-    if (teeTimeRow) teeTimeRow.hidden = signupOnly;
-    if (teamSizeRow) teamSizeRow.hidden = true;
-    if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = !signupOnly;
-    if (eventForm?.elements?.['teamStartTime']) eventForm.elements['teamStartTime'].required = false;
   }
 
   function openCreateDialog(mode = 'tees') {
@@ -2341,11 +2541,15 @@ if ('serviceWorker' in navigator) {
     if (selectedDate && eventForm?.elements?.['date']) {
       eventForm.elements['date'].value = selectedDate;
     }
+    if (isSeniorsGroupSite()) updateSeniorsCreateFields();
     modal?.showModal?.();
   }
 
   on(newTeeBtn, 'click', () => openCreateDialog('tees'));
   on(newTeamBtn, 'click', () => openCreateDialog(isSeniorsGroupSite() ? 'signup' : 'teams'));
+  on(seniorsEventTypeSelect, 'change', () => {
+    updateSeniorsCreateFields();
+  });
 
   // Team start type toggle
   const teamStartType = $('#teamStartType');
@@ -2387,6 +2591,10 @@ if ('serviceWorker' in navigator) {
       const seniorsRegistrationMode = isSeniors
         ? String(body.seniorsRegistrationMode || 'tee-times').trim().toLowerCase()
         : '';
+      const normalizedSeniorsEventType = isSeniors
+        ? normalizeSeniorsEventTypeValue(body.seniorsEventType || (seniorsRegistrationMode === 'event-only' ? 'outing' : 'tee-times'))
+        : '';
+      const isSeniorsGroupedShotgun = isSeniors && seniorsRegistrationMode !== 'event-only' && isSeniorsGroupedEventType(normalizedSeniorsEventType);
       const isTeams = (body.mode === 'teams');
       const courseName = body.course;
       const payload = {
@@ -2395,14 +2603,18 @@ if ('serviceWorker' in navigator) {
         courseInfo: selectedCourseData || {},
         date: body.date,
         notes: body.notes || '',
-        isTeamEvent: isSeniors ? false : isTeams,
-        teamSizeMax: isTeams ? Number(body.teamSizeMax || 4) : 4
+        isTeamEvent: isSeniors ? isSeniorsGroupedShotgun : isTeams,
+        teamSizeMax: isSeniorsGroupedShotgun ? 4 : (isTeams ? Number(body.teamSizeMax || 4) : 4)
       };
       if (isSeniors) {
         payload.seniorsRegistrationMode = seniorsRegistrationMode === 'event-only' ? 'event-only' : 'tee-times';
-        payload.seniorsEventType = String(body.seniorsEventType || (payload.seniorsRegistrationMode === 'event-only' ? 'outing' : 'tee-times')).trim();
+        payload.seniorsEventType = normalizedSeniorsEventType;
       }
-      if (!isSeniors && isTeams) {
+      if (isSeniorsGroupedShotgun) {
+        payload.teamStartType = 'shotgun';
+        payload.teamStartTime = String(body.seniorsShotgunStartTime || '').trim();
+        payload.teamCount = Math.max(1, Math.min(24, parseInt(body.seniorsFoursomeCount, 10) || 4));
+      } else if (!isSeniors && isTeams) {
         payload.teamStartType = body.teamStartType || 'shotgun';
         payload.teamStartTime = body.teamStartTime;
       } else if (!isSeniors || payload.seniorsRegistrationMode !== 'event-only') {
@@ -2430,6 +2642,7 @@ if ('serviceWorker' in navigator) {
       modal?.close?.();
       eventForm.reset();
       if (seniorsRegistrationModeInput) seniorsRegistrationModeInput.value = 'tee-times';
+      if (isSeniorsGroupSite()) setSeniorsCreateMode('tee-times');
       if (courseInfoCard) courseInfoCard.style.display = 'none';
       selectedCourseData = null;
       load();
@@ -2443,9 +2656,9 @@ if ('serviceWorker' in navigator) {
   on(editModeSelect, 'change', ()=>{
     const teams = editModeSelect.value === 'teams';
     const signupOnly = editModeSelect.value === 'signup';
-    if (editTeamSizeRow) editTeamSizeRow.hidden = !teams;
+    if (editTeamSizeRow) editTeamSizeRow.hidden = isSeniorsGroupSite() || !teams;
     if (editSeniorsEventFields) editSeniorsEventFields.hidden = !isSeniorsGroupSite();
-    if (editForm?.elements?.['teamSizeMax']) editForm.elements['teamSizeMax'].disabled = !teams;
+    if (editForm?.elements?.['teamSizeMax']) editForm.elements['teamSizeMax'].disabled = isSeniorsGroupSite() || !teams;
     if (editForm?.elements?.['seniorsEventType']) editForm.elements['seniorsEventType'].disabled = !isSeniorsGroupSite();
     if (editForm?.elements?.['mode']) editForm.elements['mode'].value = signupOnly ? 'signup' : editModeSelect.value;
   });
@@ -2456,16 +2669,21 @@ if ('serviceWorker' in navigator) {
     try{
       const data = normalizeForm(editForm);
       const id = data.id;
+      const isSeniors = isSeniorsGroupSite();
+      const normalizedSeniorsEventType = isSeniors
+        ? normalizeSeniorsEventTypeValue(data.seniorsEventType || (data.mode === 'signup' ? 'outing' : 'tee-times'))
+        : '';
+      const isSeniorsGroupedShotgun = isSeniors && data.mode !== 'signup' && isSeniorsGroupedEventType(normalizedSeniorsEventType);
       const payload = {
         course: data.course,
         date: data.date,
         notes: data.notes || '',
-        isTeamEvent: !isSeniorsGroupSite() && data.mode === 'teams',
-        teamSizeMax: data.mode === 'teams' ? Number(data.teamSizeMax || 4) : 4
+        isTeamEvent: isSeniors ? isSeniorsGroupedShotgun : data.mode === 'teams',
+        teamSizeMax: isSeniorsGroupedShotgun ? 4 : (data.mode === 'teams' ? Number(data.teamSizeMax || 4) : 4)
       };
-      if (isSeniorsGroupSite()) {
+      if (isSeniors) {
         payload.seniorsRegistrationMode = data.mode === 'signup' ? 'event-only' : 'tee-times';
-        payload.seniorsEventType = String(data.seniorsEventType || (payload.seniorsRegistrationMode === 'event-only' ? 'outing' : 'tee-times')).trim();
+        payload.seniorsEventType = normalizedSeniorsEventType;
       }
       await api(`/api/events/${id}`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
       editModal?.close?.(); load();
@@ -2762,6 +2980,27 @@ if ('serviceWorker' in navigator) {
     load(true);
   });
 
+  on(shareDayBtn, 'click', async (e) => {
+    e.preventDefault();
+    try {
+      const originalText = shareDayBtn.querySelector('.event-control-label');
+      if (shareDayBtn) {
+        shareDayBtn.disabled = true;
+        if (originalText) originalText.textContent = 'Sharing';
+      }
+      await shareSelectedDay();
+    } catch (err) {
+      console.error(err);
+      showToast('Share failed: ' + (err.message || 'Unknown error'), 'error');
+    } finally {
+      if (shareDayBtn) {
+        shareDayBtn.disabled = false;
+        const label = shareDayBtn.querySelector('.event-control-label');
+        if (label) label.textContent = 'Share';
+      }
+    }
+  });
+
   on(starterModeBtn, 'click', async (e) => {
     e.preventDefault();
     try {
@@ -2897,6 +3136,62 @@ if ('serviceWorker' in navigator) {
     }
   });
 
+  window.addEventListener('touchstart', (e) => {
+    const touch = e.touches && e.touches[0];
+    if (!touch || !canStartPullRefresh(e.target)) {
+      resetPullRefreshUi();
+      return;
+    }
+    pullRefreshStartY = touch.clientY;
+    pullRefreshDistance = 0;
+    pullRefreshActive = true;
+  }, { passive: true });
+
+  window.addEventListener('touchmove', (e) => {
+    if (!pullRefreshActive) return;
+    if (!atTopOfPage() || isLoading) {
+      resetPullRefreshUi();
+      return;
+    }
+    const touch = e.touches && e.touches[0];
+    if (!touch) return;
+    const deltaY = touch.clientY - pullRefreshStartY;
+    if (deltaY <= 0) {
+      resetPullRefreshUi();
+      return;
+    }
+    const distance = Math.min(MOBILE_PULL_REFRESH_MAX_DISTANCE, Math.round(deltaY * 0.45));
+    if (distance < 10) return;
+    e.preventDefault();
+    updatePullRefreshUi(distance, distance >= MOBILE_PULL_REFRESH_THRESHOLD);
+  }, { passive: false });
+
+  window.addEventListener('touchend', async () => {
+    if (!pullRefreshActive) {
+      resetPullRefreshUi();
+      return;
+    }
+    const shouldRefresh = pullRefreshDistance >= MOBILE_PULL_REFRESH_THRESHOLD;
+    pullRefreshActive = false;
+    if (!shouldRefresh) {
+      resetPullRefreshUi();
+      return;
+    }
+    if (navigator.vibrate) navigator.vibrate(10);
+    if (pullRefreshText) pullRefreshText.textContent = 'Refreshing tee sheet…';
+    document.body.classList.remove('is-pull-refresh-ready');
+    document.body.classList.add('is-syncing');
+    try {
+      await load(true);
+    } finally {
+      resetPullRefreshUi();
+    }
+  }, { passive: true });
+
+  window.addEventListener('touchcancel', () => {
+    resetPullRefreshUi();
+  }, { passive: true });
+
   on(monthCalendarBtn, 'click', (e) => {
     e.preventDefault();
     const year = currentDate.getFullYear();
@@ -2946,7 +3241,7 @@ if ('serviceWorker' in navigator) {
       return;
     }
     isLoading = true;
-    if (!silent) setLoading(true);
+    setLoading(true, { silent });
     try{ 
       const monthChanged = await loadMonthSummary(force);
       let eventsChanged = false;
@@ -2963,10 +3258,11 @@ if ('serviceWorker' in navigator) {
     } catch(e) { 
       console.error(e); 
       eventsEl.innerHTML='<div class="card">Failed to load events.</div>'; 
-      updateLastUpdated('Refresh failed');
+      setLastUpdatedState('error', 'Sync failed');
     } finally {
       isLoading = false;
-      if (!silent) setLoading(false);
+      setLoading(false, { silent });
+      if (!document.body.classList.contains('is-pull-refresh-active')) resetPullRefreshUi();
       if (loadPending) {
         loadPending = false;
         load(true, { silent: true });
@@ -3012,8 +3308,9 @@ if ('serviceWorker' in navigator) {
           if (starterWrap.firstElementChild) frag.appendChild(starterWrap.firstElementChild);
           continue;
         }
-        const card=document.createElement('div'); card.className='card';
+        const card=document.createElement('div'); card.className='card'; card.dataset.eventId = String(ev && ev._id || '');
         const isTeams = !!ev.isTeamEvent;
+        const slotWords = slotWordsForEvent(ev);
         const seniorsEventOnly = isSeniorsEventOnly(ev);
         const isSeniorsGroup = currentGroupSlug === 'seniors' || isSeniorsGroupSite();
         const seniorsRegistrations = Array.isArray(ev && ev.seniorsRegistrations) ? ev.seniorsRegistrations : [];
@@ -3134,13 +3431,6 @@ if ('serviceWorker' in navigator) {
         const showEventTopActions = !isSeniorsGroup || showSeniorsCalendarAdminActions;
         const showSeniorsExportActions = isSeniorsGroup && showSeniorsCalendarAdminActions;
         const showBottomAuditAction = !isSeniorsGroup || showSeniorsCalendarAdminActions;
-        const eventToolsRow = `
-          <div class="event-toolbar">
-            <div class="event-toolbar-actions">
-              <button class="small event-actions-toggle" data-toggle-actions title="Show/hide event actions">Actions</button>
-            </div>
-          </div>
-        `;
         const eventActionLegend = `
           <div class="event-action-legend" aria-label="Golfer action legend">
             <span class="event-action-title">Golfer Controls</span>
@@ -3162,7 +3452,10 @@ if ('serviceWorker' in navigator) {
               </div>
               <div class="card-date">
                 <span>${fmtDate(ev.date)}</span>
-                ${weatherSummary}
+                <div class="card-date-tools">
+                  ${weatherSummary}
+                  <button class="small event-actions-toggle" data-toggle-actions title="Show/hide event actions">Actions</button>
+                </div>
               </div>
               ${courseDetails}
             </div>
@@ -3170,19 +3463,19 @@ if ('serviceWorker' in navigator) {
           <div class="card-content">
             ${seniorsEventMeta}
             ${seniorsEventOnly ? seniorsRegistrationSection : maybeSection}
-            ${eventToolsRow}
             ${fullDayAlert}
             <div class="card-actions">
               <div class="button-row">
                 <button class="small" data-toggle-starter-event="${ev._id}" title="Switch this event to the compact starter view">Starter View</button>
-                ${seniorsEventOnly || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<button class="small" data-add-tee="${ev._id}">Add Existing Time</button>`)}
+                <button class="small" data-share-event="${ev._id}" title="Share this event">Share Event</button>
+                ${seniorsEventOnly || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add ${slotWords.singular}</button>` : `<button class="small" data-add-tee="${ev._id}">Add Existing Time</button>`)}
                 ${seniorsEventOnly || isTeams || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Suggest Pairings</button>`}
                 ${showSeniorsExportActions ? `<button class="small" data-export-seniors-event="${ev._id}" title="Export the registration list">Export</button>` : ''}
                 <button class="small" data-calendar-google="${ev._id}"${googleCalendarUrl ? ` data-calendar-google-url="${escapeHtml(googleCalendarUrl)}"` : ''} title="Add this event to Google Calendar">Add to Calendar</button>
               </div>
             </div>
             ${seniorsEventOnly || !showGolferControlsLegend ? '' : eventActionLegend}
-            <div class="tees">${seniorsEventOnly ? '' : (tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>'))}</div>
+            <div class="tees">${seniorsEventOnly ? '' : (tees || (isTeams ? `<em>No ${slotWords.pluralLower}</em>` : '<em>No tee times</em>'))}</div>
             ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
             ${seniorsEventOnly ? '' : '<div class="event-bottom-meta"><div class="empty-tee-note"><span>Red</span><span>empty tee time</span></div></div>'}
             <div class="event-bottom-actions"${showBottomAuditAction ? '' : ' hidden'}>
@@ -3192,11 +3485,13 @@ if ('serviceWorker' in navigator) {
         frag.appendChild(card);
       }
       eventsEl.appendChild(frag);
+      schedulePendingDeepLinkedEventFocus();
     });
   }
 
   function teeRow(ev, tt, idx, isTeams){
     const allowSeniorsCalendarManagement = canManageSeniorsCalendar();
+    const slotWords = slotWordsForEvent(ev);
     const chips = (tt.players || []).map(p => {
       // keep a safe-quoted title for tooltips so long names can be seen on hover
       const safe = String(p.name || '').replace(/"/g, '&quot;');
@@ -3234,7 +3529,7 @@ if ('serviceWorker' in navigator) {
     const urgentEmpty = !isTeams && count === 0 && Number.isInteger(daysUntil) && daysUntil >= 0 && daysUntil <= 3;
     const allCheckedIn = count > 0 && checkedInCount === count;
     const left = teeSlotLabel(ev, tt, idx);
-    const delTitle = isTeams ? 'Remove team' : 'Remove tee time';
+    const delTitle = isTeams ? `Remove ${slotWords.singularLower}` : 'Remove tee time';
     const teeClasses = ['tee'];
     if (full) teeClasses.push('tee-full');
     if (canAddFifth) teeClasses.push('tee-can-add-fifth');
@@ -3243,7 +3538,7 @@ if ('serviceWorker' in navigator) {
     // Only show edit button for teams, not tee times
     let editBtn = '';
     if (isTeams && allowSeniorsCalendarManagement) {
-      const editTitle = 'Edit team name';
+      const editTitle = `Edit ${slotWords.singularLower} name`;
       editBtn = `<button class="icon small" title="${editTitle}" data-edit-tee="${ev._id}:${tt._id}">✎</button>`;
     }
     const summaryText = hasFifth ? '5th added' : (canAddFifth ? '5th available' : `${openSpots} open`);
@@ -3361,13 +3656,17 @@ if ('serviceWorker' in navigator) {
   });
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-ics],[data-toggle-starter-event],[data-starter-filter],[data-seniors-register],[data-remove-seniors-registration],[data-export-seniors-event]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-ics],[data-toggle-starter-event],[data-starter-filter],[data-seniors-register],[data-remove-seniors-registration],[data-export-seniors-event],[data-share-event]')||e.target);
     try{
       if (t.dataset.starterFilter) {
         const nextFilter = String(t.dataset.starterFilter || '').trim();
         if (!STARTER_FILTER_LABELS[nextFilter]) return;
         starterQuickFilter = nextFilter;
         renderEventsForDate();
+        return;
+      }
+      if(t.dataset.shareEvent){
+        await shareEventById(String(t.dataset.shareEvent || '').trim());
         return;
       }
       if(t.dataset.toggleStarterEvent){
@@ -3532,16 +3831,17 @@ if ('serviceWorker' in navigator) {
           return;
         }
         const targetOptions = maybeFillTargetOptions(ev);
+        const slotWords = slotWordsForEvent(ev);
         if (!targetOptions.length) {
-          showToast(`No open ${ev.isTeamEvent ? 'teams' : 'tee times'} are available.`, 'error');
+          showToast(`No open ${ev.isTeamEvent ? slotWords.pluralLower : 'tee times'} are available.`, 'error');
           return;
         }
         const maybeFillValues = await openActionDialog({
           title: 'Confirm Maybe Player',
-          message: `Choose the interested player and the ${ev.isTeamEvent ? 'team' : 'tee time'} to add them to.`,
+          message: `Choose the interested player and the ${ev.isTeamEvent ? slotWords.singularLower : 'tee time'} to add them to.`,
           confirmLabel: 'Confirm Player',
           hint: ev.isTeamEvent
-            ? 'Only teams with room are listed.'
+            ? `Only ${slotWords.pluralLower} with room are listed.`
             : 'Only tee times with room, plus the single event-wide 5th option after every other tee is full, are listed.',
           fields: [{
             name: 'name',
@@ -3552,7 +3852,7 @@ if ('serviceWorker' in navigator) {
             required: true
           }, {
             name: 'teeId',
-            label: ev.isTeamEvent ? 'Destination team' : 'Destination tee time',
+            label: ev.isTeamEvent ? `Destination ${slotWords.singularLower}` : 'Destination tee time',
             type: 'select',
             value: targetOptions[0].value,
             options: targetOptions,
@@ -3777,10 +4077,11 @@ if ('serviceWorker' in navigator) {
             method: 'DELETE',
             headers: { 'x-delete-confirmed': 'true' }
           });
+          const slotWords = slotWordsForEvent(ev);
           if (resp && resp.notifyClub) {
             showToast('Club notified and tee time removed.', 'success');
           } else {
-            showToast(isTeamEvent ? 'Team removed.' : 'Tee time removed without club notification.', 'success');
+            showToast(isTeamEvent ? `${slotWords.singular} removed.` : 'Tee time removed without club notification.', 'success');
           }
         } catch (err) {
           console.error(err);
@@ -4006,14 +4307,14 @@ if ('serviceWorker' in navigator) {
         editForm.elements['date'].value=(String(ev.date).slice(0,10));
         editForm.elements['notes'].value=ev.notes||'';
         if (isSeniorsGroupSite()) {
-          editModeSelect.value = isSeniorsEventOnly(ev) ? 'signup' : 'tees';
+          editModeSelect.value = isSeniorsEventOnly(ev) ? 'signup' : (ev.isTeamEvent ? 'teams' : 'tees');
           if (editForm.elements['seniorsEventType']) {
             editForm.elements['seniorsEventType'].value = String(ev.seniorsEventType || (isSeniorsEventOnly(ev) ? 'outing' : 'tee-times')).trim();
           }
         } else {
           editModeSelect.value = ev.isTeamEvent ? 'teams' : 'tees';
         }
-        editTeamSizeRow.hidden = !ev.isTeamEvent;
+        editTeamSizeRow.hidden = isSeniorsGroupSite() || !ev.isTeamEvent;
         if (editSeniorsEventFields) editSeniorsEventFields.hidden = !isSeniorsGroupSite();
         if (ev.isTeamEvent) editForm.elements['teamSizeMax'].value = ev.teamSizeMax || 4;
         editModal.showModal();
@@ -4025,8 +4326,9 @@ if ('serviceWorker' in navigator) {
         const ev=(list||[]).find(x=>x._id===eventId); if(!ev) return;
         const tee = (ev.teeTimes||[]).find(x=>x._id===teeId); if(!tee) return;
         const isTeam = ev.isTeamEvent;
-        editTeeTitle.textContent = isTeam ? 'Edit Team Name' : 'Edit Tee Time';
-        editTeeLabel.textContent = isTeam ? 'Team Name' : 'Tee Time';
+        const slotWords = slotWordsForEvent(ev);
+        editTeeTitle.textContent = isTeam ? `Edit ${slotWords.singular} Name` : 'Edit Tee Time';
+        editTeeLabel.textContent = isTeam ? `${slotWords.singular} Name` : 'Tee Time';
         
         if (isTeam) {
           // Show input for team name
@@ -4063,6 +4365,7 @@ if ('serviceWorker' in navigator) {
     const list=await api('/api/events'); const ev=(list||[]).find(x=>x._id===eventId); if(!ev) return;
     const all = ev.teeTimes || [];
     const slotCap = ev.isTeamEvent ? Number(ev.teamSizeMax || 4) : 4;
+    const slotWords = slotWordsForEvent(ev);
     const dests = all
       .filter(t => String(t._id) !== String(fromTeeId))
       .map((t) => {
@@ -4081,12 +4384,12 @@ if ('serviceWorker' in navigator) {
     const html = dests.map((entry)=>{
       const t = entry.teeTime;
       const originalIdx = all.findIndex(tt => String(tt._id) === String(t._id));
-      const label = ev.isTeamEvent ? (t.name ? t.name : ('Team ' + (originalIdx + 1))) : (t.time ? fmtTime(t.time) : '—');
+      const label = ev.isTeamEvent ? (t.name ? t.name : (`${slotWords.singular} ${originalIdx + 1}`)) : (t.time ? fmtTime(t.time) : '—');
       const detail = entry.asFifth ? 'Add as 5th' : `${entry.openCount} open`;
       return `<label class="radio-item"><input type="radio" name="dest" value="${t._id}" data-as-fifth="${entry.asFifth ? '1' : '0'}" required> ${label} <span class="radio-item-meta">${detail}</span></label>`;
     }).join('');
 
-    moveTitle.textContent = ev.isTeamEvent ? 'Move Player to another Team' : 'Move Player to another Tee Time';
+    moveTitle.textContent = ev.isTeamEvent ? `Move Player to another ${slotWords.singular}` : 'Move Player to another Tee Time';
     moveChoices.innerHTML = html;
     moveModal.showModal();
   }
@@ -4451,9 +4754,15 @@ if ('serviceWorker' in navigator) {
   updateLastUpdated('Loading…');
   initSiteProfile();
   loadPublicSeniorsRosterChoices();
-  load();
-  flushPendingWriteQueue({ silent: true });
-  startAutoRefresh();
+  resolveInitialRouteSelection()
+    .catch((err) => {
+      console.error('Initial route selection failed:', err);
+    })
+    .finally(() => {
+      load();
+      flushPendingWriteQueue({ silent: true });
+      startAutoRefresh();
+    });
 })();
 
 

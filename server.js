@@ -1924,7 +1924,7 @@ function foldIcsLine(line) {
 }
 
 function eventCalendarSummary(ev) {
-  const mode = ev && ev.isTeamEvent ? 'Team Event' : 'Tee-Time Event';
+  const mode = ev && ev.isTeamEvent ? `${groupedSlotNamePrefix(ev)} Event` : 'Tee-Time Event';
   const course = ev && ev.course ? String(ev.course).trim() : 'Golf Event';
   return `${course} (${mode})`;
 }
@@ -1933,18 +1933,19 @@ function eventCalendarDescription(ev) {
   const lines = ['Tee Time Manager Event'];
   if (ev && ev.course) lines.push(`Course: ${String(ev.course).trim()}`);
   lines.push(`Date: ${fmt.dateLong(ev && ev.date) || fmt.dateISO(ev && ev.date)}`);
+  const slotPrefix = groupedSlotNamePrefix(ev);
 
   const slotTimes = ((ev && ev.teeTimes) || [])
     .map((tt, idx) => {
       if (tt && tt.time) {
-        if (ev && ev.isTeamEvent) return `${tt.name || `Team ${idx + 1}`}: ${fmt.tee(tt.time)}`;
+        if (ev && ev.isTeamEvent) return `${tt.name || `${slotPrefix} ${idx + 1}`}: ${fmt.tee(tt.time)}`;
         return `Tee ${idx + 1}: ${fmt.tee(tt.time)}`;
       }
-      if (ev && ev.isTeamEvent) return tt && tt.name ? String(tt.name) : `Team ${idx + 1}`;
+      if (ev && ev.isTeamEvent) return tt && tt.name ? String(tt.name) : `${slotPrefix} ${idx + 1}`;
       return '';
     })
     .filter(Boolean);
-  if (slotTimes.length) lines.push(`${ev && ev.isTeamEvent ? 'Teams' : 'Tee Times'}: ${slotTimes.join(', ')}`);
+  if (slotTimes.length) lines.push(`${ev && ev.isTeamEvent ? `${slotPrefix}s` : 'Tee Times'}: ${slotTimes.join(', ')}`);
 
   if (ev && ev.notes) lines.push(`Notes: ${String(ev.notes).trim()}`);
   if (ev && ev._id) lines.push(`Event Link: ${SITE_URL}?event=${String(ev._id)}`);
@@ -2789,6 +2790,16 @@ function normalizeSeniorsRegistrationMode(value = '', groupSlug = DEFAULT_SITE_G
 function isSeniorsEventOnlyEvent(ev = {}) {
   return normalizeGroupSlug(ev && ev.groupSlug) === 'seniors'
     && normalizeSeniorsRegistrationMode(ev && ev.seniorsRegistrationMode, ev && ev.groupSlug) === 'event-only';
+}
+
+function isSeniorsGroupedSlotEvent(ev = {}) {
+  return normalizeGroupSlug(ev && ev.groupSlug) === 'seniors'
+    && normalizeSeniorsEventType(ev && ev.seniorsEventType) === 'regular-shotgun'
+    && !!(ev && ev.isTeamEvent);
+}
+
+function groupedSlotNamePrefix(ev = {}) {
+  return isSeniorsGroupedSlotEvent(ev) ? 'Group' : 'Team';
 }
 
 function isUpcomingOrCurrentEventDate(dateValue) {
@@ -3680,7 +3691,7 @@ function getTeeLabel(ev, teeId) {
   if (ev.isTeamEvent) {
     if (tt.name) return tt.name;
     const idx = ev.teeTimes.findIndex(t => String(t._id) === String(teeId));
-    return `Team ${idx + 1}`;
+    return `${groupedSlotNamePrefix(ev)} ${idx + 1}`;
   }
   return tt.time ? fmt.tee(tt.time) : 'Unknown';
 }
@@ -3883,14 +3894,40 @@ function genTeeTimes(startHHMM, count=3, mins=10) {
 
 /* Helper: generate next automatic team name for an event (smallest unused Team N) */
 function nextTeamNameForEvent(ev) {
+  const prefix = groupedSlotNamePrefix(ev);
   const used = new Set();
   (ev.teeTimes || []).forEach((tt, idx) => {
     if (tt && tt.name) used.add(String(tt.name).trim());
-    else used.add(`Team ${idx+1}`);
+    else used.add(`${prefix} ${idx+1}`);
   });
   let n = 1;
-  while (used.has(`Team ${n}`)) n++;
-  return `Team ${n}`;
+  while (used.has(`${prefix} ${n}`)) n++;
+  return `${prefix} ${n}`;
+}
+
+function buildInitialGroupedSlots({
+  count = 3,
+  startType = 'shotgun',
+  startTime = '',
+  prefix = 'Team',
+} = {}) {
+  const slotCount = Math.max(1, Math.min(24, Number(count || 3)));
+  if (!String(startTime || '').trim()) {
+    throw new Error('teamStartTime required for team events');
+  }
+  if (String(startType || 'shotgun') === 'shotgun') {
+    return Array.from({ length: slotCount }, (_unused, index) => ({
+      name: `${prefix} ${index + 1}`,
+      time: startTime,
+      players: [],
+    }));
+  }
+  const times = genTeeTimes(startTime, slotCount, 9);
+  return times.map((entry, index) => ({
+    name: `${prefix} ${index + 1}`,
+    time: entry.time,
+    players: [],
+  }));
 }
 
 /* Helper: compute next tee time by searching last valid time and adding mins (default 9), wrap at 24h */
@@ -4331,36 +4368,26 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
   if (requireSeniorsSiteAdminForWrite(req, res)) return;
   try {
     const groupSlug = getGroupSlug(req);
-    const { course, courseInfo, date, teeTime, teeTimes, notes, isTeamEvent, teamSizeMax, teamStartType, teamStartTime, seniorsEventType, seniorsRegistrationMode } = req.body || {};
+    const { course, courseInfo, date, teeTime, teeTimes, notes, isTeamEvent, teamSizeMax, teamStartType, teamStartTime, teamCount, seniorsEventType, seniorsRegistrationMode } = req.body || {};
     const requestedSeniorsRegistrationMode = String(seniorsRegistrationMode || '').trim().toLowerCase();
     const seniorsEventOnly = normalizeGroupSlug(groupSlug) === 'seniors' && requestedSeniorsRegistrationMode === 'event-only';
     const normalizedSeniorsRegistrationMode = normalizeGroupSlug(groupSlug) === 'seniors'
       ? (seniorsEventOnly ? 'event-only' : 'tee-times')
       : normalizeSeniorsRegistrationMode(seniorsRegistrationMode, groupSlug);
     const normalizedSeniorsEventType = normalizeSeniorsEventType(seniorsEventType || (seniorsEventOnly ? 'outing' : 'tee-times'));
+    const groupedShotgunPrefix = normalizeGroupSlug(groupSlug) === 'seniors' && normalizedSeniorsEventType === 'regular-shotgun'
+      ? 'Group'
+      : 'Team';
     let tt;
     if (seniorsEventOnly) {
       tt = [];
     } else if (isTeamEvent) {
-      // Generate 3 default teams for team events
-      const startType = teamStartType || 'shotgun';
-      if (!teamStartTime) return res.status(400).json({ error: 'teamStartTime required for team events' });
-      if (startType === 'shotgun') {
-        // Shotgun start: all teams use the same time
-        tt = [
-          { name: 'Team 1', time: teamStartTime, players: [] },
-          { name: 'Team 2', time: teamStartTime, players: [] },
-          { name: 'Team 3', time: teamStartTime, players: [] }
-        ];
-      } else {
-        // Tee time start: teams use staggered times (9 minutes apart)
-        const times = genTeeTimes(teamStartTime, 3, 9);
-        tt = [
-          { name: 'Team 1', time: times[0].time, players: [] },
-          { name: 'Team 2', time: times[1].time, players: [] },
-          { name: 'Team 3', time: times[2].time, players: [] }
-        ];
-      }
+      tt = buildInitialGroupedSlots({
+        count: teamCount || 3,
+        startType: teamStartType || 'shotgun',
+        startTime: teamStartTime,
+        prefix: groupedShotgunPrefix,
+      });
     } else {
       // Generate 3 default tee times for tee-time events
       if (!teeTime) return res.status(400).json({ error: 'teeTime required for tee-time events' });
@@ -4432,7 +4459,7 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
                <p><strong>Event:</strong> ${esc(fmt.dateShortTitle(created.date))}</p>
                <p><strong>Course:</strong> ${esc(created.course||'')}</p>
                <p><strong>Date:</strong> ${esc(fmt.dateLong(created.date))}</p>
-               ${created.teeTimes?.[0]?.time ? `<p><strong>First Tee Time:</strong> ${esc(fmt.tee(created.teeTimes[0].time))}</p>`:''}
+               ${created.teeTimes?.[0]?.time ? `<p><strong>${isSeniorsGroupedSlotEvent(created) ? 'Shotgun Start' : 'First Tee Time'}:</strong> ${esc(fmt.tee(created.teeTimes[0].time))}</p>`:''}
                <p>Please <a href="${eventUrl}" style="color:#166534;text-decoration:underline">click here to view this event directly</a> or visit the sign-up page to secure your spot!</p>${btn('Go to Sign-up Page', eventUrl)}`),
         { groupSlug: created.groupSlug });
     }
@@ -4472,18 +4499,32 @@ app.put('/api/events/:id', async (req, res) => {
     }
     if (notes !== undefined) ev.notes = String(notes);
     const normalizedGroupSlug = normalizeGroupSlug(ev.groupSlug);
+    let nextSeniorsRegistrationMode = normalizeSeniorsRegistrationMode(ev.seniorsRegistrationMode, ev.groupSlug);
+    let nextSeniorsEventType = normalizeSeniorsEventType(ev.seniorsEventType || (isSeniorsEventOnlyEvent(ev) ? 'outing' : 'tee-times'));
     if (normalizedGroupSlug === 'seniors') {
-      if (seniorsEventType !== undefined) ev.seniorsEventType = normalizeSeniorsEventType(seniorsEventType);
+      if (seniorsEventType !== undefined) {
+        nextSeniorsEventType = normalizeSeniorsEventType(seniorsEventType);
+        ev.seniorsEventType = nextSeniorsEventType;
+      }
       if (seniorsRegistrationMode !== undefined) {
-        ev.seniorsRegistrationMode = normalizeSeniorsRegistrationMode(seniorsRegistrationMode, ev.groupSlug);
-        if (ev.seniorsRegistrationMode === 'event-only') {
+        nextSeniorsRegistrationMode = normalizeSeniorsRegistrationMode(seniorsRegistrationMode, ev.groupSlug);
+        ev.seniorsRegistrationMode = nextSeniorsRegistrationMode;
+        if (nextSeniorsRegistrationMode === 'event-only') {
           ev.isTeamEvent = false;
           ev.teeTimes = [];
         }
       }
+      if (nextSeniorsRegistrationMode !== 'event-only') {
+        ev.isTeamEvent = nextSeniorsEventType === 'regular-shotgun';
+        if (ev.isTeamEvent && (!Number.isFinite(Number(ev.teamSizeMax)) || Number(ev.teamSizeMax) !== 4)) {
+          ev.teamSizeMax = 4;
+        }
+      }
     }
-    if (isTeamEvent !== undefined && !isSeniorsEventOnlyEvent(ev)) ev.isTeamEvent = !!isTeamEvent;
-    if (teamSizeMax !== undefined) ev.teamSizeMax = Math.max(2, Math.min(4, Number(teamSizeMax || 4)));
+    if (normalizedGroupSlug !== 'seniors' && isTeamEvent !== undefined && !isSeniorsEventOnlyEvent(ev)) ev.isTeamEvent = !!isTeamEvent;
+    if (teamSizeMax !== undefined && !(normalizedGroupSlug === 'seniors' && ev.isTeamEvent)) {
+      ev.teamSizeMax = Math.max(2, Math.min(4, Number(teamSizeMax || 4)));
+    }
     if (weatherNeedsRefresh) {
       const weatherData = await fetchWeatherForEvent(ev);
       assignWeatherToEvent(ev, weatherData);
@@ -4696,6 +4737,7 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
     return res.status(404).json({ error: 'Not found' });
   }
   if (ev.isTeamEvent) {
+    const slotLabel = groupedSlotNamePrefix(ev);
     // Accept optional name. If missing/blank, auto-assign the next available "Team N".
     let name = (req.body && typeof req.body.name === 'string') ? String(req.body.name).trim() : '';
     if (!name) {
@@ -4730,12 +4772,12 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
     console.log('[tee-time] Team added', { eventId: ev._id, teamName: name, time });
     const eventUrl = buildSiteEventUrl(ev.groupSlug, ev._id);
     sendSubscriberChangeEmail(
-      `New Team Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
-      frame('New Team Added!',
-        `<p>A new team has been added:</p>
+      `New ${slotLabel} Added: ${ev.course} (${fmt.dateISO(ev.date)})`,
+      frame(`New ${slotLabel} Added!`,
+        `<p>A new ${slotLabel.toLowerCase()} has been added:</p>
          <p><strong>Event:</strong> ${esc(ev.course)}</p>
          <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date))}</p>
-         <p><strong>Team:</strong> ${esc(name)}</p>
+         <p><strong>${slotLabel}:</strong> ${esc(name)}</p>
          <p>Please <a href="${eventUrl}" style="color:#166534;text-decoration:underline">click here to view this event directly</a>.</p>${btn('View Event', eventUrl)}`),
       { groupSlug: ev.groupSlug }
     ).catch(err => console.error('[tee-time] Failed to send team add email:', err));
@@ -7261,6 +7303,7 @@ module.exports = app;
 // Export helpers for testing
 module.exports.nextTeamNameForEvent = nextTeamNameForEvent;
 module.exports.nextTeeTimeForEvent = nextTeeTimeForEvent;
+module.exports.buildInitialGroupedSlots = buildInitialGroupedSlots;
 module.exports.buildEventIcs = buildEventIcs;
 module.exports.eventCalendarTiming = eventCalendarTiming;
 module.exports.buildEventsIcs = buildEventsIcs;

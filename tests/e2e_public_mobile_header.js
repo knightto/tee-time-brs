@@ -16,7 +16,7 @@ const BROWSER_CANDIDATES = [
 
 const PAGE_SPECS = [
   { label: 'Main public page', path: '/', expectInfoVisible: true, expectSeniorsBadgeVisible: false },
-  { label: 'Seniors public page', path: '/?group=seniors', expectInfoVisible: false, expectSeniorsBadgeVisible: false },
+  { label: 'Seniors public page', path: '/?group=seniors', expectInfoVisible: true, expectSeniorsBadgeVisible: false },
 ];
 
 function sleep(ms) {

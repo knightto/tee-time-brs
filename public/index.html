@@ -27,6 +27,10 @@
   <script src="/pwa-shell.js" defer></script>
 </head>
 <body>
+  <div id="pullRefreshIndicator" class="pull-refresh-indicator" aria-hidden="true">
+    <span class="pull-refresh-icon">↓</span>
+    <span id="pullRefreshText">Pull to refresh</span>
+  </div>
   <header class="topbar">
     <h1><a href="/" class="topbar-title-link" title="Refresh to calendar view"><span class="topbar-brand"><img id="topbarLogo" class="topbar-logo" src="/assets/brs-tee-manager-logo.png" alt="BRS Tee Times logo"><span id="topbarTitleText">Tee Times</span></span></a></h1>
     <nav class="topbar-links">
@@ -39,9 +43,9 @@
           <a href="/blue-ridge-outings.html" class="topbar-dropdown-item" data-group-link data-feature-link="includeOutings" data-main-only-link hidden>Blue Ridge Outings</a>
           <a href="/rules.html" class="topbar-dropdown-item" data-group-link data-main-only-link hidden>Weekend Game Rules</a>
           <a href="/handicaps.html" class="topbar-dropdown-item" data-group-link data-feature-link="includeHandicaps">Handicaps</a>
+          <a href="/admin.html" target="_blank" rel="noopener" class="topbar-dropdown-item topbar-dropdown-item-admin" data-group-admin-link>Admin</a>
         </div>
       </details>
-      <a href="/admin.html" target="_blank" rel="noopener" class="pill-link topbar-admin-gear" data-group-admin-icon-link aria-label="Admin" title="Admin">⚙</a>
       <button id="openSubscribeBtn" class="pill-link pill-primary topbar-subscribe-btn">Subscribe</button>
     </nav>
   </header>
@@ -98,6 +102,14 @@
           <h2 id="selectedDateTitle" data-empty="true">Select a date</h2>
           <div class="event-controls">
             <button id="starterModeBtn" class="small" type="button" title="Toggle a stripped-down starter view for the selected day">Starter Mode</button>
+            <button id="shareDayBtn" class="small event-control-btn" type="button" title="Share the selected day">
+              <span class="event-control-icon" aria-hidden="true">⤴</span>
+              <span class="event-control-label">Share</span>
+            </button>
+            <button id="refreshBtn" class="small event-control-btn" type="button" title="Refresh the tee sheet">
+              <span class="event-control-icon" aria-hidden="true">↻</span>
+              <span class="event-control-label">Refresh</span>
+            </button>
             <span id="lastUpdated" class="event-meta">Updated just now</span>
             <button id="requestClubTimeBtn" class="small" type="button" title="Request a tee time from the club for a selected date">Request a Tee Time</button>
           </div>
@@ -243,6 +255,33 @@
         <p style="font-size:11px;color:#78350f;margin:6px 0 0 0;font-style:italic">Creates the selected number of tee times, 9 minutes apart (you can add/edit more after)</p>
       </div>
 
+      <div id="seniorsShotgunRow" hidden style="background:linear-gradient(135deg,#fce7f3 0%,#fbcfe8 100%);padding:12px;border-radius:8px;margin-bottom:12px">
+        <label>
+          <span style="display:flex;align-items:center;gap:4px;font-weight:600;color:#831843;margin-bottom:6px;font-size:14px">
+            <span>⏰</span> Shotgun Start Time
+          </span>
+          <input name="seniorsShotgunStartTime" id="seniorsShotgunStartTime" type="time" step="60" style="width:100%;padding:8px;border:2px solid #f9a8d4;border-radius:6px;font-size:14px">
+        </label>
+        <label style="display:block;margin-top:8px">
+          <span style="font-weight:600;color:#831843;font-size:13px;">Number of foursomes</span>
+          <select name="seniorsFoursomeCount" id="seniorsFoursomeCount" style="width:100%;padding:8px;border:2px solid #f9a8d4;border-radius:6px;font-size:14px;background:white;margin-top:4px">
+            <option value="1">1</option>
+            <option value="2">2</option>
+            <option value="3">3</option>
+            <option value="4" selected>4</option>
+            <option value="5">5</option>
+            <option value="6">6</option>
+            <option value="7">7</option>
+            <option value="8">8</option>
+            <option value="9">9</option>
+            <option value="10">10</option>
+            <option value="11">11</option>
+            <option value="12">12</option>
+          </select>
+        </label>
+        <p style="font-size:11px;color:#831843;margin:6px 0 0 0;font-style:italic">Creates the selected number of foursomes as Groups 1-N, all starting at the same shotgun time.</p>
+      </div>
+
       <!-- Team fields (shown only for Team events) -->
       <div id="teamSizeRow" hidden style="background:linear-gradient(135deg,#fce7f3 0%,#fbcfe8 100%);padding:12px;border-radius:8px;margin-bottom:12px">
         <label style="display:block;margin-bottom:8px">
@@ -303,11 +342,6 @@
     <div id="debugLogs" class="debug-logs"></div>
   </footer>
   
-  <!-- Admin Link -->
-  <div class="admin-link-wrap">
-    <a href="/admin.html" target="_blank" class="admin-link" data-group-admin-link>Admin</a>
-  </div>
-
   <script>
     (() => {
       try {
@@ -336,7 +370,7 @@
           }
         }
         const topbarDropdown = document.querySelector('.topbar-dropdown');
-        if (topbarDropdown) topbarDropdown.hidden = !isMainGroup;
+        if (topbarDropdown) topbarDropdown.hidden = false;
 
         document.querySelectorAll('[data-group-link]').forEach((node) => {
           node.setAttribute('href', withGroup(node.getAttribute('href') || '/'));
@@ -352,12 +386,6 @@
             node.setAttribute('href', `/groups/${encodeURIComponent(groupSlug)}/admin`);
             node.textContent = 'Group Admin';
           }
-        });
-        document.querySelectorAll('[data-group-admin-icon-link]').forEach((node) => {
-          const label = isMainGroup ? 'Admin' : 'Group Admin';
-          node.setAttribute('href', isMainGroup ? '/admin.html' : `/groups/${encodeURIComponent(groupSlug)}/admin`);
-          node.setAttribute('aria-label', label);
-          node.setAttribute('title', label);
         });
       } catch (_) {}
     })();
