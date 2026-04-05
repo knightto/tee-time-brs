@@ -92,6 +92,7 @@ const APP_ORIGIN = (() => {
 })();
 const LOCAL_TZ = process.env.LOCAL_TZ || 'America/New_York';
 const DEFAULT_SITE_GROUP_SLUG = String(process.env.DEFAULT_SITE_GROUP_SLUG || 'main').trim().toLowerCase() || 'main';
+const SKINS_POPS_FORCE_READY = true;
 const RESEND_INBOUND_BASE_ADDRESS = 'teetime@xenailexou.resend.app';
 const GROUP_SLUG_ALIASES = Object.freeze({
   'thursday-seniors-group': 'seniors',
@@ -1906,7 +1907,8 @@ function weekendGameEligibleEvent(ev = {}) {
   if (ev.isTeamEvent) return false;
   const dateISO = fmt.dateISO(ev.date);
   if (!dateISO) return false;
-  const weekday = new Date(`${dateISO}T12:00:00Z`).getUTCDay();
+  const [year, month, day] = dateISO.split('-').map(Number);
+  const weekday = new Date(Date.UTC(year, month - 1, day, 12, 0, 0)).getUTCDay();
   if (weekday !== 0 && weekday !== 6) return false;
   return Array.isArray(ev.teeTimes) && ev.teeTimes.some((slot) => parseHHMMToMinutes(slot && slot.time) !== null);
 }
@@ -5675,7 +5677,7 @@ app.post('/api/events/:id/skins-pops/randomize', async (req, res) => {
       return res.status(400).json({ error: 'Event is missing valid tee-time data.' });
     }
     const now = new Date();
-    if (now.getTime() < unlockAt.getTime()) {
+    if (!SKINS_POPS_FORCE_READY && now.getTime() < unlockAt.getTime()) {
       return res.status(400).json({
         error: `Skins pops unlock at ${unlockAt.toLocaleString('en-US', { timeZone: LOCAL_TZ, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}${LOCAL_TZ === 'America/New_York' ? ' ET' : ''}`,
         availableAt: unlockAt.toISOString(),

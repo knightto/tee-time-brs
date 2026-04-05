@@ -834,6 +834,7 @@ if ('serviceWorker' in navigator) {
   }
   function fmtTime(hhmm){ if(!hhmm) return ''; const m=/^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(hhmm); if(!m) return hhmm; let h=parseInt(m[1],10); const min=m[2]; const ap=h>=12?'PM':'AM'; h=h%12||12; return `${h}:${min} ${ap}`; }
   const EVENT_TIME_ZONE = 'America/New_York';
+  const SKINS_POPS_FORCE_READY = true;
   function parseTimeZoneOffsetLabel(label = 'GMT') {
     const match = /^GMT(?:(\+|-)(\d{1,2})(?::?(\d{2}))?)?$/.exec(String(label || '').trim());
     if (!match) return 0;
@@ -865,7 +866,7 @@ if ('serviceWorker' in navigator) {
     const minutes = Number(match[2]);
     if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return null;
     const [year, month, day] = dateISO.split('-').map(Number);
-    const offsetMinutes = timeZoneOffsetMinutesAt(new Date(`${dateISO}T12:00:00Z`), timeZone);
+    const offsetMinutes = timeZoneOffsetMinutesAt(new Date(Date.UTC(year, month - 1, day, 12, 0, 0)), timeZone);
     return new Date(Date.UTC(year, month - 1, day, 0, (hours * 60) + minutes - offsetMinutes, 0, 0));
   }
   function weekendGameEligibleEvent(ev = {}) {
@@ -873,7 +874,8 @@ if ('serviceWorker' in navigator) {
     if (!ev || ev.isTeamEvent || isSeniorsEventOnly(ev)) return false;
     const dateISO = toDateISO(ev.date);
     if (!dateISO) return false;
-    const weekday = new Date(`${dateISO}T12:00:00Z`).getUTCDay();
+    const [year, month, day] = dateISO.split('-').map(Number);
+    const weekday = new Date(Date.UTC(year, month - 1, day, 12, 0, 0)).getUTCDay();
     if (weekday !== 0 && weekday !== 6) return false;
     return Array.isArray(ev.teeTimes) && ev.teeTimes.some((slot) => /^(\d{1,2}):(\d{2})$/.test(String(slot && slot.time || '').trim()));
   }
@@ -910,7 +912,7 @@ if ('serviceWorker' in navigator) {
   function weekendGameSkinsPopsState(ev = {}) {
     const eligible = weekendGameEligibleEvent(ev);
     const unlockAt = eligible ? skinsPopsUnlockAt(ev) : null;
-    const ready = !!(unlockAt && Date.now() >= unlockAt.getTime());
+    const ready = !!(eligible && (SKINS_POPS_FORCE_READY || (unlockAt && Date.now() >= unlockAt.getTime())));
     const sharedHoles = normalizeHoleList(ev && ev.skinsPops && ev.skinsPops.sharedHoles);
     const bonusHoles = normalizeHoleList(ev && ev.skinsPops && ev.skinsPops.bonusHoles);
     const generatedAtRaw = ev && ev.skinsPops && ev.skinsPops.generatedAt;
@@ -927,6 +929,8 @@ if ('serviceWorker' in navigator) {
       bodyHtml = `<div class="event-sidegame-copy"><strong>12–15 and 18+:</strong> ${state.sharedHoles.join(', ')}</div>
         <div class="event-sidegame-copy"><strong>18+ extra:</strong> ${state.bonusHoles.join(', ')}</div>`;
       metaHtml = `<div class="event-sidegame-meta">Drawn ${formatEventZoneDateTime(state.generatedAt) || 'recently'}.</div>`;
+    } else if (SKINS_POPS_FORCE_READY) {
+      metaHtml = '<div class="event-sidegame-meta">Available now while testing.</div>';
     } else if (state.unlockAt) {
       metaHtml = state.ready
         ? '<div class="event-sidegame-meta">Ready to draw from the Actions menu.</div>'
