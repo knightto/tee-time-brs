@@ -166,6 +166,8 @@ if ('serviceWorker' in navigator) {
   let starterQuickFilter = 'needs-action';
   let teeDragState = null;
   let offlineSnapshotState = null;
+  let pendingWriteQueue = [];
+  let queueSyncInFlight = false;
   let starterEventViewIds = loadStarterEventViewIds();
   let seniorsRosterChoices = [];
   const currentGroupSlug = (() => {
@@ -1910,6 +1912,7 @@ if ('serviceWorker' in navigator) {
   }
 
   const OFFLINE_SNAPSHOT_KEY_PREFIX = 'teeTimeOfflineSnapshotV1';
+  const WRITE_QUEUE_STORAGE_KEY = 'teeTimePendingWritesV1';
 
   function buildOfflineSnapshotKey(requestPath = '') {
     try {
@@ -1964,26 +1967,187 @@ if ('serviceWorker' in navigator) {
     }
   }
 
-  function setOfflineSnapshotState(nextState = null) {
-    offlineSnapshotState = nextState;
+  function loadPendingWriteQueue() {
+    try {
+      const raw = localStorage.getItem(WRITE_QUEUE_STORAGE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (!Array.isArray(parsed)) return [];
+      return parsed
+        .filter((entry) => entry && typeof entry === 'object')
+        .map((entry) => ({
+          id: String(entry.id || `${Date.now()}`),
+          createdAt: Number(entry.createdAt) || Date.now(),
+          method: String(entry.method || 'POST').toUpperCase(),
+          requestPath: String(entry.requestPath || ''),
+          headers: entry.headers && typeof entry.headers === 'object' ? { ...entry.headers } : {},
+          body: typeof entry.body === 'string' ? entry.body : '',
+        }))
+        .filter((entry) => entry.requestPath);
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function persistPendingWriteQueue() {
+    try {
+      localStorage.setItem(WRITE_QUEUE_STORAGE_KEY, JSON.stringify(pendingWriteQueue));
+    } catch (_) {}
+    renderOfflineStatusBanner();
+  }
+
+  function pendingWriteCount() {
+    return Array.isArray(pendingWriteQueue) ? pendingWriteQueue.length : 0;
+  }
+
+  function isQueuedApiResult(value) {
+    return !!(value && value.__queuedWrite);
+  }
+
+  function createQueuedApiResult(entry) {
+    return {
+      __queuedWrite: true,
+      queuedId: entry && entry.id ? entry.id : '',
+      createdAt: entry && entry.createdAt ? entry.createdAt : Date.now(),
+      requestPath: entry && entry.requestPath ? entry.requestPath : '',
+    };
+  }
+
+  function renderOfflineStatusBanner() {
     document.body.classList.toggle('offline-readonly-mode', !!offlineSnapshotState);
     if (!offlineStatusBanner) return;
-    if (!offlineSnapshotState) {
+    const parts = [];
+    const queuedCount = pendingWriteCount();
+    if (offlineSnapshotState) {
+      const requestLabel = offlineSnapshotState.label || 'saved tee sheet data';
+      const savedAtLabel = formatOfflineSavedAt(offlineSnapshotState.savedAt);
+      const offlinePrefix = navigator.onLine ? 'Network issue' : 'Offline';
+      parts.push(`${offlinePrefix}: showing ${requestLabel} from ${savedAtLabel}.`);
+    } else if (!navigator.onLine) {
+      parts.push('Offline: live updates are unavailable until your connection returns.');
+    }
+    if (queuedCount) {
+      parts.push(`${queuedCount} queued change${queuedCount === 1 ? '' : 's'} will sync automatically when the connection returns.`);
+    }
+    if (!parts.length) {
       offlineStatusBanner.hidden = true;
       offlineStatusBanner.textContent = '';
       return;
     }
-    const requestLabel = offlineSnapshotState.label || 'saved tee sheet data';
-    const savedAtLabel = formatOfflineSavedAt(offlineSnapshotState.savedAt);
-    const offlinePrefix = navigator.onLine ? 'Network issue' : 'Offline';
-    offlineStatusBanner.textContent = `${offlinePrefix}: showing ${requestLabel} from ${savedAtLabel}. Read-only mode is on until live data returns.`;
+    offlineStatusBanner.textContent = parts.join(' ');
     offlineStatusBanner.hidden = false;
+  }
+
+  function isQueueableWriteRequest(method = 'POST', requestPath = '') {
+    const safeMethod = String(method || 'POST').toUpperCase();
+    const safePath = String(requestPath || '');
+    return (
+      (safeMethod === 'POST' && /^\/api\/events\/[^/]+\/move-player(?:\?|$)/.test(safePath))
+      || (safeMethod === 'POST' && /^\/api\/events\/[^/]+\/tee-times\/[^/]+\/players\/[^/]+\/check-in(?:\?|$)/.test(safePath))
+      || (safeMethod === 'POST' && /^\/api\/events\/[^/]+\/tee-times\/[^/]+\/check-in-all(?:\?|$)/.test(safePath))
+      || (safeMethod === 'POST' && /^\/api\/events\/[^/]+\/tee-times\/[^/]+\/players(?:\?|$)/.test(safePath))
+      || (safeMethod === 'DELETE' && /^\/api\/events\/[^/]+\/tee-times\/[^/]+\/players\/[^/]+(?:\?|$)/.test(safePath))
+      || (safeMethod === 'POST' && /^\/api\/events\/[^/]+\/maybe(?:\?|$)/.test(safePath))
+      || (safeMethod === 'DELETE' && /^\/api\/events\/[^/]+\/maybe\/[^/]+(?:\?|$)/.test(safePath))
+      || (safeMethod === 'POST' && /^\/api\/events\/[^/]+\/maybe\/fill(?:\?|$)/.test(safePath))
+      || (safeMethod === 'POST' && /^\/api\/events\/[^/]+\/seniors-register(?:\?|$)/.test(safePath))
+      || (safeMethod === 'DELETE' && /^\/api\/events\/[^/]+\/seniors-registrations\/[^/]+(?:\?|$)/.test(safePath))
+    );
+  }
+
+  function sanitizeQueuedHeaders(headers = {}) {
+    const allowedHeaders = new Set(['content-type', 'x-delete-confirmed', 'x-seniors-admin-view']);
+    return Object.entries(headers || {}).reduce((acc, [key, value]) => {
+      const normalizedKey = String(key || '').toLowerCase();
+      const normalizedValue = String(value || '').trim();
+      if (!allowedHeaders.has(normalizedKey) || !normalizedValue) return acc;
+      acc[key] = value;
+      return acc;
+    }, {});
+  }
+
+  function enqueuePendingWrite({ method = 'POST', requestPath = '', headers = {}, body = '' } = {}) {
+    const entry = {
+      id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      createdAt: Date.now(),
+      method: String(method || 'POST').toUpperCase(),
+      requestPath: String(requestPath || ''),
+      headers: sanitizeQueuedHeaders(headers),
+      body: typeof body === 'string' ? body : '',
+    };
+    pendingWriteQueue.push(entry);
+    persistPendingWriteQueue();
+    return entry;
+  }
+
+  async function flushPendingWriteQueue(options = {}) {
+    if (queueSyncInFlight || !navigator.onLine || !pendingWriteCount()) {
+      renderOfflineStatusBanner();
+      return { applied: 0, dropped: 0, remaining: pendingWriteCount() };
+    }
+    queueSyncInFlight = true;
+    let applied = 0;
+    let dropped = 0;
+    try {
+      while (pendingWriteQueue.length && navigator.onLine) {
+        const entry = pendingWriteQueue[0];
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+        try {
+          const response = await fetch(entry.requestPath, {
+            method: entry.method,
+            headers: entry.headers,
+            body: entry.body || undefined,
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          const contentType = response.headers.get('content-type') || '';
+          const body = contentType.includes('application/json') ? await response.json() : await response.text();
+          if (!response.ok) {
+            if (response.status >= 400 && response.status < 500) {
+              pendingWriteQueue.shift();
+              dropped += 1;
+              persistPendingWriteQueue();
+              debugLog('warn', `Dropped queued write: ${entry.method} ${entry.requestPath}`, { status: response.status, body });
+              continue;
+            }
+            throw new Error((typeof body === 'object' && (body.message || body.error)) || body || `HTTP ${response.status}`);
+          }
+          pendingWriteQueue.shift();
+          applied += 1;
+          persistPendingWriteQueue();
+          debugLog('success', `Queued write synced: ${entry.method} ${entry.requestPath}`, body);
+        } catch (err) {
+          clearTimeout(timeoutId);
+          debugLog('warn', `Queued write waiting: ${entry.method} ${entry.requestPath}`, { error: err.message });
+          break;
+        }
+      }
+    } finally {
+      queueSyncInFlight = false;
+      renderOfflineStatusBanner();
+    }
+    if ((applied || dropped) && selectedDate) {
+      await load(true, { silent: true });
+    }
+    if (!options.silent) {
+      if (applied) showToast(`Synced ${applied} queued change${applied === 1 ? '' : 's'}.`, 'success');
+      if (dropped) showToast(`${dropped} queued change${dropped === 1 ? '' : 's'} could not be applied and were removed.`, 'error');
+    }
+    return { applied, dropped, remaining: pendingWriteCount() };
+  }
+
+  function setOfflineSnapshotState(nextState = null) {
+    offlineSnapshotState = nextState;
+    renderOfflineStatusBanner();
   }
 
   function clearOfflineSnapshotState() {
     if (!offlineSnapshotState) return;
     setOfflineSnapshotState(null);
   }
+  pendingWriteQueue = loadPendingWriteQueue();
+  renderOfflineStatusBanner();
   async function api(path, opts){ 
     const method = String(opts?.method || 'GET').toUpperCase();
     let requestPath = path;
@@ -2000,9 +2164,6 @@ if ('serviceWorker' in navigator) {
     } catch (_) {}
     if (currentGroupSlug === 'seniors' && isSeniorsAdminView()) {
       mergedHeaders['x-seniors-admin-view'] = mergedHeaders['x-seniors-admin-view'] || '1';
-    }
-    if (method !== 'GET' && (!navigator.onLine || offlineSnapshotState)) {
-      throw new Error('Offline snapshot mode is read-only. Reconnect before making changes.');
     }
     if (method === 'GET') {
       // Force fresh API reads, especially after mobile app resume.
@@ -2026,10 +2187,25 @@ if ('serviceWorker' in navigator) {
       || (method === 'DELETE' && /^\/api\/events\/[^/]+\/seniors-registrations\/[^/]+(?:\?|$)/.test(String(requestPath || '')))
       || (method === 'POST' && /^\/api\/subscribe(?:\?|$)/.test(String(requestPath || '')))
     );
+    const queueableWrite = method !== 'GET' && isQueueableWriteRequest(method, requestPath);
     if (currentGroupSlug === 'seniors' && !isSeniorsAdminView() && method !== 'GET' && !seniorsPublicWriteAllowed && !String(mergedHeaders['x-admin-code'] || '').trim()) {
       const code = await requestSeniorsAdminCode('this Seniors update');
       if (!code) throw new Error('Admin code 000 required for Seniors changes');
       mergedHeaders['x-admin-code'] = code;
+    }
+    if (method !== 'GET' && !navigator.onLine) {
+      if (queueableWrite) {
+        const queuedEntry = enqueuePendingWrite({
+          method,
+          requestPath,
+          headers: mergedHeaders,
+          body: typeof opts?.body === 'string' ? opts.body : '',
+        });
+        debugLog('warn', `API Queued Offline: ${method} ${requestPath}`, { queueId: queuedEntry.id });
+        showToast('Offline: change queued and will sync automatically.', 'success');
+        return createQueuedApiResult(queuedEntry);
+      }
+      throw new Error('Offline: this action needs a live connection.');
     }
     debugLog('info', `API Request: ${method} ${requestPath}`, opts?.body ? JSON.parse(opts.body) : null);
     
@@ -2051,7 +2227,10 @@ if ('serviceWorker' in navigator) {
       if(!r.ok) {
         const msg = (typeof body === 'object' && body.message) || (typeof body === 'object' && body.error) || body || ('HTTP '+r.status);
         debugLog('error', `API Error: ${method} ${requestPath} (${r.status})`, body);
-        throw new Error(msg);
+        const httpError = new Error(msg);
+        httpError.apiHttpStatus = r.status;
+        httpError.apiResponse = body;
+        throw httpError;
       }
       if (method === 'GET' && ct.includes('application/json')) {
         writeOfflineSnapshot(requestPath, body);
@@ -2061,6 +2240,17 @@ if ('serviceWorker' in navigator) {
       return body;
     } catch (err) {
       clearTimeout(timeoutId);
+      if (method !== 'GET' && queueableWrite && !err.apiHttpStatus) {
+        const queuedEntry = enqueuePendingWrite({
+          method,
+          requestPath,
+          headers: mergedHeaders,
+          body: typeof opts?.body === 'string' ? opts.body : '',
+        });
+        debugLog('warn', `API Queued Retry: ${method} ${requestPath}`, { error: err.message, queueId: queuedEntry.id });
+        showToast('Connection issue: change queued and will retry automatically.', 'success');
+        return createQueuedApiResult(queuedEntry);
+      }
       if (method === 'GET') {
         const cached = readOfflineSnapshot(requestPath);
         if (cached) {
@@ -2102,21 +2292,20 @@ if ('serviceWorker' in navigator) {
     load(true, { silent: true });
   }
 
-  window.addEventListener('online', () => {
-    showToast('Back online. Refreshing live tee sheet...', 'success');
+  window.addEventListener('online', async () => {
     clearOfflineSnapshotState();
+    const queuedCount = pendingWriteCount();
+    if (queuedCount) {
+      showToast(`Back online. Syncing ${queuedCount} queued change${queuedCount === 1 ? '' : 's'}...`, 'success');
+      await flushPendingWriteQueue({ silent: true });
+      return;
+    }
+    showToast('Back online. Refreshing live tee sheet...', 'success');
     load(true, { silent: true });
   });
 
   window.addEventListener('offline', () => {
-    if (offlineSnapshotState) {
-      setOfflineSnapshotState(offlineSnapshotState);
-      return;
-    }
-    if (offlineStatusBanner) {
-      offlineStatusBanner.hidden = false;
-      offlineStatusBanner.textContent = 'Offline: live updates are unavailable until your connection returns.';
-    }
+    renderOfflineStatusBanner();
   });
 
   // Create Event: open modal in the requested mode (tees or teams)
@@ -3096,6 +3285,7 @@ if ('serviceWorker' in navigator) {
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({ fromTeeId, toTeeId, playerId, asFifth: !!options.asFifth })
     });
+    if (isQueuedApiResult(updatedEvent)) return updatedEvent;
     await updateEventCard(eventId, updatedEvent);
   }
 
@@ -3253,6 +3443,7 @@ if ('serviceWorker' in navigator) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name })
           });
+          if (isQueuedApiResult(result)) return;
           await updateEventCard(id, result && result.event ? result.event : null);
           showToast('Signup confirmed.', 'success');
         } catch (err) {
@@ -3277,6 +3468,7 @@ if ('serviceWorker' in navigator) {
         if (confirmed === null) return;
         try {
           const updated = await api(`/api/events/${eventId}/seniors-registrations/${registrationId}`, { method: 'DELETE' });
+          if (isQueuedApiResult(updated)) return;
           await updateEventCard(eventId, updated && updated.event ? updated.event : null);
           showToast('Signup removed.', 'success');
         } catch (err) {
@@ -3307,6 +3499,7 @@ if ('serviceWorker' in navigator) {
         if(!name) return;
         try {
           const updatedEvent = await api(`/api/events/${id}/maybe`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({name}) });
+          if (isQueuedApiResult(updatedEvent)) return;
           await updateEventCard(id, updatedEvent);
           return;
         } catch (err) {
@@ -3381,6 +3574,7 @@ if ('serviceWorker' in navigator) {
             headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ name, teeId, asFifth })
           });
+          if (isQueuedApiResult(result)) return;
           await updateEventCard(id, result && result.event ? result.event : null);
         } catch (err) {
           console.error(err);
@@ -3405,6 +3599,7 @@ if ('serviceWorker' in navigator) {
         });
         if (confirmed === null) return;
         const updatedEvent = await api(`/api/events/${id}/maybe/${index}`,{ method:'DELETE' });
+        if (isQueuedApiResult(updatedEvent)) return;
         await updateEventCard(id, updatedEvent);
         return;
       }
@@ -3456,11 +3651,12 @@ if ('serviceWorker' in navigator) {
         const nextCheckedIn = currentFlag !== '1';
         t.disabled = true;
         try {
-          await api(`/api/events/${eventId}/tee-times/${teeId}/players/${playerId}/check-in`, {
+          const result = await api(`/api/events/${eventId}/tee-times/${teeId}/players/${playerId}/check-in`, {
             method:'POST',
             headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ checkedIn: nextCheckedIn })
           });
+          if (isQueuedApiResult(result)) return;
           await updateEventCard(eventId);
         } catch (err) {
           console.error(err);
@@ -3475,11 +3671,12 @@ if ('serviceWorker' in navigator) {
         const nextChecked = allFlag !== '1';
         t.disabled = true;
         try {
-          await api(`/api/events/${eventId}/tee-times/${teeId}/check-in-all`, {
+          const result = await api(`/api/events/${eventId}/tee-times/${teeId}/check-in-all`, {
             method:'POST',
             headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ checkedIn: nextChecked })
           });
+          if (isQueuedApiResult(result)) return;
           await updateEventCard(eventId);
         } catch (err) {
           console.error(err);
@@ -3613,10 +3810,11 @@ if ('serviceWorker' in navigator) {
         t.disabled = true;
         t.textContent = '...';
         try {
-          await api(`/api/events/${eventId}/tee-times/${teeId}/players/${playerId}`, {
+          const result = await api(`/api/events/${eventId}/tee-times/${teeId}/players/${playerId}`, {
             method: 'DELETE',
             headers: { 'x-delete-confirmed': 'true' }
           });
+          if (isQueuedApiResult(result)) return;
           await updateEventCard(eventId);
         } catch (err) {
           console.error(err);
@@ -3780,6 +3978,7 @@ if ('serviceWorker' in navigator) {
           t.disabled = true;
           t.textContent = canAddFifth ? 'Adding 5th...' : 'Adding...';
           const updatedEvent = await api(`/api/events/${id}/tee-times/${teeId}/players`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ name, asFifth: canAddFifth }) });
+          if (isQueuedApiResult(updatedEvent)) return;
           await updateEventCard(id, updatedEvent);
           return;
         } catch (err) {
@@ -4235,6 +4434,7 @@ if ('serviceWorker' in navigator) {
   // Update only a single event card in the DOM
   async function updateEventCard(eventId, prefetchedEvent = null) {
     try {
+      if (isQueuedApiResult(prefetchedEvent)) return;
       const ev = prefetchedEvent || await fetchEventById(eventId);
       if (!ev) return load(); // fallback
       upsertCachedEvent(ev);
@@ -4252,6 +4452,7 @@ if ('serviceWorker' in navigator) {
   initSiteProfile();
   loadPublicSeniorsRosterChoices();
   load();
+  flushPendingWriteQueue({ silent: true });
   startAutoRefresh();
 })();
 
