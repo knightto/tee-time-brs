@@ -473,6 +473,16 @@ body[data-site-group="seniors"] .pill-primary:hover{
   background:#334155;
 }
 
+.topbar-admin-gear{
+  display:none;
+  min-width:32px;
+  justify-content:center;
+  align-items:center;
+  padding:6px 10px;
+  font-size:15px;
+  line-height:1;
+}
+
 .topbar-dropdown{
   position:relative;
 }
@@ -889,6 +899,29 @@ body[data-site-group="main"] .events-header h2{
   letter-spacing:.02em;
   color:#f8fafc;
   text-shadow:0 4px 18px rgba(5,31,48,.36);
+}
+
+.offline-status-banner{
+  margin:0 0 14px;
+  padding:10px 12px;
+  border:1px solid rgba(245,158,11,.36);
+  border-radius:14px;
+  background:linear-gradient(135deg, rgba(255,251,235,.96) 0%, rgba(254,243,199,.92) 100%);
+  color:#92400e;
+  font-size:12px;
+  font-weight:700;
+  line-height:1.4;
+  box-shadow:0 10px 24px rgba(146,64,14,.08);
+}
+
+body.offline-readonly-mode .card-actions .button-row > button,
+body.offline-readonly-mode .event-top-actions .event-top-btn,
+body.offline-readonly-mode .tee .row button,
+body.offline-readonly-mode .maybe-controls .maybe-btn,
+body.offline-readonly-mode #newTeeBtn,
+body.offline-readonly-mode #newTeamBtn,
+body.offline-readonly-mode #requestClubTimeBtn{
+  opacity:.55;
 }
 
 #events{max-width:100%;margin:0;display:grid;gap:18px;grid-template-columns:repeat(auto-fill,minmax(340px,1fr))}
@@ -2095,6 +2128,10 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
 }
 
 @media (max-width:768px) {
+  .admin-link-wrap{
+    display:none;
+  }
+
   main.wrap{
     padding-bottom:104px;
   }
@@ -2139,12 +2176,25 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
     align-items:flex-end;
     gap:6px;
     flex-wrap:nowrap;
+    padding-right:38px;
   }
 
   .topbar .pill-link{
     min-height:30px;
     padding:6px 10px;
     font-size:12px;
+  }
+
+  .topbar-admin-gear{
+    display:inline-flex;
+    position:absolute;
+    top:10px;
+    right:12px;
+    min-width:30px;
+    width:30px;
+    height:30px;
+    padding:0;
+    z-index:1;
   }
 
   body[data-site-group="seniors"] #topbarTitleText{
@@ -2242,6 +2292,10 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   #starterModeBtn{
     order:-1;
     min-height:38px;
+  }
+
+  .starter-toolbar{
+    display:none;
   }
 
   .starter-card{

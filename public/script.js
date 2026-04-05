@@ -142,6 +142,7 @@ if ('serviceWorker' in navigator) {
   const requestClubPreferredTimeInput = $('#requestClubPreferredTime');
   const requestClubRequesterNameInput = $('#requestClubRequesterName');
   const requestClubNameOptions = $('#requestClubNameOptions');
+  const offlineStatusBanner = $('#offlineStatusBanner');
   const subscribeScopeNote = $('#subscribeScopeNote');
   const seniorsWithdrawalNote = $('#seniorsWithdrawalNote');
   const STARTER_EVENT_PREFS_KEY = 'teeTimeStarterEventViews';
@@ -164,6 +165,7 @@ if ('serviceWorker' in navigator) {
   let starterMode = false;
   let starterQuickFilter = 'needs-action';
   let teeDragState = null;
+  let offlineSnapshotState = null;
   let starterEventViewIds = loadStarterEventViewIds();
   let seniorsRosterChoices = [];
   const currentGroupSlug = (() => {
@@ -425,6 +427,16 @@ if ('serviceWorker' in navigator) {
       node.setAttribute('href', href);
       node.textContent = isMainGroup ? 'Admin' : 'Group Admin';
     });
+    document.querySelectorAll('[data-group-admin-icon-link]').forEach((node) => {
+      const isMainGroup = isMainGroupSite();
+      const href = isMainGroup
+        ? '/admin.html'
+        : (currentSiteLinks.adminPath || `/groups/${encodeURIComponent(currentGroupSlug)}/admin`);
+      const label = isMainGroup ? 'Admin' : 'Group Admin';
+      node.setAttribute('href', href);
+      node.setAttribute('aria-label', label);
+      node.setAttribute('title', label);
+    });
     document.querySelectorAll('[data-feature-link]').forEach((node) => {
       const featureKey = String(node.getAttribute('data-feature-link') || '').trim();
       node.hidden = !siteFeatureEnabled(featureKey);
@@ -469,6 +481,9 @@ if ('serviceWorker' in navigator) {
     })();
     if (isSeniorsGroupSite() && runningStandalone) {
       document.querySelectorAll('[data-group-admin-link]').forEach((node) => {
+        node.hidden = true;
+      });
+      document.querySelectorAll('[data-group-admin-icon-link]').forEach((node) => {
         node.hidden = true;
       });
       if (topbarDropdown) topbarDropdown.hidden = true;
@@ -1893,6 +1908,82 @@ if ('serviceWorker' in navigator) {
     }
     return data;
   }
+
+  const OFFLINE_SNAPSHOT_KEY_PREFIX = 'teeTimeOfflineSnapshotV1';
+
+  function buildOfflineSnapshotKey(requestPath = '') {
+    try {
+      const url = new URL(String(requestPath || ''), window.location.origin);
+      if (url.origin !== window.location.origin || !url.pathname.startsWith('/api/')) return '';
+      if (!/^\/api\/events\/by-date(?:\/|$)|^\/api\/events\/calendar\/summary(?:\/|$)|^\/api\/events\/[^/]+(?:\/|$)/.test(url.pathname)) return '';
+      url.searchParams.delete('_rt');
+      url.searchParams.delete('fresh');
+      const pairs = Array.from(url.searchParams.entries()).sort((left, right) => {
+        if (left[0] !== right[0]) return left[0].localeCompare(right[0]);
+        return String(left[1]).localeCompare(String(right[1]));
+      });
+      const query = pairs.map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`).join('&');
+      return `${OFFLINE_SNAPSHOT_KEY_PREFIX}:${url.pathname}${query ? `?${query}` : ''}`;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function writeOfflineSnapshot(requestPath = '', payload = null) {
+    const key = buildOfflineSnapshotKey(requestPath);
+    if (!key) return;
+    try {
+      localStorage.setItem(key, JSON.stringify({
+        savedAt: Date.now(),
+        requestPath,
+        payload,
+      }));
+    } catch (_) {}
+  }
+
+  function readOfflineSnapshot(requestPath = '') {
+    const key = buildOfflineSnapshotKey(requestPath);
+    if (!key) return null;
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object' || !('payload' in parsed)) return null;
+      return parsed;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function formatOfflineSavedAt(savedAt) {
+    if (!Number.isFinite(Number(savedAt))) return 'an earlier session';
+    try {
+      return new Date(Number(savedAt)).toLocaleString();
+    } catch (_) {
+      return 'an earlier session';
+    }
+  }
+
+  function setOfflineSnapshotState(nextState = null) {
+    offlineSnapshotState = nextState;
+    document.body.classList.toggle('offline-readonly-mode', !!offlineSnapshotState);
+    if (!offlineStatusBanner) return;
+    if (!offlineSnapshotState) {
+      offlineStatusBanner.hidden = true;
+      offlineStatusBanner.textContent = '';
+      return;
+    }
+    const requestLabel = offlineSnapshotState.label || 'saved tee sheet data';
+    const savedAtLabel = formatOfflineSavedAt(offlineSnapshotState.savedAt);
+    const offlinePrefix = navigator.onLine ? 'Network issue' : 'Offline';
+    offlineStatusBanner.textContent = `${offlinePrefix}: showing ${requestLabel} from ${savedAtLabel}. Read-only mode is on until live data returns.`;
+    offlineStatusBanner.hidden = false;
+  }
+
+  function clearOfflineSnapshotState() {
+    if (!offlineSnapshotState) return;
+    setOfflineSnapshotState(null);
+  }
   async function api(path, opts){ 
     const method = String(opts?.method || 'GET').toUpperCase();
     let requestPath = path;
@@ -1909,6 +2000,9 @@ if ('serviceWorker' in navigator) {
     } catch (_) {}
     if (currentGroupSlug === 'seniors' && isSeniorsAdminView()) {
       mergedHeaders['x-seniors-admin-view'] = mergedHeaders['x-seniors-admin-view'] || '1';
+    }
+    if (method !== 'GET' && (!navigator.onLine || offlineSnapshotState)) {
+      throw new Error('Offline snapshot mode is read-only. Reconnect before making changes.');
     }
     if (method === 'GET') {
       // Force fresh API reads, especially after mobile app resume.
@@ -1959,10 +2053,26 @@ if ('serviceWorker' in navigator) {
         debugLog('error', `API Error: ${method} ${requestPath} (${r.status})`, body);
         throw new Error(msg);
       }
+      if (method === 'GET' && ct.includes('application/json')) {
+        writeOfflineSnapshot(requestPath, body);
+        clearOfflineSnapshotState();
+      }
       debugLog('success', `API Success: ${method} ${requestPath}`, body);
       return body;
     } catch (err) {
       clearTimeout(timeoutId);
+      if (method === 'GET') {
+        const cached = readOfflineSnapshot(requestPath);
+        if (cached) {
+          debugLog('warn', `API Offline Fallback: ${method} ${requestPath}`, { savedAt: cached.savedAt });
+          let label = 'saved tee sheet data';
+          if (String(requestPath).includes('/api/events/by-date')) label = 'saved selected-day tee sheet';
+          else if (String(requestPath).includes('/api/events/calendar/summary')) label = 'saved monthly calendar summary';
+          else if (/\/api\/events\/[^/?]+/.test(String(requestPath))) label = 'saved event details';
+          setOfflineSnapshotState({ savedAt: cached.savedAt, requestPath, label });
+          return cached.payload;
+        }
+      }
       if (err.name === 'AbortError') {
         debugLog('error', `API Timeout: ${method} ${requestPath}`, { error: 'Request timed out after 30 seconds' });
         throw new Error('Request timed out. Please check your connection and try again.');
@@ -1991,6 +2101,23 @@ if ('serviceWorker' in navigator) {
     requestServiceWorkerRefresh();
     load(true, { silent: true });
   }
+
+  window.addEventListener('online', () => {
+    showToast('Back online. Refreshing live tee sheet...', 'success');
+    clearOfflineSnapshotState();
+    load(true, { silent: true });
+  });
+
+  window.addEventListener('offline', () => {
+    if (offlineSnapshotState) {
+      setOfflineSnapshotState(offlineSnapshotState);
+      return;
+    }
+    if (offlineStatusBanner) {
+      offlineStatusBanner.hidden = false;
+      offlineStatusBanner.textContent = 'Offline: live updates are unavailable until your connection returns.';
+    }
+  });
 
   // Create Event: open modal in the requested mode (tees or teams)
   function setSeniorsCreateMode(mode = 'tee-times') {

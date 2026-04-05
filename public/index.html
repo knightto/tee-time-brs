@@ -41,6 +41,7 @@
           <a href="/handicaps.html" class="topbar-dropdown-item" data-group-link data-feature-link="includeHandicaps">Handicaps</a>
         </div>
       </details>
+      <a href="/admin.html" target="_blank" rel="noopener" class="pill-link topbar-admin-gear" data-group-admin-icon-link aria-label="Admin" title="Admin">⚙</a>
       <button id="openSubscribeBtn" class="pill-link pill-primary topbar-subscribe-btn">Subscribe</button>
     </nav>
   </header>
@@ -101,6 +102,7 @@
             <button id="requestClubTimeBtn" class="small" type="button" title="Request a tee time from the club for a selected date">Request a Tee Time</button>
           </div>
         </div>
+        <div id="offlineStatusBanner" class="offline-status-banner" hidden></div>
         <div id="seniorsWithdrawalNote" class="note" hidden>For Seniors event withdrawals, call Ken Roko directly.</div>
         <div id="events"></div>
       </div>
@@ -350,6 +352,12 @@
             node.setAttribute('href', `/groups/${encodeURIComponent(groupSlug)}/admin`);
             node.textContent = 'Group Admin';
           }
+        });
+        document.querySelectorAll('[data-group-admin-icon-link]').forEach((node) => {
+          const label = isMainGroup ? 'Admin' : 'Group Admin';
+          node.setAttribute('href', isMainGroup ? '/admin.html' : `/groups/${encodeURIComponent(groupSlug)}/admin`);
+          node.setAttribute('aria-label', label);
+          node.setAttribute('title', label);
         });
       } catch (_) {}
     })();
