@@ -37,6 +37,10 @@ body.standalone-app .app-bottom-nav {
   display: inline-flex;
 }
 
+body.has-mobile-bottom-nav.browser-app .pwa-install-fab {
+  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+}
+
 .pwa-install-fab-icon {
   width: 22px;
   height: 22px;
@@ -76,6 +80,10 @@ body.standalone-app .app-bottom-nav {
 
 .pwa-install-bar.visible {
   display: flex;
+}
+
+body.has-mobile-bottom-nav.browser-app .pwa-install-bar {
+  bottom: calc(132px + env(safe-area-inset-bottom, 0px));
 }
 
 .pwa-install-copy {

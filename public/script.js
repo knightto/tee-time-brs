@@ -134,6 +134,8 @@ if ('serviceWorker' in navigator) {
   const mobileQuickBar = $('#mobileQuickBar');
   const mobileFilterBar = $('#mobileFilterBar');
   const mobileFilterStatus = $('#mobileFilterStatus');
+  const calendarSidebar = document.querySelector('.calendar-sidebar');
+  const eventsContainer = document.querySelector('.events-container');
   const requestClubTimeModal = $('#requestClubTimeModal');
   const requestClubTimeForm = $('#requestClubTimeForm');
   const requestClubDateInput = $('#requestClubDate');
@@ -561,6 +563,9 @@ if ('serviceWorker' in navigator) {
   if (initialSelectedDateFromUrl) {
     selectedDate = initialSelectedDateFromUrl;
     currentDate = new Date(`${initialSelectedDateFromUrl}T12:00:00`);
+  }
+  if (mobileQuickBar && document.body) {
+    document.body.classList.add('has-mobile-bottom-nav');
   }
 
   // Inject Edit dialog
@@ -1586,6 +1591,18 @@ if ('serviceWorker' in navigator) {
     starterModeBtn.textContent = starterMode ? 'Full View' : 'Starter Mode';
     starterModeBtn.classList.toggle('is-active', starterMode);
     starterModeBtn.setAttribute('aria-pressed', starterMode ? 'true' : 'false');
+    const mobileStarterBtn = mobileQuickBar ? mobileQuickBar.querySelector('[data-mobile-action="starter"]') : null;
+    if (mobileStarterBtn) {
+      mobileStarterBtn.classList.toggle('is-active', starterMode);
+      mobileStarterBtn.setAttribute('aria-pressed', starterMode ? 'true' : 'false');
+      const label = mobileStarterBtn.querySelector('.app-bottom-nav-label');
+      if (label) label.textContent = starterMode ? 'Full View' : 'Starter';
+    }
+  }
+
+  function scrollToSection(target) {
+    if (!target || typeof target.scrollIntoView !== 'function') return;
+    target.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   async function setStarterMode(nextValue) {
@@ -2517,6 +2534,18 @@ if ('serviceWorker' in navigator) {
         btn.disabled = true;
         btn.textContent = 'Loading...';
         await applySelectedDate(localDateISO(), { force: true });
+        return;
+      }
+      if (action === 'calendar') {
+        scrollToSection(calendarSidebar);
+        return;
+      }
+      if (action === 'events') {
+        scrollToSection(eventsContainer);
+        return;
+      }
+      if (action === 'starter') {
+        starterModeBtn?.click();
         return;
       }
       if (action === 'next-event') {
