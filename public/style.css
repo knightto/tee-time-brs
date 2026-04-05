@@ -1142,6 +1142,9 @@ body[data-site-group="seniors"] .empty-tee-note{
   margin:0 0 4px;
   font-size:10px;
 }
+body[data-site-group="seniors"] .event-bottom-meta{
+  margin-top:4px;
+}
 body[data-site-group="seniors"] .event-bottom-actions{
   margin-top:-2px;
 }
@@ -2395,6 +2398,10 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
   .events-header{
     align-items:flex-start;
   }
+
+  #selectedDateTitle[data-empty="true"]{
+    display:none;
+  }
   
   .event-controls{
     width:100%;
@@ -3144,6 +3151,13 @@ body[data-site-group="seniors"] .card-content{
   margin-top:4px;
 }
 
+.event-bottom-meta{
+  display:flex;
+  justify-content:flex-end;
+  align-items:center;
+  margin-top:6px;
+}
+
 .event-bottom-audit-btn{
   min-height:24px;
   padding:3px 9px;
@@ -3826,13 +3840,13 @@ nav a:hover{
 
 .full-day-alert{
   margin:0 0 10px 0;
-  padding:8px 10px;
+  padding:6px 8px;
   border:1px solid #fdba74;
   border-radius:10px;
   background:linear-gradient(135deg, rgba(255,247,237,.96) 0%, rgba(255,237,213,.92) 100%);
   color:#9a3412;
-  font-size:12px;
-  line-height:1.4;
+  font-size:11px;
+  line-height:1.3;
 }
 
 /* Compact tee card layout to reduce vertical space */

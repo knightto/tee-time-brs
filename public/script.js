@@ -1678,6 +1678,8 @@ if ('serviceWorker' in navigator) {
     if (!timing) return '';
     const params = new URLSearchParams();
     params.set('action', 'TEMPLATE');
+    params.set('sf', 'true');
+    params.set('output', 'xml');
     params.set('text', calendarTitle(ev));
     params.set('details', calendarDescription(ev));
     params.set('location', ev && ev.course ? String(ev.course) : 'Golf Course');
@@ -1692,7 +1694,12 @@ if ('serviceWorker' in navigator) {
   }
 
   function openExternalCalendarUrlSafely(urlBuilder) {
-    const popup = window.open('about:blank', '_blank', 'noopener,noreferrer');
+    const popup = window.open('', '_blank');
+    if (popup) {
+      try {
+        popup.opener = null;
+      } catch {}
+    }
     return Promise.resolve()
       .then(urlBuilder)
       .then((url) => {
@@ -1701,7 +1708,7 @@ if ('serviceWorker' in navigator) {
           return false;
         }
         if (popup && !popup.closed) {
-          popup.location = url;
+          popup.location.replace(url);
           return true;
         }
         window.open(url, '_blank', 'noopener,noreferrer');
@@ -1811,6 +1818,7 @@ if ('serviceWorker' in navigator) {
     const showLoading = options.showLoading !== false;
     if (!selectedDate) {
       selectedDateTitle.textContent = '';
+      selectedDateTitle.dataset.empty = 'true';
       allEvents = [];
       eventsEl.innerHTML = '';
       updateMobileFilterStatus(0, 0);
@@ -1827,6 +1835,7 @@ if ('serviceWorker' in navigator) {
       year: 'numeric',
       timeZone: 'UTC'
     });
+    selectedDateTitle.dataset.empty = 'false';
     if (showLoading) {
       eventsEl.innerHTML = '<div style="color:#ffffff;padding:20px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.7)">Loading events...</div>';
     }
@@ -2347,6 +2356,7 @@ if ('serviceWorker' in navigator) {
   function renderEventsForDate() {
     if (!selectedDate) {
       selectedDateTitle.textContent = '';
+      selectedDateTitle.dataset.empty = 'true';
       eventsEl.innerHTML = '';
       updateMobileFilterStatus(0, 0);
       return;
@@ -2360,6 +2370,7 @@ if ('serviceWorker' in navigator) {
       year: 'numeric',
       timeZone: 'UTC'
     });
+    selectedDateTitle.dataset.empty = 'false';
     
     const visibleEvents = filteredSelectedDateEvents(allEvents);
     updateMobileFilterStatus(visibleEvents.length, allEvents.length);
@@ -2676,7 +2687,6 @@ if ('serviceWorker' in navigator) {
         const registeredCount = seniorsEventOnly
           ? seniorsRegistrations.length
           : teesArr.reduce((sum, tt) => sum + ((tt.players || []).length), 0);
-        const checkedInCount = teesArr.reduce((sum, tt) => sum + ((tt.players || []).filter((p) => !!p.checkedIn).length), 0);
         const fifthCount = eventFifthCount(ev);
         const totalCapacity = slotCount * slotCap;
         const openCount = Math.max(0, totalCapacity - registeredCount);
@@ -2684,32 +2694,8 @@ if ('serviceWorker' in navigator) {
         const showMaybeList = !isSeniorsGroup;
         const isDayFullyBooked = !seniorsEventOnly && !isTeams && slotCount > 0 && openCount === 0;
         const fullDayAlert = isDayFullyBooked
-          ? `<div class="full-day-alert">All tee times are full for ${escapeHtml(fullDateLabel(toDateISO(ev.date)))}. You can request an additional time from the ${escapeHtml(clubContactLabel())}${fifthCount ? '.' : ' or ask them to allow a 5th in one of your tee times for that day.'}</div>`
+          ? `<div class="full-day-alert">Full. Ask ${escapeHtml(clubContactLabel())} for another time${fifthCount ? '.' : ' or a 5th.'}</div>`
           : '';
-        const summaryItems = seniorsEventOnly
-          ? [{
-              value: registeredCount,
-              label: registeredCount === 1 ? 'signup' : 'signups',
-            }]
-          : [
-              { value: registeredCount, label: 'registered' },
-              { value: checkedInCount, label: 'checked in' },
-              { value: openCount, label: 'open' },
-              ...(fifthCount ? [{ value: fifthCount, label: `fifth${fifthCount === 1 ? '' : 's'}` }] : []),
-              ...(showMaybeList ? [{ value: maybeCount, label: 'maybe' }] : []),
-              {
-                value: slotCount,
-                label: isTeams ? (slotCount === 1 ? 'team' : 'teams') : (slotCount === 1 ? 'tee time' : 'tee times'),
-              },
-            ];
-        const summaryRow = `<div class="event-summary-row" aria-label="Event summary">
-          ${summaryItems.map((item) => `
-            <span class="event-summary-chip">
-              <strong>${escapeHtml(String(item.value))}</strong>
-              <span>${escapeHtml(String(item.label))}</span>
-            </span>
-          `).join('')}
-        </div>`;
         const tees = teesArr.map((tt,idx)=>teeRow(ev,tt,idx,isTeams)).join('');
         const maybeCountBadge = `<span class="maybe-count-pill${maybeCount ? '' : ' is-empty'}">${maybeCount ? `${maybeCount} waiting` : 'Empty'}</span>`;
         const signupCount = seniorsRegistrations.length;
@@ -2791,6 +2777,7 @@ if ('serviceWorker' in navigator) {
         const courseDetails = courseDetailRows.length
           ? `<div class="course-details">${courseDetailRows.join('')}</div>`
           : '';
+        const googleCalendarUrl = !isSeniorsGroup ? buildGoogleCalendarUrl(ev) : '';
         const seniorsEventMeta = isSeniorsGroup && ev.seniorsEventType
           ? `<div class="row" style="gap:8px;flex-wrap:wrap;margin:4px 0 8px 0">
               <span class="pill-link" style="cursor:default">${escapeHtml(seniorsEventTypeLabel(ev.seniorsEventType))}</span>
@@ -2800,11 +2787,10 @@ if ('serviceWorker' in navigator) {
         const showGolferControlsLegend = !isSeniorsGroup;
         const showSeniorsCalendarAdminActions = canManageSeniorsCalendar();
         const showEventTopActions = !isSeniorsGroup || showSeniorsCalendarAdminActions;
-        const showSeniorsExportActions = !isSeniorsGroup || showSeniorsCalendarAdminActions;
+        const showSeniorsExportActions = isSeniorsGroup && showSeniorsCalendarAdminActions;
         const showBottomAuditAction = !isSeniorsGroup || showSeniorsCalendarAdminActions;
         const eventToolsRow = `
           <div class="event-toolbar">
-            ${seniorsEventOnly ? '' : '<div class="empty-tee-note"><span>Red</span><span>empty tee time</span></div>'}
             <div class="event-toolbar-actions">
               <button class="small event-actions-toggle" data-toggle-actions title="Show/hide event actions">Actions</button>
             </div>
@@ -2839,7 +2825,6 @@ if ('serviceWorker' in navigator) {
           <div class="card-content">
             ${seniorsEventMeta}
             ${seniorsEventOnly ? seniorsRegistrationSection : maybeSection}
-            ${summaryRow}
             ${eventToolsRow}
             ${fullDayAlert}
             <div class="card-actions">
@@ -2848,13 +2833,13 @@ if ('serviceWorker' in navigator) {
                 ${seniorsEventOnly || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add Team</button>` : `<button class="small" data-add-tee="${ev._id}">Add Existing Time</button>`)}
                 ${seniorsEventOnly || isTeams || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Suggest Pairings</button>`}
                 ${showSeniorsExportActions ? `<button class="small" data-export-seniors-event="${ev._id}" title="Export the registration list">Export</button>` : ''}
-                ${isSeniorsGroup && !showSeniorsCalendarAdminActions ? '' : `<button class="small" data-extract-seniors-event="${ev._id}" title="Extract names and emails">Extract</button>`}
-                <button class="small" data-calendar-google="${ev._id}" title="Add this event to Google Calendar">Add to Calendar</button>
+                <button class="small" data-calendar-google="${ev._id}"${googleCalendarUrl ? ` data-calendar-google-url="${escapeHtml(googleCalendarUrl)}"` : ''} title="Add this event to Google Calendar">Add to Calendar</button>
               </div>
             </div>
             ${seniorsEventOnly || !showGolferControlsLegend ? '' : eventActionLegend}
             <div class="tees">${seniorsEventOnly ? '' : (tees || (isTeams ? '<em>No teams</em>' : '<em>No tee times</em>'))}</div>
             ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
+            ${seniorsEventOnly ? '' : '<div class="event-bottom-meta"><div class="empty-tee-note"><span>Red</span><span>empty tee time</span></div></div>'}
             <div class="event-bottom-actions"${showBottomAuditAction ? '' : ' hidden'}>
               <button class="small event-audit-btn event-bottom-audit-btn" data-audit="${ev._id}" title="View Audit Log" aria-label="View Audit Log">View Audit</button>
             </div>
@@ -3058,6 +3043,11 @@ if ('serviceWorker' in navigator) {
       if(t.dataset.calendarGoogle){
         if (currentGroupSlug === 'seniors') {
           showToast('Google calendar link is not available on the Seniors page.', 'error');
+          return;
+        }
+        const directUrl = String(t.dataset.calendarGoogleUrl || '').trim();
+        if (directUrl) {
+          window.open(directUrl, '_blank', 'noopener,noreferrer');
           return;
         }
         const ok = await openExternalCalendarUrlSafely(async () => {

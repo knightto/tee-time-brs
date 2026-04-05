@@ -2,6 +2,7 @@ const mongoose = require('mongoose');
 let secondaryConn = null;
 
 function initSecondaryConn() {
+  if (process.env.SKIP_MONGO_CONNECT === '1') return null;
   const secondaryUri = String(process.env.MONGO_URI_SECONDARY || '').trim();
   if (secondaryConn || !secondaryUri) return secondaryConn;
   secondaryConn = mongoose.createConnection(secondaryUri, {
