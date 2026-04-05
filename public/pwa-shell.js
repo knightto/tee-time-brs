@@ -3,6 +3,8 @@
   const IOS_TIP_KEY = 'pwaIosTipDismissedV1';
   let deferredPrompt = null;
   let installBar = null;
+  let installFab = null;
+  let installSheet = null;
 
   const isStandalone = () => {
     try {
@@ -39,16 +41,159 @@
   function applyStandaloneClass() {
     document.body.classList.toggle('standalone-app', isStandalone());
     document.body.classList.toggle('browser-app', !isStandalone());
+    syncInstallUi();
+  }
+
+  function currentInstallTitle() {
+    return document.body && document.body.dataset && document.body.dataset.pwaInstallTitle
+      ? document.body.dataset.pwaInstallTitle
+      : 'Add to Home Screen';
+  }
+
+  function currentInstallMessage() {
+    return document.body && document.body.dataset && document.body.dataset.pwaInstallMessage
+      ? document.body.dataset.pwaInstallMessage
+      : 'Install for quicker access.';
+  }
+
+  function currentAppTitle() {
+    return document.body && document.body.dataset && document.body.dataset.pwaTitle
+      ? document.body.dataset.pwaTitle
+      : 'this app';
+  }
+
+  function canShowInstallUi() {
+    if (isStandalone()) return false;
+    return Boolean(deferredPrompt) || isIosSafari();
+  }
+
+  function buildSheetContent() {
+    const appTitle = currentAppTitle();
+    if (isIosSafari()) {
+      return {
+        title: `Install ${appTitle}`,
+        intro: `Save ${appTitle} to your Home Screen for a cleaner, app-like launch.`,
+        steps: [
+          'Tap the Share button in Safari.',
+          'Scroll down and choose Add to Home Screen.',
+          'Tap Add in the upper-right corner.',
+        ],
+        confirmLabel: 'Got It',
+      };
+    }
+    return {
+      title: `Install ${appTitle}`,
+      intro: `Install ${appTitle} so it opens in standalone mode with faster access from your Home Screen.`,
+      steps: [
+        'Tap Install below.',
+        'Confirm the browser install prompt.',
+        'Launch it from your Home Screen like an app.',
+      ],
+      confirmLabel: 'Install Now',
+    };
+  }
+
+  function ensureInstallSheet() {
+    if (installSheet) return installSheet;
+    installSheet = document.createElement('div');
+    installSheet.className = 'pwa-install-sheet';
+    installSheet.innerHTML = `
+      <div class="pwa-install-sheet-backdrop" data-pwa-sheet-close></div>
+      <div class="pwa-install-sheet-panel" role="dialog" aria-modal="true" aria-labelledby="pwaInstallSheetTitle">
+        <div class="pwa-install-sheet-handle"></div>
+        <div class="pwa-install-sheet-copy">
+          <strong id="pwaInstallSheetTitle"></strong>
+          <p id="pwaInstallSheetIntro"></p>
+          <ol id="pwaInstallSheetSteps" class="pwa-install-steps"></ol>
+        </div>
+        <div class="pwa-install-sheet-actions">
+          <button id="pwaInstallSheetConfirm" class="pwa-sheet-primary" type="button"></button>
+          <button id="pwaInstallSheetDismiss" class="pwa-sheet-secondary" type="button">Not Now</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(installSheet);
+
+    installSheet.querySelectorAll('[data-pwa-sheet-close]').forEach((node) => {
+      node.addEventListener('click', hideInstallSheet);
+    });
+    installSheet.querySelector('#pwaInstallSheetDismiss').addEventListener('click', () => {
+      if (isIosSafari()) setDismissed(IOS_TIP_KEY, 14);
+      else setDismissed(DISMISS_KEY, 14);
+      hideInstallSheet();
+      syncInstallUi();
+    });
+    installSheet.querySelector('#pwaInstallSheetConfirm').addEventListener('click', async () => {
+      if (deferredPrompt) {
+        deferredPrompt.prompt();
+        try {
+          await deferredPrompt.userChoice;
+        } catch (_err) {}
+        deferredPrompt = null;
+      } else if (isIosSafari()) {
+        setDismissed(IOS_TIP_KEY, 14);
+      }
+      hideInstallSheet();
+      hideInstallBar();
+      syncInstallUi();
+    });
+    return installSheet;
+  }
+
+  function showInstallSheet() {
+    if (!canShowInstallUi()) return;
+    const sheet = ensureInstallSheet();
+    const content = buildSheetContent();
+    const titleEl = sheet.querySelector('#pwaInstallSheetTitle');
+    const introEl = sheet.querySelector('#pwaInstallSheetIntro');
+    const stepsEl = sheet.querySelector('#pwaInstallSheetSteps');
+    const confirmEl = sheet.querySelector('#pwaInstallSheetConfirm');
+    if (titleEl) titleEl.textContent = content.title;
+    if (introEl) introEl.textContent = content.intro;
+    if (stepsEl) {
+      stepsEl.innerHTML = content.steps.map((step) => `<li>${step}</li>`).join('');
+    }
+    if (confirmEl) confirmEl.textContent = content.confirmLabel;
+    sheet.classList.add('visible');
+  }
+
+  function hideInstallSheet() {
+    if (!installSheet) return;
+    installSheet.classList.remove('visible');
+  }
+
+  function ensureInstallFab() {
+    if (installFab) return installFab;
+    installFab = document.createElement('button');
+    installFab.className = 'pwa-install-fab';
+    installFab.type = 'button';
+    installFab.innerHTML = '<span class="pwa-install-fab-icon">+</span><span class="pwa-install-fab-label">Install App</span>';
+    installFab.addEventListener('click', () => {
+      if (deferredPrompt) {
+        showInstallSheet();
+        return;
+      }
+      if (isIosSafari()) {
+        showInstallSheet();
+      }
+    });
+    document.body.appendChild(installFab);
+    return installFab;
+  }
+
+  function syncInstallUi() {
+    const shouldShow = canShowInstallUi();
+    if (installFab) installFab.classList.toggle('visible', shouldShow);
+    if (!shouldShow) {
+      hideInstallBar();
+      hideInstallSheet();
+    }
   }
 
   function ensureInstallBar() {
     if (installBar) return installBar;
-    const installTitle = document.body && document.body.dataset && document.body.dataset.pwaInstallTitle
-      ? document.body.dataset.pwaInstallTitle
-      : 'Add to Home Screen';
-    const installMessage = document.body && document.body.dataset && document.body.dataset.pwaInstallMessage
-      ? document.body.dataset.pwaInstallMessage
-      : 'Install for quicker access.';
+    const installTitle = currentInstallTitle();
+    const installMessage = currentInstallMessage();
     installBar = document.createElement('div');
     installBar.className = 'pwa-install-bar';
     installBar.innerHTML = `
@@ -68,22 +213,21 @@
 
     installButton.addEventListener('click', async () => {
       if (deferredPrompt) {
-        deferredPrompt.prompt();
-        try {
-          await deferredPrompt.userChoice;
-        } catch (_err) {}
-        deferredPrompt = null;
-        hideInstallBar();
+        showInstallSheet();
+        return;
+      }
+      if (isIosSafari()) {
+        showInstallSheet();
         return;
       }
       hideInstallBar();
-      setDismissed(IOS_TIP_KEY, 14);
     });
 
     dismissButton.addEventListener('click', () => {
       if (deferredPrompt) setDismissed(DISMISS_KEY, 14);
       else setDismissed(IOS_TIP_KEY, 14);
       hideInstallBar();
+      syncInstallUi();
     });
 
     return installBar;
@@ -94,9 +238,7 @@
     const titleEl = bar.querySelector('#pwaInstallTitle');
     const messageEl = bar.querySelector('#pwaInstallMessage');
     const installButton = bar.querySelector('#pwaInstallButton');
-    const defaultTitle = document.body && document.body.dataset && document.body.dataset.pwaInstallTitle
-      ? document.body.dataset.pwaInstallTitle
-      : 'Add to Home Screen';
+    const defaultTitle = currentInstallTitle();
     if (titleEl) titleEl.textContent = defaultTitle;
     if (messageEl) messageEl.textContent = message;
     if (installButton) installButton.textContent = installLabel;
@@ -105,6 +247,8 @@
   function showInstallBar() {
     if (isStandalone()) return;
     ensureInstallBar().classList.add('visible');
+    ensureInstallFab();
+    syncInstallUi();
   }
 
   function hideInstallBar() {
@@ -124,17 +268,22 @@
     deferredPrompt = event;
     setInstallMessage('Install for quicker access.', 'Install');
     showInstallBar();
+    ensureInstallFab();
+    syncInstallUi();
   });
 
   window.addEventListener('appinstalled', () => {
     deferredPrompt = null;
     hideInstallBar();
+    hideInstallSheet();
     applyStandaloneClass();
   });
 
   window.addEventListener('DOMContentLoaded', () => {
     applyStandaloneClass();
+    ensureInstallFab();
     maybeShowIosTip();
+    syncInstallUi();
   });
 
   try {

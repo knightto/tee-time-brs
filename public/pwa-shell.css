@@ -14,6 +14,46 @@ body.standalone-app .app-bottom-nav {
   bottom: calc(12px + env(safe-area-inset-bottom, 0px));
 }
 
+.pwa-install-fab {
+  position: fixed;
+  right: max(12px, env(safe-area-inset-right, 0px));
+  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
+  z-index: 39;
+  display: none;
+  align-items: center;
+  gap: 8px;
+  min-height: 46px;
+  padding: 0 14px;
+  border: 1px solid rgba(200,154,75,.28);
+  border-radius: 999px;
+  background: linear-gradient(135deg, rgba(23,50,36,.96), rgba(35,76,51,.96));
+  color: #f9f3e7;
+  box-shadow: 0 12px 24px rgba(0,0,0,.22);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pwa-install-fab.visible {
+  display: inline-flex;
+}
+
+.pwa-install-fab-icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(200,154,75,.18);
+  font-size: 16px;
+  line-height: 1;
+}
+
+.pwa-install-fab-label {
+  font-size: .82rem;
+  letter-spacing: .01em;
+}
+
 .pwa-install-bar {
   position: fixed;
   right: 12px;
@@ -84,6 +124,103 @@ body.standalone-app .pwa-install-bar {
   display: none !important;
 }
 
+body.standalone-app .pwa-install-fab {
+  display: none !important;
+}
+
+.pwa-install-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: none;
+}
+
+.pwa-install-sheet.visible {
+  display: block;
+}
+
+.pwa-install-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15,23,42,.48);
+}
+
+.pwa-install-sheet-panel {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  max-width: 460px;
+  margin: 0 auto;
+  padding: 14px 14px 16px;
+  border-radius: 22px;
+  border: 1px solid rgba(200,154,75,.18);
+  background: linear-gradient(180deg, #173224f7, #102317fa);
+  color: #f8fafc;
+  box-shadow: 0 24px 48px rgba(0,0,0,.28);
+}
+
+.pwa-install-sheet-handle {
+  width: 42px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(255,255,255,.24);
+  margin: 0 auto 12px;
+}
+
+.pwa-install-sheet-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.pwa-install-sheet-copy strong {
+  font-size: 1rem;
+  line-height: 1.2;
+}
+
+.pwa-install-sheet-copy p {
+  margin: 0;
+  color: #d2dfc3;
+  font-size: .88rem;
+  line-height: 1.4;
+}
+
+.pwa-install-steps {
+  margin: 0;
+  padding-left: 18px;
+  display: grid;
+  gap: 8px;
+  color: #f3f4f6;
+  font-size: .88rem;
+  line-height: 1.45;
+}
+
+.pwa-install-sheet-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.pwa-sheet-primary,
+.pwa-sheet-secondary {
+  flex: 1 1 0;
+  min-height: 42px;
+  border-radius: 14px;
+  border: 1px solid rgba(200,154,75,.22);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.pwa-sheet-primary {
+  background: linear-gradient(135deg, #c89a4b, #e0b96f);
+  color: #102317;
+}
+
+.pwa-sheet-secondary {
+  background: rgba(255,255,255,.06);
+  color: #f8fafc;
+}
+
 @media (max-width: 720px) {
   .pwa-install-bar {
     left: 10px;
@@ -101,6 +238,12 @@ body.standalone-app .pwa-install-bar {
   .pwa-install-btn,
   .pwa-dismiss-btn {
     flex: 0 0 auto;
+  }
+
+  .pwa-install-fab {
+    left: 10px;
+    right: 10px;
+    justify-content: center;
   }
 }
 
