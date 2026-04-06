@@ -3499,6 +3499,10 @@ body[data-site-group="seniors"] .card-content{
   margin-top:6px;
 }
 
+.event-actions-toggle{
+  display:inline-flex;
+}
+
 @media (max-width:768px){
   .card-date{
     flex-direction:column;
