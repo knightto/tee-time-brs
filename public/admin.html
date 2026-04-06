@@ -1640,6 +1640,14 @@
       </div>
       <div id="teeLogResult" class="test-result" style="display:block;"></div>
       <div id="teeLogTable" style="margin-top:12px;"></div>
+      <div style="height:16px;"></div>
+      <h3 style="margin:0 0 8px 0;">Inbound Tee-Time Email Log</h3>
+      <p class="section-intro">See the tee-time details captured from incoming reservation emails.</p>
+      <div class="test-buttons">
+        <button class="btn-test btn-log" id="inboundTeeEmailLogBtn">View Inbound Email Log</button>
+      </div>
+      <div id="inboundTeeEmailLogResult" class="test-result" style="display:block;"></div>
+      <div id="inboundTeeEmailLogTable" style="margin-top:12px;"></div>
     </section>
 
     <section id="subscribersSection" class="admin-section section-subscribers">
@@ -2878,6 +2886,8 @@
       checkGolfApiHealth(); // Check API health on load
       const teeLogBtn = document.getElementById('teeLogBtn');
       if (teeLogBtn) teeLogBtn.addEventListener('click', loadTeeTimeLog);
+      const inboundTeeEmailLogBtn = document.getElementById('inboundTeeEmailLogBtn');
+      if (inboundTeeEmailLogBtn) inboundTeeEmailLogBtn.addEventListener('click', loadInboundTeeTimeEmailLogEnhanced);
       const createBackupBtn = document.getElementById('createBackupBtn');
       if (createBackupBtn) createBackupBtn.addEventListener('click', createBackup);
       const refreshBackupsBtn = document.getElementById('refreshBackupsBtn');
@@ -3110,6 +3120,181 @@
         console.error('Log load error', err);
         result.classList.add('error');
         result.textContent = `Error loading log: ${err.message}`;
+      }
+    }
+
+    async function loadInboundTeeTimeEmailLog() {
+      const result = document.getElementById('inboundTeeEmailLogResult');
+      const tableWrap = document.getElementById('inboundTeeEmailLogTable');
+      result.className = 'test-result';
+      result.style.display = 'block';
+      result.textContent = 'Loading inbound email log...';
+      tableWrap.innerHTML = '';
+      try {
+        const res = await fetch(`/api/admin/inbound-tee-time-email-log?code=${encodeURIComponent(ADMIN_CODE)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const logs = await res.json();
+        result.classList.add('success');
+        result.textContent = `Loaded ${logs.length} inbound email records`;
+        if (!logs.length) {
+          tableWrap.innerHTML = '<div class="empty-state">No inbound tee-time emails logged yet</div>';
+          return;
+        }
+        const rows = logs.map((l) => `
+          <tr>
+            <td>${escapeHtml(l.action || '')}</td>
+            <td>${escapeHtml(l.course || '')}</td>
+            <td>${escapeHtml(l.teeDateISO || '')}</td>
+            <td>${escapeHtml(l.teeTime || '')}</td>
+            <td>${escapeHtml(String(l.golferCount ?? ''))}</td>
+            <td>${escapeHtml(l.ttid || '')}</td>
+            <td>${escapeHtml(l.sourceEmail || '')}</td>
+            <td>${l.emailReceivedAt ? new Date(l.emailReceivedAt).toLocaleString() : ''}</td>
+          </tr>
+        `).join('');
+        const mobileCards = logs.map((l) => {
+          const action = escapeHtml(l.action || 'email');
+          const course = escapeHtml(l.course || '—');
+          const teeDate = escapeHtml(l.teeDateISO || '—');
+          const teeTime = escapeHtml(l.teeTime || '—');
+          const golfers = escapeHtml(String(l.golferCount ?? '—'));
+          const ttid = escapeHtml(l.ttid || '—');
+          const sourceEmail = escapeHtml(l.sourceEmail || '—');
+          const when = l.emailReceivedAt ? new Date(l.emailReceivedAt).toLocaleString() : '—';
+          return `
+          <article class="log-card">
+            <div class="log-card-head">
+              <p class="log-title">${action}</p>
+              <span class="log-type tee">Email</span>
+            </div>
+            <div class="log-row"><span class="log-key">Course</span><span class="log-val">${course}</span></div>
+            <div class="log-row"><span class="log-key">Date</span><span class="log-val">${teeDate}</span></div>
+            <div class="log-row"><span class="log-key">Time</span><span class="log-val">${teeTime}</span></div>
+            <div class="log-row"><span class="log-key">Golfers</span><span class="log-val">${golfers}</span></div>
+            <div class="log-row"><span class="log-key">TTID</span><span class="log-val">${ttid}</span></div>
+            <div class="log-row"><span class="log-key">Source</span><span class="log-val">${sourceEmail}</span></div>
+            <div class="log-row"><span class="log-key">Received</span><span class="log-val">${when}</span></div>
+          </article>`;
+        }).join('');
+        tableWrap.innerHTML = `
+          <div class="table-shell log-table-shell">
+            <table class="log-table">
+              <thead>
+                <tr>
+                  <th>Action</th><th>Course</th><th>Tee Date</th><th>Tee Time</th><th>Golfers</th><th>TTID</th><th>Source Email</th><th>Received</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          <div class="log-mobile-list">${mobileCards}</div>
+        `;
+      } catch (err) {
+        console.error('Inbound tee-time email log load error', err);
+        result.classList.add('error');
+        result.textContent = `Error loading inbound email log: ${err.message}`;
+      }
+    }
+
+    async function loadInboundTeeTimeEmailLogEnhanced() {
+      const result = document.getElementById('inboundTeeEmailLogResult');
+      const tableWrap = document.getElementById('inboundTeeEmailLogTable');
+      result.className = 'test-result';
+      result.style.display = 'block';
+      result.textContent = 'Loading inbound email log...';
+      tableWrap.innerHTML = '';
+      try {
+        const res = await fetch(`/api/admin/inbound-tee-time-email-log?code=${encodeURIComponent(ADMIN_CODE)}`);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const logs = await res.json();
+        result.classList.add('success');
+        result.textContent = `Loaded ${logs.length} inbound email records`;
+        if (!logs.length) {
+          tableWrap.innerHTML = '<div class="empty-state">No inbound tee-time emails logged yet</div>';
+          return;
+        }
+        const resultLabel = (value) => escapeHtml(String(value || 'received'));
+        const teeTimesLabel = (row) => {
+          const values = Array.isArray(row.teeTimes) && row.teeTimes.length
+            ? row.teeTimes
+            : (row.teeTime ? [row.teeTime] : []);
+          return escapeHtml(values.join(', ') || '—');
+        };
+        const rows = logs.map((l) => `
+          <tr>
+            <td>${l.emailReceivedAt ? new Date(l.emailReceivedAt).toLocaleString() : ''}</td>
+            <td>${escapeHtml(l.action || '')}</td>
+            <td>${escapeHtml(l.course || '')}</td>
+            <td>${escapeHtml(l.teeDateISO || '')}</td>
+            <td>${teeTimesLabel(l)}</td>
+            <td>${escapeHtml(String(l.golferCount ?? ''))}</td>
+            <td>${resultLabel(l.processingResult)}</td>
+            <td>
+              <details>
+                <summary>Details</summary>
+                <div style="margin-top:8px; display:grid; gap:6px;">
+                  <div><strong>TTID:</strong> ${escapeHtml(l.ttid || '—')}</div>
+                  <div><strong>Source Email:</strong> ${escapeHtml(l.sourceEmail || '—')}</div>
+                  <div><strong>Raw Parsed Date/Time:</strong> ${escapeHtml(l.rawDateStr || '—')} / ${escapeHtml(l.rawTimeStr || '—')}</div>
+                  <div><strong>Matched Event:</strong> ${escapeHtml(l.matchedEventId || '—')}</div>
+                  <div><strong>Created Event:</strong> ${escapeHtml(l.createdEventId || '—')}</div>
+                  <div><strong>Processing Note:</strong> ${escapeHtml(l.processingNote || '—')}</div>
+                </div>
+              </details>
+            </td>
+          </tr>
+        `).join('');
+        const mobileCards = logs.map((l) => {
+          const action = escapeHtml(l.action || 'email');
+          const course = escapeHtml(l.course || '—');
+          const teeDate = escapeHtml(l.teeDateISO || '—');
+          const teeTimes = teeTimesLabel(l);
+          const golfers = escapeHtml(String(l.golferCount ?? '—'));
+          const ttid = escapeHtml(l.ttid || '—');
+          const sourceEmail = escapeHtml(l.sourceEmail || '—');
+          const when = l.emailReceivedAt ? new Date(l.emailReceivedAt).toLocaleString() : '—';
+          const rawDate = escapeHtml(l.rawDateStr || '—');
+          const rawTime = escapeHtml(l.rawTimeStr || '—');
+          const resultText = resultLabel(l.processingResult);
+          const matchedEventId = escapeHtml(l.matchedEventId || '—');
+          const createdEventId = escapeHtml(l.createdEventId || '—');
+          const note = escapeHtml(l.processingNote || '—');
+          return `
+          <article class="log-card">
+            <div class="log-card-head">
+              <p class="log-title">${action}</p>
+              <span class="log-type tee">${resultText}</span>
+            </div>
+            <div class="log-row"><span class="log-key">Received</span><span class="log-val">${when}</span></div>
+            <div class="log-row"><span class="log-key">Course</span><span class="log-val">${course}</span></div>
+            <div class="log-row"><span class="log-key">Date</span><span class="log-val">${teeDate}</span></div>
+            <div class="log-row"><span class="log-key">Tee Times</span><span class="log-val">${teeTimes}</span></div>
+            <div class="log-row"><span class="log-key">Golfers</span><span class="log-val">${golfers}</span></div>
+            <div class="log-row"><span class="log-key">TTID</span><span class="log-val">${ttid}</span></div>
+            <div class="log-row"><span class="log-key">Source</span><span class="log-val">${sourceEmail}</span></div>
+            <div class="log-row"><span class="log-key">Raw Parsed</span><span class="log-val">${rawDate} / ${rawTime}</span></div>
+            <div class="log-row"><span class="log-key">Matched Event</span><span class="log-val">${matchedEventId}</span></div>
+            <div class="log-row"><span class="log-key">Created Event</span><span class="log-val">${createdEventId}</span></div>
+            <div class="log-row"><span class="log-key">Note</span><span class="log-val">${note}</span></div>
+          </article>`;
+        }).join('');
+        tableWrap.innerHTML = `
+          <div class="table-shell log-table-shell">
+            <table class="log-table">
+              <thead>
+                <tr>
+                  <th>Received</th><th>Action</th><th>Course</th><th>Tee Date</th><th>Tee Times</th><th>Golfers</th><th>Result</th><th>Details</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          <div class="log-mobile-list">${mobileCards}</div>
+        `;
+      } catch (err) {
+        console.error('Inbound tee-time email log load error', err);
+        result.classList.add('error');
+        result.textContent = `Error loading inbound email log: ${err.message}`;
       }
     }
 

@@ -92,7 +92,7 @@ const APP_ORIGIN = (() => {
 })();
 const LOCAL_TZ = process.env.LOCAL_TZ || 'America/New_York';
 const DEFAULT_SITE_GROUP_SLUG = String(process.env.DEFAULT_SITE_GROUP_SLUG || 'main').trim().toLowerCase() || 'main';
-const SKINS_POPS_FORCE_READY = true;
+const SKINS_POPS_FORCE_READY = false;
 const RESEND_INBOUND_BASE_ADDRESS = 'teetime@xenailexou.resend.app';
 const GROUP_SLUG_ALIASES = Object.freeze({
   'thursday-seniors-group': 'seniors',
@@ -599,6 +599,7 @@ app.post('/webhooks/resend', async (req, res) => {
 
       // Parse the email body for reservation details
       const { parseTeeTimeEmail } = require('./utils/parseTeeTimeEmail');
+      const { buildInboundTeeTimeEmailLogEntry, buildInboundTeeTimeEmailLogResultUpdate } = require('./utils/inboundTeeTimeEmailLog');
       const parsed = parseTeeTimeEmail(textBody, email.subject);
       if (!parsed || !parsed.action) {
         console.warn('[webhook] No valid tee time action found');
@@ -661,7 +662,65 @@ app.post('/webhooks/resend', async (req, res) => {
         ? Math.max(1, Math.ceil(parsed.players / 4))
         : null;
       const teeTimesFromCount = teeTimeCount ? genTeeTimes(normalizedTime, teeTimeCount, 9) : undefined;
-      const dedupeKey = buildDedupeKey(eventDateObj, teeTimesFromCount || [{ time: normalizedTime }], false);
+      let inboundEmailLogId = '';
+      async function updateInboundEmailLog(result = {}) {
+        if (!InboundTeeTimeEmailLog) return;
+        const payload = buildInboundTeeTimeEmailLogResultUpdate(result);
+        try {
+          if (inboundEmailLogId) {
+            await InboundTeeTimeEmailLog.updateOne({ _id: inboundEmailLogId }, { $set: payload });
+            return;
+          }
+          const sourceEmailId = String(event.data && event.data.email_id || email.id || '').trim();
+          if (sourceEmailId) {
+            await InboundTeeTimeEmailLog.updateOne(
+              { groupSlug: requestGroupSlug, sourceEmailId },
+              { $set: payload }
+            );
+          }
+        } catch (logError) {
+          console.error('[webhook] Failed to update inbound tee-time email log:', logError);
+        }
+      }
+      if (InboundTeeTimeEmailLog) {
+        const inboundLogEntry = buildInboundTeeTimeEmailLogEntry({
+          groupSlug: requestGroupSlug,
+          parsed,
+          facility,
+          email,
+          eventData: event.data || {},
+          normalizedDate,
+          normalizedTime,
+          generatedTeeTimes: Array.isArray(teeTimesFromCount)
+            ? teeTimesFromCount.map((slot) => slot && slot.time).filter(Boolean)
+            : (normalizedTime ? [normalizedTime] : []),
+        });
+        try {
+          if (inboundLogEntry.sourceEmailId) {
+            await InboundTeeTimeEmailLog.updateOne(
+              { groupSlug: requestGroupSlug, sourceEmailId: inboundLogEntry.sourceEmailId },
+              { $setOnInsert: inboundLogEntry },
+              { upsert: true }
+            );
+            const existing = await InboundTeeTimeEmailLog.findOne(
+              { groupSlug: requestGroupSlug, sourceEmailId: inboundLogEntry.sourceEmailId },
+              { _id: 1 }
+            ).lean();
+            inboundEmailLogId = existing ? String(existing._id) : '';
+          } else {
+            const createdLog = await InboundTeeTimeEmailLog.create(inboundLogEntry);
+            inboundEmailLogId = String(createdLog._id);
+          }
+        } catch (logError) {
+          console.error('[webhook] Failed to persist inbound tee-time email log:', logError);
+        }
+      }
+      const dedupeKey = buildDedupeKey(
+        eventDateObj,
+        teeTimesFromCount || [{ time: normalizedTime }],
+        false,
+        facility || parsed.course || email.subject || 'Unknown Course'
+      );
 
       // Compose event payload as expected by /api/events (UI form)
       const eventPayload = {
@@ -746,11 +805,21 @@ app.post('/webhooks/resend', async (req, res) => {
           if (matches.length) {
             const updated = await updateEventFromPayload(matches[0]);
             console.log('[webhook] Event matched existing, updated instead of creating new', { id: updated._id });
+            await updateInboundEmailLog({
+              processingResult: 'updated',
+              processingNote: 'Matched an existing event and refreshed its tee-time details.',
+              matchedEventId: updated && updated._id ? String(updated._id) : '',
+            });
             markProcessed();
             return res.status(200).json({ ok: true, eventId: updated._id, updated: true, deduped: 0 });
           }
 
           const created = await createEventThroughApi(parsed.action);
+          await updateInboundEmailLog({
+            processingResult: 'created',
+            processingNote: 'Created a new event from the inbound tee-time email.',
+            createdEventId: created && created._id ? String(created._id) : '',
+          });
           // Send notification email to all subscribers (same as /api/events) for brand new events only
           try {
             const eventUrl = buildSiteEventUrl(created.groupSlug || requestGroupSlug, created._id);
@@ -770,6 +839,10 @@ app.post('/webhooks/resend', async (req, res) => {
           return res.status(201).json({ ok: true, eventId: created._id, created: true });
         } catch (err) {
           console.error('[webhook] Error creating/updating event via email:', err);
+          await updateInboundEmailLog({
+            processingResult: 'failed',
+            processingNote: err && err.message ? err.message : 'Error creating or updating event via API.',
+          });
           return res.status(500).send('Error creating/updating event via API');
         }
       } else if (parsed.action === 'CANCEL' && eventPayload.course && eventPayload.date && eventPayload.teeTime) {
@@ -779,6 +852,11 @@ app.post('/webhooks/resend', async (req, res) => {
             const primary = matches[0];
             await Event.findOneAndDelete({ ...groupScopeFilter(primary.groupSlug), _id: primary._id });
             console.log('[webhook] Event cancelled from email (removed match):', primary._id);
+            await updateInboundEmailLog({
+              processingResult: 'cancelled',
+              processingNote: 'Cancelled the matched event from the inbound tee-time email.',
+              matchedEventId: primary && primary._id ? String(primary._id) : '',
+            });
             // Notify subscribers about the cancellation (non-blocking)
             const teeMatch = (primary.teeTimes || []).find(tt => tt && tt.time === eventPayload.teeTime);
             const teeLabel = teeMatch && teeMatch.time ? fmt.tee(teeMatch.time) : null;
@@ -797,15 +875,27 @@ app.post('/webhooks/resend', async (req, res) => {
             return res.status(200).json({ ok: true, cancelled: true, eventIds: [primary._id] });
           } else {
             console.warn('[webhook] Cancel: no matching event found');
+            await updateInboundEmailLog({
+              processingResult: 'ignored',
+              processingNote: 'Cancel email received, but no matching event was found.',
+            });
             markProcessed();
             return res.status(200).send('Cancel: no matching event found');
           }
         } catch (err) {
           console.error('[webhook] Error cancelling event:', err);
+          await updateInboundEmailLog({
+            processingResult: 'failed',
+            processingNote: err && err.message ? err.message : 'Error cancelling event.',
+          });
           return res.status(500).send('Error cancelling event');
         }
       } else {
         console.log('[webhook] Ignoring non-create/cancel email action:', parsed.action);
+        await updateInboundEmailLog({
+          processingResult: 'ignored',
+          processingNote: `No event action taken for parsed action ${String(parsed.action || 'unknown').toLowerCase()}.`,
+        });
         markProcessed();
         return res.status(200).send(`No event created or cancelled (action=${parsed.action || 'unknown'})`);
       }
@@ -876,6 +966,7 @@ let SeniorsGolfer; try { SeniorsGolfer = require('./models/SeniorsGolfer'); } ca
 let HandicapSnapshot; try { HandicapSnapshot = require('./models/HandicapSnapshot'); } catch { HandicapSnapshot = null; }
 let ImportBatch; try { ImportBatch = require('./models/ImportBatch'); } catch { ImportBatch = null; }
 let TeeTimeLog; try { TeeTimeLog = require('./models/TeeTimeLog'); } catch { TeeTimeLog = null; }
+let InboundTeeTimeEmailLog; try { InboundTeeTimeEmailLog = require('./models/InboundTeeTimeEmailLog'); } catch { InboundTeeTimeEmailLog = null; }
 
 async function ensureScopedSettingsIndexes() {
   if (!Settings || !Settings.collection) return;
@@ -1911,9 +2002,7 @@ function weekendGameEligibleEvent(ev = {}) {
 }
 
 function skinsPopsUnlockAt(ev = {}) {
-  const lastTee = lastScheduledTeeTimeForEvent(ev);
-  if (!lastTee) return null;
-  return new Date(lastTee.getTime() + (4 * 60 * 60 * 1000));
+  return eventLocalDateTimeToUtc(ev && ev.date, '00:00', LOCAL_TZ);
 }
 
 function buildWeekendSkinsPopsDraw() {
@@ -3604,7 +3693,7 @@ function buildBackupOverview(backups = [], settings = {}, status = {}) {
     warnings,
   };
 }
-function buildDedupeKey(dateVal, teeTimes = [], isTeam = false) {
+function buildDedupeKey(dateVal, teeTimes = [], isTeam = false, courseName = '') {
   if (isTeam) return null;
   if (!dateVal || !Array.isArray(teeTimes) || !teeTimes.length) return null;
   const d = asUTCDate(dateVal);
@@ -3612,10 +3701,11 @@ function buildDedupeKey(dateVal, teeTimes = [], isTeam = false) {
   const dateISO = d.toISOString().slice(0, 10);
   const times = teeTimes.map((t) => t && t.time).filter(Boolean).sort();
   if (!times.length) return null;
-  return `${dateISO}|${times.join(',')}`;
+  const normalizedCourse = String(courseName || '').trim().toLowerCase().replace(/\s+/g, ' ');
+  return `${dateISO}|${times.join(',')}|${normalizedCourse || 'no-course'}`;
 }
 
-function buildEventStorageDedupeKey(dateVal, teeTimes = [], isTeam = false, groupSlug = DEFAULT_SITE_GROUP_SLUG, seniorsRegistrationMode = '', stableId = '') {
+function buildEventStorageDedupeKey(dateVal, teeTimes = [], isTeam = false, groupSlug = DEFAULT_SITE_GROUP_SLUG, seniorsRegistrationMode = '', stableId = '', courseName = '') {
   const normalizedGroupSlug = normalizeGroupSlug(groupSlug);
   const normalizedSeniorsRegistrationMode = normalizeSeniorsRegistrationMode(seniorsRegistrationMode, normalizedGroupSlug);
   if (normalizedGroupSlug === 'seniors' && normalizedSeniorsRegistrationMode === 'event-only') {
@@ -3624,7 +3714,7 @@ function buildEventStorageDedupeKey(dateVal, teeTimes = [], isTeam = false, grou
     const uniquePart = String(stableId || new mongoose.Types.ObjectId()).trim();
     return `seniors-event-only|${dateISO}|${uniquePart}`;
   }
-  return buildDedupeKey(dateVal, teeTimes, isTeam);
+  return buildDedupeKey(dateVal, teeTimes, isTeam, courseName);
 }
 function btn(label='Go to Sign-up Page', href = SITE_URL){
   return `<p style="margin:24px 0"><a href="${esc(href || SITE_URL)}" style="background:#2563eb;color:#fff;text-decoration:none;padding:10px 16px;border-radius:6px;display:inline-block">${esc(label)}</a></p>`;
@@ -4016,6 +4106,8 @@ function buildAuditMessage(action = '', playerName = '', data = {}) {
       if (shared && bonus) return `Randomized skins pop holes. 12-17: ${shared}. 18+: ${bonus}.`;
       return 'Randomized skins pop holes.';
     }
+    case 'reset_skins_pops':
+      return 'Cleared skins pop holes.';
     case 'refresh_weather':
       return 'Refreshed weather for this event.';
     default:
@@ -4627,12 +4719,17 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
       ? (seniorsEventOnly ? 'event-only' : 'tee-times')
       : normalizeSeniorsRegistrationMode(seniorsRegistrationMode, groupSlug);
     const normalizedSeniorsEventType = normalizeSeniorsEventType(seniorsEventType || (seniorsEventOnly ? 'outing' : 'tee-times'));
+    const seniorsSignupShotgun = seniorsEventOnly
+      && normalizedSeniorsEventType === 'regular-shotgun'
+      && String(teamStartTime || '').trim();
     const groupedShotgunPrefix = normalizeGroupSlug(groupSlug) === 'seniors' && normalizedSeniorsEventType === 'regular-shotgun'
       ? 'Group'
       : 'Team';
     let tt;
     if (seniorsEventOnly) {
-      tt = [];
+      tt = seniorsSignupShotgun
+        ? [{ time: String(teamStartTime || '').trim(), players: [] }]
+        : [];
     } else if (isTeamEvent) {
       tt = buildInitialGroupedSlots({
         count: teamCount || 3,
@@ -4651,7 +4748,9 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
       tt,
       !!isTeamEvent,
       groupSlug,
-      normalizedSeniorsRegistrationMode
+      normalizedSeniorsRegistrationMode,
+      '',
+      course
     );
     const normalizedCourseInfo = normalizeCourseInfo(courseInfo || {});
     const weatherData = await fetchWeatherForEvent({
@@ -4797,7 +4896,8 @@ app.put('/api/events/:id', async (req, res) => {
       ev.isTeamEvent,
       ev.groupSlug,
       ev.seniorsRegistrationMode,
-      ev._id
+      ev._id,
+      ev.course
     ) || undefined;
     await ev.save();
     const afterAudit = captureEventAuditSnapshot(ev);
@@ -5689,6 +5789,28 @@ app.post('/api/events/:id/skins-pops/randomize', async (req, res) => {
         sharedHoles: ev.skinsPops && ev.skinsPops.sharedHoles || [],
         bonusHoles: ev.skinsPops && ev.skinsPops.bonusHoles || [],
       },
+    });
+    res.json({ ok: true, event: ev });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.delete('/api/events/:id/skins-pops', async (req, res) => {
+  try {
+    if (!isMainSiteAdminRequest(req)) return res.status(403).json({ error: 'Admin code required' });
+    const ev = await findScopedEventById(req, req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    const hasDraw = Array.isArray(ev.skinsPops && ev.skinsPops.sharedHoles) && ev.skinsPops.sharedHoles.length
+      || Array.isArray(ev.skinsPops && ev.skinsPops.bonusHoles) && ev.skinsPops.bonusHoles.length
+      || !!(ev.skinsPops && ev.skinsPops.generatedAt);
+    if (!hasDraw) {
+      return res.status(400).json({ error: 'No skins pops draw is saved for this event.' });
+    }
+    ev.skinsPops = { sharedHoles: [], bonusHoles: [], generatedAt: null };
+    await ev.save();
+    await logAudit(ev._id, 'reset_skins_pops', 'SKINS_POPS', {
+      ...auditContextFromEvent(ev),
     });
     res.json({ ok: true, event: ev });
   } catch (e) {
@@ -7018,6 +7140,23 @@ app.get('/api/admin/tee-time-log', async (req, res) => {
     res.json(logs);
   } catch (e) {
     console.error('Tee time log error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/inbound-tee-time-email-log', async (req, res) => {
+  if (!isSiteAdmin(req)) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  if (!InboundTeeTimeEmailLog) return res.status(500).json({ error: 'InboundTeeTimeEmailLog model not available' });
+  try {
+    const logs = await InboundTeeTimeEmailLog.find({ groupSlug: getGroupSlug(req) })
+      .sort({ emailReceivedAt: -1, loggedAt: -1 })
+      .limit(500)
+      .lean();
+    res.json(logs);
+  } catch (e) {
+    console.error('Inbound tee-time email log error:', e);
     res.status(500).json({ error: e.message });
   }
 });
