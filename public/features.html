@@ -27,7 +27,7 @@
 <body style="background:#f8fafc;">
   <main class="feature-wrap">
     <h1><span class="pill">Tee Time BRS</span> Features</h1>
-    <p class="callout">This page lists options and capabilities. For usage steps, open the User Guide.</p>
+    <p class="callout">This page lists current product capabilities. For step-by-step instructions, use the User Guide. For routing, email, hosting, and scheduler details, use the Operations Guide.</p>
     <div class="page-links">
       <a href="/">Back to Tee Times</a>
       <a href="/user-guide.html">Open User Guide</a>
@@ -35,47 +35,71 @@
       <a href="/admin.html">Open Admin Page</a>
     </div>
 
-    <h2>User Options</h2>
+    <h2>Public Site Capabilities</h2>
     <ul>
-      <li><strong>Info navigation:</strong> User Guide, Features, Blue Ridge Outings, Weekend Rules, Handicaps.</li>
-      <li><strong>Operations guide:</strong> live operational reference for Render, Resend, routing emails, and notification flow.</li>
-      <li><strong>Subscribe:</strong> opt in for event notification emails.</li>
-      <li><strong>Calendar navigation:</strong> month switching, date selection, and event list by day.</li>
+      <li><strong>Group-aware public pages:</strong> main BRS and Seniors run from the same app with different branding, manifests, permissions, contacts, and notification scope.</li>
+      <li><strong>Installable mobile app behavior:</strong> Add to Home Screen support with group-specific manifests and standalone launch behavior.</li>
+      <li><strong>Calendar navigation:</strong> month switching, date selection, selected-day tee sheet, and mobile bottom navigation.</li>
+      <li><strong>Subscribe:</strong> group-scoped notification sign-up with unsubscribe links tied only to that group.</li>
       <li><strong>Monthly calendar export:</strong> one-click ICS download for the visible month.</li>
-      <li><strong>Calendar tee-time request:</strong> send a date/time request to the club.</li>
-      <li><strong>Event creation:</strong> tee-time events and team events with appropriate settings.</li>
-      <li><strong>Event actions:</strong> add time/team, request club time, pairings, edit, delete, Google, ICS, audit.</li>
-      <li><strong>Player actions:</strong> add, move, remove, individual check-in, and check-in all.</li>
-      <li><strong>Maybe list:</strong> interested list, fill spot, and remove entries.</li>
-      <li><strong>Course details:</strong> city/state, phone, website, holes/par when available.</li>
-      <li><strong>Weather display:</strong> forecast icon, low/high temps, rain chance display.</li>
-      <li><strong>Visual urgency:</strong> red empty tee rows and red calendar markers within 3 days.</li>
-      <li><strong>Fresh mobile behavior:</strong> automatic refresh on resume/focus/online/pageshow.</li>
-      <li><strong>Email import:</strong> auto-create/cancel events from forwarded club emails.</li>
-      <li><strong>Calendar reminders in ICS:</strong> 3-day and 1-day reminders included.</li>
+      <li><strong>Day and event sharing:</strong> share links and clipboard fallback for selected events and day summaries.</li>
+      <li><strong>Calendar tee-time request:</strong> request a new club tee time for a selected date and time.</li>
+      <li><strong>Course enrichment:</strong> city, state, phone, website, holes, par, and weather summary when available.</li>
+      <li><strong>Fresh mobile behavior:</strong> automatic refresh on resume, focus, online recovery, and page restore.</li>
+      <li><strong>Visual urgency:</strong> red empty tee-time markers and near-term empty-slot emphasis.</li>
+      <li><strong>Starter mode:</strong> compact day-of board with filters, urgency counts, check-in shortcuts, and denser tee-sheet layout.</li>
+      <li><strong>Audit visibility:</strong> event audit access from the public card UI where enabled.</li>
     </ul>
 
-    <h2>Special User Pages</h2>
+    <h2>Event And Tee Sheet Tools</h2>
+    <ul>
+      <li><strong>Event types:</strong> tee-time events, team events, and Seniors event-only signup events.</li>
+      <li><strong>Event actions:</strong> starter view, share, add time or group, suggest pairings, Google Calendar add, ICS export, and audit access where allowed.</li>
+      <li><strong>Player actions:</strong> add, move, remove, individual check-in, and check-in-all workflows.</li>
+      <li><strong>Drag and drop:</strong> supported on compact starter-style boards and trip practice-round layouts where enabled.</li>
+      <li><strong>Maybe list:</strong> interested list management with fill-spot support.</li>
+      <li><strong>Fifth-player handling:</strong> practice and special cases can allow a clearly marked 5th golfer in a foursome.</li>
+      <li><strong>Weather-aware tee cards:</strong> event cards show forecast summaries directly in the header.</li>
+      <li><strong>Empty-slot guidance:</strong> event cards highlight open and urgent empty tee times for operational follow-up.</li>
+    </ul>
+
+    <h2>Seniors-Specific Behavior</h2>
+    <ul>
+      <li><strong>Public Seniors page:</strong> golfer-level changes only, with full event and calendar administration kept off the public page.</li>
+      <li><strong>Seniors admin page:</strong> full event and tee-time editing after admin-page access without repeated item-level code prompts.</li>
+      <li><strong>Roster-aware signup filtering:</strong> golfers already assigned to a Seniors event are hidden from add and sign-up pickers until removed.</li>
+      <li><strong>Simple signup events:</strong> event-only registration mode without tee-time rows when needed.</li>
+      <li><strong>Scoped notifications:</strong> Seniors subscribers and lifecycle notifications remain isolated from the main BRS group.</li>
+    </ul>
+
+    <h2>Trips And Competition Pages</h2>
+    <ul>
+      <li><strong>Tin Cup:</strong> themed trip site with dedicated mobile manifest, trip schedule, score entry, leaderboard, lodging, winners mode, and practice-round management.</li>
+      <li><strong>Myrtle Trip:</strong> separate trip pages and competition support.</li>
+      <li><strong>Blue Ridge Outings:</strong> outing schedule and public reference page.</li>
+      <li><strong>Handicaps and rules:</strong> supporting pages for handicaps and weekend game rules.</li>
+    </ul>
+
+    <h2>Admin And System Functions</h2>
+    <ul>
+      <li><strong>Global notifications toggle:</strong> enable or disable broad subscriber mailouts.</li>
+      <li><strong>Automated scheduler toggle:</strong> pause or resume scheduled jobs.</li>
+      <li><strong>Scheduled rule controls:</strong> reminders, empty-tee alerts, nearly-full alerts, and group-specific operational notices.</li>
+      <li><strong>Quick actions:</strong> refresh weather, verify course data, inspect empty tees, and send subscriber mailouts.</li>
+      <li><strong>Subscriber management:</strong> review and remove subscribers by group.</li>
+      <li><strong>Audit logs:</strong> adds, edits, deletes, moves, check-ins, and create entries where auditable records support them.</li>
+      <li><strong>Email import:</strong> automatic event create and cancel handling from forwarded club emails.</li>
+      <li><strong>Backups and deployment support:</strong> backup metadata, group deployment links, and operations references.</li>
+      <li><strong>Regression coverage:</strong> server, frontend, mobile-shell, and Tin Cup browser tests are included in the repo scripts.</li>
+    </ul>
+
+    <h2>Special Pages</h2>
     <ul>
       <li><strong>Blue Ridge Outings:</strong> <code>/blue-ridge-outings.html</code></li>
       <li><strong>Handicaps:</strong> <code>/handicaps.html</code></li>
       <li><strong>Weekend Rules:</strong> <code>/rules.html</code></li>
       <li><strong>Myrtle Trip:</strong> <code>/myrtle/trip-2026.html</code></li>
       <li><strong>Tin Cup 2026:</strong> <code>/tin-cup/trip-2026.html</code></li>
-    </ul>
-
-    <h2>Admin Functions</h2>
-    <ul>
-      <li><strong>Global notifications toggle:</strong> enable/disable system-wide subscriber emails.</li>
-      <li><strong>Automated scheduler toggle:</strong> pause or resume all scheduled jobs.</li>
-      <li><strong>Scheduled email rule toggles:</strong>
-        4 PM Brian empty-tee alert, 5 PM 48-hour reminder, 5 PM 24-hour reminder, 5 PM nearly-full alert, 6-hour admin empty-tee alerts.
-      </li>
-      <li><strong>Quick actions:</strong> check empty tees, refresh all weather, verify course data, message all subscribers.</li>
-      <li><strong>Subscriber management:</strong> view subscriber list and delete subscribers.</li>
-      <li><strong>Tee-time change log:</strong> audit adds, edits, deletes, moves, and check-ins.</li>
-      <li><strong>Protected actions via admin code:</strong> event delete, tee/time delete, club-notify delete path.</li>
-      <li><strong>Manual admin endpoints:</strong> reminder runs, Brian empty-tee alert run, empty-tee report, course verification.</li>
     </ul>
 
     <a class="back-link" href="/">&larr; Back to Tee Times</a>

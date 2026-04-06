@@ -14,50 +14,6 @@ body.standalone-app .app-bottom-nav {
   bottom: calc(12px + env(safe-area-inset-bottom, 0px));
 }
 
-.pwa-install-fab {
-  position: fixed;
-  right: max(12px, env(safe-area-inset-right, 0px));
-  bottom: calc(20px + env(safe-area-inset-bottom, 0px));
-  z-index: 39;
-  display: none;
-  align-items: center;
-  gap: 8px;
-  min-height: 46px;
-  padding: 0 14px;
-  border: 1px solid rgba(200,154,75,.28);
-  border-radius: 999px;
-  background: linear-gradient(135deg, rgba(23,50,36,.96), rgba(35,76,51,.96));
-  color: #f9f3e7;
-  box-shadow: 0 12px 24px rgba(0,0,0,.22);
-  font-weight: 700;
-  cursor: pointer;
-}
-
-.pwa-install-fab.visible {
-  display: inline-flex;
-}
-
-body.has-mobile-bottom-nav.browser-app .pwa-install-fab {
-  bottom: calc(96px + env(safe-area-inset-bottom, 0px));
-}
-
-.pwa-install-fab-icon {
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(200,154,75,.18);
-  font-size: 16px;
-  line-height: 1;
-}
-
-.pwa-install-fab-label {
-  font-size: .82rem;
-  letter-spacing: .01em;
-}
-
 .pwa-install-bar {
   position: fixed;
   right: 12px;
@@ -129,10 +85,6 @@ body.has-mobile-bottom-nav.browser-app .pwa-install-bar {
 }
 
 body.standalone-app .pwa-install-bar {
-  display: none !important;
-}
-
-body.standalone-app .pwa-install-fab {
   display: none !important;
 }
 

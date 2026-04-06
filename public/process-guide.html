@@ -44,7 +44,7 @@
 <body>
   <main class="guide-wrap">
     <h1><span class="pill">Tee Times</span> Operations Guide</h1>
-    <p class="callout">This page is a live operational reference. It pulls the current public URL, group routing emails, Render/Resend endpoints, and active contact addresses from the running site configuration. Admin codes, API keys, and other secrets are intentionally excluded.</p>
+    <p class="callout">This page is a live operational reference. It pulls the current public URL, group routing emails, Render and Resend endpoints, and active contact addresses from the running site configuration. Admin codes, API keys, and other secrets are intentionally excluded.</p>
     <div class="page-links">
       <a href="/">Back to Tee Times</a>
       <a href="/user-guide.html">Open User Guide</a>
@@ -56,11 +56,42 @@
       <h2>What This System Does</h2>
       <ol class="step-list">
         <li>Golf events are created either manually in the tee-time UI or automatically from forwarded confirmation emails.</li>
-        <li>Events, subscribers, settings, and logs are stored in MongoDB through the Node/Express app hosted on Render.</li>
+        <li>Events, subscribers, settings, and logs are stored in MongoDB through the Node and Express app hosted on Render.</li>
         <li>Outbound emails are sent through Resend using the HTTP API first and SMTP fallback second.</li>
         <li>Subscribers receive new-event, cancellation, reminder, and alert emails when notifications are enabled for their group.</li>
-        <li>Club request emails and extra-tee-time emails are routed to the group’s configured club request address and CC list.</li>
+        <li>Club request emails and extra-tee-time emails are routed to the active group's configured club request address and CC list.</li>
+        <li>The public app also serves group-specific PWA manifests, mobile install behavior, trip pages, and starter-mode workflows.</li>
       </ol>
+    </section>
+
+    <section>
+      <h2>Current Operational Scope</h2>
+      <div class="grid">
+        <article class="card">
+          <h3>Main BRS Group</h3>
+          <ul>
+            <li>Full public tee-sheet flow with event creation, tee-time management, maybe lists, sharing, and starter mode.</li>
+            <li>Email import can create and cancel events for the main group automatically.</li>
+            <li>Weekend-game helpers, handicaps, outings, and trip links are surfaced from the main experience.</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>Seniors Group</h3>
+          <ul>
+            <li>Public page is limited to golfer-level actions.</li>
+            <li>Full event and tee-time edits are intended to happen only from the Seniors admin page.</li>
+            <li>Roster-aware signup rules prevent duplicate assignment inside the same event.</li>
+          </ul>
+        </article>
+        <article class="card">
+          <h3>Trips And Competitions</h3>
+          <ul>
+            <li>Tin Cup and Myrtle run as dedicated sub-sites with their own schedules and competition logic.</li>
+            <li>Tin Cup has its own standalone install manifest for mobile Add to Home Screen.</li>
+            <li>Trip pages can include scoring, winners, lodging, and practice-round workflows.</li>
+          </ul>
+        </article>
+      </div>
     </section>
 
     <section>
@@ -90,7 +121,7 @@
       <ol class="step-list">
         <li>The calendar-level <strong>Request a Tee Time</strong> button posts to <span class="mono">/api/request-club-time</span>.</li>
         <li>The event-level <strong>Request Club Time</strong> button posts to <span class="mono">/api/events/:id/request-extra-tee-time</span>.</li>
-        <li>The server looks up the current group profile, reads that group’s <strong>club request email</strong>, and builds the CC list from the group’s point-of-contact emails.</li>
+        <li>The server looks up the active group profile, reads that group's <strong>club request email</strong>, and builds the CC list from the group's point-of-contact emails.</li>
         <li>The message is sent through Resend HTTP first. If that fails, the server falls back to <span class="mono">smtp.resend.com</span>.</li>
       </ol>
     </section>
@@ -102,6 +133,17 @@
         <li>Deleting or cancelling an event updates the event record or removes it, then sends a cancellation notice to subscribers.</li>
         <li>Player moves, adds, removals, and check-ins are recorded in the tee-time change log.</li>
         <li>When a brand-new event is created, subscriber notifications are sent for that group if notifications are enabled.</li>
+        <li>Audit views now treat item creation as the first visible audit event where audit logs are exposed.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Operational Guardrails And Permissions</h2>
+      <ol class="step-list">
+        <li>Main and Seniors subscribers are group-scoped. Unsubscribing from one group does not remove the other.</li>
+        <li>Seniors public tee-sheet pages are intentionally restricted to golfer-level changes only.</li>
+        <li>Seniors admin users should use the dedicated Seniors admin page for event edits, tee-time deletes, and calendar maintenance.</li>
+        <li>Group-scoped manifests, site titles, icons, and links are generated from the active site profile so installs and email links stay matched to the correct group.</li>
       </ol>
     </section>
 
@@ -111,8 +153,18 @@
         <li>Club tee-time emails are forwarded to the Resend inbound address shown below.</li>
         <li>Resend posts an <span class="mono">email.received</span> webhook to <span class="mono">/webhooks/resend</span>.</li>
         <li>The app only accepts the known inbound recipient and a small allowed-sender list.</li>
-        <li>The full email is fetched back from Resend, parsed, normalized, and either matched to an existing event or used to create/cancel one.</li>
+        <li>The full email is fetched back from Resend, parsed, normalized, and either matched to an existing event or used to create or cancel one.</li>
         <li>When a new event is created from email, subscribers are notified the same way they are for a manual event create.</li>
+      </ol>
+    </section>
+
+    <section>
+      <h2>Mobile And PWA Behavior</h2>
+      <ol class="step-list">
+        <li>The public shell serves install prompts only in browser mode and hides them once the app is already installed.</li>
+        <li>Main, Seniors, and Tin Cup pages can point to different manifests so Add to Home Screen produces the correct app identity.</li>
+        <li>Standalone mode applies mobile-safe spacing, bottom-nav positioning, and group-aware titles and icons.</li>
+        <li>Automatic refresh-on-resume and online recovery help the tee sheet recover cleanly on phones.</li>
       </ol>
     </section>
 
@@ -137,8 +189,8 @@
     <section>
       <h2>Where Data Lives</h2>
       <ul>
-        <li>Render hosts the Node/Express app and serves the public page, admin page, group pages, APIs, and webhook endpoints.</li>
-        <li>MongoDB stores events, subscribers, settings, scheduler rules, backups metadata, handicaps, and tee-time audit logs.</li>
+        <li>Render hosts the Node and Express app and serves the public page, admin page, group pages, APIs, and webhook endpoints.</li>
+        <li>MongoDB stores events, subscribers, settings, scheduler rules, backups metadata, handicaps, trip state, and tee-time audit logs.</li>
         <li>Resend handles outbound delivery and inbound tee-time email receipt for the import workflow.</li>
       </ul>
     </section>
@@ -148,6 +200,16 @@
       <div id="automationCard" class="card">
         <p class="loading">Loading scheduler details...</p>
       </div>
+    </section>
+
+    <section>
+      <h2>Testing And Safe Change Workflow</h2>
+      <ul>
+        <li>Use <span class="mono">npm test</span> for core server and competition coverage.</li>
+        <li>Use <span class="mono">npm run test:e2e</span> for smoke, mobile-shell, and browser-level checks.</li>
+        <li>Use <span class="mono">npm run build:frontend</span> after UI changes so <span class="mono">public/dist</span> and <span class="mono">public/sw-assets.js</span> stay in sync.</li>
+        <li>Review group-specific behavior after merges, especially PWA shell behavior, Seniors permissions, and Tin Cup pages.</li>
+      </ul>
     </section>
 
     <a class="back-link" href="/">&larr; Back to Tee Times</a>

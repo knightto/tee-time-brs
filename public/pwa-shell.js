@@ -3,7 +3,6 @@
   const IOS_TIP_KEY = 'pwaIosTipDismissedV1';
   let deferredPrompt = null;
   let installBar = null;
-  let installFab = null;
   let installSheet = null;
 
   const isStandalone = () => {
@@ -162,28 +161,8 @@
     installSheet.classList.remove('visible');
   }
 
-  function ensureInstallFab() {
-    if (installFab) return installFab;
-    installFab = document.createElement('button');
-    installFab.className = 'pwa-install-fab';
-    installFab.type = 'button';
-    installFab.innerHTML = '<span class="pwa-install-fab-icon">+</span><span class="pwa-install-fab-label">Install App</span>';
-    installFab.addEventListener('click', () => {
-      if (deferredPrompt) {
-        showInstallSheet();
-        return;
-      }
-      if (isIosSafari()) {
-        showInstallSheet();
-      }
-    });
-    document.body.appendChild(installFab);
-    return installFab;
-  }
-
   function syncInstallUi() {
     const shouldShow = canShowInstallUi();
-    if (installFab) installFab.classList.toggle('visible', shouldShow);
     if (!shouldShow) {
       hideInstallBar();
       hideInstallSheet();
@@ -247,7 +226,6 @@
   function showInstallBar() {
     if (isStandalone()) return;
     ensureInstallBar().classList.add('visible');
-    ensureInstallFab();
     syncInstallUi();
   }
 
@@ -268,7 +246,6 @@
     deferredPrompt = event;
     setInstallMessage('Install for quicker access.', 'Install');
     showInstallBar();
-    ensureInstallFab();
     syncInstallUi();
   });
 
@@ -281,7 +258,6 @@
 
   window.addEventListener('DOMContentLoaded', () => {
     applyStandaloneClass();
-    ensureInstallFab();
     maybeShowIosTip();
     syncInstallUi();
   });

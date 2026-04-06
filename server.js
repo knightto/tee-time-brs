@@ -5767,7 +5767,7 @@ app.post('/api/events/:id/skins-pops/randomize', async (req, res) => {
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     if (!weekendGameEligibleEvent(ev)) {
-      return res.status(400).json({ error: 'Skins pops are only available for main-group tee-time events.' });
+      return res.status(400).json({ error: 'Skins Pops are available only for main-group tee-time events.' });
     }
     const unlockAt = skinsPopsUnlockAt(ev);
     if (!unlockAt) {
@@ -5776,7 +5776,7 @@ app.post('/api/events/:id/skins-pops/randomize', async (req, res) => {
     const now = new Date();
     if (!SKINS_POPS_FORCE_READY && now.getTime() < unlockAt.getTime()) {
       return res.status(400).json({
-        error: `Skins pops unlock at ${unlockAt.toLocaleString('en-US', { timeZone: LOCAL_TZ, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}${LOCAL_TZ === 'America/New_York' ? ' ET' : ''}`,
+        error: `Skins Pops become available ${unlockAt.toLocaleString('en-US', { timeZone: LOCAL_TZ, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}${LOCAL_TZ === 'America/New_York' ? ' ET' : ''}`,
         availableAt: unlockAt.toISOString(),
       });
     }
@@ -5805,7 +5805,7 @@ app.delete('/api/events/:id/skins-pops', async (req, res) => {
       || Array.isArray(ev.skinsPops && ev.skinsPops.bonusHoles) && ev.skinsPops.bonusHoles.length
       || !!(ev.skinsPops && ev.skinsPops.generatedAt);
     if (!hasDraw) {
-      return res.status(400).json({ error: 'No skins pops draw is saved for this event.' });
+      return res.status(400).json({ error: 'No Skins Pops draw is saved for this event.' });
     }
     ev.skinsPops = { sharedHoles: [], bonusHoles: [], generatedAt: null };
     await ev.save();

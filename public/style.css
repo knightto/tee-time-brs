@@ -3045,12 +3045,39 @@ body[data-site-group="seniors"] .card-content{
   background:linear-gradient(135deg, rgba(240,253,244,.96) 0%, rgba(236,253,245,.9) 100%);
 }
 
+.event-sidegame-title-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+
 .event-sidegame-title{
   font-size:12px;
   font-weight:800;
   letter-spacing:.18px;
   text-transform:uppercase;
   color:var(--green-700);
+}
+
+.event-sidegame-dismiss{
+  appearance:none;
+  border:0;
+  background:rgba(15,23,42,.08);
+  color:#7f1d1d;
+  width:28px;
+  height:28px;
+  border-radius:999px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:18px;
+  line-height:1;
+  cursor:pointer;
+}
+
+.event-sidegame-dismiss:hover{
+  background:rgba(127,29,29,.12);
 }
 
 .event-sidegame-copy{
@@ -3418,9 +3445,16 @@ body[data-site-group="seniors"] .card-content{
 }
 
  .card-actions .button-row{
+  display:none;
   gap:6px;
   max-width:640px;
   margin-inline:auto;
+}
+
+.card.actions-open .card-actions .button-row{
+  display:flex;
+  flex-wrap:wrap;
+  justify-content:center;
 }
 
  .card-actions .button-row > button{
@@ -3459,6 +3493,10 @@ body[data-site-group="seniors"] .card-content{
 
  .card-actions .button-row > button[data-calendar-google]{
   min-width:88px;
+}
+
+.event-action-legend{
+  margin-top:6px;
 }
 
 @media (max-width:768px){
@@ -3507,6 +3545,10 @@ body[data-site-group="seniors"] .card-content{
 
   .event-top-actions{
     gap:6px;
+  }
+
+  .card.actions-open .card-actions .button-row{
+    display:grid;
   }
 
    .card-actions .button-row > button,

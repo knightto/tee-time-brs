@@ -75,6 +75,18 @@
       padding: 10px;
       display: grid;
       gap: 6px;
+      transition: transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease;
+    }
+    .participant-card[draggable="true"] {
+      cursor: grab;
+    }
+    .participant-card.is-dragging {
+      opacity: 0.55;
+      transform: scale(0.98);
+    }
+    .participant-card.is-drop-target {
+      border-color: rgba(200,154,75,0.75);
+      box-shadow: 0 0 0 2px rgba(200,154,75,0.22);
     }
     .participant-summary {
       display: flex;
@@ -240,7 +252,6 @@
         <h1 class="golf-title" style="margin:0;font-size:1.35rem;">Tin Cup Lodging</h1>
       </div>
       <div id="tripMeta" style="margin-top:6px;color:var(--ink-soft);">Loading trip...</div>
-      <div id="tripDebug" style="margin-top:4px;color:var(--muted);font-size:0.78rem;"></div>
     </section>
 
     <section class="panel">
@@ -290,7 +301,7 @@
     let trip = null;
     let participants = [];
     let adminCode = null;
-    let loadDebugText = '';
+    let lodgingDragParticipantId = null;
 
     (function seedTripContext() {
       const qsSecondary = String(qs.get('secondary') || '').trim();
@@ -406,6 +417,39 @@
       await loadTrip();
     }
 
+    async function swapParticipantAssignments(fromId, toId) {
+      if (!tripId) throw new Error('Trip is not linked in database.');
+      const first = participants.find((p) => String(p._id) === String(fromId));
+      const second = participants.find((p) => String(p._id) === String(toId));
+      if (!first || !second) throw new Error('Unable to find both participants for swap.');
+      if (String(first._id) === String(second._id)) return;
+
+      const code = getAdminCode();
+      if (!code) return;
+      const headers = {
+        'Content-Type': 'application/json',
+        'x-admin-code': code,
+      };
+      const firstAssignment = first.roomAssignment || null;
+      const secondAssignment = second.roomAssignment || null;
+
+      const updateOne = async (id, roomAssignment) => {
+        const response = await fetch(tripApi(`/api/trips/${tripId}/participants/${id}`), {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ roomAssignment }),
+        });
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          throw new Error(payload.error || `Participant update failed (${response.status})`);
+        }
+      };
+
+      await updateOne(first._id, secondAssignment);
+      await updateOne(second._id, firstAssignment);
+      await loadTrip();
+    }
+
     function renderBaseGroupSizeSelect() {
       const select = $('#baseGroupSizeSelect');
       if (!select) return;
@@ -488,6 +532,8 @@
           }
           const card = document.createElement('div');
           card.className = 'participant-card';
+          card.draggable = true;
+          card.dataset.participantId = p._id;
           card.innerHTML = `
             <div class="participant-summary">
               <div>
@@ -598,6 +644,58 @@
     function bindInteractions() {
       const condoGroups = $('#condoGroups');
       if (condoGroups) {
+        condoGroups.addEventListener('dragstart', (e) => {
+          const card = e.target.closest('.participant-card[data-participant-id]');
+          if (!card) return;
+          lodgingDragParticipantId = String(card.dataset.participantId || '').trim() || null;
+          card.classList.add('is-dragging');
+          if (e.dataTransfer) {
+            e.dataTransfer.effectAllowed = 'move';
+            e.dataTransfer.setData('text/plain', lodgingDragParticipantId || '');
+          }
+        });
+        condoGroups.addEventListener('dragover', (e) => {
+          const card = e.target.closest('.participant-card[data-participant-id]');
+          if (!card || !lodgingDragParticipantId) return;
+          const targetId = String(card.dataset.participantId || '').trim();
+          if (!targetId || targetId === lodgingDragParticipantId) return;
+          e.preventDefault();
+          if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+          condoGroups.querySelectorAll('.participant-card.is-drop-target').forEach((node) => {
+            if (node !== card) node.classList.remove('is-drop-target');
+          });
+          card.classList.add('is-drop-target');
+        });
+        condoGroups.addEventListener('dragleave', (e) => {
+          const card = e.target.closest('.participant-card[data-participant-id]');
+          if (!card) return;
+          const related = e.relatedTarget;
+          if (related && card.contains(related)) return;
+          card.classList.remove('is-drop-target');
+        });
+        condoGroups.addEventListener('dragend', () => {
+          lodgingDragParticipantId = null;
+          condoGroups.querySelectorAll('.participant-card.is-dragging,.participant-card.is-drop-target').forEach((node) => {
+            node.classList.remove('is-dragging', 'is-drop-target');
+          });
+        });
+        condoGroups.addEventListener('drop', async (e) => {
+          const card = e.target.closest('.participant-card[data-participant-id]');
+          if (!card || !lodgingDragParticipantId) return;
+          const fromId = lodgingDragParticipantId;
+          const toId = String(card.dataset.participantId || '').trim();
+          lodgingDragParticipantId = null;
+          condoGroups.querySelectorAll('.participant-card.is-dragging,.participant-card.is-drop-target').forEach((node) => {
+            node.classList.remove('is-dragging', 'is-drop-target');
+          });
+          if (!toId || toId === fromId) return;
+          e.preventDefault();
+          try {
+            await swapParticipantAssignments(fromId, toId);
+          } catch (error) {
+            alert(error.message || 'Unable to swap rooms right now.');
+          }
+        });
         condoGroups.addEventListener('click', async (e) => {
           if (e.target.classList.contains('remove-condo-btn')) {
             await updateParticipant(e.target.dataset.id, { roomAssignment: null });
@@ -648,16 +746,13 @@
 
     function renderMeta() {
       const meta = $('#tripMeta');
-      const debug = $('#tripDebug');
       if (!meta) return;
       if (!trip) {
         meta.textContent = 'Tin Cup trip not found.';
-        if (debug) debug.textContent = loadDebugText || '';
         return;
       }
       const total = participants.length;
       meta.textContent = `${trip.name || 'Tin Cup'} | ${total} golfers | ${useSecondaryTripDb ? 'Secondary DB' : 'Primary DB'}`;
-      if (debug) debug.textContent = loadDebugText || '';
       const back = $('#backLink');
       if (back) back.href = withContextHref('/tin-cup/trip-2026.html');
     }
@@ -755,7 +850,6 @@
       }
 
       if (!found) {
-        loadDebugText = `Debug: tripId=${tripId || 'none'} | source=${useSecondaryTripDb ? 'secondary' : 'primary'} | ${debugParts.join(' | ')}`;
         trip = null;
         tripId = null;
         participants = [];
@@ -769,7 +863,6 @@
       participants = Array.isArray(resolvedParticipants) ? resolvedParticipants : [];
 
       trip = found;
-      loadDebugText = `Debug: tripId=${tripId || 'none'} | source=${useSecondaryTripDb ? 'secondary' : 'primary'} | ${debugParts.join(' | ')}`;
       renderMeta();
       renderParticipants();
       renderStatusList();

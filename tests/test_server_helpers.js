@@ -57,7 +57,7 @@ function run(){
   assert.strictEqual(srv.weekendGameEligibleEvent(weekendEvent), true, 'Weekend tee-time events should be eligible for skins pops');
   const unlockAt = srv.skinsPopsUnlockAt(weekendEvent);
   assert(unlockAt instanceof Date && !Number.isNaN(unlockAt.getTime()), 'Skins pops unlock time should be computed for eligible events');
-  assert.strictEqual(unlockAt.toISOString(), '2026-04-04T19:10:00.000Z', 'Skins pops should unlock 4 hours after the final tee time');
+  assert.strictEqual(unlockAt.toISOString(), '2026-04-04T04:00:00.000Z', 'Skins pops should unlock at the start of the event day in local time');
   assert.strictEqual(
     srv.weekendGameEligibleEvent({ groupSlug: 'main', date: '2026-04-06', teeTimes: [{ time: '09:00' }] }),
     true,

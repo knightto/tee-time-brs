@@ -104,10 +104,12 @@ if ('serviceWorker' in navigator) {
   const eventsEl = $('#events');
   const modal = $('#eventModal');
   const eventForm = $('#eventForm');
-  const newTeeBtn = $('#newTeeBtn');
-  const newTeamBtn = $('#newTeamBtn');
+  const newEventBtn = $('#newEventBtn');
   const createModeInput = $('#createMode');
   const seniorsRegistrationModeInput = $('#seniorsRegistrationMode');
+  const createEventKindSelect = $('#createEventKind');
+  const createEventKindLabel = $('#createEventKindLabel');
+  const createEventKindHelp = $('#createEventKindHelp');
   const seniorsEventTypeRow = $('#seniorsEventTypeRow');
   const seniorsSignupInfoRow = $('#seniorsSignupInfoRow');
   const seniorsSignupInfoText = $('#seniorsSignupInfoText');
@@ -453,14 +455,8 @@ if ('serviceWorker' in navigator) {
       requestClubTimeBtn.textContent = currentSiteProfile.clubRequestLabel || defaultSiteProfile.clubRequestLabel;
       requestClubTimeBtn.title = `Request a tee time from ${clubContactLabel()}`;
     }
-    if (newTeeBtn && newTeamBtn) {
-      if (isSeniorsGroupSite()) {
-        newTeeBtn.textContent = 'New Event + Tee Times';
-        newTeamBtn.textContent = 'New Signup Event';
-      } else {
-        newTeeBtn.textContent = 'New Tee-Time Event';
-        newTeamBtn.textContent = 'New Team Event';
-      }
+    if (newEventBtn) {
+      newEventBtn.textContent = 'New Event';
     }
 
     document.querySelectorAll('[data-group-link]').forEach((node) => {
@@ -479,8 +475,28 @@ if ('serviceWorker' in navigator) {
       const featureKey = String(node.getAttribute('data-feature-link') || '').trim();
       node.hidden = !siteFeatureEnabled(featureKey);
     });
-    document.querySelectorAll('[data-main-only-link]').forEach((node) => {
+    const seniorsInfoItems = new Set(['user-guide', 'handicaps', 'rules-process']);
+    document.querySelectorAll('[data-info-item]').forEach((node) => {
+      const item = String(node.getAttribute('data-info-item') || '').trim();
+      let shouldShow = true;
+      if (isSeniorsGroupSite()) {
+        shouldShow = seniorsInfoItems.has(item);
+      } else {
+        if (node.hasAttribute('data-main-only-link')) shouldShow = isMainGroupSite();
+        if (node.hasAttribute('data-feature-link')) {
+          const featureKey = String(node.getAttribute('data-feature-link') || '').trim();
+          shouldShow = shouldShow && siteFeatureEnabled(featureKey);
+        }
+        if (item === 'rules-process') shouldShow = false;
+      }
+      node.hidden = !shouldShow;
+      node.style.display = shouldShow ? '' : 'none';
+      node.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+    });
+    document.querySelectorAll('[data-main-only-link]:not([data-info-item])').forEach((node) => {
       node.hidden = !isMainGroupSite();
+      node.style.display = node.hidden ? 'none' : '';
+      node.setAttribute('aria-hidden', node.hidden ? 'true' : 'false');
     });
 
     if (openSubscribeBtn) openSubscribeBtn.hidden = !siteFeatureEnabled('includeNotifications');
@@ -838,7 +854,7 @@ if ('serviceWorker' in navigator) {
   }
   function fmtTime(hhmm){ if(!hhmm) return ''; const m=/^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(hhmm); if(!m) return hhmm; let h=parseInt(m[1],10); const min=m[2]; const ap=h>=12?'PM':'AM'; h=h%12||12; return `${h}:${min} ${ap}`; }
   const EVENT_TIME_ZONE = 'America/New_York';
-  const SKINS_POPS_FORCE_READY = true;
+  const SKINS_POPS_FORCE_READY = false;
   function parseTimeZoneOffsetLabel(label = 'GMT') {
     const match = /^GMT(?:(\+|-)(\d{1,2})(?::?(\d{2}))?)?$/.exec(String(label || '').trim());
     if (!match) return 0;
@@ -890,8 +906,7 @@ if ('serviceWorker' in navigator) {
     return latest;
   }
   function skinsPopsUnlockAt(ev = {}) {
-    const latest = lastScheduledTeeTimeDate(ev);
-    return latest ? new Date(latest.getTime() + (4 * 60 * 60 * 1000)) : null;
+    return eventLocalDateTimeToUtc(ev && ev.date, '00:00', EVENT_TIME_ZONE);
   }
   function formatEventZoneDateTime(date) {
     if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
@@ -923,7 +938,7 @@ if ('serviceWorker' in navigator) {
   }
   function weekendGameSkinsPopsMarkup(ev = {}) {
     const state = weekendGameSkinsPopsState(ev);
-    if (!state.eligible) return '';
+    if (!state.eligible || !state.hasDraw) return '';
     let bodyHtml = '';
     let metaHtml = '';
     if (state.hasDraw) {
@@ -931,19 +946,14 @@ if ('serviceWorker' in navigator) {
         <div class="event-sidegame-copy"><strong>18+:</strong> ${state.bonusHoles.join(', ')}</div>`;
       metaHtml = `<div class="event-sidegame-meta">Drawn ${formatEventZoneDateTime(state.generatedAt) || 'recently'}.</div>`;
       if (!isMainAdminView()) {
-        metaHtml += '<div class="event-sidegame-meta">Locked after draw. Re-draw is available only in admin mode.</div>';
+        metaHtml += '<div class="event-sidegame-meta">Finalized for this event.</div>';
       }
-    } else if (SKINS_POPS_FORCE_READY) {
-      metaHtml = '<div class="event-sidegame-meta">Available now while testing.</div>';
-    } else if (state.unlockAt) {
-      metaHtml = state.ready
-        ? '<div class="event-sidegame-meta">Ready to draw from the Actions menu.</div>'
-        : `<div class="event-sidegame-meta">Unlocks 4 hours after the last tee time: ${escapeHtml(formatEventZoneDateTime(state.unlockAt))}.</div>`;
-    } else {
-      metaHtml = '<div class="event-sidegame-meta">Needs valid tee times before the draw can unlock.</div>';
     }
     return `<div class="event-sidegame-box">
-      <div class="event-sidegame-title">Skins Pops</div>
+      <div class="event-sidegame-title-row">
+        <div class="event-sidegame-title">Skins Pops</div>
+        ${isMainGroupSite() ? `<button class="event-sidegame-dismiss" type="button" data-reset-skins-pops="${escapeHtml(String(ev && ev._id || ''))}" title="Clear skins pops draw" aria-label="Clear skins pops draw">×</button>` : ''}
+      </div>
       ${bodyHtml}
       ${metaHtml}
     </div>`;
@@ -2503,6 +2513,10 @@ if ('serviceWorker' in navigator) {
       || (method === 'POST' && /^\/api\/subscribe(?:\?|$)/.test(String(requestPath || '')))
     );
     const queueableWrite = method !== 'GET' && isQueueableWriteRequest(method, requestPath);
+    if (method !== 'GET' && isMainGroupSite() && !String(mergedHeaders['x-admin-code'] || '').trim()) {
+      const code = getStoredMainAdminCode();
+      if (code) mergedHeaders['x-admin-code'] = code;
+    }
     if (currentGroupSlug === 'seniors' && !isSeniorsAdminView() && method !== 'GET' && !seniorsPublicWriteAllowed && !String(mergedHeaders['x-admin-code'] || '').trim()) {
       const code = await requestSeniorsAdminCode('this Seniors update');
       if (!code) throw new Error('Admin code 000 required for Seniors changes');
@@ -2623,11 +2637,53 @@ if ('serviceWorker' in navigator) {
     renderOfflineStatusBanner();
   });
 
-  // Create Event: open modal in the requested mode (tees or teams)
+  function populateCreateEventKindOptions() {
+    if (!createEventKindSelect) return;
+    const options = isSeniorsGroupSite()
+      ? [
+          { value: 'tee-times', label: 'Event With Tee Times' },
+          { value: 'event-only', label: 'Simple Signup Event' },
+        ]
+      : [
+          { value: 'tees', label: 'Tee-Time Event' },
+          { value: 'teams', label: 'Team Event' },
+        ];
+    createEventKindSelect.innerHTML = options.map((option) => (
+      `<option value="${escapeHtml(option.value)}">${escapeHtml(option.label)}</option>`
+    )).join('');
+  }
+
+  function updateCreateEventKindMeta() {
+    if (!createEventKindHelp || !createEventKindLabel) return;
+    if (isSeniorsGroupSite()) {
+      createEventKindLabel.innerHTML = '<span>🧭</span> Registration Style';
+      createEventKindHelp.textContent = 'Choose whether this Seniors event uses tee times or a simple signup list.';
+    } else {
+      createEventKindLabel.innerHTML = '<span>🧭</span> Event Format';
+      createEventKindHelp.textContent = 'Choose whether this event uses tee times or grouped teams.';
+    }
+  }
+
+  function syncCreateDialogModeFromSelector() {
+    if (!createEventKindSelect) return;
+    const selectedKind = String(createEventKindSelect.value || '').trim().toLowerCase();
+    if (isSeniorsGroupSite()) {
+      setSeniorsCreateMode(selectedKind === 'event-only' ? 'event-only' : 'tee-times');
+      return;
+    }
+    if (createModeInput) createModeInput.value = selectedKind === 'teams' ? 'teams' : 'tees';
+    if (teeTimeRow) teeTimeRow.hidden = selectedKind !== 'tees';
+    if (teamSizeRow) teamSizeRow.hidden = selectedKind !== 'teams';
+    if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = selectedKind === 'tees';
+    if (eventForm?.elements?.['teamStartTime']) eventForm.elements['teamStartTime'].required = selectedKind === 'teams';
+  }
+
+  // Keep the create dialog fields aligned with the selected event kind.
   function setSeniorsCreateMode(mode = 'tee-times') {
     const signupOnly = isSeniorsGroupSite() && mode === 'event-only';
     if (createModeInput) createModeInput.value = signupOnly ? 'tees' : 'tees';
     if (seniorsRegistrationModeInput) seniorsRegistrationModeInput.value = signupOnly ? 'event-only' : 'tee-times';
+    if (createEventKindSelect) createEventKindSelect.value = signupOnly ? 'event-only' : 'tee-times';
     if (seniorsEventTypeRow) seniorsEventTypeRow.hidden = !isSeniorsGroupSite();
     if (seniorsSignupInfoRow) seniorsSignupInfoRow.hidden = !signupOnly;
     if (seniorsSignupInfoText && signupOnly) {
@@ -2644,29 +2700,38 @@ if ('serviceWorker' in navigator) {
     if (!isSeniorsGroupSite()) return;
     const signupOnly = String(seniorsRegistrationModeInput && seniorsRegistrationModeInput.value || '').trim().toLowerCase() === 'event-only';
     const seniorsEventType = normalizeSeniorsEventTypeValue(seniorsEventTypeSelect && seniorsEventTypeSelect.value);
-    const groupedShotgun = !signupOnly && isSeniorsGroupedEventType(seniorsEventType);
-    if (teeTimeRow) teeTimeRow.hidden = signupOnly || groupedShotgun;
-    if (seniorsShotgunRow) seniorsShotgunRow.hidden = signupOnly || !groupedShotgun;
-    if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = !signupOnly && !groupedShotgun;
-    if (seniorsShotgunStartTimeInput) seniorsShotgunStartTimeInput.required = groupedShotgun;
+    const shotgunStyleEvent = isSeniorsGroupedEventType(seniorsEventType);
+    const groupedShotgun = !signupOnly && shotgunStyleEvent;
+    const signupShotgun = signupOnly && shotgunStyleEvent;
+    const seniorsFoursomeCountField = eventForm?.elements?.['seniorsFoursomeCount'];
+    const seniorsFoursomeCountLabel = seniorsFoursomeCountField && seniorsFoursomeCountField.closest('label');
+    if (teeTimeRow) teeTimeRow.hidden = signupOnly || shotgunStyleEvent;
+    if (seniorsShotgunRow) seniorsShotgunRow.hidden = !shotgunStyleEvent;
+    if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = !signupOnly && !shotgunStyleEvent;
+    if (seniorsShotgunStartTimeInput) seniorsShotgunStartTimeInput.required = shotgunStyleEvent;
+    if (seniorsFoursomeCountField) seniorsFoursomeCountField.disabled = signupShotgun;
+    if (seniorsFoursomeCountLabel) seniorsFoursomeCountLabel.hidden = signupShotgun;
     if (seniorsSignupInfoText && !signupOnly) {
       seniorsSignupInfoText.textContent = groupedShotgun
         ? 'This Seniors event will create grouped foursomes for a shotgun start and allow golfers to sign up into those groups.'
         : 'This Seniors event will create tee times and allow golfers to sign up for open spots.';
+    } else if (seniorsSignupInfoText && signupOnly) {
+      seniorsSignupInfoText.textContent = signupShotgun
+        ? 'This Seniors signup event will not create foursome groups, but it will keep a shotgun start time for the event.'
+        : 'This Seniors event uses a simple signup list. No tee times will be created.';
     }
   }
 
-  function openCreateDialog(mode = 'tees') {
+  function openCreateDialog() {
+    populateCreateEventKindOptions();
+    updateCreateEventKindMeta();
     if (isSeniorsGroupSite()) {
-      setSeniorsCreateMode(mode === 'signup' ? 'event-only' : 'tee-times');
-      if (newTeeBtn) newTeeBtn.textContent = 'New Event + Tee Times';
-      if (newTeamBtn) newTeamBtn.textContent = 'New Signup Event';
+      const selectedKind = String(createEventKindSelect && createEventKindSelect.value || '').trim().toLowerCase() || 'tee-times';
+      setSeniorsCreateMode(selectedKind === 'event-only' ? 'event-only' : 'tee-times');
     } else {
-      if (createModeInput) createModeInput.value = mode;
-      if (teeTimeRow) teeTimeRow.hidden = mode !== 'tees';
-      if (teamSizeRow) teamSizeRow.hidden = mode !== 'teams';
-      if (eventForm?.elements?.['teeTime']) eventForm.elements['teeTime'].required = mode === 'tees';
-      if (eventForm?.elements?.['teamStartTime']) eventForm.elements['teamStartTime'].required = mode === 'teams';
+      const selectedKind = String(createEventKindSelect && createEventKindSelect.value || '').trim().toLowerCase() || 'tees';
+      if (createEventKindSelect) createEventKindSelect.value = selectedKind;
+      syncCreateDialogModeFromSelector();
     }
     if (selectedDate && eventForm?.elements?.['date']) {
       eventForm.elements['date'].value = selectedDate;
@@ -2675,8 +2740,10 @@ if ('serviceWorker' in navigator) {
     modal?.showModal?.();
   }
 
-  on(newTeeBtn, 'click', () => openCreateDialog('tees'));
-  on(newTeamBtn, 'click', () => openCreateDialog(isSeniorsGroupSite() ? 'signup' : 'teams'));
+  on(newEventBtn, 'click', () => openCreateDialog());
+  on(createEventKindSelect, 'change', () => {
+    syncCreateDialogModeFromSelector();
+  });
   on(seniorsEventTypeSelect, 'change', () => {
     updateSeniorsCreateFields();
   });
@@ -2724,7 +2791,9 @@ if ('serviceWorker' in navigator) {
       const normalizedSeniorsEventType = isSeniors
         ? normalizeSeniorsEventTypeValue(body.seniorsEventType || (seniorsRegistrationMode === 'event-only' ? 'outing' : 'tee-times'))
         : '';
-      const isSeniorsGroupedShotgun = isSeniors && seniorsRegistrationMode !== 'event-only' && isSeniorsGroupedEventType(normalizedSeniorsEventType);
+      const isSeniorsShotgunStyleEvent = isSeniors && isSeniorsGroupedEventType(normalizedSeniorsEventType);
+      const isSeniorsGroupedShotgun = isSeniorsShotgunStyleEvent && seniorsRegistrationMode !== 'event-only';
+      const isSeniorsSignupShotgun = isSeniorsShotgunStyleEvent && seniorsRegistrationMode === 'event-only';
       const isTeams = (body.mode === 'teams');
       const courseName = body.course;
       const payload = {
@@ -2740,9 +2809,11 @@ if ('serviceWorker' in navigator) {
         payload.seniorsRegistrationMode = seniorsRegistrationMode === 'event-only' ? 'event-only' : 'tee-times';
         payload.seniorsEventType = normalizedSeniorsEventType;
       }
-      if (isSeniorsGroupedShotgun) {
+      if (isSeniorsShotgunStyleEvent) {
         payload.teamStartType = 'shotgun';
         payload.teamStartTime = String(body.seniorsShotgunStartTime || '').trim();
+      }
+      if (isSeniorsGroupedShotgun) {
         payload.teamCount = Math.max(1, Math.min(24, parseInt(body.seniorsFoursomeCount, 10) || 4));
       } else if (!isSeniors && isTeams) {
         payload.teamStartType = body.teamStartType || 'shotgun';
@@ -2768,14 +2839,20 @@ if ('serviceWorker' in navigator) {
           }
         }
       }
-      await api('/api/events', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+      const createdEvent = await api('/api/events', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
       modal?.close?.();
       eventForm.reset();
       if (seniorsRegistrationModeInput) seniorsRegistrationModeInput.value = 'tee-times';
       if (isSeniorsGroupSite()) setSeniorsCreateMode('tee-times');
       if (courseInfoCard) courseInfoCard.style.display = 'none';
       selectedCourseData = null;
-      load();
+      const createdDate = toDateISO(createdEvent && createdEvent.date) || String(body.date || '').trim();
+      if (createdDate) await applySelectedDate(createdDate, { force: true });
+      else await load(true);
     } catch (err) {
       console.error(err);
       alert('Create failed: ' + (err && err.message ? err.message : 'Unknown error'));
@@ -3251,7 +3328,7 @@ if ('serviceWorker' in navigator) {
         return;
       }
       if (action === 'new-tee') {
-        newTeeBtn?.click();
+        newEventBtn?.click();
         return;
       }
       if (action === 'request-time') {
@@ -3554,6 +3631,7 @@ if ('serviceWorker' in navigator) {
           ? `<div class="row" style="gap:8px;flex-wrap:wrap;margin:4px 0 8px 0">
               <span class="pill-link" style="cursor:default">${escapeHtml(seniorsEventTypeLabel(ev.seniorsEventType))}</span>
               ${seniorsEventOnly ? '<span class="pill-link" style="cursor:default">Simple Signup</span>' : ''}
+              ${seniorsEventOnly && normalizeSeniorsEventTypeValue(ev.seniorsEventType) === 'regular-shotgun' && ev.teeTimes?.[0]?.time ? `<span class="pill-link" style="cursor:default">Shotgun ${escapeHtml(fmtTime(ev.teeTimes[0].time))}</span>` : ''}
             </div>`
           : '';
         const showGolferControlsLegend = !isSeniorsGroup;
@@ -3592,7 +3670,7 @@ if ('serviceWorker' in navigator) {
                 <span>${fmtDate(ev.date)}</span>
                 <div class="card-date-tools">
                   ${weatherSummary}
-                  <button class="small event-actions-toggle" data-toggle-actions title="Show/hide event actions">Actions</button>
+                  <button class="small event-actions-toggle" data-toggle-actions aria-expanded="false" title="Show/hide event actions">Actions</button>
                 </div>
               </div>
               ${courseDetails}
@@ -3608,15 +3686,15 @@ if ('serviceWorker' in navigator) {
                 <button class="small" data-share-event="${ev._id}" title="Share this event">Share Event</button>
                 ${seniorsEventOnly || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add ${slotWords.singular}</button>` : `<button class="small" data-add-tee="${ev._id}">Add Existing Time</button>`)}
                 ${seniorsEventOnly || isTeams || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Suggest Pairings</button>`}
-                ${skinsPopsState.eligible && canRedrawSkinsPops ? `<button class="small" data-randomize-skins-pops="${ev._id}" title="${escapeHtml(skinsPopsActionTitle)}"${skinsPopsState.ready ? '' : ' disabled'}>${skinsPopsState.hasDraw ? 'Re-draw Skins Pops' : 'Draw Skins Pops'}</button>` : ''}
+                ${skinsPopsState.eligible && canRedrawSkinsPops && (skinsPopsState.ready || skinsPopsState.hasDraw) ? `<button class="small" data-randomize-skins-pops="${ev._id}" title="${escapeHtml(skinsPopsActionTitle)}">${skinsPopsState.hasDraw ? 'Re-draw Skins Pops' : 'Draw Skins Pops'}</button>` : ''}
                 ${showSeniorsExportActions ? `<button class="small" data-export-seniors-event="${ev._id}" title="Export the registration list">Export</button>` : ''}
                 <button class="small" data-calendar-google="${ev._id}"${googleCalendarUrl ? ` data-calendar-google-url="${escapeHtml(googleCalendarUrl)}"` : ''} title="Add this event to Google Calendar">Add to Calendar</button>
               </div>
             </div>
-            ${seniorsEventOnly || !showGolferControlsLegend ? '' : eventActionLegend}
             ${skinsPopsSummary}
             <div class="tees">${seniorsEventOnly ? '' : (tees || (isTeams ? `<em>No ${slotWords.pluralLower}</em>` : '<em>No tee times</em>'))}</div>
             ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
+            ${seniorsEventOnly || !showGolferControlsLegend ? '' : eventActionLegend}
             ${seniorsEventOnly ? '' : '<div class="event-bottom-meta"><div class="empty-tee-note"><span>Red</span><span>empty tee time</span></div></div>'}
             <div class="event-bottom-actions"${showBottomAuditAction ? '' : ' hidden'}>
               <button class="small event-audit-btn event-bottom-audit-btn" data-audit="${ev._id}" title="View Audit Log" aria-label="View Audit Log">View Audit</button>
@@ -3796,7 +3874,7 @@ if ('serviceWorker' in navigator) {
   });
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-randomize-skins-pops],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-ics],[data-toggle-starter-event],[data-starter-filter],[data-seniors-register],[data-remove-seniors-registration],[data-export-seniors-event],[data-share-event]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-randomize-skins-pops],[data-reset-skins-pops],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-ics],[data-toggle-starter-event],[data-starter-filter],[data-seniors-register],[data-remove-seniors-registration],[data-export-seniors-event],[data-share-event]')||e.target);
     try{
       if (t.dataset.starterFilter) {
         const nextFilter = String(t.dataset.starterFilter || '').trim();
@@ -3823,6 +3901,7 @@ if ('serviceWorker' in navigator) {
         if (!card) return;
         const open = card.classList.toggle('actions-open');
         t.textContent = open ? 'Hide Actions' : 'Actions';
+        t.setAttribute('aria-expanded', open ? 'true' : 'false');
         return;
       }
       if(t.dataset.calendarGoogle){
@@ -4181,22 +4260,22 @@ if ('serviceWorker' in navigator) {
         const ev = await getEventForAction(id);
         const drawState = weekendGameSkinsPopsState(ev);
         if (!drawState.eligible) {
-          showToast('Skins pops are only available for main-group tee-time events.', 'error');
+          showToast('Skins Pops are available only for main-group tee-time events.', 'error');
           return;
         }
         if (drawState.hasDraw && !isMainAdminView()) {
-          showToast('Saved skins pops are locked. Re-draw is available only in admin mode.', 'error');
+          showToast('Skins Pops have already been finalized for this event.', 'error');
           return;
         }
         if (!drawState.ready) {
-          showToast(drawState.unlockAt ? `Skins pops unlock ${formatEventZoneDateTime(drawState.unlockAt)}.` : 'This event needs valid tee times before skins pops can unlock.', 'error');
+          showToast(drawState.unlockAt ? `Skins Pops become available ${formatEventZoneDateTime(drawState.unlockAt)}.` : 'This event needs valid tee times before Skins Pops are available.', 'error');
           return;
         }
         const drawValues = await openActionDialog({
           title: drawState.hasDraw ? 'Re-draw Skins Pops' : 'Draw Skins Pops',
           message: drawState.hasDraw
-            ? 'Generate a new random set of pop holes? This will replace the current saved draw. Enter the main admin code to continue.'
-            : 'Randomly draw the first 4 pop holes for 12–17 and the next 2 pop holes for 18+? Enter the main admin code to continue.',
+            ? 'Generate a new Skins Pops draw? This will replace the current saved holes. Enter the main admin code to continue.'
+            : 'Draw 4 pop holes for 12-17 and 2 pop holes for 18+? Enter the main admin code to continue.',
           confirmLabel: drawState.hasDraw ? 'Re-draw' : 'Draw Pops',
           fields: [{
             name: 'adminCode',
@@ -4226,10 +4305,60 @@ if ('serviceWorker' in navigator) {
           });
           if (isQueuedApiResult(result)) return;
           await updateEventCard(id, result && result.event ? result.event : null);
-          showToast('Skins pop holes saved.', 'success');
+          showToast('Skins Pops saved.', 'success');
         } catch (err) {
           console.error(err);
-          showToast('Skins pop draw failed: ' + (err.message || 'Unknown error'), 'error');
+          showToast('Skins Pops draw failed: ' + (err.message || 'Unknown error'), 'error');
+        } finally {
+          t.disabled = false;
+          t.textContent = original;
+        }
+        return;
+      }
+      if(t.dataset.resetSkinsPops){
+        const id = String(t.dataset.resetSkinsPops || '').trim();
+        const ev = await getEventForAction(id);
+        const drawState = weekendGameSkinsPopsState(ev);
+        if (!drawState.hasDraw) {
+          showToast('No Skins Pops draw is saved for this event.', 'error');
+          return;
+        }
+        const resetValues = await openActionDialog({
+          title: 'Clear Skins Pops',
+          message: 'Remove the current Skins Pops draw and restore the Draw Skins Pops button? Enter the main admin code to continue.',
+          confirmLabel: 'Clear Draw',
+          confirmClass: 'dialog-danger',
+          fields: [{
+            name: 'adminCode',
+            label: 'Admin code',
+            type: 'password',
+            value: getStoredMainAdminCode(),
+            placeholder: 'Main admin code',
+            required: true,
+            autocomplete: 'current-password'
+          }]
+        });
+        if (resetValues === null) return;
+        const code = String(resetValues && resetValues.adminCode || '').trim();
+        if (!code) return;
+        rememberMainAdminCode(code);
+        const original = t.textContent;
+        t.disabled = true;
+        t.textContent = '…';
+        try {
+          const result = await api(`/api/events/${id}/skins-pops`, {
+            method: 'DELETE',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-admin-code': code
+            }
+          });
+          if (isQueuedApiResult(result)) return;
+          await updateEventCard(id, result && result.event ? result.event : null);
+          showToast('Skins Pops cleared.', 'success');
+        } catch (err) {
+          console.error(err);
+          showToast('Clear failed: ' + (err.message || 'Unknown error'), 'error');
         } finally {
           t.disabled = false;
           t.textContent = original;
@@ -4836,14 +4965,8 @@ if ('serviceWorker' in navigator) {
   }
 
   // Load courses when modal opens
-  if (newTeeBtn) {
-    newTeeBtn.addEventListener('click', () => {
-      loadGolfCourses();
-    });
-  }
-  
-  if (newTeamBtn) {
-    newTeamBtn.addEventListener('click', () => {
+  if (newEventBtn) {
+    newEventBtn.addEventListener('click', () => {
       loadGolfCourses();
     });
   }
@@ -4943,6 +5066,7 @@ if ('serviceWorker' in navigator) {
       startAutoRefresh();
     });
 })();
+
 
 
 

@@ -37,12 +37,13 @@
       <details class="topbar-dropdown">
         <summary class="pill-link">Info</summary>
         <div class="topbar-dropdown-menu">
-          <a href="/user-guide.html" class="topbar-dropdown-item" data-group-link data-main-only-link hidden>User Guide</a>
-          <a href="/features.html" class="topbar-dropdown-item" data-group-link data-main-only-link hidden>Features</a>
-          <a href="/process-guide.html" class="topbar-dropdown-item" data-group-link data-main-only-link hidden>Operations Guide</a>
-          <a href="/blue-ridge-outings.html" class="topbar-dropdown-item" data-group-link data-feature-link="includeOutings" data-main-only-link hidden>Blue Ridge Outings</a>
-          <a href="/rules.html" class="topbar-dropdown-item" data-group-link data-main-only-link hidden>Weekend Game Rules</a>
-          <a href="/handicaps.html" class="topbar-dropdown-item" data-group-link data-feature-link="includeHandicaps">Handicaps</a>
+          <a href="/rules.html" class="topbar-dropdown-item" data-group-link data-main-only-link data-info-item="weekend-rules" hidden>Weekend Game Rules</a>
+          <a href="/user-guide.html" class="topbar-dropdown-item" data-group-link data-info-item="user-guide">User Guide</a>
+          <a href="/features.html" class="topbar-dropdown-item" data-group-link data-main-only-link data-info-item="features" hidden>Features</a>
+          <a href="/blue-ridge-outings.html" class="topbar-dropdown-item" data-group-link data-feature-link="includeOutings" data-main-only-link data-info-item="outings" hidden>Blue Ridge Outings</a>
+          <a href="/handicaps.html" class="topbar-dropdown-item" data-group-link data-feature-link="includeHandicaps" data-info-item="handicaps">Handicaps</a>
+          <a href="/process-guide.html" class="topbar-dropdown-item" data-group-link data-main-only-link data-info-item="operations" hidden>Operations Guide</a>
+          <a href="/process-guide.html" class="topbar-dropdown-item" data-group-link data-info-item="rules-process" hidden>Rules and Process</a>
           <a href="/admin.html" target="_blank" rel="noopener" class="topbar-dropdown-item topbar-dropdown-item-admin" data-group-admin-link>Admin</a>
         </div>
       </details>
@@ -91,8 +92,7 @@
         </div>
         <div class="calendar-grid" id="calendarGrid"></div>
         <div class="calendar-actions">
-          <button id="newTeeBtn" class="primary">New Tee-Time Event</button>
-          <button id="newTeamBtn" class="primary">New Team Event</button>
+          <button id="newEventBtn" class="primary">New Event</button>
         </div>
       </aside>
 
@@ -207,6 +207,16 @@
           <input name="date" id="dateInput" type="date" required style="width:100%;padding:8px;border:2px solid #93c5fd;border-radius:6px;font-size:14px">
         </label>
         <div id="weatherPreview" style="display:none;background:white;padding:6px;border-radius:6px;margin-top:8px;border:2px solid #93c5fd;text-align:center;font-size:12px"></div>
+      </div>
+
+      <div id="createEventKindRow" style="background:linear-gradient(135deg,#eef2ff 0%,#e0e7ff 100%);padding:12px;border-radius:8px;margin-bottom:12px">
+        <label style="display:block;margin-bottom:0">
+          <span id="createEventKindLabel" style="display:flex;align-items:center;gap:4px;font-weight:600;color:#4338ca;margin-bottom:6px;font-size:14px">
+            <span>🧭</span> Event Format
+          </span>
+          <select name="createEventKind" id="createEventKind" style="width:100%;padding:8px;border:2px solid #a5b4fc;border-radius:6px;font-size:14px;background:white"></select>
+        </label>
+        <p id="createEventKindHelp" style="font-size:11px;color:#4338ca;margin:6px 0 0 0;font-style:italic">Choose the event setup before filling in the rest of the form.</p>
       </div>
 
       <div id="seniorsEventTypeRow" hidden style="background:linear-gradient(135deg,#eff6ff 0%,#e0f2fe 100%);padding:12px;border-radius:8px;margin-bottom:12px">
@@ -375,8 +385,24 @@
         document.querySelectorAll('[data-group-link]').forEach((node) => {
           node.setAttribute('href', withGroup(node.getAttribute('href') || '/'));
         });
-        document.querySelectorAll('[data-main-only-link]').forEach((node) => {
+        const seniorsInfoItems = new Set(['user-guide', 'handicaps', 'rules-process']);
+        document.querySelectorAll('[data-info-item]').forEach((node) => {
+          const item = String(node.getAttribute('data-info-item') || '').trim();
+          let shouldShow = true;
+          if (groupSlug === 'seniors') {
+            shouldShow = seniorsInfoItems.has(item);
+          } else {
+            if (node.hasAttribute('data-main-only-link')) shouldShow = isMainGroup;
+            if (item === 'rules-process') shouldShow = false;
+          }
+          node.hidden = !shouldShow;
+          node.style.display = shouldShow ? '' : 'none';
+          node.setAttribute('aria-hidden', shouldShow ? 'false' : 'true');
+        });
+        document.querySelectorAll('[data-main-only-link]:not([data-info-item])').forEach((node) => {
           node.hidden = !isMainGroup;
+          node.style.display = node.hidden ? 'none' : '';
+          node.setAttribute('aria-hidden', node.hidden ? 'true' : 'false');
         });
         document.querySelectorAll('[data-group-admin-link]').forEach((node) => {
           if (isMainGroup) {
