@@ -42,7 +42,7 @@ function run(){
   assert(seniorsShotgunSlots.every((slot) => slot.time === '09:00'), 'Shotgun generator should keep the same start time for each group');
 
   const skinsDraw = srv.buildWeekendSkinsPopsDraw();
-  assert.strictEqual(skinsDraw.sharedHoles.length, 4, 'Skins draw should create 4 shared pop holes');
+  assert.strictEqual(skinsDraw.sharedHoles.length, 4, 'Skins draw should create 4 pop holes for 12-17 handicaps');
   assert.strictEqual(skinsDraw.bonusHoles.length, 2, 'Skins draw should create 2 bonus holes for 18+ handicaps');
   const allDrawnHoles = skinsDraw.sharedHoles.concat(skinsDraw.bonusHoles);
   assert.strictEqual(new Set(allDrawnHoles).size, 6, 'Skins draw holes should be unique across both buckets');

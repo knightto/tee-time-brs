@@ -4016,7 +4016,7 @@ function buildAuditMessage(action = '', playerName = '', data = {}) {
     case 'randomize_skins_pops': {
       const shared = Array.isArray(data.details && data.details.sharedHoles) ? data.details.sharedHoles.join(', ') : '';
       const bonus = Array.isArray(data.details && data.details.bonusHoles) ? data.details.bonusHoles.join(', ') : '';
-      if (shared && bonus) return `Randomized skins pop holes. Shared: ${shared}. Bonus 18+: ${bonus}.`;
+      if (shared && bonus) return `Randomized skins pop holes. 12-17: ${shared}. 18+: ${bonus}.`;
       return 'Randomized skins pop holes.';
     }
     case 'refresh_weather':

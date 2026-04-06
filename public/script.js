@@ -314,6 +314,10 @@ if ('serviceWorker' in navigator) {
     return currentGroupSlug === 'main';
   }
 
+  function isMainAdminView() {
+    return isMainGroupSite() && !!getStoredMainAdminCode();
+  }
+
   function mobileFilterLabel(filterKey = '') {
     if (filterKey === 'blue-ridge' && !isMainGroupSite()) return 'Home course';
     return MOBILE_FILTER_LABELS[filterKey] || MOBILE_FILTER_LABELS.all;
@@ -906,7 +910,7 @@ if ('serviceWorker' in navigator) {
   function normalizeHoleList(list = []) {
     return Array.from(new Set((Array.isArray(list) ? list : [])
       .map((value) => Number(value))
-      .filter((value) => Number.isInteger(value) && value >= 1 && value <= 18)))
+      .filter((value) => Number.isInteger(value) && value >= 1 && value <= 17)))
       .sort((a, b) => a - b);
   }
   function weekendGameSkinsPopsState(ev = {}) {
@@ -926,9 +930,12 @@ if ('serviceWorker' in navigator) {
     let bodyHtml = '';
     let metaHtml = '';
     if (state.hasDraw) {
-      bodyHtml = `<div class="event-sidegame-copy"><strong>12–15 and 18+:</strong> ${state.sharedHoles.join(', ')}</div>
-        <div class="event-sidegame-copy"><strong>18+ extra:</strong> ${state.bonusHoles.join(', ')}</div>`;
+      bodyHtml = `<div class="event-sidegame-copy"><strong>12–17:</strong> ${state.sharedHoles.join(', ')}</div>
+        <div class="event-sidegame-copy"><strong>18+:</strong> ${state.bonusHoles.join(', ')}</div>`;
       metaHtml = `<div class="event-sidegame-meta">Drawn ${formatEventZoneDateTime(state.generatedAt) || 'recently'}.</div>`;
+      if (!isMainAdminView()) {
+        metaHtml += '<div class="event-sidegame-meta">Locked after draw. Re-draw is available only in admin mode.</div>';
+      }
     } else if (SKINS_POPS_FORCE_READY) {
       metaHtml = '<div class="event-sidegame-meta">Available now while testing.</div>';
     } else if (state.unlockAt) {
@@ -1194,26 +1201,6 @@ if ('serviceWorker' in navigator) {
     });
     const code = String(values && values.adminCode || '').trim();
     if (code) rememberSeniorsAdminCode(code);
-    return code;
-  }
-
-  async function requestMainAdminCode(label = 'this change') {
-    const values = await openActionDialog({
-      title: 'Admin Code',
-      message: `Enter the main admin code for ${label}.`,
-      confirmLabel: 'Continue',
-      fields: [{
-        name: 'adminCode',
-        label: 'Admin code',
-        type: 'password',
-        value: getStoredMainAdminCode(),
-        placeholder: 'Main admin code',
-        required: true,
-        autocomplete: 'current-password'
-      }]
-    });
-    const code = String(values && values.adminCode || '').trim();
-    if (code) rememberMainAdminCode(code);
     return code;
   }
 
@@ -3578,6 +3565,7 @@ if ('serviceWorker' in navigator) {
         const showSeniorsExportActions = isSeniorsGroup && showSeniorsCalendarAdminActions;
         const showBottomAuditAction = !isSeniorsGroup || showSeniorsCalendarAdminActions;
         const skinsPopsState = weekendGameSkinsPopsState(ev);
+        const canRedrawSkinsPops = !skinsPopsState.hasDraw || isMainAdminView();
         const skinsPopsActionTitle = skinsPopsState.ready
           ? (skinsPopsState.hasDraw ? 'Draw a new set of random skins pop holes for this event' : 'Draw the random skins pop holes for this event')
           : (skinsPopsState.unlockAt
@@ -3623,7 +3611,7 @@ if ('serviceWorker' in navigator) {
                 <button class="small" data-share-event="${ev._id}" title="Share this event">Share Event</button>
                 ${seniorsEventOnly || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add ${slotWords.singular}</button>` : `<button class="small" data-add-tee="${ev._id}">Add Existing Time</button>`)}
                 ${seniorsEventOnly || isTeams || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Suggest Pairings</button>`}
-                ${skinsPopsState.eligible ? `<button class="small" data-randomize-skins-pops="${ev._id}" title="${escapeHtml(skinsPopsActionTitle)}"${skinsPopsState.ready ? '' : ' disabled'}>${skinsPopsState.hasDraw ? 'Re-draw Skins Pops' : 'Draw Skins Pops'}</button>` : ''}
+                ${skinsPopsState.eligible && canRedrawSkinsPops ? `<button class="small" data-randomize-skins-pops="${ev._id}" title="${escapeHtml(skinsPopsActionTitle)}"${skinsPopsState.ready ? '' : ' disabled'}>${skinsPopsState.hasDraw ? 'Re-draw Skins Pops' : 'Draw Skins Pops'}</button>` : ''}
                 ${showSeniorsExportActions ? `<button class="small" data-export-seniors-event="${ev._id}" title="Export the registration list">Export</button>` : ''}
                 <button class="small" data-calendar-google="${ev._id}"${googleCalendarUrl ? ` data-calendar-google-url="${escapeHtml(googleCalendarUrl)}"` : ''} title="Add this event to Google Calendar">Add to Calendar</button>
               </div>
@@ -4199,20 +4187,34 @@ if ('serviceWorker' in navigator) {
           showToast('Skins pops are only available for main-group weekend tee-time events.', 'error');
           return;
         }
+        if (drawState.hasDraw && !isMainAdminView()) {
+          showToast('Saved skins pops are locked. Re-draw is available only in admin mode.', 'error');
+          return;
+        }
         if (!drawState.ready) {
           showToast(drawState.unlockAt ? `Skins pops unlock ${formatEventZoneDateTime(drawState.unlockAt)}.` : 'This event needs valid tee times before skins pops can unlock.', 'error');
           return;
         }
-        const confirmed = await openActionDialog({
+        const drawValues = await openActionDialog({
           title: drawState.hasDraw ? 'Re-draw Skins Pops' : 'Draw Skins Pops',
           message: drawState.hasDraw
-            ? 'Generate a new random set of pop holes? This will replace the current saved draw.'
-            : 'Randomly draw the shared 4 pop holes and the extra 2 holes for 18+ handicaps?',
-          confirmLabel: drawState.hasDraw ? 'Re-draw' : 'Draw Pops'
+            ? 'Generate a new random set of pop holes? This will replace the current saved draw. Enter the main admin code to continue.'
+            : 'Randomly draw the first 4 pop holes for 12–17 and the next 2 pop holes for 18+? Enter the main admin code to continue.',
+          confirmLabel: drawState.hasDraw ? 'Re-draw' : 'Draw Pops',
+          fields: [{
+            name: 'adminCode',
+            label: 'Admin code',
+            type: 'password',
+            value: getStoredMainAdminCode(),
+            placeholder: 'Main admin code',
+            required: true,
+            autocomplete: 'current-password'
+          }]
         });
-        if (confirmed === null) return;
-        const code = await requestMainAdminCode('drawing skins pop holes');
+        if (drawValues === null) return;
+        const code = String(drawValues && drawValues.adminCode || '').trim();
         if (!code) return;
+        rememberMainAdminCode(code);
         const original = t.textContent;
         t.disabled = true;
         t.textContent = drawState.hasDraw ? 'Re-drawing…' : 'Drawing…';
