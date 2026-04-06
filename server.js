@@ -1907,9 +1907,6 @@ function weekendGameEligibleEvent(ev = {}) {
   if (ev.isTeamEvent) return false;
   const dateISO = fmt.dateISO(ev.date);
   if (!dateISO) return false;
-  const [year, month, day] = dateISO.split('-').map(Number);
-  const weekday = new Date(Date.UTC(year, month - 1, day, 12, 0, 0)).getUTCDay();
-  if (weekday !== 0 && weekday !== 6) return false;
   return Array.isArray(ev.teeTimes) && ev.teeTimes.some((slot) => parseHHMMToMinutes(slot && slot.time) !== null);
 }
 
@@ -5670,7 +5667,7 @@ app.post('/api/events/:id/skins-pops/randomize', async (req, res) => {
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
     if (!weekendGameEligibleEvent(ev)) {
-      return res.status(400).json({ error: 'Skins pops are only available for main-group weekend tee-time events.' });
+      return res.status(400).json({ error: 'Skins pops are only available for main-group tee-time events.' });
     }
     const unlockAt = skinsPopsUnlockAt(ev);
     if (!unlockAt) {

@@ -878,9 +878,6 @@ if ('serviceWorker' in navigator) {
     if (!ev || ev.isTeamEvent || isSeniorsEventOnly(ev)) return false;
     const dateISO = toDateISO(ev.date);
     if (!dateISO) return false;
-    const [year, month, day] = dateISO.split('-').map(Number);
-    const weekday = new Date(Date.UTC(year, month - 1, day, 12, 0, 0)).getUTCDay();
-    if (weekday !== 0 && weekday !== 6) return false;
     return Array.isArray(ev.teeTimes) && ev.teeTimes.some((slot) => /^(\d{1,2}):(\d{2})$/.test(String(slot && slot.time || '').trim()));
   }
   function lastScheduledTeeTimeDate(ev = {}) {
@@ -4184,7 +4181,7 @@ if ('serviceWorker' in navigator) {
         const ev = await getEventForAction(id);
         const drawState = weekendGameSkinsPopsState(ev);
         if (!drawState.eligible) {
-          showToast('Skins pops are only available for main-group weekend tee-time events.', 'error');
+          showToast('Skins pops are only available for main-group tee-time events.', 'error');
           return;
         }
         if (drawState.hasDraw && !isMainAdminView()) {

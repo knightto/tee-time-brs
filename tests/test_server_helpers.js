@@ -60,8 +60,8 @@ function run(){
   assert.strictEqual(unlockAt.toISOString(), '2026-04-04T19:10:00.000Z', 'Skins pops should unlock 4 hours after the final tee time');
   assert.strictEqual(
     srv.weekendGameEligibleEvent({ groupSlug: 'main', date: '2026-04-06', teeTimes: [{ time: '09:00' }] }),
-    false,
-    'Weekday events should not be eligible for weekend skins pops'
+    true,
+    'Weekday main-group tee-time events should also be eligible for skins pops'
   );
 
   assert.strictEqual(
