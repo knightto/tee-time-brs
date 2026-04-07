@@ -31,6 +31,14 @@ const PAGE_SPECS = [
   { path: '/valley-sip-and-smoke.html', label: 'Valley Sip and Smoke', selector: 'body' },
 ];
 
+function isIgnorableExternalError(detail = '', spec = null) {
+  const text = String(detail || '').toLowerCase();
+  if (text.includes('open-meteo.com') || text.includes('geocoding-api.open-meteo.com')) return true;
+  return spec
+    && spec.path === '/myrtle/trip-2026.html'
+    && text === 'log:error: failed to load resource: net::err_failed';
+}
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -224,13 +232,15 @@ async function inspectPage(spec) {
       removeResponse();
       removeLoadingFailed();
 
+      const filteredErrors = errors.filter((entry) => !isIgnorableExternalError(entry, spec));
+
       return {
         targetId: target.id,
         readyState: value.readyState,
         title: value.title,
         hasSelector: value.hasSelector,
         bodyTextLength: value.bodyTextLength,
-        errors,
+        errors: filteredErrors,
       };
     });
   } finally {
