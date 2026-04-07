@@ -182,6 +182,7 @@ if ('serviceWorker' in navigator) {
   let queueSyncInFlight = false;
   let starterEventViewIds = loadStarterEventViewIds();
   let seniorsRosterChoices = [];
+  const randomizedPlayerSnapshots = new Map();
   const currentGroupSlug = (() => {
     try {
       const raw = String(new URLSearchParams(window.location.search).get('group') || '').trim().toLowerCase();
@@ -3503,6 +3504,101 @@ if ('serviceWorker' in navigator) {
     return fetched;
   }
 
+  function cloneEventRandomizeSnapshot(ev = {}) {
+    return {
+      maybeList: Array.isArray(ev.maybeList) ? ev.maybeList.map((name) => String(name || '')) : [],
+      groups: Array.isArray(ev.teeTimes) ? ev.teeTimes.map((tt) => ({
+        teeId: String(tt && tt._id || ''),
+        players: Array.isArray(tt && tt.players) ? tt.players.map((player, index) => ({
+          playerId: String(player && player._id || ''),
+          name: String(player && player.name || ''),
+          checkedIn: !!(player && player.checkedIn),
+          isFifth: !!(player && player.isFifth) || index >= 4,
+        })) : [],
+      })) : [],
+    };
+  }
+
+  function shuffleArray(values = []) {
+    const out = values.slice();
+    for (let i = out.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return out;
+  }
+
+  function buildRandomizedPlayerLayout(ev = {}, includeInterested = false) {
+    const teeTimes = Array.isArray(ev.teeTimes) ? ev.teeTimes : [];
+    if (!teeTimes.length) throw new Error('No tee times are available for this event.');
+    const assignedPlayers = teeTimes.flatMap((tt) => (Array.isArray(tt && tt.players) ? tt.players : []).map((player) => ({
+      playerId: String(player && player._id || ''),
+      name: String(player && player.name || ''),
+      checkedIn: !!(player && player.checkedIn),
+      isFifth: false,
+    })));
+    const interestedPlayers = includeInterested
+      ? (Array.isArray(ev.maybeList) ? ev.maybeList : []).map((name) => ({
+          playerId: '',
+          name: String(name || '').trim(),
+          checkedIn: false,
+          isFifth: false,
+        })).filter((player) => player.name)
+      : [];
+    const playerPool = shuffleArray([...assignedPlayers, ...interestedPlayers]);
+    if (!playerPool.length) throw new Error('No golfers are available to randomize.');
+    const maxCapacity = teeTimes.length * 5;
+    if (playerPool.length > maxCapacity) {
+      throw new Error(`There are ${playerPool.length} golfers but only ${maxCapacity} randomized spots across ${teeTimes.length} tee times.`);
+    }
+    const groups = teeTimes.map((tt) => ({ teeId: String(tt && tt._id || ''), players: [] }));
+    let cursor = 0;
+    for (let pass = 0; pass < 5 && cursor < playerPool.length; pass += 1) {
+      for (const group of groups) {
+        if (cursor >= playerPool.length) break;
+        if (group.players.length >= (pass < 4 ? 4 : 5)) continue;
+        const nextPlayer = { ...playerPool[cursor], isFifth: pass >= 4 };
+        group.players.push(nextPlayer);
+        cursor += 1;
+      }
+    }
+    return {
+      groups,
+      maybeList: includeInterested ? [] : (Array.isArray(ev.maybeList) ? ev.maybeList.map((name) => String(name || '')) : []),
+      includeInterested,
+    };
+  }
+
+  async function applyPlayerLayoutWithFallback(eventId, layout, meta = {}) {
+    try {
+      return await api(`/api/events/${eventId}/player-layout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groups: layout.groups,
+          maybeList: layout.maybeList,
+          action: meta.action || 'randomize',
+          includeInterested: !!meta.includeInterested,
+        })
+      });
+    } catch (err) {
+      const canFallbackToPairings = !meta.includeInterested
+        && Array.isArray(layout.maybeList)
+        && layout.groups.every((group) => Array.isArray(group.players) && group.players.every((player) => String(player && player.playerId || '').trim()));
+      if (!canFallbackToPairings) throw err;
+      return api(`/api/events/${eventId}/pairings/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groups: layout.groups.map((group) => ({
+            teeId: group.teeId,
+            playerIds: group.players.map((player) => player.playerId),
+          }))
+        })
+      });
+    }
+  }
+
   function render(list){
     // Use a document fragment for batch DOM updates
     window.requestAnimationFrame(() => {
@@ -3641,6 +3737,8 @@ if ('serviceWorker' in navigator) {
         const showBottomAuditAction = !isSeniorsGroup || showSeniorsCalendarAdminActions;
         const skinsPopsState = weekendGameSkinsPopsState(ev);
         const canRedrawSkinsPops = !skinsPopsState.hasDraw || isMainAdminView();
+        const showRandomizePlayersAction = isMainGroupSite() && !isTeams && !seniorsEventOnly && Array.isArray(ev.teeTimes) && ev.teeTimes.length > 0;
+        const hasRandomizeSnapshot = randomizedPlayerSnapshots.has(String(ev && ev._id || ''));
         const skinsPopsActionTitle = skinsPopsState.ready
           ? (skinsPopsState.hasDraw ? 'Draw a new set of random skins pop holes for this event' : 'Draw the random skins pop holes for this event')
           : (skinsPopsState.unlockAt
@@ -3686,6 +3784,8 @@ if ('serviceWorker' in navigator) {
                 <button class="small" data-share-event="${ev._id}" title="Share this event">Share Event</button>
                 ${seniorsEventOnly || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add ${slotWords.singular}</button>` : `<button class="small" data-add-tee="${ev._id}">Add Existing Time</button>`)}
                 ${seniorsEventOnly || isTeams || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Suggest Pairings</button>`}
+                ${showRandomizePlayersAction ? `<button class="small" data-randomize-players="${ev._id}" title="Randomize all currently assigned golfers${Array.isArray(ev.maybeList) && ev.maybeList.length ? ' and optionally include interested golfers' : ''}">Randomize Players</button>` : ''}
+                ${showRandomizePlayersAction && hasRandomizeSnapshot ? `<button class="small" data-revert-randomize-players="${ev._id}" title="Restore the previous tee sheet from this browser session">Revert Randomize</button>` : ''}
                 ${skinsPopsState.eligible && canRedrawSkinsPops && (skinsPopsState.ready || skinsPopsState.hasDraw) ? `<button class="small" data-randomize-skins-pops="${ev._id}" title="${escapeHtml(skinsPopsActionTitle)}">${skinsPopsState.hasDraw ? 'Re-draw Skins Pops' : 'Draw Skins Pops'}</button>` : ''}
                 ${showSeniorsExportActions ? `<button class="small" data-export-seniors-event="${ev._id}" title="Export the registration list">Export</button>` : ''}
                 <button class="small" data-calendar-google="${ev._id}"${googleCalendarUrl ? ` data-calendar-google-url="${escapeHtml(googleCalendarUrl)}"` : ''} title="Add this event to Google Calendar">Add to Calendar</button>
@@ -3874,7 +3974,7 @@ if ('serviceWorker' in navigator) {
   });
 
   on(eventsEl, 'click', async (e)=>{
-    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-randomize-skins-pops],[data-reset-skins-pops],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-ics],[data-toggle-starter-event],[data-starter-filter],[data-seniors-register],[data-remove-seniors-registration],[data-export-seniors-event],[data-share-event]')||e.target);
+    const t=(e.target.closest('[data-del-tee],[data-del-player],[data-add-tee],[data-add-player],[data-move],[data-edit],[data-del],[data-audit],[data-add-maybe],[data-remove-maybe],[data-fill-maybe],[data-edit-tee],[data-request-extra-tee],[data-suggest-pairings],[data-randomize-players],[data-revert-randomize-players],[data-randomize-skins-pops],[data-reset-skins-pops],[data-toggle-checkin],[data-checkin-all],[data-toggle-actions],[data-calendar-google],[data-calendar-ics],[data-toggle-starter-event],[data-starter-filter],[data-seniors-register],[data-remove-seniors-registration],[data-export-seniors-event],[data-share-event]')||e.target);
     try{
       if (t.dataset.starterFilter) {
         const nextFilter = String(t.dataset.starterFilter || '').trim();
@@ -4249,6 +4349,91 @@ if ('serviceWorker' in navigator) {
         } catch (err) {
           console.error(err);
           showToast('Pairing action failed: ' + (err.message || 'Unknown error'), 'error');
+        } finally {
+          t.disabled = false;
+          t.textContent = original;
+        }
+        return;
+      }
+      if(t.dataset.randomizePlayers){
+        const id = String(t.dataset.randomizePlayers || '').trim();
+        const ev = await getEventForAction(id);
+        if (!ev || ev.isTeamEvent || currentGroupSlug !== 'main') {
+          showToast('Player randomization is available only for BRS tee-time events.', 'error');
+          return;
+        }
+        const includeInterestedAvailable = Array.isArray(ev.maybeList) && ev.maybeList.length > 0;
+        const values = await openActionDialog({
+          title: 'Randomize Players',
+          message: includeInterestedAvailable
+            ? 'Shuffle all assigned golfers across the current tee times. You can also include the Interested golfers in the shuffle.'
+            : 'Shuffle all assigned golfers across the current tee times. The current grouping will stay available in this browser if you want to revert.',
+          confirmLabel: 'Randomize',
+          fields: includeInterestedAvailable ? [{
+            name: 'includeInterested',
+            label: 'Interested golfers',
+            type: 'select',
+            value: 'no',
+            options: [
+              { value: 'no', label: 'Keep Interested separate' },
+              { value: 'yes', label: 'Include Interested in randomization' },
+            ]
+          }] : []
+        });
+        if (values === null) return;
+        const includeInterested = includeInterestedAvailable && String(values && values.includeInterested || 'no') === 'yes';
+        const snapshot = cloneEventRandomizeSnapshot(ev);
+        const layout = buildRandomizedPlayerLayout(ev, includeInterested);
+        const original = t.textContent;
+        t.disabled = true;
+        t.textContent = 'Randomizing...';
+        try {
+          const result = await applyPlayerLayoutWithFallback(id, layout, {
+            action: 'randomize',
+            includeInterested,
+          });
+          if (isQueuedApiResult(result)) return;
+          randomizedPlayerSnapshots.set(id, snapshot);
+          await updateEventCard(id, result || null);
+          showToast(includeInterested ? 'Players and Interested golfers randomized.' : 'Players randomized.', 'success');
+        } catch (err) {
+          console.error(err);
+          showToast('Randomize failed: ' + (err.message || 'Unknown error'), 'error');
+        } finally {
+          t.disabled = false;
+          t.textContent = original;
+        }
+        return;
+      }
+      if(t.dataset.revertRandomizePlayers){
+        const id = String(t.dataset.revertRandomizePlayers || '').trim();
+        const snapshot = randomizedPlayerSnapshots.get(id);
+        if (!snapshot) {
+          showToast('No saved player order is available in this browser for this event.', 'error');
+          return;
+        }
+        const choice = await openActionDialog({
+          title: 'Revert Randomize',
+          message: 'Restore the tee sheet and Interested list saved in this browser before the last randomization?',
+          confirmLabel: 'Restore',
+          confirmClass: 'dialog-danger',
+        });
+        if (choice === null) return;
+        const original = t.textContent;
+        t.disabled = true;
+        t.textContent = 'Restoring...';
+        try {
+          const result = await applyPlayerLayoutWithFallback(id, snapshot, {
+            action: 'revert',
+            includeInterested: false,
+          });
+          if (isQueuedApiResult(result)) return;
+          randomizedPlayerSnapshots.delete(id);
+          await updateEventCard(id, result || null);
+          showToast('Original tee sheet restored.', 'success');
+        } catch (err) {
+          console.error(err);
+          showToast('Restore failed: ' + (err.message || 'Unknown error'), 'error');
         } finally {
           t.disabled = false;
           t.textContent = original;

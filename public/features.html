@@ -42,9 +42,10 @@
       <li><strong>Calendar navigation:</strong> month switching, date selection, selected-day tee sheet, and mobile bottom navigation.</li>
       <li><strong>Subscribe:</strong> group-scoped notification sign-up with unsubscribe links tied only to that group.</li>
       <li><strong>Monthly calendar export:</strong> one-click ICS download for the visible month.</li>
-      <li><strong>Day and event sharing:</strong> share links and clipboard fallback for selected events and day summaries.</li>
+      <li><strong>Event sharing:</strong> share links and clipboard fallback from each event card.</li>
       <li><strong>Calendar tee-time request:</strong> request a new club tee time for a selected date and time.</li>
       <li><strong>Course enrichment:</strong> city, state, phone, website, holes, par, and weather summary when available.</li>
+      <li><strong>Single install prompt:</strong> cleaned-up Add to Home Screen flow without duplicate prompts.</li>
       <li><strong>Fresh mobile behavior:</strong> automatic refresh on resume, focus, online recovery, and page restore.</li>
       <li><strong>Visual urgency:</strong> red empty tee-time markers and near-term empty-slot emphasis.</li>
       <li><strong>Starter mode:</strong> compact day-of board with filters, urgency counts, check-in shortcuts, and denser tee-sheet layout.</li>
@@ -53,13 +54,15 @@
 
     <h2>Event And Tee Sheet Tools</h2>
     <ul>
-      <li><strong>Event types:</strong> tee-time events, team events, and Seniors event-only signup events.</li>
-      <li><strong>Event actions:</strong> starter view, share, add time or group, suggest pairings, Google Calendar add, ICS export, and audit access where allowed.</li>
+      <li><strong>Unified event creation:</strong> one New Event flow handles tee-time and team-event setup.</li>
+      <li><strong>Event actions:</strong> starter view, share, add time or group, suggest pairings, randomize players, Google Calendar add, ICS export, and audit access where allowed.</li>
       <li><strong>Player actions:</strong> add, move, remove, individual check-in, and check-in-all workflows.</li>
+      <li><strong>Randomize and revert:</strong> assigned golfers can be shuffled across the current tee times, with session-memory revert support and an optional Interested-player include step.</li>
       <li><strong>Drag and drop:</strong> supported on compact starter-style boards and trip practice-round layouts where enabled.</li>
       <li><strong>Maybe list:</strong> interested list management with fill-spot support.</li>
       <li><strong>Fifth-player handling:</strong> practice and special cases can allow a clearly marked 5th golfer in a foursome.</li>
       <li><strong>Weather-aware tee cards:</strong> event cards show forecast summaries directly in the header.</li>
+      <li><strong>Skins Pops control:</strong> day-of manual draw, visible finalized state, and admin reset that returns the draw button.</li>
       <li><strong>Empty-slot guidance:</strong> event cards highlight open and urgent empty tee times for operational follow-up.</li>
     </ul>
 
@@ -89,6 +92,7 @@
       <li><strong>Subscriber management:</strong> review and remove subscribers by group.</li>
       <li><strong>Audit logs:</strong> adds, edits, deletes, moves, check-ins, and create entries where auditable records support them.</li>
       <li><strong>Email import:</strong> automatic event create and cancel handling from forwarded club emails.</li>
+      <li><strong>Inbound email processing log:</strong> admin view of received tee-time emails, parsed tee times, player count, and processing result.</li>
       <li><strong>Backups and deployment support:</strong> backup metadata, group deployment links, and operations references.</li>
       <li><strong>Regression coverage:</strong> server, frontend, mobile-shell, and Tin Cup browser tests are included in the repo scripts.</li>
     </ul>

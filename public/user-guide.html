@@ -39,8 +39,8 @@
     <ul>
       <li>Open the main page and click <strong>Subscribe</strong> to get email updates.</li>
       <li>Pick a date on the calendar to view events for that day.</li>
-      <li>Create an event with <strong>New Tee-Time Event</strong> or <strong>New Team Event</strong>.</li>
-      <li>Open an event and use <strong>Actions</strong> to add times/teams, add players, and share calendar links.</li>
+      <li>Create an event with <strong>New Event</strong>, then choose tee-time or team format in the form.</li>
+      <li>Open an event and use <strong>Actions</strong> to show the event tools only when you need them.</li>
       <li>Use <strong>Refresh</strong> any time to force a fresh data pull.</li>
     </ul>
 
@@ -57,7 +57,7 @@
       <li><strong>Select day:</strong> tap any date cell to load events for that day.</li>
       <li><strong>Add tee times to your calendar for this month:</strong> downloads a monthly ICS file.</li>
       <li><strong>Request a Tee Time for Blue Ridge Shadows:</strong> sends a date/time request to the club.</li>
-      <li><strong>New Tee-Time Event / New Team Event:</strong> create events directly from the sidebar.</li>
+      <li><strong>New Event:</strong> create either a tee-time event or a team event from one button.</li>
     </ul>
 
     <h2>Event Card Options</h2>
@@ -66,6 +66,9 @@
       <li><strong>Add Existing Time</strong> (tee-time events) or <strong>Add Team</strong> (team events).</li>
       <li><strong>Request Club Time:</strong> sends an additional tee-time request for that event date.</li>
       <li><strong>Pairings:</strong> suggests and applies handicap-balanced groups for tee-time events.</li>
+      <li><strong>Randomize Players:</strong> shuffles the current golfers across existing tee times, with an option to include the Interested list.</li>
+      <li><strong>Revert Randomize:</strong> restores the prior grouping in the current browser session.</li>
+      <li><strong>Draw Skins Pops:</strong> appears on the day of the event and stays hidden until drawn manually.</li>
       <li><strong>Edit / Delete:</strong> edit event details, or delete with admin code.</li>
       <li><strong>Google / ICS:</strong> add a single event to calendar apps.</li>
       <li><strong>Audit button (clipboard icon):</strong> view event change history.</li>
@@ -93,12 +96,13 @@
       <li><strong>Full tee rows:</strong> muted/grey styling with full indicator.</li>
       <li><strong>Empty tee rows inside 3 days:</strong> bright red warning style.</li>
       <li><strong>Calendar marker inside 3 days:</strong> red golf marker on affected dates.</li>
+      <li><strong>Skins Pops notice:</strong> after the draw is created, it stays on the event card until reset by an admin.</li>
     </ul>
 
     <h2>Email Import Workflow</h2>
     <ul>
       <li>Forward tee-time confirmation emails to <code>teetime@xenailexou.resend.app</code>.</li>
-      <li>The system parses date/time/course and creates the event automatically.</li>
+      <li>The system parses date, time, course, and player count and creates the event automatically.</li>
       <li>Cancellation emails remove matching events when detected.</li>
     </ul>
 

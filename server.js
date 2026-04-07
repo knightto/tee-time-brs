@@ -769,6 +769,7 @@ app.post('/webhooks/resend', async (req, res) => {
         ev.date = eventDateObj;
         ev.isTeamEvent = false;
         ev.teamSizeMax = 4;
+        ev.courseInfo = enrichCourseInfo(ev.course, ev.courseInfo || {});
 
         const hasPlayers = Array.isArray(ev.teeTimes) && ev.teeTimes.some((tt) => Array.isArray(tt.players) && tt.players.length);
         if (Array.isArray(eventPayload.teeTimes) && eventPayload.teeTimes.length && !hasPlayers) {
@@ -780,6 +781,7 @@ app.post('/webhooks/resend', async (req, res) => {
             ev.teeTimes = [{ time: eventPayload.teeTime, players: [] }];
           }
         }
+        assignWeatherToEvent(ev, await fetchWeatherForEvent(ev));
         return ev.save();
       };
 
@@ -1382,6 +1384,79 @@ async function fetchWeatherForEvent(eventLike = {}) {
   return fetchWeatherForecast(date, coords.lat, coords.lon);
 }
 
+function weatherFromTextForecast(text = '') {
+  const raw = String(text || '').trim();
+  const lower = raw.toLowerCase();
+  if (!raw) return { icon: '🌤️', condition: 'unknown', desc: 'Unknown' };
+  if (/thunder|storm/.test(lower)) return { icon: '⛈️', condition: 'stormy', desc: raw };
+  if (/snow|sleet|flurr/.test(lower)) return { icon: '🌨️', condition: 'snowy', desc: raw };
+  if (/shower|rain|drizzle/.test(lower)) return { icon: '🌧️', condition: 'rainy', desc: raw };
+  if (/fog|mist|haze/.test(lower)) return { icon: '🌫️', condition: 'foggy', desc: raw };
+  if (/overcast|cloudy/.test(lower)) return { icon: '☁️', condition: 'cloudy', desc: raw };
+  if (/partly|mostly sunny|mostly clear/.test(lower)) return { icon: '⛅', condition: 'partly-cloudy', desc: raw };
+  if (/clear|sunny|fair/.test(lower)) return { icon: '☀️', condition: 'sunny', desc: raw };
+  return { icon: '🌤️', condition: 'unknown', desc: raw };
+}
+
+async function fetchNwsWeatherForecast(date, lat, lon) {
+  const dateStr = date.toISOString().split('T')[0];
+  const pointsRes = await fetch(`https://api.weather.gov/points/${lat},${lon}`, {
+    headers: {
+      'Accept': 'application/geo+json',
+      'User-Agent': 'tee-time-brs/1.0 weather fallback',
+    },
+  });
+  if (!pointsRes.ok) throw new Error(`NWS points HTTP ${pointsRes.status}`);
+  const pointsJson = await pointsRes.json();
+  const forecastUrl = pointsJson && pointsJson.properties && pointsJson.properties.forecast;
+  if (!forecastUrl) throw new Error('NWS forecast URL unavailable');
+
+  const forecastRes = await fetch(forecastUrl, {
+    headers: {
+      'Accept': 'application/geo+json',
+      'User-Agent': 'tee-time-brs/1.0 weather fallback',
+    },
+  });
+  if (!forecastRes.ok) throw new Error(`NWS forecast HTTP ${forecastRes.status}`);
+  const forecastJson = await forecastRes.json();
+  const periods = Array.isArray(forecastJson && forecastJson.properties && forecastJson.properties.periods)
+    ? forecastJson.properties.periods
+    : [];
+  const matchingPeriods = periods.filter((period) => {
+    const start = String(period && period.startTime || '').trim();
+    return start && start.slice(0, 10) === dateStr;
+  });
+  if (!matchingPeriods.length) throw new Error('NWS forecast not available for date');
+
+  const temps = matchingPeriods
+    .map((period) => Number(period && period.temperature))
+    .filter((value) => Number.isFinite(value));
+  const rainChance = matchingPeriods
+    .map((period) => Number(period && period.probabilityOfPrecipitation && period.probabilityOfPrecipitation.value))
+    .filter((value) => Number.isFinite(value))
+    .reduce((max, value) => Math.max(max, value), 0);
+  const dayPeriod = matchingPeriods.find((period) => period && period.isDaytime) || matchingPeriods[0];
+  const description = String(dayPeriod && (dayPeriod.shortForecast || dayPeriod.detailedForecast) || '').trim();
+  const info = weatherFromTextForecast(description);
+  const tempHigh = temps.length ? Math.max(...temps) : null;
+  const tempLow = temps.length ? Math.min(...temps) : null;
+  const temp = tempHigh !== null && tempLow !== null
+    ? Math.round((tempHigh + tempLow) / 2)
+    : (tempHigh !== null ? tempHigh : tempLow);
+
+  return {
+    success: true,
+    condition: info.condition,
+    icon: info.icon,
+    temp: Number.isFinite(Number(temp)) ? Number(temp) : null,
+    tempLow: Number.isFinite(Number(tempLow)) ? Number(tempLow) : null,
+    tempHigh: Number.isFinite(Number(tempHigh)) ? Number(tempHigh) : null,
+    rainChance: Number.isFinite(Number(rainChance)) ? Number(rainChance) : null,
+    description: info.desc,
+    lastFetched: new Date(),
+  };
+}
+
 async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) {
   try {
     if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
@@ -1422,10 +1497,25 @@ async function fetchWeatherForecast(date, lat = DEFAULT_LAT, lon = DEFAULT_LON) 
       };
     }
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max&temperature_unit=fahrenheit&timezone=auto&start_date=${dateStr}&end_date=${dateStr}`;
-    const response = await fetch(url);
-    if (!response.ok) {
-      console.error(`Weather API HTTP error: ${response.status} ${response.statusText}`);
-      throw new Error(`Weather API HTTP ${response.status}`);
+    let response = null;
+    let lastWeatherError = null;
+    for (let attempt = 1; attempt <= 2; attempt += 1) {
+      response = await fetch(url);
+      if (response.ok) break;
+      lastWeatherError = new Error(`Weather API HTTP ${response.status}`);
+      console.error(`Weather API HTTP error: ${response.status} ${response.statusText} (attempt ${attempt})`);
+      if (response.status < 500 || attempt === 2) break;
+      await new Promise((resolve) => setTimeout(resolve, 350 * attempt));
+    }
+    if (!response || !response.ok) {
+      if (toLatitude(lat) !== null && toLongitude(lon) !== null) {
+        try {
+          return await fetchNwsWeatherForecast(date, lat, lon);
+        } catch (fallbackError) {
+          console.error('Weather fallback error:', fallbackError.message, '(Date:', dateStr, 'Lat:', lat, 'Lon:', lon, ')');
+        }
+      }
+      throw lastWeatherError || new Error('Weather API unavailable');
     }
     const data = await response.json();
     if (!data.daily || !data.daily.weather_code || data.daily.weather_code[0] === undefined) {
@@ -4752,7 +4842,7 @@ app.post('/api/events', validateBody(validateCreateEvent), async (req, res) => {
       '',
       course
     );
-    const normalizedCourseInfo = normalizeCourseInfo(courseInfo || {});
+    const normalizedCourseInfo = enrichCourseInfo(course, courseInfo || {});
     const weatherData = await fetchWeatherForEvent({
       course,
       courseInfo: normalizedCourseInfo,
@@ -4845,12 +4935,12 @@ app.put('/api/events/:id', async (req, res) => {
       if (courseChanged) {
         weatherNeedsRefresh = true;
         // If the course changed and no courseInfo was provided, clear stale location metadata.
-        if (!hasCourseInfo) ev.courseInfo = normalizeCourseInfo({});
+        if (!hasCourseInfo) ev.courseInfo = enrichCourseInfo(course, {});
       }
     }
 
     if (hasCourseInfo) {
-      ev.courseInfo = normalizeCourseInfo(courseInfo || {});
+      ev.courseInfo = enrichCourseInfo(ev.course, courseInfo || {});
       weatherNeedsRefresh = true;
     }
 
@@ -5761,6 +5851,81 @@ app.post('/api/events/:id/pairings/apply', async (req, res) => {
   }
 });
 
+app.post('/api/events/:id/player-layout', async (req, res) => {
+  try {
+    const ev = await findScopedEventById(req, req.params.id);
+    if (!ev) return res.status(404).json({ error: 'Not found' });
+    if (ev.isTeamEvent) return res.status(400).json({ error: 'Player randomization is only available for tee-time events.' });
+
+    const requestedGroups = Array.isArray(req.body?.groups) ? req.body.groups : [];
+    const maybeList = Array.isArray(req.body?.maybeList)
+      ? req.body.maybeList.map((name) => String(name || '').trim()).filter(Boolean)
+      : Array.isArray(ev.maybeList) ? ev.maybeList : [];
+    const action = String(req.body?.action || '').trim().toLowerCase();
+    const includeInterested = req.body?.includeInterested === true;
+
+    if (!requestedGroups.length) {
+      return res.status(400).json({ error: 'No player groups supplied.' });
+    }
+
+    const teeMap = new Map((ev.teeTimes || []).map((tt) => [String(tt._id), tt]));
+    const originalPlayerIds = new Set();
+    for (const tt of (ev.teeTimes || [])) {
+      for (const player of (tt.players || [])) {
+        originalPlayerIds.add(String(player && player._id));
+      }
+    }
+
+    for (const tt of (ev.teeTimes || [])) tt.players = [];
+
+    for (const group of requestedGroups) {
+      const teeId = String(group && group.teeId || '').trim();
+      const target = teeMap.get(teeId);
+      if (!target) return res.status(400).json({ error: 'Unknown tee time in player layout.' });
+      const requestedPlayers = Array.isArray(group && group.players) ? group.players : [];
+      if (requestedPlayers.length > 5) return res.status(400).json({ error: 'A tee time cannot have more than 5 players.' });
+      target.players = requestedPlayers.map((player, index) => {
+        const name = String(player && player.name || '').trim();
+        if (!name) throw new Error('Player name is required for randomized layout.');
+        const playerId = String(player && (player.playerId || player._id) || '').trim();
+        if (playerId && !originalPlayerIds.has(playerId)) {
+          throw new Error(`Unknown player id in randomized layout: ${playerId}`);
+        }
+        const payload = {
+          name,
+          checkedIn: !!(player && player.checkedIn),
+          isFifth: !!(player && player.isFifth) || index >= 4,
+        };
+        if (playerId) payload._id = playerId;
+        return payload;
+      });
+    }
+
+    ev.maybeList = maybeList;
+    await ev.save();
+
+    const totalPlayers = (ev.teeTimes || []).reduce((sum, tt) => sum + ((tt.players || []).length), 0);
+    const auditAction = action === 'revert' ? 'revert_randomized_players' : 'apply_randomized_players';
+    const auditMessage = action === 'revert'
+      ? 'Restored the previous tee-time player order.'
+      : `Randomized tee-time players${includeInterested ? ' including interested golfers' : ''}.`;
+    await logAudit(ev._id, auditAction, 'SYSTEM', {
+      ...auditContextFromEvent(ev),
+      message: auditMessage,
+      details: {
+        teeCount: Array.isArray(ev.teeTimes) ? ev.teeTimes.length : 0,
+        playerCount: totalPlayers,
+        maybeCount: Array.isArray(ev.maybeList) ? ev.maybeList.length : 0,
+        includeInterested,
+      },
+    });
+
+    res.json(ev);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/api/events/:id/skins-pops/randomize', async (req, res) => {
   try {
     if (!isMainSiteAdminRequest(req)) return res.status(403).json({ error: 'Admin code required' });
@@ -5828,6 +5993,8 @@ const LOCAL_GOLF_COURSES = Object.freeze([
     name: 'Blue Ridge Shadows Golf Club',
     city: 'Front Royal',
     state: 'VA',
+    latitude: 38.9492339,
+    longitude: -78.1649919,
     phone: '(540) 631-9661',
     website: 'https://blueridgeshadows.com',
     holes: 18,
@@ -5987,6 +6154,37 @@ const LOCAL_GOLF_COURSES = Object.freeze([
 
 function buildLocalGolfCourses() {
   return LOCAL_GOLF_COURSES.map((course) => ({ ...course }));
+}
+
+function normalizeCourseLookupName(value = '') {
+  return String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/&/g, 'and')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\b(golf club|golf course|country club|club|resort)\b/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function findLocalCourseByName(courseName = '') {
+  const lookup = normalizeCourseLookupName(courseName);
+  if (!lookup) return null;
+  const courses = buildLocalGolfCourses();
+  return courses.find((course) => {
+    const candidate = normalizeCourseLookupName(course && course.name);
+    return candidate === lookup || candidate.includes(lookup) || lookup.includes(candidate);
+  }) || null;
+}
+
+function enrichCourseInfo(courseName = '', existingCourseInfo = {}) {
+  const normalizedExisting = normalizeCourseInfo(existingCourseInfo || {});
+  const localCourse = findLocalCourseByName(courseName);
+  if (!localCourse) return normalizedExisting;
+  return normalizeCourseInfo({
+    ...localCourse,
+    ...normalizedExisting,
+  });
 }
 
 // Helper: Try API request with fallback to backup key
@@ -6218,7 +6416,7 @@ app.post('/api/events/:id/weather', async (req, res) => {
   try {
     const ev = await findScopedEventById(req, req.params.id);
     if (!ev) return res.status(404).json({ error: 'Not found' });
-    
+    ev.courseInfo = enrichCourseInfo(ev.course, ev.courseInfo || {});
     const weatherData = await fetchWeatherForEvent(ev);
     assignWeatherToEvent(ev, weatherData);
     
@@ -6252,6 +6450,7 @@ app.post('/api/events/weather/refresh-all', async (req, res) => {
           console.error('Weather refresh skipped for event', ev._id, 'due to missing/invalid date:', ev.date);
           continue;
         }
+        ev.courseInfo = enrichCourseInfo(ev.course, ev.courseInfo || {});
         const weatherData = await fetchWeatherForEvent(ev);
         assignWeatherToEvent(ev, weatherData);
         await ev.save();
@@ -7838,3 +8037,6 @@ module.exports.buildEventIcs = buildEventIcs;
 module.exports.eventCalendarTiming = eventCalendarTiming;
 module.exports.buildEventsIcs = buildEventsIcs;
 module.exports.clubCancelCcRecipientsForEvent = clubCancelCcRecipientsForEvent;
+module.exports.enrichCourseInfo = enrichCourseInfo;
+module.exports.resolveWeatherCoordinates = resolveWeatherCoordinates;
+module.exports.fetchWeatherForEvent = fetchWeatherForEvent;
