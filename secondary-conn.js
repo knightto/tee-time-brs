@@ -9,7 +9,12 @@ function initSecondaryConn() {
     // useNewUrlParser/useUnifiedTopology are no-ops on driver >=4
     dbName: process.env.MONGO_DB_SECONDARY || undefined,
   });
-  secondaryConn.once('open', () => console.log('Secondary MongoDB connection for Myrtle Trip initialized.'));
+secondaryConn.once('open', () => console.log(JSON.stringify({
+  t: new Date().toISOString(),
+  level: 'info',
+  msg: 'secondary-mongo-connected',
+  scope: 'myrtle-trip',
+})));
   secondaryConn.on('error', (err) => console.error('Secondary Mongo connection error:', err));
   return secondaryConn;
 }

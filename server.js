@@ -198,6 +198,10 @@ app.get('/healthz', (_req, res) => {
   res.type('text/plain').status(200).send('ok');
 });
 
+app.get('/api/health', (_req, res) => {
+  res.type('application/json').status(200).json({ ok: true });
+});
+
 app.get('/', (req, res) => {
   const canonicalRedirect = buildCanonicalGroupQueryRedirectPath(req, '/');
   if (canonicalRedirect) return res.redirect(302, canonicalRedirect);
@@ -8016,7 +8020,17 @@ if (require.main === module && !SCHEDULER_ENV_DISABLED) {
     }
   }, 60 * 1000); // check once per minute
 
-  console.log('Scheduler enabled: Brian empty-tee alert at 4 PM, daily reminders at 5 PM (24hr & 48hr), admin alerts every 6 hours, weather refresh every 2 hours, and scheduled backups by backup settings');
+  console.log(JSON.stringify({
+    t: new Date().toISOString(),
+    level: 'info',
+    msg: 'scheduler-enabled',
+    emptyTeeAlertHourLocal: 16,
+    reminderHourLocal: 17,
+    reminderWindowsHours: [24, 48],
+    adminAlertIntervalHours: 6,
+    weatherRefreshIntervalHours: 2,
+    backups: 'scheduled-by-backup-settings',
+  }));
 }
 
 if (require.main === module) {

@@ -1,10 +1,14 @@
-const { spawn } = require('child_process');
 const crypto = require('crypto');
 require('dotenv').config();
+const mongoose = require('mongoose');
 
-const PORT = Number(process.env.E2E_PORT || 5055);
-const BASE = `http://127.0.0.1:${PORT}`;
+process.env.E2E_TEST_MODE = '1';
+
+const app = require('../server');
+const { getSecondaryConn } = require('../secondary-conn');
+
 const ADMIN_CODE = process.env.ADMIN_DELETE_CODE || '';
+let BASE = '';
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -45,19 +49,20 @@ async function waitForBoot() {
 
 async function main() {
   const results = [];
-  const child = spawn(process.execPath, ['server.js'], {
-    env: { ...process.env, PORT: String(PORT), E2E_TEST_MODE: '1' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  const server = app.listen(Number(process.env.E2E_PORT || 0));
+  await new Promise((resolve) => server.once('listening', resolve));
+  const port = server.address().port;
+  BASE = `http://127.0.0.1:${port}`;
 
   const booted = await waitForBoot();
   if (!booted) {
-    expect(results, false, 'Server boot', `Failed to boot on port ${PORT}`);
+    expect(results, false, 'Server boot', `Failed to boot on port ${port}`);
     console.log(JSON.stringify({ summary: { passed: 0, failed: 1, total: 1 }, results }, null, 2));
-    child.kill('SIGTERM');
+    server.closeAllConnections?.();
+    await new Promise((resolve) => server.close(resolve));
     process.exit(1);
   }
-  expect(results, true, 'Server boot', `Listening on ${PORT}`);
+  expect(results, true, 'Server boot', `Listening on ${port}`);
 
   const runId = crypto.randomBytes(3).toString('hex');
   const teeCourse = `E2E Tee ${runId}`;
@@ -251,8 +256,11 @@ async function main() {
     if (ADMIN_CODE && teamEventId) {
       await api(`/api/events/${teamEventId}?code=${encodeURIComponent(ADMIN_CODE)}`, { method: 'DELETE' });
     }
-    child.kill('SIGTERM');
-    setTimeout(() => child.kill('SIGKILL'), 1200);
+    server.closeAllConnections?.();
+    await new Promise((resolve) => server.close(resolve));
+    await mongoose.connection.close().catch(() => {});
+    const secondary = getSecondaryConn();
+    if (secondary) await secondary.close().catch(() => {});
   }
 
   const passed = results.filter((r) => r.ok).length;

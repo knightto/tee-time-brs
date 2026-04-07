@@ -256,7 +256,7 @@ async function main() {
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tee-time-public-mobile-'));
   const server = spawn(process.execPath, ['server.js'], {
     env: { ...process.env, PORT: String(PORT), E2E_TEST_MODE: '1' },
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: 'ignore',
   });
   const browser = spawn(browserPath, [
     '--headless=new',
@@ -268,7 +268,7 @@ async function main() {
     `--remote-debugging-port=${DEBUG_PORT}`,
     `--user-data-dir=${userDataDir}`,
     'about:blank',
-  ], { stdio: ['ignore', 'pipe', 'pipe'] });
+  ], { stdio: 'ignore' });
 
   try {
     const booted = await waitForBoot();
@@ -303,8 +303,8 @@ async function main() {
     console.log(JSON.stringify({ summary, results }, null, 2));
     if (summary.failed) process.exit(1);
   } finally {
-    server.kill('SIGTERM');
-    browser.kill('SIGTERM');
+    if (server.exitCode === null && !server.killed) server.kill('SIGTERM');
+    if (browser.exitCode === null && !browser.killed) browser.kill('SIGTERM');
     try {
       fs.rmSync(userDataDir, { recursive: true, force: true });
     } catch {}

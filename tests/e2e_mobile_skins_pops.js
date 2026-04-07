@@ -14,7 +14,17 @@ const { getSecondaryConn } = require('../secondary-conn');
 const PORT = Number(process.env.E2E_MOBILE_SKINS_PORT || 0);
 const DEBUG_PORT = Number(process.env.E2E_MOBILE_SKINS_DEBUG_PORT || 9246);
 const ADMIN_CODE = process.env.SITE_ADMIN_WRITE_CODE || process.env.SITE_ACCESS_CODE || '123';
-const EVENT_DATE = '2026-12-20';
+function eventDateForTodayInEastern() {
+  const formatter = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  return formatter.format(new Date());
+}
+
+const EVENT_DATE = eventDateForTodayInEastern();
 const BROWSER_CANDIDATES = [
   process.env.E2E_BROWSER_BIN,
   'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
@@ -347,7 +357,7 @@ async function main() {
           const card = document.querySelector('.card[data-event-id="${eventId}"]');
           if (!card) return false;
           const text = card.querySelector('.event-sidegame-box')?.innerText || '';
-          return /Locked after draw/i.test(text);
+          return /Finalized for this event\\./i.test(text);
         })()`, 10000);
         const redrawVisibleWithoutAdmin = await evaluate(send, `Boolean(document.querySelector('.card[data-event-id="${eventId}"] [data-randomize-skins-pops="${eventId}"]'))`);
         assert.strictEqual(redrawVisibleWithoutAdmin, false, 'Re-draw button should be hidden once the draw is locked outside admin mode');

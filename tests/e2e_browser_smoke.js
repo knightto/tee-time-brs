@@ -3,10 +3,15 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 require('dotenv').config();
+const mongoose = require('mongoose');
 
-const PORT = Number(process.env.E2E_PORT || 5055);
-const BASE = `http://127.0.0.1:${PORT}`;
+process.env.E2E_TEST_MODE = '1';
+
+const app = require('../server');
+const { getSecondaryConn } = require('../secondary-conn');
+
 const DEBUG_PORT = Number(process.env.E2E_BROWSER_DEBUG_PORT || 9233);
+let BASE = '';
 const BROWSER_CANDIDATES = [
   process.env.E2E_BROWSER_BIN,
   'C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe',
@@ -244,10 +249,10 @@ async function main() {
   expect(results, true, 'Browser available', browserPath);
 
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tee-time-browser-'));
-  const server = spawn(process.execPath, ['server.js'], {
-    env: { ...process.env, PORT: String(PORT), E2E_TEST_MODE: '1' },
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
+  const server = app.listen(Number(process.env.E2E_PORT || 0));
+  await new Promise((resolve) => server.once('listening', resolve));
+  const port = server.address().port;
+  BASE = `http://127.0.0.1:${port}`;
   const browser = spawn(browserPath, [
     '--headless=new',
     '--disable-gpu',
@@ -259,14 +264,14 @@ async function main() {
     `--user-data-dir=${userDataDir}`,
     'about:blank',
   ], {
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: 'ignore',
   });
 
   try {
     const booted = await waitForBoot();
-    expect(results, booted, 'Server boot', booted ? `Listening on ${PORT}` : `Failed to boot on ${PORT}`);
+    expect(results, booted, 'Server boot', booted ? `Listening on ${port}` : `Failed to boot on ${port}`);
     if (!booted) {
-      throw new Error(`Server failed to boot on ${PORT}`);
+      throw new Error(`Server failed to boot on ${port}`);
     }
 
     await waitForJsonVersion();
@@ -282,12 +287,15 @@ async function main() {
       expect(results, page.errors.length === 0, `Browser console ${spec.label}`, page.errors.join(' | ') || 'no errors');
     }
   } finally {
-    browser.kill('SIGTERM');
-    server.kill('SIGTERM');
+    if (browser.exitCode === null && !browser.killed) browser.kill('SIGTERM');
     setTimeout(() => {
-      browser.kill('SIGKILL');
-      server.kill('SIGKILL');
+      if (browser.exitCode === null && !browser.killed) browser.kill('SIGKILL');
     }, 1200);
+    server.closeAllConnections?.();
+    await new Promise((resolve) => server.close(resolve));
+    await mongoose.connection.close().catch(() => {});
+    const secondary = getSecondaryConn();
+    if (secondary) await secondary.close().catch(() => {});
     try {
       fs.rmSync(userDataDir, { recursive: true, force: true });
     } catch {}
