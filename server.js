@@ -56,6 +56,7 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
+const MastersPool = require('./models/MastersPool');
 const { importHandicapsFromCsv, parseCsv } = require('./services/handicapImportService');
 const {
   buildGroupRoutePaths,
@@ -228,6 +229,64 @@ app.get('/group-admin-lite.html', (req, res) => {
   applyNoStoreHeaders(res);
   return res.sendFile(path.join(__dirname, 'public', 'group-admin-lite.html'));
 });
+app.get('/masters', (_req, res) => {
+  applyNoStoreHeaders(res);
+  return res.sendFile(path.join(__dirname, 'public', 'masters', 'index.html'));
+});
+app.get('/masters/create', (_req, res) => {
+  applyNoStoreHeaders(res);
+  return res.sendFile(path.join(__dirname, 'public', 'masters', 'create.html'));
+});
+app.get('/masters/join', (_req, res) => {
+  applyNoStoreHeaders(res);
+  return res.sendFile(path.join(__dirname, 'public', 'masters', 'join.html'));
+});
+app.get('/masters/live', (_req, res) => {
+  applyNoStoreHeaders(res);
+  return res.sendFile(path.join(__dirname, 'public', 'masters', 'live.html'));
+});
+app.get('/masters/rules', (_req, res) => {
+  applyNoStoreHeaders(res);
+  return res.sendFile(path.join(__dirname, 'public', 'masters', 'rules.html'));
+});
+app.get('/masters/admin', (_req, res) => {
+  applyNoStoreHeaders(res);
+  return res.sendFile(path.join(__dirname, 'public', 'masters', 'admin.html'));
+});
+app.get('/masters/results', (_req, res) => {
+  applyNoStoreHeaders(res);
+  return res.sendFile(path.join(__dirname, 'public', 'masters', 'results.html'));
+});
+app.get(/^\/masters\/(\d{4})$/, async (req, res) => {
+  try {
+    const season = Number(req.params[0]);
+    const pool = await MastersPool.findOne({ season }).sort({ createdAt: -1 }).lean();
+    if (!pool) return res.redirect(302, '/masters');
+    return res.redirect(302, `/masters/live?poolId=${encodeURIComponent(String(pool._id))}`);
+  } catch (_error) {
+    return res.redirect(302, '/masters');
+  }
+});
+app.get(/^\/masters\/(\d{4})\/admin$/, async (req, res) => {
+  try {
+    const season = Number(req.params[0]);
+    const pool = await MastersPool.findOne({ season }).sort({ createdAt: -1 }).lean();
+    if (!pool) return res.redirect(302, '/masters');
+    return res.redirect(302, `/masters/admin?poolId=${encodeURIComponent(String(pool._id))}`);
+  } catch (_error) {
+    return res.redirect(302, '/masters');
+  }
+});
+app.get(/^\/masters\/(\d{4})\/join$/, async (req, res) => {
+  try {
+    const season = Number(req.params[0]);
+    const pool = await MastersPool.findOne({ season }).sort({ createdAt: -1 }).lean();
+    if (!pool) return res.redirect(302, '/masters');
+    return res.redirect(302, `/masters/join?poolId=${encodeURIComponent(String(pool._id))}`);
+  } catch (_error) {
+    return res.redirect(302, '/masters');
+  }
+});
 app.get('/manifest.json', async (req, res) => {
   try {
     const scopedGroupSlug = String(req.query.group || '').trim()
@@ -315,6 +374,7 @@ app.get('/api/debug/secondary-trips', async (req, res) => {
   }
 });
 app.use('/api/trips', require('./routes/trips'));
+app.use('/api/masters-pools', require('./routes/mastersPools'));
 app.use('/api/outings', cacheJson(15 * 1000), require('./routes/outings'));
 app.use('/api/valley', require('./routes/valley'));
 // Handicap tracking removed

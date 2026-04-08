@@ -8,7 +8,7 @@
         "dev": "nodemon server.js",
         "build:frontend": "node scripts/generate_sw_assets.js && node scripts/build_frontend.js",
         "gen:sw-assets": "node scripts/generate_sw_assets.js",
-        "test": "node tests/test_add_tee.js && node tests/test_server_helpers.js && node tests/test_club_cancel_recipients.js && node tests/test_render_order.js && node tests/test_handicap_import.js && node tests/test_trip_competition_service.js && node tests/test_trip_ryder_cup_service.js && node tests/test_tin_cup_live_service.js",
+        "test": "node tests/test_add_tee.js && node tests/test_server_helpers.js && node tests/test_club_cancel_recipients.js && node tests/test_render_order.js && node tests/test_handicap_import.js && node tests/test_trip_competition_service.js && node tests/test_trip_ryder_cup_service.js && node tests/test_tin_cup_live_service.js && node tests/test_masters_pool_service.js",
         "test:e2e": "node tests/e2e_smoke.js && node tests/e2e_browser_smoke.js && node tests/e2e_public_mobile_header.js && node tests/e2e_mobile_skins_pops.js && node tests/e2e_tin_cup_browser.js",
         "test:reset": "node scripts/reset_test_data.js",
         "test:frontend": "node tests/test_add_tee.js",
@@ -18,7 +18,8 @@
         "lint": "eslint .",
         "format": "prettier --write .",
         "seed:myrtle": "node scripts/seed_myrtle_trip.js",
-        "seed:outings": "node scripts/seed_blue_ridge_outings.js"
+        "seed:outings": "node scripts/seed_blue_ridge_outings.js",
+        "seed:masters": "node scripts/seed_masters_pool.js"
     },
     "dependencies": {
         "compression": "^1.8.1",

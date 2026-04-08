@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Masters Pool Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/masters/theme.css">
+  <script src="/masters/app.js" defer></script>
+</head>
+<body data-page="admin">
+  <div class="page">
+    <header id="hero" class="hero"></header>
+    <div id="pageStatus" class="muted"></div>
+    <section class="panel">
+      <div class="section-label">All Pools</div>
+      <div id="adminPoolList" class="stack"></div>
+    </section>
+    <section id="metrics" class="panel"></section>
+    <section class="panel stack">
+      <div class="section-label">Admin Controls</div>
+      <div class="form-grid">
+        <label>Admin Code<input id="adminCode" type="password" placeholder="Site admin code"></label>
+        <label>Pool Name<input id="poolName"></label>
+        <label>Pool Access Code<input id="accessCode" placeholder="Required for entrants if set"></label>
+        <label>Entry Fee<input id="entryFee" type="number" step="0.01"></label>
+        <label>Expected Entrants<input id="expectedEntrants" type="number"></label>
+        <label>Lineup Counting<select id="lineupCountMode"><option value="all">Count all golfers</option><option value="best_x">Count best X golfers</option></select></label>
+        <label>Best X<input id="bestX" type="number" min="1"></label>
+      </div>
+      <div class="grid-3">
+        <label>1st Payout<input id="payout1" type="number"></label>
+        <label>1st Mode<select id="payout1Mode"><option value="percentage">Percentage</option><option value="amount">Amount</option></select></label>
+        <div></div>
+        <label>2nd Payout<input id="payout2" type="number"></label>
+        <label>2nd Mode<select id="payout2Mode"><option value="percentage">Percentage</option><option value="amount">Amount</option></select></label>
+        <div></div>
+        <label>3rd Payout<input id="payout3" type="number"></label>
+        <label>3rd Mode<select id="payout3Mode"><option value="percentage">Percentage</option><option value="amount">Amount</option></select></label>
+      </div>
+      <div class="actions-row">
+        <button id="saveSettings" type="button" class="primary">Save Settings</button>
+        <button id="recalcPool" type="button">Recalculate</button>
+        <button id="lockPool" type="button">Lock Pool</button>
+        <button id="deletePool" type="button">Delete Pool</button>
+      </div>
+    </section>
+    <section class="panel">
+      <div class="section-label">Tier Definitions</div>
+      <div id="tierTable"></div>
+    </section>
+    <section class="panel">
+      <div class="section-label">Seeded Field</div>
+      <div id="seedTable"></div>
+    </section>
+    <section class="panel">
+      <div class="section-label">Tier Board</div>
+      <div id="tierBoard"></div>
+    </section>
+    <section class="panel stack">
+      <div class="split">
+        <div>
+          <div class="section-label">Round Entry</div>
+          <div class="muted">Manual scoring input for each Masters round.</div>
+        </div>
+        <label style="max-width:160px;">Round<select id="roundPicker"><option value="1">Round 1</option><option value="2">Round 2</option><option value="3">Round 3</option><option value="4">Round 4</option></select></label>
+      </div>
+      <div class="form-grid">
+        <label>Actual Winning Score To Par<input id="winningScoreActual" type="number" value="-10"></label>
+      </div>
+      <div id="roundEditor"></div>
+      <div class="actions-row">
+        <button id="saveRound" type="button" class="primary">Save Round</button>
+      </div>
+    </section>
+    <section id="payouts" class="panel"></section>
+    <section class="panel">
+      <div class="section-label">Audit Trail</div>
+      <div id="auditLog" class="stack"></div>
+    </section>
+  </div>
+</body>
+</html>

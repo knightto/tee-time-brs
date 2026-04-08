@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Join Masters Pool</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/masters/theme.css">
+  <script src="/masters/app.js" defer></script>
+</head>
+<body data-page="join">
+  <div class="page">
+    <header id="hero" class="hero"></header>
+    <div id="pageStatus" class="muted"></div>
+    <section id="metrics" class="panel"></section>
+    <form id="joinForm" class="stack">
+      <section class="panel">
+        <div class="section-label">Entrant Info</div>
+        <div class="form-grid">
+          <label>Name<input id="entrantName" required></label>
+          <label>Email<input id="entrantEmail" type="email"></label>
+          <label>Pool Access Code<input id="poolAccessCode" type="password" placeholder="Enter the code from the organizer"></label>
+          <label>Tiebreaker Winning Score To Par<input id="winningScoreGuess" type="number" value="-10"></label>
+        </div>
+      </section>
+      <div id="pickBuilder"></div>
+      <div class="actions-row">
+        <button class="primary" type="submit">Submit Tier Picks</button>
+        <a id="rulesLink" class="button-link" href="/masters/rules">Rules</a>
+        <a class="button-link" href="/masters">Back to Pools</a>
+      </div>
+    </form>
+  </div>
+</body>
+</html>
