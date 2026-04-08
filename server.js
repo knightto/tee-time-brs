@@ -143,6 +143,14 @@ const processedEmailIds = new Map(); // simple idempotency guard for inbound ema
 let backupJobPromise = null;
 let restoreJobPromise = null;
 
+async function findPreferredMastersSeasonPool(season) {
+  const pools = await MastersPool.find({ season }).sort({ createdAt: -1 }).lean();
+  if (!pools.length) return null;
+  return pools.find((pool) => pool.status === 'live')
+    || pools.find((pool) => pool.status === 'complete')
+    || pools[0];
+}
+
 function parseIcsReminderMinutes(input = '') {
   const parsed = String(input || '')
     .split(',')
@@ -260,7 +268,7 @@ app.get('/masters/results', (_req, res) => {
 app.get(/^\/masters\/(\d{4})$/, async (req, res) => {
   try {
     const season = Number(req.params[0]);
-    const pool = await MastersPool.findOne({ season }).sort({ createdAt: -1 }).lean();
+    const pool = await findPreferredMastersSeasonPool(season);
     if (!pool) return res.redirect(302, '/masters');
     return res.redirect(302, `/masters/live?poolId=${encodeURIComponent(String(pool._id))}`);
   } catch (_error) {
@@ -270,7 +278,7 @@ app.get(/^\/masters\/(\d{4})$/, async (req, res) => {
 app.get(/^\/masters\/(\d{4})\/admin$/, async (req, res) => {
   try {
     const season = Number(req.params[0]);
-    const pool = await MastersPool.findOne({ season }).sort({ createdAt: -1 }).lean();
+    const pool = await findPreferredMastersSeasonPool(season);
     if (!pool) return res.redirect(302, '/masters');
     return res.redirect(302, `/masters/admin?poolId=${encodeURIComponent(String(pool._id))}`);
   } catch (_error) {
@@ -280,7 +288,7 @@ app.get(/^\/masters\/(\d{4})\/admin$/, async (req, res) => {
 app.get(/^\/masters\/(\d{4})\/join$/, async (req, res) => {
   try {
     const season = Number(req.params[0]);
-    const pool = await MastersPool.findOne({ season }).sort({ createdAt: -1 }).lean();
+    const pool = await findPreferredMastersSeasonPool(season);
     if (!pool) return res.redirect(302, '/masters');
     return res.redirect(302, `/masters/join?poolId=${encodeURIComponent(String(pool._id))}`);
   } catch (_error) {

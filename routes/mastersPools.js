@@ -65,6 +65,14 @@ async function loadPool(poolId) {
   return { pool, entries };
 }
 
+async function findPreferredSeasonPool(season) {
+  const pools = await MastersPool.find({ season }).sort({ createdAt: -1 }).lean();
+  if (!pools.length) return null;
+  return pools.find((pool) => pool.status === 'live')
+    || pools.find((pool) => pool.status === 'complete')
+    || pools[0];
+}
+
 async function refreshComputed(pool) {
   const entries = await MastersPoolEntry.find({ poolId: pool._id }).sort({ submittedAt: 1 });
   pool.computed = buildPoolComputedState(pool.toObject ? pool.toObject() : pool, entries.map((entry) => entry.toObject ? entry.toObject() : entry));
@@ -125,7 +133,7 @@ router.get('/season/:season/latest', async (req, res) => {
   try {
     const season = Number(req.params.season);
     if (!Number.isFinite(season)) return res.status(400).json({ error: 'Valid season is required' });
-    const pool = await MastersPool.findOne({ season }).sort({ createdAt: -1 });
+    const pool = await findPreferredSeasonPool(season);
     if (!pool) return res.status(404).json({ error: 'No pool found for that season' });
     return res.json({
       id: String(pool._id),

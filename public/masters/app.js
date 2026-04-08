@@ -4,6 +4,10 @@
   function setStatus(node, message, tone) { if (!node) return; node.className = tone || 'muted'; node.textContent = message || ''; }
   function escapeHtml(value) { return String(value == null ? '' : value).replace(/[&<>"]/g, (char) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[char])); }
   function currency(value) { const num = Number(value); return Number.isFinite(num) ? num.toLocaleString(undefined, { style:'currency', currency:'USD' }) : '$0.00'; }
+  function syncCompactMode() {
+    const compact = window.matchMedia('(max-width: 768px)').matches || window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+    document.body.classList.toggle('compact-mode', compact);
+  }
 
   async function fetchJson(url, options) {
     const response = await fetch(url, options);
@@ -184,7 +188,7 @@
     const picksPerTier = Number((summary.pool.tierRules || {}).picksPerTier || 4);
     target.innerHTML = (summary.tiers || []).map((tier) => {
       const selected = Array.isArray(selectedByTier[tier.key]) ? selectedByTier[tier.key] : [];
-      return `<section class="panel"><div class="card-head"><div><div class="section-label">${escapeHtml(tier.label)}</div><div class="muted">Pick exactly ${picksPerTier} golfers</div></div></div><div class="stack">${tier.golfers.map((golfer) => `<label class="contestant ${selected.includes(golfer.golferId) ? 'winner' : ''}"><span class="contestant-head"><strong>${escapeHtml(golfer.name)}</strong><span class="muted">${escapeHtml(golfer.status)}</span></span><span class="muted">World rank ${escapeHtml(golfer.worldRanking || '-')} | Odds ${escapeHtml(golfer.bettingOdds || '-')}</span><input type="checkbox" data-tier-key="${escapeHtml(tier.key)}" value="${escapeHtml(golfer.golferId)}" ${selected.includes(golfer.golferId) ? 'checked' : ''}></label>`).join('')}</div></section>`;
+      return `<section class="panel"><div class="card-head"><div><div class="section-label">${escapeHtml(tier.label)}</div><div class="muted">Pick exactly ${picksPerTier} golfers</div></div><span class="pill">${selected.length} of ${picksPerTier}</span></div><div class="stack">${tier.golfers.map((golfer) => `<label class="contestant ${selected.includes(golfer.golferId) ? 'winner' : ''}"><span class="contestant-head"><strong>${escapeHtml(golfer.name)}</strong><span class="muted">${escapeHtml(golfer.status)}</span></span><span class="muted">World rank ${escapeHtml(golfer.worldRanking || '-')} | Odds ${escapeHtml(golfer.bettingOdds || '-')}</span><input type="checkbox" data-tier-key="${escapeHtml(tier.key)}" value="${escapeHtml(golfer.golferId)}" ${selected.includes(golfer.golferId) ? 'checked' : ''}></label>`).join('')}</div></section>`;
     }).join('');
   }
 
@@ -490,6 +494,8 @@
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    syncCompactMode();
+    window.addEventListener('resize', syncCompactMode);
     const page = document.body.getAttribute('data-page');
     if (page === 'overview') initOverviewPage();
     if (page === 'create') initCreatePage();

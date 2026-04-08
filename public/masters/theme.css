@@ -28,6 +28,11 @@ body {
     linear-gradient(180deg, #12271c 0%, #0c1913 100%);
 }
 a { color: #f7dc98; }
+body.compact-mode {
+  background:
+    radial-gradient(circle at 14% 0%, rgba(212, 167, 74, 0.16), transparent 26%),
+    linear-gradient(180deg, #11251b 0%, #0b1712 100%);
+}
 .page { max-width: 1400px; margin: 0 auto; padding: 18px 16px 40px; }
 .hero, .panel, .card {
   border: 1px solid var(--line);
@@ -78,6 +83,14 @@ button.primary, .button-link.primary, .nav-link.active {
 }
 button:hover, .button-link:hover, .nav-link:hover { background: rgba(255, 255, 255, 0.08); }
 .pill { min-height: 34px; padding: 7px 11px; font-size: 0.84rem; }
+.nav-row {
+  overflow-x: auto;
+  flex-wrap: nowrap;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.nav-row::-webkit-scrollbar { display: none; }
+.nav-row .nav-link { flex: 0 0 auto; white-space: nowrap; }
 .panel { padding: 16px; margin-bottom: 14px; }
 .grid-2, .grid-3, .grid-4 { display: grid; gap: 12px; }
 .grid-2 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
@@ -133,6 +146,12 @@ tr:last-child td { border-bottom: none; }
 .contestant.winner { border-color: rgba(125, 214, 139, 0.4); background: rgba(125, 214, 139, 0.12); }
 .contestant.cut { opacity: 0.72; }
 .contestant-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.contestant input[type="checkbox"],
+.contestant input[type="radio"] {
+  width: 20px;
+  height: 20px;
+  margin-top: 8px;
+}
 .bracket-select {
   display: grid;
   gap: 6px;
@@ -186,11 +205,120 @@ tr:last-child td { border-bottom: none; }
 .tier-details[open] summary::after { content: "Close"; }
 .tier-details .stack { margin-top: 12px; }
 .hidden { display: none !important; }
+body.compact-mode .page {
+  padding: 12px 10px 96px;
+}
+body.compact-mode .hero {
+  padding: 14px;
+  gap: 10px;
+  border-radius: 20px;
+}
+body.compact-mode .hero-row,
+body.compact-mode .card-head,
+body.compact-mode .split {
+  gap: 10px;
+}
+body.compact-mode h1 {
+  font-size: clamp(1.35rem, 6.2vw, 1.9rem);
+}
+body.compact-mode .eyebrow,
+body.compact-mode .section-label {
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+}
+body.compact-mode .pill-row {
+  gap: 6px;
+}
+body.compact-mode .pill,
+body.compact-mode .nav-link,
+body.compact-mode button,
+body.compact-mode .button-link {
+  min-height: 38px;
+  padding: 8px 12px;
+  font-size: 0.92rem;
+}
+body.compact-mode .nav-row .nav-link {
+  min-height: 34px;
+  padding: 7px 11px;
+  font-size: 0.82rem;
+}
+body.compact-mode .panel,
+body.compact-mode .card {
+  padding: 13px;
+  border-radius: 16px;
+}
+body.compact-mode .metric {
+  padding: 12px;
+  border-radius: 14px;
+}
+body.compact-mode .metric-value {
+  font-size: 1.28rem;
+}
+body.compact-mode .contestant {
+  padding: 12px;
+}
+body.compact-mode .contestant-head {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+}
+body.compact-mode .table-wrap {
+  border-radius: 14px;
+}
+body.compact-mode table {
+  min-width: 560px;
+}
+body.compact-mode input,
+body.compact-mode select,
+body.compact-mode textarea {
+  padding: 11px 12px;
+  font-size: 16px;
+}
+body.compact-mode .actions-row {
+  gap: 10px;
+}
+body[data-page="join"].compact-mode .actions-row,
+body[data-page="create"].compact-mode .actions-row {
+  position: fixed;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  z-index: 20;
+  padding: 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: 18px;
+  background: rgba(10, 24, 17, 0.94);
+  box-shadow: 0 18px 36px rgba(0, 0, 0, 0.35);
+}
+body[data-page="join"].compact-mode .actions-row > *,
+body[data-page="create"].compact-mode .actions-row > * {
+  flex: 1 1 0;
+}
 @media (max-width: 1100px) {
+  .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .bracket-grid { grid-template-columns: repeat(2, minmax(240px, 1fr)); }
 }
 @media (max-width: 760px) {
-  .page { padding: 14px 12px 28px; }
+  .page { padding: 14px 12px 32px; }
+  .hero-row,
+  .card-head,
+  .split { flex-direction: column; align-items: stretch; }
+  .grid-3,
+  .grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .form-grid { grid-template-columns: 1fr; }
   .leader-row { grid-template-columns: 50px 1fr; }
   .bracket-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 520px) {
+  .grid-2,
+  .grid-3,
+  .grid-4 { grid-template-columns: 1fr; }
+  .page { padding: 12px 10px 32px; }
+  .hero,
+  .panel,
+  .card { border-radius: 16px; }
+  .pill-row { gap: 6px; }
+  .contestant { padding: 11px; }
+  .contestant-head { flex-direction: column; align-items: flex-start; }
+  .tier-details { padding: 10px; }
 }
