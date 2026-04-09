@@ -108,6 +108,7 @@ button:hover, .button-link:hover, .nav-link:hover { background: rgba(255, 255, 2
 .card { padding: 14px; display: grid; gap: 10px; }
 .stack { display: grid; gap: 12px; }
 .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.form-grid-quick { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
 label { display: grid; gap: 6px; font-size: 0.9rem; color: var(--muted); }
 input, select, textarea {
   width: 100%;
@@ -143,6 +144,44 @@ tr:last-child td { border-bottom: none; }
   border: 1px solid var(--line);
   background: rgba(255, 255, 255, 0.02);
 }
+.pick-stack { gap: 8px; }
+.pick-contestant {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 10px;
+}
+.pick-main {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.pick-head {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.pick-head strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pick-status {
+  font-size: 0.8rem;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+.pick-meta {
+  font-size: 0.84rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pick-meta-sep { margin: 0 6px; opacity: 0.7; }
 .contestant.winner { border-color: rgba(125, 214, 139, 0.4); background: rgba(125, 214, 139, 0.12); }
 .contestant.cut { opacity: 0.72; }
 .contestant-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
@@ -204,6 +243,8 @@ tr:last-child td { border-bottom: none; }
 }
 .tier-details[open] summary::after { content: "Close"; }
 .tier-details .stack { margin-top: 12px; }
+.optional-details summary::after { content: "Optional"; }
+.optional-details[open] summary::after { content: "Hide"; }
 .hidden { display: none !important; }
 body.compact-mode .page {
   padding: 12px 10px 96px;
@@ -256,6 +297,29 @@ body.compact-mode .metric-value {
 }
 body.compact-mode .contestant {
   padding: 12px;
+}
+body.compact-mode .pick-contestant {
+  grid-template-columns: 1fr 24px;
+  gap: 8px;
+  padding: 8px 9px;
+}
+body.compact-mode .pick-main {
+  gap: 2px;
+}
+body.compact-mode .pick-head {
+  gap: 6px;
+}
+body.compact-mode .pick-head strong {
+  font-size: 0.95rem;
+}
+body.compact-mode .pick-status {
+  font-size: 0.74rem;
+}
+body.compact-mode .pick-meta {
+  font-size: 0.75rem;
+}
+body.compact-mode .pick-meta-sep {
+  margin: 0 4px;
 }
 body.compact-mode .contestant-head {
   flex-direction: column;
@@ -321,4 +385,21 @@ body[data-page="create"].compact-mode .actions-row > * {
   .contestant { padding: 11px; }
   .contestant-head { flex-direction: column; align-items: flex-start; }
   .tier-details { padding: 10px; }
+  .pick-contestant {
+    grid-template-columns: 1fr 22px;
+    gap: 8px;
+    padding: 8px 9px;
+  }
+  .pick-head {
+    gap: 6px;
+  }
+  .pick-head strong {
+    font-size: 0.94rem;
+  }
+  .pick-status {
+    font-size: 0.72rem;
+  }
+  .pick-meta {
+    font-size: 0.74rem;
+  }
 }

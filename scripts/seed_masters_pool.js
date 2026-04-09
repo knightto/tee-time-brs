@@ -10,10 +10,11 @@ const {
 } = require('../services/mastersPoolService');
 
 function buildEntryPicks(pool, offsets = {}) {
-  return (pool.tiers || []).flatMap((tier) => {
+  return (pool.tiers || []).map((tier) => {
     const golfers = (pool.golfers || []).filter((golfer) => golfer.tierKey === tier.key).sort((a, b) => a.seed - b.seed);
     const offset = Number(offsets[tier.key] || 0);
-    return golfers.slice(offset, offset + 4).map((golfer) => ({ tierKey: tier.key, golferId: golfer.golferId }));
+    const golfer = golfers[Math.min(offset, Math.max(0, golfers.length - 1))];
+    return { tierKey: tier.key, golferId: golfer.golferId };
   });
 }
 
@@ -59,6 +60,8 @@ async function run() {
     entryFee: 10,
     expectedEntrants: 20,
     accessCode: '1986',
+    tierRules: { tierCount: 6, picksPerTier: 1 },
+    lineupRules: { countMode: 'all', bestX: null },
     golfers,
     roundResults: buildMockRoundResults(golfers),
   }));

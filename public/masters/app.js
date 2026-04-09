@@ -1,9 +1,19 @@
 (function () {
   function $(id) { return document.getElementById(id); }
   function getPoolId() { try { return String(new URLSearchParams(window.location.search).get('poolId') || '').trim(); } catch { return ''; } }
+  function getParam(name) { try { return String(new URLSearchParams(window.location.search).get(name) || '').trim(); } catch { return ''; } }
   function setStatus(node, message, tone) { if (!node) return; node.className = tone || 'muted'; node.textContent = message || ''; }
   function escapeHtml(value) { return String(value == null ? '' : value).replace(/[&<>"]/g, (char) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[char])); }
   function currency(value) { const num = Number(value); return Number.isFinite(num) ? num.toLocaleString(undefined, { style:'currency', currency:'USD' }) : '$0.00'; }
+  function formatDateTimeLocal(value) {
+    if (!value) return '';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+    const offsetDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+    return offsetDate.toISOString().slice(0, 16);
+  }
+  function readLocal(key, fallback = '') { try { return window.localStorage.getItem(key) || fallback; } catch { return fallback; } }
+  function writeLocal(key, value) { try { if (value) window.localStorage.setItem(key, value); } catch {} }
   function syncCompactMode() {
     const compact = window.matchMedia('(max-width: 768px)').matches || window.matchMedia('(hover: none) and (pointer: coarse)').matches;
     document.body.classList.toggle('compact-mode', compact);
@@ -34,11 +44,11 @@
     if (!target) return;
     const picksHref = poolId ? `/masters/join?poolId=${encodeURIComponent(poolId)}` : '/masters/join';
     target.innerHTML = `<div class="stack">
-      <div class="inline-note">Quick version: enter the pool code, pick exactly 4 golfers from each tier, submit before lock, and your lineup score is the sum of all golfer points from the real Masters tournament.</div>
+      <div class="inline-note">Quick version: enter the pool code, pick exactly 1 golfer from each tier, submit before lock, and your lineup score is the sum of all golfer points from the real Masters tournament.</div>
       <div class="grid-2">
         <div class="card">
           <div class="section-label">How To Pick</div>
-          <div>Pick exactly 4 golfers from every tier.</div>
+          <div>Pick exactly 1 golfer from every tier.</div>
           <div>You cannot submit an incomplete entry.</div>
           <div>No duplicate golfer picks are allowed in the same lineup.</div>
           <div>Picks become read-only once the pool locks.</div>
@@ -99,16 +109,20 @@
 
   function renderHero(target, summary, activePath, subtitle) {
     if (!target) return;
-    target.innerHTML = `<div class="hero-row"><div class="stack"><div class="eyebrow">${escapeHtml(summary.pool.tournamentName)} ${escapeHtml(summary.pool.season)}</div><h1>${escapeHtml(summary.pool.name)}</h1><div class="muted">${escapeHtml(subtitle)}</div></div><div class="stack" style="align-items:flex-end;"><div class="pill-row"><span class="pill">${escapeHtml(summary.pool.poolFormat || 'tiered_picks')}</span><span class="pill">${summary.pool.isLocked ? 'Locked' : 'Open'}</span><span class="pill">Round ${escapeHtml(String(summary.bracket.latestCompletedRound || 0))}</span></div><div class="nav-row">${buildNav(summary.pool._id, activePath)}</div></div></div>`;
+    const autoLockAt = summary.pool.lockState && summary.pool.lockState.autoLockAt ? new Date(summary.pool.lockState.autoLockAt) : null;
+    const lockCopy = summary.pool.isLocked
+      ? (summary.pool.lockState && summary.pool.lockState.reason) || 'Locked'
+      : (autoLockAt && !Number.isNaN(autoLockAt.getTime()) ? `Open until ${autoLockAt.toLocaleString()}` : 'Open');
+    target.innerHTML = `<div class="hero-row"><div class="stack"><div class="eyebrow">${escapeHtml(summary.pool.tournamentName)} ${escapeHtml(summary.pool.season)}</div><h1>${escapeHtml(summary.pool.name)}</h1><div class="muted">${escapeHtml(subtitle)}</div><div class="muted">${escapeHtml(lockCopy)}</div></div><div class="stack" style="align-items:flex-end;"><div class="pill-row"><span class="pill">${escapeHtml(summary.pool.poolFormat || 'tiered_picks')}</span><span class="pill">${summary.pool.isLocked ? 'Locked' : 'Open'}</span><span class="pill">Round ${escapeHtml(String(summary.bracket.latestCompletedRound || 0))}</span></div><div class="nav-row">${buildNav(summary.pool._id, activePath)}</div></div></div>`;
   }
 
   function renderMetrics(target, summary) {
     if (!target) return;
-    const tierRules = summary.pool.tierRules || { tierCount: 6, picksPerTier: 4 };
+    const tierRules = summary.pool.tierRules || { tierCount: 6, picksPerTier: 1 };
     const lineupRules = summary.pool.lineupRules || { countMode: 'all', bestX: null };
     target.innerHTML = `<div class="grid-4">
       <div class="metric"><strong>Total Pot</strong><div class="metric-value">${escapeHtml(currency(summary.payouts.totalPot))}</div><div class="muted">${summary.payouts.totalEntries} paid entries at ${escapeHtml(currency(summary.pool.entryFee))}</div></div>
-      <div class="metric"><strong>Tier Format</strong><div class="metric-value">${escapeHtml(String(tierRules.tierCount || 6))} x ${escapeHtml(String(tierRules.picksPerTier || 4))}</div><div class="muted">Pick ${tierRules.picksPerTier || 4} golfers from each tier.</div></div>
+      <div class="metric"><strong>Tier Format</strong><div class="metric-value">${escapeHtml(String(tierRules.tierCount || 6))} x ${escapeHtml(String(tierRules.picksPerTier || 1))}</div><div class="muted">Pick ${tierRules.picksPerTier || 1} golfer from each tier.</div></div>
       <div class="metric"><strong>Lineup Counting</strong><div class="metric-value">${escapeHtml(lineupRules.countMode === 'best_x' ? `Best ${lineupRules.bestX || ''}` : 'All Golfers')}</div><div class="muted">Pool rule applied to round scoring totals.</div></div>
       <div class="metric"><strong>Payout Spots</strong><div class="metric-value">3</div><div class="muted">1st, 2nd, and 3rd only.</div></div>
     </div>`;
@@ -185,10 +199,10 @@
 
   function renderPickBuilder(target, summary, selectedByTier) {
     if (!target) return;
-    const picksPerTier = Number((summary.pool.tierRules || {}).picksPerTier || 4);
+    const picksPerTier = Number((summary.pool.tierRules || {}).picksPerTier || 1);
     target.innerHTML = (summary.tiers || []).map((tier) => {
       const selected = Array.isArray(selectedByTier[tier.key]) ? selectedByTier[tier.key] : [];
-      return `<section class="panel"><div class="card-head"><div><div class="section-label">${escapeHtml(tier.label)}</div><div class="muted">Pick exactly ${picksPerTier} golfers</div></div><span class="pill">${selected.length} of ${picksPerTier}</span></div><div class="stack">${tier.golfers.map((golfer) => `<label class="contestant ${selected.includes(golfer.golferId) ? 'winner' : ''}"><span class="contestant-head"><strong>${escapeHtml(golfer.name)}</strong><span class="muted">${escapeHtml(golfer.status)}</span></span><span class="muted">World rank ${escapeHtml(golfer.worldRanking || '-')} | Odds ${escapeHtml(golfer.bettingOdds || '-')}</span><input type="checkbox" data-tier-key="${escapeHtml(tier.key)}" value="${escapeHtml(golfer.golferId)}" ${selected.includes(golfer.golferId) ? 'checked' : ''}></label>`).join('')}</div></section>`;
+      return `<section class="panel"><div class="card-head"><div><div class="section-label">${escapeHtml(tier.label)}</div><div class="muted">Pick exactly ${picksPerTier} golfers</div></div><span class="pill">${selected.length} of ${picksPerTier}</span></div><div class="stack pick-stack">${tier.golfers.map((golfer) => `<label class="contestant pick-contestant ${selected.includes(golfer.golferId) ? 'winner' : ''}"><span class="pick-main"><span class="pick-head"><strong>${escapeHtml(golfer.name)}</strong><span class="pick-status muted">${escapeHtml(golfer.status)}</span></span><span class="pick-meta muted">WR ${escapeHtml(golfer.worldRanking || '-')}<span class="pick-meta-sep">•</span>Odds ${escapeHtml(golfer.bettingOdds || '-')}</span></span><input type="checkbox" data-tier-key="${escapeHtml(tier.key)}" value="${escapeHtml(golfer.golferId)}" ${selected.includes(golfer.golferId) ? 'checked' : ''}></label>`).join('')}</div></section>`;
     }).join('');
   }
 
@@ -199,7 +213,7 @@
     try {
       const payload = await fetchJson('/api/masters-pools');
       const pools = payload.pools || [];
-      $('hero').innerHTML = `<div class="hero-row"><div class="stack"><div class="eyebrow">Masters Pool</div><h1>Tiered Picks Home</h1><div class="muted">Create a pool, share the pool code, and let everyone pick four golfers from each tier.</div></div><div class="nav-row">${buildNav(getPoolId(), '/masters')}</div></div>`;
+      $('hero').innerHTML = `<div class="hero-row"><div class="stack"><div class="eyebrow">Masters Pool</div><h1>Majors Pool</h1><div class="muted">Create a pool, share the pool code, and let everyone pick one golfer from each tier.</div></div><div class="nav-row">${buildNav(getPoolId(), '/masters')}</div></div>`;
       $('poolList').innerHTML = pools.length ? `<div class="grid-3">${pools.map((pool) => `<a class="card" href="/masters/live?poolId=${encodeURIComponent(pool.id)}"><div class="card-head"><strong>${escapeHtml(pool.name)}</strong><span class="pill">${escapeHtml(currency(pool.totalPot))}</span></div><div class="muted">${pool.totalEntries} entrants | ${escapeHtml(pool.poolFormat)} | Round ${pool.latestCompletedRound}</div></a>`).join('')}</div>` : '<div class="inline-note">No Masters pools exist yet.</div>';
       setStatus(status, `${pools.length} pool${pools.length === 1 ? '' : 's'} loaded.`, 'ok');
     } catch (error) { setStatus(status, error.message, 'bad'); }
@@ -207,12 +221,17 @@
 
   async function initCreatePage() {
     const status = $('pageStatus');
-    $('hero').innerHTML = `<div class="hero-row"><div class="stack"><div class="eyebrow">Masters Pool</div><h1>Create Tiered Picks Pool</h1><div class="muted">Default setup uses six tiers based on the official 2026 Masters invitee list.</div></div><div class="nav-row">${buildNav('', '/masters/create')}</div></div>`;
+    const templatePoolName = getParam('poolName');
+    const templateSeason = Number(getParam('season') || 2026);
+    $('hero').innerHTML = `<div class="hero-row"><div class="stack"><div class="eyebrow">Majors Pool</div><h1>Create Tiered Picks Pool</h1><div class="muted">Default setup uses six tiers and one golfer per tier. You can use this for the Masters or any other 2026 major.</div></div><div class="nav-row">${buildNav('', '/masters/create')}</div></div>`;
     try {
       const field = await loadCurrentField();
       const summary = { pool: { golfers: field.golfers || [], tiers: field.tiers || [{ key:'A', label:'Tier A', order:1 },{ key:'B', label:'Tier B', order:2 },{ key:'C', label:'Tier C', order:3 },{ key:'D', label:'Tier D', order:4 },{ key:'E', label:'Tier E', order:5 },{ key:'F', label:'Tier F', order:6 }] } };
       buildTierEditor($('tierTable'), summary.pool.tiers);
       buildFieldEditor($('seedTable'), summary);
+      if ($('poolName') && templatePoolName) $('poolName').value = templatePoolName;
+      if ($('season') && Number.isFinite(templateSeason)) $('season').value = templateSeason;
+      if ($('round1StartsAt')) $('round1StartsAt').value = formatDateTimeLocal(summary.pool.round1StartsAt);
       $('createPoolForm').addEventListener('submit', async (event) => {
         event.preventDefault();
         try {
@@ -224,8 +243,9 @@
             accessCode: $('accessCode').value,
             entryFee: Number($('entryFee').value || 10),
             expectedEntrants: Number($('expectedEntrants').value || 0),
+            round1StartsAt: $('round1StartsAt').value || null,
             tiers,
-            tierRules: { tierCount: tiers.length, picksPerTier: 4 },
+            tierRules: { tierCount: tiers.length, picksPerTier: 1 },
             lineupRules: { countMode: $('lineupCountMode').value, bestX: $('bestX').value ? Number($('bestX').value) : null },
             payouts: [
               { position: 1, label: '1st Place', mode: $('payout1Mode').value, value: Number($('payout1').value || 0) },
@@ -249,15 +269,29 @@
     try {
       const summary = await fetchJson(`/api/masters-pools/${encodeURIComponent(poolId)}`);
       const selectedByTier = {};
-      renderHero($('hero'), summary, '/masters/join', 'Enter the pool code and pick four golfers from each tier.');
+      renderHero($('hero'), summary, '/masters/join', 'Enter your name, add the pool code if required, and pick one golfer from each tier.');
       renderMetrics($('metrics'), summary);
       if ($('rulesLink')) $('rulesLink').href = `/masters/rules?poolId=${encodeURIComponent(poolId)}`;
+      if ($('entrantName')) $('entrantName').value = readLocal('mastersPoolEntrantName', '');
+      if ($('entrantEmail')) $('entrantEmail').value = readLocal('mastersPoolEntrantEmail', '');
+      if ($('winningScoreGuess')) $('winningScoreGuess').value = readLocal('mastersPoolWinningScoreGuess', '');
+      if ($('poolAccessCodeWrap')) $('poolAccessCodeWrap').classList.toggle('hidden', !summary.pool.accessCode);
+      if ($('joinHelp')) $('joinHelp').textContent = summary.pool.accessCode
+        ? 'Only your name, pool code, and picks are required.'
+        : 'Only your name and picks are required.';
       renderPickBuilder($('pickBuilder'), summary, selectedByTier);
+      if (summary.pool.isLocked) {
+        $('joinForm').querySelectorAll('input, button').forEach((node) => {
+          if (node.id !== 'rulesLink') node.disabled = true;
+        });
+        setStatus(status, (summary.pool.lockState && summary.pool.lockState.reason) || 'Pool is locked.', 'bad');
+        return;
+      }
       $('pickBuilder').addEventListener('change', (event) => {
         const input = event.target.closest('input[type="checkbox"][data-tier-key]');
         if (!input) return;
         const tierKey = input.getAttribute('data-tier-key');
-        const picksPerTier = Number((summary.pool.tierRules || {}).picksPerTier || 4);
+        const picksPerTier = Number((summary.pool.tierRules || {}).picksPerTier || 1);
         const selected = Array.from($('pickBuilder').querySelectorAll(`input[type="checkbox"][data-tier-key="${tierKey}"]:checked`)).map((node) => node.value);
         if (selected.length > picksPerTier) {
           input.checked = false;
@@ -271,14 +305,20 @@
         event.preventDefault();
         try {
           const picks = Object.entries(selectedByTier).flatMap(([tierKey, golferIds]) => (golferIds || []).map((golferId) => ({ tierKey, golferId })));
+          const entrantName = String($('entrantName').value || '').trim();
+          const entrantEmail = String($('entrantEmail').value || '').trim();
+          const winningScoreGuess = String($('winningScoreGuess').value || '').trim();
+          writeLocal('mastersPoolEntrantName', entrantName);
+          writeLocal('mastersPoolEntrantEmail', entrantEmail);
+          writeLocal('mastersPoolWinningScoreGuess', winningScoreGuess);
           await fetchJson(`/api/masters-pools/${encodeURIComponent(poolId)}/join`, {
             method:'POST',
             headers:{ 'Content-Type':'application/json' },
             body: JSON.stringify({
-              entrantName: $('entrantName').value,
-              email: $('entrantEmail').value,
+              entrantName,
+              email: entrantEmail,
               accessCode: $('poolAccessCode').value,
-              predictedWinningScoreToPar: $('winningScoreGuess').value ? Number($('winningScoreGuess').value) : null,
+              predictedWinningScoreToPar: winningScoreGuess ? Number(winningScoreGuess) : null,
               picks,
             }),
           });
@@ -373,6 +413,7 @@
       $('accessCode').value = summary.pool.accessCode || '';
       $('entryFee').value = summary.pool.entryFee || 10;
       $('expectedEntrants').value = summary.pool.expectedEntrants || 0;
+      $('round1StartsAt').value = formatDateTimeLocal(summary.pool.round1StartsAt);
       $('lineupCountMode').value = (summary.pool.lineupRules || {}).countMode || 'all';
       $('bestX').value = (summary.pool.lineupRules || {}).bestX || '';
       const payout1 = summary.pool.payouts.find((row) => row.position === 1) || {};
@@ -380,7 +421,7 @@
       const payout3 = summary.pool.payouts.find((row) => row.position === 3) || {};
       $('payout1').value = payout1.value || 0; $('payout2').value = payout2.value || 0; $('payout3').value = payout3.value || 0;
       $('payout1Mode').value = payout1.mode || 'percentage'; $('payout2Mode').value = payout2.mode || 'percentage'; $('payout3Mode').value = payout3.mode || 'percentage';
-      $('lockPool').textContent = summary.pool.isLocked ? 'Unlock Pool' : 'Lock Pool';
+      $('lockPool').textContent = summary.pool.manualIsLocked ? 'Unlock Pool' : 'Lock Pool';
     }
 
     $('adminPoolList').addEventListener('click', async (event) => {
@@ -418,8 +459,9 @@
             accessCode: $('accessCode').value,
             entryFee: Number($('entryFee').value || 10),
             expectedEntrants: Number($('expectedEntrants').value || 0),
+            round1StartsAt: $('round1StartsAt').value || null,
             tiers: collectTiers(summary),
-            tierRules: { tierCount: (summary.pool.tiers || []).length, picksPerTier: 4 },
+            tierRules: { tierCount: (summary.pool.tiers || []).length, picksPerTier: 1 },
             lineupRules: { countMode: $('lineupCountMode').value, bestX: $('bestX').value ? Number($('bestX').value) : null },
             payouts: [
               { position: 1, label: '1st Place', mode: $('payout1Mode').value, value: Number($('payout1').value || 0) },
@@ -465,7 +507,7 @@
 
     $('lockPool').addEventListener('click', async () => {
       try {
-        const action = summary.pool.isLocked ? 'unlock' : 'lock';
+        const action = summary.pool.manualIsLocked ? 'unlock' : 'lock';
         await fetchJson(`/api/masters-pools/${encodeURIComponent(poolId)}/${action}`, {
           method:'POST',
           headers:{ 'Content-Type':'application/json', 'x-admin-code': String($('adminCode').value || '').trim() },

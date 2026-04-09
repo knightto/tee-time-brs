@@ -7,7 +7,7 @@ This feature refactors the original Masters game into a tiered-picks pool on the
 - Pool format: `tiered_picks`
 - Default entry fee: `$10`
 - Payout spots: `1st`, `2nd`, `3rd`
-- Active entrant flow: enter pool code, pick exactly four golfers from each tier, submit before lock
+- Active entrant flow: enter pool code, pick exactly one golfer from each tier, submit before lock
 - Active scoring flow: sum golfer points across the four Masters rounds
 
 The default field comes from the official 2026 Masters Tournament Invitees PDF published by Masters.com and qualified as of April 5, 2026.

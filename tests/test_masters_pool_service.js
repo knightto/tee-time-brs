@@ -6,6 +6,7 @@ const {
   buildSampleField,
   computeGolferScores,
   computePayouts,
+  getPoolLockState,
   rankEntries,
   scoreEntry,
   upsertRoundResult,
@@ -13,10 +14,11 @@ const {
 } = require('../services/mastersPoolService');
 
 function buildTierPicks(pool, offsetByTier = {}) {
-  return (pool.tiers || []).flatMap((tier) => {
+  return (pool.tiers || []).map((tier) => {
     const golfers = (pool.golfers || []).filter((golfer) => golfer.tierKey === tier.key).sort((a, b) => a.seed - b.seed);
     const startOffset = Number(offsetByTier[tier.key] || 0);
-    return golfers.slice(startOffset, startOffset + 4).map((golfer) => ({ tierKey: tier.key, golferId: golfer.golferId }));
+    const golfer = golfers[Math.min(startOffset, Math.max(0, golfers.length - 1))];
+    return { tierKey: tier.key, golferId: golfer.golferId };
   });
 }
 
@@ -36,6 +38,13 @@ function run() {
   assert.strictEqual(pool.tiers.length, 6, 'Default official field should be split into six tiers');
   assert.strictEqual(pool.golfers.length, golfers.length, 'All official players should remain in the field');
   assert.strictEqual(Object.prototype.hasOwnProperty.call(pool, '_id'), false, 'Default payload should omit ids until persistence');
+  assert(pool.round1StartsAt instanceof Date, 'Pool should infer a Round 1 start time by default');
+  assert.strictEqual(pool.lockOffsetMinutes, 120, 'Pools should default to a 2-hour lock offset');
+
+  const preLockState = getPoolLockState(pool, new Date(pool.round1StartsAt.getTime() + (119 * 60 * 1000)));
+  assert.strictEqual(preLockState.isLocked, false, 'Pool should remain open until 2 hours into Round 1');
+  const postLockState = getPoolLockState(pool, new Date(pool.round1StartsAt.getTime() + (121 * 60 * 1000)));
+  assert.strictEqual(postLockState.isLocked, true, 'Pool should auto-lock after 2 hours into Round 1');
 
   const updated = {
     ...pool,
@@ -60,7 +69,7 @@ function run() {
     accessCode: 'sunday-red',
     picks: validPicks,
   });
-  assert.strictEqual(validation.ok, true, 'Four golfers from each tier should validate');
+  assert.strictEqual(validation.ok, true, 'One golfer from each tier should validate');
 
   const invalidValidation = validateEntrySubmission(updated, {
     entrantName: 'Tommy',
@@ -75,6 +84,16 @@ function run() {
     picks: validPicks.slice(0, 5),
   });
   assert.strictEqual(incompleteValidation.ok, false, 'Missing one tier pick should fail validation');
+
+  const lockedValidation = validateEntrySubmission({
+    ...updated,
+    round1StartsAt: new Date('2020-04-09T13:00:00Z'),
+  }, {
+    entrantName: 'Tommy',
+    accessCode: 'sunday-red',
+    picks: validPicks,
+  });
+  assert.strictEqual(lockedValidation.ok, false, 'Entry should fail once the pool is past the auto-lock window');
 
   const entryA = {
     _id: 'a',
@@ -99,7 +118,7 @@ function run() {
   };
 
   const scoreA = scoreEntry(updated, entryA);
-  assert.strictEqual(scoreA.golferBreakdown.length, updated.tiers.length * 4, 'Tier entry should score four golfers per tier');
+  assert.strictEqual(scoreA.golferBreakdown.length, updated.tiers.length, 'Tier entry should score one golfer per tier');
   assert(scoreA.totalPoints > 0, 'Tier entry should accumulate positive points');
   assert(scoreA.sundayPoints > 0, 'Tier entry should expose Sunday points for tiebreakers');
 

@@ -21,10 +21,11 @@
         <label>Season<input id="season" type="number" value="2026"></label>
         <label>Entry Fee<input id="entryFee" type="number" step="0.01" value="10"></label>
         <label>Expected Entrants<input id="expectedEntrants" type="number" value="16"></label>
+        <label>Round 1 Starts<input id="round1StartsAt" type="datetime-local"></label>
         <label>Lineup Counting<select id="lineupCountMode"><option value="all" selected>Count all golfers</option><option value="best_x">Count best X golfers</option></select></label>
         <label>Best X<input id="bestX" type="number" min="1" placeholder="Only for best X mode"></label>
       </div>
-      <div class="inline-note">Default format requires exactly 4 golfer picks from each tier.</div>
+      <div class="inline-note">Default format requires exactly 1 golfer pick from each tier. Pools stay open until 2 hours after Round 1 starts.</div>
       <div class="grid-3">
         <label>1st Payout<input id="payout1" type="number" value="60"></label>
         <label>1st Mode<select id="payout1Mode"><option value="percentage" selected>Percentage</option><option value="amount">Amount</option></select></label>

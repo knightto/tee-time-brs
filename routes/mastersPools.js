@@ -7,6 +7,7 @@ const {
   buildMockRoundResults,
   buildPoolComputedState,
   buildPoolSummary,
+  getPoolLockState,
   normalizeEntryPicks,
   normalizeGolfers,
   normalizeRoundResults,
@@ -68,9 +69,11 @@ async function loadPool(poolId) {
 async function findPreferredSeasonPool(season) {
   const pools = await MastersPool.find({ season }).sort({ createdAt: -1 }).lean();
   if (!pools.length) return null;
-  return pools.find((pool) => pool.status === 'live')
-    || pools.find((pool) => pool.status === 'complete')
-    || pools[0];
+  const nonDemoPools = pools.filter((pool) => !/demo/i.test(String(pool.slug || '')) && !/demo/i.test(String(pool.name || '')));
+  const source = nonDemoPools.length ? nonDemoPools : pools;
+  return source.find((pool) => pool.status === 'live')
+    || source.find((pool) => pool.status === 'complete')
+    || source[0];
 }
 
 async function refreshComputed(pool) {
@@ -220,6 +223,8 @@ router.put('/:poolId', async (req, res) => {
     if (next.accessCode !== undefined) bundle.pool.accessCode = String(next.accessCode || '').trim();
     if (next.entryFee !== undefined) bundle.pool.entryFee = Number(next.entryFee) || 0;
     if (next.expectedEntrants !== undefined) bundle.pool.expectedEntrants = Math.max(0, Number(next.expectedEntrants) || 0);
+    if (next.round1StartsAt !== undefined) bundle.pool.round1StartsAt = next.round1StartsAt ? new Date(next.round1StartsAt) : null;
+    if (next.lockOffsetMinutes !== undefined) bundle.pool.lockOffsetMinutes = Math.max(0, Number(next.lockOffsetMinutes) || 0);
     if (next.lockReason !== undefined) bundle.pool.lockReason = String(next.lockReason || '').trim();
     if (next.payouts !== undefined) bundle.pool.payouts = next.payouts;
     if (next.scoringRules !== undefined) bundle.pool.scoringRules = next.scoringRules;
@@ -407,7 +412,8 @@ router.put('/:poolId/entries/:entryId', async (req, res) => {
   try {
     const bundle = await loadPool(req.params.poolId);
     if (!bundle) return res.status(404).json({ error: 'Pool not found' });
-    if (bundle.pool.isLocked) return res.status(400).json({ error: 'Pool is locked' });
+    const lockState = getPoolLockState(bundle.pool.toObject ? bundle.pool.toObject() : bundle.pool);
+    if (lockState.isLocked) return res.status(400).json({ error: lockState.reason || 'Pool is locked' });
     const validation = validateEntrySubmission(bundle.pool.toObject(), req.body || {});
     if (!validation.ok) return res.status(400).json({ error: validation.errors.join(' ') });
     const entry = await MastersPoolEntry.findOne({ _id: req.params.entryId, poolId: bundle.pool._id });

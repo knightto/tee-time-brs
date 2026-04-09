@@ -7,8 +7,9 @@ const DEFAULT_SCORING_RULES = Object.freeze({
   round4: { first: 20, second: 15, third: 12, fourthFifth: 9, sixthToTenth: 6, eleventhToSixteenth: 3, other: 1 },
 });
 
-const DEFAULT_TIER_RULES = Object.freeze({ tierCount: 6, picksPerTier: 4 });
+const DEFAULT_TIER_RULES = Object.freeze({ tierCount: 6, picksPerTier: 1 });
 const DEFAULT_LINEUP_RULES = Object.freeze({ countMode: 'all', bestX: null });
+const DEFAULT_LOCK_OFFSET_MINUTES = 120;
 const ROUND_LABELS = Object.freeze({ 1: 'Round 1', 2: 'Round 2', 3: 'Round 3', 4: 'Round 4' });
 
 function roundMoney(value) {
@@ -22,6 +23,51 @@ function slugify(value = '') {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 64) || 'masters-pool';
+}
+
+function buildDefaultMastersRound1Start(season) {
+  const year = Number(season) || new Date().getFullYear();
+  const aprilFirstUtc = new Date(Date.UTC(year, 3, 1, 13, 0, 0));
+  const firstThursdayOffset = (4 - aprilFirstUtc.getUTCDay() + 7) % 7;
+  const firstThursday = new Date(aprilFirstUtc.getTime() + firstThursdayOffset * 24 * 60 * 60 * 1000);
+  return new Date(firstThursday.getTime() + 7 * 24 * 60 * 60 * 1000);
+}
+
+function normalizeDate(value) {
+  if (!value) return null;
+  const date = value instanceof Date ? new Date(value.getTime()) : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function resolveRound1Start(payload = {}) {
+  const explicit = normalizeDate(payload.round1StartsAt);
+  if (explicit) return explicit;
+  const tournamentName = String(payload.tournamentName || 'Masters Tournament').toLowerCase();
+  if (tournamentName.includes('masters')) return buildDefaultMastersRound1Start(payload.season);
+  return null;
+}
+
+function getPoolLockState(pool, nowInput = new Date()) {
+  const normalized = pool && pool.poolFormat ? pool : buildDefaultPoolPayload(pool || {});
+  const now = normalizeDate(nowInput) || new Date();
+  const round1StartsAt = normalizeDate(normalized.round1StartsAt);
+  const lockOffsetMinutes = Math.max(0, Number(normalized.lockOffsetMinutes) || DEFAULT_LOCK_OFFSET_MINUTES);
+  const autoLockAt = round1StartsAt ? new Date(round1StartsAt.getTime() + lockOffsetMinutes * 60 * 1000) : null;
+  const manualLocked = normalized.isLocked === true;
+  const autoLocked = Boolean(autoLockAt && now.getTime() >= autoLockAt.getTime());
+  return {
+    manualLocked,
+    autoLocked,
+    isLocked: manualLocked || autoLocked,
+    round1StartsAt,
+    autoLockAt,
+    lockOffsetMinutes,
+    reason: manualLocked
+      ? String(normalized.lockReason || 'Locked by admin').trim()
+      : autoLocked
+        ? `Pool locked automatically ${lockOffsetMinutes} minutes after Round 1 started.`
+        : '',
+  };
 }
 
 function normalizePayouts(rows = []) {
@@ -156,6 +202,8 @@ function buildDefaultPoolPayload(payload = {}) {
     status: String(payload.status || 'draft').trim().toLowerCase(),
     entryFee: Number.isFinite(Number(payload.entryFee)) ? Number(payload.entryFee) : 10,
     expectedEntrants: Number.isFinite(Number(payload.expectedEntrants)) ? Math.max(0, Number(payload.expectedEntrants)) : 0,
+    round1StartsAt: resolveRound1Start(payload),
+    lockOffsetMinutes: Math.max(0, Number(payload.lockOffsetMinutes) || DEFAULT_LOCK_OFFSET_MINUTES),
     isLocked: payload.isLocked === true,
     lockedAt: payload.lockedAt || null,
     lockReason: String(payload.lockReason || '').trim(),
@@ -297,8 +345,9 @@ function normalizeEntryPicks(picks = []) {
 function validateEntrySubmission(pool, entryPayload = {}) {
   const normalized = buildDefaultPoolPayload(pool || {});
   const errors = [];
+  const lockState = getPoolLockState(normalized);
   if (!String(entryPayload.entrantName || '').trim()) errors.push('Entrant name is required.');
-  if (normalized.isLocked) errors.push('Pool is locked.');
+  if (lockState.isLocked) errors.push(lockState.reason || 'Pool is locked.');
   if (normalized.accessCode && String(entryPayload.accessCode || '').trim() !== normalized.accessCode) errors.push('Pool access code is invalid.');
 
   const picks = normalizeEntryPicks(entryPayload.picks);
@@ -403,10 +452,20 @@ function computePayouts(pool, rankedRows = []) {
 
 function buildPoolSummary(pool, entries = []) {
   const normalized = buildDefaultPoolPayload(pool || {});
+  const lockState = getPoolLockState(normalized);
   const rankedEntries = rankEntries(normalized, entries);
   const payouts = computePayouts(normalized, rankedEntries);
   return {
-    pool: normalized,
+    pool: {
+      ...normalized,
+      manualIsLocked: normalized.isLocked === true,
+      isLocked: lockState.isLocked,
+      lockState: {
+        ...lockState,
+        round1StartsAt: lockState.round1StartsAt ? lockState.round1StartsAt.toISOString() : null,
+        autoLockAt: lockState.autoLockAt ? lockState.autoLockAt.toISOString() : null,
+      },
+    },
     bracket: {
       latestCompletedRound: getLatestCompletedRound(normalized.roundResults),
       matches: [],
@@ -502,6 +561,7 @@ module.exports = {
   computeGolferScores,
   computePayouts,
   mergeScoringRules,
+  getPoolLockState,
   normalizeEntryPicks,
   normalizeGolfers,
   normalizePayouts,

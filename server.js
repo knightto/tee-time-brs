@@ -146,9 +146,11 @@ let restoreJobPromise = null;
 async function findPreferredMastersSeasonPool(season) {
   const pools = await MastersPool.find({ season }).sort({ createdAt: -1 }).lean();
   if (!pools.length) return null;
-  return pools.find((pool) => pool.status === 'live')
-    || pools.find((pool) => pool.status === 'complete')
-    || pools[0];
+  const nonDemoPools = pools.filter((pool) => !/demo/i.test(String(pool.slug || '')) && !/demo/i.test(String(pool.name || '')));
+  const source = nonDemoPools.length ? nonDemoPools : pools;
+  return source.find((pool) => pool.status === 'live')
+    || source.find((pool) => pool.status === 'complete')
+    || source[0];
 }
 
 function parseIcsReminderMinutes(input = '') {
@@ -240,6 +242,14 @@ app.get('/group-admin-lite.html', (req, res) => {
 app.get('/masters', (_req, res) => {
   applyNoStoreHeaders(res);
   return res.sendFile(path.join(__dirname, 'public', 'masters', 'index.html'));
+});
+app.get('/majors', (_req, res) => {
+  applyNoStoreHeaders(res);
+  return res.sendFile(path.join(__dirname, 'public', 'majors', 'index.html'));
+});
+app.get('/majors/2026', (_req, res) => {
+  applyNoStoreHeaders(res);
+  return res.sendFile(path.join(__dirname, 'public', 'majors', 'index.html'));
 });
 app.get('/masters/create', (_req, res) => {
   applyNoStoreHeaders(res);

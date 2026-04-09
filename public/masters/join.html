@@ -15,13 +15,23 @@
     <section id="metrics" class="panel"></section>
     <form id="joinForm" class="stack">
       <section class="panel">
-        <div class="section-label">Entrant Info</div>
-        <div class="form-grid">
-          <label>Name<input id="entrantName" required></label>
-          <label>Email<input id="entrantEmail" type="email"></label>
-          <label>Pool Access Code<input id="poolAccessCode" type="password" placeholder="Enter the code from the organizer"></label>
-          <label>Tiebreaker Winning Score To Par<input id="winningScoreGuess" type="number" value="-10"></label>
+        <div class="card-head">
+          <div>
+            <div class="section-label">Quick Entry</div>
+            <div id="joinHelp" class="muted">Enter the minimum details to submit your picks.</div>
+          </div>
         </div>
+        <div class="form-grid form-grid-quick">
+          <label>Name<input id="entrantName" required placeholder="Your name"></label>
+          <label id="poolAccessCodeWrap">Pool Access Code<input id="poolAccessCode" type="password" placeholder="Enter the code from the organizer"></label>
+        </div>
+        <details class="tier-details optional-details">
+          <summary>More Options</summary>
+          <div class="form-grid" style="margin-top:12px;">
+            <label>Email (optional)<input id="entrantEmail" type="email" placeholder="Only if you want organizer follow-up"></label>
+            <label>Tiebreaker Winning Score To Par (optional)<input id="winningScoreGuess" type="number" placeholder="Example: -10"></label>
+          </div>
+        </details>
       </section>
       <div id="pickBuilder"></div>
       <div class="actions-row">
