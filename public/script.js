@@ -680,9 +680,9 @@ if ('serviceWorker' in navigator) {
   function ensureAuditDialog(){
     if ($('#auditModal')) return;
     const wrap = document.createElement('div');
-    wrap.innerHTML = `<dialog id="auditModal" style="min-width:600px;max-width:800px">
+    wrap.innerHTML = `<dialog id="auditModal" class="audit-dialog">
       <h3>📋 Audit Log</h3>
-      <div id="auditLogContent" style="max-height:500px;overflow-y:auto;margin:16px 0">
+      <div id="auditLogContent" class="audit-log-content">
         <p style="color:var(--slate-700);text-align:center">Loading...</p>
       </div>
       <menu>
@@ -697,7 +697,7 @@ if ('serviceWorker' in navigator) {
     tpl.innerHTML = `<dialog id="moveModal">
       <form id="moveForm" method="dialog">
         <h3 id="moveTitle">Move Player</h3>
-        <div id="moveChoices" style="display:grid;gap:8px;margin:8px 0;"></div>
+        <div id="moveChoices" class="radio-group"></div>
         <input type="hidden" name="eventId">
         <input type="hidden" name="fromTeeId">
         <input type="hidden" name="playerId">
@@ -1086,26 +1086,43 @@ if ('serviceWorker' in navigator) {
     const weather = ev && ev.weather ? ev.weather : null;
     const link = weatherLinkForEvent(ev);
     const icon = weather && weather.icon ? `<span class="weather-inline" aria-hidden="true">${escapeHtml(weather.icon)}</span>` : '';
-    const details = [];
+    let primaryText = 'Forecast unavailable';
+    const secondaryParts = [];
     if (weather) {
       const low = Number.isFinite(Number(weather.tempLow)) ? Math.round(Number(weather.tempLow)) : null;
       const high = Number.isFinite(Number(weather.tempHigh)) ? Math.round(Number(weather.tempHigh)) : null;
       if (Number.isFinite(low) && Number.isFinite(high)) {
-        details.push(`L${low}\u00b0 / H${high}\u00b0`);
+        primaryText = `L${low}\u00b0 / H${high}\u00b0`;
       } else if (Number.isFinite(Number(weather.temp))) {
-        details.push(`${Math.round(Number(weather.temp))}\u00b0F`);
+        primaryText = `${Math.round(Number(weather.temp))}\u00b0F`;
       }
       const rainChance = Number.isFinite(Number(weather.rainChance)) ? Math.round(Number(weather.rainChance)) : null;
       if (Number.isFinite(rainChance) && rainChance > 15) {
-        details.push(`Rain ${rainChance}%`);
+        secondaryParts.push(`Rain ${rainChance}%`);
       }
       const desc = String(weather.description || weather.condition || '').trim();
-      if (desc) details.push(desc);
+      if (desc) secondaryParts.push(desc);
     }
+    const secondaryText = secondaryParts.join(' • ');
+    const titleText = secondaryText ? `${primaryText} • ${secondaryText}` : primaryText;
+    return `<a class="weather-summary${weather ? '' : ' weather-summary-muted'}" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(`Open local weather forecast: ${titleText}`)}">${icon}<span class="weather-text"><span class="weather-primary">${escapeHtml(primaryText)}</span>${secondaryText ? `<span class="weather-secondary">${escapeHtml(secondaryText)}</span>` : ''}</span></a>`;
+  }
 
-    const text = (details.length ? details.join(' • ') : 'Forecast unavailable');
-    const safeText = escapeHtml(text);
-    return `<a class="weather-summary${details.length ? '' : ' weather-summary-muted'}" href="${escapeHtml(link)}" target="_blank" rel="noopener noreferrer" title="Open local weather forecast">${icon}<span class="weather-text">${safeText}</span></a>`;
+  function eventActionsToggleMarkup() {
+    return `<button class="small event-actions-toggle" data-toggle-actions aria-expanded="false" aria-label="Show event actions" title="Show event actions"><span class="event-actions-toggle-icon" aria-hidden="true">⋯</span><span class="event-actions-toggle-label">Actions</span></button>`;
+  }
+
+  function setEventActionsToggleState(button, open) {
+    if (!button) return;
+    const labelEl = button.querySelector('.event-actions-toggle-label');
+    const iconEl = button.querySelector('.event-actions-toggle-icon');
+    if (labelEl) labelEl.textContent = open ? 'Hide' : 'Actions';
+    else button.textContent = open ? 'Hide Actions' : 'Actions';
+    if (iconEl) iconEl.textContent = open ? '×' : '⋯';
+    button.setAttribute('aria-expanded', open ? 'true' : 'false');
+    const title = open ? 'Hide event actions' : 'Show event actions';
+    button.setAttribute('aria-label', title);
+    button.setAttribute('title', title);
   }
 
   function wazeLinkForEvent(ev) {
@@ -3709,8 +3726,8 @@ if ('serviceWorker' in navigator) {
         if (ev.courseInfo && ev.courseInfo.website) {
           courseDetailSecondaryBits.push(`<span class="course-detail-item"><a href="${escapeHtml(ev.courseInfo.website)}" target="_blank" rel="noopener">🔗 Website</a></span>`);
         }
-        if (ev.courseInfo && ev.courseInfo.holes && ev.courseInfo.par) {
-          courseDetailSecondaryBits.push(`<span class="course-detail-item">⛳ ${escapeHtml(ev.courseInfo.holes)} holes, Par ${escapeHtml(ev.courseInfo.par)}</span>`);
+        if (ev.courseInfo && ev.courseInfo.holes) {
+          courseDetailSecondaryBits.push(`<span class="course-detail-item course-detail-item-stats">⛳ ${escapeHtml(ev.courseInfo.holes)} holes</span>`);
         }
         const courseDetailRows = [];
         if (courseDetailPrimaryBits.length) {
@@ -3768,7 +3785,7 @@ if ('serviceWorker' in navigator) {
                 <span>${fmtDate(ev.date)}</span>
                 <div class="card-date-tools">
                   ${weatherSummary}
-                  <button class="small event-actions-toggle" data-toggle-actions aria-expanded="false" title="Show/hide event actions">Actions</button>
+                  ${eventActionsToggleMarkup()}
                 </div>
               </div>
               ${courseDetails}
@@ -3863,15 +3880,20 @@ if ('serviceWorker' in navigator) {
     const addLabel = canAddFifth ? 'Add 5th' : 'Add Player';
     return `<div class="${teeClasses.join(' ')}" data-drop-tee="${ev._id}:${tt._id}" data-slot-max="${slotMax}" data-player-count="${count}">
       <div class="tee-meta">
-        <div class="tee-time">${left} <span style="font-size:11px;opacity:0.8">(${count}/${slotMax})</span></div>
-        <div class="tee-summary" style="font-size:11px;color:var(--slate-700)">${summaryText}</div>
+        <div class="tee-heading">
+          <div class="tee-time-line">
+            <div class="tee-time">${left}</div>
+            <span class="tee-count">${count}/${slotMax}</span>
+          </div>
+          <div class="tee-summary">${summaryText}</div>
+        </div>
         <div class="tee-actions">
           ${editBtn}
           ${allowSeniorsCalendarManagement ? `<button class="icon small danger" title="${delTitle}" data-del-tee="${ev._id}:${tt._id}">×</button>` : ''}
         </div>
       </div>
       <div class="tee-players">${chips}</div>
-            <div class="row" style="gap:8px;flex-wrap:wrap">
+      <div class="row tee-row-actions">
         <button class="small" data-add-player="${ev._id}:${tt._id}" ${addDisabled ? 'disabled' : ''}>${addLabel}</button>
         <button class="small" data-checkin-all="${ev._id}:${tt._id}:${allCheckedIn ? '1' : '0'}" ${count ? '' : 'disabled'}>${allCheckedIn ? 'Clear Check-In' : 'Check In All'}</button>
       </div>
@@ -4000,8 +4022,7 @@ if ('serviceWorker' in navigator) {
         const card = t.closest('.card');
         if (!card) return;
         const open = card.classList.toggle('actions-open');
-        t.textContent = open ? 'Hide Actions' : 'Actions';
-        t.setAttribute('aria-expanded', open ? 'true' : 'false');
+        setEventActionsToggleState(t, open);
         return;
       }
       if(t.dataset.calendarGoogle){
@@ -4656,58 +4677,42 @@ if ('serviceWorker' in navigator) {
               t.textContent = origText;
             }
         }else{
-            // For tee time events, show a select dialog for time
-            let dialog = document.getElementById('teeTimeSelectDialog');
-            if (!dialog) {
-              dialog = document.createElement('dialog');
-              dialog.id = 'teeTimeSelectDialog';
-              // Show times from 06:30 to 23:59, formatted as HH:MM AM/PM
-              const startMinutes = 6 * 60 + 30; // 6:30 AM
-              const endMinutes = 23 * 60 + 59; // 23:59
-              dialog.innerHTML = `
-                <form method="dialog" style="min-width:220px;padding:16px;display:flex;flex-direction:column;gap:12px;">
-                  <label style="font-weight:600;">Select Tee Time
-                    <select id="teeTimeSelect" required style="font-size:18px;padding:8px 6px;margin-top:8px;">
-                      ${Array.from({length: endMinutes - startMinutes + 1}, (_,i) => {
-                        const total = startMinutes + i;
-                        const h24 = Math.floor(total/60);
-                        const m = String(total%60).padStart(2,'0');
-                        const h12 = ((h24+11)%12)+1;
-                        const ampm = h24 < 12 ? 'AM' : 'PM';
-                        const value = `${String(h24).padStart(2,'0')}:${m}`;
-                        return `<option value="${value}">${h12}:${m} ${ampm}</option>`;
-                      }).join('')}
-                    </select>
-                  </label>
-                  <menu style="display:flex;gap:10px;justify-content:flex-end;">
-                    <button id="teeTimeCancelBtn" value="cancel" type="button">Cancel</button>
-                    <button value="ok" type="submit" class="primary">Add</button>
-                  </menu>
-                </form>`;
-              document.body.appendChild(dialog);
-            }
-            const select = dialog.querySelector('#teeTimeSelect');
-            select.selectedIndex = 0; // default to 06:30 AM
-            return new Promise(resolve => {
-              // Ensure cancel button closes the dialog
-              dialog.querySelector('#teeTimeCancelBtn').onclick = function() {
-                dialog.close('cancel');
-              };
-              dialog.onclose = async function() {
-                if (dialog.returnValue !== 'ok') return resolve();
-                const timeToAdd = select.value;
-                const body = { time: timeToAdd };
-                t.disabled = true;
-                const origText = t.textContent;
-                t.textContent = 'Adding...';
-                await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
-                await updateEventCard(id);
-                t.disabled = false;
-                t.textContent = origText;
-                resolve();
-              };
-              dialog.showModal();
+            const startMinutes = 6 * 60 + 30; // 6:30 AM
+            const endMinutes = 23 * 60 + 59; // 23:59
+            const teeTimeValues = await openActionDialog({
+              title: 'Add Tee Time',
+              message: 'Choose the tee time to add to this event.',
+              confirmLabel: 'Add Tee Time',
+              fields: [{
+                name: 'time',
+                label: 'Tee time',
+                type: 'select',
+                required: true,
+                value: '06:30',
+                options: Array.from({ length: endMinutes - startMinutes + 1 }, (_, i) => {
+                  const total = startMinutes + i;
+                  const h24 = Math.floor(total / 60);
+                  const m = String(total % 60).padStart(2, '0');
+                  const h12 = ((h24 + 11) % 12) + 1;
+                  const ampm = h24 < 12 ? 'AM' : 'PM';
+                  const value = `${String(h24).padStart(2, '0')}:${m}`;
+                  return { value, label: `${h12}:${m} ${ampm}` };
+                })
+              }]
             });
+            const timeToAdd = String(teeTimeValues && teeTimeValues.time || '').trim();
+            if (!timeToAdd) return;
+            const body = { time: timeToAdd };
+            t.disabled = true;
+            const origText = t.textContent;
+            t.textContent = 'Adding...';
+            try {
+              await api(`/api/events/${id}/tee-times`,{ method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body) });
+              await updateEventCard(id);
+            } finally {
+              t.disabled = false;
+              t.textContent = origText;
+            }
           }
         return;
       }
