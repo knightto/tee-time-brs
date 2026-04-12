@@ -5233,7 +5233,9 @@ if ('serviceWorker' in navigator) {
       const ev = prefetchedEvent || await fetchEventById(eventId);
       if (!ev) return load(); // fallback
       upsertCachedEvent(ev);
+      selectedDateEventsSignature = buildRefreshSignature(allEvents);
       renderEventsForDate();
+      stampLastUpdated();
     } catch (e) {
       console.error('Failed to update event card:', e);
       load();

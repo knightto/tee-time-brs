@@ -227,6 +227,7 @@ async function main() {
         assert.ok(teeOptionsBefore.includes(golferB), 'Unassigned golfer should remain available in tee-time add options');
         assert.ok(teeOptionsBefore.includes(golferC), 'Other unassigned golfer should remain available in tee-time add options');
         await evaluate(send, `document.getElementById('actionModal').close('cancel')`);
+        await waitForExpression(send, `Boolean(document.getElementById('actionModal') && !document.getElementById('actionModal').open)`);
         await sleep(250);
 
         await evaluate(send, `document.querySelector('[data-seniors-register="${signupEvent._id}"]').click()`);
@@ -236,6 +237,69 @@ async function main() {
         assert.ok(signupOptionsBefore.includes(golferA), 'Unregistered golfer should remain available in event signup options');
         assert.ok(signupOptionsBefore.includes(golferC), 'Other unregistered golfer should remain available in event signup options');
         await evaluate(send, `document.getElementById('actionModal').close('cancel')`);
+        await waitForExpression(send, `Boolean(document.getElementById('actionModal') && !document.getElementById('actionModal').open)`);
+        await sleep(250);
+
+        await evaluate(send, `document.querySelector('[data-seniors-register="${signupEvent._id}"]').click()`);
+        await waitForExpression(send, `Boolean(document.querySelector('#actionModal[open] select[name="name"]'))`);
+        await evaluate(send, `(() => {
+          const select = document.querySelector('#actionModal select[name="name"]');
+          if (!select) return false;
+          select.value = ${JSON.stringify(golferC)};
+          document.getElementById('actionDialogConfirmBtn').click();
+          return true;
+        })()`);
+        await waitForExpression(
+          send,
+          `(() => {
+            const card = document.querySelector('[data-event-id="${signupEvent._id}"]');
+            if (!card) return false;
+            const signupCount = card.querySelector('.maybe-count-pill');
+            const chipNames = Array.from(card.querySelectorAll('.chip-name')).map((node) => node.textContent.trim());
+            return signupCount && signupCount.textContent.includes('2 signed up') && chipNames.includes(${JSON.stringify(golferC)});
+          })()`,
+          20000
+        );
+
+        await evaluate(send, `document.querySelector('[data-seniors-register="${signupEvent._id}"]').click()`);
+        await waitForExpression(send, `Boolean(document.querySelector('#actionModal[open] select[name="name"]'))`);
+        const signupOptionsAfterInlineAdd = await evaluate(send, `Array.from(document.querySelectorAll('#actionModal select[name="name"] option')).map((node) => node.value)`);
+        assert.ok(!signupOptionsAfterInlineAdd.includes(golferC), 'Newly signed-up golfer should be removed from options without a page reload');
+        await evaluate(send, `document.getElementById('actionModal').close('cancel')`);
+        await waitForExpression(send, `Boolean(document.getElementById('actionModal') && !document.getElementById('actionModal').open)`);
+        await sleep(250);
+
+        await evaluate(send, `(() => {
+          const chips = Array.from(document.querySelectorAll('[data-event-id="${signupEvent._id}"] .chip'));
+          const target = chips.find((chip) => {
+            const name = chip.querySelector('.chip-name');
+            return name && name.textContent.trim() === ${JSON.stringify(golferC)};
+          });
+          const removeButton = target && target.querySelector('[data-remove-seniors-registration]');
+          if (!removeButton) return false;
+          removeButton.click();
+          return true;
+        })()`);
+        await waitForExpression(send, `Boolean(document.querySelector('#actionModal[open]'))`);
+        await evaluate(send, `document.getElementById('actionDialogConfirmBtn').click()`);
+        await waitForExpression(
+          send,
+          `(() => {
+            const card = document.querySelector('[data-event-id="${signupEvent._id}"]');
+            if (!card) return false;
+            const signupCount = card.querySelector('.maybe-count-pill');
+            const chipNames = Array.from(card.querySelectorAll('.chip-name')).map((node) => node.textContent.trim());
+            return signupCount && signupCount.textContent.includes('1 signed up') && !chipNames.includes(${JSON.stringify(golferC)});
+          })()`,
+          20000
+        );
+
+        await evaluate(send, `document.querySelector('[data-seniors-register="${signupEvent._id}"]').click()`);
+        await waitForExpression(send, `Boolean(document.querySelector('#actionModal[open] select[name="name"]'))`);
+        const signupOptionsAfterInlineRemove = await evaluate(send, `Array.from(document.querySelectorAll('#actionModal select[name="name"] option')).map((node) => node.value)`);
+        assert.ok(signupOptionsAfterInlineRemove.includes(golferC), 'Removed signup golfer should return to options without a page reload');
+        await evaluate(send, `document.getElementById('actionModal').close('cancel')`);
+        await waitForExpression(send, `Boolean(document.getElementById('actionModal') && !document.getElementById('actionModal').open)`);
       });
     } finally {
       await closeTarget(target.id);

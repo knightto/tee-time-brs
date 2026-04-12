@@ -68,7 +68,7 @@ const {
   isAllowedInboundRecipient,
 } = require('./utils/inboundGroupRouting');
 const { requestContext } = require('./middleware/requestContext');
-const { cacheJson } = require('./middleware/responseCache');
+const { cacheJson, clearCacheByPrefix } = require('./middleware/responseCache');
 const { validateBody, validateCreateEvent, validateAddPlayer } = require('./middleware/validate');
 const { buildSystemRouter } = require('./routes/system');
 
@@ -395,6 +395,15 @@ app.use('/api/trips', require('./routes/trips'));
 app.use('/api/masters-pools', require('./routes/mastersPools'));
 app.use('/api/outings', cacheJson(15 * 1000), require('./routes/outings'));
 app.use('/api/valley', require('./routes/valley'));
+app.use('/api/events', (req, res, next) => {
+  if (req.method === 'GET') return next();
+  res.on('finish', () => {
+    if (res.statusCode >= 200 && res.statusCode < 400) {
+      clearCacheByPrefix('/api/events');
+    }
+  });
+  next();
+});
 // Handicap tracking removed
 
 // --- Handicap directory (manual list) ---
