@@ -26,9 +26,11 @@ function run() {
   const golfers = buildSampleField();
   const pool = buildDefaultPoolPayload({
     name: 'Masters Tier Test Pool',
+    season: 2030,
     accessCode: 'sunday-red',
     entryFee: 10,
     expectedEntrants: 3,
+    round1StartsAt: new Date('2030-04-11T13:00:00Z'),
     golfers,
     roundResults: buildMockRoundResults(golfers),
   });
