@@ -2163,16 +2163,6 @@ function eventLocalDateTimeToUtc(dateValue, rawTime, timeZone = LOCAL_TZ) {
   return new Date(Date.UTC(year, month - 1, day, 0, minutes - offsetMinutes, 0, 0));
 }
 
-function lastScheduledTeeTimeForEvent(ev = {}) {
-  let latest = null;
-  for (const teeTime of (ev.teeTimes || [])) {
-    const candidate = eventLocalDateTimeToUtc(ev.date, teeTime && teeTime.time, LOCAL_TZ);
-    if (!candidate || Number.isNaN(candidate.getTime())) continue;
-    if (!latest || candidate.getTime() > latest.getTime()) latest = candidate;
-  }
-  return latest;
-}
-
 function weekendGameEligibleEvent(ev = {}) {
   if (!ev) return false;
   if (normalizeGroupSlug(ev.groupSlug) !== DEFAULT_SITE_GROUP_SLUG) return false;

@@ -297,7 +297,7 @@ async function main() {
           const button = document.querySelector('.card[data-event-id="${eventId}"] [data-randomize-skins-pops="${eventId}"]');
           return button ? button.textContent.trim() : '';
         })()`);
-        assert.ok(/Draw Skins Pops/i.test(skinsButtonLabel), 'Skins pops button should render for eligible mobile event');
+        assert.ok(/Draw(?:\s+Skins)?\s+Pops/i.test(skinsButtonLabel), 'Skins pops button should render for eligible mobile event');
 
         await evaluate(send, `(() => {
           const button = document.querySelector('.card[data-event-id="${eventId}"] [data-randomize-skins-pops="${eventId}"]');

@@ -2945,9 +2945,7 @@
 
     async function loadSubscribers() {
       try {
-        console.log('Fetching subscribers...');
         const response = await fetch(`/api/admin/subscribers?code=${encodeURIComponent(ADMIN_CODE)}`);
-        console.log('Response status:', response.status);
         
         if (response.status === 403) {
           document.getElementById('content').innerHTML = '<div class="empty-state">❌ Invalid admin code</div>';
@@ -2960,7 +2958,6 @@
         }
         
         const subscribers = await response.json();
-        console.log('Loaded subscribers:', subscribers);
         
         // Update stats
         document.getElementById('totalCount').textContent = subscribers.length;

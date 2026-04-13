@@ -9,7 +9,6 @@ if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
     navigator.serviceWorker.register('/service-worker.js', { updateViaCache: 'none' })
       .then(reg => {
-        console.log('Service Worker registered:', reg.scope);
         navigator.serviceWorker.addEventListener('controllerchange', () => {
           if (swControllerReloaded) return;
           swControllerReloaded = true;
@@ -896,15 +895,6 @@ if ('serviceWorker' in navigator) {
     const dateISO = toDateISO(ev.date);
     if (!dateISO) return false;
     return Array.isArray(ev.teeTimes) && ev.teeTimes.some((slot) => /^(\d{1,2}):(\d{2})$/.test(String(slot && slot.time || '').trim()));
-  }
-  function lastScheduledTeeTimeDate(ev = {}) {
-    let latest = null;
-    for (const teeTime of (ev && ev.teeTimes) || []) {
-      const candidate = eventLocalDateTimeToUtc(ev && ev.date, teeTime && teeTime.time, EVENT_TIME_ZONE);
-      if (!candidate || Number.isNaN(candidate.getTime())) continue;
-      if (!latest || candidate.getTime() > latest.getTime()) latest = candidate;
-    }
-    return latest;
   }
   function skinsPopsUnlockAt(ev = {}) {
     return eventLocalDateTimeToUtc(ev && ev.date, '00:00', EVENT_TIME_ZONE);
@@ -2811,7 +2801,6 @@ if ('serviceWorker' in navigator) {
         : '';
       const isSeniorsShotgunStyleEvent = isSeniors && isSeniorsGroupedEventType(normalizedSeniorsEventType);
       const isSeniorsGroupedShotgun = isSeniorsShotgunStyleEvent && seniorsRegistrationMode !== 'event-only';
-      const isSeniorsSignupShotgun = isSeniorsShotgunStyleEvent && seniorsRegistrationMode === 'event-only';
       const isTeams = (body.mode === 'teams');
       const courseName = body.course;
       const payload = {
@@ -2915,10 +2904,7 @@ if ('serviceWorker' in navigator) {
     }catch(err){ console.error(err); alert('Save failed'); }
   });
 
-  // Subscribe modal
-  console.log('Subscribe button:', openSubscribeBtn, 'Modal:', subscribeModal);
   on(openSubscribeBtn, 'click', () => {
-    console.log('Subscribe button clicked!');
     subscribeModal?.showModal?.();
   });
   on(subscribeModal, 'click', (e) => {
@@ -3157,7 +3143,7 @@ if ('serviceWorker' in navigator) {
       eventsEl.innerHTML = `<div style="color:#ffffff;padding:20px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,0.7)">No events match the ${escapeHtml(filterLabel.toLowerCase())} filter for this date</div>`;
     } else {
       if (starterMode) renderStarter(visibleEvents);
-      else render(visibleEvents);
+      else renderEventCards(visibleEvents);
     }
   }
 
@@ -3616,7 +3602,154 @@ if ('serviceWorker' in navigator) {
     }
   }
 
-  function render(list){
+  function buildFullDayAlertMarkup(ev, { isDayFullyBooked = false, fifthCount = 0 } = {}) {
+    if (!isDayFullyBooked) return '';
+    if (!isMainGroupSite()) {
+      return `<div class="full-day-alert">Full. Ask ${escapeHtml(clubContactLabel())} for another time${fifthCount ? '.' : ' or a 5th.'}</div>`;
+    }
+    return `
+      <div class="full-day-alert full-day-alert-compact">
+        <span class="full-day-alert-copy">
+          <strong>Full Day</strong>
+          <span>${fifthCount ? 'Ask the club for another time.' : 'Ask the club for another time or a 5th.'}</span>
+        </span>
+        <button class="small full-day-alert-btn" data-request-extra-tee="${ev._id}" title="Ask ${escapeHtml(clubContactLabel())} for another time">Ask Club</button>
+      </div>`;
+  }
+
+  function buildMaybeSectionMarkup(ev, { showMaybeList = true } = {}) {
+    if (!showMaybeList) return '';
+    const maybeEntries = Array.isArray(ev?.maybeList) ? ev.maybeList : [];
+    const maybeCount = maybeEntries.length;
+    const maybeCountBadge = `<span class="maybe-count-pill${maybeCount ? '' : ' is-empty'}">${maybeCount ? `${maybeCount} waiting` : 'Empty'}</span>`;
+    const maybeList = maybeEntries.map((name, idx) => {
+      const safe = String(name).replace(/"/g, '&quot;');
+      return `<span class="maybe-chip" title="${safe}">
+        <span class="maybe-name">${escapeHtml(String(name || ''))}</span>
+        <button class="icon small danger" title="Remove" data-remove-maybe="${ev._id}:${idx}">×</button>
+      </span>`;
+    }).join('');
+    return `
+      <div class="maybe-section">
+        <div class="maybe-header">
+          <div class="maybe-header-copy">
+            <h4>🤔 Maybe List</h4>
+            ${maybeCountBadge}
+          </div>
+          <div class="maybe-controls">
+            <button class="small maybe-btn" data-add-maybe="${ev._id}">+ Interested</button>
+            <button class="small maybe-btn" data-fill-maybe="${ev._id}" title="Move someone from maybe list into an open spot">Fill Spot</button>
+          </div>
+        </div>
+        <div class="maybe-list">
+          ${maybeList || '<span class="maybe-empty-text">No one yet</span>'}
+        </div>
+      </div>`;
+  }
+
+  function buildSeniorsRegistrationSectionMarkup(ev, seniorsRegistrations = [], { allowExport = false } = {}) {
+    const signupCount = seniorsRegistrations.length;
+    const signupCountBadge = `<span class="maybe-count-pill${signupCount ? '' : ' is-empty'}">${signupCount ? `${signupCount} signed up` : 'Empty'}</span>`;
+    const seniorsRegistrationRows = seniorsRegistrations.map((registration) => {
+      const safe = String(registration && registration.name || '').replace(/"/g, '&quot;');
+      return `<span class="chip" title="${safe}">
+        <span class="chip-label"><span class="chip-name">${escapeHtml(String(registration && registration.name || 'Golfer'))}</span></span>
+        <span class="chip-actions">
+          <button class="icon small danger" title="Remove" data-remove-seniors-registration="${ev._id}:${registration._id}">×</button>
+        </span>
+      </span>`;
+    }).join('');
+    return `
+      <div class="maybe-section">
+        <div class="maybe-header">
+          <div class="maybe-header-copy">
+            <h4>Signups</h4>
+            ${signupCountBadge}
+          </div>
+          <div class="maybe-controls">
+            <button class="small maybe-btn" data-seniors-register="${ev._id}">Sign Up</button>
+            ${allowExport ? `<button class="small maybe-btn" data-export-seniors-event="${ev._id}">Export Excel</button>` : ''}
+          </div>
+        </div>
+        <div class="maybe-list">
+          ${seniorsRegistrationRows || '<span class="maybe-empty-text">No golfers yet</span>'}
+        </div>
+      </div>`;
+  }
+
+  function buildCourseDetailsMarkup(ev) {
+    const courseInfo = ev?.courseInfo || {};
+    const courseDetailPrimaryBits = [];
+    const courseDetailSecondaryBits = [];
+    if (courseInfo.city && courseInfo.state) {
+      courseDetailPrimaryBits.push(`<span class="course-detail-item">📍 ${escapeHtml(courseInfo.city)}, ${escapeHtml(courseInfo.state)}</span>`);
+    }
+    if (courseInfo.phone) {
+      courseDetailPrimaryBits.push(`<span class="course-detail-item">📞 ${escapeHtml(courseInfo.phone)}</span>`);
+    }
+    if (courseInfo.website) {
+      courseDetailSecondaryBits.push(`<span class="course-detail-item"><a href="${escapeHtml(courseInfo.website)}" target="_blank" rel="noopener">🔗 Website</a></span>`);
+    }
+    if (courseInfo.holes) {
+      courseDetailSecondaryBits.push(`<span class="course-detail-item course-detail-item-stats">⛳ ${escapeHtml(courseInfo.holes)} holes</span>`);
+    }
+    const courseDetailRows = [];
+    if (courseDetailPrimaryBits.length) {
+      courseDetailRows.push(`<div class="course-details-row">${courseDetailPrimaryBits.join('')}</div>`);
+    }
+    if (courseDetailSecondaryBits.length) {
+      courseDetailRows.push(`<div class="course-details-row">${courseDetailSecondaryBits.join('')}</div>`);
+    }
+    return courseDetailRows.length
+      ? `<div class="course-details">${courseDetailRows.join('')}</div>`
+      : '';
+  }
+
+  function buildEventActionButtonsMarkup({
+    ev,
+    isTeams,
+    slotWords,
+    seniorsEventOnly,
+    isSeniorsGroup,
+    showSeniorsCalendarAdminActions,
+    showRandomizePlayersAction,
+    hasRandomizeSnapshot,
+    skinsPopsState,
+    canRedrawSkinsPops,
+    skinsPopsActionTitle,
+    showSeniorsExportActions,
+    googleCalendarUrl,
+  }) {
+    const defaultActionButtons = `
+      <button class="small" data-toggle-starter-event="${ev._id}" title="Switch this event to the compact starter view">Starter View</button>
+      <button class="small" data-share-event="${ev._id}" title="Share this event">Share Event</button>
+      ${seniorsEventOnly || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add ${slotWords.singular}</button>` : `<button class="small" data-add-tee="${ev._id}">Add Existing Time</button>`)}
+      ${seniorsEventOnly || isTeams || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Suggest Pairings</button>`}
+      ${showRandomizePlayersAction ? `<button class="small" data-randomize-players="${ev._id}" title="Randomize all currently assigned golfers${Array.isArray(ev.maybeList) && ev.maybeList.length ? ' and optionally include interested golfers' : ''}">Randomize Players</button>` : ''}
+      ${showRandomizePlayersAction && hasRandomizeSnapshot ? `<button class="small" data-revert-randomize-players="${ev._id}" title="Restore the previous tee sheet from this browser session">Revert Randomize</button>` : ''}
+      ${skinsPopsState.eligible && canRedrawSkinsPops && (skinsPopsState.ready || skinsPopsState.hasDraw) ? `<button class="small" data-randomize-skins-pops="${ev._id}" title="${escapeHtml(skinsPopsActionTitle)}">${skinsPopsState.hasDraw ? 'Re-draw Skins Pops' : 'Draw Skins Pops'}</button>` : ''}
+      ${showSeniorsExportActions ? `<button class="small" data-export-seniors-event="${ev._id}" title="Export the registration list">Export</button>` : ''}
+      <button class="small" data-calendar-google="${ev._id}"${googleCalendarUrl ? ` data-calendar-google-url="${escapeHtml(googleCalendarUrl)}"` : ''} title="Add this event to Google Calendar">Add to Calendar</button>`;
+    if (!isMainGroupSite()) {
+      return `<div class="button-row">${defaultActionButtons}</div>`;
+    }
+    const compactMainActionButtons = `
+      <div class="action-button-group action-button-group-primary">
+        ${isTeams ? `<button class="small action-menu-btn action-menu-btn-primary" data-add-tee="${ev._id}" title="Add ${slotWords.singular}">Add ${slotWords.singular}</button>` : `<button class="small action-menu-btn action-menu-btn-primary" data-add-tee="${ev._id}" title="Add an existing tee time">Add Time</button>`}
+        ${isTeams ? '' : `<button class="small action-menu-btn action-menu-btn-primary" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Pairings</button>`}
+        ${showRandomizePlayersAction ? `<button class="small action-menu-btn action-menu-btn-primary" data-randomize-players="${ev._id}" title="Randomize all currently assigned golfers${Array.isArray(ev.maybeList) && ev.maybeList.length ? ' and optionally include interested golfers' : ''}">Randomize</button>` : ''}
+        ${showRandomizePlayersAction && hasRandomizeSnapshot ? `<button class="small action-menu-btn action-menu-btn-primary" data-revert-randomize-players="${ev._id}" title="Restore the previous tee sheet from this browser session">Revert</button>` : ''}
+        ${skinsPopsState.eligible && canRedrawSkinsPops && (skinsPopsState.ready || skinsPopsState.hasDraw) ? `<button class="small action-menu-btn action-menu-btn-primary" data-randomize-skins-pops="${ev._id}" title="${escapeHtml(skinsPopsActionTitle)}">${skinsPopsState.hasDraw ? 'Re-draw Pops' : 'Draw Pops'}</button>` : ''}
+      </div>
+      <div class="action-button-group action-button-group-utility">
+        <button class="small action-menu-btn action-menu-btn-utility" data-toggle-starter-event="${ev._id}" title="Switch this event to the compact starter view">Starter</button>
+        <button class="small action-menu-btn action-menu-btn-utility" data-share-event="${ev._id}" title="Share this event">Share</button>
+        <button class="small action-menu-btn action-menu-btn-utility" data-calendar-google="${ev._id}"${googleCalendarUrl ? ` data-calendar-google-url="${escapeHtml(googleCalendarUrl)}"` : ''} title="Add this event to Google Calendar">Calendar</button>
+      </div>`;
+    return `<div class="button-row action-button-menu">${compactMainActionButtons}</div>`;
+  }
+
+  function renderEventCards(list){
     // Use a document fragment for batch DOM updates
     window.requestAnimationFrame(() => {
       eventsEl.innerHTML = '';
@@ -3652,99 +3785,38 @@ if ('serviceWorker' in navigator) {
         const fifthCount = eventFifthCount(ev);
         const totalCapacity = slotCount * slotCap;
         const openCount = Math.max(0, totalCapacity - registeredCount);
-        const maybeCount = (ev.maybeList || []).length;
         const showMaybeList = !isSeniorsGroup;
         const isDayFullyBooked = !seniorsEventOnly && !isTeams && slotCount > 0 && openCount === 0;
-        const fullDayAlert = isDayFullyBooked
-          ? `<div class="full-day-alert">Full. Ask ${escapeHtml(clubContactLabel())} for another time${fifthCount ? '.' : ' or a 5th.'}</div>`
-          : '';
+        const fullDayAlert = buildFullDayAlertMarkup(ev, { isDayFullyBooked, fifthCount });
         const tees = teesArr.map((tt,idx)=>teeRow(ev,tt,idx,isTeams)).join('');
-        const maybeCountBadge = `<span class="maybe-count-pill${maybeCount ? '' : ' is-empty'}">${maybeCount ? `${maybeCount} waiting` : 'Empty'}</span>`;
-        const signupCount = seniorsRegistrations.length;
-        const signupCountBadge = `<span class="maybe-count-pill${signupCount ? '' : ' is-empty'}">${signupCount ? `${signupCount} signed up` : 'Empty'}</span>`;
-        const seniorsRegistrationRows = seniorsRegistrations.map((registration) => {
-          const safe = String(registration && registration.name || '').replace(/"/g, '&quot;');
-          return `<span class="chip" title="${safe}">
-            <span class="chip-label"><span class="chip-name">${escapeHtml(String(registration && registration.name || 'Golfer'))}</span></span>
-            <span class="chip-actions">
-              <button class="icon small danger" title="Remove" data-remove-seniors-registration="${ev._id}:${registration._id}">×</button>
-            </span>
-          </span>`;
-        }).join('');
-        // Render maybe list
-        const maybeList = (ev.maybeList || []).map((name, idx) => {
-          const safe = String(name).replace(/"/g, '&quot;');
-          return `<span class="maybe-chip" title="${safe}">
-            <span class="maybe-name">${name}</span>
-            <button class="icon small danger" title="Remove" data-remove-maybe="${ev._id}:${idx}">×</button>
-          </span>`;
-        }).join('');
-        const maybeSection = showMaybeList ? `
-          <div class="maybe-section">
-            <div class="maybe-header">
-              <div class="maybe-header-copy">
-                <h4>🤔 Maybe List</h4>
-                ${maybeCountBadge}
-              </div>
-              <div class="maybe-controls">
-                <button class="small maybe-btn" data-add-maybe="${ev._id}">+ Interested</button>
-                <button class="small maybe-btn" data-fill-maybe="${ev._id}" title="Move someone from maybe list into an open spot">Fill Spot</button>
-              </div>
-            </div>
-            <div class="maybe-list">
-              ${maybeList || '<span class="maybe-empty-text">No one yet</span>'}
-            </div>
-          </div>
-        ` : '';
-        const seniorsRegistrationSection = seniorsEventOnly ? `
-          <div class="maybe-section">
-            <div class="maybe-header">
-              <div class="maybe-header-copy">
-                <h4>Signups</h4>
-                ${signupCountBadge}
-              </div>
-              <div class="maybe-controls">
-                <button class="small maybe-btn" data-seniors-register="${ev._id}">Sign Up</button>
-                ${canManageSeniorsCalendar() ? `<button class="small maybe-btn" data-export-seniors-event="${ev._id}">Export Excel</button>` : ''}
-              </div>
-            </div>
-            <div class="maybe-list">
-              ${seniorsRegistrationRows || '<span class="maybe-empty-text">No golfers yet</span>'}
-            </div>
-          </div>
-        ` : '';
-        const weatherSummary = weatherSummaryMarkup(ev);
-        // Course details
-        const courseDetailPrimaryBits = [];
-        const courseDetailSecondaryBits = [];
-        if (ev.courseInfo && ev.courseInfo.city && ev.courseInfo.state) {
-          courseDetailPrimaryBits.push(`<span class="course-detail-item">📍 ${escapeHtml(ev.courseInfo.city)}, ${escapeHtml(ev.courseInfo.state)}</span>`);
-        }
-        if (ev.courseInfo && ev.courseInfo.phone) {
-          courseDetailPrimaryBits.push(`<span class="course-detail-item">📞 ${escapeHtml(ev.courseInfo.phone)}</span>`);
-        }
-        if (ev.courseInfo && ev.courseInfo.website) {
-          courseDetailSecondaryBits.push(`<span class="course-detail-item"><a href="${escapeHtml(ev.courseInfo.website)}" target="_blank" rel="noopener">🔗 Website</a></span>`);
-        }
-        if (ev.courseInfo && ev.courseInfo.holes) {
-          courseDetailSecondaryBits.push(`<span class="course-detail-item course-detail-item-stats">⛳ ${escapeHtml(ev.courseInfo.holes)} holes</span>`);
-        }
-        const courseDetailRows = [];
-        if (courseDetailPrimaryBits.length) {
-          courseDetailRows.push(`<div class="course-details-row">${courseDetailPrimaryBits.join('')}</div>`);
-        }
-        if (courseDetailSecondaryBits.length) {
-          courseDetailRows.push(`<div class="course-details-row">${courseDetailSecondaryBits.join('')}</div>`);
-        }
-        const courseDetails = courseDetailRows.length
-          ? `<div class="course-details">${courseDetailRows.join('')}</div>`
+        const maybeSection = buildMaybeSectionMarkup(ev, { showMaybeList });
+        const seniorsRegistrationSection = seniorsEventOnly
+          ? buildSeniorsRegistrationSectionMarkup(ev, seniorsRegistrations, { allowExport: canManageSeniorsCalendar() })
           : '';
+        const weatherSummary = weatherSummaryMarkup(ev);
+        const headerToolsMarkup = `<div class="card-date-tools card-header-toolbar">
+                  ${weatherSummary}
+                  ${eventActionsToggleMarkup()}
+                </div>`;
+        const standardCardDateMarkup = `<div class="card-date">
+                <span>${fmtDate(ev.date)}</span>
+                ${headerToolsMarkup}
+              </div>`;
+        const mainCardTitleMarkup = `
+                <div class="card-title-main">
+                  <span class="card-title-main-icon" aria-hidden="true">⛳</span>
+                  <div class="card-title-block">
+                    <h3 class="card-title">${courseTitleMarkup(ev)}</h3>
+                    <span class="card-date-badge">${fmtDate(ev.date)}</span>
+                  </div>
+                </div>`;
+        const courseDetails = buildCourseDetailsMarkup(ev);
         const googleCalendarUrl = !isSeniorsGroup ? buildGoogleCalendarUrl(ev) : '';
         const seniorsEventMeta = isSeniorsGroup && ev.seniorsEventType
-          ? `<div class="row" style="gap:8px;flex-wrap:wrap;margin:4px 0 8px 0">
-              <span class="pill-link" style="cursor:default">${escapeHtml(seniorsEventTypeLabel(ev.seniorsEventType))}</span>
-              ${seniorsEventOnly ? '<span class="pill-link" style="cursor:default">Simple Signup</span>' : ''}
-              ${seniorsEventOnly && normalizeSeniorsEventTypeValue(ev.seniorsEventType) === 'regular-shotgun' && ev.teeTimes?.[0]?.time ? `<span class="pill-link" style="cursor:default">Shotgun ${escapeHtml(fmtTime(ev.teeTimes[0].time))}</span>` : ''}
+          ? `<div class="seniors-event-meta">
+              <span class="pill-link pill-link-static">${escapeHtml(seniorsEventTypeLabel(ev.seniorsEventType))}</span>
+              ${seniorsEventOnly ? '<span class="pill-link pill-link-static">Simple Signup</span>' : ''}
+              ${seniorsEventOnly && normalizeSeniorsEventTypeValue(ev.seniorsEventType) === 'regular-shotgun' && ev.teeTimes?.[0]?.time ? `<span class="pill-link pill-link-static">Shotgun ${escapeHtml(fmtTime(ev.teeTimes[0].time))}</span>` : ''}
             </div>`
           : '';
         const showGolferControlsLegend = !isSeniorsGroup;
@@ -3771,23 +3843,32 @@ if ('serviceWorker' in navigator) {
             <span class="event-action-item"><span class="event-action-symbol danger">×</span>Delete golfer</span>
           </div>
         `;
+        const actionButtonsMarkup = buildEventActionButtonsMarkup({
+          ev,
+          isTeams,
+          slotWords,
+          seniorsEventOnly,
+          isSeniorsGroup,
+          showSeniorsCalendarAdminActions,
+          showRandomizePlayersAction,
+          hasRandomizeSnapshot,
+          skinsPopsState,
+          canRedrawSkinsPops,
+          skinsPopsActionTitle,
+          showSeniorsExportActions,
+          googleCalendarUrl,
+        });
         card.innerHTML = `
           <div class="card-header">
             <div class="card-header-left">
               <div class="card-title-row">
-                <h3 class="card-title">${courseTitleMarkup(ev)}</h3>
+                ${isMainGroupSite() ? mainCardTitleMarkup : `<h3 class="card-title">${courseTitleMarkup(ev)}</h3>`}
                 <div class="event-top-actions"${showEventTopActions ? '' : ' hidden'}>
                   <button class="event-top-btn event-top-edit" data-edit="${ev._id}" title="Edit Event" aria-label="Edit Event">✏</button>
                   <button class="event-top-btn event-top-delete" data-del="${ev._id}" title="Delete Event" aria-label="Delete Event">✕</button>
                 </div>
               </div>
-              <div class="card-date">
-                <span>${fmtDate(ev.date)}</span>
-                <div class="card-date-tools">
-                  ${weatherSummary}
-                  ${eventActionsToggleMarkup()}
-                </div>
-              </div>
+              ${isMainGroupSite() ? headerToolsMarkup : standardCardDateMarkup}
               ${courseDetails}
             </div>
           </div>
@@ -3796,21 +3877,11 @@ if ('serviceWorker' in navigator) {
             ${seniorsEventOnly ? seniorsRegistrationSection : maybeSection}
             ${fullDayAlert}
             <div class="card-actions">
-              <div class="button-row">
-                <button class="small" data-toggle-starter-event="${ev._id}" title="Switch this event to the compact starter view">Starter View</button>
-                <button class="small" data-share-event="${ev._id}" title="Share this event">Share Event</button>
-                ${seniorsEventOnly || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add ${slotWords.singular}</button>` : `<button class="small" data-add-tee="${ev._id}">Add Existing Time</button>`)}
-                ${seniorsEventOnly || isTeams || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Suggest Pairings</button>`}
-                ${showRandomizePlayersAction ? `<button class="small" data-randomize-players="${ev._id}" title="Randomize all currently assigned golfers${Array.isArray(ev.maybeList) && ev.maybeList.length ? ' and optionally include interested golfers' : ''}">Randomize Players</button>` : ''}
-                ${showRandomizePlayersAction && hasRandomizeSnapshot ? `<button class="small" data-revert-randomize-players="${ev._id}" title="Restore the previous tee sheet from this browser session">Revert Randomize</button>` : ''}
-                ${skinsPopsState.eligible && canRedrawSkinsPops && (skinsPopsState.ready || skinsPopsState.hasDraw) ? `<button class="small" data-randomize-skins-pops="${ev._id}" title="${escapeHtml(skinsPopsActionTitle)}">${skinsPopsState.hasDraw ? 'Re-draw Skins Pops' : 'Draw Skins Pops'}</button>` : ''}
-                ${showSeniorsExportActions ? `<button class="small" data-export-seniors-event="${ev._id}" title="Export the registration list">Export</button>` : ''}
-                <button class="small" data-calendar-google="${ev._id}"${googleCalendarUrl ? ` data-calendar-google-url="${escapeHtml(googleCalendarUrl)}"` : ''} title="Add this event to Google Calendar">Add to Calendar</button>
-              </div>
+              ${actionButtonsMarkup}
             </div>
             ${skinsPopsSummary}
             <div class="tees">${seniorsEventOnly ? '' : (tees || (isTeams ? `<em>No ${slotWords.pluralLower}</em>` : '<em>No tee times</em>'))}</div>
-            ${ev.notes ? `<div class="notes">${ev.notes}</div>` : ''}
+            ${ev.notes ? `<div class="notes">${escapeHtml(String(ev.notes || ''))}</div>` : ''}
             ${seniorsEventOnly || !showGolferControlsLegend ? '' : eventActionLegend}
             ${seniorsEventOnly ? '' : '<div class="event-bottom-meta"><div class="empty-tee-note"><span>Red</span><span>empty tee time</span></div></div>'}
             <div class="event-bottom-actions"${showBottomAuditAction ? '' : ' hidden'}>
@@ -3833,7 +3904,7 @@ if ('serviceWorker' in navigator) {
       const checkedIn = !!p.checkedIn;
       const isFifth = !!p.isFifth;
       return `<span class="chip ${checkedIn ? 'checked-in' : ''}${isFifth ? ' is-fifth' : ''}" title="${safe}" draggable="true" data-drag-player="${ev._id}:${tt._id}:${p._id}">
-        <span class="chip-label" title="${safe}"><span class="chip-name">${p.name}</span>${isFifth ? '<span class="player-status-badge player-status-badge-fifth">5th</span>' : ''}</span>
+        <span class="chip-label" title="${safe}"><span class="chip-name">${escapeHtml(String(p.name || ''))}</span>${isFifth ? '<span class="player-status-badge player-status-badge-fifth">5th</span>' : ''}</span>
         <span class="chip-actions">
           <button class="icon small ${checkedIn ? 'ok' : ''}" title="${checkedIn ? 'Checked in' : 'Mark checked in'}" data-toggle-checkin="${ev._id}:${tt._id}:${p._id}:${checkedIn ? '1' : '0'}">${checkedIn ? '✓' : '○'}</button>
           <button class="icon small" title="Move" data-move="${ev._id}:${tt._id}:${p._id}">↔</button>
@@ -4986,7 +5057,6 @@ if ('serviceWorker' in navigator) {
       const cacheKey = query || '_default';
       
       if (cache[cacheKey] && Date.now() - cache[cacheKey].timestamp < CACHE_DURATION) {
-        console.log(`Using cached courses for "${query || 'default'}"`);
         return cache[cacheKey].data;
       }
     } catch (e) {
@@ -5015,7 +5085,6 @@ if ('serviceWorker' in navigator) {
       });
       
       localStorage.setItem(CACHE_KEY, JSON.stringify(cache));
-      console.log(`Cached courses for "${query || 'default'}"`);
     } catch (e) {
       console.error('Cache write error:', e);
     }
@@ -5110,11 +5179,11 @@ if ('serviceWorker' in navigator) {
     if (course.par) details.push(`Par ${course.par}`);
     if (course.phone) details.push(`📞 ${course.phone}`);
     
-    courseDetails.innerHTML = details.map(d => `<span>${d}</span>`).join('');
+    courseDetails.innerHTML = details.map((detail) => `<span>${escapeHtml(String(detail || ''))}</span>`).join('');
     
     // Website
     if (course.website) {
-      courseWebsite.innerHTML = `<a href="${course.website}" target="_blank" style="color:#15803d;text-decoration:none;font-size:12px;display:inline-flex;align-items:center;gap:4px">🌐 Visit Website</a>`;
+      courseWebsite.innerHTML = `<a href="${escapeHtml(String(course.website || ''))}" target="_blank" style="color:#15803d;text-decoration:none;font-size:12px;display:inline-flex;align-items:center;gap:4px">🌐 Visit Website</a>`;
     } else {
       courseWebsite.innerHTML = '';
     }
@@ -5213,18 +5282,6 @@ if ('serviceWorker' in navigator) {
       }
     });
   }
-
-  // Expose cache clearing function globally for debugging
-  window.clearCourseCache = function() {
-    try {
-      localStorage.removeItem(CACHE_KEY);
-      console.log('Course cache cleared!');
-      return 'Course cache cleared successfully';
-    } catch (e) {
-      console.error('Failed to clear cache:', e);
-      return 'Failed to clear cache';
-    }
-  };
 
   // Update only a single event card in the DOM
   async function updateEventCard(eventId, prefetchedEvent = null) {
