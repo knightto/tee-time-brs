@@ -98,6 +98,43 @@ function run() {
 
   const payouts = buildPayoutSummary(state, leaderboard);
   assert.strictEqual(typeof payouts.balance, 'number', 'Payout summary should compute remaining balance');
+  leaderboard.totals.forEach((row) => {
+    assert.strictEqual(row.day1Total, row.match1 + row.stroke1, `${row.name} Day 1 total should equal match plus stroke points`);
+    assert.strictEqual(row.day2Total, row.match2A + row.match2B, `${row.name} Day 2 total should equal the two match segments`);
+    assert.strictEqual(row.day3Total, row.match3 + row.stroke3 + row.scramble, `${row.name} Day 3 total should equal match, stroke, and scramble points`);
+    assert.strictEqual(row.total, Number((row.day1Total + row.day2Total + row.day3Total + row.day4Points).toFixed(2)), `${row.name} trip total should equal all day totals plus Day 4 rank points`);
+  });
+  [
+    ['Day 1', (row) => row.day1Total],
+    ['Day 2A', (row) => row.match2A],
+    ['Day 2B', (row) => row.match2B],
+    ['Day 2 Total', (row) => row.day2Total],
+    ['Day 3', (row) => row.day3Total],
+    ['Day 4', (row) => row.day4Points || 0],
+  ].forEach(([dayKey, getter]) => {
+    const rows = buildDayRows(leaderboard, dayKey);
+    rows.forEach((dayRow) => {
+      const totalRow = leaderboard.totals.find((entry) => entry.name === dayRow.name);
+      assert(totalRow, `${dayKey} row should map back to a leaderboard total for ${dayRow.name}`);
+      assert.strictEqual(dayRow.points, getter(totalRow), `${dayKey} row points should match the leaderboard breakdown for ${dayRow.name}`);
+      assert.strictEqual(dayRow.total, totalRow.total, `${dayKey} row trip total should match the leaderboard total for ${dayRow.name}`);
+    });
+  });
+  payouts.rows.forEach((row) => {
+    const expectedTotal = Math.round(
+      Number(row.finalPrize || 0)
+      + Number(row.ctp || 0)
+      + Number(row.longDrive || 0)
+      + Number(row.longPutt || 0)
+      + Number(row.secretSnowman || 0)
+      + Number(row.skins || 0)
+      + Number(row.loser || 0)
+    );
+    assert.strictEqual(row.total, expectedTotal, `Payout row total should equal the component sums for ${row.name}`);
+  });
+  assert.strictEqual(payouts.distributed, payouts.rows.reduce((sum, row) => sum + Number(row.total || 0), 0), 'Distributed payout total should equal the sum of payout rows');
+  assert.strictEqual(payouts.pot, payouts.mainPot + payouts.skinsPot, 'Combined payout pot should equal entry plus skins pots');
+  assert.strictEqual(payouts.balance, payouts.pot - payouts.distributed, 'Payout balance should equal combined pot minus distributed amount');
   const seedSummary = buildSeedSummary(state, leaderboard);
   assert.strictEqual((seedSummary.longPutt.days || []).length, 6, 'Seed summary should include Long Putt winners for every configured day');
   assert((seedSummary.longPutt.days || []).every((row) => row.winner), 'Seed summary should assign every Long Putt winner');
