@@ -3710,9 +3710,6 @@ if ('serviceWorker' in navigator) {
     if (courseInfo.website) {
       courseDetailSecondaryBits.push(`<span class="course-detail-item"><a href="${escapeHtml(courseInfo.website)}" target="_blank" rel="noopener">🔗 Website</a></span>`);
     }
-    if (courseInfo.holes) {
-      courseDetailSecondaryBits.push(`<span class="course-detail-item course-detail-item-stats">⛳ ${escapeHtml(courseInfo.holes)} holes</span>`);
-    }
     const courseDetailRows = [];
     if (courseDetailPrimaryBits.length) {
       courseDetailRows.push(`<div class="course-details-row">${courseDetailPrimaryBits.join('')}</div>`);
@@ -3738,7 +3735,11 @@ if ('serviceWorker' in navigator) {
     canRedrawSkinsPops,
     skinsPopsActionTitle,
     showSeniorsExportActions,
+    showDirectShareToolbarAction,
   }) {
+    if (showDirectShareToolbarAction) {
+      return '';
+    }
     const defaultActionButtons = `
       <button class="small" data-share-event="${ev._id}" title="Share this event">Share Event</button>
       ${seniorsEventOnly || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add ${slotWords.singular}</button>` : `<button class="small" data-add-tee="${ev._id}">Add Existing Time</button>`)}
@@ -3807,20 +3808,12 @@ if ('serviceWorker' in navigator) {
           ? buildSeniorsRegistrationSectionMarkup(ev, seniorsRegistrations, { allowExport: canManageSeniorsCalendar() })
           : '';
         const weatherSummary = weatherSummaryMarkup(ev);
-        const headerToolsMarkup = `<div class="card-date-tools card-header-toolbar">
-                  ${weatherSummary}
-                  ${eventActionsToggleMarkup()}
-                </div>`;
-        const standardCardDateMarkup = `<div class="card-date">
-                <span>${fmtDate(ev.date)}</span>
-                ${headerToolsMarkup}
-              </div>`;
+        const dateBadgeMarkup = `<span class="card-date-badge">${fmtDate(ev.date)}</span>`;
         const mainCardTitleMarkup = `
                 <div class="card-title-main">
                   <span class="card-title-main-icon" aria-hidden="true">⛳</span>
                   <div class="card-title-block">
                     <h3 class="card-title">${courseTitleMarkup(ev)}</h3>
-                    <span class="card-date-badge">${fmtDate(ev.date)}</span>
                   </div>
                 </div>`;
         const courseDetails = buildCourseDetailsMarkup(ev);
@@ -3834,6 +3827,7 @@ if ('serviceWorker' in navigator) {
           : '';
         const showGolferControlsLegend = !isSeniorsGroup;
         const showSeniorsCalendarAdminActions = canManageSeniorsCalendar();
+        const showDirectShareToolbarAction = isSeniorsGroup && !showSeniorsCalendarAdminActions;
         const showEventTopActions = !isSeniorsGroup || showSeniorsCalendarAdminActions;
         const showSeniorsExportActions = isSeniorsGroup && showSeniorsCalendarAdminActions;
         const showBottomAuditAction = !isSeniorsGroup || showSeniorsCalendarAdminActions;
@@ -3856,6 +3850,18 @@ if ('serviceWorker' in navigator) {
             <span class="event-action-item"><span class="event-action-symbol danger">×</span>Delete golfer</span>
           </div>
         `;
+        const toolbarActionMarkup = showDirectShareToolbarAction
+          ? `<button class="small event-toolbar-share" data-share-event="${ev._id}" title="Share this event">Share Event</button>`
+          : eventActionsToggleMarkup();
+        const headerToolsMarkup = `<div class="card-date-tools card-header-toolbar">
+                  ${isMainGroupSite() ? dateBadgeMarkup : ''}
+                  ${weatherSummary}
+                  ${toolbarActionMarkup}
+                </div>`;
+        const standardCardDateMarkup = `<div class="card-date">
+                <span>${fmtDate(ev.date)}</span>
+                ${headerToolsMarkup}
+              </div>`;
         const actionButtonsMarkup = buildEventActionButtonsMarkup({
           ev,
           isTeams,
@@ -3869,6 +3875,7 @@ if ('serviceWorker' in navigator) {
           canRedrawSkinsPops,
           skinsPopsActionTitle,
           showSeniorsExportActions,
+          showDirectShareToolbarAction,
         });
         const eventTopCalendarButton = googleCalendarUrl
           ? `<button class="event-top-btn event-top-calendar" data-calendar-google="${ev._id}" data-calendar-google-url="${escapeHtml(googleCalendarUrl)}" title="Add this event to Google Calendar" aria-label="Add this event to Google Calendar">📅</button>`
@@ -3879,9 +3886,9 @@ if ('serviceWorker' in navigator) {
               <div class="card-title-row">
                 ${isMainGroupSite() ? mainCardTitleMarkup : `<h3 class="card-title">${courseTitleMarkup(ev)}</h3>`}
                 <div class="event-top-actions"${showEventTopActions ? '' : ' hidden'}>
-                  ${eventTopCalendarButton}
                   <button class="event-top-btn event-top-edit" data-edit="${ev._id}" title="Edit Event" aria-label="Edit Event">✏</button>
                   <button class="event-top-btn event-top-delete" data-del="${ev._id}" title="Delete Event" aria-label="Delete Event">✕</button>
+                  ${eventTopCalendarButton}
                 </div>
               </div>
               ${isMainGroupSite() ? headerToolsMarkup : standardCardDateMarkup}
@@ -3892,9 +3899,9 @@ if ('serviceWorker' in navigator) {
             ${seniorsEventMeta}
             ${seniorsEventOnly ? seniorsRegistrationSection : maybeSection}
             ${fullDayAlert}
-            <div class="card-actions">
+            ${actionButtonsMarkup ? `<div class="card-actions">
               ${actionButtonsMarkup}
-            </div>
+            </div>` : ''}
             ${skinsPopsSummary}
             <div class="tees">${seniorsEventOnly ? '' : (tees || (isTeams ? `<em>No ${slotWords.pluralLower}</em>` : '<em>No tee times</em>'))}</div>
             ${ev.notes ? `<div class="notes">${escapeHtml(String(ev.notes || ''))}</div>` : ''}

@@ -128,7 +128,7 @@ async function waitForExpression(send, expression, timeoutMs = 15000) {
   throw new Error(`Timed out waiting for expression: ${expression}`);
 }
 
-async function inspectPage(targetUrl, device) {
+async function inspectPage(targetUrl, device, options = {}) {
   debugLog(`inspect start ${device.label} ${targetUrl}`);
   const target = await openTarget(targetUrl);
   try {
@@ -151,7 +151,18 @@ async function inspectPage(targetUrl, device) {
         return true;
       })()`);
       await sleep(250);
-      return evaluate(send, `(() => {
+      await evaluate(send, `(() => {
+        const removeBtn = document.querySelector('[data-del-player]');
+        if (removeBtn) removeBtn.click();
+        return Boolean(removeBtn);
+      })()`);
+      await waitForExpression(send, `Boolean(document.querySelector('#actionModal[open]'))`, 10000);
+      await sleep(150);
+      const expectAddPlayerDialog = options.expectAddPlayerDialog ? 'true' : 'false';
+      const addPlayerCourseName = JSON.stringify(String(options.addPlayerCourseName || ''));
+      const expectAddFifthDialog = options.expectAddFifthDialog ? 'true' : 'false';
+      const addFifthCourseName = JSON.stringify(String(options.addFifthCourseName || ''));
+      return evaluate(send, `(async () => {
         const SELECTORS = [
           '.event-controls',
           '.event-control-btn',
@@ -172,6 +183,7 @@ async function inspectPage(targetUrl, device) {
           '.event-action-item',
           '.event-bottom-audit-btn',
           '.event-actions-toggle',
+          '.event-toolbar-share',
           '.maybe-count-pill',
           '.action-menu-btn',
           '.button-row > button',
@@ -260,6 +272,145 @@ async function inspectPage(targetUrl, device) {
           : [];
         const uniqueLefts = [...new Set(firstTeePositions.map((pos) => pos.left))];
         const uniqueTops = [...new Set(firstTeePositions.map((pos) => pos.top))];
+        const directShareCount = Array.from(document.querySelectorAll('.event-toolbar-share')).filter(visible).length;
+        const actionsToggleCount = Array.from(document.querySelectorAll('.event-actions-toggle')).filter(visible).length;
+        const actionDialogViolations = [];
+        const inspectActionDialog = (label) => {
+          const actionModal = document.querySelector('#actionModal[open]');
+          if (!actionModal || !visible(actionModal)) {
+            actionDialogViolations.push({ kind: 'dialog-missing', label });
+            return;
+          }
+          const dialogRect = actionModal.getBoundingClientRect();
+          const dialogStyle = getComputedStyle(actionModal);
+          if (dialogRect.left < -1 || dialogRect.right > (viewportWidth + 1)) {
+            actionDialogViolations.push({
+              kind: 'dialog-overflow',
+              label,
+              left: Math.round(dialogRect.left),
+              right: Math.round(dialogRect.right),
+              viewportWidth,
+            });
+          }
+          const dialogOverflowShows = !['hidden', 'clip'].includes(dialogStyle.overflowX) && !['hidden', 'clip'].includes(dialogStyle.overflow);
+          if (actionModal.scrollWidth > (actionModal.clientWidth + 1) && dialogOverflowShows) {
+            actionDialogViolations.push({
+              kind: 'dialog-scroll-overflow',
+              label,
+              clientWidth: actionModal.clientWidth,
+              scrollWidth: actionModal.scrollWidth,
+            });
+          }
+          const fields = actionModal.querySelector('.dialog-fields');
+          if (fields && visible(fields)) {
+            const fieldsRect = fields.getBoundingClientRect();
+            Array.from(fields.querySelectorAll('input, textarea, select')).forEach((fieldNode, index) => {
+              if (!visible(fieldNode)) return;
+              const rect = fieldNode.getBoundingClientRect();
+              if (rect.left < (fieldsRect.left - 1) || rect.right > (fieldsRect.right + 1)) {
+                actionDialogViolations.push({
+                  kind: 'dialog-field-overflow',
+                  label,
+                  index,
+                  left: Math.round(rect.left),
+                  right: Math.round(rect.right),
+                  fieldsLeft: Math.round(fieldsRect.left),
+                  fieldsRight: Math.round(fieldsRect.right),
+                });
+              }
+              if (fieldNode.scrollWidth > (fieldNode.clientWidth + 1)) {
+                actionDialogViolations.push({
+                  kind: 'dialog-field-scroll-overflow',
+                  label,
+                  index,
+                  clientWidth: fieldNode.clientWidth,
+                  scrollWidth: fieldNode.scrollWidth,
+                });
+              }
+            });
+          }
+          const menu = actionModal.querySelector('menu');
+          if (menu && visible(menu)) {
+            const menuRect = menu.getBoundingClientRect();
+            Array.from(menu.querySelectorAll('button')).forEach((button, index) => {
+              if (!visible(button)) return;
+              const rect = button.getBoundingClientRect();
+              if (rect.left < (menuRect.left - 1) || rect.right > (menuRect.right + 1)) {
+                actionDialogViolations.push({
+                  kind: 'dialog-button-overflow',
+                  label,
+                  index,
+                  text: (button.textContent || '').trim(),
+                  left: Math.round(rect.left),
+                  right: Math.round(rect.right),
+                  menuLeft: Math.round(menuRect.left),
+                  menuRight: Math.round(menuRect.right),
+                });
+              }
+              if (button.scrollWidth > (button.clientWidth + 1)) {
+                actionDialogViolations.push({
+                  kind: 'dialog-button-scroll-overflow',
+                  label,
+                  index,
+                  text: (button.textContent || '').trim(),
+                  clientWidth: button.clientWidth,
+                  scrollWidth: button.scrollWidth,
+                });
+              }
+            });
+          }
+        };
+
+        inspectActionDialog('remove-player');
+        document.querySelector('#actionDialogCancelBtn')?.click();
+
+        const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+        const waitForActionDialogState = async (shouldBeOpen, timeoutMs = 5000) => {
+          const deadline = Date.now() + timeoutMs;
+          while (Date.now() < deadline) {
+            const isOpen = !!document.querySelector('#actionModal[open]');
+            if (isOpen === shouldBeOpen) return true;
+            await sleep(40);
+          }
+          return !!document.querySelector('#actionModal[open]') === shouldBeOpen;
+        };
+        const openAndInspectActionDialog = async (label, courseName, buttonPattern, fallbackCardPattern) => {
+          await waitForActionDialogState(false, 2500);
+          const allAddPlayerButtons = Array.from(document.querySelectorAll('[data-add-player]'));
+          const targetCard = Array.from(document.querySelectorAll('.card')).find((card) => {
+            const text = (card.textContent || '').trim();
+            return courseName && text.includes(courseName);
+          }) || (fallbackCardPattern
+            ? Array.from(document.querySelectorAll('.card')).find((card) => fallbackCardPattern.test((card.textContent || '').trim()))
+            : null);
+          const triggerCandidates = (targetCard ? Array.from(targetCard.querySelectorAll('[data-add-player]')) : allAddPlayerButtons)
+            .filter((button) => buttonPattern.test((button.textContent || '').trim()));
+          const trigger = triggerCandidates.find((button) => !button.disabled) || null;
+          if (!trigger) {
+            actionDialogViolations.push({
+              kind: 'dialog-trigger-missing',
+              label,
+              buttonTexts: allAddPlayerButtons.map((button) => ((button.textContent || '').trim() + ':' + (button.disabled ? 'disabled' : 'enabled'))).filter(Boolean),
+            });
+            return;
+          }
+          trigger.click();
+          const opened = await waitForActionDialogState(true, 5000);
+          if (!opened) {
+            actionDialogViolations.push({ kind: 'dialog-missing', label });
+            return;
+          }
+          inspectActionDialog(label);
+          document.querySelector('#actionDialogCancelBtn')?.click();
+        };
+
+        if (${expectAddPlayerDialog}) {
+          await openAndInspectActionDialog('add-player', ${addPlayerCourseName}, /add player/i, /\\bopen\\b/i);
+        }
+
+        if (${expectAddFifthDialog}) {
+          await openAndInspectActionDialog('add-fifth-player', ${addFifthCourseName}, /add 5th/i, /5th available/i);
+        }
 
         return {
           viewportWidth,
@@ -268,7 +419,10 @@ async function inspectPage(targetUrl, device) {
           gridColumns,
           uniqueLefts: uniqueLefts.length,
           uniqueTops: uniqueTops.length,
+          directShareCount,
+          actionsToggleCount,
           violations,
+          actionDialogViolations,
         };
       })()`);
     });
@@ -289,6 +443,7 @@ async function main() {
   const runId = Date.now();
   const eventDate = '2031-04-18';
   const mainCourse = `Blue Ridge Shadows Championship Routing Showcase ${runId}`;
+  const mainFifthCourse = `Blue Ridge Shadows Fifth Player Dialog Review ${runId}`;
   const seniorsCourse = `Thursday Seniors Invitational Layout Review ${runId}`;
   const seniorsSignupCourse = `Thursday Seniors Signup Review ${runId}`;
   const longCity = 'Front Royal Valley Heights Estates and Recreation District';
@@ -305,7 +460,7 @@ async function main() {
   let browser;
 
   async function cleanup() {
-    await Event.deleteMany({ course: { $in: [mainCourse, seniorsCourse, seniorsSignupCourse] } }).catch(() => {});
+    await Event.deleteMany({ course: { $in: [mainCourse, mainFifthCourse, seniorsCourse, seniorsSignupCourse] } }).catch(() => {});
   }
 
   try {
@@ -339,6 +494,30 @@ async function main() {
       teeTimes: [
         { time: '08:00', players: longPlayers.map((name, index) => ({ name, isFifth: index === 4 })) },
         { time: '08:09', players: [{ name: `Open Group Member ${runId}` }] },
+      ],
+    });
+
+    await Event.create({
+      groupSlug: 'main',
+      course: mainFifthCourse,
+      date: new Date(`${eventDate}T12:00:00`),
+      notes: longNote,
+      courseInfo: {
+        city: longCity,
+        state: 'VA',
+        phone: '(540) 631-9661 ext 205 for overflow operations',
+        website: 'https://example.com/blue-ridge-shadows-fifth-player-review',
+      },
+      weather: {
+        icon: '☀️',
+        tempLow: 55,
+        tempHigh: 76,
+        description: longWeather,
+        rainChance: 5,
+      },
+      teeTimes: [
+        { time: '07:51', players: longPlayers.slice(0, 4).map((name) => ({ name })) },
+        { time: '08:00', players: longPlayers.slice(0, 4).map((name, index) => ({ name: `${name} Alt ${index}` })) },
       ],
     });
 
@@ -415,9 +594,19 @@ async function main() {
       for (const device of DEVICE_SPECS) {
         const query = page.path ? `${page.path}&date=${encodeURIComponent(eventDate)}` : `?date=${encodeURIComponent(eventDate)}`;
         debugLog(`scenario start ${page.label} ${device.label}`);
-        const metrics = await inspectPage(`${base}/${query}`, device);
+        const metrics = await inspectPage(`${base}/${query}`, device, {
+          expectAddPlayerDialog: page.label === 'main',
+          addPlayerCourseName: mainCourse,
+          expectAddFifthDialog: page.label === 'main',
+          addFifthCourseName: mainFifthCourse,
+        });
         assert(metrics.cardCount >= 1, `${page.label} ${device.label} should render at least one card`);
         assert(metrics.violations.length === 0, `${page.label} ${device.label} layout overflow violations:\n${JSON.stringify(metrics.violations, null, 2)}`);
+        assert(metrics.actionDialogViolations.length === 0, `${page.label} ${device.label} action dialog layout violations:\n${JSON.stringify(metrics.actionDialogViolations, null, 2)}`);
+        if (page.label === 'seniors') {
+          assert(metrics.directShareCount >= 1, `${page.label} ${device.label} should render a direct toolbar share button`);
+          assert(metrics.actionsToggleCount === 0, `${page.label} ${device.label} should not render the actions toggle when share is the only action`);
+        }
         if (device.label === 'desktop' && metrics.teeCount >= 1) {
           assert(metrics.uniqueLefts <= 2 && metrics.uniqueLefts >= 1, `${page.label} desktop tee players should stay within two columns`);
           assert(metrics.uniqueTops >= 2, `${page.label} desktop tee players should wrap into at least two rows for four players`);
