@@ -1938,10 +1938,11 @@ if ('serviceWorker' in navigator) {
 
   function updateStarterModeButtons() {
     document.body.classList.toggle('starter-mode', starterMode);
-    if (!starterModeBtn) return;
-    starterModeBtn.textContent = starterMode ? 'Full View' : 'Starter Mode';
-    starterModeBtn.classList.toggle('is-active', starterMode);
-    starterModeBtn.setAttribute('aria-pressed', starterMode ? 'true' : 'false');
+    if (starterModeBtn) {
+      starterModeBtn.textContent = starterMode ? 'Full View' : 'Starter Mode';
+      starterModeBtn.classList.toggle('is-active', starterMode);
+      starterModeBtn.setAttribute('aria-pressed', starterMode ? 'true' : 'false');
+    }
     const mobileStarterBtn = mobileQuickBar ? mobileQuickBar.querySelector('[data-mobile-action="starter"]') : null;
     if (mobileStarterBtn) {
       mobileStarterBtn.classList.toggle('is-active', starterMode);
@@ -3311,7 +3312,26 @@ if ('serviceWorker' in navigator) {
         return;
       }
       if (action === 'starter') {
-        starterModeBtn?.click();
+        if (starterModeBtn) {
+          starterModeBtn.click();
+          return;
+        }
+        const label = btn.querySelector('.app-bottom-nav-label');
+        const originalText = label ? label.textContent : btn.textContent;
+        btn.disabled = true;
+        if (label) label.textContent = starterMode ? 'Loading...' : 'Starting...';
+        else btn.textContent = starterMode ? 'Loading...' : 'Starting...';
+        try {
+          await setStarterMode(!starterMode);
+        } catch (err) {
+          console.error(err);
+          showToast('Starter mode failed: ' + (err.message || 'Unknown error'), 'error');
+        } finally {
+          btn.disabled = false;
+          if (label) label.textContent = originalText;
+          else btn.textContent = originalText;
+          updateStarterModeButtons();
+        }
         return;
       }
       if (action === 'next-event') {
@@ -3718,18 +3738,15 @@ if ('serviceWorker' in navigator) {
     canRedrawSkinsPops,
     skinsPopsActionTitle,
     showSeniorsExportActions,
-    googleCalendarUrl,
   }) {
     const defaultActionButtons = `
-      <button class="small" data-toggle-starter-event="${ev._id}" title="Switch this event to the compact starter view">Starter View</button>
       <button class="small" data-share-event="${ev._id}" title="Share this event">Share Event</button>
       ${seniorsEventOnly || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : (isTeams ? `<button class="small" data-add-tee="${ev._id}">Add ${slotWords.singular}</button>` : `<button class="small" data-add-tee="${ev._id}">Add Existing Time</button>`)}
       ${seniorsEventOnly || isTeams || (isSeniorsGroup && !showSeniorsCalendarAdminActions) ? '' : `<button class="small" data-suggest-pairings="${ev._id}" title="Suggest balanced groups using handicap data">Suggest Pairings</button>`}
       ${showRandomizePlayersAction ? `<button class="small" data-randomize-players="${ev._id}" title="Randomize all currently assigned golfers${Array.isArray(ev.maybeList) && ev.maybeList.length ? ' and optionally include interested golfers' : ''}">Randomize Players</button>` : ''}
       ${showRandomizePlayersAction && hasRandomizeSnapshot ? `<button class="small" data-revert-randomize-players="${ev._id}" title="Restore the previous tee sheet from this browser session">Revert Randomize</button>` : ''}
       ${skinsPopsState.eligible && canRedrawSkinsPops && (skinsPopsState.ready || skinsPopsState.hasDraw) ? `<button class="small" data-randomize-skins-pops="${ev._id}" title="${escapeHtml(skinsPopsActionTitle)}">${skinsPopsState.hasDraw ? 'Re-draw Skins Pops' : 'Draw Skins Pops'}</button>` : ''}
-      ${showSeniorsExportActions ? `<button class="small" data-export-seniors-event="${ev._id}" title="Export the registration list">Export</button>` : ''}
-      <button class="small" data-calendar-google="${ev._id}"${googleCalendarUrl ? ` data-calendar-google-url="${escapeHtml(googleCalendarUrl)}"` : ''} title="Add this event to Google Calendar">Add to Calendar</button>`;
+      ${showSeniorsExportActions ? `<button class="small" data-export-seniors-event="${ev._id}" title="Export the registration list">Export</button>` : ''}`;
     if (!isMainGroupSite()) {
       return `<div class="button-row">${defaultActionButtons}</div>`;
     }
@@ -3740,11 +3757,7 @@ if ('serviceWorker' in navigator) {
         ${showRandomizePlayersAction ? `<button class="small action-menu-btn action-menu-btn-primary" data-randomize-players="${ev._id}" title="Randomize all currently assigned golfers${Array.isArray(ev.maybeList) && ev.maybeList.length ? ' and optionally include interested golfers' : ''}">Randomize</button>` : ''}
         ${showRandomizePlayersAction && hasRandomizeSnapshot ? `<button class="small action-menu-btn action-menu-btn-primary" data-revert-randomize-players="${ev._id}" title="Restore the previous tee sheet from this browser session">Revert</button>` : ''}
         ${skinsPopsState.eligible && canRedrawSkinsPops && (skinsPopsState.ready || skinsPopsState.hasDraw) ? `<button class="small action-menu-btn action-menu-btn-primary" data-randomize-skins-pops="${ev._id}" title="${escapeHtml(skinsPopsActionTitle)}">${skinsPopsState.hasDraw ? 'Re-draw Pops' : 'Draw Pops'}</button>` : ''}
-      </div>
-      <div class="action-button-group action-button-group-utility">
-        <button class="small action-menu-btn action-menu-btn-utility" data-toggle-starter-event="${ev._id}" title="Switch this event to the compact starter view">Starter</button>
         <button class="small action-menu-btn action-menu-btn-utility" data-share-event="${ev._id}" title="Share this event">Share</button>
-        <button class="small action-menu-btn action-menu-btn-utility" data-calendar-google="${ev._id}"${googleCalendarUrl ? ` data-calendar-google-url="${escapeHtml(googleCalendarUrl)}"` : ''} title="Add this event to Google Calendar">Calendar</button>
       </div>`;
     return `<div class="button-row action-button-menu">${compactMainActionButtons}</div>`;
   }
@@ -3856,14 +3869,17 @@ if ('serviceWorker' in navigator) {
           canRedrawSkinsPops,
           skinsPopsActionTitle,
           showSeniorsExportActions,
-          googleCalendarUrl,
         });
+        const eventTopCalendarButton = googleCalendarUrl
+          ? `<button class="event-top-btn event-top-calendar" data-calendar-google="${ev._id}" data-calendar-google-url="${escapeHtml(googleCalendarUrl)}" title="Add this event to Google Calendar" aria-label="Add this event to Google Calendar">📅</button>`
+          : '';
         card.innerHTML = `
           <div class="card-header">
             <div class="card-header-left">
               <div class="card-title-row">
                 ${isMainGroupSite() ? mainCardTitleMarkup : `<h3 class="card-title">${courseTitleMarkup(ev)}</h3>`}
                 <div class="event-top-actions"${showEventTopActions ? '' : ' hidden'}>
+                  ${eventTopCalendarButton}
                   <button class="event-top-btn event-top-edit" data-edit="${ev._id}" title="Edit Event" aria-label="Edit Event">✏</button>
                   <button class="event-top-btn event-top-delete" data-del="${ev._id}" title="Delete Event" aria-label="Delete Event">✕</button>
                 </div>

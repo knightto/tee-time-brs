@@ -919,13 +919,6 @@ body.is-syncing .pull-refresh-indicator .pull-refresh-icon{
   animation:spin .75s linear infinite;
 }
 
-#starterModeBtn.is-active{
-  background:linear-gradient(135deg, var(--golf-green) 0%, var(--golf-green-light) 100%);
-  color:#fff;
-  border-color:var(--golf-green-dark);
-  box-shadow:var(--shadow-green);
-}
-
 .event-meta{
   display:inline-flex;
   align-items:center;
@@ -1990,7 +1983,7 @@ button[disabled]{opacity:.5;cursor:not-allowed;filter:grayscale(0.5)}
 
 .tee-players{
   display:grid;
-  grid-template-columns:repeat(auto-fit, minmax(210px, 1fr));
+  grid-template-columns:repeat(2, minmax(0, 1fr));
   column-gap:8px; /* tighter columns */
   row-gap:5px;
   align-content:start;
@@ -2096,6 +2089,24 @@ button[disabled]{opacity:.5;cursor:not-allowed;filter:grayscale(0.5)}
 .chip.is-fifth{
   border-color:#f59e0b;
   background:#fffbeb;
+  align-items:start;
+}
+
+.chip.is-fifth .chip-label{
+  flex-wrap:wrap;
+  align-items:flex-start;
+  gap:4px 6px;
+}
+
+.chip.is-fifth .chip-name{
+  display:block;
+  flex:1 1 100%;
+  max-width:100%;
+  white-space:normal;
+  overflow:visible;
+  text-overflow:clip;
+  overflow-wrap:anywhere;
+  word-break:break-word;
 }
 .chip button.ok{
   color:#166534;
@@ -2381,11 +2392,6 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
     padding-top:12px;
   }
 
-  #starterModeBtn{
-    order:-1;
-    min-height:38px;
-  }
-
   .starter-toolbar{
     display:none;
   }
@@ -2627,10 +2633,6 @@ label{display:grid;gap:4px;font-size:14px} input,textarea{padding:.5rem .6rem;bo
 }
 
 @media (max-width:560px){
-  #starterModeBtn{
-    width:100%;
-  }
-
   .event-control-label{
     display:none;
   }
@@ -3150,7 +3152,6 @@ body[data-site-group="seniors"] .card-content{
 }
 
 /* Compact specific action buttons to reduce header crowding */
- .card-actions .button-row button[data-calendar-google],
  .card-actions .button-row button[data-edit],
  .card-actions .button-row button[data-del]{
   min-height:32px;
@@ -3234,10 +3235,6 @@ body[data-site-group="seniors"] .card-content{
   min-height:36px;
   padding:.24rem .58rem;
   font-size:.82rem;
-}
-
- .card-actions .button-row > button[data-calendar-google]{
-  min-width:96px;
 }
 
  .card-actions .button-row > button[data-del]{
@@ -3401,7 +3398,7 @@ body[data-site-group="seniors"] .card-content{
 
 .card-title-row .card-title{
   margin:0;
-  padding-right:72px;
+  padding-right:108px;
 }
 
 .event-top-actions{
@@ -3443,6 +3440,10 @@ body[data-site-group="seniors"] .card-content{
 
 .event-top-edit{
   font-size:15px;
+}
+
+.event-top-calendar{
+  font-size:14px;
 }
 
 .event-bottom-actions{
@@ -3507,17 +3508,6 @@ body[data-site-group="seniors"] .card-content{
   border-radius:8px;
 }
 
-.card-actions .button-row > button[data-toggle-starter-event]{
-  border-color:rgba(22,163,74,.48);
-  background:linear-gradient(135deg, rgba(255,255,255,.98) 0%, rgba(240,253,244,.98) 100%);
-  color:var(--green-700);
-}
-
-.card-actions .button-row > button[data-toggle-starter-event]:hover{
-  background:linear-gradient(135deg, var(--green-700) 0%, var(--green-600) 100%);
-  color:#fff;
-}
-
 .time-action-pair{
   gap:6px;
   justify-content:center;
@@ -3530,10 +3520,6 @@ body[data-site-group="seniors"] .card-content{
   font-size:.78rem;
   line-height:1.05;
   border-radius:8px;
-}
-
- .card-actions .button-row > button[data-calendar-google]{
-  min-width:88px;
 }
 
 .card-actions .button-row.action-button-menu{
@@ -3557,10 +3543,6 @@ body[data-site-group="seniors"] .card-content{
 
 .action-button-group-primary{
   grid-template-columns:repeat(2, minmax(0, 1fr));
-}
-
-.action-button-group-utility{
-  grid-template-columns:repeat(3, minmax(0, 1fr));
 }
 
 .action-button-menu .action-menu-btn{
@@ -3636,7 +3618,7 @@ body[data-site-group="seniors"] .card-content{
   }
 
   .card-title-row .card-title{
-    padding-right:62px;
+    padding-right:92px;
   }
 
   .event-top-btn{
@@ -3649,6 +3631,10 @@ body[data-site-group="seniors"] .card-content{
 
   .event-top-delete{
     font-size:15px;
+  }
+
+  .event-top-calendar{
+    font-size:12px;
   }
 
   .event-top-edit{
@@ -4594,7 +4580,7 @@ dialog select{
 }
 
 .tee-players{
-  grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns:repeat(2, minmax(0, 1fr));
   gap:6px;
   min-height:0;
   padding:0 10px 2px;
