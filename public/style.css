@@ -1962,12 +1962,12 @@ button[disabled]{opacity:.5;cursor:not-allowed;filter:grayscale(0.5)}
 
 .tee{
   display:grid;
-  grid-template-rows: auto 1fr auto;
+  grid-template-rows:auto auto auto;
   background:var(--panel-ghost);
   border:1px solid var(--line);
   border-radius:var(--radius);
   overflow:hidden;
-  min-height:72px;
+  min-height:0;
 }
 
 .tee-header{
@@ -4427,7 +4427,7 @@ body[data-site-group="main"] .full-day-alert-btn:hover{
 
 /* Compact tee card layout to reduce vertical space */
 .tee{
-  min-height:72px;
+  min-height:0;
 }
 
 .tee-meta{
@@ -4435,7 +4435,7 @@ body[data-site-group="main"] .full-day-alert-btn:hover{
   align-items:center;
   gap:8px;
   position:static;
-  padding:6px 10px 2px;
+  padding:4px 10px 2px;
 }
 
 .tee-time{
@@ -4612,17 +4612,18 @@ dialog select{
 }
 
 .tee-meta{
-  display:grid;
-  grid-template-columns:minmax(0, 1fr) auto;
-  gap:10px 12px;
-  align-items:start;
-  padding:10px 12px 6px;
+  display:flex;
+  justify-content:space-between;
+  gap:8px;
+  align-items:flex-start;
+  padding:8px 12px 4px;
 }
 
 .tee-heading{
   display:grid;
-  gap:4px;
+  gap:2px;
   min-width:0;
+  flex:1 1 auto;
 }
 
 .tee-time-line{
@@ -4631,6 +4632,7 @@ dialog select{
   align-items:center;
   gap:8px;
   min-width:0;
+  width:100%;
 }
 
 .tee-time{
@@ -4644,6 +4646,7 @@ dialog select{
   display:inline-flex;
   align-items:center;
   justify-content:center;
+  margin-left:auto;
   min-height:22px;
   padding:2px 8px;
   border-radius:999px;
@@ -4965,7 +4968,7 @@ body[data-site-group="main"] .card-header-left{
 body[data-site-group="main"] .card-title-row{
   display:grid;
   grid-template-columns:minmax(0, 1fr) auto;
-  align-items:center;
+  align-items:start;
   justify-content:stretch;
   gap:10px 12px;
   min-height:0;
@@ -5058,9 +5061,11 @@ body[data-site-group="main"] .event-actions-toggle{
 body[data-site-group="main"] .event-top-actions{
   position:static;
   align-self:start;
-  align-items:flex-end;
-  justify-content:flex-start;
-  gap:6px;
+  flex-direction:row;
+  flex-wrap:wrap;
+  align-items:center;
+  justify-content:flex-end;
+  gap:4px;
 }
 
 body[data-site-group="main"] .event-top-btn{
