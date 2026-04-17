@@ -1634,12 +1634,51 @@
 
     <section id="teeLogSection" class="admin-section section-log">
       <h2>📝 Tee-Time Change Log</h2>
-      <p class="section-intro">See recent adds, edits, and deletes (including club notify attempts).</p>
+      <p class="section-intro">See recent adds, edits, and deletes (including club notify attempts) from the last 30 days.</p>
       <div class="test-buttons">
         <button class="btn-test btn-log" id="teeLogBtn">View Recent Changes</button>
       </div>
       <div id="teeLogResult" class="test-result" style="display:block;"></div>
       <div id="teeLogTable" style="margin-top:12px;"></div>
+      <div style="height:16px;"></div>
+      <h3 style="margin:0 0 8px 0;">30-Day Event Audit</h3>
+      <p class="section-intro">Includes tee-time edits, player actions, event updates, and deleted-event history for the last 30 days.</p>
+      <div class="test-buttons">
+        <button class="btn-test btn-log" id="teeAuditBtn">View 30-Day Audit</button>
+      </div>
+      <div id="teeAuditResult" class="test-result" style="display:block;"></div>
+      <div id="teeAuditTable" style="margin-top:12px;"></div>
+      <div style="height:16px;"></div>
+      <h3 style="margin:0 0 8px 0;">30-Day Delete Recovery</h3>
+      <p class="section-intro">Pick an event date to recover deleted events or individual tee times from the last 30 days.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;align-items:end;">
+        <label style="display:grid;gap:4px;">
+          <span style="font-size:12px;font-weight:700;color:#334155;">Event date</span>
+          <input id="teeRecoveryDateInput" type="date">
+        </label>
+        <button class="btn-test btn-log" id="teeRecoveryLoadBtn">Load Deleted Items</button>
+      </div>
+      <div id="teeRecoveryResult" class="test-result" style="display:block;margin-top:10px;"></div>
+      <div id="teeRecoveryTable" style="margin-top:12px;"></div>
+      <div style="height:16px;"></div>
+      <h3 style="margin:0 0 8px 0;">Bulk Delete Past Month</h3>
+      <p class="section-intro">Delete all live event data for a past month. Those deletions stay recoverable above for 30 days.</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;align-items:end;">
+        <label style="display:grid;gap:4px;">
+          <span style="font-size:12px;font-weight:700;color:#334155;">Past month</span>
+          <input id="teeRecoveryMonthInput" type="month">
+        </label>
+        <label style="display:grid;gap:4px;">
+          <span style="font-size:12px;font-weight:700;color:#334155;">Delete code</span>
+          <input id="teeRecoveryDeleteCodeInput" type="password" placeholder="Defaults to admin code">
+        </label>
+        <label style="display:grid;gap:4px;">
+          <span style="font-size:12px;font-weight:700;color:#334155;">Confirm code</span>
+          <input id="teeRecoveryConfirmCodeInput" type="password" placeholder="Only needed if configured">
+        </label>
+        <button class="btn-test" id="teeRecoveryDeleteMonthBtn" style="background:#b91c1c;">Delete Past Month</button>
+      </div>
+      <div id="teeRecoveryDeleteResult" class="test-result" style="display:block;margin-top:10px;"></div>
       <div style="height:16px;"></div>
       <h3 style="margin:0 0 8px 0;">Inbound Tee-Time Email Log</h3>
       <p class="section-intro">See the tee-time details captured from incoming reservation emails.</p>
@@ -2886,6 +2925,24 @@
       checkGolfApiHealth(); // Check API health on load
       const teeLogBtn = document.getElementById('teeLogBtn');
       if (teeLogBtn) teeLogBtn.addEventListener('click', loadTeeTimeLog);
+      const teeAuditBtn = document.getElementById('teeAuditBtn');
+      if (teeAuditBtn) teeAuditBtn.addEventListener('click', loadTeeTimeAudit);
+      const teeRecoveryDateInput = document.getElementById('teeRecoveryDateInput');
+      if (teeRecoveryDateInput && !teeRecoveryDateInput.value) {
+        teeRecoveryDateInput.value = new Date().toISOString().slice(0, 10);
+      }
+      const teeRecoveryMonthInput = document.getElementById('teeRecoveryMonthInput');
+      if (teeRecoveryMonthInput && !teeRecoveryMonthInput.value) {
+        const previousMonth = new Date();
+        previousMonth.setMonth(previousMonth.getMonth() - 1);
+        teeRecoveryMonthInput.value = `${previousMonth.getFullYear()}-${String(previousMonth.getMonth() + 1).padStart(2, '0')}`;
+      }
+      const teeRecoveryLoadBtn = document.getElementById('teeRecoveryLoadBtn');
+      if (teeRecoveryLoadBtn) teeRecoveryLoadBtn.addEventListener('click', loadTeeTimeRecovery);
+      const teeRecoveryTable = document.getElementById('teeRecoveryTable');
+      if (teeRecoveryTable) teeRecoveryTable.addEventListener('click', handleTeeTimeRecoveryTableClick);
+      const teeRecoveryDeleteMonthBtn = document.getElementById('teeRecoveryDeleteMonthBtn');
+      if (teeRecoveryDeleteMonthBtn) teeRecoveryDeleteMonthBtn.addEventListener('click', deletePastMonthTeeTimeData);
       const inboundTeeEmailLogBtn = document.getElementById('inboundTeeEmailLogBtn');
       if (inboundTeeEmailLogBtn) inboundTeeEmailLogBtn.addEventListener('click', loadInboundTeeTimeEmailLogEnhanced);
       const createBackupBtn = document.getElementById('createBackupBtn');
@@ -3054,7 +3111,7 @@
         if (!res.ok) throw new Error(`HTTP ${res.status}`);
         const logs = await res.json();
         result.classList.add('success');
-        result.textContent = `Loaded ${logs.length} recent changes`;
+        result.textContent = `Loaded ${logs.length} recent changes from the last 30 days`;
         if (!logs.length) {
           tableWrap.innerHTML = '<div class="empty-state">No tee-time changes logged yet</div>';
           return;
@@ -3117,6 +3174,251 @@
         console.error('Log load error', err);
         result.classList.add('error');
         result.textContent = `Error loading log: ${err.message}`;
+      }
+    }
+
+    async function loadTeeTimeAudit() {
+      const result = document.getElementById('teeAuditResult');
+      const tableWrap = document.getElementById('teeAuditTable');
+      result.className = 'test-result';
+      result.style.display = 'block';
+      result.textContent = 'Loading audit...';
+      tableWrap.innerHTML = '';
+      try {
+        const res = await fetch(`/api/admin/tee-time-audit-log?code=${encodeURIComponent(ADMIN_CODE)}`);
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(payload.error || `HTTP ${res.status}`);
+        const entries = Array.isArray(payload) ? payload : (Array.isArray(payload.entries) ? payload.entries : []);
+        const days = Number(payload.days || 30);
+        result.classList.add('success');
+        result.textContent = `Loaded ${entries.length} audit entries from the last ${days} days`;
+        if (!entries.length) {
+          tableWrap.innerHTML = '<div class="empty-state">No audit entries found for the last 30 days</div>';
+          return;
+        }
+        const rows = entries.map((entry) => {
+          const eventName = escapeHtml(entry.eventCourse || 'Unknown event');
+          const eventDate = escapeHtml(entry.eventDateISO || 'Unknown date');
+          const status = entry.eventExists ? 'Active' : 'Deleted';
+          const action = escapeHtml(entry.action || 'audit');
+          const message = escapeHtml(entry.message || 'Audit entry');
+          const when = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : '';
+          return `
+          <tr>
+            <td>${when}</td>
+            <td>${eventName}</td>
+            <td>${eventDate}</td>
+            <td>${status}</td>
+            <td>${action}</td>
+            <td>${message}</td>
+          </tr>
+        `;
+        }).join('');
+        const mobileCards = entries.map((entry) => {
+          const eventName = escapeHtml(entry.eventCourse || 'Unknown event');
+          const eventDate = escapeHtml(entry.eventDateISO || 'Unknown date');
+          const status = entry.eventExists ? 'Active' : 'Deleted';
+          const action = escapeHtml(entry.action || 'audit');
+          const message = escapeHtml(entry.message || 'Audit entry');
+          const when = entry.timestamp ? new Date(entry.timestamp).toLocaleString() : '-';
+          return `
+          <article class="log-card">
+            <div class="log-card-head">
+              <p class="log-title">${eventName}</p>
+              <span class="log-type ${entry.eventExists ? 'tee' : 'team'}">${status}</span>
+            </div>
+            <div class="log-row"><span class="log-key">Date</span><span class="log-val">${eventDate}</span></div>
+            <div class="log-row"><span class="log-key">Action</span><span class="log-val">${action}</span></div>
+            <div class="log-row"><span class="log-key">Details</span><span class="log-val">${message}</span></div>
+            <div class="log-row"><span class="log-key">When</span><span class="log-val">${when}</span></div>
+          </article>`;
+        }).join('');
+        tableWrap.innerHTML = `
+          <div class="table-shell log-table-shell">
+            <table class="log-table">
+              <thead>
+                <tr>
+                  <th>When</th><th>Event</th><th>Date</th><th>Status</th><th>Action</th><th>Details</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          <div class="log-mobile-list">${mobileCards}</div>
+        `;
+      } catch (err) {
+        console.error('Audit load error', err);
+        result.classList.add('error');
+        result.textContent = `Error loading audit: ${err.message}`;
+      }
+    }
+
+    async function loadTeeTimeRecovery() {
+      const result = document.getElementById('teeRecoveryResult');
+      const tableWrap = document.getElementById('teeRecoveryTable');
+      const dateISO = String(document.getElementById('teeRecoveryDateInput').value || '').trim();
+      result.className = 'test-result';
+      result.style.display = 'block';
+      tableWrap.innerHTML = '';
+      if (!dateISO) {
+        result.classList.add('error');
+        result.textContent = 'Pick an event date first.';
+        return;
+      }
+      result.textContent = 'Loading deleted items...';
+      try {
+        const res = await fetch(`/api/admin/tee-time-recovery?code=${encodeURIComponent(ADMIN_CODE)}&date=${encodeURIComponent(dateISO)}`);
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(payload.error || `HTTP ${res.status}`);
+        const entries = Array.isArray(payload.entries) ? payload.entries : [];
+        result.classList.add('success');
+        result.textContent = entries.length
+          ? `Loaded ${entries.length} deleted item${entries.length === 1 ? '' : 's'} for ${dateISO}`
+          : `No deleted events or tee times found for ${dateISO}`;
+        if (!entries.length) {
+          tableWrap.innerHTML = '<div class="empty-state">Nothing deleted for this date in the last 30 days.</div>';
+          return;
+        }
+        const rows = entries.map((entry) => {
+          const typeLabel = entry.archiveType === 'event' ? 'Event' : (entry.isTeamEvent ? 'Team' : 'Tee Time');
+          const status = entry.canRestore ? 'Ready' : 'Live';
+          const deletedAt = entry.deletedAt ? new Date(entry.deletedAt).toLocaleString() : '-';
+          const restoredAt = entry.restoredAt ? new Date(entry.restoredAt).toLocaleString() : '';
+          const detail = entry.archiveType === 'event'
+            ? 'Full event snapshot'
+            : escapeHtml(entry.slotDisplay || 'Tee time');
+          const actionCell = entry.canRestore
+            ? `<button type="button" class="btn-test btn-log" data-restore-archive="${String(entry.archiveId || '')}">Restore</button>`
+            : `<span class="status-note">${escapeHtml(entry.restoreHint || (restoredAt ? `Restored ${restoredAt}` : 'Already live'))}</span>`;
+          return `
+          <tr>
+            <td>${deletedAt}</td>
+            <td>${escapeHtml(typeLabel)}</td>
+            <td>${escapeHtml(entry.eventCourse || 'Unknown event')}</td>
+            <td>${escapeHtml(entry.eventDateISO || '-')}</td>
+            <td>${detail}</td>
+            <td>${escapeHtml(status)}</td>
+            <td>${escapeHtml(entry.restoreHint || (restoredAt ? `Restored ${restoredAt}` : ''))}</td>
+            <td>${actionCell}</td>
+          </tr>
+        `;
+        }).join('');
+        const mobileCards = entries.map((entry) => {
+          const typeLabel = entry.archiveType === 'event' ? 'Event' : (entry.isTeamEvent ? 'Team' : 'Tee Time');
+          const deletedAt = entry.deletedAt ? new Date(entry.deletedAt).toLocaleString() : '-';
+          const restoredAt = entry.restoredAt ? new Date(entry.restoredAt).toLocaleString() : '';
+          const actionHtml = entry.canRestore
+            ? `<button type="button" class="btn-test btn-log" data-restore-archive="${String(entry.archiveId || '')}">Restore</button>`
+            : `<div class="status-note">${escapeHtml(entry.restoreHint || (restoredAt ? `Restored ${restoredAt}` : 'Already live'))}</div>`;
+          return `
+          <article class="log-card">
+            <div class="log-card-head">
+              <p class="log-title">${escapeHtml(entry.eventCourse || 'Unknown event')}</p>
+              <span class="log-type ${entry.archiveType === 'event' ? 'team' : 'tee'}">${escapeHtml(typeLabel)}</span>
+            </div>
+            <div class="log-row"><span class="log-key">Date</span><span class="log-val">${escapeHtml(entry.eventDateISO || '-')}</span></div>
+            <div class="log-row"><span class="log-key">Deleted</span><span class="log-val">${deletedAt}</span></div>
+            <div class="log-row"><span class="log-key">Slot</span><span class="log-val">${escapeHtml(entry.slotDisplay || 'Full event snapshot')}</span></div>
+            <div class="log-row"><span class="log-key">Status</span><span class="log-val">${escapeHtml(entry.restoreHint || (restoredAt ? `Restored ${restoredAt}` : 'Ready to restore'))}</span></div>
+            <div style="margin-top:10px;">${actionHtml}</div>
+          </article>`;
+        }).join('');
+        tableWrap.innerHTML = `
+          <div class="table-shell log-table-shell">
+            <table class="log-table">
+              <thead>
+                <tr>
+                  <th>Deleted</th><th>Type</th><th>Event</th><th>Date</th><th>Slot</th><th>Status</th><th>Recovery Notes</th><th>Action</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>
+          <div class="log-mobile-list">${mobileCards}</div>
+        `;
+      } catch (err) {
+        console.error('Recovery load error', err);
+        result.classList.add('error');
+        result.textContent = `Error loading deleted items: ${err.message}`;
+      }
+    }
+
+    async function restoreTeeTimeRecoveryArchive(archiveId) {
+      const result = document.getElementById('teeRecoveryResult');
+      const archiveRef = String(archiveId || '').trim();
+      if (!archiveRef) return;
+      result.className = 'test-result';
+      result.style.display = 'block';
+      result.textContent = 'Restoring deleted item...';
+      try {
+        const res = await fetch(`/api/admin/tee-time-recovery/${encodeURIComponent(archiveRef)}?code=${encodeURIComponent(ADMIN_CODE)}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code: ADMIN_CODE }),
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(payload.error || `HTTP ${res.status}`);
+        result.classList.add('success');
+        result.textContent = payload.archiveType === 'event'
+          ? `Recovered event ${payload.course || ''} ${payload.dateISO ? `for ${payload.dateISO}` : ''}.`.trim()
+          : `Recovered deleted tee time for ${payload.course || 'event'} ${payload.dateISO ? `on ${payload.dateISO}` : ''}.`.trim();
+        await loadTeeTimeRecovery();
+      } catch (err) {
+        console.error('Recovery restore error', err);
+        result.classList.add('error');
+        result.textContent = `Error restoring deleted item: ${err.message}`;
+      }
+    }
+
+    function handleTeeTimeRecoveryTableClick(event) {
+      const restoreBtn = event.target.closest('[data-restore-archive]');
+      if (!restoreBtn) return;
+      const archiveId = String(restoreBtn.getAttribute('data-restore-archive') || '').trim();
+      if (!archiveId) return;
+      restoreTeeTimeRecoveryArchive(archiveId);
+    }
+
+    async function deletePastMonthTeeTimeData() {
+      const result = document.getElementById('teeRecoveryDeleteResult');
+      const month = String(document.getElementById('teeRecoveryMonthInput').value || '').trim();
+      const deleteCode = String(document.getElementById('teeRecoveryDeleteCodeInput').value || '').trim() || ADMIN_CODE;
+      const confirmCode = String(document.getElementById('teeRecoveryConfirmCodeInput').value || '').trim();
+      result.className = 'test-result';
+      result.style.display = 'block';
+      if (!month) {
+        result.classList.add('error');
+        result.textContent = 'Pick a past month first.';
+        return;
+      }
+      const confirmed = window.confirm(`Delete all live event data for ${month}? This is intended for past months only, and the deletions will stay recoverable for 30 days.`);
+      if (!confirmed) return;
+      result.textContent = 'Deleting selected month...';
+      try {
+        const res = await fetch(`/api/admin/tee-time-recovery/month?code=${encodeURIComponent(ADMIN_CODE)}`, {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            code: ADMIN_CODE,
+            month,
+            deleteCode,
+            confirmCode,
+            confirmed: true,
+          }),
+        });
+        const payload = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(payload.error || `HTTP ${res.status}`);
+        result.classList.add('success');
+        result.textContent = payload.deletedCount
+          ? `Deleted ${payload.deletedCount} live event${payload.deletedCount === 1 ? '' : 's'} for ${payload.month}. Use Delete Recovery above to restore a specific day if needed.`
+          : `No live events found for ${payload.month}.`;
+        const recoveryDateInput = document.getElementById('teeRecoveryDateInput');
+        if (recoveryDateInput && String(recoveryDateInput.value || '').startsWith(`${payload.month}-`)) {
+          await loadTeeTimeRecovery();
+        }
+      } catch (err) {
+        console.error('Past month delete error', err);
+        result.classList.add('error');
+        result.textContent = `Error deleting selected month: ${err.message}`;
       }
     }
 

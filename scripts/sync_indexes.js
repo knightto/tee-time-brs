@@ -2,9 +2,12 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const { initSecondaryConn, getSecondaryConn } = require('../secondary-conn');
 
+const AuditLog = require('../models/AuditLog');
+const DeletedTeeTimeArchive = require('../models/DeletedTeeTimeArchive');
 const Event = require('../models/Event');
 const Subscriber = require('../models/Subscriber');
 const Handicap = require('../models/Handicap');
+const TeeTimeLog = require('../models/TeeTimeLog');
 const BlueRidgeOuting = require('../models/BlueRidgeOuting');
 const BlueRidgeRegistration = require('../models/BlueRidgeRegistration');
 const BlueRidgeTeam = require('../models/BlueRidgeTeam');
@@ -22,9 +25,12 @@ async function run() {
     dbName: process.env.MONGO_DB || undefined,
   });
 
+  await sync('primary', AuditLog);
+  await sync('primary', DeletedTeeTimeArchive);
   await sync('primary', Event);
   await sync('primary', Subscriber);
   await sync('primary', Handicap);
+  await sync('primary', TeeTimeLog);
 
   initSecondaryConn();
   const secondary = getSecondaryConn();

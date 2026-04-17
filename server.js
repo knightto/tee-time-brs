@@ -855,6 +855,7 @@ app.post('/webhooks/resend', async (req, res) => {
       };
 
       const updateEventFromPayload = async (ev) => {
+        const beforeAudit = captureEventAuditSnapshot(ev);
         ev.course = eventPayload.course || ev.course;
         ev.notes = eventPayload.notes || ev.notes || '';
         ev.date = eventDateObj;
@@ -873,7 +874,18 @@ app.post('/webhooks/resend', async (req, res) => {
           }
         }
         assignWeatherToEvent(ev, await fetchWeatherForEvent(ev));
-        return ev.save();
+        const updated = await ev.save();
+        const afterAudit = captureEventAuditSnapshot(updated);
+        await logAudit(updated._id, 'update_event', 'SYSTEM', {
+          ...auditContextFromEvent(updated),
+          message: buildEventUpdateAuditMessage(beforeAudit, afterAudit),
+          details: {
+            before: beforeAudit,
+            after: afterAudit,
+            source: 'inbound_email',
+          },
+        });
+        return updated;
       };
 
       const createEventThroughApi = async (reason = 'CREATE') => {
@@ -943,7 +955,20 @@ app.post('/webhooks/resend', async (req, res) => {
           const matches = await findMatchingEvents();
           if (matches.length) {
             const primary = matches[0];
-            await Event.findOneAndDelete({ ...groupScopeFilter(primary.groupSlug), _id: primary._id });
+            await archiveDeletedEvent(primary, {
+              deletedBy: 'SYSTEM',
+              deleteSource: 'inbound_email',
+              notes: `Inbound tee-time cancellation email for ${eventPayload.teeTime || 'tee time'}.`,
+            });
+            await primary.deleteOne();
+            await logAudit(primary._id, 'delete_event', 'SYSTEM', {
+              ...auditContextFromEvent(primary),
+              message: `Deleted event ${primary.course || 'event'} on ${fmt.dateISO(primary.date) || 'the selected date'} from an inbound tee-time cancellation email.`,
+              details: {
+                source: 'inbound_email',
+                matchedTeeTime: eventPayload.teeTime || '',
+              },
+            });
             console.log('[webhook] Event cancelled from email (removed match):', primary._id);
             await updateInboundEmailLog({
               processingResult: 'cancelled',
@@ -1040,6 +1065,7 @@ if (!skipMongoConnect) {
       await ensureScopedSettingsIndexes();
       await ensureScopedSubscriberIndexes();
       await ensureEventIndexes();
+      await ensureTeeTimeAuditIndexes();
       await ensureCanonicalGroupAliasData();
       await ensureGroupProfileIsolationDefaults();
       await ensureGroupAccessControlCache();
@@ -1059,7 +1085,11 @@ let SeniorsGolfer; try { SeniorsGolfer = require('./models/SeniorsGolfer'); } ca
 let HandicapSnapshot; try { HandicapSnapshot = require('./models/HandicapSnapshot'); } catch { HandicapSnapshot = null; }
 let ImportBatch; try { ImportBatch = require('./models/ImportBatch'); } catch { ImportBatch = null; }
 let TeeTimeLog; try { TeeTimeLog = require('./models/TeeTimeLog'); } catch { TeeTimeLog = null; }
+let DeletedTeeTimeArchive; try { DeletedTeeTimeArchive = require('./models/DeletedTeeTimeArchive'); } catch { DeletedTeeTimeArchive = null; }
 let InboundTeeTimeEmailLog; try { InboundTeeTimeEmailLog = require('./models/InboundTeeTimeEmailLog'); } catch { InboundTeeTimeEmailLog = null; }
+const TEE_TIME_AUDIT_RETENTION_DAYS = 30;
+const TEE_TIME_AUDIT_RETENTION_MS = TEE_TIME_AUDIT_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+const TEE_TIME_AUDIT_RETENTION_SECONDS = TEE_TIME_AUDIT_RETENTION_DAYS * 24 * 60 * 60;
 
 async function ensureScopedSettingsIndexes() {
   if (!Settings || !Settings.collection) return;
@@ -1265,6 +1295,10 @@ const BRS_TEE_RETURN_CC_EMAILS = uniqueEmailList([
   String(process.env.BRS_TEE_RETURN_CC || '').split(','),
   'tommy.knight@gmail.com',
 ]);
+const BRS_TEE_TIME_CHANGE_ALERT_EMAILS = uniqueEmailList([
+  String(process.env.BRS_TEE_TIME_CHANGE_ALERT_EMAILS || '').split(','),
+  'tommy.knight@gmail.com',
+]);
 const SCHEDULER_ENV_DISABLED = process.env.ENABLE_SCHEDULER === '0';
 const SCHEDULED_EMAIL_RULE_DEFAULTS = Object.freeze({
   brianTomorrowEmptyClubAlert: true,
@@ -1296,6 +1330,337 @@ async function logTeeTimeChange(entry = {}) {
   } catch (err) {
     console.error('[tee-time] Failed to log tee time change', err.message);
   }
+}
+
+function deepCloneArchiveValue(value) {
+  if (value === undefined) return null;
+  try {
+    return JSON.parse(JSON.stringify(value));
+  } catch (_error) {
+    return null;
+  }
+}
+
+function stripArchiveMetadata(value) {
+  if (Array.isArray(value)) return value.map((entry) => stripArchiveMetadata(entry));
+  if (!value || typeof value !== 'object') return value;
+  return Object.entries(value).reduce((acc, [key, entryValue]) => {
+    if (key === '__v') return acc;
+    acc[key] = stripArchiveMetadata(entryValue);
+    return acc;
+  }, {});
+}
+
+function normalizeArchivedPlayerSnapshot(player = {}) {
+  if (!player || typeof player !== 'object') return null;
+  const normalized = {
+    name: String(player.name || '').trim(),
+    checkedIn: !!player.checkedIn,
+    isFifth: !!player.isFifth,
+  };
+  if (!normalized.name) return null;
+  if (player._id) normalized._id = player._id;
+  return normalized;
+}
+
+function normalizeArchivedSlotSnapshot(slot = {}) {
+  if (!slot || typeof slot !== 'object') return null;
+  const normalized = {
+    players: Array.isArray(slot.players)
+      ? slot.players.map((player) => normalizeArchivedPlayerSnapshot(player)).filter(Boolean)
+      : [],
+  };
+  if (slot._id) normalized._id = slot._id;
+  const time = String(slot.time || '').trim();
+  const name = String(slot.name || '').trim();
+  if (time) normalized.time = time;
+  if (name) normalized.name = name;
+  return normalized;
+}
+
+function normalizeArchivedRegistrationSnapshot(registration = {}) {
+  if (!registration || typeof registration !== 'object') return null;
+  const normalized = {
+    name: String(registration.name || '').trim(),
+    email: String(registration.email || '').trim(),
+    phone: String(registration.phone || '').trim(),
+    ghinNumber: String(registration.ghinNumber || '').trim(),
+    handicapIndex: Number.isFinite(Number(registration.handicapIndex)) ? Number(registration.handicapIndex) : null,
+    golferId: registration.golferId || null,
+    createdAt: registration.createdAt || null,
+  };
+  if (!normalized.name) return null;
+  if (registration._id) normalized._id = registration._id;
+  return normalized;
+}
+
+function normalizeArchivedSkinsPopsSnapshot(input = {}) {
+  const sharedHoles = Array.isArray(input.sharedHoles)
+    ? input.sharedHoles.map((value) => Number(value)).filter((value) => Number.isInteger(value))
+    : [];
+  const bonusHoles = Array.isArray(input.bonusHoles)
+    ? input.bonusHoles.map((value) => Number(value)).filter((value) => Number.isInteger(value))
+    : [];
+  return {
+    sharedHoles,
+    bonusHoles,
+    generatedAt: input.generatedAt || null,
+  };
+}
+
+function normalizeArchivedWeatherSnapshot(input = {}) {
+  return {
+    condition: toNullableString(input.condition),
+    icon: toNullableString(input.icon),
+    temp: toFiniteNumber(input.temp),
+    tempLow: toFiniteNumber(input.tempLow),
+    tempHigh: toFiniteNumber(input.tempHigh),
+    rainChance: toFiniteNumber(input.rainChance),
+    description: toNullableString(input.description),
+    lastFetched: input.lastFetched || null,
+  };
+}
+
+function normalizeArchivedEventSnapshot(snapshot = {}, fallbackGroupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  const cloned = stripArchiveMetadata(deepCloneArchiveValue(snapshot) || {});
+  if (!cloned || typeof cloned !== 'object') return null;
+  const normalized = {
+    groupSlug: normalizeGroupSlug(cloned.groupSlug || fallbackGroupSlug),
+    course: String(cloned.course || '').trim(),
+    date: cloned.date || null,
+    notes: String(cloned.notes || ''),
+    isTeamEvent: !!cloned.isTeamEvent,
+    seniorsEventType: String(cloned.seniorsEventType || '').trim(),
+    seniorsRegistrationMode: String(cloned.seniorsRegistrationMode || '').trim(),
+    teamSizeMax: Number.isFinite(Number(cloned.teamSizeMax)) ? Number(cloned.teamSizeMax) : 4,
+    courseInfo: normalizeCourseInfo(cloned.courseInfo || {}),
+    teeTimes: Array.isArray(cloned.teeTimes)
+      ? cloned.teeTimes.map((slot) => normalizeArchivedSlotSnapshot(slot)).filter(Boolean)
+      : [],
+    seniorsRegistrations: Array.isArray(cloned.seniorsRegistrations)
+      ? cloned.seniorsRegistrations.map((registration) => normalizeArchivedRegistrationSnapshot(registration)).filter(Boolean)
+      : [],
+    maybeList: Array.isArray(cloned.maybeList)
+      ? cloned.maybeList.map((name) => String(name || '').trim()).filter(Boolean)
+      : [],
+    skinsPops: normalizeArchivedSkinsPopsSnapshot(cloned.skinsPops || {}),
+    weather: normalizeArchivedWeatherSnapshot(cloned.weather || {}),
+  };
+  if (cloned._id) normalized._id = cloned._id;
+  if (cloned.createdAt) normalized.createdAt = cloned.createdAt;
+  if (cloned.updatedAt) normalized.updatedAt = cloned.updatedAt;
+  normalized.dedupeKey = buildEventStorageDedupeKey(
+    normalized.date,
+    normalized.teeTimes,
+    normalized.isTeamEvent,
+    normalized.groupSlug,
+    normalized.seniorsRegistrationMode,
+    normalized._id,
+    normalized.course
+  ) || undefined;
+  if (!normalized.course || !normalized.date) return null;
+  return normalized;
+}
+
+function captureEventRestoreSnapshot(ev = {}) {
+  const raw = ev && typeof ev.toObject === 'function'
+    ? ev.toObject({ depopulate: true })
+    : ev;
+  return normalizeArchivedEventSnapshot(raw, ev.groupSlug);
+}
+
+function captureDeletedSlotArchiveEntry(ev = {}, teeTime = {}) {
+  const snapshot = normalizeArchivedSlotSnapshot(
+    teeTime && typeof teeTime.toObject === 'function'
+      ? teeTime.toObject({ depopulate: true })
+      : teeTime
+  );
+  if (!snapshot) return null;
+  const slotId = String(teeTime && teeTime._id || snapshot._id || '').trim();
+  const slotIndex = Array.isArray(ev.teeTimes)
+    ? ev.teeTimes.findIndex((entry) => String(entry && entry._id || '') === slotId)
+    : -1;
+  return {
+    snapshot,
+    slotIndex: slotIndex >= 0 ? slotIndex : null,
+    slotLabel: ev && ev.isTeamEvent ? String(snapshot.name || '').trim() : String(snapshot.time || '').trim(),
+  };
+}
+
+async function archiveDeletedEvent(ev = {}, options = {}) {
+  if (!DeletedTeeTimeArchive) throw new Error('Delete archive model not available');
+  const eventSnapshot = captureEventRestoreSnapshot(ev);
+  if (!eventSnapshot) throw new Error('Unable to capture deleted event snapshot');
+  return DeletedTeeTimeArchive.create({
+    groupSlug: normalizeGroupSlug(ev.groupSlug),
+    archiveType: 'event',
+    originalEventId: String(ev && ev._id || '').trim(),
+    originalTeeId: '',
+    eventCourse: String(ev.course || '').trim(),
+    eventDateISO: fmt.dateISO(ev.date),
+    isTeamEvent: !!ev.isTeamEvent,
+    slotIndex: null,
+    slotLabel: '',
+    snapshot: eventSnapshot,
+    eventSnapshot,
+    deleteSource: String(options.deleteSource || '').trim().toLowerCase(),
+    deletedBy: String(options.deletedBy || 'SYSTEM').trim() || 'SYSTEM',
+    notes: String(options.notes || '').trim(),
+    deletedAt: new Date(),
+  });
+}
+
+async function archiveDeletedTeeTime(ev = {}, teeTime = {}, options = {}) {
+  if (!DeletedTeeTimeArchive) throw new Error('Delete archive model not available');
+  const eventSnapshot = captureEventRestoreSnapshot(ev);
+  const slotArchive = captureDeletedSlotArchiveEntry(ev, teeTime);
+  if (!eventSnapshot || !slotArchive || !slotArchive.snapshot) {
+    throw new Error('Unable to capture deleted tee-time snapshot');
+  }
+  return DeletedTeeTimeArchive.create({
+    groupSlug: normalizeGroupSlug(ev.groupSlug),
+    archiveType: 'tee_time',
+    originalEventId: String(ev && ev._id || '').trim(),
+    originalTeeId: String(teeTime && teeTime._id || slotArchive.snapshot._id || '').trim(),
+    eventCourse: String(ev.course || '').trim(),
+    eventDateISO: fmt.dateISO(ev.date),
+    isTeamEvent: !!ev.isTeamEvent,
+    slotIndex: slotArchive.slotIndex,
+    slotLabel: slotArchive.slotLabel,
+    snapshot: slotArchive.snapshot,
+    eventSnapshot,
+    deleteSource: String(options.deleteSource || '').trim().toLowerCase(),
+    deletedBy: String(options.deletedBy || 'SYSTEM').trim() || 'SYSTEM',
+    notes: String(options.notes || '').trim(),
+    deletedAt: new Date(),
+  });
+}
+
+function parseYearMonthRange(value = '') {
+  const match = /^(\d{4})-(\d{2})$/.exec(String(value || '').trim());
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) return null;
+  const start = new Date(Date.UTC(year, month - 1, 1, 0, 0, 0, 0));
+  const end = new Date(Date.UTC(year, month, 1, 0, 0, 0, 0));
+  return {
+    month: `${match[1]}-${match[2]}`,
+    start,
+    end,
+  };
+}
+
+function isPastYearMonth(value = '', now = new Date()) {
+  const range = parseYearMonthRange(value);
+  if (!range) return false;
+  const currentMonthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0));
+  return range.start.getTime() < currentMonthStart.getTime();
+}
+
+function findArchivedSlotConflict(ev = {}, slotSnapshot = {}, isTeamEvent = false) {
+  const wantedId = String(slotSnapshot && slotSnapshot._id || '').trim();
+  const wantedTime = String(slotSnapshot && slotSnapshot.time || '').trim();
+  const wantedName = String(slotSnapshot && slotSnapshot.name || '').trim().toLowerCase();
+  return (Array.isArray(ev && ev.teeTimes) ? ev.teeTimes : []).find((slot) => {
+    if (!slot) return false;
+    if (wantedId && String(slot._id || '').trim() === wantedId) return true;
+    if (!isTeamEvent && wantedTime && String(slot.time || '').trim() === wantedTime) return true;
+    if (isTeamEvent && wantedName && String(slot.name || '').trim().toLowerCase() === wantedName) return true;
+    return false;
+  }) || null;
+}
+
+function insertArchivedSlotIntoEvent(ev = {}, slotSnapshot = {}, slotIndex = null) {
+  const normalizedSlot = normalizeArchivedSlotSnapshot(slotSnapshot);
+  if (!normalizedSlot) throw new Error('Archived tee time not available');
+  if (!Array.isArray(ev.teeTimes)) ev.teeTimes = [];
+  const conflict = findArchivedSlotConflict(ev, normalizedSlot, !!ev.isTeamEvent);
+  if (conflict) {
+    return { inserted: false, slot: conflict };
+  }
+  const targetIndex = Number.isInteger(slotIndex)
+    ? Math.max(0, Math.min(slotIndex, ev.teeTimes.length))
+    : ev.teeTimes.length;
+  ev.teeTimes.splice(targetIndex, 0, normalizedSlot);
+  if (!ev.isTeamEvent) {
+    ev.teeTimes.sort((left, right) => {
+      const leftMinutes = parseHHMMToMinutes(left && left.time);
+      const rightMinutes = parseHHMMToMinutes(right && right.time);
+      if (leftMinutes === null && rightMinutes === null) return 0;
+      if (leftMinutes === null) return 1;
+      if (rightMinutes === null) return -1;
+      return leftMinutes - rightMinutes;
+    });
+  }
+  return { inserted: true, slot: normalizedSlot };
+}
+
+async function restoreEventFromArchivedSnapshot(snapshot = {}, fallbackGroupSlug = DEFAULT_SITE_GROUP_SLUG) {
+  const normalized = normalizeArchivedEventSnapshot(snapshot, fallbackGroupSlug);
+  if (!normalized) throw new Error('Archived event snapshot is unavailable');
+  if (normalized._id) {
+    const existing = await Event.findOne({ ...groupScopeFilter(normalized.groupSlug), _id: normalized._id });
+    if (existing) return { event: existing, created: false, alreadyExisted: true };
+  }
+  const restored = await Event.create(normalized);
+  return { event: restored, created: true, alreadyExisted: false };
+}
+
+function buildTeeTimeRecoveryEntries({ archives = [], activeEvents = [] } = {}) {
+  const activeById = new Map((activeEvents || []).map((entry) => [String(entry && entry._id || '').trim(), entry]));
+  return (archives || [])
+    .map((archive) => {
+      const archiveType = String(archive && archive.archiveType || '').trim().toLowerCase();
+      const originalEventId = String(archive && archive.originalEventId || '').trim();
+      const restoredEventId = String(archive && archive.restoredEventId || '').trim();
+      const liveEvent = activeById.get(originalEventId) || activeById.get(restoredEventId) || null;
+      const slotSnapshot = archive && archive.snapshot && typeof archive.snapshot === 'object' ? archive.snapshot : {};
+      const slotLabelRaw = String(
+        archive && archive.slotLabel
+          || slotSnapshot.name
+          || slotSnapshot.time
+          || ''
+      ).trim();
+      const slotConflict = archiveType === 'tee_time' && liveEvent
+        ? findArchivedSlotConflict(liveEvent, slotSnapshot, !!(archive && archive.isTeamEvent))
+        : null;
+      let canRestore = true;
+      let restoreHint = archiveType === 'event' ? 'Restores the full event.' : 'Restores the deleted tee time.';
+      if (archiveType === 'event' && liveEvent) {
+        canRestore = false;
+        restoreHint = 'This event already exists in live data.';
+      } else if (archiveType === 'tee_time') {
+        if (slotConflict) {
+          canRestore = false;
+          restoreHint = 'This tee time already exists in live data.';
+        } else if (!liveEvent) {
+          restoreHint = 'Original event is gone. Restoring will recreate the event snapshot first.';
+        }
+      }
+      if (archive && archive.restoredAt && !canRestore) {
+        restoreHint = 'Already restored.';
+      }
+      return {
+        archiveId: String(archive && archive._id || '').trim(),
+        archiveType,
+        originalEventId,
+        originalTeeId: String(archive && archive.originalTeeId || '').trim(),
+        eventCourse: String(archive && archive.eventCourse || '').trim(),
+        eventDateISO: String(archive && archive.eventDateISO || '').trim(),
+        isTeamEvent: !!(archive && archive.isTeamEvent),
+        slotLabel: slotLabelRaw,
+        slotDisplay: formatAuditSlotLabel(slotLabelRaw, !!(archive && archive.isTeamEvent)),
+        deletedAt: archive && archive.deletedAt ? new Date(archive.deletedAt) : null,
+        restoredAt: archive && archive.restoredAt ? new Date(archive.restoredAt) : null,
+        eventExists: !!liveEvent,
+        canRestore,
+        restoreHint,
+        restoredEventId,
+      };
+    })
+    .filter((entry) => entry.archiveId && entry.deletedAt instanceof Date && !Number.isNaN(entry.deletedAt.getTime()))
+    .sort((left, right) => right.deletedAt.getTime() - left.deletedAt.getTime());
 }
 
 /* ---------------- Weather helpers ---------------- */
@@ -1804,6 +2169,36 @@ async function ensureEventIndexes() {
     }
   } catch (error) {
     console.error('Failed to ensure event indexes:', error);
+  }
+}
+
+function getTeeTimeAuditWindowStart(now = new Date()) {
+  return new Date(now.getTime() - TEE_TIME_AUDIT_RETENTION_MS);
+}
+
+function sameIndexKeyPattern(index = {}, key = {}) {
+  return JSON.stringify(index && index.key || {}) === JSON.stringify(key);
+}
+
+async function ensureTtlIndex(model, key, name, expireAfterSeconds) {
+  if (!model || !model.collection) return;
+  const indexes = await model.collection.indexes();
+  const existing = indexes.find((index) => index && (index.name === name || sameIndexKeyPattern(index, key)));
+  const matches = existing
+    && sameIndexKeyPattern(existing, key)
+    && Number(existing.expireAfterSeconds) === Number(expireAfterSeconds);
+  if (matches) return;
+  if (existing && existing.name) await model.collection.dropIndex(existing.name);
+  await model.collection.createIndex(key, { name, expireAfterSeconds });
+}
+
+async function ensureTeeTimeAuditIndexes() {
+  try {
+    await ensureTtlIndex(AuditLog, { timestamp: 1 }, 'timestamp_1', TEE_TIME_AUDIT_RETENTION_SECONDS);
+    await ensureTtlIndex(TeeTimeLog, { createdAt: 1 }, 'createdAt_1', TEE_TIME_AUDIT_RETENTION_SECONDS);
+    await ensureTtlIndex(DeletedTeeTimeArchive, { deletedAt: 1 }, 'deletedAt_1', TEE_TIME_AUDIT_RETENTION_SECONDS);
+  } catch (error) {
+    console.error('Failed to ensure tee-time audit indexes:', error);
   }
 }
 
@@ -4237,8 +4632,12 @@ function buildAuditMessage(action = '', playerName = '', data = {}) {
       return 'Updated event details.';
     case 'delete_event':
       return `Deleted event ${data.eventCourse || 'event'} on ${data.eventDateISO || 'the selected date'}.`;
+    case 'restore_event':
+      return `Restored event ${data.eventCourse || 'event'} on ${data.eventDateISO || 'the selected date'}.`;
     case 'request_extra_tee_time':
       return 'Requested an additional tee time from the club.';
+    case 'restore_tee_time':
+      return `Restored ${teeLabel}.`;
     case 'add_player':
       return `Added ${subject || 'player'} to ${teeLabel}.`;
     case 'remove_player':
@@ -4358,8 +4757,10 @@ async function logAudit(eventId, action, playerName, data = {}) {
   }
 }
 
-function buildEventCreatedAuditEntry(ev = {}) {
+function buildEventCreatedAuditEntry(ev = {}, options = {}) {
   if (!ev || !ev._id || !ev.createdAt) return null;
+  const cutoff = options && options.cutoff ? new Date(options.cutoff) : null;
+  if (cutoff && !Number.isNaN(cutoff.getTime()) && new Date(ev.createdAt).getTime() < cutoff.getTime()) return null;
   const context = auditContextFromEvent(ev);
   return {
     _id: `created-${String(ev._id)}`,
@@ -4380,6 +4781,36 @@ function buildEventCreatedAuditEntry(ev = {}) {
     details: {},
     timestamp: ev.createdAt,
   };
+}
+
+function buildAdminTeeTimeAuditEntries({ auditLogs = [], teeTimeLogs = [], activeEventIds = new Set() } = {}) {
+  const activeIds = activeEventIds instanceof Set
+    ? activeEventIds
+    : new Set(Array.from(activeEventIds || []).map((value) => String(value || '')));
+  return (auditLogs || [])
+    .concat((teeTimeLogs || []).map((entry) => buildLegacyTeeAuditEntry(entry)).filter(Boolean))
+    .map((entry) => {
+      const eventId = entry && entry.eventId ? String(entry.eventId) : '';
+      const timestamp = entry && entry.timestamp ? new Date(entry.timestamp) : null;
+      const source = entry && entry.details && entry.details.source === 'legacy_tee_time_log'
+        ? 'legacy_tee_time_log'
+        : 'audit_log';
+      return {
+        _id: String(entry && entry._id || ''),
+        source,
+        groupSlug: normalizeGroupSlug(entry && entry.groupSlug),
+        eventId,
+        eventCourse: String(entry && entry.eventCourse || '').trim(),
+        eventDateISO: String(entry && entry.eventDateISO || '').trim(),
+        isTeamEvent: !!(entry && entry.isTeamEvent),
+        action: String(entry && entry.action || '').trim().toLowerCase(),
+        message: String(entry && entry.message || buildAuditMessage(entry && entry.action, entry && entry.playerName, entry || {})).trim(),
+        timestamp,
+        eventExists: !!eventId && activeIds.has(eventId),
+      };
+    })
+    .filter((entry) => entry.eventId && entry.timestamp instanceof Date && !Number.isNaN(entry.timestamp.getTime()))
+    .sort((left, right) => right.timestamp.getTime() - left.timestamp.getTime());
 }
 
 /* ---------------- Core API (unchanged parts trimmed for brevity) ---------------- */
@@ -5090,8 +5521,14 @@ app.delete('/api/events/:id', async (req, res) => {
   } else if (!isAdminDelete(req)) {
     return res.status(403).json({ error: 'Delete code required' });
   }
-  const del = await Event.findOneAndDelete(scopeQuery(req, { _id: req.params.id }));
+  const del = await Event.findOne(scopeQuery(req, { _id: req.params.id }));
   if (!del) return res.status(404).json({ error: 'Not found' });
+  await archiveDeletedEvent(del, {
+    deletedBy: 'SYSTEM',
+    deleteSource: 'admin_delete',
+    notes: 'Deleted from the event admin endpoint.',
+  });
+  await del.deleteOne();
   await logAudit(del._id, 'delete_event', 'SYSTEM', {
     ...auditContextFromEvent(del),
     message: `Deleted event ${del.course || 'event'} on ${fmt.dateISO(del.date) || 'the selected date'}.`,
@@ -5275,8 +5712,15 @@ app.post('/api/events/:id/dedupe', async (req, res) => {
       : matches[0]._id;
 
     const toRemove = matches.filter((m) => String(m._id) !== String(keepId)).map((m) => m._id);
-    const delResult = await Event.deleteMany({ ...groupScopeFilter(ev.groupSlug), _id: { $in: toRemove } });
     const removedEvents = matches.filter((m) => String(m._id) !== String(keepId));
+    for (const removedEvent of removedEvents) {
+      await archiveDeletedEvent(removedEvent, {
+        deletedBy: 'SYSTEM',
+        deleteSource: 'dedupe',
+        notes: `Duplicate cleanup kept event ${String(keepId)}.`,
+      });
+    }
+    const delResult = await Event.deleteMany({ ...groupScopeFilter(ev.groupSlug), _id: { $in: toRemove } });
     await logAudit(keepId, 'dedupe_event', 'SYSTEM', {
       ...auditContextFromEvent(ev),
       message: `Removed ${removedEvents.length} duplicate event${removedEvents.length === 1 ? '' : 's'} and kept this event as the canonical record.`,
@@ -5409,6 +5853,8 @@ app.post('/api/events/:id/tee-times', async (req, res) => {
        <p>Please <a href="${eventUrl}" style="color:#166534;text-decoration:underline">click here to view this tee time directly</a>.</p>${btn('View Event', eventUrl)}`),
     { groupSlug: ev.groupSlug }
   ).catch(err => console.error('[tee-time] Failed to send tee add email:', err));
+  sendBrsTeeTimeChangeAlert('added', ev, newTime)
+    .catch(err => console.error('[tee-time] Failed to send BRS tee add alert:', err));
   const added = ev.teeTimes[ev.teeTimes.length - 1];
   await logTeeTimeChange({
     groupSlug: ev.groupSlug,
@@ -5500,6 +5946,11 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
     const rawTime = tt.time || '';
     const teeLabel = ev.isTeamEvent ? (tt.name || 'Team') : (rawTime ? fmt.tee(rawTime) : 'Tee time');
 
+    await archiveDeletedTeeTime(ev, tt, {
+      deletedBy: 'SYSTEM',
+      deleteSource: notifyClub ? 'tee_delete_notify_club' : 'tee_delete',
+      notes: notifyClub ? 'Club cancellation notification requested.' : 'Deleted from tee-time admin endpoint.',
+    });
     tt.deleteOne();
     await ev.save();
 
@@ -5513,6 +5964,8 @@ app.delete('/api/events/:id/tee-times/:teeId', async (req, res) => {
          ${btn('View Event', buildSiteEventUrl(ev.groupSlug, ev._id))}`),
       { groupSlug: ev.groupSlug }
     ).catch(err => console.error('Failed to send tee/team removal email:', err));
+    sendBrsTeeTimeChangeAlert('removed', ev, rawTime || teeLabel)
+      .catch(err => console.error('[tee-time] Failed to send BRS tee removal alert:', err));
 
     let mailMethod = null;
     let mailError = null;
@@ -6700,14 +7153,13 @@ app.get('/api/events/:id/audit-log', async (req, res) => {
   try {
     if (!AuditLog) return res.status(501).json({ error: 'Audit log not available' });
     const normalizedGroupSlug = normalizeGroupSlug(getGroupSlug(req));
+    const cutoff = getTeeTimeAuditWindowStart();
     const ev = await findScopedEventById(req, req.params.id, { lean: true });
-    const auditQuery = ev
-      ? { eventId: req.params.id }
-      : { eventId: req.params.id, groupSlug: normalizedGroupSlug };
+    const auditQuery = { eventId: req.params.id, groupSlug: normalizedGroupSlug, timestamp: { $gte: cutoff } };
     const [auditLogs, legacyTeeLogs] = await Promise.all([
       AuditLog.find(auditQuery).sort({ timestamp: 1 }).limit(200).lean(),
       TeeTimeLog
-        ? TeeTimeLog.find({ eventId: req.params.id, groupSlug: normalizedGroupSlug }).sort({ createdAt: 1 }).limit(200).lean()
+        ? TeeTimeLog.find({ eventId: req.params.id, groupSlug: normalizedGroupSlug, createdAt: { $gte: cutoff } }).sort({ createdAt: 1 }).limit(200).lean()
         : Promise.resolve([]),
     ]);
     const logs = auditLogs
@@ -6716,7 +7168,7 @@ app.get('/api/events/:id/audit-log', async (req, res) => {
       .slice(0, 200);
     if (!ev && !logs.length) return res.status(404).json({ error: 'Event not found' });
     const hasCreateEntry = logs.some((log) => String(log && log.action || '').trim() === 'create_event');
-    const createdEntry = hasCreateEntry ? null : buildEventCreatedAuditEntry(ev);
+    const createdEntry = hasCreateEntry ? null : buildEventCreatedAuditEntry(ev, { cutoff });
     res.json(createdEntry ? [createdEntry, ...logs] : logs);
   } catch (e) {
     res.status(500).json({ error: e.message });
@@ -7409,6 +7861,266 @@ app.post('/api/admin/seniors-roster/import', upload.single('file'), async (req, 
   }
 });
 
+app.get('/api/admin/tee-time-recovery', async (req, res) => {
+  if (!isSiteAdmin(req)) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  if (!DeletedTeeTimeArchive) {
+    return res.status(500).json({ error: 'Delete archive model not available' });
+  }
+  try {
+    const dateISO = String(req.query.date || '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateISO)) {
+      return res.status(400).json({ error: 'date is required (YYYY-MM-DD)' });
+    }
+    const normalizedGroupSlug = normalizeGroupSlug(getGroupSlug(req));
+    const archives = await DeletedTeeTimeArchive.find({
+      groupSlug: normalizedGroupSlug,
+      eventDateISO: dateISO,
+      deletedAt: { $gte: getTeeTimeAuditWindowStart() },
+    }).sort({ deletedAt: -1 }).limit(200).lean();
+    const eventIds = Array.from(new Set(
+      archives
+        .flatMap((entry) => [entry && entry.originalEventId, entry && entry.restoredEventId])
+        .map((value) => String(value || '').trim())
+        .filter(Boolean)
+    ));
+    const activeEvents = eventIds.length
+      ? await Event.find({ ...groupScopeFilter(normalizedGroupSlug), _id: { $in: eventIds } })
+        .select({ _id: 1, teeTimes: 1, isTeamEvent: 1 })
+        .lean()
+      : [];
+    const entries = buildTeeTimeRecoveryEntries({ archives, activeEvents });
+    return res.json({ days: TEE_TIME_AUDIT_RETENTION_DAYS, date: dateISO, entries });
+  } catch (error) {
+    console.error('Tee time recovery load error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.post('/api/admin/tee-time-recovery/:archiveId/restore', async (req, res) => {
+  if (!isSiteAdmin(req)) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  if (!DeletedTeeTimeArchive) {
+    return res.status(500).json({ error: 'Delete archive model not available' });
+  }
+  try {
+    const normalizedGroupSlug = normalizeGroupSlug(getGroupSlug(req));
+    const archive = await DeletedTeeTimeArchive.findOne({
+      _id: req.params.archiveId,
+      groupSlug: normalizedGroupSlug,
+    });
+    if (!archive) return res.status(404).json({ error: 'Recovery item not found' });
+
+    const archiveType = String(archive.archiveType || '').trim().toLowerCase();
+    const slotLabelRaw = String(
+      archive.slotLabel
+        || (archive.snapshot && archive.snapshot.name)
+        || (archive.snapshot && archive.snapshot.time)
+        || ''
+    ).trim();
+    const slotDisplay = formatAuditSlotLabel(slotLabelRaw, !!archive.isTeamEvent);
+    let restoredEvent = null;
+    let restoredTeeId = '';
+    let createdEvent = false;
+    let restoredWholeEvent = false;
+
+    if (archiveType === 'event') {
+      const existing = archive.originalEventId
+        ? await Event.findOne({ ...groupScopeFilter(normalizedGroupSlug), _id: archive.originalEventId })
+        : null;
+      if (existing) {
+        archive.restoredAt = archive.restoredAt || new Date();
+        archive.restoredEventId = String(existing._id);
+        await archive.save();
+        return res.json({
+          ok: true,
+          alreadyExists: true,
+          archiveType,
+          eventId: existing._id,
+          course: existing.course || archive.eventCourse || '',
+          dateISO: fmt.dateISO(existing.date) || archive.eventDateISO || '',
+        });
+      }
+      const restored = await restoreEventFromArchivedSnapshot(archive.eventSnapshot || archive.snapshot, normalizedGroupSlug);
+      restoredEvent = restored.event;
+      createdEvent = restored.created;
+      if (createdEvent) {
+        await logAudit(restoredEvent._id, 'restore_event', 'SYSTEM', {
+          ...auditContextFromEvent(restoredEvent),
+          message: `Restored deleted event ${restoredEvent.course || 'event'} on ${fmt.dateISO(restoredEvent.date) || archive.eventDateISO || 'the selected date'}.`,
+          details: {
+            archiveId: String(archive._id),
+            source: 'admin_recovery',
+          },
+        });
+      }
+    } else if (archiveType === 'tee_time') {
+      const slotSnapshot = normalizeArchivedSlotSnapshot(archive.snapshot || {});
+      if (!slotSnapshot) {
+        return res.status(409).json({ error: 'Archived tee time data is missing' });
+      }
+      let targetEvent = archive.originalEventId
+        ? await Event.findOne({ ...groupScopeFilter(normalizedGroupSlug), _id: archive.originalEventId })
+        : null;
+      if (!targetEvent && archive.restoredEventId) {
+        targetEvent = await Event.findOne({ ...groupScopeFilter(normalizedGroupSlug), _id: archive.restoredEventId });
+      }
+      if (!targetEvent) {
+        const restored = await restoreEventFromArchivedSnapshot(archive.eventSnapshot, normalizedGroupSlug);
+        targetEvent = restored.event;
+        createdEvent = restored.created;
+        restoredWholeEvent = true;
+        if (createdEvent) {
+          await logAudit(targetEvent._id, 'restore_event', 'SYSTEM', {
+            ...auditContextFromEvent(targetEvent),
+            message: `Restored event ${targetEvent.course || 'event'} on ${fmt.dateISO(targetEvent.date) || archive.eventDateISO || 'the selected date'} from deleted tee-time recovery.`,
+            details: {
+              archiveId: String(archive._id),
+              source: 'admin_recovery',
+            },
+          });
+        }
+        const matchingSlot = findArchivedSlotConflict(targetEvent, slotSnapshot, !!archive.isTeamEvent);
+        restoredTeeId = String(matchingSlot && matchingSlot._id || archive.originalTeeId || '').trim();
+      } else {
+        if (!!targetEvent.isTeamEvent !== !!archive.isTeamEvent) {
+          return res.status(409).json({ error: 'Live event format no longer matches the deleted tee time' });
+        }
+        const conflict = findArchivedSlotConflict(targetEvent, slotSnapshot, !!archive.isTeamEvent);
+        if (conflict) {
+          archive.restoredAt = archive.restoredAt || new Date();
+          archive.restoredEventId = String(targetEvent._id);
+          archive.restoredTeeId = String(conflict._id || '');
+          await archive.save();
+          return res.json({
+            ok: true,
+            alreadyExists: true,
+            archiveType,
+            eventId: targetEvent._id,
+            teeId: conflict._id || '',
+            course: targetEvent.course || archive.eventCourse || '',
+            dateISO: fmt.dateISO(targetEvent.date) || archive.eventDateISO || '',
+          });
+        }
+        const inserted = insertArchivedSlotIntoEvent(targetEvent, slotSnapshot, archive.slotIndex);
+        if (!inserted.inserted) {
+          return res.status(409).json({ error: 'Tee time already exists in the live event' });
+        }
+        await targetEvent.save();
+        restoredTeeId = String(inserted.slot && inserted.slot._id || archive.originalTeeId || '').trim();
+      }
+      restoredEvent = targetEvent;
+      await logAudit(restoredEvent._id, 'restore_tee_time', 'SYSTEM', {
+        ...auditContextFromEvent(restoredEvent),
+        teeId: restoredTeeId || archive.originalTeeId || null,
+        teeLabel: slotLabelRaw,
+        message: restoredWholeEvent
+          ? `Restored deleted ${archive.isTeamEvent ? 'team' : 'tee time'} ${slotDisplay} by recreating the event snapshot.`
+          : `Restored deleted ${archive.isTeamEvent ? 'team' : 'tee time'} ${slotDisplay}.`,
+        details: {
+          archiveId: String(archive._id),
+          source: 'admin_recovery',
+          restoredWholeEvent,
+        },
+      });
+    } else {
+      return res.status(400).json({ error: 'Unsupported recovery item type' });
+    }
+
+    archive.restoredAt = new Date();
+    archive.restoredEventId = String(restoredEvent && restoredEvent._id || archive.restoredEventId || '').trim();
+    archive.restoredTeeId = String(restoredTeeId || archive.restoredTeeId || '').trim();
+    await archive.save();
+
+    return res.json({
+      ok: true,
+      archiveType,
+      eventId: restoredEvent && restoredEvent._id ? restoredEvent._id : '',
+      teeId: restoredTeeId || '',
+      course: restoredEvent && restoredEvent.course ? restoredEvent.course : archive.eventCourse || '',
+      dateISO: restoredEvent && restoredEvent.date ? fmt.dateISO(restoredEvent.date) : archive.eventDateISO || '',
+      createdEvent,
+    });
+  } catch (error) {
+    console.error('Tee time recovery restore error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/admin/tee-time-recovery/month', async (req, res) => {
+  if (!isAdminDelete(req)) {
+    return res.status(403).json({ error: 'Delete code required' });
+  }
+  const normalizedGroupSlug = normalizeGroupSlug(getGroupSlug(req));
+  if (!hasDeleteActionConfirmed(req)) {
+    return res.status(400).json({ error: 'Bulk delete confirmation required' });
+  }
+  if (!hasDestructiveConfirmForGroup(req, normalizedGroupSlug)) {
+    return res.status(403).json({ error: 'Confirm code required' });
+  }
+  if (!DeletedTeeTimeArchive) {
+    return res.status(500).json({ error: 'Delete archive model not available' });
+  }
+  try {
+    const month = String(req.query.month || req.body?.month || '').trim();
+    const range = parseYearMonthRange(month);
+    if (!range) {
+      return res.status(400).json({ error: 'month is required (YYYY-MM)' });
+    }
+    if (!isPastYearMonth(range.month, new Date())) {
+      return res.status(400).json({ error: 'Only past months can be bulk deleted' });
+    }
+
+    const events = await Event.find({
+      ...groupScopeFilter(normalizedGroupSlug),
+      date: { $gte: range.start, $lt: range.end },
+    }).sort({ date: 1, createdAt: 1 }).lean();
+
+    if (!events.length) {
+      return res.json({ ok: true, month: range.month, deletedCount: 0 });
+    }
+
+    for (const event of events) {
+      await archiveDeletedEvent(event, {
+        deletedBy: 'SYSTEM',
+        deleteSource: 'bulk_month_delete',
+        notes: `Bulk deleted live event data for ${range.month}.`,
+      });
+    }
+
+    const eventIds = events.map((event) => event && event._id).filter(Boolean);
+    const deleteResult = await Event.deleteMany({
+      ...groupScopeFilter(normalizedGroupSlug),
+      _id: { $in: eventIds },
+    });
+
+    for (const event of events) {
+      await logAudit(event._id, 'delete_event', 'SYSTEM', {
+        ...auditContextFromEvent(event),
+        message: `Deleted event ${event.course || 'event'} on ${fmt.dateISO(event.date) || 'the selected date'} during month cleanup for ${range.month}.`,
+        details: {
+          source: 'bulk_month_delete',
+          month: range.month,
+          teeCount: Array.isArray(event.teeTimes) ? event.teeTimes.length : 0,
+        },
+      });
+    }
+
+    return res.json({
+      ok: true,
+      month: range.month,
+      deletedCount: deleteResult && Number.isFinite(Number(deleteResult.deletedCount))
+        ? Number(deleteResult.deletedCount)
+        : events.length,
+    });
+  } catch (error) {
+    console.error('Tee time recovery month delete error:', error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
 // Admin - Tee time change log
 app.get('/api/admin/tee-time-log', async (req, res) => {
   if (!isSiteAdmin(req)) {
@@ -7416,10 +8128,49 @@ app.get('/api/admin/tee-time-log', async (req, res) => {
   }
   if (!TeeTimeLog) return res.status(500).json({ error: 'TeeTimeLog model not available' });
   try {
-    const logs = await TeeTimeLog.find({ groupSlug: getGroupSlug(req) }).sort({ createdAt: -1 }).limit(200).lean();
+    const logs = await TeeTimeLog.find({
+      groupSlug: getGroupSlug(req),
+      createdAt: { $gte: getTeeTimeAuditWindowStart() },
+    }).sort({ createdAt: -1 }).limit(200).lean();
     res.json(logs);
   } catch (e) {
     console.error('Tee time log error:', e);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/api/admin/tee-time-audit-log', async (req, res) => {
+  if (!isSiteAdmin(req)) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  if (!AuditLog && !TeeTimeLog) {
+    return res.status(500).json({ error: 'Audit log models not available' });
+  }
+  try {
+    const normalizedGroupSlug = normalizeGroupSlug(getGroupSlug(req));
+    const cutoff = getTeeTimeAuditWindowStart();
+    const [auditLogs, teeTimeLogs] = await Promise.all([
+      AuditLog
+        ? AuditLog.find({ groupSlug: normalizedGroupSlug, timestamp: { $gte: cutoff } }).sort({ timestamp: -1 }).limit(1000).lean()
+        : Promise.resolve([]),
+      TeeTimeLog
+        ? TeeTimeLog.find({ groupSlug: normalizedGroupSlug, createdAt: { $gte: cutoff } }).sort({ createdAt: -1 }).limit(1000).lean()
+        : Promise.resolve([]),
+    ]);
+    const eventIds = Array.from(new Set(
+      auditLogs
+        .concat(teeTimeLogs)
+        .map((entry) => String(entry && entry.eventId || '').trim())
+        .filter(Boolean)
+    ));
+    const activeEvents = eventIds.length
+      ? await Event.find({ ...groupScopeFilter(normalizedGroupSlug), _id: { $in: eventIds } }).select({ _id: 1 }).lean()
+      : [];
+    const activeEventIds = new Set((activeEvents || []).map((entry) => String(entry && entry._id || '')));
+    const entries = buildAdminTeeTimeAuditEntries({ auditLogs, teeTimeLogs, activeEventIds });
+    res.json({ days: TEE_TIME_AUDIT_RETENTION_DAYS, entries });
+  } catch (e) {
+    console.error('Tee time audit log error:', e);
     res.status(500).json({ error: e.message });
   }
 });
@@ -7676,6 +8427,52 @@ async function sendAdminAlert(subject, htmlBody, groupSlug = DEFAULT_SITE_GROUP_
     }
   }
   return { ok: true, sent };
+}
+
+function shouldSendBrsTeeTimeChangeAlert(ev = {}) {
+  if (!ev) return false;
+  if (normalizeGroupSlug(ev.groupSlug) !== DEFAULT_SITE_GROUP_SLUG) return false;
+  if (ev.isTeamEvent) return false;
+  return BRS_TEE_TIME_CHANGE_ALERT_EMAILS.length > 0;
+}
+
+async function sendBrsTeeTimeChangeAlert(action = 'added', ev = {}, teeLabel = '') {
+  if (!shouldSendBrsTeeTimeChangeAlert(ev)) {
+    return { ok: false, skipped: true };
+  }
+  const normalizedAction = String(action || '').trim().toLowerCase() === 'removed' ? 'removed' : 'added';
+  const rawTeeLabel = String(teeLabel || '').trim();
+  const displayTeeLabel = formatAuditSlotLabel(rawTeeLabel, false);
+  const eventUrl = buildSiteEventUrl(
+    ev.groupSlug,
+    ev._id,
+    normalizedAction === 'added' && /^\d{1,2}:\d{2}$/.test(rawTeeLabel)
+      ? { time: rawTeeLabel }
+      : {}
+  );
+  const subject = `BRS tee time ${normalizedAction}: ${ev.course || 'Course'} (${fmt.dateISO(ev.date) || 'date TBD'})`;
+  const body = frame(
+    `BRS Tee Time ${normalizedAction === 'added' ? 'Added' : 'Removed'}`,
+    `<p>A tee time was ${normalizedAction} on the BRS tee time page.</p>
+     <p><strong>Event:</strong> ${esc(ev.course || '')}</p>
+     <p><strong>Date:</strong> ${esc(fmt.dateLong(ev.date) || fmt.dateISO(ev.date) || '')}</p>
+     <p><strong>Tee Time:</strong> ${esc(displayTeeLabel)}</p>
+     ${btn('View Event', eventUrl)}`
+  );
+  let sent = 0;
+  for (const email of BRS_TEE_TIME_CHANGE_ALERT_EMAILS) {
+    try {
+      const response = await sendEmail(email, subject, body);
+      if (response && response.ok) sent += 1;
+    } catch (error) {
+      console.error('[tee-time] Failed to send BRS tee-time alert', {
+        action: normalizedAction,
+        email,
+        error: error && error.message ? error.message : String(error),
+      });
+    }
+  }
+  return { ok: sent > 0, sent };
 }
 
 function ymdLocalPlusDays(days=1){
@@ -8123,6 +8920,7 @@ module.exports.skinsPopsUnlockAt = skinsPopsUnlockAt;
 module.exports.weekendGameEligibleEvent = weekendGameEligibleEvent;
 module.exports.buildAuditMessage = buildAuditMessage;
 module.exports.buildLegacyTeeAuditEntry = buildLegacyTeeAuditEntry;
+module.exports.buildAdminTeeTimeAuditEntries = buildAdminTeeTimeAuditEntries;
 module.exports.buildEventUpdateAuditMessage = buildEventUpdateAuditMessage;
 module.exports.buildEventIcs = buildEventIcs;
 module.exports.eventCalendarTiming = eventCalendarTiming;
@@ -8131,3 +8929,10 @@ module.exports.clubCancelCcRecipientsForEvent = clubCancelCcRecipientsForEvent;
 module.exports.enrichCourseInfo = enrichCourseInfo;
 module.exports.resolveWeatherCoordinates = resolveWeatherCoordinates;
 module.exports.fetchWeatherForEvent = fetchWeatherForEvent;
+module.exports.getTeeTimeAuditWindowStart = getTeeTimeAuditWindowStart;
+module.exports.shouldSendBrsTeeTimeChangeAlert = shouldSendBrsTeeTimeChangeAlert;
+module.exports.parseYearMonthRange = parseYearMonthRange;
+module.exports.isPastYearMonth = isPastYearMonth;
+module.exports.normalizeArchivedEventSnapshot = normalizeArchivedEventSnapshot;
+module.exports.findArchivedSlotConflict = findArchivedSlotConflict;
+module.exports.buildTeeTimeRecoveryEntries = buildTeeTimeRecoveryEntries;

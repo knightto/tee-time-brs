@@ -1323,11 +1323,19 @@ if ('serviceWorker' in navigator) {
     return Math.round((eventDay - today) / (1000 * 60 * 60 * 24));
   }
 
+  function teeTimeStartsWithinHours(ev, teeTime = {}, hours = 48) {
+    if (!ev || !!ev.isTeamEvent) return false;
+    const limitHours = Number(hours);
+    if (!Number.isFinite(limitHours) || limitHours <= 0) return false;
+    const teeStart = eventLocalDateTimeToUtc(ev && ev.date, teeTime && teeTime.time, EVENT_TIME_ZONE);
+    if (!(teeStart instanceof Date) || Number.isNaN(teeStart.getTime())) return false;
+    const diffMs = teeStart.getTime() - Date.now();
+    return diffMs >= 0 && diffMs <= (limitHours * 60 * 60 * 1000);
+  }
+
   function eventHasUrgentEmpty(ev) {
-    const dateISO = toDateISO(ev && ev.date);
-    const daysUntil = eventDaysUntil(dateISO);
-    if (!!(ev && ev.isTeamEvent) || !Number.isInteger(daysUntil) || daysUntil < 0 || daysUntil > 3) return false;
-    return (ev && ev.teeTimes || []).some((tt) => ((tt && tt.players) || []).length === 0);
+    if (!!(ev && ev.isTeamEvent)) return false;
+    return (ev && ev.teeTimes || []).some((tt) => slotPlayerCount(tt) === 0 && teeTimeStartsWithinHours(ev, tt, 48));
   }
 
   function eventMatchesMobileFilter(ev) {
@@ -2355,7 +2363,14 @@ if ('serviceWorker' in navigator) {
     if (offlineSnapshotState) {
       const requestLabel = offlineSnapshotState.label || 'saved tee sheet data';
       const savedAtLabel = formatOfflineSavedAt(offlineSnapshotState.savedAt);
-      const offlinePrefix = navigator.onLine ? 'Network issue' : 'Offline';
+      let offlinePrefix = 'Live refresh failed';
+      if (!navigator.onLine || offlineSnapshotState.reason === 'offline') {
+        offlinePrefix = 'Offline';
+      } else if (offlineSnapshotState.reason === 'timeout') {
+        offlinePrefix = 'Live refresh timed out';
+      } else if (offlineSnapshotState.reason === 'http' && Number.isInteger(Number(offlineSnapshotState.status))) {
+        offlinePrefix = `Live refresh failed (HTTP ${Number(offlineSnapshotState.status)})`;
+      }
       parts.push(`${offlinePrefix}: showing ${requestLabel} from ${savedAtLabel}.`);
     } else if (!navigator.onLine) {
       parts.push('Offline: live updates are unavailable until your connection returns.');
@@ -2597,7 +2612,17 @@ if ('serviceWorker' in navigator) {
           if (String(requestPath).includes('/api/events/by-date')) label = 'saved selected-day tee sheet';
           else if (String(requestPath).includes('/api/events/calendar/summary')) label = 'saved monthly calendar summary';
           else if (/\/api\/events\/[^/?]+/.test(String(requestPath))) label = 'saved event details';
-          setOfflineSnapshotState({ savedAt: cached.savedAt, requestPath, label });
+          const fallbackReason = err.name === 'AbortError'
+            ? 'timeout'
+            : (err.apiHttpStatus ? 'http' : (navigator.onLine ? 'fetch' : 'offline'));
+          setOfflineSnapshotState({
+            savedAt: cached.savedAt,
+            requestPath,
+            label,
+            reason: fallbackReason,
+            status: err.apiHttpStatus || null,
+            message: String(err && err.message || '').trim(),
+          });
           return cached.payload;
         }
       }
@@ -3944,18 +3969,7 @@ if ('serviceWorker' in navigator) {
     const openSpots = Math.max(0, slotMax - count);
     const full = count >= slotMax;
     const addDisabled = isTeams ? full : (count >= slotMax && !canAddFifth);
-    const dateISO = toDateISO(ev && ev.date);
-    let daysUntil = null;
-    if (dateISO) {
-      const [y, m, d] = dateISO.split('-').map(Number);
-      if (Number.isInteger(y) && Number.isInteger(m) && Number.isInteger(d)) {
-        const eventDay = Date.UTC(y, m - 1, d);
-        const now = new Date();
-        const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
-        daysUntil = Math.round((eventDay - today) / (1000 * 60 * 60 * 24));
-      }
-    }
-    const urgentEmpty = !isTeams && count === 0 && Number.isInteger(daysUntil) && daysUntil >= 0 && daysUntil <= 3;
+    const urgentEmpty = !isTeams && count === 0 && teeTimeStartsWithinHours(ev, tt, 48);
     const allCheckedIn = count > 0 && checkedInCount === count;
     const left = teeSlotLabel(ev, tt, idx);
     const delTitle = isTeams ? `Remove ${slotWords.singularLower}` : 'Remove tee time';

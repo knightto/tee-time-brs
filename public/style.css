@@ -4353,19 +4353,30 @@ nav a:hover{
   font-weight:700;
 }
 
-/* Empty tee time visual indicator for upcoming 3 days */
+/* Empty tee time visual indicator for the next 48 hours */
 .tee.tee-empty-urgent{
   background:linear-gradient(135deg, #ff3b30 0%, #dc2626 100%);
   border:2px solid #991b1b;
   box-shadow:0 0 0 1px rgba(153,27,27,.2);
 }
+.tee.tee-empty-urgent .tee-meta,
 .tee.tee-empty-urgent .tee-time,
 .tee.tee-empty-urgent .tee-summary{
   color:#fff !important;
   font-weight:700;
 }
+.tee.tee-empty-urgent .tee-count{
+  border-color:rgba(255,255,255,.45);
+  background:rgba(127,29,29,.34);
+  color:#fff;
+}
 .tee.tee-empty-urgent .tee-time span{
   color:rgba(255,255,255,.92) !important;
+}
+body[data-site-group="main"] .tee.tee-empty-urgent{
+  background:linear-gradient(135deg, #ff3b30 0%, #dc2626 100%);
+  border-color:#991b1b;
+  box-shadow:0 0 0 1px rgba(153,27,27,.2);
 }
 
 .full-day-alert{
