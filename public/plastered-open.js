@@ -105,7 +105,8 @@ function buildNotes(detail) {
     '$85 covers golf, lunch, cash prizes, and drawings.',
     'Field flights are built from the final entrant count.',
     'Contests and proceeds feed outing cost and player prizes.',
-    'Beer and U.S. Open viewing continue in the grill room after the round.'
+    'Beer and U.S. Open viewing continue in the grill room after the round.',
+    'The 2026 U.S. Open championship week runs June 18-21 at Shinnecock Hills in Southampton, New York.'
   ];
   if (detail && detail.registrationNotes) notes.push(String(detail.registrationNotes).trim());
   if (detail && detail.cancellationPolicy) notes.push(`Cancellation policy: ${String(detail.cancellationPolicy).trim()}`);
@@ -136,7 +137,7 @@ function renderFallbackState(message) {
   document.getElementById('signupSubtitle').textContent = 'This slot turns into the live Plastered "Open" registration card as soon as the June 19, 2026 outing is published in the outing system.';
   document.getElementById('statsGrid').innerHTML = [
     statTile('100', 'golfer cap'),
-    statTile('50', '2-man teams at full field'),
+    statTile('2-Man', 'scramble teams'),
     statTile('$85', 'entry with lunch + prize pool'),
     statTile('9:00', 'shotgun start')
   ].join('');

@@ -11,6 +11,7 @@ self.__SW_ASSETS = [
   "/assets/knight-club-hero.png",
   "/assets/knight-club-icon.png",
   "/assets/seniors.png",
+  "/assets/shinnecock-us-open-logo.png",
   "/assets/tin-cup.png",
   "/blue-ridge-outings-admin.html",
   "/blue-ridge-outings.html",
