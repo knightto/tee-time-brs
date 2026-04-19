@@ -1,8 +1,8 @@
 const TARGET_DATE_ISO = '2026-06-19';
 const TARGET_NAME_RE = /plastered/i;
 const FALLBACK_ENTRY_FEE = 85;
-const FALLBACK_PLAYER_CAP = 100;
-const FALLBACK_TEAM_CAP = 50;
+const FALLBACK_PLAYER_CAP = 120;
+const FALLBACK_TEAM_CAP = 60;
 
 let liveEvent = null;
 let liveDetail = null;
@@ -84,16 +84,17 @@ function findPlasteredEvent(events) {
 
 function playerCap(detail) {
   const maxPlayers = Number(detail && detail.maxPlayers);
-  return Number.isFinite(maxPlayers) && maxPlayers > 0 ? maxPlayers : FALLBACK_PLAYER_CAP;
+  if (Number.isFinite(maxPlayers) && maxPlayers > 0) return Math.max(maxPlayers, FALLBACK_PLAYER_CAP);
+  return FALLBACK_PLAYER_CAP;
 }
 
 function teamCap(detail) {
   const maxTeams = Number(detail && detail.maxTeams);
-  if (Number.isFinite(maxTeams) && maxTeams > 0) return maxTeams;
+  if (Number.isFinite(maxTeams) && maxTeams > 0) return Math.max(maxTeams, FALLBACK_TEAM_CAP);
   const exact = Number(detail && detail.teamSizeExact);
   const maxPlayers = Number(detail && detail.maxPlayers);
   if (Number.isFinite(exact) && exact > 0 && Number.isFinite(maxPlayers) && maxPlayers > 0) {
-    return Math.floor(maxPlayers / exact);
+    return Math.max(Math.floor(maxPlayers / exact), FALLBACK_TEAM_CAP);
   }
   return FALLBACK_TEAM_CAP;
 }
@@ -196,10 +197,10 @@ function renderFallbackState(message) {
   updateStatusPills('', 'Unavailable');
   document.getElementById('signupSubtitle').textContent = 'Live signup is temporarily unavailable for the Plastered "Open".';
   document.getElementById('statsGrid').innerHTML = [
-    statTile('100', 'golfer cap'),
+    statTile('120', 'golfer cap'),
     statTile('2-Man', 'scramble teams'),
     statTile('$85', 'entry with lunch + prize pool'),
-    statTile('9:00', 'shotgun start')
+    statTile('60', 'team cap')
   ].join('');
   document.getElementById('signupMessage').innerHTML = `<strong>Registration is temporarily unavailable.</strong> ${esc(message || 'Use the Facebook page for updates while the outing feed is unavailable.')}`;
   document.getElementById('modeButtons').innerHTML = `
@@ -281,9 +282,7 @@ function renderLiveState(detail) {
   const fee = formatCurrency(detail.entryFee);
   const players = Number(detail && detail.metrics && detail.metrics.players) || 0;
   const teams = Number(detail && detail.metrics && detail.metrics.teams) || 0;
-  const spotsLeft = detail.spotsRemainingPlayers !== null && detail.spotsRemainingPlayers !== undefined
-    ? Math.max(0, Number(detail.spotsRemainingPlayers) || 0)
-    : Math.max(0, playerCap(detail) - players);
+  const spotsLeft = Math.max(0, playerCap(detail) - players);
 
   document.getElementById('signupSubtitle').textContent = `${detail.name || 'Plastered "Open"'} | ${detail.formatType || 'Outing'} | Signup closes ${formatDateTime(detail.signupCloseAt)}`;
   document.getElementById('statsGrid').innerHTML = [

@@ -77,6 +77,7 @@ a { color: inherit; }
 .action-btn,
 .plain-btn,
 .mode-btn,
+.hero-banner,
 .team-pill {
   appearance: none;
   border: none;
@@ -97,13 +98,23 @@ a { color: inherit; }
 .chip-link,
 .cta,
 .action-btn,
-.plain-btn {
+.plain-btn,
+.hero-banner {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border-radius: 999px;
   padding: 10px 14px;
   font-weight: 700;
+}
+
+.hero-banner {
+  color: #fff8f0;
+  background: linear-gradient(135deg, rgba(203, 63, 51, 0.28) 0%, rgba(150, 42, 36, 0.58) 100%);
+  border: 1px solid rgba(241, 221, 179, 0.3);
+  box-shadow: 0 10px 24px rgba(150, 42, 36, 0.24);
+  font-size: 0.86rem;
+  letter-spacing: 0.03em;
 }
 
 .cta.primary,
@@ -117,6 +128,7 @@ a { color: inherit; }
 .cta:hover,
 .action-btn:hover,
 .plain-btn:hover,
+.hero-banner:hover,
 .mode-btn:hover,
 .team-pill:hover { transform: translateY(-1px); }
 
@@ -192,8 +204,8 @@ a { color: inherit; }
 }
 
 .hero-gallery {
-  grid-template-columns: 1.15fr 0.85fr;
-  grid-template-rows: minmax(220px, 1fr) minmax(120px, 0.68fr);
+  grid-template-columns: 1fr;
+  grid-template-rows: minmax(420px, 1fr);
 }
 
 .hero-photo {
@@ -213,10 +225,17 @@ a { color: inherit; }
   object-fit: cover;
 }
 
-.hero-photo-main {
-  grid-row: 1 / span 2;
-  min-height: 420px;
+.hero-photo-main { min-height: 420px; }
+
+.hero-photo-card {
+  border: none;
+  background: transparent;
+  box-shadow: none;
 }
+
+.hero-photo-card::after { display: none; }
+
+.hero-photo-card img { object-fit: contain; }
 
 .hero-photo-main::after,
 .hero-photo-plastered::after,
@@ -238,20 +257,6 @@ a { color: inherit; }
   object-fit: contain;
   padding: 12px;
   background: radial-gradient(circle at center, rgba(255, 255, 255, 0.96) 0%, rgba(244, 240, 232, 0.86) 65%, rgba(226, 216, 199, 0.68) 100%);
-}
-
-.hero-logo-badge {
-  position: absolute;
-  right: 16px;
-  top: 16px;
-  width: 94px !important;
-  height: 94px !important;
-  object-fit: contain !important;
-  padding: 9px;
-  border-radius: 999px;
-  background: rgba(255, 251, 245, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  z-index: 2;
 }
 
 .hero-photo figcaption {
@@ -290,7 +295,7 @@ a { color: inherit; }
 
 .layout {
   display: grid;
-  grid-template-columns: minmax(0, 1.12fr) minmax(320px, 0.88fr);
+  grid-template-columns: minmax(0, 1.18fr) minmax(300px, 0.82fr);
   gap: 18px;
   margin-top: 18px;
   align-items: start;
@@ -315,7 +320,93 @@ a { color: inherit; }
   background: linear-gradient(90deg, var(--us-red) 0%, var(--sand) 52%, var(--fairway) 100%);
 }
 
-.signup-panel { position: sticky; top: 18px; background: var(--paper-strong); }
+.signup-panel {
+  position: sticky;
+  top: 18px;
+  padding: 16px;
+  background: var(--paper-strong);
+}
+
+.signup-panel::before {
+  width: 70px;
+  margin-bottom: 10px;
+}
+
+.signup-panel .subhead {
+  margin-top: 8px;
+  font-size: 0.96rem;
+  line-height: 1.36;
+}
+
+.signup-panel .stats-grid {
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.signup-panel .stat-box {
+  padding: 11px 12px;
+  border-radius: 15px;
+}
+
+.signup-panel .stat-box strong {
+  font-size: 1.18rem;
+}
+
+.signup-panel .stat-box span {
+  margin-top: 4px;
+  font-size: 0.84rem;
+  line-height: 1.25;
+}
+
+.signup-panel .message-strip {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: 16px;
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.signup-panel .mode-grid,
+.signup-panel .open-team-list,
+.signup-panel .manage-wrap,
+.signup-panel .manage-section,
+.signup-panel .manage-player-list,
+.signup-panel .players-wrap {
+  gap: 10px;
+}
+
+.signup-panel .mode-btn,
+.signup-panel .team-pill {
+  padding: 11px 13px;
+  border-radius: 15px;
+}
+
+.signup-panel .mode-btn small,
+.signup-panel .team-pill small {
+  margin-top: 4px;
+  font-size: 0.85rem;
+  line-height: 1.25;
+}
+
+.signup-panel .mini-title {
+  font-size: 0.76rem;
+}
+
+.signup-panel .quiet-note {
+  font-size: 0.92rem;
+  line-height: 1.34;
+}
+
+.signup-panel .status-check {
+  gap: 8px;
+}
+
+.signup-panel .status-check input,
+.signup-panel .plain-btn,
+.signup-panel .action-btn {
+  padding: 11px 13px;
+  border-radius: 14px;
+}
 .panel-head {
   display: flex;
   justify-content: space-between;
@@ -328,6 +419,15 @@ a { color: inherit; }
 
 .card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 16px; }
 .triptych { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-top: 16px; }
+
+.compact-overview-panel .subhead {
+  max-width: 38rem;
+}
+
+.compact-overview-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
 
 .info-card,
 .stat-box,
@@ -343,6 +443,20 @@ a { color: inherit; }
 .info-card {
   background:
     linear-gradient(165deg, rgba(255, 255, 255, 0.94) 0%, rgba(252, 248, 241, 0.9) 100%);
+}
+
+.compact-info-card {
+  padding: 13px 14px;
+}
+
+.compact-info-card strong {
+  font-size: 1rem;
+}
+
+.compact-info-card span {
+  margin-top: 4px;
+  font-size: 0.94rem;
+  line-height: 1.34;
 }
 
 .us-open-card { box-shadow: inset 0 0 0 1px rgba(203, 63, 51, 0.08); }
@@ -459,6 +573,36 @@ a { color: inherit; }
 }
 
 .sponsor-callout p { margin: 8px 0 0; color: var(--ink-soft); }
+.footer-admin {
+  margin-top: 20px;
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+}
+
+.footer-admin-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 16px;
+  border-radius: 999px;
+  color: #fff8f0;
+  text-decoration: none;
+  font-weight: 700;
+  background: linear-gradient(135deg, rgba(13, 43, 87, 0.88) 0%, rgba(27, 77, 56, 0.82) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: var(--shadow-soft);
+  transition: transform 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.footer-admin-link:hover { transform: translateY(-1px); }
+
+.footer-admin-note {
+  margin: 0;
+  color: rgba(255, 248, 240, 0.74);
+  text-align: center;
+}
+
 .footer-note { margin-top: 18px; text-align: center; color: rgba(255, 248, 240, 0.72); }
 
 dialog {
@@ -599,8 +743,6 @@ dialog::backdrop {
   .grid2,
   .status-check { grid-template-columns: 1fr; }
 
-  .hero-logo-badge {
-    width: 84px !important;
-    height: 84px !important;
-  }
+  .compact-overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
 }

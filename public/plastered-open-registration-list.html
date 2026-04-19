@@ -1,0 +1,801 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plastered "Open" Registration List</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=League+Spartan:wght@400;500;600;700;800&display=swap");
+
+    :root {
+      --navy: #0d2b57;
+      --navy-deep: #081b36;
+      --fairway: #2d6d4e;
+      --fairway-deep: #194634;
+      --sand: #f1ddb3;
+      --paper: rgba(252, 247, 239, 0.97);
+      --paper-strong: rgba(255, 251, 245, 0.99);
+      --ink: #1d2127;
+      --ink-soft: #5b625f;
+      --line: rgba(21, 28, 39, 0.1);
+      --light-line: rgba(255, 255, 255, 0.16);
+      --shadow: 0 24px 56px rgba(6, 17, 33, 0.22);
+      --shadow-soft: 0 12px 30px rgba(6, 17, 33, 0.12);
+      --us-red: #cb3f33;
+      --us-red-deep: #962a24;
+      --warn: #dfb45c;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "League Spartan", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: #fff8f0;
+      background:
+        linear-gradient(135deg, rgba(8, 27, 54, 0.94) 0%, rgba(13, 43, 87, 0.88) 34%, rgba(27, 77, 56, 0.84) 68%, rgba(203, 63, 51, 0.58) 100%),
+        radial-gradient(circle at 20% 14%, rgba(241, 221, 179, 0.18), transparent 24%),
+        url("/assets/golf-background1.jpg") center center / cover no-repeat fixed;
+      background-color: var(--navy-deep);
+    }
+
+    a { color: inherit; }
+    .wrap {
+      max-width: 1260px;
+      margin: 0 auto;
+      padding: 18px 16px 42px;
+    }
+
+    .hero,
+    .panel {
+      border-radius: 26px;
+      border: 1px solid var(--light-line);
+      box-shadow: var(--shadow);
+    }
+
+    .hero {
+      padding: 24px;
+      background: linear-gradient(145deg, rgba(8, 27, 54, 0.94) 0%, rgba(13, 43, 87, 0.86) 52%, rgba(27, 77, 56, 0.7) 100%);
+    }
+
+    .hero-top,
+    .toolbar,
+    .hero-links,
+    .stats-grid,
+    .status-row,
+    .roster-grid,
+    .entry-grid,
+    .waitlist-grid,
+    .team-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .hero-top,
+    .toolbar {
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .hero h1,
+    .panel h2 {
+      margin: 0;
+      font-family: "DM Serif Display", Georgia, "Times New Roman", serif;
+      line-height: 0.98;
+    }
+
+    .hero h1 { font-size: clamp(2.4rem, 5vw, 4.1rem); }
+    .eyebrow {
+      margin: 14px 0 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-weight: 700;
+      font-size: 0.78rem;
+      color: rgba(255, 248, 240, 0.78);
+    }
+
+    .hero-copy {
+      margin: 0;
+      max-width: 56rem;
+      line-height: 1.48;
+      color: rgba(255, 248, 240, 0.9);
+      font-size: 1.05rem;
+    }
+
+    .hero-links { margin-top: 16px; }
+
+    .chip,
+    .action-link,
+    button,
+    input {
+      font: inherit;
+      border-radius: 999px;
+    }
+
+    .chip,
+    .action-link,
+    button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      text-decoration: none;
+      padding: 10px 14px;
+      font-weight: 700;
+      border: 1px solid var(--light-line);
+      transition: transform 150ms ease, box-shadow 150ms ease, background 150ms ease;
+    }
+
+    .chip,
+    .action-link.secondary,
+    button.secondary {
+      color: #fff9f2;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    .action-link.primary,
+    button.primary {
+      color: #fff8f0;
+      background: linear-gradient(135deg, var(--us-red) 0%, var(--us-red-deep) 100%);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .chip:hover,
+    .action-link:hover,
+    button:hover { transform: translateY(-1px); }
+
+    .toolbar {
+      margin-top: 18px;
+      padding-top: 18px;
+      border-top: 1px solid rgba(255, 255, 255, 0.14);
+    }
+
+    .toolbar-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .toolbar input {
+      min-width: 220px;
+      padding: 11px 14px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(8, 27, 54, 0.45);
+      color: #fff8f0;
+    }
+
+    .msg {
+      min-height: 1.2em;
+      margin-top: 12px;
+      color: var(--sand);
+      font-weight: 700;
+    }
+
+    .stats-grid {
+      margin-top: 18px;
+    }
+
+    .stat-card {
+      flex: 1 1 180px;
+      min-width: 160px;
+      padding: 16px 18px;
+      border-radius: 22px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: linear-gradient(150deg, rgba(255, 249, 240, 0.12) 0%, rgba(255, 255, 255, 0.05) 100%);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .stat-card strong,
+    .team-card strong,
+    .entry-card strong,
+    .waitlist-card strong {
+      display: block;
+    }
+
+    .stat-card strong {
+      font-size: 1.9rem;
+      color: var(--sand);
+      line-height: 1;
+    }
+
+    .stat-card span {
+      display: block;
+      margin-top: 6px;
+      color: rgba(255, 248, 240, 0.76);
+    }
+
+    .panel {
+      margin-top: 18px;
+      padding: 20px;
+      background: var(--paper);
+      color: var(--ink);
+      border-color: var(--line);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .panel::before {
+      content: "";
+      display: block;
+      width: 84px;
+      height: 6px;
+      margin-bottom: 14px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, var(--us-red) 0%, var(--sand) 52%, var(--fairway) 100%);
+    }
+
+    .panel h2 { font-size: clamp(1.6rem, 2.8vw, 2rem); }
+    .subhead {
+      margin: 10px 0 0;
+      color: var(--ink-soft);
+      line-height: 1.48;
+    }
+
+    .status-row { margin-top: 16px; }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 11px;
+      border-radius: 999px;
+      border: 1px solid rgba(21, 28, 39, 0.1);
+      background: rgba(13, 43, 87, 0.08);
+      color: var(--navy);
+      font-weight: 700;
+      font-size: 0.86rem;
+    }
+
+    .tag.open { background: rgba(45, 109, 78, 0.14); color: var(--fairway-deep); }
+    .tag.waitlist { background: rgba(223, 180, 92, 0.18); color: #624700; }
+    .tag.closed,
+    .tag.cancelled { background: rgba(203, 63, 51, 0.12); color: var(--us-red-deep); }
+    .tag.completed { background: rgba(13, 43, 87, 0.1); color: var(--navy); }
+    .tag.active { background: rgba(45, 109, 78, 0.14); color: var(--fairway-deep); }
+    .tag.incomplete { background: rgba(13, 43, 87, 0.08); color: var(--navy); }
+
+    .roster-grid,
+    .entry-grid,
+    .waitlist-grid {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+    }
+
+    .team-card,
+    .entry-card,
+    .waitlist-card,
+    .empty-card {
+      padding: 16px;
+      border-radius: 20px;
+      border: 1px solid rgba(21, 28, 39, 0.08);
+      background: linear-gradient(165deg, rgba(255, 255, 255, 0.95) 0%, rgba(252, 248, 241, 0.9) 100%);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .team-card h3,
+    .entry-card h3,
+    .waitlist-card h3 {
+      margin: 0;
+      font-size: 1.2rem;
+      color: var(--navy);
+    }
+
+    .team-meta,
+    .entry-meta,
+    .waitlist-meta {
+      margin-top: 12px;
+      color: var(--ink-soft);
+      line-height: 1.45;
+    }
+
+    .team-meta span,
+    .entry-meta span,
+    .waitlist-meta span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 999px;
+      background: rgba(13, 43, 87, 0.06);
+      border: 1px solid rgba(21, 28, 39, 0.08);
+      font-size: 0.84rem;
+      font-weight: 700;
+      color: var(--navy);
+    }
+
+    .member-list,
+    .detail-list {
+      margin: 14px 0 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 10px;
+    }
+
+    .member-list li,
+    .detail-list li {
+      padding: 12px 13px;
+      border-radius: 16px;
+      background: #fffbf4;
+      border: 1px solid rgba(21, 28, 39, 0.08);
+      color: var(--ink-soft);
+      line-height: 1.45;
+    }
+
+    .member-list strong,
+    .detail-list strong {
+      display: block;
+      color: var(--ink);
+    }
+
+    .notes {
+      margin-top: 12px;
+      padding: 12px 13px;
+      border-radius: 16px;
+      background: rgba(203, 63, 51, 0.05);
+      border: 1px solid rgba(203, 63, 51, 0.08);
+      color: var(--ink-soft);
+      line-height: 1.45;
+    }
+
+    .table-wrap {
+      margin-top: 16px;
+      overflow: auto;
+      border-radius: 18px;
+      border: 1px solid rgba(21, 28, 39, 0.08);
+      background: #fffbf4;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 780px;
+    }
+
+    th,
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(21, 28, 39, 0.08);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: #f8efe0;
+      color: var(--navy);
+      font-size: 0.88rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    td {
+      color: var(--ink-soft);
+      line-height: 1.42;
+    }
+
+    td strong {
+      color: var(--ink);
+      display: block;
+    }
+
+    .footer-note {
+      margin-top: 20px;
+      text-align: center;
+      color: rgba(255, 248, 240, 0.76);
+    }
+
+    @media (max-width: 760px) {
+      .wrap { padding: 14px 12px 34px; }
+      .hero,
+      .panel { border-radius: 20px; }
+      .hero { padding: 18px; }
+      .toolbar input { min-width: 0; width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <div class="hero-top">
+        <a class="chip" href="/plastered-open.html">Back To Signup Page</a>
+        <a class="chip" href="/blue-ridge-outings-admin.html">Open Outings Admin</a>
+      </div>
+      <p class="eyebrow">Plastered Open Admin View</p>
+      <h1>Registration List</h1>
+      <p class="hero-copy">Full Plastered "Open" roster view with teams, solo entries, submission notes, and waitlist pulled from the outings admin feed.</p>
+
+      <div class="toolbar">
+        <div class="toolbar-group">
+          <input id="adminCode" type="password" placeholder="Outings admin code">
+          <button id="saveCodeBtn" type="button" class="secondary">Save Code</button>
+          <button id="reloadBtn" type="button" class="primary">Reload List</button>
+        </div>
+        <div class="toolbar-group">
+          <a id="rawJsonLink" class="action-link secondary" href="/api/outings/admin/events" target="_blank" rel="noopener noreferrer">Open Raw Admin JSON</a>
+        </div>
+      </div>
+      <div id="topMsg" class="msg"></div>
+
+      <div id="statsGrid" class="stats-grid"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Event Snapshot</h2>
+      <p id="eventSummary" class="subhead">Load the admin feed to view the Plastered "Open" registration list.</p>
+      <div id="statusRow" class="status-row"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Teams</h2>
+      <p class="subhead">Full team cards with status, roster, captain, and open spots.</p>
+      <div id="teamsList" class="roster-grid"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Solo And Open Entries</h2>
+      <p class="subhead">Single registrations and other entries that are not currently attached to a named team.</p>
+      <div id="soloList" class="entry-grid"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Waitlist</h2>
+      <p class="subhead">All waitlist submissions tied to this outing.</p>
+      <div id="waitlistList" class="waitlist-grid"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Registration Ledger</h2>
+      <p class="subhead">Every registration row with mode, submitter, team attachment, notes, and status.</p>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Submitted</th>
+              <th>Mode</th>
+              <th>Submitter</th>
+              <th>Team</th>
+              <th>Status</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="ledgerBody">
+            <tr><td colspan="6">No registration data loaded yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="footer-note">This page reads the outings admin feed for the June 19, 2026 Plastered "Open".</p>
+  </main>
+
+  <script>
+    const TARGET_DATE_ISO = '2026-06-19';
+    const TARGET_NAME_RE = /plastered/i;
+    const CODE_STORAGE_KEY = 'brsOutingsAdminCode';
+
+    function esc(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function normalizeCode(value) {
+      return String(value || '').trim();
+    }
+
+    function getCode() {
+      const params = new URLSearchParams(window.location.search);
+      return normalizeCode(document.getElementById('adminCode').value || params.get('code') || localStorage.getItem(CODE_STORAGE_KEY) || '');
+    }
+
+    function updateRawJsonLink() {
+      const code = getCode();
+      const href = code
+        ? `/api/outings/admin/events?code=${encodeURIComponent(code)}`
+        : '/api/outings/admin/events';
+      document.getElementById('rawJsonLink').href = href;
+    }
+
+    async function api(path) {
+      const code = getCode();
+      const query = path.includes('?') ? '&' : '?';
+      const fullPath = code ? `${path}${query}code=${encodeURIComponent(code)}` : path;
+      updateRawJsonLink();
+      const res = await fetch(fullPath);
+      let data = null;
+      try {
+        data = await res.json();
+      } catch (_) {
+        data = null;
+      }
+      if (!res.ok) throw new Error((data && data.error) || `Request failed (${res.status})`);
+      return data;
+    }
+
+    function setTopMsg(message) {
+      document.getElementById('topMsg').textContent = message || '';
+    }
+
+    function formatDateTime(value) {
+      if (!value) return 'TBD';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return 'TBD';
+      return date.toLocaleString();
+    }
+
+    function formatDate(value) {
+      if (!value) return 'TBD';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return 'TBD';
+      return date.toLocaleDateString();
+    }
+
+    function formatCurrency(value) {
+      const num = Number(value);
+      if (!Number.isFinite(num)) return 'TBD';
+      return `$${num.toFixed(0)}`;
+    }
+
+    function formatModeLabel(mode) {
+      return String(mode || '')
+        .split('_')
+        .filter(Boolean)
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+        .join(' ');
+    }
+
+    function statusClass(status) {
+      const key = String(status || '').toLowerCase();
+      if (['open', 'waitlist', 'closed', 'completed', 'cancelled', 'active', 'incomplete'].includes(key)) return key;
+      return '';
+    }
+
+    function tag(text, css = '') {
+      return `<span class="tag${css ? ` ${esc(css)}` : ''}">${esc(text)}</span>`;
+    }
+
+    function findPlasteredEvent(events) {
+      const list = Array.isArray(events) ? events : [];
+      return list.find((event) => {
+        const start = String(event && event.startDate || '').slice(0, 10);
+        const end = String(event && event.endDate || '').slice(0, 10);
+        return (start === TARGET_DATE_ISO || end === TARGET_DATE_ISO) && TARGET_NAME_RE.test(String(event && event.name || ''));
+      }) || list.find((event) => {
+        const start = String(event && event.startDate || '').slice(0, 10);
+        const end = String(event && event.endDate || '').slice(0, 10);
+        return start === TARGET_DATE_ISO || end === TARGET_DATE_ISO;
+      }) || list.find((event) => TARGET_NAME_RE.test(String(event && event.name || '')));
+    }
+
+    function renderStats(event) {
+      const metrics = event && event.metrics || {};
+      const stats = [
+        { value: metrics.players || 0, label: `players${event && event.maxPlayers ? ` / ${event.maxPlayers}` : ''}` },
+        { value: metrics.teams || 0, label: `teams${event && event.maxTeams ? ` / ${event.maxTeams}` : ''}` },
+        { value: metrics.waitlist || 0, label: 'waitlist entries' },
+        { value: formatCurrency(event && event.entryFee), label: 'entry fee' },
+      ];
+
+      document.getElementById('statsGrid').innerHTML = stats.map((stat) => `
+        <div class="stat-card">
+          <strong>${esc(stat.value)}</strong>
+          <span>${esc(stat.label)}</span>
+        </div>
+      `).join('');
+    }
+
+    function renderSummary(event) {
+      const signupWindow = event && event.signupOpenAt && event.signupCloseAt
+        ? `${formatDateTime(event.signupOpenAt)} to ${formatDateTime(event.signupCloseAt)}`
+        : 'Signup window not fully configured.';
+
+      document.getElementById('eventSummary').innerHTML = `
+        <strong>${esc(event && event.name || 'Plastered "Open"')}</strong><br>
+        ${esc(event && event.formatType || 'Outing')} on ${esc(formatDate(event && event.startDate))}.<br>
+        Signup window: ${esc(signupWindow)}.
+      `;
+
+      document.getElementById('statusRow').innerHTML = [
+        tag(`Status: ${event && event.status || 'Unknown'}`, statusClass(event && event.status)),
+        tag(`Rules: ${event && event.ruleSummary || 'Not available'}`),
+        tag(`Fee: ${formatCurrency(event && event.entryFee)}`),
+        tag(`Updated: ${formatDateTime(event && event.updatedAt)}`),
+      ].join('');
+    }
+
+    function renderTeams(event) {
+      const teams = Array.isArray(event && event.teams) ? event.teams : [];
+      const list = document.getElementById('teamsList');
+      if (!teams.length) {
+        list.innerHTML = '<div class="empty-card">No active or incomplete teams are currently listed for this outing.</div>';
+        return;
+      }
+
+      list.innerHTML = teams.map((team) => {
+        const members = Array.isArray(team.members) ? team.members : [];
+        return `
+          <article class="team-card">
+            <h3>${esc(team.name || 'Unnamed Team')}</h3>
+            <div class="team-meta">
+              <span>${esc(`${team.memberCount || members.length || 0} golfers`)}</span>
+              <span>${esc(`${team.spotsOpen || 0} open spots`)}</span>
+              <span>${esc(`Captain: ${team.captainName || 'TBD'}`)}</span>
+              ${tag(team.status || 'active', statusClass(team.status || 'active'))}
+            </div>
+            <ul class="member-list">
+              ${members.map((member) => `
+                <li>
+                  <strong>${esc(member.name || 'Golfer')}</strong>
+                  ${esc(member.email || '')}
+                  ${member.phone ? `<br>${esc(member.phone)}` : ''}
+                  ${member.isGuest ? '<br>Guest' : ''}
+                  ${member.isCaptain ? '<br>Captain' : ''}
+                </li>
+              `).join('')}
+            </ul>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function renderSoloEntries(event) {
+      const registrations = Array.isArray(event && event.registrations) ? event.registrations : [];
+      const soloEntries = registrations.filter((entry) => !entry.teamId);
+      const list = document.getElementById('soloList');
+      if (!soloEntries.length) {
+        list.innerHTML = '<div class="empty-card">No standalone registrations are currently on file.</div>';
+        return;
+      }
+
+      list.innerHTML = soloEntries.map((entry) => `
+        <article class="entry-card">
+          <h3>${esc(entry.submittedByName || 'Golfer')}</h3>
+          <div class="entry-meta">
+            <span>${esc(formatModeLabel(entry.mode || 'single'))}</span>
+            <span>${esc(entry.submittedByEmail || '')}</span>
+            ${entry.submittedByPhone ? `<span>${esc(entry.submittedByPhone)}</span>` : ''}
+            ${tag(entry.status || 'registered', statusClass(entry.status || 'registered'))}
+          </div>
+          <ul class="detail-list">
+            <li>
+              <strong>Submitted</strong>
+              ${esc(formatDateTime(entry.createdAt))}
+            </li>
+          </ul>
+          ${entry.notes ? `<div class="notes"><strong>Notes</strong><br>${esc(entry.notes)}</div>` : ''}
+        </article>
+      `).join('');
+    }
+
+    function renderWaitlist(event) {
+      const waitlist = Array.isArray(event && event.waitlist) ? event.waitlist : [];
+      const list = document.getElementById('waitlistList');
+      if (!waitlist.length) {
+        list.innerHTML = '<div class="empty-card">No waitlist entries are currently on file.</div>';
+        return;
+      }
+
+      list.innerHTML = waitlist.map((entry) => `
+        <article class="waitlist-card">
+          <h3>${esc(entry.name || 'Waitlist Entry')}</h3>
+          <div class="waitlist-meta">
+            <span>${esc(formatModeLabel(entry.mode || 'single'))}</span>
+            <span>${esc(entry.email || '')}</span>
+            ${entry.phone ? `<span>${esc(entry.phone)}</span>` : ''}
+            ${tag(entry.status || 'active', statusClass(entry.status || 'active'))}
+          </div>
+          <ul class="detail-list">
+            <li>
+              <strong>Submitted</strong>
+              ${esc(formatDateTime(entry.createdAt))}
+            </li>
+          </ul>
+          ${entry.notes ? `<div class="notes"><strong>Notes</strong><br>${esc(entry.notes)}</div>` : ''}
+        </article>
+      `).join('');
+    }
+
+    function renderLedger(event) {
+      const registrations = Array.isArray(event && event.registrations) ? event.registrations : [];
+      const teams = new Map(((event && event.teams) || []).map((team) => [String(team._id || ''), team]));
+      const body = document.getElementById('ledgerBody');
+
+      if (!registrations.length) {
+        body.innerHTML = '<tr><td colspan="6">No registrations are currently on file.</td></tr>';
+        return;
+      }
+
+      body.innerHTML = registrations.map((entry) => {
+        const team = entry.teamId ? teams.get(String(entry.teamId)) : null;
+        return `
+          <tr>
+            <td>${esc(formatDateTime(entry.createdAt))}</td>
+            <td><strong>${esc(formatModeLabel(entry.mode || 'registered'))}</strong></td>
+            <td>
+              <strong>${esc(entry.submittedByName || 'Unknown')}</strong>
+              ${esc(entry.submittedByEmail || '')}
+              ${entry.submittedByPhone ? `<br>${esc(entry.submittedByPhone)}` : ''}
+            </td>
+            <td>${esc(team && team.name ? team.name : (entry.teamId ? 'Team record not active' : 'No team'))}</td>
+            <td>${tag(entry.status || 'registered', statusClass(entry.status || 'registered'))}</td>
+            <td>${entry.notes ? esc(entry.notes) : 'No notes'}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function clearPanels() {
+      document.getElementById('statsGrid').innerHTML = '';
+      document.getElementById('eventSummary').textContent = 'Load the admin feed to view the Plastered "Open" registration list.';
+      document.getElementById('statusRow').innerHTML = '';
+      document.getElementById('teamsList').innerHTML = '<div class="empty-card">No data loaded yet.</div>';
+      document.getElementById('soloList').innerHTML = '<div class="empty-card">No data loaded yet.</div>';
+      document.getElementById('waitlistList').innerHTML = '<div class="empty-card">No data loaded yet.</div>';
+      document.getElementById('ledgerBody').innerHTML = '<tr><td colspan="6">No registration data loaded yet.</td></tr>';
+    }
+
+    async function loadRoster() {
+      updateRawJsonLink();
+      const code = getCode();
+      if (!code) {
+        clearPanels();
+        setTopMsg('Enter the outings admin code to load the registration list.');
+        return;
+      }
+
+      try {
+        const events = await api('/api/outings/admin/events');
+        const event = findPlasteredEvent(events);
+        if (!event) {
+          clearPanels();
+          setTopMsg('The Plastered "Open" outing was not found in the admin feed.');
+          return;
+        }
+        renderStats(event);
+        renderSummary(event);
+        renderTeams(event);
+        renderSoloEntries(event);
+        renderWaitlist(event);
+        renderLedger(event);
+        setTopMsg(`Loaded ${event.name || 'Plastered "Open"'} registration list.`);
+      } catch (err) {
+        clearPanels();
+        setTopMsg(err && err.message ? err.message : 'Unable to load the registration list.');
+      }
+    }
+
+    window.addEventListener('DOMContentLoaded', async () => {
+      const params = new URLSearchParams(window.location.search);
+      const savedCode = normalizeCode(params.get('code') || localStorage.getItem(CODE_STORAGE_KEY) || '');
+      if (savedCode) document.getElementById('adminCode').value = savedCode;
+      updateRawJsonLink();
+
+      document.getElementById('saveCodeBtn').addEventListener('click', () => {
+        const code = getCode();
+        if (code) {
+          localStorage.setItem(CODE_STORAGE_KEY, code);
+          document.getElementById('adminCode').value = code;
+          setTopMsg('Outings admin code saved in this browser.');
+        } else {
+          localStorage.removeItem(CODE_STORAGE_KEY);
+          setTopMsg('Saved outings admin code cleared.');
+        }
+        updateRawJsonLink();
+      });
+
+      document.getElementById('reloadBtn').addEventListener('click', loadRoster);
+      document.getElementById('adminCode').addEventListener('input', updateRawJsonLink);
+
+      await loadRoster();
+    });
+  </script>
+</body>
+</html>

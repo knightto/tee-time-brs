@@ -451,7 +451,6 @@ router.post('/:eventId([0-9a-fA-F]{24})/register', async (req, res) => {
 
     const event = await BlueRidgeOuting.findById(req.params.eventId);
     if (!event) return res.status(404).json({ error: 'Event not found' });
-    if (!event.autoWaitlist && event.status !== 'waitlist') return badRequest(res, 'Waitlist is disabled for this event');
 
     const mode = String((req.body && req.body.mode) || '').trim();
     const notes = String((req.body && req.body.notes) || '').trim();
@@ -710,6 +709,7 @@ router.post('/:eventId([0-9a-fA-F]{24})/waitlist', async (req, res) => {
 
     const event = await BlueRidgeOuting.findById(req.params.eventId);
     if (!event) return res.status(404).json({ error: 'Event not found' });
+    if (!event.autoWaitlist && event.status !== 'waitlist') return badRequest(res, 'Waitlist is disabled for this event');
 
     const name = String((req.body && req.body.name) || '').trim();
     const email = normalizeEmail((req.body && req.body.email) || '');
