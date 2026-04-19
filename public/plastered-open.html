@@ -22,8 +22,6 @@
     <section class="hero">
       <div class="hero-copy">
         <div class="hero-links">
-          <a class="chip-link" href="/">Back to Tee Times</a>
-          <a class="chip-link" href="/blue-ridge-outings.html">All Outings</a>
           <a class="chip-link" href="https://www.facebook.com/plasteredmastersgolf" target="_blank" rel="noopener noreferrer">Facebook Page</a>
         </div>
         <p class="eyebrow">Plastered Open x U.S. Open Week</p>
@@ -35,7 +33,6 @@
           <span class="badge">2-man scramble</span>
           <span class="badge">Flighted payouts</span>
         </div>
-        <p class="hero-note">This page leans into the golf-weekend feel with the Plastered mark, U.S. Open color, and major-week energy. When the live outing record is published, the signup card below wires straight into the existing registration system.</p>
         <div class="hero-actions">
           <a class="cta primary" href="#signupCard">See Signup Sheet</a>
           <a class="cta secondary" href="#outingProfile">Review Format</a>
@@ -106,16 +103,16 @@
         <article class="panel signup-panel" id="signupCard">
           <div class="panel-head">
             <h2>Signup Sheet</h2>
-            <div id="cardStatusPill" class="status-pill">Coming Soon</div>
+            <div id="cardStatusPill" class="status-pill">Loading</div>
           </div>
-          <p id="signupSubtitle" class="subhead">This slot turns into the live Plastered "Open" registration card as soon as the June 19, 2026 outing is published in the outing system.</p>
+          <p id="signupSubtitle" class="subhead">Loading the live Plastered "Open" signup sheet from the outing system.</p>
           <div id="statsGrid" class="stats-grid">
             <div class="stat-box"><strong>100</strong><span>golfer cap</span></div>
             <div class="stat-box"><strong>2-Man</strong><span>scramble teams</span></div>
             <div class="stat-box"><strong>$85</strong><span>entry with lunch + prize pool</span></div>
             <div class="stat-box"><strong>9:00</strong><span>shotgun start</span></div>
           </div>
-          <div id="signupMessage" class="message-strip"><strong>Registration opens soon.</strong> The outing profile is here now; the live signup buttons appear here once the June 19 event is published.</div>
+          <div id="signupMessage" class="message-strip"><strong>Loading live registration.</strong> The live signup buttons and roster details appear here as soon as the outing record loads.</div>
           <div id="modeButtons" class="mode-grid"></div>
           <div id="openTeamsWrap" class="hidden">
             <p class="mini-title">Open partner spots</p>
@@ -127,6 +124,10 @@
               <button id="statusCheckBtn" type="button" class="action-btn">Check Status</button>
             </div>
             <div id="statusNote" class="quiet-note"></div>
+            <div id="manageWrap" class="manage-wrap hidden">
+              <button id="manageSignupBtn" type="button" class="plain-btn hidden">Manage Signup</button>
+              <div id="manageHint" class="quiet-note"></div>
+            </div>
           </div>
           <p id="liveMetaNote" class="quiet-note">Updates are also posted on the Plastered "Open" Facebook page.</p>
         </article>
@@ -191,6 +192,41 @@
         <div class="dialog-actions">
           <button id="cancelWaitlistBtn" type="button" class="plain-btn">Cancel</button>
           <button type="submit" class="action-btn">Join Waitlist</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="manageDialog">
+    <form id="manageForm" class="dialog-card" method="dialog">
+      <div class="dialog-head">
+        <h3 id="manageDialogTitle">Manage Signup</h3>
+        <p id="manageDialogSubtitle">Review your current registration and make changes.</p>
+      </div>
+      <div class="dialog-body">
+        <div id="manageSummary" class="message-strip manage-summary"></div>
+
+        <div id="manageCurrentWrap" class="manage-section hidden">
+          <p class="mini-title">Current Golfers</p>
+          <div id="manageCurrentPlayers" class="manage-player-list"></div>
+        </div>
+
+        <div id="manageAddWrap" class="manage-section hidden">
+          <div class="manage-section-head">
+            <p class="mini-title">Add Golfers</p>
+            <button id="manageAddPlayerBtn" type="button" class="plain-btn">Add golfer</button>
+          </div>
+          <div id="manageAddPlayers" class="players-wrap"></div>
+          <div id="manageCapacityNote" class="quiet-note"></div>
+        </div>
+
+        <label id="manageNotesField" class="field hidden">Notes<textarea id="manageNotesInput" rows="4" placeholder="Update notes for the organizer"></textarea></label>
+
+        <div id="manageDialogMsg" class="dialog-msg"></div>
+        <div class="dialog-actions">
+          <button id="manageCancelEntryBtn" type="button" class="plain-btn destructive hidden">Cancel Signup</button>
+          <button id="manageCloseBtn" type="button" class="plain-btn">Close</button>
+          <button id="manageSaveBtn" type="submit" class="action-btn hidden">Save Changes</button>
         </div>
       </div>
     </form>

@@ -400,11 +400,43 @@ router.get('/:eventId([0-9a-fA-F]{24})/status', async (req, res) => {
       models.BlueRidgeWaitlist.findOne({ eventId, emailKey: email, status: 'active' }).lean(),
     ]);
 
+    let team = null;
+    let teamMembers = [];
+    let registrationMembers = [];
+
+    if (registration) {
+      const teamId = registration.teamId ? String(registration.teamId) : '';
+      const detailPromises = [
+        models.BlueRidgeTeamMember.find({ eventId, registrationId: registration._id, status: 'active' })
+          .sort({ isCaptain: -1, createdAt: 1 })
+          .lean(),
+      ];
+      if (teamId) {
+        detailPromises.push(
+          models.BlueRidgeTeam.findOne({ _id: teamId, eventId }).lean(),
+          models.BlueRidgeTeamMember.find({ eventId, teamId, status: 'active' })
+            .sort({ isCaptain: -1, createdAt: 1 })
+            .lean()
+        );
+      }
+
+      const detailPayload = await Promise.all(detailPromises);
+      registrationMembers = detailPayload[0] || [];
+      if (teamId) {
+        team = detailPayload[1] || null;
+        teamMembers = detailPayload[2] || [];
+      }
+    }
+
     res.json({
       isRegistered: Boolean(activeMember || registration),
       isWaitlisted: Boolean(waitlist),
+      activeMember,
       registration,
       waitlist,
+      team,
+      teamMembers,
+      registrationMembers,
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -567,7 +599,7 @@ router.put('/:eventId([0-9a-fA-F]{24})/registrations/:registrationId([0-9a-fA-F]
     const removeMemberIds = Array.isArray(req.body && req.body.removeMemberIds) ? req.body.removeMemberIds : [];
     if (removeMemberIds.length) {
       await BlueRidgeTeamMember.updateMany(
-        { _id: { $in: removeMemberIds }, teamId: team._id, status: 'active' },
+        { _id: { $in: removeMemberIds }, teamId: team._id, registrationId: registration._id, status: 'active' },
         { $set: { status: 'cancelled' } }
       );
     }
@@ -706,6 +738,35 @@ router.post('/:eventId([0-9a-fA-F]{24})/waitlist', async (req, res) => {
     if (err && err.code === 11000) {
       return res.status(409).json({ error: 'This email is already on the waitlist for this event' });
     }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/:eventId([0-9a-fA-F]{24})/waitlist/:waitlistId([0-9a-fA-F]{24})', async (req, res) => {
+  try {
+    if (!(await requireSecondaryConnection(res))) return;
+    const models = getSecondaryModels();
+    const { BlueRidgeOuting, BlueRidgeWaitlist } = models;
+
+    const event = await BlueRidgeOuting.findById(req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+
+    const waitlist = await BlueRidgeWaitlist.findOne({ _id: req.params.waitlistId, eventId: event._id });
+    if (!waitlist) return res.status(404).json({ error: 'Waitlist entry not found' });
+
+    const requesterEmail = normalizeEmail(req.query.requesterEmail || (req.body && req.body.requesterEmail) || '');
+    if (!requesterEmail || requesterEmail !== waitlist.emailKey) {
+      return res.status(403).json({ error: 'Only the waitlist owner can cancel this entry' });
+    }
+
+    if (waitlist.status === 'cancelled') return res.json({ ok: true });
+
+    waitlist.status = 'cancelled';
+    await waitlist.save();
+
+    const detail = await buildEventDetail(event, models, false);
+    res.json({ ok: true, event: detail });
+  } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
