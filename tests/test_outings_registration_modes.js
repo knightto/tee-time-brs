@@ -328,7 +328,7 @@ async function jsonRequest(baseUrl, pathname, { method = 'GET', body } = {}) {
 }
 
 function buildEvent(overrides = {}) {
-  const now = new Date('2026-04-19T12:00:00.000Z');
+  const now = new Date();
   return {
     _id: '507f191e810c19729de860ea',
     name: 'Plastered Open',

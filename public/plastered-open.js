@@ -84,17 +84,17 @@ function findPlasteredEvent(events) {
 
 function playerCap(detail) {
   const maxPlayers = Number(detail && detail.maxPlayers);
-  if (Number.isFinite(maxPlayers) && maxPlayers > 0) return Math.max(maxPlayers, FALLBACK_PLAYER_CAP);
+  if (Number.isFinite(maxPlayers) && maxPlayers > 0) return maxPlayers;
   return FALLBACK_PLAYER_CAP;
 }
 
 function teamCap(detail) {
   const maxTeams = Number(detail && detail.maxTeams);
-  if (Number.isFinite(maxTeams) && maxTeams > 0) return Math.max(maxTeams, FALLBACK_TEAM_CAP);
+  if (Number.isFinite(maxTeams) && maxTeams > 0) return maxTeams;
   const exact = Number(detail && detail.teamSizeExact);
   const maxPlayers = Number(detail && detail.maxPlayers);
   if (Number.isFinite(exact) && exact > 0 && Number.isFinite(maxPlayers) && maxPlayers > 0) {
-    return Math.max(Math.floor(maxPlayers / exact), FALLBACK_TEAM_CAP);
+    return Math.max(1, Math.floor(maxPlayers / exact));
   }
   return FALLBACK_TEAM_CAP;
 }

@@ -73,12 +73,27 @@ function parseNum(val) {
   return Number.isFinite(n) ? n : undefined;
 }
 
+function dateOnlyKey(value) {
+  const raw = String(value || '').trim();
+  const match = /^(\d{4}-\d{2}-\d{2})/.exec(raw);
+  if (match) return match[1];
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString().slice(0, 10);
+}
+
+function formatDateOnly(value) {
+  const key = dateOnlyKey(value);
+  if (!key) return '';
+  return new Date(`${key}T12:00:00Z`).toLocaleDateString(undefined, { timeZone: 'UTC' });
+}
+
 function formatDateRange(startDate, endDate) {
-  const a = new Date(startDate);
-  const b = new Date(endDate);
-  const sameDay = a.toDateString() === b.toDateString();
-  if (sameDay) return a.toLocaleDateString();
-  return `${a.toLocaleDateString()} - ${b.toLocaleDateString()}`;
+  const startKey = dateOnlyKey(startDate);
+  const endKey = dateOnlyKey(endDate);
+  if (!startKey && !endKey) return '';
+  if (!endKey || startKey === endKey) return formatDateOnly(startDate);
+  return `${formatDateOnly(startDate)} - ${formatDateOnly(endDate)}`;
 }
 
 function buildRuleSummary(event) {
