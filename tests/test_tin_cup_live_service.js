@@ -48,9 +48,26 @@ function run() {
   updateHoleScore(workbookStrokeState, { dayKey: 'Day 1', slotIndex: 0, playerName: 'Matt', hole: 1, gross: 5 });
   updateHoleScore(workbookStrokeState, { dayKey: 'Day 1', slotIndex: 0, playerName: 'Matt', hole: 2, gross: 5 });
   const workbookStrokeBoard = buildLeaderboard(workbookStrokeState);
-  const mattVsRickFront9 = (((workbookStrokeBoard.matchDetails || {})['Day 1'] || [])[0] || { segments: [] }).segments[0].matches[0];
-  assert.strictEqual(mattVsRickFront9.holes[0].leftNet, 5, 'Day 1 hole 1 should use the workbook stroke index so Matt gets no stroke there');
-  assert.strictEqual(mattVsRickFront9.holes[1].leftNet, 4, 'Day 1 hole 2 should use the workbook stroke index so Matt gets one stroke there');
+  const front9Matches = ((((workbookStrokeBoard.matchDetails || {})['Day 1'] || [])[0] || { segments: [] }).segments[0] || { matches: [] }).matches || [];
+  const mattFront9Match = front9Matches.find((match) => match.left === 'Matt' && match.right === 'Tommy');
+  assert(mattFront9Match, 'Updated Day 1 front-nine pairing should expose Matt vs Tommy');
+  assert.strictEqual(mattFront9Match.holes[0].leftNet, 5, 'Day 1 hole 1 should use the workbook stroke index so Matt gets no stroke there');
+  assert.strictEqual(mattFront9Match.holes[1].leftNet, 4, 'Day 1 hole 2 should use the workbook stroke index so Matt gets one stroke there');
+  const setupState = defaultTinCupLiveState();
+  const day1Group1 = getScorecardView(setupState, 'Day 1', 0);
+  const day2AGroup1 = getScorecardView(setupState, 'Day 2A', 0);
+  const day2BGroup4 = getScorecardView(setupState, 'Day 2B', 3);
+  const day3Group2 = getScorecardView(setupState, 'Day 3', 1);
+  assert.deepStrictEqual(day1Group1.players.map((player) => `${player.name}:${player.handicap}`), ['OB:7', 'Rick:8', 'Matt:6', 'Tommy:5'], 'Day 1 Group 1 should match the updated workbook foursome and nine-hole handicaps');
+  assert.deepStrictEqual(day2AGroup1.players.map((player) => `${player.name}:${player.handicap}`), ['Paul O:7', 'Tommy:5', 'Mil:8', 'Spiro:14'], 'Day 2A Group 1 should map to the workbook DNP rotation foursome');
+  assert.deepStrictEqual(day2BGroup4.players.map((player) => `${player.name}:${player.handicap}`), ['John:7', 'Rick:8', 'Paul O:7', 'Brian:12'], 'Day 2B Group 4 should match the updated Mid Pines foursome');
+  assert.deepStrictEqual(day3Group2.players.map((player) => `${player.name}:${player.handicap}`), ['OB:7', 'Paul O:7', 'Kyle:4', 'Manny:13'], 'Day 3 Group 2 should match the updated Tobacco Road foursome');
+  assert.deepStrictEqual(getScrambleResults(setupState).teams.map((team) => `${team.label}:${team.players.join('|')}`), [
+    'Team 1:Paul O|David|Matt|Bob',
+    'Team 2:Rick|Kyle|Tony|Spiro',
+    'Team 3:Tommy|John|Manny|Pat',
+    'Team 4:Mil|OB|Steve|Brian',
+  ], 'Scramble teams should use the workbook scramble groups instead of the Day 1 foursomes');
 
   const state = defaultTinCupLiveState();
   const leaderboard = seedAllScores(state, { reset: true });
@@ -63,6 +80,8 @@ function run() {
   assert.strictEqual(holeCount, 1440, 'Seeding should create 1,440 gross scores across competitive rounds');
 
   assert.strictEqual((leaderboard.totals || []).length, 16, 'Leaderboard should contain all 16 Tin Cup players');
+  assert((leaderboard.totals || []).some((row) => row.name === 'Paul O'), 'Leaderboard should include Paul O after the workbook update');
+  assert(!(leaderboard.totals || []).some((row) => row.name === 'CSamm'), 'Leaderboard should drop the removed player after the workbook update');
   assert.strictEqual(leaderboard.matchBoards['Day 1'].length, 16, 'Day 1 match board should contain all players');
   assert.strictEqual(leaderboard.matchBoards['Practice'].length, 0, 'Practice match board should stay empty until practice groups are assigned');
 
@@ -182,7 +201,7 @@ function run() {
   assert.strictEqual(autoSubmit.view.submittedBy, 'Rick', 'Auto-submitted scorecards should use the active scorer name');
 
   const autoSnowmanState = defaultTinCupLiveState();
-  fillCompleteDay(autoSnowmanState, 'Day 1', 5, [{ slotIndex: 1, playerName: 'Steve', hole: 12, gross: 8 }]);
+  fillCompleteDay(autoSnowmanState, 'Day 1', 5, [{ slotIndex: 2, playerName: 'Steve', hole: 12, gross: 8 }]);
   const autoSnowman = maybeAutoDrawSecretSnowman(autoSnowmanState, { dayKey: 'Day 1' });
   assert.strictEqual(autoSnowman.autoDrawn, true, 'Completed day with an 8 should auto-draw Secret Snowman');
   assert(autoSnowman.picked && autoSnowman.picked.playerName === 'Steve', 'Auto-drawn Secret Snowman should report the matched player');
@@ -340,14 +359,14 @@ function run() {
 
   const updatedScorecard = updateMarker(state, { dayKey: 'Day 1', slotIndex: 0, type: 'ctp', hole: 3, winner: 'Matt' });
   assert.strictEqual(updatedScorecard.markers.ctp['3'], 'Matt', 'Par-3 CTP holes should still save normally');
-  const replacedScorecard = updateMarker(state, { dayKey: 'Day 1', slotIndex: 1, type: 'ctp', hole: 3, winner: 'Steve' });
+  const replacedScorecard = updateMarker(state, { dayKey: 'Day 1', slotIndex: 2, type: 'ctp', hole: 3, winner: 'Steve' });
   assert.strictEqual(replacedScorecard.markers.ctp['3'], 'Steve', 'Later CTP picks should replace earlier picks for the same day and hole');
   assert.strictEqual(getScorecardView(state, 'Day 1', 0).markers.ctp['3'], 'Steve', 'Replaced CTP winner should show on other scorecards for that day');
   assert.strictEqual((state.scorecards['Day 1|0'] && state.scorecards['Day 1|0'].markers && state.scorecards['Day 1|0'].markers.ctp['3']) || '', '', 'Previous scorecard should no longer keep the old CTP winner');
 
   const updatedLongDrive = updateMarker(state, { dayKey: 'Day 1', slotIndex: 0, type: 'longDrive', hole: 5, winner: 'Matt' });
   assert.strictEqual(updatedLongDrive.markers.longDrive['5'], 'Matt', 'Long drive should save normally');
-  const replacedLongDrive = updateMarker(state, { dayKey: 'Day 1', slotIndex: 2, type: 'longDrive', hole: 5, winner: 'Brian' });
+  const replacedLongDrive = updateMarker(state, { dayKey: 'Day 1', slotIndex: 3, type: 'longDrive', hole: 5, winner: 'Brian' });
   assert.strictEqual(replacedLongDrive.markers.longDrive['5'], 'Brian', 'Later long-drive picks should replace earlier picks for the same day and hole');
   assert.strictEqual(getScorecardView(state, 'Day 1', 1).markers.longDrive['5'], 'Brian', 'Replaced long-drive winner should show across other scorecards for that day');
 
@@ -374,7 +393,7 @@ function run() {
     gross: 4,
     allowSubmittedEdit: true,
   });
-  assert.strictEqual(adminEdited.players[0].holes[17], 4, 'Admin override should still allow submitted scorecard edits');
+  assert.strictEqual((adminEdited.players || []).find((player) => player.name === 'Matt').holes[17], 4, 'Admin override should still allow submitted scorecard edits');
 
   console.log('test_tin_cup_live_service.js passed');
 }

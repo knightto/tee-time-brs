@@ -13,7 +13,7 @@ const TIN_CUP_PLAYERS = [
   { name: 'Tommy', handicapIndex: 9.1 },
   { name: 'Pat', handicapIndex: 17.6 },
   { name: 'Mil', handicapIndex: 12.9 },
-  { name: 'CSamm', handicapIndex: 22.3 },
+  { name: 'Paul O', handicapIndex: 15.0 },
   { name: 'Brian', handicapIndex: 20.9 },
   { name: 'Bob', handicapIndex: 22.0 },
   { name: 'David', handicapIndex: 12.9 },

@@ -687,7 +687,7 @@
     const DAY_KEYS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 3', 'Day 4', 'Practice'];
     const DAY_OPTIONS = ['Day 1', 'Day 2A', 'Day 2B', 'Day 2 Total', 'Day 3', 'Day 4'];
     const RANK_POINTS = [12, 10, 8.5, 7, 5.75, 4.5, 3, 1.25, 0, 0, 0, 0, 0, 0, 0, 0];
-    let FINAL_INPUT_PLAYERS = ['Matt', 'Rick', 'OB', 'Kyle', 'Manny', 'Steve', 'Tommy', 'Pat', 'Mil', 'CSamm', 'Brian', 'Bob', 'David', 'John', 'Tony', 'Spiro'];
+    let FINAL_INPUT_PLAYERS = ['Matt', 'Rick', 'OB', 'Kyle', 'Manny', 'Steve', 'Tommy', 'Pat', 'Mil', 'Paul O', 'Brian', 'Bob', 'David', 'John', 'Tony', 'Spiro'];
     const GOLFER_CLASS_STORAGE_KEY = 'tinCupGolferClassV1';
     const GOLFER_SETUP_DRAFT_KEY = 'tinCupGolferSetupDraftV1';
     const GOLFER_CLASSES = [
@@ -702,16 +702,16 @@
     const PLAYER_HANDICAPS = {
       matt: 10.8, rick: 15.3, ob: 11.2, kyle: 8.2,
       manny: 22.0, steve: 13.1, tommy: 9.1, pat: 17.6,
-      mil: 12.9, csamm: 22.3, brian: 20.9, bob: 22.0,
+      mil: 12.9, 'paul o': 15.0, brian: 20.9, bob: 22.0,
       david: 12.9, john: 11.2, tony: 12.8, spiro: 24.5
     };
 
     let matchInputDay = 'Day 1';
     const FOURSOMES = [
-      { playersByDay: { 'Day 1': [{ name: 'Matt', hcp: 6 }, { name: 'Rick', hcp: 8 }, { name: 'OB', hcp: 6 }, { name: 'Kyle', hcp: 4 }], 'Day 2A': [{ name: 'Bob', hcp: 13 }, { name: 'Kyle', hcp: 4 }, { name: 'Pat', hcp: 10 }, { name: 'Spiro', hcp: 14 }], 'Day 2B': [{ name: 'Kyle', hcp: 4 }, { name: 'Tommy', hcp: 5 }, { name: 'CSamm', hcp: 13 }, { name: 'David', hcp: 8 }], 'Day 3': [{ name: 'Kyle', hcp: 4 }, { name: 'Steve', hcp: 8 }, { name: 'Mil', hcp: 8 }, { name: 'Tony', hcp: 8 }], 'Day 4': [{ name: 'Matt', hcp: 6 }, { name: 'Rick', hcp: 8 }, { name: 'OB', hcp: 6 }, { name: 'Kyle', hcp: 4 }], Practice: [{ name: 'Matt', hcp: 6 }, { name: 'Rick', hcp: 8 }, { name: 'OB', hcp: 6 }, { name: 'Kyle', hcp: 4 }] } },
-      { playersByDay: { 'Day 1': [{ name: 'Manny', hcp: 13 }, { name: 'Steve', hcp: 8 }, { name: 'Tommy', hcp: 5 }, { name: 'Pat', hcp: 10 }], 'Day 2A': [{ name: 'CSamm', hcp: 13 }, { name: 'Steve', hcp: 8 }, { name: 'Rick', hcp: 8 }, { name: 'John', hcp: 7 }], 'Day 2B': [{ name: 'Matt', hcp: 6 }, { name: 'Steve', hcp: 8 }, { name: 'Brian', hcp: 12 }, { name: 'Spiro', hcp: 14 }], 'Day 3': [{ name: 'Matt', hcp: 6 }, { name: 'Bob', hcp: 13 }, { name: 'Tommy', hcp: 5 }, { name: 'John', hcp: 7 }], 'Day 4': [{ name: 'Manny', hcp: 13 }, { name: 'Steve', hcp: 8 }, { name: 'Tommy', hcp: 5 }, { name: 'Pat', hcp: 10 }], Practice: [{ name: 'Manny', hcp: 13 }, { name: 'Steve', hcp: 8 }, { name: 'Tommy', hcp: 5 }, { name: 'Pat', hcp: 10 }] } },
-      { playersByDay: { 'Day 1': [{ name: 'Mil', hcp: 8 }, { name: 'CSamm', hcp: 13 }, { name: 'Brian', hcp: 12 }, { name: 'Bob', hcp: 13 }], 'Day 2A': [{ name: 'OB', hcp: 6 }, { name: 'Brian', hcp: 12 }, { name: 'Tony', hcp: 8 }, { name: 'Tommy', hcp: 5 }], 'Day 2B': [{ name: 'OB', hcp: 6 }, { name: 'John', hcp: 7 }, { name: 'Mil', hcp: 8 }, { name: 'Pat', hcp: 10 }], 'Day 3': [{ name: 'Manny', hcp: 13 }, { name: 'CSamm', hcp: 13 }, { name: 'Spiro', hcp: 14 }, { name: 'OB', hcp: 6 }], 'Day 4': [{ name: 'Mil', hcp: 8 }, { name: 'CSamm', hcp: 13 }, { name: 'Brian', hcp: 12 }, { name: 'Bob', hcp: 13 }], Practice: [{ name: 'Mil', hcp: 8 }, { name: 'CSamm', hcp: 13 }, { name: 'Brian', hcp: 12 }, { name: 'Bob', hcp: 13 }] } },
-      { playersByDay: { 'Day 1': [{ name: 'David', hcp: 8 }, { name: 'John', hcp: 7 }, { name: 'Tony', hcp: 8 }, { name: 'Spiro', hcp: 14 }], 'Day 2A': [{ name: 'Mil', hcp: 8 }, { name: 'David', hcp: 8 }, { name: 'Matt', hcp: 6 }, { name: 'Manny', hcp: 13 }], 'Day 2B': [{ name: 'Manny', hcp: 13 }, { name: 'Rick', hcp: 8 }, { name: 'Bob', hcp: 13 }, { name: 'Tony', hcp: 8 }], 'Day 3': [{ name: 'Pat', hcp: 10 }, { name: 'Brian', hcp: 12 }, { name: 'David', hcp: 8 }, { name: 'Rick', hcp: 8 }], 'Day 4': [{ name: 'David', hcp: 8 }, { name: 'John', hcp: 7 }, { name: 'Tony', hcp: 8 }, { name: 'Spiro', hcp: 14 }], Practice: [{ name: 'David', hcp: 8 }, { name: 'John', hcp: 7 }, { name: 'Tony', hcp: 8 }, { name: 'Spiro', hcp: 14 }] } }
+      { playersByDay: { 'Day 1': [{ name: 'OB', hcp: 7 }, { name: 'Rick', hcp: 8 }, { name: 'Matt', hcp: 6 }, { name: 'Tommy', hcp: 5 }], 'Day 2A': [{ name: 'Paul O', hcp: 7 }, { name: 'Tommy', hcp: 5 }, { name: 'Mil', hcp: 8 }, { name: 'Spiro', hcp: 14 }], 'Day 2B': [{ name: 'Tommy', hcp: 5 }, { name: 'Kyle', hcp: 4 }, { name: 'Steve', hcp: 8 }, { name: 'Bob', hcp: 13 }], 'Day 3': [{ name: 'Tommy', hcp: 5 }, { name: 'David', hcp: 8 }, { name: 'Tony', hcp: 8 }, { name: 'Brian', hcp: 12 }], 'Day 4': [{ name: 'OB', hcp: 7 }, { name: 'Rick', hcp: 8 }, { name: 'Matt', hcp: 6 }, { name: 'Tommy', hcp: 5 }], Practice: [{ name: 'OB', hcp: 7 }, { name: 'Rick', hcp: 8 }, { name: 'Matt', hcp: 6 }, { name: 'Tommy', hcp: 5 }], Scramble: [{ name: 'Paul O', hcp: 7 }, { name: 'David', hcp: 8 }, { name: 'Matt', hcp: 6 }, { name: 'Bob', hcp: 13 }] } },
+      { playersByDay: { 'Day 1': [{ name: 'John', hcp: 7 }, { name: 'David', hcp: 8 }, { name: 'Kyle', hcp: 4 }, { name: 'Mil', hcp: 8 }], 'Day 2A': [{ name: 'Steve', hcp: 8 }, { name: 'David', hcp: 8 }, { name: 'Rick', hcp: 8 }, { name: 'Manny', hcp: 13 }], 'Day 2B': [{ name: 'OB', hcp: 7 }, { name: 'David', hcp: 8 }, { name: 'Pat', hcp: 10 }, { name: 'Spiro', hcp: 14 }], 'Day 3': [{ name: 'OB', hcp: 7 }, { name: 'Paul O', hcp: 7 }, { name: 'Kyle', hcp: 4 }, { name: 'Manny', hcp: 13 }], 'Day 4': [{ name: 'John', hcp: 7 }, { name: 'David', hcp: 8 }, { name: 'Kyle', hcp: 4 }, { name: 'Mil', hcp: 8 }], Practice: [{ name: 'John', hcp: 7 }, { name: 'David', hcp: 8 }, { name: 'Kyle', hcp: 4 }, { name: 'Mil', hcp: 8 }], Scramble: [{ name: 'Rick', hcp: 8 }, { name: 'Kyle', hcp: 4 }, { name: 'Tony', hcp: 8 }, { name: 'Spiro', hcp: 14 }] } },
+      { playersByDay: { 'Day 1': [{ name: 'Tony', hcp: 8 }, { name: 'Steve', hcp: 8 }, { name: 'Pat', hcp: 10 }, { name: 'Paul O', hcp: 7 }], 'Day 2A': [{ name: 'Matt', hcp: 6 }, { name: 'Pat', hcp: 10 }, { name: 'Brian', hcp: 12 }, { name: 'Kyle', hcp: 4 }], 'Day 2B': [{ name: 'Matt', hcp: 6 }, { name: 'Manny', hcp: 13 }, { name: 'Tony', hcp: 8 }, { name: 'Mil', hcp: 8 }], 'Day 3': [{ name: 'John', hcp: 7 }, { name: 'Steve', hcp: 8 }, { name: 'Spiro', hcp: 14 }, { name: 'Matt', hcp: 6 }], 'Day 4': [{ name: 'Tony', hcp: 8 }, { name: 'Steve', hcp: 8 }, { name: 'Pat', hcp: 10 }, { name: 'Paul O', hcp: 7 }], Practice: [{ name: 'Tony', hcp: 8 }, { name: 'Steve', hcp: 8 }, { name: 'Pat', hcp: 10 }, { name: 'Paul O', hcp: 7 }], Scramble: [{ name: 'Tommy', hcp: 5 }, { name: 'John', hcp: 7 }, { name: 'Manny', hcp: 13 }, { name: 'Pat', hcp: 10 }] } },
+      { playersByDay: { 'Day 1': [{ name: 'Bob', hcp: 13 }, { name: 'Manny', hcp: 13 }, { name: 'Brian', hcp: 12 }, { name: 'Spiro', hcp: 14 }], 'Day 2A': [{ name: 'Tony', hcp: 8 }, { name: 'Bob', hcp: 13 }, { name: 'OB', hcp: 7 }, { name: 'John', hcp: 7 }], 'Day 2B': [{ name: 'John', hcp: 7 }, { name: 'Rick', hcp: 8 }, { name: 'Paul O', hcp: 7 }, { name: 'Brian', hcp: 12 }], 'Day 3': [{ name: 'Mil', hcp: 8 }, { name: 'Pat', hcp: 10 }, { name: 'Bob', hcp: 13 }, { name: 'Rick', hcp: 8 }], 'Day 4': [{ name: 'Bob', hcp: 13 }, { name: 'Manny', hcp: 13 }, { name: 'Brian', hcp: 12 }, { name: 'Spiro', hcp: 14 }], Practice: [{ name: 'Bob', hcp: 13 }, { name: 'Manny', hcp: 13 }, { name: 'Brian', hcp: 12 }, { name: 'Spiro', hcp: 14 }], Scramble: [{ name: 'Mil', hcp: 8 }, { name: 'OB', hcp: 7 }, { name: 'Steve', hcp: 8 }, { name: 'Brian', hcp: 12 }] } }
     ];
     const DAY_HOLE_STROKE_INDEX = {
       'Day 1': [12, 4, 18, 10, 2, 16, 14, 8, 6, 11, 17, 1, 9, 3, 13, 7, 15, 5],
@@ -845,7 +845,7 @@
     }
 
     function getScrambleTeams() {
-      return getDaySlots('Day 1').map((slot) => ({
+      return getDaySlots(SCRAMBLE_DAY_KEY).map((slot) => ({
         slotIndex: slot.slotIndex,
         teamIndex: slot.slotIndex,
         key: getScrambleScoreKey(slot.slotIndex),
