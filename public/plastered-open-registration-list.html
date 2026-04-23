@@ -114,6 +114,8 @@
       border-radius: 999px;
     }
 
+    select { font: inherit; }
+
     .chip,
     .action-link,
     button {
@@ -254,6 +256,11 @@
     .tag.completed { background: rgba(13, 43, 87, 0.1); color: var(--navy); }
     .tag.active { background: rgba(45, 109, 78, 0.14); color: var(--fairway-deep); }
     .tag.incomplete { background: rgba(13, 43, 87, 0.08); color: var(--navy); }
+    .tag.registered,
+    .tag.paid { background: rgba(45, 109, 78, 0.14); color: var(--fairway-deep); }
+    .tag.pending { background: rgba(223, 180, 92, 0.18); color: #624700; }
+    .tag.unpaid,
+    .tag.refunded { background: rgba(203, 63, 51, 0.12); color: var(--us-red-deep); }
 
     .roster-grid,
     .entry-grid,
@@ -341,6 +348,50 @@
       line-height: 1.45;
     }
 
+    .money {
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .payment-table {
+      min-width: 1040px;
+    }
+
+    .payment-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .payment-select {
+      min-width: 132px;
+      padding: 9px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(21, 28, 39, 0.14);
+      background: #fffdf8;
+      color: var(--ink);
+    }
+
+    .payment-save {
+      padding: 9px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(21, 28, 39, 0.12);
+      background: rgba(13, 43, 87, 0.08);
+      color: var(--navy);
+      box-shadow: none;
+    }
+
+    .payment-save:disabled {
+      opacity: 0.7;
+      cursor: wait;
+      transform: none;
+    }
+
+    .payment-row-saving {
+      opacity: 0.72;
+    }
+
     .table-wrap {
       margin-top: 16px;
       overflow: auto;
@@ -407,7 +458,7 @@
       </div>
       <p class="eyebrow">Plastered Open Admin View</p>
       <h1>Registration List</h1>
-      <p class="hero-copy">Full Plastered "Open" roster view with teams, solo entries, submission notes, and waitlist pulled from the outings admin feed.</p>
+      <p class="hero-copy">Full Plastered "Open" roster view with teams, solo entries, submission notes, waitlist movement, and fee collection pulled from the outings admin feed.</p>
 
       <div class="toolbar">
         <div class="toolbar-group">
@@ -449,8 +500,33 @@
     </section>
 
     <section class="panel">
+      <h2>Fees And Payments</h2>
+      <p class="subhead">Use the normal admin roster page to track collection and mark each registration unpaid, pending, paid, or refunded.</p>
+      <div id="paymentSummary" class="status-row"></div>
+      <div class="table-wrap">
+        <table class="payment-table">
+          <thead>
+            <tr>
+              <th>Submitted</th>
+              <th>Submitter</th>
+              <th>Mode</th>
+              <th>Players</th>
+              <th>Due</th>
+              <th>Team</th>
+              <th>Payment</th>
+              <th>Update</th>
+            </tr>
+          </thead>
+          <tbody id="paymentBody">
+            <tr><td colspan="8">No payment data loaded yet.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel">
       <h2>Registration Ledger</h2>
-      <p class="subhead">Every registration row with mode, submitter, team attachment, notes, and status.</p>
+      <p class="subhead">Every registration row with mode, submitter, team attachment, payment status, notes, and status.</p>
       <div class="table-wrap">
         <table>
           <thead>
@@ -460,11 +536,12 @@
               <th>Submitter</th>
               <th>Team</th>
               <th>Status</th>
+              <th>Payment</th>
               <th>Notes</th>
             </tr>
           </thead>
           <tbody id="ledgerBody">
-            <tr><td colspan="6">No registration data loaded yet.</td></tr>
+            <tr><td colspan="7">No registration data loaded yet.</td></tr>
           </tbody>
         </table>
       </div>
@@ -477,6 +554,8 @@
     const TARGET_DATE_ISO = '2026-06-19';
     const TARGET_NAME_RE = /plastered/i;
     const CODE_STORAGE_KEY = 'brsOutingsAdminCode';
+    const PAYMENT_STATUS_OPTIONS = ['unpaid', 'pending', 'paid', 'refunded'];
+    let currentEventId = '';
 
     function esc(value) {
       return String(value || '')
@@ -504,12 +583,12 @@
       document.getElementById('rawJsonLink').href = href;
     }
 
-    async function api(path) {
+    async function api(path, opts = {}) {
       const code = getCode();
       const query = path.includes('?') ? '&' : '?';
       const fullPath = code ? `${path}${query}code=${encodeURIComponent(code)}` : path;
       updateRawJsonLink();
-      const res = await fetch(fullPath);
+      const res = await fetch(fullPath, opts);
       let data = null;
       try {
         data = await res.json();
@@ -562,12 +641,103 @@
 
     function statusClass(status) {
       const key = String(status || '').toLowerCase();
-      if (['open', 'waitlist', 'closed', 'completed', 'cancelled', 'active', 'incomplete'].includes(key)) return key;
+      if (['open', 'waitlist', 'closed', 'completed', 'cancelled', 'active', 'incomplete', 'registered', 'unpaid', 'pending', 'paid', 'refunded'].includes(key)) return key;
       return '';
     }
 
     function tag(text, css = '') {
       return `<span class="tag${css ? ` ${esc(css)}` : ''}">${esc(text)}</span>`;
+    }
+
+    function paymentStatusLabel(status) {
+      const key = String(status || 'unpaid').toLowerCase();
+      if (key === 'paid') return 'Paid';
+      if (key === 'pending') return 'Pending';
+      if (key === 'refunded') return 'Refunded';
+      return 'Unpaid';
+    }
+
+    function registrationList(event) {
+      return Array.isArray(event && event.registrations) ? event.registrations : [];
+    }
+
+    function activeRegistrationList(event) {
+      return registrationList(event).filter((entry) => String(entry && entry.status || '').toLowerCase() === 'registered');
+    }
+
+    function registrationPlayerCount(entry, event) {
+      const mode = String(entry && entry.mode || '').toLowerCase();
+      const exact = Number(event && event.teamSizeExact || 0);
+      const fallbackTeamSize = Number(event && event.teamSizeMax || event && event.teamSizeMin || 2);
+      if (mode === 'full_team' || mode === 'member_guest') return exact > 0 ? exact : Math.max(2, fallbackTeamSize);
+      return 1;
+    }
+
+    function registrationAmountDue(entry, event) {
+      const fee = Number(event && event.entryFee);
+      if (!Number.isFinite(fee)) return 0;
+      return Number((registrationPlayerCount(entry, event) * fee).toFixed(2));
+    }
+
+    function paymentSummary(event, sourceRegistrations = activeRegistrationList(event)) {
+      return (Array.isArray(sourceRegistrations) ? sourceRegistrations : []).reduce((summary, entry) => {
+        const amount = registrationAmountDue(entry, event);
+        const paymentStatus = String(entry && entry.paymentStatus || 'unpaid').toLowerCase();
+        summary.totalEntries += 1;
+        summary.totalDue += amount;
+        if (paymentStatus === 'paid') {
+          summary.paidCount += 1;
+          summary.paidAmount += amount;
+        } else if (paymentStatus === 'pending') {
+          summary.pendingCount += 1;
+          summary.outstandingAmount += amount;
+        } else if (paymentStatus === 'refunded') {
+          summary.refundedCount += 1;
+          summary.refundedAmount += amount;
+        } else {
+          summary.unpaidCount += 1;
+          summary.outstandingAmount += amount;
+        }
+        return summary;
+      }, {
+        totalEntries: 0,
+        totalDue: 0,
+        paidCount: 0,
+        paidAmount: 0,
+        pendingCount: 0,
+        unpaidCount: 0,
+        refundedCount: 0,
+        refundedAmount: 0,
+        outstandingAmount: 0,
+      });
+    }
+
+    function paymentBadgeForEntry(entry, event) {
+      const amount = registrationAmountDue(entry, event);
+      const paymentStatus = String(entry && entry.paymentStatus || 'unpaid').toLowerCase();
+      if (paymentStatus === 'paid') return { text: `Paid ${formatCurrency(amount)}`, css: 'paid' };
+      if (paymentStatus === 'pending') return { text: `Pending ${formatCurrency(amount)}`, css: 'pending' };
+      if (paymentStatus === 'refunded') return { text: `Refunded ${formatCurrency(amount)}`, css: 'refunded' };
+      return { text: `Due ${formatCurrency(amount)}`, css: 'unpaid' };
+    }
+
+    function teamPaymentBadge(event, teamId) {
+      const entries = activeRegistrationList(event).filter((entry) => String(entry && entry.teamId || '') === String(teamId || ''));
+      const summary = paymentSummary(event, entries);
+      if (!summary.totalEntries) return null;
+      if (summary.refundedCount === summary.totalEntries && summary.totalDue > 0) {
+        return { text: `Refunded ${formatCurrency(summary.totalDue)}`, css: 'refunded' };
+      }
+      if (summary.paidAmount >= summary.totalDue && summary.totalDue > 0) {
+        return { text: `Fees paid ${formatCurrency(summary.totalDue)}`, css: 'paid' };
+      }
+      if (summary.paidAmount > 0) {
+        return { text: `Fees ${formatCurrency(summary.paidAmount)} / ${formatCurrency(summary.totalDue)} paid`, css: 'pending' };
+      }
+      if (summary.pendingCount) {
+        return { text: `Fees pending ${formatCurrency(summary.totalDue)}`, css: 'pending' };
+      }
+      return { text: `Fees due ${formatCurrency(summary.totalDue)}`, css: 'unpaid' };
     }
 
     function findPlasteredEvent(events) {
@@ -585,11 +755,15 @@
 
     function renderStats(event) {
       const metrics = event && event.metrics || {};
+      const fees = paymentSummary(event);
       const stats = [
         { value: metrics.players || 0, label: `players${event && event.maxPlayers ? ` / ${event.maxPlayers}` : ''}` },
         { value: metrics.teams || 0, label: `teams${event && event.maxTeams ? ` / ${event.maxTeams}` : ''}` },
+        { value: `${fees.paidCount}/${fees.totalEntries}`, label: 'active entries paid' },
+        { value: formatCurrency(fees.paidAmount), label: 'collected' },
+        { value: formatCurrency(fees.outstandingAmount), label: 'outstanding' },
         { value: metrics.waitlist || 0, label: 'waitlist entries' },
-        { value: formatCurrency(event && event.entryFee), label: 'entry fee' },
+        { value: formatCurrency(event && event.entryFee), label: 'entry fee each' },
       ];
 
       document.getElementById('statsGrid').innerHTML = stats.map((stat) => `
@@ -604,6 +778,11 @@
       const signupWindow = event && event.signupOpenAt && event.signupCloseAt
         ? `${formatDateTime(event.signupOpenAt)} to ${formatDateTime(event.signupCloseAt)}`
         : 'Signup window not fully configured.';
+      const fees = paymentSummary(event);
+      const historicalRefunds = paymentSummary(
+        event,
+        registrationList(event).filter((entry) => String(entry && entry.paymentStatus || '').toLowerCase() === 'refunded')
+      );
 
       document.getElementById('eventSummary').innerHTML = `
         <strong>${esc(event && event.name || 'Plastered "Open"')}</strong><br>
@@ -614,9 +793,13 @@
       document.getElementById('statusRow').innerHTML = [
         tag(`Status: ${event && event.status || 'Unknown'}`, statusClass(event && event.status)),
         tag(`Rules: ${event && event.ruleSummary || 'Not available'}`),
-        tag(`Fee: ${formatCurrency(event && event.entryFee)}`),
+        tag(`Fee: ${formatCurrency(event && event.entryFee)} each`),
+        tag(`Paid: ${fees.paidCount} / ${fees.totalEntries} active entries`, fees.totalEntries && fees.paidCount === fees.totalEntries ? 'paid' : (fees.paidCount ? 'pending' : 'unpaid')),
+        tag(`Collected: ${formatCurrency(fees.paidAmount)}`, fees.paidAmount ? 'paid' : 'unpaid'),
+        tag(`Outstanding: ${formatCurrency(fees.outstandingAmount)}`, fees.outstandingAmount ? 'pending' : 'paid'),
+        historicalRefunds.totalEntries ? tag(`Refunded: ${historicalRefunds.totalEntries}`, 'refunded') : '',
         tag(`Updated: ${formatDateTime(event && event.updatedAt)}`),
-      ].join('');
+      ].filter(Boolean).join('');
     }
 
     function renderTeams(event) {
@@ -629,6 +812,7 @@
 
       list.innerHTML = teams.map((team) => {
         const members = Array.isArray(team.members) ? team.members : [];
+        const feeBadge = teamPaymentBadge(event, team._id);
         return `
           <article class="team-card">
             <h3>${esc(team.name || 'Unnamed Team')}</h3>
@@ -637,6 +821,7 @@
               <span>${esc(`${team.spotsOpen || 0} open spots`)}</span>
               <span>${esc(`Captain: ${team.captainName || 'TBD'}`)}</span>
               ${tag(team.status || 'active', statusClass(team.status || 'active'))}
+              ${feeBadge ? tag(feeBadge.text, feeBadge.css) : ''}
             </div>
             <ul class="member-list">
               ${members.map((member) => `
@@ -663,24 +848,32 @@
         return;
       }
 
-      list.innerHTML = soloEntries.map((entry) => `
-        <article class="entry-card">
-          <h3>${esc(entry.submittedByName || 'Golfer')}</h3>
-          <div class="entry-meta">
-            <span>${esc(formatModeLabel(entry.mode || 'single'))}</span>
-            <span>${esc(entry.submittedByEmail || '')}</span>
-            ${entry.submittedByPhone ? `<span>${esc(entry.submittedByPhone)}</span>` : ''}
-            ${tag(entry.status || 'registered', statusClass(entry.status || 'registered'))}
-          </div>
-          <ul class="detail-list">
-            <li>
-              <strong>Submitted</strong>
-              ${esc(formatDateTime(entry.createdAt))}
-            </li>
-          </ul>
-          ${entry.notes ? `<div class="notes"><strong>Notes</strong><br>${esc(entry.notes)}</div>` : ''}
-        </article>
-      `).join('');
+      list.innerHTML = soloEntries.map((entry) => {
+        const feeBadge = paymentBadgeForEntry(entry, event);
+        return `
+          <article class="entry-card">
+            <h3>${esc(entry.submittedByName || 'Golfer')}</h3>
+            <div class="entry-meta">
+              <span>${esc(formatModeLabel(entry.mode || 'single'))}</span>
+              <span>${esc(entry.submittedByEmail || '')}</span>
+              ${entry.submittedByPhone ? `<span>${esc(entry.submittedByPhone)}</span>` : ''}
+              ${tag(entry.status || 'registered', statusClass(entry.status || 'registered'))}
+              ${tag(feeBadge.text, feeBadge.css)}
+            </div>
+            <ul class="detail-list">
+              <li>
+                <strong>Submitted</strong>
+                ${esc(formatDateTime(entry.createdAt))}
+              </li>
+              <li>
+                <strong>Fee Due</strong>
+                ${esc(formatCurrency(registrationAmountDue(entry, event)))}
+              </li>
+            </ul>
+            ${entry.notes ? `<div class="notes"><strong>Notes</strong><br>${esc(entry.notes)}</div>` : ''}
+          </article>
+        `;
+      }).join('');
     }
 
     function renderWaitlist(event) {
@@ -717,12 +910,13 @@
       const body = document.getElementById('ledgerBody');
 
       if (!registrations.length) {
-        body.innerHTML = '<tr><td colspan="6">No registrations are currently on file.</td></tr>';
+        body.innerHTML = '<tr><td colspan="7">No registrations are currently on file.</td></tr>';
         return;
       }
 
       body.innerHTML = registrations.map((entry) => {
         const team = entry.teamId ? teams.get(String(entry.teamId)) : null;
+        const feeBadge = paymentBadgeForEntry(entry, event);
         return `
           <tr>
             <td>${esc(formatDateTime(entry.createdAt))}</td>
@@ -734,23 +928,82 @@
             </td>
             <td>${esc(team && team.name ? team.name : (entry.teamId ? 'Team record not active' : 'No team'))}</td>
             <td>${tag(entry.status || 'registered', statusClass(entry.status || 'registered'))}</td>
+            <td>${tag(feeBadge.text, feeBadge.css)}</td>
             <td>${entry.notes ? esc(entry.notes) : 'No notes'}</td>
           </tr>
         `;
       }).join('');
     }
 
+    function renderPayments(event) {
+      const registrations = registrationList(event);
+      const teams = new Map(((event && event.teams) || []).map((team) => [String(team._id || ''), team]));
+      const activeFees = paymentSummary(event);
+      const refundedFees = paymentSummary(
+        event,
+        registrations.filter((entry) => String(entry && entry.paymentStatus || '').toLowerCase() === 'refunded')
+      );
+      const summary = [
+        tag(`Paid entries: ${activeFees.paidCount} / ${activeFees.totalEntries}`, activeFees.totalEntries && activeFees.paidCount === activeFees.totalEntries ? 'paid' : (activeFees.paidCount ? 'pending' : 'unpaid')),
+        tag(`Collected: ${formatCurrency(activeFees.paidAmount)}`, activeFees.paidAmount ? 'paid' : 'unpaid'),
+        tag(`Outstanding: ${formatCurrency(activeFees.outstandingAmount)}`, activeFees.outstandingAmount ? 'pending' : 'paid'),
+        activeFees.pendingCount ? tag(`Pending collection: ${activeFees.pendingCount}`, 'pending') : '',
+        refundedFees.totalEntries ? tag(`Refunded history: ${refundedFees.totalEntries}`, 'refunded') : '',
+      ].filter(Boolean).join('');
+
+      document.getElementById('paymentSummary').innerHTML = summary;
+
+      const body = document.getElementById('paymentBody');
+      if (!registrations.length) {
+        body.innerHTML = '<tr><td colspan="8">No fee collection rows are currently on file.</td></tr>';
+        return;
+      }
+
+      body.innerHTML = registrations.map((entry) => {
+        const feeBadge = paymentBadgeForEntry(entry, event);
+        const team = entry.teamId ? teams.get(String(entry.teamId)) : null;
+        const players = registrationPlayerCount(entry, event);
+        const amountDue = registrationAmountDue(entry, event);
+        return `
+          <tr data-registration-id="${esc(String(entry._id || ''))}" data-event-id="${esc(String(event && event._id || ''))}">
+            <td>${esc(formatDateTime(entry.createdAt))}</td>
+            <td>
+              <strong>${esc(entry.submittedByName || 'Unknown')}</strong>
+              ${esc(entry.submittedByEmail || '')}
+              ${entry.submittedByPhone ? `<br>${esc(entry.submittedByPhone)}` : ''}
+            </td>
+            <td>${esc(formatModeLabel(entry.mode || 'registered'))}</td>
+            <td>${esc(String(players))}</td>
+            <td class="money">${esc(formatCurrency(amountDue))}</td>
+            <td>${esc(team && team.name ? team.name : (entry.teamId ? 'Team record not active' : 'No team'))}</td>
+            <td>${tag(feeBadge.text, feeBadge.css)}</td>
+            <td>
+              <div class="payment-controls">
+                <select class="payment-select" data-payment-select>
+                  ${PAYMENT_STATUS_OPTIONS.map((status) => `<option value="${esc(status)}"${String(entry && entry.paymentStatus || 'unpaid').toLowerCase() === status ? ' selected' : ''}>${esc(paymentStatusLabel(status))}</option>`).join('')}
+                </select>
+                <button type="button" class="payment-save" data-action="save-payment">Save</button>
+              </div>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
     function clearPanels() {
+      currentEventId = '';
       document.getElementById('statsGrid').innerHTML = '';
       document.getElementById('eventSummary').textContent = 'Load the admin feed to view the Plastered "Open" registration list.';
       document.getElementById('statusRow').innerHTML = '';
       document.getElementById('teamsList').innerHTML = '<div class="empty-card">No data loaded yet.</div>';
       document.getElementById('soloList').innerHTML = '<div class="empty-card">No data loaded yet.</div>';
       document.getElementById('waitlistList').innerHTML = '<div class="empty-card">No data loaded yet.</div>';
-      document.getElementById('ledgerBody').innerHTML = '<tr><td colspan="6">No registration data loaded yet.</td></tr>';
+      document.getElementById('paymentSummary').innerHTML = '';
+      document.getElementById('paymentBody').innerHTML = '<tr><td colspan="8">No payment data loaded yet.</td></tr>';
+      document.getElementById('ledgerBody').innerHTML = '<tr><td colspan="7">No registration data loaded yet.</td></tr>';
     }
 
-    async function loadRoster() {
+    async function loadRoster(messageOverride = '') {
       updateRawJsonLink();
       const code = getCode();
       if (!code) {
@@ -767,13 +1020,15 @@
           setTopMsg('The Plastered "Open" outing was not found in the admin feed.');
           return;
         }
+        currentEventId = String(event._id || '');
         renderStats(event);
         renderSummary(event);
         renderTeams(event);
         renderSoloEntries(event);
         renderWaitlist(event);
+        renderPayments(event);
         renderLedger(event);
-        setTopMsg(`Loaded ${event.name || 'Plastered "Open"'} registration list.`);
+        setTopMsg(messageOverride || `Loaded ${event.name || 'Plastered "Open"'} registration list.`);
       } catch (err) {
         clearPanels();
         setTopMsg(err && err.message ? err.message : 'Unable to load the registration list.');
@@ -801,6 +1056,41 @@
 
       document.getElementById('reloadBtn').addEventListener('click', loadRoster);
       document.getElementById('adminCode').addEventListener('input', updateRawJsonLink);
+      document.getElementById('paymentBody').addEventListener('click', async (event) => {
+        const btn = event.target.closest('[data-action="save-payment"]');
+        if (!btn) return;
+        const row = btn.closest('[data-registration-id]');
+        if (!row) return;
+
+        const eventId = String(row.dataset.eventId || currentEventId || '').trim();
+        const registrationId = String(row.dataset.registrationId || '').trim();
+        const select = row.querySelector('[data-payment-select]');
+        const nextStatus = String(select && select.value || '').trim().toLowerCase();
+        if (!eventId || !registrationId || !PAYMENT_STATUS_OPTIONS.includes(nextStatus)) return;
+
+        const originalText = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+        row.classList.add('payment-row-saving');
+
+        try {
+          const payload = await api(`/api/outings/admin/events/${encodeURIComponent(eventId)}/registrations/${encodeURIComponent(registrationId)}/payment`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ paymentStatus: nextStatus }),
+          });
+          const submitter = payload && payload.registration && payload.registration.submittedByName
+            ? payload.registration.submittedByName
+            : 'registration';
+          await loadRoster(`Saved ${paymentStatusLabel(nextStatus)} for ${submitter}.`);
+        } catch (err) {
+          setTopMsg(err && err.message ? err.message : 'Unable to save payment status.');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = originalText;
+          row.classList.remove('payment-row-saving');
+        }
+      });
 
       await loadRoster();
     });

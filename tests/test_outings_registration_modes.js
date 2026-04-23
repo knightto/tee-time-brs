@@ -158,6 +158,11 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
     findOne(filter = {}) {
       return new FakeQuery(first(state.registrations, filter), true);
     },
+    updateOne(filter = {}, update = {}) {
+      const doc = first(state.registrations, filter);
+      if (doc && update.$set) Object.assign(doc, clone(update.$set), { updatedAt: new Date().toISOString() });
+      return Promise.resolve({ acknowledged: true, matchedCount: doc ? 1 : 0, modifiedCount: doc ? 1 : 0 });
+    },
   };
 
   const BlueRidgeTeam = {
@@ -342,8 +347,8 @@ function buildEvent(overrides = {}) {
     teamSizeMax: 2,
     teamSizeExact: 2,
     requirePartner: false,
-    maxTeams: 50,
-    maxPlayers: 100,
+    maxTeams: 60,
+    maxPlayers: 120,
     allowSingles: true,
     allowSeekingPartner: true,
     allowSeekingTeam: true,
@@ -457,6 +462,111 @@ async function assertWaitlistDisabledFlow() {
     assert.strictEqual(response.status, 400, 'Disabled waitlist should reject signups');
     assert.strictEqual(payload.error, 'Waitlist is disabled for this event', 'Disabled waitlist should explain why it was blocked');
     assert.strictEqual(state.waitlist.length, 0, 'Disabled waitlist should not create entries');
+  });
+}
+
+async function assertAdminPaymentUpdate() {
+  const event = buildEvent({ entryFee: 85 });
+  const { state, models } = createModels({
+    event,
+    registrations: [{
+      _id: '507f191e810c19729de860ee',
+      eventId: event._id,
+      mode: 'full_team',
+      status: 'registered',
+      teamId: '507f191e810c19729de860ef',
+      submittedByName: 'Captain Casey',
+      submittedByEmail: 'captain@example.com',
+      submittedByPhone: '555-0101',
+      notes: 'Original note',
+      paymentStatus: 'unpaid',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }],
+    teams: [{
+      _id: '507f191e810c19729de860ef',
+      eventId: event._id,
+      name: 'Fairway Foundry',
+      captainName: 'Captain Casey',
+      captainEmail: 'captain@example.com',
+      targetSize: 2,
+      status: 'active',
+    }],
+    members: [
+      {
+        _id: '507f191e810c19729de860f1',
+        eventId: event._id,
+        teamId: '507f191e810c19729de860ef',
+        registrationId: '507f191e810c19729de860ee',
+        name: 'Captain Casey',
+        email: 'captain@example.com',
+        emailKey: 'captain@example.com',
+        phone: '555-0101',
+        isCaptain: true,
+        status: 'active',
+      },
+      {
+        _id: '507f191e810c19729de860f2',
+        eventId: event._id,
+        teamId: '507f191e810c19729de860ef',
+        registrationId: '507f191e810c19729de860ee',
+        name: 'Partner Pam',
+        email: 'partner@example.com',
+        emailKey: 'partner@example.com',
+        phone: '555-0102',
+        isCaptain: false,
+        status: 'active',
+      },
+    ],
+  });
+
+  await withRouter(models, async (baseUrl) => {
+    const { response, payload } = await jsonRequest(
+      baseUrl,
+      `/admin/events/${event._id}/registrations/507f191e810c19729de860ee/payment?code=2000`,
+      {
+        method: 'PUT',
+        body: { paymentStatus: 'paid' },
+      }
+    );
+
+    assert.strictEqual(response.status, 200, 'Admin payment update should return 200');
+    assert.strictEqual(payload.registration.paymentStatus, 'paid', 'Admin payment update should return the new status');
+    assert.strictEqual(state.registrations[0].paymentStatus, 'paid', 'Admin payment update should persist the new status');
+  });
+}
+
+async function assertAdminPaymentUpdateValidation() {
+  const event = buildEvent();
+  const { state, models } = createModels({
+    event,
+    registrations: [{
+      _id: '507f191e810c19729de860fa',
+      eventId: event._id,
+      mode: 'single',
+      status: 'registered',
+      submittedByName: 'Single Sam',
+      submittedByEmail: 'single@example.com',
+      submittedByPhone: '555-0101',
+      paymentStatus: 'unpaid',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }],
+  });
+
+  await withRouter(models, async (baseUrl) => {
+    const { response, payload } = await jsonRequest(
+      baseUrl,
+      `/admin/events/${event._id}/registrations/507f191e810c19729de860fa/payment?code=2000`,
+      {
+        method: 'PUT',
+        body: { paymentStatus: 'banana' },
+      }
+    );
+
+    assert.strictEqual(response.status, 400, 'Invalid payment status should be rejected');
+    assert.ok(/paymentStatus must be one of/i.test(payload.error), 'Invalid payment status should explain valid options');
+    assert.strictEqual(state.registrations[0].paymentStatus, 'unpaid', 'Invalid payment status should not change the registration');
   });
 }
 
@@ -575,6 +685,8 @@ async function run() {
 
   await assertWaitlistFlow();
   await assertWaitlistDisabledFlow();
+  await assertAdminPaymentUpdate();
+  await assertAdminPaymentUpdateValidation();
 }
 
 run()

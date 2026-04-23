@@ -19,7 +19,9 @@
         "format": "prettier --write .",
         "seed:myrtle": "node scripts/seed_myrtle_trip.js",
         "seed:outings": "node scripts/seed_blue_ridge_outings.js",
-        "seed:masters": "node scripts/seed_masters_pool.js"
+        "seed:masters": "node scripts/seed_masters_pool.js",
+        "seed:plastered": "node scripts/seed_plastered_open.js",
+        "seed:plastered:full": "node scripts/seed_plastered_open.js && node scripts/seed_plastered_open_tournament.js"
     },
     "dependencies": {
         "compression": "^1.8.1",

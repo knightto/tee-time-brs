@@ -221,6 +221,11 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
     findOne(filter = {}) {
       return new FakeQuery(first(state.registrations, filter), { single: true, collection: state.registrations });
     },
+    updateOne(filter = {}, update = {}) {
+      const doc = first(state.registrations, filter);
+      if (doc && update.$set) Object.assign(doc, clone(update.$set), { updatedAt: new Date().toISOString() });
+      return Promise.resolve({ acknowledged: true, matchedCount: doc ? 1 : 0, modifiedCount: doc ? 1 : 0 });
+    },
   };
 
   const BlueRidgeTeam = {
@@ -583,7 +588,7 @@ async function jsonFetch(baseUrl, pathname, options = {}) {
 }
 
 function buildEvent() {
-  const now = new Date('2026-04-20T12:00:00.000Z');
+  const now = new Date();
   return {
     _id: '507f191e810c19729de860ea',
     name: 'Plastered "Open"',
@@ -597,8 +602,8 @@ function buildEvent() {
     teamSizeMax: 2,
     teamSizeExact: 2,
     requirePartner: false,
-    maxTeams: 50,
-    maxPlayers: 100,
+    maxTeams: 60,
+    maxPlayers: 120,
     allowSingles: true,
     allowSeekingPartner: true,
     allowSeekingTeam: true,
@@ -658,8 +663,8 @@ async function main() {
           value: node.querySelector('strong')?.textContent?.trim() || '',
           label: node.querySelector('span')?.textContent?.trim() || ''
         }))`);
-        assert.strictEqual(stats[0].label, '100 player cap', 'Signup page should render the real player cap');
-        assert.strictEqual(stats[1].label, '50 team cap', 'Signup page should render the real team cap');
+        assert.strictEqual(stats[0].label, '120 player cap', 'Signup page should render the real player cap');
+        assert.strictEqual(stats[1].label, '60 team cap', 'Signup page should render the real team cap');
 
         await evaluate(send, `(() => {
           document.querySelector('#modeButtons [data-mode="full_team"]').click();
@@ -731,10 +736,37 @@ async function main() {
           assert.ok(teamText.includes('Fairway Foundry'), 'Admin list should show the team card');
           assert.ok(teamText.includes('Captain Casey'), 'Admin list should show the captain');
           assert.ok(teamText.includes('Partner Pam'), 'Admin list should show the partner');
+          assert.ok(teamText.includes('Fees due $170'), 'Admin team card should show the amount still due before payment is collected');
 
           const ledgerText = normalizeText(await evaluate(adminSend, `document.getElementById('ledgerBody')?.innerText || ''`));
           assert.ok(ledgerText.includes('Original full-team note'), 'Admin ledger should include the registration note');
+
+          const paymentSummaryBefore = normalizeText(await evaluate(adminSend, `document.getElementById('paymentSummary')?.innerText || ''`));
+          assert.ok(paymentSummaryBefore.includes('Paid entries: 0 / 1'), 'Payment snapshot should start with no paid entries');
+          assert.ok(paymentSummaryBefore.includes('Outstanding: $170'), 'Payment snapshot should show the outstanding amount');
+
+          await evaluate(adminSend, `(() => {
+            const row = document.querySelector('#paymentBody [data-registration-id]');
+            if (!row) return false;
+            const select = row.querySelector('[data-payment-select]');
+            const button = row.querySelector('[data-action="save-payment"]');
+            if (!select || !button) return false;
+            select.value = 'paid';
+            select.dispatchEvent(new Event('change', { bubbles: true }));
+            button.click();
+            return true;
+          })()`);
+          await waitForExpression(adminSend, `(() => {
+            const topMsg = document.getElementById('topMsg');
+            const summary = document.getElementById('paymentSummary');
+            const teamCard = document.querySelector('#teamsList .team-card');
+            return topMsg && /Saved Paid/i.test(topMsg.textContent || '')
+              && summary && /Collected: \\$170/i.test(summary.textContent || '')
+              && teamCard && /Fees paid \\$170/i.test(teamCard.textContent || '');
+          })()`, 20000);
         });
+
+        assert.strictEqual(state.registrations[0].paymentStatus, 'paid', 'Payment panel should persist the paid status');
 
         await evaluate(send, `(() => {
           document.getElementById('manageSignupBtn').click();

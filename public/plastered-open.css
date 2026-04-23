@@ -62,6 +62,11 @@ a { color: inherit; }
   pointer-events: none;
 }
 
+.hero-copy {
+  display: grid;
+  align-content: start;
+}
+
 .hero-links,
 .hero-actions,
 .badge-row,
@@ -181,6 +186,14 @@ a { color: inherit; }
 }
 
 .badge-row { margin-top: 16px; }
+.hero-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  width: min(100%, 360px);
+}
+
+.hero-actions .cta { width: 100%; }
+
 .badge {
   display: inline-flex;
   align-items: center;
@@ -205,7 +218,9 @@ a { color: inherit; }
 
 .hero-gallery {
   grid-template-columns: 1fr;
-  grid-template-rows: minmax(420px, 1fr);
+  grid-template-rows: auto;
+  width: min(100%, 430px);
+  justify-self: end;
 }
 
 .hero-photo {
@@ -225,7 +240,10 @@ a { color: inherit; }
   object-fit: cover;
 }
 
-.hero-photo-main { min-height: 420px; }
+.hero-photo-main {
+  min-height: 0;
+  aspect-ratio: 5 / 6;
+}
 
 .hero-photo-card {
   border: none;
@@ -724,25 +742,167 @@ dialog::backdrop {
 }
 
 @media (max-width: 760px) {
-  .shell { padding: 14px 12px 34px; }
+  body { background-attachment: scroll, scroll, scroll, scroll; }
+
+  .shell { padding: 12px 12px 28px; }
 
   .hero,
   .panel,
   .dialog-card { border-radius: 20px; }
 
-  .hero { padding: 18px; }
+  .hero {
+    gap: 16px;
+    padding: 18px;
+  }
+
+  .hero-links {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .hero-links > a { width: 100%; }
+
+  .hero-copy-text {
+    font-size: 1rem;
+    line-height: 1.5;
+  }
+
+  .badge-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .badge {
+    justify-content: center;
+    min-height: 44px;
+    text-align: center;
+  }
 
   .hero-gallery {
     grid-template-columns: 1fr;
     grid-template-rows: auto;
+    width: min(100%, 320px);
+    justify-self: center;
   }
 
-  .hero-photo-main { grid-row: auto; min-height: 280px; }
+  .hero-actions { grid-template-columns: 1fr; width: 100%; }
+  .hero-photo-main { grid-row: auto; min-height: 240px; }
+
+  .layout {
+    gap: 16px;
+    margin-top: 16px;
+  }
+
+  .panel { padding: 18px; }
+
+  .panel-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .panel-head .status-pill { align-self: flex-start; }
+
   .card-grid,
   .stats-grid,
   .grid2,
   .status-check { grid-template-columns: 1fr; }
 
-  .compact-overview-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .compact-overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .dialog-card {
+    max-height: calc(100dvh - 24px);
+    overflow: auto;
+  }
+
+  .dialog-head { padding: 16px 16px 0; }
+  .dialog-body { padding: 16px; }
+
+  .dialog-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .dialog-actions .plain-btn,
+  .dialog-actions .action-btn { width: 100%; }
+
+  .player-tools,
+  .manage-section-head,
+  .manage-player-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .manage-player-tools {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .sponsor-callout {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .sponsor-callout .cta { width: 100%; }
+
+  .footer-admin-link { width: min(100%, 24rem); }
+  .footer-admin-note { max-width: 30rem; }
+}
+
+@media (max-width: 560px) {
+  .hero { padding: 16px; }
+
+  .eyebrow {
+    margin: 12px 0 8px;
+    font-size: 0.74rem;
+    letter-spacing: 0.15em;
+  }
+
+  .hero h1 {
+    font-size: clamp(2.8rem, 16vw, 4.3rem);
+    max-width: 6ch;
+  }
+
+  .hero-copy-text {
+    margin-top: 12px;
+    font-size: 0.98rem;
+  }
+
+  .hero-gallery { width: min(100%, 280px); }
+  .hero-photo-main { min-height: 0; }
+
+  .panel { padding: 16px; }
+
+  .panel::before {
+    width: 72px;
+    margin-bottom: 12px;
+  }
+
+  .panel h2 { font-size: clamp(1.45rem, 9vw, 1.9rem); }
+
+  .subhead,
+  .quiet-note,
+  .notes-list,
+  .message-strip,
+  .info-card span {
+    font-size: 0.98rem;
+  }
+
+  .compact-overview-grid { grid-template-columns: 1fr; }
+
+  .status-pill {
+    font-size: 0.78rem;
+    letter-spacing: 0.08em;
+  }
+
+  .notes-list { padding-left: 18px; }
+
+  .sponsor-callout {
+    padding: 14px;
+    border-radius: 18px;
+  }
 
 }

@@ -5,6 +5,7 @@ initSecondaryConn();
 
 const router = express.Router();
 const SITE_ADMIN_WRITE_CODE = process.env.SITE_ADMIN_WRITE_CODE || '2000';
+const REGISTRATION_PAYMENT_STATUSES = new Set(['unpaid', 'pending', 'paid', 'refunded']);
 
 function getSecondaryModels() {
   const conn = getSecondaryConn();
@@ -781,6 +782,41 @@ router.delete('/:eventId([0-9a-fA-F]{24})/waitlist/:waitlistId([0-9a-fA-F]{24})'
 
     const detail = await buildEventDetail(event, models, false);
     res.json({ ok: true, event: detail });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/admin/events/:eventId/registrations/:registrationId/payment', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    if (!(await requireSecondaryConnection(res))) return;
+
+    const paymentStatus = String((req.body && req.body.paymentStatus) || '').trim().toLowerCase();
+    if (!REGISTRATION_PAYMENT_STATUSES.has(paymentStatus)) {
+      return badRequest(res, `paymentStatus must be one of: ${[...REGISTRATION_PAYMENT_STATUSES].join(', ')}`);
+    }
+
+    const models = getSecondaryModels();
+    const { BlueRidgeOuting, BlueRidgeRegistration } = models;
+
+    const event = await BlueRidgeOuting.findById(req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+
+    const registration = await BlueRidgeRegistration.findOne({ _id: req.params.registrationId, eventId: event._id });
+    if (!registration) return res.status(404).json({ error: 'Registration not found' });
+
+    await BlueRidgeRegistration.updateOne(
+      { _id: registration._id, eventId: event._id },
+      { $set: { paymentStatus } }
+    );
+
+    const detail = await buildEventDetail(event, models, true);
+    const refreshed = Array.isArray(detail.registrations)
+      ? detail.registrations.find((entry) => String(entry && entry._id || '') === String(registration._id))
+      : null;
+
+    res.json({ ok: true, registration: refreshed || { _id: registration._id, paymentStatus }, event: detail });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

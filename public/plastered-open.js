@@ -117,13 +117,8 @@ function statTile(value, label) {
 function buildNotes(detail) {
   const notes = [
     'Friday, June 19, 2026 in Front Royal, Virginia.',
-    '9:00 AM shotgun start.',
-    '2-man scramble teams.',
-    '$85 covers golf, lunch, cash prizes, and drawings.',
-    'Field flights are built from the final entrant count.',
-    'Contests and proceeds feed outing cost and player prizes.',
-    'Beer and U.S. Open viewing continue in the grill room after the round.',
-    'The 2026 U.S. Open championship week runs June 18-21 at Shinnecock Hills in Southampton, New York.'
+    'Flights are based on the final field size.',
+    'Contest proceeds help cover outing costs and player prizes.'
   ];
   if (detail && detail.registrationNotes) notes.push(String(detail.registrationNotes).trim());
   if (detail && detail.cancellationPolicy) notes.push(`Cancellation policy: ${String(detail.cancellationPolicy).trim()}`);
