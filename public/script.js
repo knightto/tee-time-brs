@@ -1,5 +1,16 @@
-// Register service worker for PWA support
-if ('serviceWorker' in navigator) {
+// Register service worker for deployed origins only. Local/test runs can
+// trigger controller-change reloads during initial boot, which interrupts
+// in-flight API requests and pollutes browser-console verification.
+const shouldRegisterServiceWorker = (() => {
+  if (!('serviceWorker' in navigator)) return false;
+  try {
+    return !/^(localhost|127(?:\.\d{1,3}){3})$/i.test(window.location.hostname);
+  } catch (_) {
+    return true;
+  }
+})();
+
+if (shouldRegisterServiceWorker) {
   let swControllerReloaded = false;
   const requestSwActivation = (reg) => {
     if (reg && reg.waiting) {

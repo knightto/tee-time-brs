@@ -618,8 +618,14 @@ async function main() {
     console.log('e2e_public_event_layout.js passed');
   } finally {
     if (browser) {
-      browser.kill();
-      await new Promise((resolve) => browser.once('exit', resolve)).catch(() => {});
+      if (browser.exitCode === null && !browser.killed) browser.kill('SIGTERM');
+      if (browser.exitCode === null && !browser.killed) {
+        await Promise.race([
+          new Promise((resolve) => browser.once('exit', resolve)),
+          sleep(1200),
+        ]).catch(() => {});
+      }
+      if (browser.exitCode === null && !browser.killed) browser.kill('SIGKILL');
     }
     await cleanup();
     await new Promise((resolve) => server.close(resolve));

@@ -143,7 +143,7 @@ async function waitForExpression(send, expression, timeoutMs = 15000) {
 }
 
 async function inspectPublicPage(spec) {
-  const target = await openTarget(`${BASE}${spec.path}`);
+  const target = await openTarget('about:blank');
   const errors = [];
   try {
     return await withCdp(target.webSocketDebuggerUrl, async ({ send, on }) => {

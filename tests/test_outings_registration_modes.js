@@ -65,13 +65,15 @@ function applySelect(doc, selectSpec) {
 }
 
 class FakeQuery {
-  constructor(value, single = false) {
+  constructor(value, options = {}) {
     this.value = value;
-    this.single = single;
+    this.single = Boolean(options.single);
+    this.collection = options.collection || null;
   }
 
   select(selectSpec) {
     this.value = applySelect(this.value, selectSpec);
+    this.collection = null;
     return this;
   }
 
@@ -84,8 +86,18 @@ class FakeQuery {
     return Promise.resolve(clone(this.value));
   }
 
+  materialize() {
+    if (this.single) {
+      return this.collection ? wrapStoredDoc(this.collection, this.value) : clone(this.value);
+    }
+    if (!Array.isArray(this.value)) {
+      return this.collection ? wrapStoredDoc(this.collection, this.value) : clone(this.value);
+    }
+    return this.collection ? this.value.map((doc) => wrapStoredDoc(this.collection, doc)) : clone(this.value);
+  }
+
   then(resolve, reject) {
-    return Promise.resolve(clone(this.value)).then(resolve, reject);
+    return Promise.resolve(this.materialize()).then(resolve, reject);
   }
 
   catch(reject) {
@@ -105,11 +117,39 @@ function createModelStore(seed = []) {
   return seed.map((item) => clone(item));
 }
 
+function wrapStoredDoc(collection, doc) {
+  if (!doc) return null;
+  const wrapped = clone(doc);
+
+  Object.defineProperty(wrapped, 'save', {
+    enumerable: false,
+    value: async function save() {
+      const idx = collection.findIndex((entry) => sameValue(entry && entry._id, wrapped && wrapped._id));
+      if (idx >= 0) {
+        const plain = clone(wrapped);
+        plain.updatedAt = new Date().toISOString();
+        collection[idx] = plain;
+      }
+      return wrapped;
+    },
+  });
+
+  Object.defineProperty(wrapped, 'toObject', {
+    enumerable: false,
+    value: function toObject() {
+      return clone(wrapped);
+    },
+  });
+
+  return wrapped;
+}
+
 function createModels({ event, teams = [], members = [], registrations = [], waitlist = [] }) {
   const nextTeamId = buildDocFactory('7');
   const nextRegistrationId = buildDocFactory('8');
   const nextMemberId = buildDocFactory('9');
   const nextWaitlistId = buildDocFactory('a');
+  const nextAuditId = buildDocFactory('b');
 
   const state = {
     outings: createModelStore([event]),
@@ -117,6 +157,7 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
     members: createModelStore(members),
     registrations: createModelStore(registrations),
     waitlist: createModelStore(waitlist),
+    audits: createModelStore([]),
   };
 
   function first(collection, filter) {
@@ -136,10 +177,16 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
 
   const BlueRidgeOuting = {
     findById(id) {
-      return Promise.resolve(clone(first(state.outings, { _id: id })));
+      return Promise.resolve(wrapStoredDoc(state.outings, first(state.outings, { _id: id })));
     },
     find(filter = {}) {
-      return new FakeQuery(many(state.outings, filter));
+      return new FakeQuery(many(state.outings, filter), { collection: state.outings });
+    },
+    findByIdAndUpdate(id, update = {}, options = {}) {
+      const doc = first(state.outings, { _id: id });
+      if (!doc) return Promise.resolve(null);
+      Object.assign(doc, clone(update), { updatedAt: new Date().toISOString() });
+      return Promise.resolve(wrapStoredDoc(state.outings, options && options.new === false ? null : doc));
     },
   };
 
@@ -150,13 +197,13 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
     create(doc) {
       const saved = assignId(clone(doc), nextRegistrationId);
       state.registrations.push(saved);
-      return Promise.resolve(clone(saved));
+      return Promise.resolve(wrapStoredDoc(state.registrations, saved));
     },
     find(filter = {}) {
-      return new FakeQuery(many(state.registrations, filter));
+      return new FakeQuery(many(state.registrations, filter), { collection: state.registrations });
     },
     findOne(filter = {}) {
-      return new FakeQuery(first(state.registrations, filter), true);
+      return new FakeQuery(first(state.registrations, filter), { single: true, collection: state.registrations });
     },
     updateOne(filter = {}, update = {}) {
       const doc = first(state.registrations, filter);
@@ -178,13 +225,16 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
       }
       const saved = assignId(clone(doc), nextTeamId);
       state.teams.push(saved);
-      return Promise.resolve(clone(saved));
+      return Promise.resolve(wrapStoredDoc(state.teams, saved));
     },
     find(filter = {}) {
-      return new FakeQuery(many(state.teams, filter));
+      return new FakeQuery(many(state.teams, filter), { collection: state.teams });
     },
     findOne(filter = {}) {
-      return new FakeQuery(first(state.teams, filter), true);
+      return new FakeQuery(first(state.teams, filter), { single: true, collection: state.teams });
+    },
+    findById(id) {
+      return Promise.resolve(wrapStoredDoc(state.teams, first(state.teams, { _id: id })));
     },
     updateOne(filter = {}, update = {}) {
       const doc = first(state.teams, filter);
@@ -198,10 +248,10 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
       return Promise.resolve(many(state.members, filter).length);
     },
     find(filter = {}) {
-      return new FakeQuery(many(state.members, filter));
+      return new FakeQuery(many(state.members, filter), { collection: state.members });
     },
     findOne(filter = {}) {
-      return new FakeQuery(first(state.members, filter), true);
+      return new FakeQuery(first(state.members, filter), { single: true, collection: state.members });
     },
     insertMany(docs) {
       docs.forEach((doc) => {
@@ -218,6 +268,13 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
         state.members.push(assignId(clone(doc), nextMemberId));
       });
       return Promise.resolve(clone(docs));
+    },
+    updateMany(filter = {}, update = {}) {
+      const docs = many(state.members, filter);
+      docs.forEach((doc) => {
+        if (update.$set) Object.assign(doc, clone(update.$set), { updatedAt: new Date().toISOString() });
+      });
+      return Promise.resolve({ acknowledged: true, matchedCount: docs.length, modifiedCount: docs.length });
     },
   };
 
@@ -238,13 +295,25 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
       }
       const saved = assignId(clone(doc), nextWaitlistId);
       state.waitlist.push(saved);
-      return Promise.resolve(clone(saved));
+      return Promise.resolve(wrapStoredDoc(state.waitlist, saved));
     },
     find(filter = {}) {
-      return new FakeQuery(many(state.waitlist, filter));
+      return new FakeQuery(many(state.waitlist, filter), { collection: state.waitlist });
     },
     findOne(filter = {}) {
-      return new FakeQuery(first(state.waitlist, filter), true);
+      return new FakeQuery(first(state.waitlist, filter), { single: true, collection: state.waitlist });
+    },
+  };
+
+  const BlueRidgeOutingAuditLog = {
+    create(doc) {
+      const saved = assignId(clone(doc), nextAuditId);
+      if (!saved.timestamp) saved.timestamp = new Date().toISOString();
+      state.audits.push(saved);
+      return Promise.resolve(wrapStoredDoc(state.audits, saved));
+    },
+    find(filter = {}) {
+      return new FakeQuery(many(state.audits, filter), { collection: state.audits });
     },
   };
 
@@ -252,6 +321,7 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
     state,
     models: {
       BlueRidgeOuting,
+      BlueRidgeOutingAuditLog,
       BlueRidgeRegistration,
       BlueRidgeTeam,
       BlueRidgeTeamMember,
@@ -533,6 +603,19 @@ async function assertAdminPaymentUpdate() {
     assert.strictEqual(response.status, 200, 'Admin payment update should return 200');
     assert.strictEqual(payload.registration.paymentStatus, 'paid', 'Admin payment update should return the new status');
     assert.strictEqual(state.registrations[0].paymentStatus, 'paid', 'Admin payment update should persist the new status');
+
+    const auditResult = await jsonRequest(baseUrl, `/admin/events/${event._id}/audit-log?code=2000`);
+    assert.strictEqual(auditResult.response.status, 200, 'Admin audit log should load');
+    assert.ok(Array.isArray(auditResult.payload.rows), 'Admin audit log should return rows');
+    assert.ok(
+      auditResult.payload.rows.some((row) =>
+        String(row && row.action || '') === 'payment_status_updated'
+        && String(row && row.category || '') === 'money'
+        && String(row && row.summary || '').includes('Payment updated')
+      ),
+      'Admin audit log should include the payment change'
+    );
+    assert.ok(state.audits.some((row) => String(row && row.action || '') === 'payment_status_updated'), 'Payment change should persist in audit state');
   });
 }
 
@@ -567,6 +650,155 @@ async function assertAdminPaymentUpdateValidation() {
     assert.strictEqual(response.status, 400, 'Invalid payment status should be rejected');
     assert.ok(/paymentStatus must be one of/i.test(payload.error), 'Invalid payment status should explain valid options');
     assert.strictEqual(state.registrations[0].paymentStatus, 'unpaid', 'Invalid payment status should not change the registration');
+  });
+}
+
+async function assertAuditTrail() {
+  const event = buildEvent({ entryFee: 85, autoWaitlist: true, status: 'open' });
+  const { state, models } = createModels({ event });
+
+  await withRouter(models, async (baseUrl) => {
+    const registerResult = await jsonRequest(baseUrl, `/${event._id}/register`, {
+      method: 'POST',
+      body: {
+        mode: 'full_team',
+        teamName: 'Audit Pair',
+        notes: 'Initial audit note',
+        players: [
+          player('Audit Amy', 'amy@example.com'),
+          player('Audit Ben', 'ben@example.com'),
+        ],
+      },
+    });
+    assert.strictEqual(registerResult.response.status, 201, 'Audit register flow should create a team registration');
+
+    const registrationId = String(registerResult.payload.registration._id);
+    const removeMember = state.members.find((member) => member.status === 'active' && member.emailKey === 'ben@example.com');
+    assert.ok(removeMember, 'Audit trail test should have an active golfer to remove');
+
+    const paymentResult = await jsonRequest(
+      baseUrl,
+      `/admin/events/${event._id}/registrations/${registrationId}/payment?code=2000`,
+      {
+        method: 'PUT',
+        body: { paymentStatus: 'paid' },
+      }
+    );
+    assert.strictEqual(paymentResult.response.status, 200, 'Audit trail payment update should succeed');
+
+    const updateResult = await jsonRequest(baseUrl, `/${event._id}/registrations/${registrationId}`, {
+      method: 'PUT',
+      body: {
+        requesterEmail: 'amy@example.com',
+        notes: 'Updated audit note',
+        removeMemberIds: [String(removeMember._id)],
+        addPlayers: [player('Audit Cal', 'cal@example.com', { phone: '555-0103' })],
+      },
+    });
+    assert.strictEqual(updateResult.response.status, 200, 'Audit trail registration update should succeed');
+
+    const cancelResult = await jsonRequest(
+      baseUrl,
+      `/${event._id}/registrations/${registrationId}?requesterEmail=${encodeURIComponent('amy@example.com')}`,
+      { method: 'DELETE' }
+    );
+    assert.strictEqual(cancelResult.response.status, 200, 'Audit trail registration cancel should succeed');
+
+    const waitlistJoin = await jsonRequest(baseUrl, `/${event._id}/waitlist`, {
+      method: 'POST',
+      body: {
+        name: 'Audit Wendy',
+        email: 'audit-wendy@example.com',
+        phone: '555-0202',
+        notes: 'Keep me posted',
+        mode: 'single',
+      },
+    });
+    assert.strictEqual(waitlistJoin.response.status, 201, 'Audit trail waitlist join should succeed');
+
+    const waitlistId = String(waitlistJoin.payload._id);
+    const waitlistCancel = await jsonRequest(
+      baseUrl,
+      `/${event._id}/waitlist/${waitlistId}?requesterEmail=${encodeURIComponent('audit-wendy@example.com')}`,
+      { method: 'DELETE' }
+    );
+    assert.strictEqual(waitlistCancel.response.status, 200, 'Audit trail waitlist cancel should succeed');
+
+    const auditResult = await jsonRequest(baseUrl, `/admin/events/${event._id}/audit-log?code=2000&limit=100`);
+    assert.strictEqual(auditResult.response.status, 200, 'Audit trail log should load');
+
+    const actions = new Set((auditResult.payload.rows || []).map((row) => String(row && row.action || '')));
+    [
+      'registration_created',
+      'payment_status_updated',
+      'players_removed',
+      'players_added',
+      'registration_notes_updated',
+      'registration_cancelled',
+      'waitlist_joined',
+      'waitlist_cancelled',
+      'team_status_changed',
+    ].forEach((action) => {
+      assert.ok(actions.has(action), `Audit trail should include ${action}`);
+    });
+    assert.ok(
+      state.audits.some((row) => String(row && row.action || '') === 'team_status_changed' && String(row && row.category || '') === 'team'),
+      'Audit trail should persist team status changes'
+    );
+  });
+}
+
+async function assertAdminEventUpdateAudit() {
+  const event = buildEvent({ entryFee: 85, registrationNotes: 'Original note' });
+  const { state, models } = createModels({ event });
+
+  await withRouter(models, async (baseUrl) => {
+    const updatePayload = {
+      name: event.name,
+      formatType: event.formatType,
+      startDate: event.startDate,
+      endDate: event.endDate,
+      signupOpenAt: event.signupOpenAt,
+      signupCloseAt: event.signupCloseAt,
+      status: 'waitlist',
+      teamSizeMin: event.teamSizeMin,
+      teamSizeMax: event.teamSizeMax,
+      teamSizeExact: event.teamSizeExact,
+      requirePartner: event.requirePartner,
+      maxTeams: 64,
+      maxPlayers: 128,
+      allowSingles: event.allowSingles,
+      allowSeekingPartner: event.allowSeekingPartner,
+      allowSeekingTeam: event.allowSeekingTeam,
+      allowPartialTeamSignup: event.allowPartialTeamSignup,
+      allowFullTeamSignup: event.allowFullTeamSignup,
+      allowMemberGuestSignup: event.allowMemberGuestSignup,
+      allowCaptainSignup: event.allowCaptainSignup,
+      allowJoinExistingTeam: event.allowJoinExistingTeam,
+      allowGuests: event.allowGuests,
+      memberOnly: event.memberOnly,
+      handicapRequired: event.handicapRequired,
+      entryFee: 95,
+      registrationNotes: 'Updated admin note',
+      cancellationPolicy: 'No refunds after June 1',
+      autoWaitlist: true,
+    };
+
+    const updateResult = await jsonRequest(baseUrl, `/admin/events/${event._id}?code=2000`, {
+      method: 'PUT',
+      body: updatePayload,
+    });
+    assert.strictEqual(updateResult.response.status, 200, 'Admin event update should succeed');
+    assert.strictEqual(state.outings[0].maxTeams, 64, 'Admin event update should persist the team cap change');
+    assert.strictEqual(state.outings[0].entryFee, 95, 'Admin event update should persist the entry fee change');
+
+    const auditResult = await jsonRequest(baseUrl, `/admin/events/${event._id}/audit-log?code=2000`);
+    assert.strictEqual(auditResult.response.status, 200, 'Admin event update audit should load');
+    const updateRow = (auditResult.payload.rows || []).find((row) => String(row && row.action || '') === 'event_updated');
+    assert.ok(updateRow, 'Admin event update should create an event_updated audit row');
+    assert.strictEqual(updateRow.category, 'event', 'Admin event update audit should use the event category');
+    assert.strictEqual(updateRow.details.changedFields.maxTeams.to, 64, 'Admin event update audit should include changed maxTeams');
+    assert.strictEqual(updateRow.details.changedFields.entryFee.to, 95, 'Admin event update audit should include changed entryFee');
   });
 }
 
@@ -687,6 +919,8 @@ async function run() {
   await assertWaitlistDisabledFlow();
   await assertAdminPaymentUpdate();
   await assertAdminPaymentUpdateValidation();
+  await assertAuditTrail();
+  await assertAdminEventUpdateAudit();
 }
 
 run()

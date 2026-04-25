@@ -160,12 +160,206 @@
       align-items: center;
     }
 
-    .toolbar input {
+    .toolbar .toolbar-input {
       min-width: 220px;
       padding: 11px 14px;
       border: 1px solid rgba(255, 255, 255, 0.18);
       background: rgba(8, 27, 54, 0.45);
       color: #fff8f0;
+    }
+
+    .toolbar-toggle {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      background: rgba(255, 255, 255, 0.06);
+      color: #fff8f0;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+
+    .toolbar-toggle input {
+      width: 18px;
+      height: 18px;
+      min-width: 18px;
+      margin: 0;
+      accent-color: var(--us-red);
+    }
+
+    .admin-code-dialog {
+      width: min(92vw, 420px);
+      padding: 0;
+      border: 0;
+      border-radius: 24px;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .admin-code-dialog::backdrop {
+      background: rgba(8, 27, 54, 0.5);
+      backdrop-filter: blur(4px);
+    }
+
+    .admin-code-dialog-card {
+      padding: 22px;
+      border-radius: 24px;
+      border: 1px solid rgba(21, 28, 39, 0.08);
+      background: linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(252, 248, 241, 0.96) 100%);
+      box-shadow: var(--shadow-soft);
+      display: grid;
+      gap: 14px;
+    }
+
+    .admin-code-dialog-card h2 {
+      margin: 0;
+      font-size: 1.35rem;
+      color: var(--navy);
+    }
+
+    .dialog-copy {
+      margin: 0;
+      color: var(--ink-soft);
+      line-height: 1.45;
+    }
+
+    .dialog-input {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(21, 28, 39, 0.12);
+      background: #fffdf8;
+      color: var(--ink);
+      font-size: 1rem;
+    }
+
+    .dialog-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: flex-end;
+    }
+
+    .audit-dialog {
+      width: min(94vw, 980px);
+      max-height: min(88vh, 920px);
+      padding: 0;
+      border: 0;
+      border-radius: 24px;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .audit-dialog::backdrop {
+      background: rgba(8, 27, 54, 0.58);
+      backdrop-filter: blur(4px);
+    }
+
+    .audit-dialog-card {
+      max-height: inherit;
+      padding: 22px;
+      border-radius: 24px;
+      border: 1px solid rgba(21, 28, 39, 0.08);
+      background: linear-gradient(165deg, rgba(255, 255, 255, 0.98) 0%, rgba(252, 248, 241, 0.96) 100%);
+      box-shadow: var(--shadow-soft);
+      display: grid;
+      gap: 14px;
+    }
+
+    .audit-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .audit-header h2 {
+      margin: 0;
+      font-size: 1.35rem;
+      color: var(--navy);
+    }
+
+    .audit-summary {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .audit-list {
+      max-height: min(62vh, 640px);
+      overflow: auto;
+      display: grid;
+      gap: 10px;
+      padding-right: 4px;
+    }
+
+    .audit-item {
+      min-width: 0;
+      padding: 12px 13px;
+      border-radius: 16px;
+      border: 1px solid rgba(21, 28, 39, 0.08);
+      background: #fffbf4;
+      display: grid;
+      gap: 9px;
+    }
+
+    .audit-item-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .audit-item-top strong {
+      display: block;
+      color: var(--ink);
+      overflow-wrap: anywhere;
+    }
+
+    .audit-meta {
+      color: var(--ink-soft);
+      font-size: 0.82rem;
+      line-height: 1.32;
+    }
+
+    .audit-badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .audit-detail-grid {
+      display: grid;
+      gap: 8px;
+    }
+
+    .audit-detail-row {
+      display: grid;
+      gap: 3px;
+      padding: 8px 9px;
+      border-radius: 12px;
+      border: 1px solid rgba(21, 28, 39, 0.07);
+      background: rgba(255, 255, 255, 0.86);
+    }
+
+    .audit-detail-row strong {
+      color: var(--ink-soft);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .audit-empty {
+      padding: 18px;
+      border-radius: 16px;
+      border: 1px solid rgba(21, 28, 39, 0.08);
+      background: #fffbf4;
+      color: var(--ink-soft);
+      text-align: center;
     }
 
     .msg {
@@ -275,11 +469,19 @@
     .entry-card,
     .waitlist-card,
     .empty-card {
+      min-width: 0;
       padding: 16px;
       border-radius: 20px;
       border: 1px solid rgba(21, 28, 39, 0.08);
       background: linear-gradient(165deg, rgba(255, 255, 255, 0.95) 0%, rgba(252, 248, 241, 0.9) 100%);
       box-shadow: var(--shadow-soft);
+    }
+
+    .team-card {
+      display: grid;
+      gap: 12px;
+      align-content: start;
+      padding: 14px;
     }
 
     .team-card h3,
@@ -288,6 +490,100 @@
       margin: 0;
       font-size: 1.2rem;
       color: var(--navy);
+      overflow-wrap: anywhere;
+    }
+
+    .team-card h3 {
+      font-size: 1.05rem;
+      line-height: 1.12;
+    }
+
+    .team-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .team-title-block {
+      min-width: 0;
+      display: grid;
+      gap: 4px;
+    }
+
+    .team-title-block h3 {
+      font-size: 1rem;
+      line-height: 1.08;
+    }
+
+    .team-card-status {
+      flex: 0 0 auto;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .team-status-dot {
+      display: inline-flex;
+      width: 14px;
+      height: 14px;
+      border-radius: 999px;
+      border: 2px solid rgba(255, 255, 255, 0.9);
+      box-shadow: 0 0 0 1px rgba(21, 28, 39, 0.12);
+      background: #c65b4f;
+      margin-top: 2px;
+    }
+
+    .team-status-dot.active {
+      background: #4f8d67;
+    }
+
+    .team-facts-card {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      align-items: center;
+      min-width: 0;
+      padding: 10px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(21, 28, 39, 0.08);
+      background: #fffbf4;
+    }
+
+    .team-fact {
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+    }
+
+    .team-fact + .team-fact {
+      padding-left: 10px;
+      border-left: 1px solid rgba(21, 28, 39, 0.08);
+    }
+
+    .team-fact strong {
+      color: var(--ink);
+      line-height: 1.2;
+      font-size: 0.96rem;
+      overflow-wrap: anywhere;
+    }
+
+    .team-fact .mini-label {
+      margin-bottom: 0;
+      font-size: 0.68rem;
+      letter-spacing: 0.07em;
+    }
+
+    .team-fact-fee strong {
+      color: #624700;
+    }
+
+    .team-fact-fee.paid strong {
+      color: var(--fairway-deep);
+    }
+
+    .team-fact-fee.unpaid strong,
+    .team-fact-fee.refunded strong {
+      color: var(--us-red-deep);
     }
 
     .team-meta,
@@ -298,12 +594,18 @@
       line-height: 1.45;
     }
 
+    .team-meta {
+      gap: 8px;
+      margin-top: 10px;
+    }
+
     .team-meta span,
     .entry-meta span,
     .waitlist-meta span {
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      max-width: 100%;
       padding: 6px 10px;
       border-radius: 999px;
       background: rgba(13, 43, 87, 0.06);
@@ -311,6 +613,9 @@
       font-size: 0.84rem;
       font-weight: 700;
       color: var(--navy);
+      white-space: normal;
+      text-align: left;
+      overflow-wrap: anywhere;
     }
 
     .member-list,
@@ -322,6 +627,15 @@
       gap: 10px;
     }
 
+    .member-list {
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    }
+
+    .team-member-list {
+      margin-top: 0;
+      gap: 8px;
+    }
+
     .member-list li,
     .detail-list li {
       padding: 12px 13px;
@@ -330,12 +644,72 @@
       border: 1px solid rgba(21, 28, 39, 0.08);
       color: var(--ink-soft);
       line-height: 1.45;
+      overflow-wrap: anywhere;
     }
 
     .member-list strong,
     .detail-list strong {
       display: block;
       color: var(--ink);
+    }
+
+    .team-member-item {
+      display: grid;
+      gap: 4px;
+      padding: 10px 11px;
+      border-radius: 14px;
+    }
+
+    .team-member-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .team-member-top strong {
+      min-width: 0;
+      font-size: 0.98rem;
+      overflow-wrap: anywhere;
+    }
+
+    .team-member-item .member-contact {
+      margin-top: 2px;
+      gap: 2px;
+    }
+
+    .member-contact {
+      margin-top: 6px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .member-contact-line {
+      display: block;
+      font-size: 0.88rem;
+      line-height: 1.34;
+      color: var(--ink-soft);
+      overflow-wrap: anywhere;
+    }
+
+    .member-flags {
+      margin-top: 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .member-flag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 3px 7px;
+      border-radius: 999px;
+      background: rgba(13, 43, 87, 0.06);
+      color: var(--navy);
+      font-size: 0.68rem;
+      font-weight: 800;
+      letter-spacing: 0.03em;
     }
 
     .notes {
@@ -346,6 +720,7 @@
       border: 1px solid rgba(203, 63, 51, 0.08);
       color: var(--ink-soft);
       line-height: 1.45;
+      overflow-wrap: anywhere;
     }
 
     .money {
@@ -353,8 +728,128 @@
       white-space: nowrap;
     }
 
-    .payment-table {
-      min-width: 1040px;
+    .compact-detail-grid {
+      margin-top: 12px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+      gap: 10px;
+    }
+
+    .compact-detail {
+      min-width: 0;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(21, 28, 39, 0.08);
+      background: #fffbf4;
+    }
+
+    .mini-label {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--ink-soft);
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .record-wrap {
+      margin-top: 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .record-stack {
+      display: grid;
+      gap: 10px;
+    }
+
+    .record-head,
+    .record-row {
+      display: grid;
+      gap: 12px;
+      align-items: start;
+    }
+
+    .record-head {
+      padding: 0 14px;
+      color: var(--ink-soft);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .record-head span {
+      min-width: 0;
+    }
+
+    .payment-head,
+    .payment-row {
+      grid-template-columns: 132px minmax(0, 1.45fr) minmax(0, 1.12fr) 72px 88px minmax(0, 0.95fr) minmax(170px, 1.15fr);
+    }
+
+    .ledger-head,
+    .ledger-row {
+      grid-template-columns: 132px 112px minmax(0, 1.45fr) minmax(0, 1fr) minmax(0, 0.82fr) minmax(0, 0.92fr) minmax(180px, 1.5fr);
+    }
+
+    .record-row {
+      padding: 13px 14px;
+      border-radius: 18px;
+      border: 1px solid rgba(21, 28, 39, 0.08);
+      background: linear-gradient(165deg, rgba(255, 255, 255, 0.95) 0%, rgba(252, 248, 241, 0.9) 100%);
+      box-shadow: var(--shadow-soft);
+    }
+
+    .record-cell {
+      min-width: 0;
+      color: var(--ink-soft);
+      line-height: 1.36;
+      overflow-wrap: anywhere;
+    }
+
+    .record-cell strong {
+      display: block;
+      color: var(--ink);
+      line-height: 1.18;
+    }
+
+    .record-subvalue,
+    .record-inline {
+      display: block;
+      margin-top: 4px;
+      font-size: 0.88rem;
+      color: var(--ink-soft);
+      overflow-wrap: anywhere;
+    }
+
+    .record-inline + .record-inline {
+      margin-top: 2px;
+    }
+
+    .record-inline.tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: flex-start;
+      margin-top: 0;
+    }
+
+    .record-inline.tags .tag {
+      max-width: 100%;
+    }
+
+    .record-num {
+      text-align: center;
+    }
+
+    .record-num strong {
+      font-size: 1.08rem;
+    }
+
+    .controls-cell {
+      align-self: center;
     }
 
     .payment-controls {
@@ -362,6 +857,11 @@
       flex-wrap: wrap;
       gap: 8px;
       align-items: center;
+      justify-content: flex-start;
+    }
+
+    .payment-controls .payment-select {
+      flex: 1 1 132px;
     }
 
     .payment-select {
@@ -392,46 +892,366 @@
       opacity: 0.72;
     }
 
-    .table-wrap {
+    .record-note {
+      min-width: 0;
+    }
+
+    .note-empty {
+      display: block;
+      color: var(--ink-soft);
+      font-size: 0.88rem;
+    }
+
+    .note-detail {
+      min-width: 0;
+    }
+
+    .note-detail summary {
+      cursor: pointer;
+      color: var(--navy);
+      font-weight: 700;
+      line-height: 1.32;
+      list-style: none;
+      overflow-wrap: anywhere;
+    }
+
+    .note-detail summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .note-detail summary::after {
+      content: "Expand";
+      display: inline-block;
+      margin-left: 8px;
+      color: var(--ink-soft);
+      font-size: 0.75rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .note-detail[open] summary::after {
+      content: "Collapse";
+    }
+
+    .note-detail-body {
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(21, 28, 39, 0.08);
+      color: var(--ink-soft);
+      font-size: 0.88rem;
+      line-height: 1.38;
+      overflow-wrap: anywhere;
+    }
+
+    .waitlist-grid {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+
+    .waitlist-card {
+      padding: 14px;
+    }
+
+    .waitlist-card .waitlist-meta {
+      margin-top: 10px;
+      gap: 8px;
+    }
+
+    .waitlist-card .compact-detail-grid {
+      margin-top: 10px;
+      gap: 8px;
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .records-toolbar {
       margin-top: 16px;
-      overflow: auto;
+      display: grid;
+      gap: 12px;
+    }
+
+    .records-controls,
+    .filter-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .records-controls {
+      justify-content: space-between;
+    }
+
+    .filter-chip {
+      padding: 9px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(21, 28, 39, 0.1);
+      background: rgba(13, 43, 87, 0.05);
+      color: var(--navy);
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.03em;
+      box-shadow: none;
+    }
+
+    .filter-chip.is-active {
+      background: var(--navy);
+      border-color: var(--navy);
+      color: #fff8f0;
+    }
+
+    .records-search {
+      min-width: 240px;
+      padding: 11px 14px;
+      border-radius: 14px;
+      border: 1px solid rgba(21, 28, 39, 0.12);
+      background: #fffdf8;
+      color: var(--ink);
+    }
+
+    .records-grid {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 12px;
+    }
+
+    .record-card {
+      min-width: 0;
+      padding: 14px;
       border-radius: 18px;
+      border: 1px solid rgba(21, 28, 39, 0.08);
+      background: linear-gradient(165deg, rgba(255, 255, 255, 0.96) 0%, rgba(252, 248, 241, 0.92) 100%);
+      box-shadow: var(--shadow-soft);
+      display: grid;
+      gap: 12px;
+      align-content: start;
+    }
+
+    .record-card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .record-card-title {
+      min-width: 0;
+      display: grid;
+      gap: 4px;
+    }
+
+    .record-card-overline {
+      color: var(--ink-soft);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .record-card-title h3 {
+      margin: 0;
+      font-size: 1.02rem;
+      line-height: 1.12;
+      color: var(--navy);
+      overflow-wrap: anywhere;
+    }
+
+    .record-card-preview {
+      color: var(--ink-soft);
+      font-size: 0.9rem;
+      line-height: 1.34;
+      overflow-wrap: anywhere;
+    }
+
+    .record-card-head-right {
+      flex: 0 0 auto;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .record-card-facts {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+      gap: 8px;
+    }
+
+    .record-card-fact {
+      min-width: 0;
+      padding: 10px 11px;
+      border-radius: 14px;
       border: 1px solid rgba(21, 28, 39, 0.08);
       background: #fffbf4;
     }
 
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      min-width: 780px;
-    }
-
-    th,
-    td {
-      padding: 12px 14px;
-      border-bottom: 1px solid rgba(21, 28, 39, 0.08);
-      text-align: left;
-      vertical-align: top;
-    }
-
-    th {
-      position: sticky;
-      top: 0;
-      background: #f8efe0;
-      color: var(--navy);
-      font-size: 0.88rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-    }
-
-    td {
-      color: var(--ink-soft);
-      line-height: 1.42;
-    }
-
-    td strong {
-      color: var(--ink);
+    .record-card-fact strong {
       display: block;
+      color: var(--ink);
+      line-height: 1.2;
+      overflow-wrap: anywhere;
+    }
+
+    .record-card-fact.wide {
+      grid-column: 1 / -1;
+    }
+
+    .record-card-fact.payment.pending strong {
+      color: #624700;
+    }
+
+    .record-card-fact.payment.paid strong {
+      color: var(--fairway-deep);
+    }
+
+    .record-card-fact.payment.unpaid strong,
+    .record-card-fact.payment.refunded strong {
+      color: var(--us-red-deep);
+    }
+
+    .record-card-fact .mini-label {
+      margin-bottom: 2px;
+      font-size: 0.68rem;
+      letter-spacing: 0.07em;
+    }
+
+    .record-details {
+      min-width: 0;
+      border-top: 1px solid rgba(21, 28, 39, 0.08);
+      padding-top: 10px;
+    }
+
+    .record-details summary {
+      cursor: pointer;
+      color: var(--navy);
+      font-weight: 800;
+      list-style: none;
+      line-height: 1.28;
+    }
+
+    .record-details summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .record-details summary::after {
+      content: "Open";
+      display: inline-block;
+      margin-left: 8px;
+      color: var(--ink-soft);
+      font-size: 0.74rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .record-details[open] summary::after {
+      content: "Close";
+    }
+
+    .record-detail-grid {
+      margin-top: 10px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .record-section {
+      min-width: 0;
+      padding: 10px 11px;
+      border-radius: 14px;
+      border: 1px solid rgba(21, 28, 39, 0.08);
+      background: #fffbf4;
+    }
+
+    .record-section h4 {
+      margin: 0 0 8px;
+      color: var(--ink-soft);
+      font-size: 0.72rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .person-list,
+    .registration-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+      display: grid;
+      gap: 8px;
+    }
+
+    .person-row,
+    .registration-item,
+    .waitlist-inline {
+      min-width: 0;
+      padding: 9px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(21, 28, 39, 0.08);
+      background: rgba(255, 255, 255, 0.9);
+      display: grid;
+      gap: 6px;
+    }
+
+    .person-row-top,
+    .registration-item-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .person-row-top strong,
+    .registration-item-top strong {
+      min-width: 0;
+      color: var(--ink);
+      overflow-wrap: anywhere;
+    }
+
+    .registration-item-meta,
+    .record-muted {
+      color: var(--ink-soft);
+      font-size: 0.88rem;
+      line-height: 1.34;
+      overflow-wrap: anywhere;
+    }
+
+    .record-inline-note {
+      color: var(--ink-soft);
+      font-size: 0.88rem;
+      line-height: 1.38;
+      overflow-wrap: anywhere;
+    }
+
+    .cell-label {
+      display: none;
+      margin-bottom: 4px;
+      color: var(--navy);
+      font-size: 0.7rem;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 1120px) {
+      .record-head {
+        display: none;
+      }
+
+      .cell-label {
+        display: block;
+      }
+
+      .payment-head,
+      .payment-row,
+      .ledger-head,
+      .ledger-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .controls-cell,
+      .notes-cell {
+        grid-column: 1 / -1;
+      }
     }
 
     .footer-note {
@@ -445,7 +1265,88 @@
       .hero,
       .panel { border-radius: 20px; }
       .hero { padding: 18px; }
-      .toolbar input { min-width: 0; width: 100%; }
+      .toolbar .toolbar-input { min-width: 0; width: 100%; }
+      .toolbar-toggle {
+        width: 100%;
+        justify-content: flex-start;
+      }
+      .records-controls,
+      .filter-row {
+        width: 100%;
+      }
+      .records-controls {
+        justify-content: flex-start;
+      }
+      .records-search {
+        width: 100%;
+        min-width: 0;
+      }
+      .dialog-actions {
+        flex-direction: column-reverse;
+        align-items: stretch;
+      }
+      .audit-header,
+      .audit-item-top {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .audit-list {
+        max-height: min(66vh, 640px);
+      }
+      .team-card-top {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .team-card-status {
+        justify-content: flex-start;
+      }
+      .team-facts-card {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .team-fact-fee {
+        grid-column: 1 / -1;
+        padding-left: 0;
+        border-left: 0;
+        padding-top: 2px;
+        border-top: 1px solid rgba(21, 28, 39, 0.08);
+      }
+      .roster-grid,
+      .entry-grid,
+      .waitlist-grid,
+      .records-grid,
+      .member-list,
+      .payment-head,
+      .payment-row,
+      .ledger-head,
+      .ledger-row,
+      .compact-detail-grid {
+        grid-template-columns: 1fr;
+      }
+      .record-card-top,
+      .person-row-top,
+      .registration-item-top {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .team-card,
+      .entry-card,
+      .waitlist-card,
+      .record-card,
+      .record-row {
+        padding: 13px;
+        border-radius: 16px;
+      }
+      .record-num {
+        text-align: left;
+      }
+      .payment-controls {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .payment-select,
+      .payment-save {
+        width: 100%;
+      }
     }
   </style>
 </head>
@@ -459,14 +1360,18 @@
       <p class="eyebrow">Plastered Open Admin View</p>
       <h1>Registration List</h1>
       <p class="hero-copy">Full Plastered "Open" roster view with teams, solo entries, submission notes, waitlist movement, and fee collection pulled from the outings admin feed.</p>
+      <input id="adminCode" type="hidden">
 
       <div class="toolbar">
         <div class="toolbar-group">
-          <input id="adminCode" type="password" placeholder="Outings admin code">
-          <button id="saveCodeBtn" type="button" class="secondary">Save Code</button>
-          <button id="reloadBtn" type="button" class="primary">Reload List</button>
+          <button id="updateInfoBtn" type="button" class="primary">Update Info</button>
+          <button id="viewAuditBtn" type="button" class="secondary">View Audit</button>
         </div>
         <div class="toolbar-group">
+          <label class="toolbar-toggle" for="showTeamContacts">
+            <input id="showTeamContacts" type="checkbox">
+            <span>Show Team Contact Details</span>
+          </label>
           <a id="rawJsonLink" class="action-link secondary" href="/api/outings/admin/events" target="_blank" rel="noopener noreferrer">Open Raw Admin JSON</a>
         </div>
       </div>
@@ -482,80 +1387,68 @@
     </section>
 
     <section class="panel">
-      <h2>Teams</h2>
-      <p class="subhead">Full team cards with status, roster, captain, and open spots.</p>
-      <div id="teamsList" class="roster-grid"></div>
-    </section>
-
-    <section class="panel">
-      <h2>Solo And Open Entries</h2>
-      <p class="subhead">Single registrations and other entries that are not currently attached to a named team.</p>
-      <div id="soloList" class="entry-grid"></div>
-    </section>
-
-    <section class="panel">
-      <h2>Waitlist</h2>
-      <p class="subhead">All waitlist submissions tied to this outing.</p>
-      <div id="waitlistList" class="waitlist-grid"></div>
-    </section>
-
-    <section class="panel">
-      <h2>Fees And Payments</h2>
-      <p class="subhead">Use the normal admin roster page to track collection and mark each registration unpaid, pending, paid, or refunded.</p>
-      <div id="paymentSummary" class="status-row"></div>
-      <div class="table-wrap">
-        <table class="payment-table">
-          <thead>
-            <tr>
-              <th>Submitted</th>
-              <th>Submitter</th>
-              <th>Mode</th>
-              <th>Players</th>
-              <th>Due</th>
-              <th>Team</th>
-              <th>Payment</th>
-              <th>Update</th>
-            </tr>
-          </thead>
-          <tbody id="paymentBody">
-            <tr><td colspan="8">No payment data loaded yet.</td></tr>
-          </tbody>
-        </table>
+      <h2>Unified Roster</h2>
+      <p class="subhead">Each team, solo entry, or waitlist submission appears once with roster, payment, notes, and registration history in the same card. Team contact details stay hidden unless the top toggle is enabled.</p>
+      <div class="records-toolbar">
+        <div id="recordsSummary" class="status-row"></div>
+        <div id="paymentSummary" class="status-row"></div>
+        <div class="records-controls">
+          <div class="filter-row" id="recordsFilters">
+            <button type="button" class="filter-chip is-active" data-record-filter="all">All</button>
+            <button type="button" class="filter-chip" data-record-filter="teams">Teams</button>
+            <button type="button" class="filter-chip" data-record-filter="solo">Solo / Open</button>
+            <button type="button" class="filter-chip" data-record-filter="waitlist">Waitlist</button>
+            <button type="button" class="filter-chip" data-record-filter="attention">Needs Attention</button>
+          </div>
+          <input id="recordsSearch" class="records-search" type="search" placeholder="Search teams or golfers">
+        </div>
       </div>
-    </section>
-
-    <section class="panel">
-      <h2>Registration Ledger</h2>
-      <p class="subhead">Every registration row with mode, submitter, team attachment, payment status, notes, and status.</p>
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Submitted</th>
-              <th>Mode</th>
-              <th>Submitter</th>
-              <th>Team</th>
-              <th>Status</th>
-              <th>Payment</th>
-              <th>Notes</th>
-            </tr>
-          </thead>
-          <tbody id="ledgerBody">
-            <tr><td colspan="7">No registration data loaded yet.</td></tr>
-          </tbody>
-        </table>
+      <div id="recordsList" class="records-grid">
+        <div class="empty-card">No registration data loaded yet.</div>
       </div>
     </section>
 
     <p class="footer-note">This page reads the outings admin feed for the June 19, 2026 Plastered "Open".</p>
   </main>
 
+  <dialog id="adminCodeDialog" class="admin-code-dialog">
+    <form id="adminCodeDialogForm" class="admin-code-dialog-card">
+      <h2>Outings Admin Code</h2>
+      <p id="adminCodeDialogCopy" class="dialog-copy">Enter the outings admin code to load the Plastered "Open" registration list.</p>
+      <input id="adminCodePromptInput" class="dialog-input" type="password" placeholder="Outings admin code" autocomplete="current-password">
+      <div class="dialog-actions">
+        <button id="adminCodeDialogCancel" type="button" class="secondary">Cancel</button>
+        <button id="adminCodePromptSubmit" type="submit" class="primary">Load Info</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="auditDialog" class="audit-dialog">
+    <div class="audit-dialog-card">
+      <div class="audit-header">
+        <div>
+          <h2>Outing Audit</h2>
+          <p id="auditStatus" class="dialog-copy">Loading audit...</p>
+        </div>
+        <button id="closeAuditBtn" type="button" class="secondary">Close</button>
+      </div>
+      <div id="auditSummary" class="audit-summary"></div>
+      <div id="auditList" class="audit-list">
+        <div class="audit-empty">No audit entries loaded yet.</div>
+      </div>
+    </div>
+  </dialog>
+
   <script>
     const TARGET_DATE_ISO = '2026-06-19';
     const TARGET_NAME_RE = /plastered/i;
-    const CODE_STORAGE_KEY = 'brsOutingsAdminCode';
+    const TEAM_CONTACT_TOGGLE_KEY = 'plasteredOpenShowTeamContacts';
     const PAYMENT_STATUS_OPTIONS = ['unpaid', 'pending', 'paid', 'refunded'];
     let currentEventId = '';
+    let currentEventData = null;
+    let currentRecordFilter = 'all';
+    let currentRecordSearch = '';
+    let adminCodeDialogResolve = null;
 
     function esc(value) {
       return String(value || '')
@@ -571,8 +1464,71 @@
     }
 
     function getCode() {
-      const params = new URLSearchParams(window.location.search);
-      return normalizeCode(document.getElementById('adminCode').value || params.get('code') || localStorage.getItem(CODE_STORAGE_KEY) || '');
+      return normalizeCode(document.getElementById('adminCode').value || '');
+    }
+
+    function setCode(value) {
+      document.getElementById('adminCode').value = normalizeCode(value);
+      updateRawJsonLink();
+    }
+
+    function closeAdminCodeDialog(result = '') {
+      const dialog = document.getElementById('adminCodeDialog');
+      if (dialog && dialog.open && typeof dialog.close === 'function') dialog.close();
+      else if (dialog) dialog.removeAttribute('open');
+      const resolve = adminCodeDialogResolve;
+      adminCodeDialogResolve = null;
+      if (resolve) resolve(normalizeCode(result));
+    }
+
+    function closeAuditDialog() {
+      const dialog = document.getElementById('auditDialog');
+      if (dialog && dialog.open && typeof dialog.close === 'function') dialog.close();
+      else if (dialog) dialog.removeAttribute('open');
+    }
+
+    function requestAdminCode(message, submitLabel = 'Load Info', prefill = '') {
+      const dialog = document.getElementById('adminCodeDialog');
+      const copy = document.getElementById('adminCodeDialogCopy');
+      const input = document.getElementById('adminCodePromptInput');
+      const submit = document.getElementById('adminCodePromptSubmit');
+      if (copy) copy.textContent = message || 'Enter the outings admin code to continue.';
+      if (submit) submit.textContent = submitLabel || 'Continue';
+      if (input) input.value = normalizeCode(prefill);
+
+      if (dialog && dialog.open) {
+        if (typeof dialog.close === 'function') dialog.close();
+        else dialog.removeAttribute('open');
+      }
+
+      if (dialog && typeof dialog.showModal === 'function') dialog.showModal();
+      else if (dialog) dialog.setAttribute('open', 'open');
+
+      requestAnimationFrame(() => {
+        if (input) {
+          input.focus();
+          if (typeof input.select === 'function' && input.value) input.select();
+        }
+      });
+
+      return new Promise((resolve) => {
+        adminCodeDialogResolve = resolve;
+      });
+    }
+
+    async function promptForAdminCodeAndLoad(options = {}) {
+      const message = options.message || 'Enter the outings admin code to load the registration list.';
+      const submitLabel = options.submitLabel || 'Load Info';
+      const clearOnCancel = Boolean(options.clearOnCancel);
+      const code = await requestAdminCode(message, submitLabel, options.prefill || '');
+      if (!code) {
+        if (clearOnCancel) clearPanels();
+        setTopMsg(clearOnCancel ? 'Enter the outings admin code to load the registration list.' : 'Update cancelled.');
+        return false;
+      }
+      setCode(code);
+      await loadRoster();
+      return Boolean(currentEventId);
     }
 
     function updateRawJsonLink() {
@@ -649,12 +1605,95 @@
       return `<span class="tag${css ? ` ${esc(css)}` : ''}">${esc(text)}</span>`;
     }
 
+    function notesMarkup(value, emptyLabel = 'No notes') {
+      const text = String(value || '').trim();
+      if (!text) return `<span class="note-empty">${esc(emptyLabel)}</span>`;
+      if (text.length <= 96) return `<span class="record-subvalue">${esc(text)}</span>`;
+      return `
+        <details class="note-detail">
+          <summary>${esc(text.slice(0, 96))}...</summary>
+          <div class="note-detail-body">${esc(text)}</div>
+        </details>
+      `;
+    }
+
+    function humanizeKey(value) {
+      return String(value || '')
+        .replace(/([a-z])([A-Z])/g, '$1 $2')
+        .replace(/[_-]+/g, ' ')
+        .trim()
+        .replace(/\b\w/g, (match) => match.toUpperCase());
+    }
+
+    function formatAuditValue(value) {
+      if (value === undefined || value === null || value === '') return 'None';
+      if (Array.isArray(value)) {
+        const items = value.map((item) => formatAuditValue(item)).filter(Boolean);
+        return items.length ? items.join(' | ') : 'None';
+      }
+      if (typeof value === 'object') {
+        if (value.name || value.email) {
+          const parts = [String(value.name || '').trim(), String(value.email || '').trim()].filter(Boolean);
+          return parts.join(' ').trim() || JSON.stringify(value);
+        }
+        if (Object.prototype.hasOwnProperty.call(value, 'from') || Object.prototype.hasOwnProperty.call(value, 'to')) {
+          return `${formatAuditValue(value.from)} -> ${formatAuditValue(value.to)}`;
+        }
+        const entries = Object.entries(value).filter(([, inner]) => inner !== undefined && inner !== null && inner !== '');
+        if (!entries.length) return 'None';
+        return entries.map(([key, inner]) => `${humanizeKey(key)}: ${formatAuditValue(inner)}`).join(' | ');
+      }
+      if (typeof value === 'number') return Number.isFinite(value) ? String(value) : 'None';
+      return String(value);
+    }
+
+    function auditCategoryCss(category) {
+      const key = String(category || '').toLowerCase();
+      if (key === 'money') return 'pending';
+      if (key === 'player') return 'active';
+      if (key === 'team') return 'open';
+      if (key === 'waitlist') return 'waitlist';
+      if (key === 'event') return 'completed';
+      return '';
+    }
+
     function paymentStatusLabel(status) {
       const key = String(status || 'unpaid').toLowerCase();
       if (key === 'paid') return 'Paid';
       if (key === 'pending') return 'Pending';
       if (key === 'refunded') return 'Refunded';
       return 'Unpaid';
+    }
+
+    function showTeamContactsEnabled() {
+      const toggle = document.getElementById('showTeamContacts');
+      return Boolean(toggle && toggle.checked);
+    }
+
+    function teamMemberAddress(member) {
+      const direct = String(member && (member.address || member.streetAddress || member.fullAddress) || '').trim();
+      if (direct) return direct;
+
+      const line1 = String(member && (member.address1 || member.street || member.street1) || '').trim();
+      const line2 = String(member && (member.address2 || member.street2) || '').trim();
+      const locality = [String(member && member.city || '').trim(), String(member && member.state || '').trim()]
+        .filter(Boolean)
+        .join(', ');
+      const postal = String(member && (member.zip || member.postalCode) || '').trim();
+      return [line1, line2, [locality, postal].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+    }
+
+    function teamMemberContactMarkup(member) {
+      if (!showTeamContactsEnabled()) return '';
+      const lines = [];
+      const email = String(member && member.email || '').trim();
+      const phone = String(member && member.phone || '').trim();
+      const address = teamMemberAddress(member);
+      if (email) lines.push(`<span class="member-contact-line">${esc(email)}</span>`);
+      if (phone) lines.push(`<span class="member-contact-line">${esc(phone)}</span>`);
+      if (address) lines.push(`<span class="member-contact-line">${esc(address)}</span>`);
+      if (!lines.length) return '';
+      return `<div class="member-contact">${lines.join('')}</div>`;
     }
 
     function registrationList(event) {
@@ -721,23 +1760,37 @@
       return { text: `Due ${formatCurrency(amount)}`, css: 'unpaid' };
     }
 
-    function teamPaymentBadge(event, teamId) {
-      const entries = activeRegistrationList(event).filter((entry) => String(entry && entry.teamId || '') === String(teamId || ''));
-      const summary = paymentSummary(event, entries);
-      if (!summary.totalEntries) return null;
-      if (summary.refundedCount === summary.totalEntries && summary.totalDue > 0) {
-        return { text: `Refunded ${formatCurrency(summary.totalDue)}`, css: 'refunded' };
+    function registrationGroupPaidSummary(event, registrations, rosterTarget = 1) {
+      const entries = Array.isArray(registrations) ? registrations : [];
+      if (!entries.length) return { text: 'No', css: 'unpaid' };
+      let paidPlayers = 0;
+      let refundedPlayers = 0;
+      for (const entry of entries) {
+        const players = registrationPlayerCount(entry, event);
+        const paymentStatus = String(entry && entry.paymentStatus || 'unpaid').toLowerCase();
+        if (paymentStatus === 'paid') paidPlayers += players;
+        if (paymentStatus === 'refunded') refundedPlayers += players;
       }
-      if (summary.paidAmount >= summary.totalDue && summary.totalDue > 0) {
-        return { text: `Fees paid ${formatCurrency(summary.totalDue)}`, css: 'paid' };
+
+      const paidCount = Math.min(rosterTarget, paidPlayers);
+      if (refundedPlayers >= rosterTarget && paidCount === 0) return { text: 'Refunded', css: 'refunded' };
+      if (paidCount <= 0) return { text: 'No', css: 'unpaid' };
+      if (paidCount >= rosterTarget) {
+        return { text: rosterTarget === 2 ? 'Yes for both' : 'Yes', css: 'paid' };
       }
-      if (summary.paidAmount > 0) {
-        return { text: `Fees ${formatCurrency(summary.paidAmount)} / ${formatCurrency(summary.totalDue)} paid`, css: 'pending' };
-      }
-      if (summary.pendingCount) {
-        return { text: `Fees pending ${formatCurrency(summary.totalDue)}`, css: 'pending' };
-      }
-      return { text: `Fees due ${formatCurrency(summary.totalDue)}`, css: 'unpaid' };
+      return { text: `Yes for ${paidCount}`, css: 'pending' };
+    }
+
+    function teamPaidSummary(event, team) {
+      const entries = activeRegistrationList(event).filter((entry) => String(entry && entry.teamId || '') === String(team && team._id || ''));
+      const members = Array.isArray(team && team.members) ? team.members : [];
+      const rosterTarget = Math.max(
+        Number(event && event.teamSizeExact || 0) || 0,
+        Number(team && team.memberCount || 0) || 0,
+        members.length,
+        1
+      );
+      return registrationGroupPaidSummary(event, entries, rosterTarget);
     }
 
     function findPlasteredEvent(events) {
@@ -802,6 +1855,523 @@
       ].filter(Boolean).join('');
     }
 
+    function timeValue(value) {
+      const stamp = new Date(value || '').getTime();
+      return Number.isFinite(stamp) ? stamp : 0;
+    }
+
+    function recordStatusDotClass(status) {
+      return String(status || '').toLowerCase() === 'active' || String(status || '').toLowerCase() === 'registered'
+        ? 'active'
+        : 'inactive';
+    }
+
+    function recordNeedsAttention(record) {
+      if (!record) return false;
+      if (record.kind === 'waitlist') return String(record.status || '').toLowerCase() !== 'cancelled';
+      if (record.kind === 'team') {
+        if (String(record.status || '').toLowerCase() !== 'active') return true;
+        if (Number(record.team && record.team.spotsOpen || 0) > 0) return true;
+      } else if (String(record.status || '').toLowerCase() !== 'registered') {
+        return true;
+      }
+      return (Array.isArray(record.registrations) ? record.registrations : []).some((entry) => {
+        const paymentStatus = String(entry && entry.paymentStatus || 'unpaid').toLowerCase();
+        return paymentStatus !== 'paid';
+      });
+    }
+
+    function buildUnifiedRecords(event) {
+      const registrations = registrationList(event);
+      const teams = Array.isArray(event && event.teams) ? event.teams : [];
+      const waitlist = Array.isArray(event && event.waitlist) ? event.waitlist : [];
+      const records = [];
+      const teamIdSet = new Set(teams.map((team) => String(team && team._id || '')).filter(Boolean));
+
+      teams.forEach((team) => {
+        const members = Array.isArray(team && team.members) ? team.members : [];
+        const teamRegistrations = registrations.filter((entry) => String(entry && entry.teamId || '') === String(team && team._id || ''));
+        const preview = members.map((member) => String(member && member.name || '').trim()).filter(Boolean).join(' • ') || 'No golfers listed';
+        records.push({
+          key: `team:${String(team && team._id || team && team.name || 'team')}`,
+          kind: 'team',
+          title: team && team.name || 'Unnamed Team',
+          preview,
+          status: team && team.status || 'active',
+          submittedAt: teamRegistrations.reduce((best, entry) => {
+            const next = timeValue(entry && entry.createdAt);
+            return !best || (next && next < best) ? next : best;
+          }, 0) || timeValue(team && team.updatedAt) || timeValue(team && team.createdAt),
+          team,
+          members,
+          registrations: teamRegistrations,
+          paymentSummary: teamPaidSummary(event, team),
+        });
+      });
+
+      const orphanedTeamGroups = new Map();
+      registrations.filter((entry) => entry && entry.teamId && !teamIdSet.has(String(entry.teamId || ''))).forEach((entry) => {
+        const key = String(entry.teamId || '');
+        const existing = orphanedTeamGroups.get(key) || [];
+        existing.push(entry);
+        orphanedTeamGroups.set(key, existing);
+      });
+
+      orphanedTeamGroups.forEach((entries, teamId) => {
+        const preview = entries.map((entry) => String(entry && entry.submittedByName || '').trim()).filter(Boolean).join(' • ') || 'Historical registration';
+        const status = entries.every((entry) => String(entry && entry.status || '').toLowerCase() === 'cancelled') ? 'cancelled' : 'incomplete';
+        const rosterTarget = Math.max(
+          Number(event && event.teamSizeExact || 0) || 0,
+          entries.reduce((sum, entry) => sum + registrationPlayerCount(entry, event), 0),
+          1
+        );
+        records.push({
+          key: `archived-team:${teamId}`,
+          kind: 'team',
+          title: 'Archived Team',
+          preview,
+          status,
+          submittedAt: entries.reduce((best, entry) => {
+            const next = timeValue(entry && entry.createdAt);
+            return next && next > best ? next : best;
+          }, 0),
+          team: {
+            _id: teamId,
+            memberCount: entries.reduce((sum, entry) => sum + registrationPlayerCount(entry, event), 0),
+            spotsOpen: 0,
+            status,
+          },
+          members: [],
+          registrations: entries,
+          paymentSummary: registrationGroupPaidSummary(event, entries, rosterTarget),
+        });
+      });
+
+      registrations.filter((entry) => !entry.teamId).forEach((entry) => {
+        const preview = [
+          formatModeLabel(entry && entry.mode || 'single'),
+          entry && entry.submittedByEmail || '',
+          entry && entry.submittedByPhone || '',
+        ].filter(Boolean).join(' • ');
+        records.push({
+          key: `registration:${String(entry && entry._id || '')}`,
+          kind: 'solo',
+          title: entry && entry.submittedByName || 'Golfer',
+          preview,
+          status: entry && entry.status || 'registered',
+          submittedAt: timeValue(entry && entry.createdAt),
+          registrations: [entry],
+          soloEntry: entry,
+        });
+      });
+
+      waitlist.forEach((entry) => {
+        const preview = [
+          formatModeLabel(entry && entry.mode || 'single'),
+          entry && entry.email || '',
+          entry && entry.phone || '',
+        ].filter(Boolean).join(' • ');
+        records.push({
+          key: `waitlist:${String(entry && entry._id || '')}`,
+          kind: 'waitlist',
+          title: entry && entry.name || 'Waitlist Entry',
+          preview,
+          status: entry && entry.status || 'active',
+          submittedAt: timeValue(entry && entry.createdAt),
+          waitlistEntry: entry,
+          registrations: [],
+        });
+      });
+
+      const statusOrder = { active: 0, registered: 0, incomplete: 1, pending: 1, waitlist: 2, cancelled: 3 };
+      const kindOrder = { team: 0, solo: 1, waitlist: 2 };
+      return records.sort((left, right) => {
+        const leftStatus = statusOrder[String(left && left.status || '').toLowerCase()] ?? 2;
+        const rightStatus = statusOrder[String(right && right.status || '').toLowerCase()] ?? 2;
+        if (leftStatus !== rightStatus) return leftStatus - rightStatus;
+        const leftKind = kindOrder[left && left.kind] ?? 9;
+        const rightKind = kindOrder[right && right.kind] ?? 9;
+        if (leftKind !== rightKind) return leftKind - rightKind;
+        const timeDiff = (right && right.submittedAt || 0) - (left && left.submittedAt || 0);
+        if (timeDiff) return timeDiff;
+        return String(left && left.title || '').localeCompare(String(right && right.title || ''));
+      });
+    }
+
+    function recordMatchesFilter(record, filterKey) {
+      const key = String(filterKey || 'all').toLowerCase();
+      if (key === 'teams') return record && record.kind === 'team';
+      if (key === 'solo') return record && record.kind === 'solo';
+      if (key === 'waitlist') return record && record.kind === 'waitlist';
+      if (key === 'attention') return recordNeedsAttention(record);
+      return true;
+    }
+
+    function recordMatchesSearch(record, searchValue) {
+      const needle = String(searchValue || '').trim().toLowerCase();
+      if (!needle) return true;
+      const bits = [
+        record && record.title,
+        record && record.preview,
+        record && record.status,
+        record && record.kind,
+        record && record.team && record.team.name,
+        ...(Array.isArray(record && record.members) ? record.members.map((member) => [member && member.name, member && member.email, member && member.phone, teamMemberAddress(member)].filter(Boolean).join(' ')) : []),
+        ...(Array.isArray(record && record.registrations) ? record.registrations.map((entry) => [
+          entry && entry.submittedByName,
+          entry && entry.submittedByEmail,
+          entry && entry.submittedByPhone,
+          entry && entry.notes,
+          entry && entry.mode,
+          entry && entry.status,
+          entry && entry.paymentStatus,
+        ].filter(Boolean).join(' ')) : []),
+        record && record.waitlistEntry && [
+          record.waitlistEntry.name,
+          record.waitlistEntry.email,
+          record.waitlistEntry.phone,
+          record.waitlistEntry.notes,
+          record.waitlistEntry.status,
+        ].filter(Boolean).join(' '),
+      ].filter(Boolean).join(' ').toLowerCase();
+      return bits.includes(needle);
+    }
+
+    function renderPeopleList(people) {
+      const list = Array.isArray(people) ? people : [];
+      if (!list.length) return '<div class="record-muted">No golfers currently attached.</div>';
+      return `
+        <ul class="person-list">
+          ${list.map((person) => `
+            <li class="person-row">
+              <div class="person-row-top">
+                <strong>${esc(person && person.name || 'Golfer')}</strong>
+                ${person && person.isGuest ? '<span class="member-flag">Guest</span>' : ''}
+              </div>
+              ${teamMemberContactMarkup(person)}
+            </li>
+          `).join('')}
+        </ul>
+      `;
+    }
+
+    function renderRegistrationItems(event, registrations, options = {}) {
+      const list = Array.isArray(registrations) ? registrations : [];
+      const showRegistrantContact = options.showRegistrantContact !== false;
+      if (!list.length) return '<div class="record-muted">No registration history is on file.</div>';
+      return `
+        <div class="registration-list">
+          ${list.map((entry) => {
+            const feeBadge = paymentBadgeForEntry(entry, event);
+            const players = registrationPlayerCount(entry, event);
+            const amountDue = registrationAmountDue(entry, event);
+            return `
+              <div class="registration-item" data-registration-id="${esc(String(entry && entry._id || ''))}" data-event-id="${esc(String(event && event._id || ''))}">
+                <div class="registration-item-top">
+                  <div>
+                    <strong>${esc(entry && entry.submittedByName || 'Unknown')}</strong>
+                    <div class="registration-item-meta">${esc(formatModeLabel(entry && entry.mode || 'registered'))} · ${esc(String(players))} golfer${players === 1 ? '' : 's'} · ${esc(formatDateTime(entry && entry.createdAt))}</div>
+                  </div>
+                  <div class="record-inline tags">
+                    ${tag(entry && entry.status || 'registered', statusClass(entry && entry.status || 'registered'))}
+                    ${tag(feeBadge.text, feeBadge.css)}
+                  </div>
+                </div>
+                ${(showRegistrantContact && entry && (entry.submittedByEmail || entry.submittedByPhone)) ? `
+                  <div class="record-muted">
+                    ${esc(entry.submittedByEmail || '')}
+                    ${entry.submittedByEmail && entry.submittedByPhone ? ' · ' : ''}
+                    ${esc(entry.submittedByPhone || '')}
+                  </div>
+                ` : ''}
+                <div class="record-muted">Fee due: ${esc(formatCurrency(amountDue))}</div>
+                <div class="payment-controls">
+                  <select class="payment-select" data-payment-select>
+                    ${PAYMENT_STATUS_OPTIONS.map((status) => `<option value="${esc(status)}"${String(entry && entry.paymentStatus || 'unpaid').toLowerCase() === status ? ' selected' : ''}>${esc(paymentStatusLabel(status))}</option>`).join('')}
+                  </select>
+                  <button type="button" class="payment-save" data-action="save-payment">Save</button>
+                </div>
+                <div class="record-inline-note">${notesMarkup(entry && entry.notes)}</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
+    function renderWaitlistDetails(entry) {
+      const item = entry || {};
+      return `
+        <div class="record-detail-grid">
+          <section class="record-section">
+            <h4>Contact</h4>
+            <div class="waitlist-inline">
+              <strong>${esc(item.name || 'Waitlist Entry')}</strong>
+              <div class="record-muted">${[item.email || '', item.phone || ''].filter(Boolean).join(' · ') || 'No contact details on file.'}</div>
+            </div>
+          </section>
+          <section class="record-section">
+            <h4>Waitlist</h4>
+            <div class="waitlist-inline">
+              <div class="record-muted">Submitted ${esc(formatDateTime(item.createdAt))}</div>
+              <div class="record-inline tags">${tag(item.status || 'active', statusClass(item.status || 'active'))}</div>
+              <div class="record-inline-note">${notesMarkup(item.notes)}</div>
+            </div>
+          </section>
+        </div>
+      `;
+    }
+
+    function renderUnifiedRecords(event) {
+      const allRecords = buildUnifiedRecords(event);
+      const visibleRecords = allRecords.filter((record) => recordMatchesFilter(record, currentRecordFilter) && recordMatchesSearch(record, currentRecordSearch));
+      const attentionCount = allRecords.filter((record) => recordNeedsAttention(record)).length;
+      document.getElementById('recordsSummary').innerHTML = [
+        tag(`Showing ${visibleRecords.length} of ${allRecords.length}`),
+        tag(`${allRecords.filter((record) => record.kind === 'team').length} teams`),
+        tag(`${allRecords.filter((record) => record.kind === 'solo').length} solo / open`),
+        tag(`${allRecords.filter((record) => record.kind === 'waitlist').length} waitlist`),
+        attentionCount ? tag(`${attentionCount} need attention`, 'pending') : tag('Everything current', 'paid'),
+      ].filter(Boolean).join('');
+
+      const activeFees = paymentSummary(event);
+      const refundedFees = paymentSummary(
+        event,
+        registrationList(event).filter((entry) => String(entry && entry.paymentStatus || '').toLowerCase() === 'refunded')
+      );
+      document.getElementById('paymentSummary').innerHTML = [
+        tag(`Collected: ${formatCurrency(activeFees.paidAmount)}`, activeFees.paidAmount ? 'paid' : 'unpaid'),
+        tag(`Outstanding: ${formatCurrency(activeFees.outstandingAmount)}`, activeFees.outstandingAmount ? 'pending' : 'paid'),
+        tag(`Paid entries: ${activeFees.paidCount} / ${activeFees.totalEntries}`, activeFees.totalEntries && activeFees.paidCount === activeFees.totalEntries ? 'paid' : (activeFees.paidCount ? 'pending' : 'unpaid')),
+        refundedFees.totalEntries ? tag(`Refunded: ${refundedFees.totalEntries}`, 'refunded') : '',
+      ].filter(Boolean).join('');
+
+      const list = document.getElementById('recordsList');
+      if (!visibleRecords.length) {
+        list.innerHTML = '<div class="empty-card">No records match the current view.</div>';
+        return;
+      }
+
+      list.innerHTML = visibleRecords.map((record) => {
+        const overlineBase = record.kind === 'team'
+          ? 'Team'
+          : (record.kind === 'waitlist' ? 'Waitlist' : 'Solo / Open');
+        const normalizedStatus = String(record && record.status || '').toLowerCase();
+        const overline = (record.kind === 'team' && normalizedStatus === 'active')
+          || (record.kind === 'solo' && normalizedStatus === 'registered')
+          || (record.kind === 'waitlist' && normalizedStatus === 'active')
+          ? overlineBase
+          : `${overlineBase} • ${formatModeLabel(record.status || '')}`;
+
+        if (record.kind === 'team') {
+          const team = record.team || {};
+          const members = Array.isArray(record.members) ? record.members : [];
+          const feeSummary = record.paymentSummary || { text: 'No', css: 'unpaid' };
+          return `
+            <article class="record-card" data-record-kind="team" data-record-key="${esc(record.key)}">
+              <div class="record-card-top">
+                <div class="record-card-title">
+                  <span class="record-card-overline">${esc(overline)}</span>
+                  <h3>${esc(record.title)}</h3>
+                  <div class="record-card-preview">${esc(record.preview || 'No golfers listed')}</div>
+                </div>
+                <div class="record-card-head-right">
+                  <span class="team-status-dot ${esc(recordStatusDotClass(record.status))}" aria-label="Status: ${esc(record.status || 'active')}" title="${esc(record.status || 'active')}"></span>
+                </div>
+              </div>
+              <div class="record-card-facts">
+                <div class="record-card-fact">
+                  <span class="mini-label">Roster</span>
+                  <strong>${esc(`${team.memberCount || members.length || 0} golfers`)}</strong>
+                </div>
+                <div class="record-card-fact">
+                  <span class="mini-label">Capacity</span>
+                  <strong>${esc(`${team.spotsOpen || 0} open`)}</strong>
+                </div>
+                <div class="record-card-fact payment ${esc(feeSummary.css || '')}">
+                  <span class="mini-label">Fees Paid</span>
+                  <strong>${esc(feeSummary.text || 'No')}</strong>
+                </div>
+              </div>
+              <details class="record-details">
+                <summary>Open team details</summary>
+                <div class="record-detail-grid">
+                  <section class="record-section">
+                    <h4>Golfers</h4>
+                    ${renderPeopleList(members)}
+                  </section>
+                  <section class="record-section">
+                    <h4>Registrations</h4>
+                    ${renderRegistrationItems(event, record.registrations, { showRegistrantContact: showTeamContactsEnabled() })}
+                  </section>
+                </div>
+              </details>
+            </article>
+          `;
+        }
+
+        if (record.kind === 'solo') {
+          const entry = record.soloEntry || {};
+          const feeBadge = paymentBadgeForEntry(entry, event);
+          return `
+            <article class="record-card" data-record-kind="solo" data-record-key="${esc(record.key)}">
+              <div class="record-card-top">
+                <div class="record-card-title">
+                  <span class="record-card-overline">${esc(overline)}</span>
+                  <h3>${esc(record.title)}</h3>
+                  <div class="record-card-preview">${esc(record.preview || 'Standalone registration')}</div>
+                </div>
+                <div class="record-card-head-right">
+                  <span class="team-status-dot ${esc(recordStatusDotClass(record.status))}" aria-label="Status: ${esc(record.status || 'registered')}" title="${esc(record.status || 'registered')}"></span>
+                </div>
+              </div>
+              <div class="record-card-facts">
+                <div class="record-card-fact">
+                  <span class="mini-label">Players</span>
+                  <strong>${esc(String(registrationPlayerCount(entry, event)))}</strong>
+                </div>
+                <div class="record-card-fact">
+                  <span class="mini-label">Mode</span>
+                  <strong>${esc(formatModeLabel(entry.mode || 'single'))}</strong>
+                </div>
+                <div class="record-card-fact payment ${esc(feeBadge.css || '')}">
+                  <span class="mini-label">Payment</span>
+                  <strong>${esc(feeBadge.text)}</strong>
+                </div>
+              </div>
+              <details class="record-details">
+                <summary>Open entry details</summary>
+                <div class="record-detail-grid">
+                  <section class="record-section">
+                    <h4>Contact</h4>
+                    <div class="person-row">
+                      <div class="person-row-top">
+                        <strong>${esc(entry.submittedByName || 'Golfer')}</strong>
+                      </div>
+                      <div class="record-muted">${[entry.submittedByEmail || '', entry.submittedByPhone || ''].filter(Boolean).join(' · ') || 'No contact details on file.'}</div>
+                    </div>
+                  </section>
+                  <section class="record-section">
+                    <h4>Registration</h4>
+                    ${renderRegistrationItems(event, record.registrations, { showRegistrantContact: true })}
+                  </section>
+                </div>
+              </details>
+            </article>
+          `;
+        }
+
+        return `
+          <article class="record-card" data-record-kind="waitlist" data-record-key="${esc(record.key)}">
+            <div class="record-card-top">
+              <div class="record-card-title">
+                <span class="record-card-overline">${esc(overline)}</span>
+                <h3>${esc(record.title)}</h3>
+                <div class="record-card-preview">${esc(record.preview || 'Waitlist submission')}</div>
+              </div>
+              <div class="record-card-head-right">
+                <span class="team-status-dot ${esc(recordStatusDotClass(record.status))}" aria-label="Status: ${esc(record.status || 'active')}" title="${esc(record.status || 'active')}"></span>
+              </div>
+            </div>
+            <div class="record-card-facts">
+              <div class="record-card-fact">
+                <span class="mini-label">Mode</span>
+                <strong>${esc(formatModeLabel(record.waitlistEntry && record.waitlistEntry.mode || 'single'))}</strong>
+              </div>
+              <div class="record-card-fact">
+                <span class="mini-label">Submitted</span>
+                <strong>${esc(formatDateTime(record.waitlistEntry && record.waitlistEntry.createdAt))}</strong>
+              </div>
+              <div class="record-card-fact wide">
+                <span class="mini-label">Status</span>
+                <strong>${esc(formatModeLabel(record.status || 'active'))}</strong>
+              </div>
+            </div>
+            <details class="record-details">
+              <summary>Open waitlist details</summary>
+              ${renderWaitlistDetails(record.waitlistEntry)}
+            </details>
+          </article>
+        `;
+      }).join('');
+    }
+
+    function renderAuditRows(rows) {
+      const list = document.getElementById('auditList');
+      const entries = Array.isArray(rows) ? rows : [];
+      if (!entries.length) {
+        list.innerHTML = '<div class="audit-empty">No audit entries are on file for this outing yet.</div>';
+        return;
+      }
+
+      list.innerHTML = entries.map((row) => {
+        const details = row && row.details && typeof row.details === 'object' ? row.details : {};
+        const detailRows = Object.entries(details)
+          .filter(([, value]) => value !== undefined && value !== null && value !== '')
+          .map(([key, value]) => `
+            <div class="audit-detail-row">
+              <strong>${esc(humanizeKey(key))}</strong>
+              <span>${esc(formatAuditValue(value))}</span>
+            </div>
+          `)
+          .join('');
+        return `
+          <article class="audit-item">
+            <div class="audit-item-top">
+              <div>
+                <strong>${esc(row && row.summary || row && row.action || 'Audit entry')}</strong>
+                <div class="audit-meta">${esc(formatDateTime(row && row.timestamp))} | ${esc(String(row && row.actor || 'system').toUpperCase())} | ${esc(row && row.method || 'SYSTEM')}</div>
+              </div>
+              <div class="audit-badges">
+                ${tag(humanizeKey(row && row.category || 'event'), auditCategoryCss(row && row.category))}
+                ${tag(humanizeKey(row && row.action || 'audit'))}
+              </div>
+            </div>
+            ${detailRows ? `<div class="audit-detail-grid">${detailRows}</div>` : ''}
+          </article>
+        `;
+      }).join('');
+    }
+
+    async function openAuditDialog() {
+      if (!currentEventId) {
+        setTopMsg('Load the registration list before opening the audit.');
+        return;
+      }
+
+      const dialog = document.getElementById('auditDialog');
+      const status = document.getElementById('auditStatus');
+      const summary = document.getElementById('auditSummary');
+      const list = document.getElementById('auditList');
+      status.textContent = 'Loading audit...';
+      summary.innerHTML = '';
+      list.innerHTML = '<div class="audit-empty">Loading audit...</div>';
+
+      if (dialog && typeof dialog.showModal === 'function' && !dialog.open) dialog.showModal();
+      else if (dialog) dialog.setAttribute('open', 'open');
+
+      try {
+        const payload = await api(`/api/outings/admin/events/${encodeURIComponent(currentEventId)}/audit-log?limit=500`);
+        const rows = Array.isArray(payload && payload.rows) ? payload.rows : [];
+        const moneyCount = rows.filter((row) => String(row && row.category || '').toLowerCase() === 'money').length;
+        const playerCount = rows.filter((row) => String(row && row.category || '').toLowerCase() === 'player').length;
+        const teamCount = rows.filter((row) => String(row && row.category || '').toLowerCase() === 'team').length;
+        const waitlistCount = rows.filter((row) => String(row && row.category || '').toLowerCase() === 'waitlist').length;
+        status.textContent = `Loaded ${rows.length} audit entr${rows.length === 1 ? 'y' : 'ies'} for ${payload && payload.eventName ? payload.eventName : 'this outing'}.`;
+        summary.innerHTML = [
+          tag(`${rows.length} total`),
+          moneyCount ? tag(`${moneyCount} money`, 'pending') : '',
+          playerCount ? tag(`${playerCount} player`, 'active') : '',
+          teamCount ? tag(`${teamCount} team`, 'open') : '',
+          waitlistCount ? tag(`${waitlistCount} waitlist`, 'waitlist') : '',
+        ].filter(Boolean).join('');
+        renderAuditRows(rows);
+      } catch (err) {
+        status.textContent = err && err.message ? err.message : 'Failed to load audit.';
+        list.innerHTML = '<div class="audit-empty">Failed to load audit entries.</div>';
+      }
+    }
+
     function renderTeams(event) {
       const teams = Array.isArray(event && event.teams) ? event.teams : [];
       const list = document.getElementById('teamsList');
@@ -812,25 +2382,41 @@
 
       list.innerHTML = teams.map((team) => {
         const members = Array.isArray(team.members) ? team.members : [];
-        const feeBadge = teamPaymentBadge(event, team._id);
+        const feeSummary = teamPaidSummary(event, team);
+        const teamStatus = String(team && team.status || 'active').toLowerCase();
+        const statusDotClass = teamStatus === 'active' ? 'active' : 'inactive';
         return `
           <article class="team-card">
-            <h3>${esc(team.name || 'Unnamed Team')}</h3>
-            <div class="team-meta">
-              <span>${esc(`${team.memberCount || members.length || 0} golfers`)}</span>
-              <span>${esc(`${team.spotsOpen || 0} open spots`)}</span>
-              <span>${esc(`Captain: ${team.captainName || 'TBD'}`)}</span>
-              ${tag(team.status || 'active', statusClass(team.status || 'active'))}
-              ${feeBadge ? tag(feeBadge.text, feeBadge.css) : ''}
+            <div class="team-card-top">
+              <div class="team-title-block">
+                <h3>${esc(team.name || 'Unnamed Team')}</h3>
+              </div>
+              <div class="team-card-status">
+                <span class="team-status-dot ${esc(statusDotClass)}" aria-label="Status: ${esc(team.status || 'active')}" title="${esc(team.status || 'active')}"></span>
+              </div>
             </div>
-            <ul class="member-list">
+            <div class="team-facts-card">
+              <div class="team-fact">
+                <span class="mini-label">Roster</span>
+                <strong>${esc(`${team.memberCount || members.length || 0} golfers`)}</strong>
+              </div>
+              <div class="team-fact">
+                <span class="mini-label">Capacity</span>
+                <strong>${esc(`${team.spotsOpen || 0} open`)}</strong>
+              </div>
+              <div class="team-fact team-fact-fee ${esc(feeSummary.css || '')}">
+                <span class="mini-label">Fees Paid</span>
+                <strong>${esc(feeSummary.text)}</strong>
+              </div>
+            </div>
+            <ul class="member-list team-member-list">
               ${members.map((member) => `
-                <li>
-                  <strong>${esc(member.name || 'Golfer')}</strong>
-                  ${esc(member.email || '')}
-                  ${member.phone ? `<br>${esc(member.phone)}` : ''}
-                  ${member.isGuest ? '<br>Guest' : ''}
-                  ${member.isCaptain ? '<br>Captain' : ''}
+                <li class="team-member-item">
+                  <div class="team-member-top">
+                    <strong>${esc(member.name || 'Golfer')}</strong>
+                    ${member.isGuest ? '<span class="member-flag">Guest</span>' : ''}
+                  </div>
+                  ${teamMemberContactMarkup(member)}
                 </li>
               `).join('')}
             </ul>
@@ -860,17 +2446,17 @@
               ${tag(entry.status || 'registered', statusClass(entry.status || 'registered'))}
               ${tag(feeBadge.text, feeBadge.css)}
             </div>
-            <ul class="detail-list">
-              <li>
-                <strong>Submitted</strong>
-                ${esc(formatDateTime(entry.createdAt))}
-              </li>
-              <li>
-                <strong>Fee Due</strong>
-                ${esc(formatCurrency(registrationAmountDue(entry, event)))}
-              </li>
-            </ul>
-            ${entry.notes ? `<div class="notes"><strong>Notes</strong><br>${esc(entry.notes)}</div>` : ''}
+            <div class="compact-detail-grid">
+              <div class="compact-detail">
+                <span class="mini-label">Submitted</span>
+                <strong>${esc(formatDateTime(entry.createdAt))}</strong>
+              </div>
+              <div class="compact-detail">
+                <span class="mini-label">Fee Due</span>
+                <strong class="money">${esc(formatCurrency(registrationAmountDue(entry, event)))}</strong>
+              </div>
+            </div>
+            <div class="notes"><strong>Notes</strong><br>${notesMarkup(entry.notes)}</div>
           </article>
         `;
       }).join('');
@@ -893,13 +2479,13 @@
             ${entry.phone ? `<span>${esc(entry.phone)}</span>` : ''}
             ${tag(entry.status || 'active', statusClass(entry.status || 'active'))}
           </div>
-          <ul class="detail-list">
-            <li>
-              <strong>Submitted</strong>
-              ${esc(formatDateTime(entry.createdAt))}
-            </li>
-          </ul>
-          ${entry.notes ? `<div class="notes"><strong>Notes</strong><br>${esc(entry.notes)}</div>` : ''}
+          <div class="compact-detail-grid">
+            <div class="compact-detail">
+              <span class="mini-label">Submitted</span>
+              <strong>${esc(formatDateTime(entry.createdAt))}</strong>
+            </div>
+          </div>
+          <div class="notes"><strong>Notes</strong><br>${notesMarkup(entry.notes)}</div>
         </article>
       `).join('');
     }
@@ -910,7 +2496,7 @@
       const body = document.getElementById('ledgerBody');
 
       if (!registrations.length) {
-        body.innerHTML = '<tr><td colspan="7">No registrations are currently on file.</td></tr>';
+        body.innerHTML = '<div class="empty-card">No registrations are currently on file.</div>';
         return;
       }
 
@@ -918,19 +2504,38 @@
         const team = entry.teamId ? teams.get(String(entry.teamId)) : null;
         const feeBadge = paymentBadgeForEntry(entry, event);
         return `
-          <tr>
-            <td>${esc(formatDateTime(entry.createdAt))}</td>
-            <td><strong>${esc(formatModeLabel(entry.mode || 'registered'))}</strong></td>
-            <td>
+          <div class="record-row ledger-row">
+            <div class="record-cell">
+              <span class="cell-label">Submitted</span>
+              <strong>${esc(formatDateTime(entry.createdAt))}</strong>
+            </div>
+            <div class="record-cell">
+              <span class="cell-label">Mode</span>
+              <strong>${esc(formatModeLabel(entry.mode || 'registered'))}</strong>
+            </div>
+            <div class="record-cell">
+              <span class="cell-label">Submitter</span>
               <strong>${esc(entry.submittedByName || 'Unknown')}</strong>
-              ${esc(entry.submittedByEmail || '')}
-              ${entry.submittedByPhone ? `<br>${esc(entry.submittedByPhone)}` : ''}
-            </td>
-            <td>${esc(team && team.name ? team.name : (entry.teamId ? 'Team record not active' : 'No team'))}</td>
-            <td>${tag(entry.status || 'registered', statusClass(entry.status || 'registered'))}</td>
-            <td>${tag(feeBadge.text, feeBadge.css)}</td>
-            <td>${entry.notes ? esc(entry.notes) : 'No notes'}</td>
-          </tr>
+              <span class="record-inline">${esc(entry.submittedByEmail || '')}</span>
+              ${entry.submittedByPhone ? `<span class="record-inline">${esc(entry.submittedByPhone)}</span>` : ''}
+            </div>
+            <div class="record-cell">
+              <span class="cell-label">Team</span>
+              <strong>${esc(team && team.name ? team.name : (entry.teamId ? 'Team record not active' : 'No team'))}</strong>
+            </div>
+            <div class="record-cell">
+              <span class="cell-label">Status</span>
+              <div class="record-inline tags">${tag(entry.status || 'registered', statusClass(entry.status || 'registered'))}</div>
+            </div>
+            <div class="record-cell">
+              <span class="cell-label">Payment</span>
+              <div class="record-inline tags">${tag(feeBadge.text, feeBadge.css)}</div>
+            </div>
+            <div class="record-cell notes-cell">
+              <span class="cell-label">Notes</span>
+              <div class="record-note">${notesMarkup(entry.notes)}</div>
+            </div>
+          </div>
         `;
       }).join('');
     }
@@ -955,7 +2560,7 @@
 
       const body = document.getElementById('paymentBody');
       if (!registrations.length) {
-        body.innerHTML = '<tr><td colspan="8">No fee collection rows are currently on file.</td></tr>';
+        body.innerHTML = '<div class="empty-card">No fee collection rows are currently on file.</div>';
         return;
       }
 
@@ -965,42 +2570,57 @@
         const players = registrationPlayerCount(entry, event);
         const amountDue = registrationAmountDue(entry, event);
         return `
-          <tr data-registration-id="${esc(String(entry._id || ''))}" data-event-id="${esc(String(event && event._id || ''))}">
-            <td>${esc(formatDateTime(entry.createdAt))}</td>
-            <td>
+          <div class="record-row payment-row" data-registration-id="${esc(String(entry._id || ''))}" data-event-id="${esc(String(event && event._id || ''))}">
+            <div class="record-cell">
+              <span class="cell-label">Submitted</span>
+              <strong>${esc(formatDateTime(entry.createdAt))}</strong>
+            </div>
+            <div class="record-cell">
+              <span class="cell-label">Submitter</span>
               <strong>${esc(entry.submittedByName || 'Unknown')}</strong>
-              ${esc(entry.submittedByEmail || '')}
-              ${entry.submittedByPhone ? `<br>${esc(entry.submittedByPhone)}` : ''}
-            </td>
-            <td>${esc(formatModeLabel(entry.mode || 'registered'))}</td>
-            <td>${esc(String(players))}</td>
-            <td class="money">${esc(formatCurrency(amountDue))}</td>
-            <td>${esc(team && team.name ? team.name : (entry.teamId ? 'Team record not active' : 'No team'))}</td>
-            <td>${tag(feeBadge.text, feeBadge.css)}</td>
-            <td>
+              ${entry.submittedByEmail ? `<span class="record-inline">${esc(entry.submittedByEmail)}</span>` : ''}
+              ${entry.submittedByPhone ? `<span class="record-inline">${esc(entry.submittedByPhone)}</span>` : ''}
+            </div>
+            <div class="record-cell">
+              <span class="cell-label">Mode And Team</span>
+              <strong>${esc(formatModeLabel(entry.mode || 'registered'))}</strong>
+              <span class="record-subvalue">${esc(team && team.name ? team.name : (entry.teamId ? 'Team record not active' : 'No team'))}</span>
+            </div>
+            <div class="record-cell record-num">
+              <span class="cell-label">Players</span>
+              <strong>${esc(String(players))}</strong>
+            </div>
+            <div class="record-cell record-num">
+              <span class="cell-label">Due</span>
+              <strong class="money">${esc(formatCurrency(amountDue))}</strong>
+            </div>
+            <div class="record-cell">
+              <span class="cell-label">Payment</span>
+              <div class="record-inline tags">${tag(feeBadge.text, feeBadge.css)}</div>
+            </div>
+            <div class="record-cell controls-cell">
+              <span class="cell-label">Update</span>
               <div class="payment-controls">
                 <select class="payment-select" data-payment-select>
                   ${PAYMENT_STATUS_OPTIONS.map((status) => `<option value="${esc(status)}"${String(entry && entry.paymentStatus || 'unpaid').toLowerCase() === status ? ' selected' : ''}>${esc(paymentStatusLabel(status))}</option>`).join('')}
                 </select>
                 <button type="button" class="payment-save" data-action="save-payment">Save</button>
               </div>
-            </td>
-          </tr>
+            </div>
+          </div>
         `;
       }).join('');
     }
 
     function clearPanels() {
       currentEventId = '';
+      currentEventData = null;
       document.getElementById('statsGrid').innerHTML = '';
       document.getElementById('eventSummary').textContent = 'Load the admin feed to view the Plastered "Open" registration list.';
       document.getElementById('statusRow').innerHTML = '';
-      document.getElementById('teamsList').innerHTML = '<div class="empty-card">No data loaded yet.</div>';
-      document.getElementById('soloList').innerHTML = '<div class="empty-card">No data loaded yet.</div>';
-      document.getElementById('waitlistList').innerHTML = '<div class="empty-card">No data loaded yet.</div>';
+      document.getElementById('recordsSummary').innerHTML = '';
       document.getElementById('paymentSummary').innerHTML = '';
-      document.getElementById('paymentBody').innerHTML = '<tr><td colspan="8">No payment data loaded yet.</td></tr>';
-      document.getElementById('ledgerBody').innerHTML = '<tr><td colspan="7">No registration data loaded yet.</td></tr>';
+      document.getElementById('recordsList').innerHTML = '<div class="empty-card">No registration data loaded yet.</div>';
     }
 
     async function loadRoster(messageOverride = '') {
@@ -1021,13 +2641,10 @@
           return;
         }
         currentEventId = String(event._id || '');
+        currentEventData = event;
         renderStats(event);
         renderSummary(event);
-        renderTeams(event);
-        renderSoloEntries(event);
-        renderWaitlist(event);
-        renderPayments(event);
-        renderLedger(event);
+        renderUnifiedRecords(event);
         setTopMsg(messageOverride || `Loaded ${event.name || 'Plastered "Open"'} registration list.`);
       } catch (err) {
         clearPanels();
@@ -1036,27 +2653,82 @@
     }
 
     window.addEventListener('DOMContentLoaded', async () => {
-      const params = new URLSearchParams(window.location.search);
-      const savedCode = normalizeCode(params.get('code') || localStorage.getItem(CODE_STORAGE_KEY) || '');
-      if (savedCode) document.getElementById('adminCode').value = savedCode;
+      setCode('');
       updateRawJsonLink();
-
-      document.getElementById('saveCodeBtn').addEventListener('click', () => {
-        const code = getCode();
-        if (code) {
-          localStorage.setItem(CODE_STORAGE_KEY, code);
-          document.getElementById('adminCode').value = code;
-          setTopMsg('Outings admin code saved in this browser.');
-        } else {
-          localStorage.removeItem(CODE_STORAGE_KEY);
-          setTopMsg('Saved outings admin code cleared.');
+      const adminCodeDialog = document.getElementById('adminCodeDialog');
+      const adminCodeDialogForm = document.getElementById('adminCodeDialogForm');
+      const adminCodePromptInput = document.getElementById('adminCodePromptInput');
+      const adminCodeDialogCancel = document.getElementById('adminCodeDialogCancel');
+      const auditDialog = document.getElementById('auditDialog');
+      const closeAuditBtn = document.getElementById('closeAuditBtn');
+      adminCodeDialogForm.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const code = normalizeCode(adminCodePromptInput && adminCodePromptInput.value || '');
+        if (!code) {
+          if (adminCodePromptInput) adminCodePromptInput.focus();
+          return;
         }
-        updateRawJsonLink();
+        closeAdminCodeDialog(code);
       });
+      adminCodeDialogCancel.addEventListener('click', () => closeAdminCodeDialog(''));
+      adminCodeDialog.addEventListener('cancel', (event) => {
+        event.preventDefault();
+        closeAdminCodeDialog('');
+      });
+      if (closeAuditBtn) {
+        closeAuditBtn.addEventListener('click', () => closeAuditDialog());
+      }
+      if (auditDialog) {
+        auditDialog.addEventListener('cancel', (event) => {
+          event.preventDefault();
+          closeAuditDialog();
+        });
+      }
 
-      document.getElementById('reloadBtn').addEventListener('click', loadRoster);
-      document.getElementById('adminCode').addEventListener('input', updateRawJsonLink);
-      document.getElementById('paymentBody').addEventListener('click', async (event) => {
+      document.getElementById('updateInfoBtn').addEventListener('click', async () => {
+        await promptForAdminCodeAndLoad({
+          message: 'Enter the outings admin code to update the Plastered "Open" registration list.',
+          submitLabel: 'Update Info',
+          prefill: getCode(),
+          clearOnCancel: false,
+        });
+      });
+      document.getElementById('viewAuditBtn').addEventListener('click', async () => {
+        if (!getCode()) {
+          const loaded = await promptForAdminCodeAndLoad({
+            message: 'Enter the outings admin code to open the Plastered "Open" audit.',
+            submitLabel: 'View Audit',
+            clearOnCancel: false,
+          });
+          if (!loaded) return;
+        } else if (!currentEventId) {
+          await loadRoster();
+          if (!currentEventId) return;
+        }
+        await openAuditDialog();
+      });
+      const showTeamContacts = document.getElementById('showTeamContacts');
+      showTeamContacts.checked = localStorage.getItem(TEAM_CONTACT_TOGGLE_KEY) === '1';
+      showTeamContacts.addEventListener('change', () => {
+        if (showTeamContacts.checked) localStorage.setItem(TEAM_CONTACT_TOGGLE_KEY, '1');
+        else localStorage.removeItem(TEAM_CONTACT_TOGGLE_KEY);
+        if (currentEventData) renderUnifiedRecords(currentEventData);
+      });
+      const recordsFilters = document.getElementById('recordsFilters');
+      recordsFilters.addEventListener('click', (event) => {
+        const btn = event.target.closest('[data-record-filter]');
+        if (!btn) return;
+        currentRecordFilter = String(btn.dataset.recordFilter || 'all').trim().toLowerCase() || 'all';
+        Array.from(recordsFilters.querySelectorAll('[data-record-filter]')).forEach((node) => {
+          node.classList.toggle('is-active', node === btn);
+        });
+        if (currentEventData) renderUnifiedRecords(currentEventData);
+      });
+      document.getElementById('recordsSearch').addEventListener('input', (event) => {
+        currentRecordSearch = String(event.target && event.target.value || '').trim().toLowerCase();
+        if (currentEventData) renderUnifiedRecords(currentEventData);
+      });
+      document.getElementById('recordsList').addEventListener('click', async (event) => {
         const btn = event.target.closest('[data-action="save-payment"]');
         if (!btn) return;
         const row = btn.closest('[data-registration-id]');
@@ -1092,7 +2764,11 @@
         }
       });
 
-      await loadRoster();
+      await promptForAdminCodeAndLoad({
+        message: 'Enter the outings admin code to load the Plastered "Open" registration list.',
+        submitLabel: 'Load Info',
+        clearOnCancel: true,
+      });
     });
   </script>
 </body>

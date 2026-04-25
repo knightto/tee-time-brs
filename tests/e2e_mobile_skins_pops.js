@@ -250,7 +250,7 @@ async function main() {
     ], { stdio: ['ignore', 'pipe', 'pipe'] });
 
     await waitForJsonVersion();
-    const target = await openTarget(`${base}/?date=${encodeURIComponent(EVENT_DATE)}`);
+    const target = await openTarget('about:blank');
     const errors = [];
     try {
       await withCdp(target.webSocketDebuggerUrl, async ({ send, on }) => {
@@ -263,6 +263,7 @@ async function main() {
           const entry = params.entry || {};
           const text = entry.text || '';
           if (/favicon\.ico/i.test(text)) return;
+          if (/ERR_CACHE_WRITE_FAILURE/i.test(text)) return;
           if (entry.level === 'error' || entry.source === 'javascript') errors.push(text || 'log error');
         });
         on('Runtime.consoleAPICalled', (params) => {

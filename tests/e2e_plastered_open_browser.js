@@ -188,6 +188,7 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
   const nextRegistrationId = buildDocFactory('8');
   const nextMemberId = buildDocFactory('9');
   const nextWaitlistId = buildDocFactory('a');
+  const nextAuditId = buildDocFactory('b');
 
   const state = {
     outings: createModelStore([event]),
@@ -195,6 +196,7 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
     members: createModelStore(members),
     registrations: createModelStore(registrations),
     waitlist: createModelStore(waitlist),
+    audits: createModelStore([]),
   };
 
   const BlueRidgeOuting = {
@@ -203,6 +205,12 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
     },
     find(filter = {}) {
       return new FakeQuery(many(state.outings, filter), { collection: state.outings });
+    },
+    findByIdAndUpdate(id, update = {}, options = {}) {
+      const doc = first(state.outings, { _id: id });
+      if (!doc) return Promise.resolve(null);
+      Object.assign(doc, clone(update), { updatedAt: new Date().toISOString() });
+      return Promise.resolve(wrapStoredDoc(state.outings, options && options.new === false ? null : doc));
     },
   };
 
@@ -321,10 +329,23 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
     },
   };
 
+  const BlueRidgeOutingAuditLog = {
+    create(doc) {
+      const saved = assignId(clone(doc), nextAuditId);
+      if (!saved.timestamp) saved.timestamp = new Date().toISOString();
+      state.audits.push(saved);
+      return Promise.resolve(wrapStoredDoc(state.audits, saved));
+    },
+    find(filter = {}) {
+      return new FakeQuery(many(state.audits, filter), { collection: state.audits });
+    },
+  };
+
   return {
     state,
     models: {
       BlueRidgeOuting,
+      BlueRidgeOutingAuditLog,
       BlueRidgeRegistration,
       BlueRidgeTeam,
       BlueRidgeTeamMember,
@@ -493,6 +514,20 @@ async function waitForExpression(send, expression, timeoutMs = 15000) {
     await sleep(150);
   }
   throw new Error(`Timed out waiting for expression: ${expression}`);
+}
+
+async function submitAdminCodeDialog(send, code, timeoutMs = 15000) {
+  await waitForExpression(send, `Boolean(document.getElementById('adminCodeDialog')?.open)`, timeoutMs);
+  const encoded = JSON.stringify(String(code || ''));
+  await evaluate(send, `(() => {
+    const input = document.getElementById('adminCodePromptInput');
+    const submit = document.getElementById('adminCodePromptSubmit');
+    if (!input || !submit) return false;
+    input.value = ${encoded};
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    submit.click();
+    return true;
+  })()`);
 }
 
 function isIgnorableBrowserError(detail = '') {
@@ -724,29 +759,87 @@ async function main() {
         assert.strictEqual(statusPayload.teamMembers.length, 2, 'Status lookup should include both team members');
 
         await withPage(baseUrl, `/plastered-open-registration-list.html?code=${encodeURIComponent(ADMIN_CODE)}`, async ({ send: adminSend }) => {
+          await submitAdminCodeDialog(adminSend, ADMIN_CODE);
           await waitForExpression(adminSend, `(() => {
             const topMsg = document.getElementById('topMsg');
-            return topMsg && /Loaded/.test(topMsg.textContent || '') && document.querySelectorAll('#teamsList .team-card').length === 1;
+            return topMsg && /Loaded/.test(topMsg.textContent || '') && document.querySelectorAll('#recordsList [data-record-kind="team"]').length === 1;
           })()`, 15000);
 
           const summaryText = normalizeText(await evaluate(adminSend, `document.getElementById('eventSummary')?.innerText || ''`));
           assert.ok(summaryText.includes('6/19/2026'), 'Admin list should display the correct June 19 outing date');
 
-          const teamText = normalizeText(await evaluate(adminSend, `document.querySelector('#teamsList .team-card')?.innerText || ''`));
+          const teamText = normalizeText(await evaluate(adminSend, `document.querySelector('#recordsList [data-record-kind="team"]')?.innerText || ''`));
           assert.ok(teamText.includes('Fairway Foundry'), 'Admin list should show the team card');
           assert.ok(teamText.includes('Captain Casey'), 'Admin list should show the captain');
           assert.ok(teamText.includes('Partner Pam'), 'Admin list should show the partner');
-          assert.ok(teamText.includes('Fees due $170'), 'Admin team card should show the amount still due before payment is collected');
+          const feeTextBefore = normalizeText(await evaluate(adminSend, `document.querySelector('#recordsList [data-record-kind="team"] .record-card-fact.payment strong')?.textContent || ''`));
+          assert.strictEqual(feeTextBefore, 'No', 'Admin team card should show that no team fees are paid before collection');
+          assert.ok(!teamText.includes('captain@example.com'), 'Admin list should hide team contact details by default');
+          assert.ok(!teamText.includes('555-0101'), 'Admin list should hide team phone details by default');
 
-          const ledgerText = normalizeText(await evaluate(adminSend, `document.getElementById('ledgerBody')?.innerText || ''`));
-          assert.ok(ledgerText.includes('Original full-team note'), 'Admin ledger should include the registration note');
+          await evaluate(adminSend, `(() => {
+            const details = document.querySelector('#recordsList [data-record-kind="team"] .record-details');
+            if (!details) return false;
+            details.open = true;
+            return true;
+          })()`);
+
+          await evaluate(adminSend, `(() => {
+            const toggle = document.getElementById('showTeamContacts');
+            if (!toggle) return false;
+            toggle.checked = true;
+            toggle.dispatchEvent(new Event('change', { bubbles: true }));
+            return true;
+          })()`);
+          await waitForExpression(adminSend, `(() => {
+            const card = document.querySelector('#recordsList [data-record-kind="team"]');
+            return card
+              && /captain@example\\.com/i.test(card.textContent || '')
+              && /555-0101/i.test(card.textContent || '');
+          })()`, 10000);
+          await evaluate(adminSend, `(() => {
+            const toggle = document.getElementById('showTeamContacts');
+            if (!toggle) return false;
+            toggle.checked = false;
+            toggle.dispatchEvent(new Event('change', { bubbles: true }));
+            return true;
+          })()`);
+          await waitForExpression(adminSend, `(() => {
+            const card = document.querySelector('#recordsList [data-record-kind="team"]');
+            return card
+              && !/captain@example\\.com/i.test(card.textContent || '')
+              && !/555-0101/i.test(card.textContent || '');
+          })()`, 10000);
+
+          await evaluate(adminSend, `(() => {
+            const button = document.getElementById('updateInfoBtn');
+            if (!button) return false;
+            button.click();
+            return true;
+          })()`);
+          await submitAdminCodeDialog(adminSend, ADMIN_CODE);
+          await waitForExpression(adminSend, `(() => {
+            const topMsg = document.getElementById('topMsg');
+            return topMsg && /Loaded/.test(topMsg.textContent || '') && document.querySelectorAll('#recordsList [data-record-kind="team"]').length === 1;
+          })()`, 15000);
+
+          await evaluate(adminSend, `(() => {
+            const details = document.querySelector('#recordsList [data-record-kind="team"] .record-details');
+            if (!details) return false;
+            details.open = true;
+            return true;
+          })()`);
+          const recordText = normalizeText(await evaluate(adminSend, `document.querySelector('#recordsList [data-record-kind="team"]')?.innerText || ''`));
+          assert.ok(recordText.includes('Original full-team note'), 'Unified team card should include the registration note');
 
           const paymentSummaryBefore = normalizeText(await evaluate(adminSend, `document.getElementById('paymentSummary')?.innerText || ''`));
           assert.ok(paymentSummaryBefore.includes('Paid entries: 0 / 1'), 'Payment snapshot should start with no paid entries');
           assert.ok(paymentSummaryBefore.includes('Outstanding: $170'), 'Payment snapshot should show the outstanding amount');
 
           await evaluate(adminSend, `(() => {
-            const row = document.querySelector('#paymentBody [data-registration-id]');
+            const details = document.querySelector('#recordsList [data-record-kind="team"] .record-details');
+            if (details) details.open = true;
+            const row = document.querySelector('#recordsList [data-registration-id]');
             if (!row) return false;
             const select = row.querySelector('[data-payment-select]');
             const button = row.querySelector('[data-action="save-payment"]');
@@ -759,10 +852,10 @@ async function main() {
           await waitForExpression(adminSend, `(() => {
             const topMsg = document.getElementById('topMsg');
             const summary = document.getElementById('paymentSummary');
-            const teamCard = document.querySelector('#teamsList .team-card');
+            const feeValue = document.querySelector('#recordsList [data-record-kind="team"] .record-card-fact.payment strong');
             return topMsg && /Saved Paid/i.test(topMsg.textContent || '')
               && summary && /Collected: \\$170/i.test(summary.textContent || '')
-              && teamCard && /Fees paid \\$170/i.test(teamCard.textContent || '');
+              && feeValue && /Yes for both/i.test(feeValue.textContent || '');
           })()`, 20000);
         });
 
@@ -835,16 +928,20 @@ async function main() {
         assert.strictEqual(state.teams[0].status, 'active', 'Team should return to active when full again');
 
         await withPage(baseUrl, `/plastered-open-registration-list.html?code=${encodeURIComponent(ADMIN_CODE)}`, async ({ send: adminSend }) => {
+          await submitAdminCodeDialog(adminSend, ADMIN_CODE);
           await waitForExpression(adminSend, `(() => {
             const topMsg = document.getElementById('topMsg');
-            return topMsg && /Loaded/.test(topMsg.textContent || '') && document.querySelectorAll('#teamsList .team-card').length === 1;
+            return topMsg && /Loaded/.test(topMsg.textContent || '') && document.querySelectorAll('#recordsList [data-record-kind="team"]').length === 1;
           })()`, 15000);
 
-          const teamText = normalizeText(await evaluate(adminSend, `document.querySelector('#teamsList .team-card')?.innerText || ''`));
+          await evaluate(adminSend, `(() => {
+            const details = document.querySelector('#recordsList [data-record-kind="team"] .record-details');
+            if (details) details.open = true;
+            return true;
+          })()`);
+          const teamText = normalizeText(await evaluate(adminSend, `document.querySelector('#recordsList [data-record-kind="team"]')?.innerText || ''`));
           assert.ok(teamText.includes('Replacement Ray'), 'Admin list should reflect the replacement golfer');
-
-          const ledgerText = normalizeText(await evaluate(adminSend, `document.getElementById('ledgerBody')?.innerText || ''`));
-          assert.ok(ledgerText.includes('Updated captain note'), 'Admin ledger should reflect the updated note');
+          assert.ok(teamText.includes('Updated captain note'), 'Unified team card should reflect the updated note');
         });
 
         await evaluate(send, `window.confirm = () => true; true`);
@@ -921,21 +1018,46 @@ async function main() {
       });
 
       await withPage(baseUrl, `/plastered-open-registration-list.html?code=${encodeURIComponent(ADMIN_CODE)}`, async ({ send }) => {
+        await submitAdminCodeDialog(send, ADMIN_CODE);
         await waitForExpression(send, `(() => {
           const topMsg = document.getElementById('topMsg');
           return topMsg && /Loaded/.test(topMsg.textContent || '');
         })()`, 15000);
 
-        const teamsText = normalizeText(await evaluate(send, `document.getElementById('teamsList')?.innerText || ''`));
-        assert.ok(teamsText.includes('No active or incomplete teams'), 'Cancelled team should disappear from the active team cards');
+        await evaluate(send, `(() => {
+          document.querySelectorAll('#recordsList .record-details').forEach((details) => { details.open = true; });
+          return true;
+        })()`);
 
-        const ledgerText = normalizeText(await evaluate(send, `document.getElementById('ledgerBody')?.innerText || ''`));
-        assert.ok(/cancelled/i.test(ledgerText), 'Ledger should show the cancelled registration');
-        assert.ok(ledgerText.includes('Updated captain note'), 'Ledger should keep the final note history');
+        const recordsText = normalizeText(await evaluate(send, `document.getElementById('recordsList')?.innerText || ''`));
+        assert.ok(/cancelled/i.test(recordsText), 'Unified records should show cancelled history');
+        assert.ok(recordsText.includes('Updated captain note'), 'Unified records should keep the final note history');
+        assert.ok(recordsText.includes('Waitlist Wendy'), 'Unified records should keep the waitlist entry in the audit view');
 
-        const waitlistText = normalizeText(await evaluate(send, `document.getElementById('waitlistList')?.innerText || ''`));
-        assert.ok(waitlistText.includes('Waitlist Wendy'), 'Waitlist card should remain visible in the admin audit view');
-        assert.ok(waitlistText.includes('cancelled'), 'Waitlist card should show the cancelled status');
+        await evaluate(send, `(() => {
+          const button = document.getElementById('viewAuditBtn');
+          if (!button) return false;
+          button.click();
+          return true;
+        })()`);
+        await waitForExpression(send, `Boolean(document.getElementById('auditDialog')?.open)`, 10000);
+        await waitForExpression(send, `document.querySelectorAll('#auditList .audit-item').length >= 8`, 20000);
+
+        const auditText = normalizeText(await evaluate(send, `document.getElementById('auditDialog')?.innerText || ''`));
+        assert.ok(auditText.includes('Payment updated'), 'Audit dialog should include payment changes');
+        assert.ok(auditText.includes('Removed 1 golfer'), 'Audit dialog should include player removals');
+        assert.ok(auditText.includes('Added 1 golfer'), 'Audit dialog should include player additions');
+        assert.ok(auditText.includes('Registration cancelled'), 'Audit dialog should include registration cancellations');
+        assert.ok(auditText.includes('joined the waitlist'), 'Audit dialog should include waitlist joins');
+        assert.ok(auditText.includes('left the waitlist'), 'Audit dialog should include waitlist cancellations');
+
+        await evaluate(send, `(() => {
+          const button = document.getElementById('closeAuditBtn');
+          if (!button) return false;
+          button.click();
+          return true;
+        })()`);
+        await waitForExpression(send, `!document.getElementById('auditDialog')?.open`, 10000);
       });
     } finally {
       if (browser.exitCode === null && !browser.killed) browser.kill('SIGTERM');

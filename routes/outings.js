@@ -12,6 +12,7 @@ function getSecondaryModels() {
   if (!conn) return {};
   return {
     BlueRidgeOuting: conn.model('BlueRidgeOuting', require('../models/BlueRidgeOuting').schema),
+    BlueRidgeOutingAuditLog: conn.model('BlueRidgeOutingAuditLog', require('../models/BlueRidgeOutingAuditLog').schema),
     BlueRidgeRegistration: conn.model('BlueRidgeRegistration', require('../models/BlueRidgeRegistration').schema),
     BlueRidgeTeam: conn.model('BlueRidgeTeam', require('../models/BlueRidgeTeam').schema),
     BlueRidgeTeamMember: conn.model('BlueRidgeTeamMember', require('../models/BlueRidgeTeamMember').schema),
@@ -61,6 +62,22 @@ function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
 }
 
+function formatModeLabel(mode) {
+  return String(mode || '')
+    .split('_')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function routePath(req) {
+  return String((req && (req.originalUrl || req.path || '')) || '').split('?')[0];
+}
+
+function auditActor(req) {
+  return isAdmin(req) ? 'admin' : 'public';
+}
+
 function parseBool(val, fallback = false) {
   if (val === undefined || val === null || val === '') return fallback;
   if (typeof val === 'boolean') return val;
@@ -95,6 +112,77 @@ function formatDateRange(startDate, endDate) {
   if (!startKey && !endKey) return '';
   if (!endKey || startKey === endKey) return formatDateOnly(startDate);
   return `${formatDateOnly(startDate)} - ${formatDateOnly(endDate)}`;
+}
+
+function registrationPlayerCountForAudit(event, entry, explicitCount) {
+  const direct = Number(explicitCount);
+  if (Number.isFinite(direct) && direct > 0) return direct;
+  const mode = String(entry && entry.mode || '').toLowerCase();
+  const exact = Number(event && event.teamSizeExact || 0);
+  const fallbackTeamSize = Number(event && event.teamSizeMax || event && event.teamSizeMin || 2);
+  if (mode === 'full_team' || mode === 'member_guest') return exact > 0 ? exact : Math.max(2, fallbackTeamSize);
+  return 1;
+}
+
+function registrationAmountDueForAudit(event, entry, explicitCount) {
+  const fee = Number(event && event.entryFee);
+  if (!Number.isFinite(fee)) return 0;
+  return Number((registrationPlayerCountForAudit(event, entry, explicitCount) * fee).toFixed(2));
+}
+
+function summarizePlayers(players = []) {
+  return (Array.isArray(players) ? players : []).map((player) => ({
+    name: String(player && player.name || '').trim(),
+    email: normalizeEmail(player && (player.email || player.emailKey) || ''),
+    phone: String(player && player.phone || '').trim(),
+    isGuest: Boolean(player && player.isGuest),
+  }));
+}
+
+function normalizeAuditDetailValue(value) {
+  if (value instanceof Date) return value.toISOString();
+  if (Array.isArray(value)) return value.map((item) => normalizeAuditDetailValue(item));
+  if (value && typeof value === 'object') {
+    return Object.keys(value).sort().reduce((out, key) => {
+      out[key] = normalizeAuditDetailValue(value[key]);
+      return out;
+    }, {});
+  }
+  return value;
+}
+
+function buildAuditChangeSet(previousDoc, nextDoc, keys = []) {
+  const prior = previousDoc && typeof previousDoc.toObject === 'function' ? previousDoc.toObject() : (previousDoc || {});
+  const next = nextDoc && typeof nextDoc.toObject === 'function' ? nextDoc.toObject() : (nextDoc || {});
+  return (Array.isArray(keys) ? keys : []).reduce((changes, key) => {
+    const from = normalizeAuditDetailValue(prior[key]);
+    const to = normalizeAuditDetailValue(next[key]);
+    if (JSON.stringify(from) !== JSON.stringify(to)) {
+      changes[key] = { from, to };
+    }
+    return changes;
+  }, {});
+}
+
+async function writeOutingAudit(models, payload = {}) {
+  const BlueRidgeOutingAuditLog = models && models.BlueRidgeOutingAuditLog;
+  if (!BlueRidgeOutingAuditLog || !payload.outingId || !payload.action) return null;
+  try {
+    return await BlueRidgeOutingAuditLog.create({
+      outingId: payload.outingId,
+      category: String(payload.category || 'event').trim().toLowerCase() || 'event',
+      action: String(payload.action || '').trim(),
+      actor: payload.actor === 'admin' ? 'admin' : 'public',
+      method: String(payload.method || '').trim(),
+      route: String(payload.route || '').trim(),
+      summary: String(payload.summary || payload.action || '').trim(),
+      details: payload.details && typeof payload.details === 'object' ? payload.details : {},
+      timestamp: payload.timestamp instanceof Date ? payload.timestamp : new Date(),
+    });
+  } catch (error) {
+    console.error('Outings audit write failed', error);
+    return null;
+  }
 }
 
 function buildRuleSummary(event) {
@@ -370,6 +458,29 @@ async function buildEventDetail(event, models, includeRegistrations = false) {
   return enriched;
 }
 
+async function maybeWriteTeamStatusAudit(models, req, event, team, previousStatus, nextStatus, reason, extraDetails = {}) {
+  const before = String(previousStatus || '').trim().toLowerCase();
+  const after = String(nextStatus || '').trim().toLowerCase();
+  if (!team || !before || !after || before === after) return;
+  await writeOutingAudit(models, {
+    outingId: event && event._id,
+    category: 'team',
+    action: 'team_status_changed',
+    actor: auditActor(req),
+    method: req && req.method,
+    route: routePath(req),
+    summary: `Team ${team.name || 'team'} status changed from ${before} to ${after}`,
+    details: {
+      teamId: String(team && team._id || ''),
+      teamName: team && team.name || '',
+      from: before,
+      to: after,
+      reason: reason || '',
+      ...extraDetails,
+    },
+  });
+}
+
 router.get('/', async (_req, res) => {
   try {
     if (!(await requireSecondaryConnection(res))) return;
@@ -511,6 +622,7 @@ router.post('/:eventId([0-9a-fA-F]{24})/register', async (req, res) => {
 
     const submitter = players[0];
     let createdTeam = targetTeam;
+    const previousTargetTeamStatus = targetTeam ? String(targetTeam.status || '') : '';
 
     if (createsTeam) {
       const exact = Number(event.teamSizeExact || 0);
@@ -568,15 +680,55 @@ router.post('/:eventId([0-9a-fA-F]{24})/register', async (req, res) => {
 
     await BlueRidgeTeamMember.insertMany(memberDocs, { ordered: true });
 
+    let finalTeamStatus = '';
     if (createdTeam) {
       const teamCount = await BlueRidgeTeamMember.countDocuments({ teamId: createdTeam._id, status: 'active' });
       const exact = Number(event.teamSizeExact || 0);
       const fullThreshold = exact > 0 ? exact : Number(event.teamSizeMax || createdTeam.targetSize || 4);
       const targetStatus = teamCount >= fullThreshold ? 'active' : 'incomplete';
+      finalTeamStatus = targetStatus;
       if (createdTeam.status !== targetStatus) {
         await BlueRidgeTeam.updateOne({ _id: createdTeam._id }, { $set: { status: targetStatus } });
       }
+      await maybeWriteTeamStatusAudit(
+        models,
+        req,
+        event,
+        createdTeam,
+        createsTeam ? String(createdTeam.status || '') : previousTargetTeamStatus,
+        targetStatus,
+        createsTeam ? 'registration_created' : 'join_team_registration',
+        {
+          registrationId: String(registration && registration._id || ''),
+          submittedByName: submitter && submitter.name || '',
+        }
+      );
     }
+
+    await writeOutingAudit(models, {
+      outingId: event._id,
+      category: createdTeam ? 'team' : 'player',
+      action: 'registration_created',
+      actor: auditActor(req),
+      method: req.method,
+      route: routePath(req),
+      summary: createdTeam
+        ? `${submitter.name} registered for ${createdTeam.name || 'team'}`
+        : `${submitter.name} registered for the outing`,
+      details: {
+        registrationId: String(registration && registration._id || ''),
+        mode,
+        modeLabel: formatModeLabel(mode),
+        submittedByName: submitter && submitter.name || '',
+        teamId: createdTeam ? String(createdTeam._id || '') : '',
+        teamName: createdTeam && createdTeam.name || '',
+        teamStatus: finalTeamStatus || undefined,
+        players: summarizePlayers(players),
+        playerCount: players.length,
+        amountDue: registrationAmountDueForAudit(event, registration, players.length),
+        notes,
+      },
+    });
 
     const detail = await buildEventDetail(event, models, false);
     res.status(201).json({ ok: true, registration, event: detail });
@@ -610,8 +762,18 @@ router.put('/:eventId([0-9a-fA-F]{24})/registrations/:registrationId([0-9a-fA-F]
 
     const team = await BlueRidgeTeam.findById(teamId);
     if (!team || team.status === 'cancelled') return badRequest(res, 'Team is not available for updates');
+    const previousTeamStatus = String(team.status || '');
+    const previousNotes = String(registration.notes || '');
 
     const removeMemberIds = Array.isArray(req.body && req.body.removeMemberIds) ? req.body.removeMemberIds : [];
+    const removedMembers = removeMemberIds.length
+      ? await BlueRidgeTeamMember.find({
+        _id: { $in: removeMemberIds },
+        teamId: team._id,
+        registrationId: registration._id,
+        status: 'active',
+      }).lean()
+      : [];
     if (removeMemberIds.length) {
       await BlueRidgeTeamMember.updateMany(
         { _id: { $in: removeMemberIds }, teamId: team._id, registrationId: registration._id, status: 'active' },
@@ -665,6 +827,78 @@ router.put('/:eventId([0-9a-fA-F]{24})/registrations/:registrationId([0-9a-fA-F]
       await BlueRidgeTeam.updateOne({ _id: team._id }, { $set: { status: teamStatus } });
     }
 
+    if (removedMembers.length) {
+      await writeOutingAudit(models, {
+        outingId: event._id,
+        category: 'player',
+        action: 'players_removed',
+        actor: auditActor(req),
+        method: req.method,
+        route: routePath(req),
+        summary: `Removed ${removedMembers.length} golfer${removedMembers.length === 1 ? '' : 's'} from ${team.name || 'team'}`,
+        details: {
+          registrationId: String(registration && registration._id || ''),
+          teamId: String(team && team._id || ''),
+          teamName: team && team.name || '',
+          removedPlayers: summarizePlayers(removedMembers),
+          resultingActiveCount: teamCount,
+        },
+      });
+    }
+
+    if (addPlayers.length) {
+      await writeOutingAudit(models, {
+        outingId: event._id,
+        category: 'player',
+        action: 'players_added',
+        actor: auditActor(req),
+        method: req.method,
+        route: routePath(req),
+        summary: `Added ${addPlayers.length} golfer${addPlayers.length === 1 ? '' : 's'} to ${team.name || 'team'}`,
+        details: {
+          registrationId: String(registration && registration._id || ''),
+          teamId: String(team && team._id || ''),
+          teamName: team && team.name || '',
+          addedPlayers: summarizePlayers(addPlayers),
+          resultingActiveCount: teamCount,
+        },
+      });
+    }
+
+    if (String(registration.notes || '') !== previousNotes) {
+      await writeOutingAudit(models, {
+        outingId: event._id,
+        category: 'team',
+        action: 'registration_notes_updated',
+        actor: auditActor(req),
+        method: req.method,
+        route: routePath(req),
+        summary: `Registration notes updated for ${registration.submittedByName || 'registration'}`,
+        details: {
+          registrationId: String(registration && registration._id || ''),
+          teamId: String(team && team._id || ''),
+          teamName: team && team.name || '',
+          from: previousNotes,
+          to: String(registration.notes || ''),
+        },
+      });
+    }
+
+    await maybeWriteTeamStatusAudit(
+      models,
+      req,
+      event,
+      team,
+      previousTeamStatus,
+      teamStatus,
+      'roster_update',
+      {
+        registrationId: String(registration && registration._id || ''),
+        teamId: String(team && team._id || ''),
+        activePlayerCount: teamCount,
+      }
+    );
+
     const detail = await buildEventDetail(event, models, false);
     res.json({ ok: true, event: detail });
   } catch (err) {
@@ -686,6 +920,9 @@ router.delete('/:eventId([0-9a-fA-F]{24})/registrations/:registrationId([0-9a-fA
 
     const registration = await BlueRidgeRegistration.findOne({ _id: req.params.registrationId, eventId: event._id });
     if (!registration) return res.status(404).json({ error: 'Registration not found' });
+    const existingMembers = await BlueRidgeTeamMember.find({ eventId: event._id, registrationId: registration._id, status: 'active' }).lean();
+    const team = registration.teamId ? await BlueRidgeTeam.findById(registration.teamId) : null;
+    const previousTeamStatus = team ? String(team.status || '') : '';
 
     const requesterEmail = normalizeEmail(req.query.requesterEmail || (req.body && req.body.requesterEmail) || '');
     if (!requesterEmail || requesterEmail !== registration.submittedByEmail) {
@@ -697,18 +934,57 @@ router.delete('/:eventId([0-9a-fA-F]{24})/registrations/:registrationId([0-9a-fA
     registration.status = 'cancelled';
     registration.cancelledAt = new Date();
     await registration.save();
+    if (existingMembers.length) {
+      await BlueRidgeTeamMember.updateMany(
+        { eventId: event._id, registrationId: registration._id, status: 'active' },
+        { $set: { status: 'cancelled' } }
+      );
+    }
 
-    await BlueRidgeTeamMember.updateMany(
-      { eventId: event._id, registrationId: registration._id, status: 'active' },
-      { $set: { status: 'cancelled' } }
-    );
-
+    let nextTeamStatus = previousTeamStatus;
     if (registration.teamId) {
       const teamActiveCount = await BlueRidgeTeamMember.countDocuments({ teamId: registration.teamId, status: 'active' });
       if (teamActiveCount === 0) {
         await BlueRidgeTeam.updateOne({ _id: registration.teamId }, { $set: { status: 'cancelled' } });
+        nextTeamStatus = 'cancelled';
       }
     }
+
+    await writeOutingAudit(models, {
+      outingId: event._id,
+      category: registration.teamId ? 'team' : 'player',
+      action: 'registration_cancelled',
+      actor: auditActor(req),
+      method: req.method,
+      route: routePath(req),
+      summary: `Registration cancelled for ${registration.submittedByName || 'registration'}`,
+      details: {
+        registrationId: String(registration && registration._id || ''),
+        mode: registration && registration.mode || '',
+        modeLabel: formatModeLabel(registration && registration.mode || ''),
+        submittedByName: registration && registration.submittedByName || '',
+        teamId: registration.teamId ? String(registration.teamId) : '',
+        teamName: team && team.name || '',
+        paymentStatus: registration && registration.paymentStatus || '',
+        amountDue: registrationAmountDueForAudit(event, registration),
+        players: summarizePlayers(existingMembers),
+        notes: String(registration && registration.notes || ''),
+      },
+    });
+
+    await maybeWriteTeamStatusAudit(
+      models,
+      req,
+      event,
+      team,
+      previousTeamStatus,
+      nextTeamStatus,
+      'registration_cancelled',
+      {
+        registrationId: String(registration && registration._id || ''),
+        teamId: registration.teamId ? String(registration.teamId) : '',
+      }
+    );
 
     const detail = await buildEventDetail(event, models, false);
     res.json({ ok: true, event: detail });
@@ -749,6 +1025,25 @@ router.post('/:eventId([0-9a-fA-F]{24})/waitlist', async (req, res) => {
       status: 'active',
     });
 
+    await writeOutingAudit(models, {
+      outingId: event._id,
+      category: 'waitlist',
+      action: 'waitlist_joined',
+      actor: auditActor(req),
+      method: req.method,
+      route: routePath(req),
+      summary: `${name} joined the waitlist`,
+      details: {
+        waitlistId: String(waitlist && waitlist._id || ''),
+        name,
+        email,
+        phone,
+        mode,
+        modeLabel: formatModeLabel(mode),
+        notes,
+      },
+    });
+
     res.status(201).json(waitlist);
   } catch (err) {
     if (err && err.code === 11000) {
@@ -780,6 +1075,25 @@ router.delete('/:eventId([0-9a-fA-F]{24})/waitlist/:waitlistId([0-9a-fA-F]{24})'
     waitlist.status = 'cancelled';
     await waitlist.save();
 
+    await writeOutingAudit(models, {
+      outingId: event._id,
+      category: 'waitlist',
+      action: 'waitlist_cancelled',
+      actor: auditActor(req),
+      method: req.method,
+      route: routePath(req),
+      summary: `${waitlist.name || 'Waitlist entry'} left the waitlist`,
+      details: {
+        waitlistId: String(waitlist && waitlist._id || ''),
+        name: waitlist && waitlist.name || '',
+        email: waitlist && waitlist.email || '',
+        phone: waitlist && waitlist.phone || '',
+        mode: waitlist && waitlist.mode || '',
+        modeLabel: formatModeLabel(waitlist && waitlist.mode || ''),
+        notes: String(waitlist && waitlist.notes || ''),
+      },
+    });
+
     const detail = await buildEventDetail(event, models, false);
     res.json({ ok: true, event: detail });
   } catch (err) {
@@ -805,11 +1119,36 @@ router.put('/admin/events/:eventId/registrations/:registrationId/payment', async
 
     const registration = await BlueRidgeRegistration.findOne({ _id: req.params.registrationId, eventId: event._id });
     if (!registration) return res.status(404).json({ error: 'Registration not found' });
+    const previousPaymentStatus = String(registration.paymentStatus || 'unpaid').toLowerCase();
+    const team = registration.teamId ? await models.BlueRidgeTeam.findById(registration.teamId) : null;
 
     await BlueRidgeRegistration.updateOne(
       { _id: registration._id, eventId: event._id },
       { $set: { paymentStatus } }
     );
+
+    if (previousPaymentStatus !== paymentStatus) {
+      await writeOutingAudit(models, {
+        outingId: event._id,
+        category: 'money',
+        action: 'payment_status_updated',
+        actor: auditActor(req),
+        method: req.method,
+        route: routePath(req),
+        summary: `Payment updated for ${registration.submittedByName || 'registration'}`,
+        details: {
+          registrationId: String(registration && registration._id || ''),
+          submittedByName: registration && registration.submittedByName || '',
+          teamId: registration.teamId ? String(registration.teamId) : '',
+          teamName: team && team.name || '',
+          mode: registration && registration.mode || '',
+          modeLabel: formatModeLabel(registration && registration.mode || ''),
+          from: previousPaymentStatus,
+          to: paymentStatus,
+          amountDue: registrationAmountDueForAudit(event, registration),
+        },
+      });
+    }
 
     const detail = await buildEventDetail(event, models, true);
     const refreshed = Array.isArray(detail.registrations)
@@ -817,6 +1156,52 @@ router.put('/admin/events/:eventId/registrations/:registrationId/payment', async
       : null;
 
     res.json({ ok: true, registration: refreshed || { _id: registration._id, paymentStatus }, event: detail });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/admin/events/:eventId/audit-log', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    if (!(await requireSecondaryConnection(res))) return;
+
+    const models = getSecondaryModels();
+    const event = await models.BlueRidgeOuting.findById(req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+
+    const rawLimit = Number(req.query.limit);
+    const limit = Number.isFinite(rawLimit) ? Math.max(1, Math.min(1000, Math.floor(rawLimit))) : 300;
+    const rows = await models.BlueRidgeOutingAuditLog.find({ outingId: event._id }).sort({ timestamp: -1 }).lean();
+    const trimmedRows = Array.isArray(rows) ? rows.slice(0, limit) : [];
+    const hasCreateEntry = trimmedRows.some((row) => String(row && row.action || '').trim() === 'event_created');
+    const createdRow = !hasCreateEntry && event.createdAt ? {
+      _id: `created-${String(event._id)}`,
+      outingId: event._id,
+      category: 'event',
+      action: 'event_created',
+      actor: 'admin',
+      method: 'CREATE',
+      route: `/api/outings/admin/events/${event._id}`,
+      summary: `Outing created: ${event.name || 'Outing'}`,
+      details: {
+        name: event.name || '',
+        formatType: event.formatType || '',
+        date: formatDateRange(event.startDate, event.endDate),
+      },
+      timestamp: event.createdAt,
+    } : null;
+
+    const auditRows = createdRow && trimmedRows.length < limit
+      ? [...trimmedRows, createdRow]
+      : trimmedRows;
+
+    res.json({
+      eventId: String(event._id),
+      eventName: event.name || '',
+      count: auditRows.length,
+      rows: auditRows,
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -850,6 +1235,21 @@ router.post('/admin/events', async (req, res) => {
 
     const models = getSecondaryModels();
     const created = await models.BlueRidgeOuting.create(payload);
+    await writeOutingAudit(models, {
+      outingId: created && created._id,
+      category: 'event',
+      action: 'event_created',
+      actor: auditActor(req),
+      method: req.method,
+      route: routePath(req),
+      summary: `Outing created: ${created.name || 'Outing'}`,
+      details: {
+        name: created && created.name || '',
+        formatType: created && created.formatType || '',
+        status: created && created.status || '',
+        date: formatDateRange(created && created.startDate, created && created.endDate),
+      },
+    });
     const detail = await buildEventDetail(created, models, true);
     res.status(201).json(detail);
   } catch (err) {
@@ -870,8 +1270,31 @@ router.put('/admin/events/:eventId', async (req, res) => {
     if (configErr) return badRequest(res, configErr);
 
     const models = getSecondaryModels();
+    const existing = await models.BlueRidgeOuting.findById(req.params.eventId);
+    if (!existing) return res.status(404).json({ error: 'Event not found' });
     const updated = await models.BlueRidgeOuting.findByIdAndUpdate(req.params.eventId, payload, { new: true });
     if (!updated) return res.status(404).json({ error: 'Event not found' });
+
+    const changedFields = buildAuditChangeSet(existing, updated, Object.keys(payload));
+    const changedKeys = Object.keys(changedFields);
+    if (changedKeys.length) {
+      await writeOutingAudit(models, {
+        outingId: updated && updated._id,
+        category: 'event',
+        action: 'event_updated',
+        actor: auditActor(req),
+        method: req.method,
+        route: routePath(req),
+        summary: `Outing updated: ${updated.name || 'Outing'}`,
+        details: {
+          changedCount: changedKeys.length,
+          changedKeys,
+          changedFields,
+          status: updated && updated.status || '',
+          date: formatDateRange(updated && updated.startDate, updated && updated.endDate),
+        },
+      });
+    }
 
     const detail = await buildEventDetail(updated, models, true);
     res.json(detail);
