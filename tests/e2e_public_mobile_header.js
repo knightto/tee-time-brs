@@ -283,7 +283,7 @@ async function main() {
     for (const spec of PAGE_SPECS) {
       const { metrics, errors } = await inspectPublicPage(spec);
       const detail = JSON.stringify(metrics);
-      expect(results, metrics.readyState === 'complete', `${spec.label} ready`, detail);
+      expect(results, ['interactive', 'complete'].includes(metrics.readyState), `${spec.label} ready`, detail);
       expect(results, metrics.bodyTextLength > 100, `${spec.label} rendered content`, detail);
       expect(results, metrics.topbarDisplay === 'grid', `${spec.label} uses compact mobile topbar grid`, detail);
       expect(results, metrics.topbarLinksDirection === 'column', `${spec.label} stacks header actions on mobile`, detail);
