@@ -1519,10 +1519,6 @@
           <button id="viewAuditBtn" type="button" class="secondary">View Audit</button>
         </div>
         <div class="toolbar-group">
-          <label class="toolbar-toggle" for="showTeamContacts">
-            <input id="showTeamContacts" type="checkbox">
-            <span>Show Team Contact Details</span>
-          </label>
           <a id="rawJsonLink" class="action-link secondary" href="/api/outings/admin/events" target="_blank" rel="noopener noreferrer">Open Raw Admin JSON</a>
         </div>
       </div>
@@ -1547,7 +1543,6 @@
           <div class="filter-row" id="recordsFilters">
             <button type="button" class="filter-chip is-active" data-record-filter="all">All</button>
             <button type="button" class="filter-chip" data-record-filter="teams">Teams</button>
-            <button type="button" class="filter-chip" data-record-filter="solo">Solo / Open</button>
             <button type="button" class="filter-chip" data-record-filter="waitlist">Waitlist</button>
             <button type="button" class="filter-chip" data-record-filter="attention">Needs Attention</button>
           </div>
@@ -1624,7 +1619,6 @@
   <script>
     const TARGET_DATE_ISO = '2026-06-19';
     const TARGET_NAME_RE = /plastered/i;
-    const TEAM_CONTACT_TOGGLE_KEY = 'plasteredOpenShowTeamContacts';
     const PAYMENT_STATUS_OPTIONS = ['unpaid', 'pending', 'paid', 'refunded'];
     const FEE_PAID_TO_OPTIONS = [
       { value: '', label: 'Not Set' },
@@ -1867,11 +1861,6 @@
       return match ? match.label : 'Not Set';
     }
 
-    function showTeamContactsEnabled() {
-      const toggle = document.getElementById('showTeamContacts');
-      return Boolean(toggle && toggle.checked);
-    }
-
     function teamMemberAddress(member) {
       const direct = String(member && (member.address || member.streetAddress || member.fullAddress) || '').trim();
       if (direct) return direct;
@@ -1886,7 +1875,6 @@
     }
 
     function teamMemberContactMarkup(member) {
-      if (!showTeamContactsEnabled()) return '';
       const lines = [];
       const email = String(member && member.email || '').trim();
       const phone = String(member && member.phone || '').trim();
@@ -2454,7 +2442,7 @@
                   </section>
                   <section class="record-section">
                     <h4>Registrations</h4>
-                    ${renderRegistrationItems(event, record.registrations, { showRegistrantContact: showTeamContactsEnabled() })}
+                    ${renderRegistrationItems(event, record.registrations, { showRegistrantContact: true })}
                   </section>
                 </div>
               </details>
@@ -3148,13 +3136,6 @@
           if (!currentEventId) return;
         }
         await openAuditDialog();
-      });
-      const showTeamContacts = document.getElementById('showTeamContacts');
-      showTeamContacts.checked = localStorage.getItem(TEAM_CONTACT_TOGGLE_KEY) === '1';
-      showTeamContacts.addEventListener('change', () => {
-        if (showTeamContacts.checked) localStorage.setItem(TEAM_CONTACT_TOGGLE_KEY, '1');
-        else localStorage.removeItem(TEAM_CONTACT_TOGGLE_KEY);
-        if (currentEventData) renderUnifiedRecords(currentEventData);
       });
       const recordsFilters = document.getElementById('recordsFilters');
       recordsFilters.addEventListener('click', (event) => {
