@@ -6,6 +6,7 @@ initSecondaryConn();
 const router = express.Router();
 const SITE_ADMIN_WRITE_CODE = process.env.SITE_ADMIN_WRITE_CODE || '2000';
 const REGISTRATION_PAYMENT_STATUSES = new Set(['unpaid', 'pending', 'paid', 'refunded']);
+const FEE_PAID_TO_VALUES = new Set(['', 'club', 'tommy', 'john']);
 
 function getSecondaryModels() {
   const conn = getSecondaryConn();
@@ -136,7 +137,13 @@ function summarizePlayers(players = []) {
     email: normalizeEmail(player && (player.email || player.emailKey) || ''),
     phone: String(player && player.phone || '').trim(),
     isGuest: Boolean(player && player.isGuest),
+    feePaidTo: normalizeFeePaidTo(player && player.feePaidTo),
   }));
+}
+
+function normalizeFeePaidTo(value) {
+  const key = String(value || '').trim().toLowerCase();
+  return FEE_PAID_TO_VALUES.has(key) ? key : '';
 }
 
 function normalizeAuditDetailValue(value) {
@@ -1156,6 +1163,269 @@ router.put('/admin/events/:eventId/registrations/:registrationId/payment', async
       : null;
 
     res.json({ ok: true, registration: refreshed || { _id: registration._id, paymentStatus }, event: detail });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/admin/events/:eventId/teams/:teamId', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    if (!(await requireSecondaryConnection(res))) return;
+
+    const models = getSecondaryModels();
+    const { BlueRidgeOuting, BlueRidgeRegistration, BlueRidgeTeam, BlueRidgeTeamMember } = models;
+
+    const event = await BlueRidgeOuting.findById(req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+
+    const team = await BlueRidgeTeam.findOne({ _id: req.params.teamId, eventId: event._id });
+    if (!team || team.status === 'cancelled') return res.status(404).json({ error: 'Team not found' });
+
+    const previousTeam = team.toObject ? team.toObject() : { ...team };
+    const teamName = String((req.body && req.body.teamName) || '').trim();
+    const removeMemberIds = Array.isArray(req.body && req.body.removeMemberIds)
+      ? req.body.removeMemberIds.map((id) => String(id || '').trim()).filter(Boolean)
+      : [];
+    const addPlayers = summarizePlayers(req.body && req.body.addPlayers || [])
+      .filter((player) => player.name && player.email);
+    const memberFeeLocations = Array.isArray(req.body && req.body.memberFeeLocations)
+      ? req.body.memberFeeLocations.map((entry) => ({
+        memberId: String(entry && entry.memberId || '').trim(),
+        feePaidTo: normalizeFeePaidTo(entry && entry.feePaidTo),
+      })).filter((entry) => entry.memberId)
+      : [];
+    const memberUpdates = Array.isArray(req.body && req.body.memberUpdates)
+      ? req.body.memberUpdates.map((entry) => ({
+        memberId: String(entry && entry.memberId || '').trim(),
+        email: normalizeEmail(entry && entry.email || ''),
+        phone: String(entry && entry.phone || '').trim(),
+      })).filter((entry) => entry.memberId)
+      : [];
+
+    if (teamName && teamName !== team.name) {
+      const existing = await BlueRidgeTeam.findOne({ eventId: event._id, name: teamName }).lean();
+      if (existing && String(existing._id || '') !== String(team._id || '')) {
+        return res.status(409).json({ error: 'Another team already uses that name' });
+      }
+      team.name = teamName;
+    }
+
+    const contactUpdates = [];
+    for (const entry of memberUpdates) {
+      if (!entry.email) return badRequest(res, 'Team member email is required');
+      const member = await BlueRidgeTeamMember.findOne({
+        _id: entry.memberId,
+        eventId: event._id,
+        teamId: team._id,
+        status: 'active',
+      });
+      if (!member) continue;
+
+      const previousEmail = normalizeEmail(member.emailKey || member.email || '');
+      const previousPhone = String(member.phone || '').trim();
+      if (entry.email !== previousEmail) {
+        const duplicate = await BlueRidgeTeamMember.findOne({
+          eventId: event._id,
+          emailKey: entry.email,
+          status: 'active',
+        }).lean();
+        if (duplicate && String(duplicate._id || '') !== String(member._id || '')) {
+          return badRequest(res, `Player already registered for this event: ${entry.email}`);
+        }
+      }
+
+      if (entry.email === previousEmail && entry.phone === previousPhone) continue;
+      member.email = entry.email;
+      member.emailKey = entry.email;
+      member.phone = entry.phone;
+      await member.save();
+      contactUpdates.push({
+        memberId: String(member && member._id || ''),
+        name: member && member.name || '',
+        email: { from: previousEmail, to: entry.email },
+        phone: { from: previousPhone, to: entry.phone },
+      });
+    }
+
+    const feeLocationUpdates = [];
+    for (const entry of memberFeeLocations) {
+      const member = await BlueRidgeTeamMember.findOne({
+        _id: entry.memberId,
+        eventId: event._id,
+        teamId: team._id,
+        status: 'active',
+      });
+      if (!member) continue;
+      const previousFeePaidTo = String(member.feePaidTo || '');
+      if (previousFeePaidTo === entry.feePaidTo) continue;
+      member.feePaidTo = entry.feePaidTo;
+      await member.save();
+      feeLocationUpdates.push({
+        memberId: String(member && member._id || ''),
+        name: member && member.name || '',
+        from: previousFeePaidTo,
+        to: entry.feePaidTo,
+      });
+    }
+
+    let removedMembers = [];
+    if (removeMemberIds.length) {
+      removedMembers = await BlueRidgeTeamMember.find({
+        _id: { $in: removeMemberIds },
+        eventId: event._id,
+        teamId: team._id,
+        status: 'active',
+      }).lean();
+      await BlueRidgeTeamMember.updateMany(
+        { _id: { $in: removeMemberIds }, eventId: event._id, teamId: team._id, status: 'active' },
+        { $set: { status: 'cancelled' } }
+      );
+    }
+
+    let addedMembers = [];
+    if (addPlayers.length) {
+      const currentCount = await BlueRidgeTeamMember.countDocuments({ teamId: team._id, status: 'active' });
+      const constraintsErr = validateRuleConstraints(event, 'join_team', addPlayers, currentCount);
+      if (constraintsErr) return badRequest(res, constraintsErr);
+      const duplicateErr = await ensurePlayersNotRegistered(event._id, addPlayers, BlueRidgeTeamMember);
+      if (duplicateErr) return badRequest(res, duplicateErr);
+
+      const createdRegistrations = [];
+      for (const player of addPlayers) {
+        const registration = await BlueRidgeRegistration.create({
+          eventId: event._id,
+          mode: 'join_team',
+          teamId: team._id,
+          submittedByName: player.name,
+          submittedByEmail: player.email,
+          submittedByPhone: player.phone,
+          notes: 'Added from Plastered Open roster admin.',
+          paymentStatus: 'unpaid',
+          status: 'registered',
+        });
+        createdRegistrations.push(registration);
+      }
+
+      const docs = addPlayers.map((player, index) => ({
+        eventId: event._id,
+        teamId: team._id,
+        registrationId: createdRegistrations[index]._id,
+        name: player.name,
+        email: player.email,
+        emailKey: player.email,
+        phone: player.phone,
+        isGuest: Boolean(player.isGuest),
+        isCaptain: false,
+        feePaidTo: player.feePaidTo,
+        status: 'active',
+      }));
+      addedMembers = await BlueRidgeTeamMember.insertMany(docs, { ordered: true });
+    }
+
+    const teamCount = await BlueRidgeTeamMember.countDocuments({ teamId: team._id, status: 'active' });
+    const exact = Number(event.teamSizeExact || 0);
+    const fullThreshold = exact > 0 ? exact : Number(event.teamSizeMax || team.targetSize || 4);
+    const nextStatus = teamCount <= 0 ? 'cancelled' : (teamCount >= fullThreshold ? 'active' : 'incomplete');
+    team.status = nextStatus;
+    await team.save();
+
+    const changes = buildAuditChangeSet(previousTeam, team, ['name', 'status']);
+    if (Object.keys(changes).length || removedMembers.length || addedMembers.length || feeLocationUpdates.length || contactUpdates.length) {
+      await writeOutingAudit(models, {
+        outingId: event._id,
+        category: 'team',
+        action: 'team_roster_admin_updated',
+        actor: auditActor(req),
+        method: req.method,
+        route: routePath(req),
+        summary: `Team updated: ${team.name || 'team'}`,
+        details: {
+          teamId: String(team && team._id || ''),
+          teamName: team && team.name || '',
+          changes,
+          removedPlayers: summarizePlayers(removedMembers),
+          addedPlayers: summarizePlayers(addPlayers),
+          contactUpdates,
+          feeLocationUpdates,
+          activePlayerCount: teamCount,
+        },
+      });
+    }
+
+    const detail = await buildEventDetail(event, models, true);
+    res.json({ ok: true, team, event: detail });
+  } catch (err) {
+    if (err && err.code === 11000) {
+      return res.status(409).json({ error: 'Team update would duplicate an existing team or golfer' });
+    }
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/admin/events/:eventId/teams/:teamId', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    if (!(await requireSecondaryConnection(res))) return;
+
+    const models = getSecondaryModels();
+    const { BlueRidgeOuting, BlueRidgeRegistration, BlueRidgeTeam, BlueRidgeTeamMember } = models;
+
+    const event = await BlueRidgeOuting.findById(req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+
+    const team = await BlueRidgeTeam.findOne({ _id: req.params.teamId, eventId: event._id });
+    if (!team) return res.status(404).json({ error: 'Team not found' });
+    if (team.status === 'cancelled') {
+      const detail = await buildEventDetail(event, models, true);
+      return res.json({ ok: true, team, event: detail });
+    }
+
+    const activeMembers = await BlueRidgeTeamMember.find({
+      eventId: event._id,
+      teamId: team._id,
+      status: 'active',
+    }).lean();
+    const activeRegistrations = await BlueRidgeRegistration.find({
+      eventId: event._id,
+      teamId: team._id,
+      status: 'registered',
+    }).lean();
+
+    await BlueRidgeTeamMember.updateMany(
+      { eventId: event._id, teamId: team._id, status: 'active' },
+      { $set: { status: 'cancelled' } }
+    );
+    await BlueRidgeRegistration.updateMany(
+      { eventId: event._id, teamId: team._id, status: 'registered' },
+      { $set: { status: 'cancelled', cancelledAt: new Date() } }
+    );
+    team.status = 'cancelled';
+    await team.save();
+
+    await writeOutingAudit(models, {
+      outingId: event._id,
+      category: 'team',
+      action: 'team_admin_deleted',
+      actor: auditActor(req),
+      method: req.method,
+      route: routePath(req),
+      summary: `Team deleted: ${team.name || 'team'}`,
+      details: {
+        teamId: String(team && team._id || ''),
+        teamName: team && team.name || '',
+        removedPlayers: summarizePlayers(activeMembers),
+        cancelledRegistrations: activeRegistrations.map((entry) => ({
+          registrationId: String(entry && entry._id || ''),
+          submittedByName: entry && entry.submittedByName || '',
+          submittedByEmail: entry && entry.submittedByEmail || '',
+          paymentStatus: entry && entry.paymentStatus || '',
+        })),
+      },
+    });
+
+    const detail = await buildEventDetail(event, models, true);
+    res.json({ ok: true, team, event: detail });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

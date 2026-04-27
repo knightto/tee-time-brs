@@ -3,6 +3,7 @@ const TARGET_NAME_RE = /plastered/i;
 const FALLBACK_ENTRY_FEE = 85;
 const FALLBACK_PLAYER_CAP = 120;
 const FALLBACK_TEAM_CAP = 60;
+const ORGANIZER_CONTACT_NOTE = 'After signing up, contact the organizer within 2 days or your team may be removed.';
 
 let liveEvent = null;
 let liveDetail = null;
@@ -118,7 +119,8 @@ function buildNotes(detail) {
   const notes = [
     'Friday, June 19, 2026 in Front Royal, Virginia.',
     'Flights are based on the final field size.',
-    'Contest proceeds help cover outing costs and player prizes.'
+    'Contest proceeds help cover outing costs and player prizes.',
+    ORGANIZER_CONTACT_NOTE
   ];
   if (detail && detail.registrationNotes) notes.push(String(detail.registrationNotes).trim());
   if (detail && detail.cancellationPolicy) notes.push(`Cancellation policy: ${String(detail.cancellationPolicy).trim()}`);
@@ -380,7 +382,7 @@ function openSignup(mode, preferredTeamId = '') {
   };
 
   document.getElementById('signupDialogTitle').textContent = titles[mode] || 'Register';
-  document.getElementById('signupDialogSubtitle').textContent = `${liveDetail.name || 'Plastered "Open"'} | ${liveDetail.ruleSummary || 'Outing registration'}`;
+  document.getElementById('signupDialogSubtitle').textContent = `${liveDetail.name || 'Plastered "Open"'} | ${liveDetail.ruleSummary || 'Outing registration'} | ${ORGANIZER_CONTACT_NOTE}`;
   document.getElementById('formEventId').value = liveDetail._id;
   document.getElementById('formMode').value = mode;
   document.getElementById('signupDialogMsg').textContent = '';

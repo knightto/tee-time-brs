@@ -252,12 +252,24 @@
       box-shadow: none;
     }
 
-    .audit-dialog::backdrop {
+    .team-edit-dialog {
+      width: min(94vw, 760px);
+      max-height: min(88vh, 860px);
+      padding: 0;
+      border: 0;
+      border-radius: 24px;
+      background: transparent;
+      box-shadow: none;
+    }
+
+    .audit-dialog::backdrop,
+    .team-edit-dialog::backdrop {
       background: rgba(8, 27, 54, 0.58);
       backdrop-filter: blur(4px);
     }
 
-    .audit-dialog-card {
+    .audit-dialog-card,
+    .team-edit-dialog-card {
       max-height: inherit;
       padding: 22px;
       border-radius: 24px;
@@ -266,6 +278,10 @@
       box-shadow: var(--shadow-soft);
       display: grid;
       gap: 14px;
+    }
+
+    .team-edit-dialog-card {
+      overflow: auto;
     }
 
     .audit-header {
@@ -360,6 +376,116 @@
       background: #fffbf4;
       color: var(--ink-soft);
       text-align: center;
+    }
+
+    .team-edit-form {
+      display: grid;
+      gap: 14px;
+    }
+
+    .field {
+      display: grid;
+      gap: 6px;
+      color: var(--ink-soft);
+      font-size: 0.82rem;
+      font-weight: 800;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .field input {
+      width: 100%;
+      padding: 11px 13px;
+      border-radius: 14px;
+      border: 1px solid rgba(21, 28, 39, 0.12);
+      background: #fffdf8;
+      color: var(--ink);
+      font-size: 1rem;
+      font-weight: 600;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .field select,
+    .fee-location-select {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(21, 28, 39, 0.12);
+      background: #fffdf8;
+      color: var(--ink);
+      font-size: 0.94rem;
+      font-weight: 700;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+
+    .edit-section {
+      display: grid;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(21, 28, 39, 0.08);
+      background: #fffbf4;
+    }
+
+    .edit-section h3 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 1rem;
+    }
+
+    .edit-player-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 0.8fr) minmax(130px, 0.7fr) auto;
+      gap: 8px;
+      align-items: end;
+    }
+
+    .remove-member-row {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 9px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(21, 28, 39, 0.08);
+      background: rgba(255, 255, 255, 0.9);
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    .remove-member-row-main {
+      flex: 1 1 auto;
+      min-width: 0;
+      display: grid;
+      gap: 5px;
+    }
+
+    .member-fee-location {
+      margin-top: 4px;
+      color: var(--navy);
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+
+    .member-contact-edit-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(120px, 0.7fr);
+      gap: 8px;
+      align-items: end;
+    }
+
+    .remove-member-row input {
+      width: 18px;
+      height: 18px;
+      margin-top: 1px;
+      accent-color: var(--us-red);
+    }
+
+    .edit-dialog-msg {
+      min-height: 1.2em;
+      color: var(--us-red-deep);
+      font-weight: 800;
     }
 
     .msg {
@@ -882,6 +1008,12 @@
       box-shadow: none;
     }
 
+    .danger-btn {
+      color: #fff8f0;
+      background: linear-gradient(135deg, var(--us-red) 0%, var(--us-red-deep) 100%);
+      border-color: rgba(150, 42, 36, 0.5);
+    }
+
     .payment-save:disabled {
       opacity: 0.7;
       cursor: wait;
@@ -1192,6 +1324,19 @@
       gap: 6px;
     }
 
+    .person-row.payment-unpaid,
+    .person-row.payment-pending,
+    .person-row.payment-refunded {
+      border-color: rgba(203, 63, 51, 0.28);
+      background: rgba(203, 63, 51, 0.08);
+    }
+
+    .person-payment-warning {
+      color: var(--us-red-deep);
+      font-size: 0.82rem;
+      font-weight: 800;
+    }
+
     .person-row-top,
     .registration-item-top {
       display: flex;
@@ -1347,6 +1492,12 @@
       .payment-save {
         width: 100%;
       }
+      .edit-player-row {
+        grid-template-columns: 1fr;
+      }
+      .member-contact-edit-grid {
+        grid-template-columns: 1fr;
+      }
     }
   </style>
 </head>
@@ -1439,16 +1590,54 @@
     </div>
   </dialog>
 
+  <dialog id="teamEditDialog" class="team-edit-dialog">
+    <form id="teamEditForm" class="team-edit-dialog-card team-edit-form">
+      <div class="audit-header">
+        <div>
+          <h2>Edit Team</h2>
+          <p id="teamEditSubtitle" class="dialog-copy">Update the roster for this team.</p>
+        </div>
+        <button id="closeTeamEditBtn" type="button" class="secondary">Close</button>
+      </div>
+      <input id="teamEditEventId" type="hidden">
+      <input id="teamEditTeamId" type="hidden">
+      <label class="field">Team Name<input id="teamEditName" type="text" maxlength="120"></label>
+      <section class="edit-section">
+        <h3>Current Golfers</h3>
+        <div id="teamEditMembers"></div>
+      </section>
+      <section class="edit-section">
+        <div class="audit-header">
+          <h3>Add Golfers</h3>
+          <button id="teamEditAddPlayerBtn" type="button" class="secondary">Add Golfer</button>
+        </div>
+        <div id="teamEditAddPlayers"></div>
+      </section>
+      <div id="teamEditMsg" class="edit-dialog-msg"></div>
+      <div class="dialog-actions">
+        <button id="teamEditDeleteBtn" type="button" class="payment-save danger-btn">Delete Team</button>
+        <button id="teamEditSaveBtn" type="submit" class="primary">Save Team</button>
+      </div>
+    </form>
+  </dialog>
+
   <script>
     const TARGET_DATE_ISO = '2026-06-19';
     const TARGET_NAME_RE = /plastered/i;
     const TEAM_CONTACT_TOGGLE_KEY = 'plasteredOpenShowTeamContacts';
     const PAYMENT_STATUS_OPTIONS = ['unpaid', 'pending', 'paid', 'refunded'];
+    const FEE_PAID_TO_OPTIONS = [
+      { value: '', label: 'Not Set' },
+      { value: 'club', label: 'At Club' },
+      { value: 'tommy', label: 'With Tommy' },
+      { value: 'john', label: 'With John' },
+    ];
     let currentEventId = '';
     let currentEventData = null;
     let currentRecordFilter = 'all';
     let currentRecordSearch = '';
     let adminCodeDialogResolve = null;
+    let currentTeamEditKey = '';
 
     function esc(value) {
       return String(value || '')
@@ -1485,6 +1674,13 @@
       const dialog = document.getElementById('auditDialog');
       if (dialog && dialog.open && typeof dialog.close === 'function') dialog.close();
       else if (dialog) dialog.removeAttribute('open');
+    }
+
+    function closeTeamEditDialog() {
+      const dialog = document.getElementById('teamEditDialog');
+      if (dialog && dialog.open && typeof dialog.close === 'function') dialog.close();
+      else if (dialog) dialog.removeAttribute('open');
+      currentTeamEditKey = '';
     }
 
     function requestAdminCode(message, submitLabel = 'Load Info', prefill = '') {
@@ -1665,6 +1861,12 @@
       return 'Unpaid';
     }
 
+    function feePaidToLabel(value) {
+      const key = String(value || '').trim().toLowerCase();
+      const match = FEE_PAID_TO_OPTIONS.find((option) => option.value === key);
+      return match ? match.label : 'Not Set';
+    }
+
     function showTeamContactsEnabled() {
       const toggle = document.getElementById('showTeamContacts');
       return Boolean(toggle && toggle.checked);
@@ -1760,6 +1962,24 @@
       return { text: `Due ${formatCurrency(amount)}`, css: 'unpaid' };
     }
 
+    function memberPaymentBadge(member, teamRegistrations, event) {
+      const entries = Array.isArray(teamRegistrations) ? teamRegistrations : [];
+      const registrationId = String(member && member.registrationId || '').trim();
+      const matched = entries.find((entry) => String(entry && entry._id || '') === registrationId);
+      const fallback = entries.length === 1 ? entries[0] : null;
+      const entry = matched || fallback;
+      if (!entry) return { text: 'Payment unknown', css: 'unpaid', warning: true };
+      const badge = paymentBadgeForEntry(entry, event);
+      const feePaidTo = String(member && member.feePaidTo || '').trim().toLowerCase();
+      const locationSuffix = feePaidTo ? ` | ${feePaidToLabel(feePaidTo)}` : '';
+      return {
+        ...badge,
+        text: `${badge.text}${locationSuffix}`,
+        feePaidTo,
+        warning: String(entry.paymentStatus || 'unpaid').toLowerCase() !== 'paid',
+      };
+    }
+
     function registrationGroupPaidSummary(event, registrations, rosterTarget = 1) {
       const entries = Array.isArray(registrations) ? registrations : [];
       if (!entries.length) return { text: 'No', css: 'unpaid' };
@@ -1790,7 +2010,18 @@
         members.length,
         1
       );
-      return registrationGroupPaidSummary(event, entries, rosterTarget);
+      if (!members.length) return registrationGroupPaidSummary(event, entries, rosterTarget);
+      let paidCount = 0;
+      let refundedCount = 0;
+      members.forEach((member) => {
+        const payment = memberPaymentBadge(member, entries, event);
+        if (payment.css === 'paid') paidCount += 1;
+        if (payment.css === 'refunded') refundedCount += 1;
+      });
+      if (refundedCount >= rosterTarget && paidCount === 0) return { text: 'Refunded', css: 'refunded' };
+      if (paidCount <= 0) return { text: 'No', css: 'unpaid' };
+      if (paidCount >= rosterTarget) return { text: rosterTarget === 2 ? 'Yes for both' : 'Yes', css: 'paid' };
+      return { text: `Yes for ${paidCount}`, css: 'pending' };
     }
 
     function findPlasteredEvent(events) {
@@ -2037,20 +2268,30 @@
       return bits.includes(needle);
     }
 
-    function renderPeopleList(people) {
+    function renderPeopleList(people, options = {}) {
       const list = Array.isArray(people) ? people : [];
       if (!list.length) return '<div class="record-muted">No golfers currently attached.</div>';
+      const event = options.event || currentEventData;
+      const registrations = Array.isArray(options.registrations) ? options.registrations : [];
       return `
         <ul class="person-list">
-          ${list.map((person) => `
-            <li class="person-row">
-              <div class="person-row-top">
-                <strong>${esc(person && person.name || 'Golfer')}</strong>
-                ${person && person.isGuest ? '<span class="member-flag">Guest</span>' : ''}
-              </div>
-              ${teamMemberContactMarkup(person)}
-            </li>
-          `).join('')}
+          ${list.map((person) => {
+            const payment = memberPaymentBadge(person, registrations, event);
+            return `
+              <li class="person-row payment-${esc(payment.css || 'unpaid')}">
+                <div class="person-row-top">
+                  <strong>${esc(person && person.name || 'Golfer')}</strong>
+                  <div class="record-inline tags">
+                    ${person && person.isGuest ? '<span class="member-flag">Guest</span>' : ''}
+                    ${tag(payment.text, payment.css)}
+                  </div>
+                </div>
+                ${payment.warning ? `<div class="person-payment-warning">${esc(person && person.name || 'This golfer')} is not marked paid.</div>` : ''}
+                ${payment.feePaidTo ? `<div class="member-fee-location">Fee paid: ${esc(feePaidToLabel(payment.feePaidTo))}</div>` : ''}
+                ${teamMemberContactMarkup(person)}
+              </li>
+            `;
+          }).join('')}
         </ul>
       `;
     }
@@ -2167,6 +2408,10 @@
           const team = record.team || {};
           const members = Array.isArray(record.members) ? record.members : [];
           const feeSummary = record.paymentSummary || { text: 'No', css: 'unpaid' };
+          const teamNotes = (Array.isArray(record.registrations) ? record.registrations : [])
+            .map((entry) => String(entry && entry.notes || '').trim())
+            .filter(Boolean)
+            .join(' | ');
           return `
             <article class="record-card" data-record-kind="team" data-record-key="${esc(record.key)}">
               <div class="record-card-top">
@@ -2176,6 +2421,7 @@
                   <div class="record-card-preview">${esc(record.preview || 'No golfers listed')}</div>
                 </div>
                 <div class="record-card-head-right">
+                  <button type="button" class="payment-save" data-action="edit-team" data-record-key="${esc(record.key)}">Edit</button>
                   <span class="team-status-dot ${esc(recordStatusDotClass(record.status))}" aria-label="Status: ${esc(record.status || 'active')}" title="${esc(record.status || 'active')}"></span>
                 </div>
               </div>
@@ -2192,13 +2438,19 @@
                   <span class="mini-label">Fees Paid</span>
                   <strong>${esc(feeSummary.text || 'No')}</strong>
                 </div>
+                ${teamNotes ? `
+                  <div class="record-card-fact wide">
+                    <span class="mini-label">Notes</span>
+                    <strong>${esc(teamNotes)}</strong>
+                  </div>
+                ` : ''}
               </div>
               <details class="record-details">
                 <summary>Open team details</summary>
                 <div class="record-detail-grid">
                   <section class="record-section">
                     <h4>Golfers</h4>
-                    ${renderPeopleList(members)}
+                    ${renderPeopleList(members, { event, registrations: record.registrations })}
                   </section>
                   <section class="record-section">
                     <h4>Registrations</h4>
@@ -2369,6 +2621,172 @@
       } catch (err) {
         status.textContent = err && err.message ? err.message : 'Failed to load audit.';
         list.innerHTML = '<div class="audit-empty">Failed to load audit entries.</div>';
+      }
+    }
+
+    function teamEditPlayerRowTemplate() {
+      return `
+        <div class="edit-player-row" data-team-edit-player-row>
+          <label class="field">Name<input type="text" data-team-edit-player-name></label>
+          <label class="field">Email<input type="email" data-team-edit-player-email></label>
+          <label class="field">Phone<input type="text" data-team-edit-player-phone></label>
+          <label class="field">Fee Paid<select data-team-edit-player-fee-paid-to>${FEE_PAID_TO_OPTIONS.map((option) => `<option value="${esc(option.value)}">${esc(option.label)}</option>`).join('')}</select></label>
+          <button type="button" class="payment-save" data-action="remove-team-edit-player">Remove</button>
+        </div>
+      `;
+    }
+
+    function addTeamEditPlayerRow() {
+      const wrap = document.getElementById('teamEditAddPlayers');
+      if (!wrap) return;
+      wrap.insertAdjacentHTML('beforeend', teamEditPlayerRowTemplate());
+      const row = wrap.querySelector('[data-team-edit-player-row]:last-child');
+      const input = row && row.querySelector('[data-team-edit-player-name]');
+      if (input) input.focus();
+    }
+
+    function findRecordByKey(key) {
+      return buildUnifiedRecords(currentEventData).find((record) => String(record && record.key || '') === String(key || ''));
+    }
+
+    function openTeamEditDialog(recordKey) {
+      const record = findRecordByKey(recordKey);
+      if (!record || record.kind !== 'team' || !record.team || !record.team._id) {
+        setTopMsg('Team record is not available for editing.');
+        return;
+      }
+
+      currentTeamEditKey = String(recordKey || '');
+      const team = record.team || {};
+      const members = Array.isArray(record.members) ? record.members : [];
+      document.getElementById('teamEditEventId').value = String(currentEventId || '');
+      document.getElementById('teamEditTeamId').value = String(team._id || '');
+      document.getElementById('teamEditName').value = String(team.name || record.title || '');
+      document.getElementById('teamEditSubtitle').textContent = `Editing ${team.name || record.title || 'team'} (${members.length} golfer${members.length === 1 ? '' : 's'}).`;
+      document.getElementById('teamEditMsg').textContent = '';
+      document.getElementById('teamEditAddPlayers').innerHTML = '';
+      document.getElementById('teamEditMembers').innerHTML = members.length
+        ? members.map((member) => {
+            const payment = memberPaymentBadge(member, record.registrations, currentEventData);
+            return `
+              <div class="remove-member-row" data-team-edit-member-row data-member-id="${esc(String(member && member._id || ''))}">
+                <input type="checkbox" value="${esc(String(member && member._id || ''))}" data-team-edit-remove-member>
+                <span class="remove-member-row-main">
+                  <strong>${esc(member && member.name || 'Golfer')}</strong>
+                  <span class="member-contact-edit-grid">
+                    <label class="field">Email<input type="email" value="${esc(member && member.email || '')}" data-team-edit-member-email></label>
+                    <label class="field">Phone<input type="text" value="${esc(member && member.phone || '')}" data-team-edit-member-phone></label>
+                  </span>
+                  ${payment.warning ? `<span class="person-payment-warning">${esc(payment.text)} - this golfer is not marked paid.</span>` : `<span class="record-muted">${esc(payment.text)}</span>`}
+                  <span class="member-fee-location">Fee paid: ${esc(feePaidToLabel(member && member.feePaidTo))}</span>
+                  <select class="fee-location-select" data-team-edit-member-fee-paid-to data-member-id="${esc(String(member && member._id || ''))}" aria-label="Fee paid destination for ${esc(member && member.name || 'golfer')}">
+                    ${FEE_PAID_TO_OPTIONS.map((option) => `<option value="${esc(option.value)}"${String(member && member.feePaidTo || '').toLowerCase() === option.value ? ' selected' : ''}>${esc(option.label)}</option>`).join('')}
+                  </select>
+                </span>
+              </div>
+            `;
+          }).join('')
+        : '<div class="record-muted">No active golfers are attached.</div>';
+
+      const dialog = document.getElementById('teamEditDialog');
+      if (dialog && typeof dialog.showModal === 'function') dialog.showModal();
+      else if (dialog) dialog.setAttribute('open', 'open');
+    }
+
+    function teamEditAddPlayersPayload() {
+      return Array.from(document.querySelectorAll('[data-team-edit-player-row]')).map((row) => ({
+        name: String(row.querySelector('[data-team-edit-player-name]') && row.querySelector('[data-team-edit-player-name]').value || '').trim(),
+        email: String(row.querySelector('[data-team-edit-player-email]') && row.querySelector('[data-team-edit-player-email]').value || '').trim(),
+        phone: String(row.querySelector('[data-team-edit-player-phone]') && row.querySelector('[data-team-edit-player-phone]').value || '').trim(),
+        feePaidTo: String(row.querySelector('[data-team-edit-player-fee-paid-to]') && row.querySelector('[data-team-edit-player-fee-paid-to]').value || '').trim(),
+      })).filter((player) => player.name || player.email || player.phone);
+    }
+
+    function teamEditMemberUpdatesPayload() {
+      return Array.from(document.querySelectorAll('[data-team-edit-member-row]')).map((row) => ({
+        memberId: String(row.dataset.memberId || '').trim(),
+        email: String(row.querySelector('[data-team-edit-member-email]') && row.querySelector('[data-team-edit-member-email]').value || '').trim(),
+        phone: String(row.querySelector('[data-team-edit-member-phone]') && row.querySelector('[data-team-edit-member-phone]').value || '').trim(),
+      })).filter((entry) => entry.memberId);
+    }
+
+    async function saveTeamEdit(event) {
+      event.preventDefault();
+      const msg = document.getElementById('teamEditMsg');
+      const saveBtn = document.getElementById('teamEditSaveBtn');
+      const eventId = String(document.getElementById('teamEditEventId').value || currentEventId || '').trim();
+      const teamId = String(document.getElementById('teamEditTeamId').value || '').trim();
+      const teamName = String(document.getElementById('teamEditName').value || '').trim();
+      const removeMemberIds = Array.from(document.querySelectorAll('[data-team-edit-remove-member]:checked')).map((node) => String(node.value || '').trim()).filter(Boolean);
+      const memberUpdates = teamEditMemberUpdatesPayload();
+      const memberFeeLocations = Array.from(document.querySelectorAll('[data-team-edit-member-fee-paid-to]')).map((node) => ({
+        memberId: String(node.dataset.memberId || '').trim(),
+        feePaidTo: String(node.value || '').trim(),
+      })).filter((entry) => entry.memberId);
+      const addPlayers = teamEditAddPlayersPayload();
+      const incomplete = addPlayers.find((player) => !player.name || !player.email);
+      if (incomplete) {
+        msg.textContent = 'New golfers need both name and email.';
+        return;
+      }
+      if (memberUpdates.some((entry) => !entry.email)) {
+        msg.textContent = 'Current golfers need an email address.';
+        return;
+      }
+      if (!eventId || !teamId || !teamName) {
+        msg.textContent = 'Team name is required.';
+        return;
+      }
+
+      const original = saveBtn.textContent;
+      saveBtn.disabled = true;
+      saveBtn.textContent = 'Saving...';
+      msg.textContent = '';
+      try {
+        await api(`/api/outings/admin/events/${encodeURIComponent(eventId)}/teams/${encodeURIComponent(teamId)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ teamName, removeMemberIds, memberUpdates, memberFeeLocations, addPlayers }),
+        });
+        closeTeamEditDialog();
+        await loadRoster(`Saved team ${teamName}.`);
+      } catch (err) {
+        msg.textContent = err && err.message ? err.message : 'Unable to save team.';
+      } finally {
+        saveBtn.disabled = false;
+        saveBtn.textContent = original;
+      }
+    }
+
+    async function deleteTeamEdit() {
+      const msg = document.getElementById('teamEditMsg');
+      const deleteBtn = document.getElementById('teamEditDeleteBtn');
+      const eventId = String(document.getElementById('teamEditEventId').value || currentEventId || '').trim();
+      const teamId = String(document.getElementById('teamEditTeamId').value || '').trim();
+      const teamName = String(document.getElementById('teamEditName').value || 'this team').trim() || 'this team';
+      if (!eventId || !teamId) {
+        msg.textContent = 'Team record is not available for deletion.';
+        return;
+      }
+      if (!window.confirm(`Delete ${teamName}? This will remove the team from the active roster and cancel its active registrations.`)) {
+        return;
+      }
+
+      const original = deleteBtn.textContent;
+      deleteBtn.disabled = true;
+      deleteBtn.textContent = 'Deleting...';
+      msg.textContent = '';
+      try {
+        await api(`/api/outings/admin/events/${encodeURIComponent(eventId)}/teams/${encodeURIComponent(teamId)}`, {
+          method: 'DELETE',
+        });
+        closeTeamEditDialog();
+        await loadRoster(`Deleted team ${teamName}.`);
+      } catch (err) {
+        msg.textContent = err && err.message ? err.message : 'Unable to delete team.';
+      } finally {
+        deleteBtn.disabled = false;
+        deleteBtn.textContent = original;
       }
     }
 
@@ -2661,6 +3079,11 @@
       const adminCodeDialogCancel = document.getElementById('adminCodeDialogCancel');
       const auditDialog = document.getElementById('auditDialog');
       const closeAuditBtn = document.getElementById('closeAuditBtn');
+      const teamEditDialog = document.getElementById('teamEditDialog');
+      const teamEditForm = document.getElementById('teamEditForm');
+      const closeTeamEditBtn = document.getElementById('closeTeamEditBtn');
+      const teamEditAddPlayerBtn = document.getElementById('teamEditAddPlayerBtn');
+      const teamEditDeleteBtn = document.getElementById('teamEditDeleteBtn');
       adminCodeDialogForm.addEventListener('submit', (event) => {
         event.preventDefault();
         const code = normalizeCode(adminCodePromptInput && adminCodePromptInput.value || '');
@@ -2682,6 +3105,25 @@
         auditDialog.addEventListener('cancel', (event) => {
           event.preventDefault();
           closeAuditDialog();
+        });
+      }
+      if (teamEditForm) teamEditForm.addEventListener('submit', saveTeamEdit);
+      if (closeTeamEditBtn) closeTeamEditBtn.addEventListener('click', () => closeTeamEditDialog());
+      if (teamEditAddPlayerBtn) teamEditAddPlayerBtn.addEventListener('click', () => addTeamEditPlayerRow());
+      if (teamEditDeleteBtn) teamEditDeleteBtn.addEventListener('click', () => deleteTeamEdit());
+      const teamEditAddPlayers = document.getElementById('teamEditAddPlayers');
+      if (teamEditAddPlayers) {
+        teamEditAddPlayers.addEventListener('click', (event) => {
+          const btn = event.target.closest('[data-action="remove-team-edit-player"]');
+          if (!btn) return;
+          const row = btn.closest('[data-team-edit-player-row]');
+          if (row) row.remove();
+        });
+      }
+      if (teamEditDialog) {
+        teamEditDialog.addEventListener('cancel', (event) => {
+          event.preventDefault();
+          closeTeamEditDialog();
         });
       }
 
@@ -2729,6 +3171,12 @@
         if (currentEventData) renderUnifiedRecords(currentEventData);
       });
       document.getElementById('recordsList').addEventListener('click', async (event) => {
+        const editBtn = event.target.closest('[data-action="edit-team"]');
+        if (editBtn) {
+          openTeamEditDialog(editBtn.dataset.recordKey || '');
+          return;
+        }
+
         const btn = event.target.closest('[data-action="save-payment"]');
         if (!btn) return;
         const row = btn.closest('[data-registration-id]');

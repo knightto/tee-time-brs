@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const TeamMemberStatus = ['active', 'cancelled'];
+const FeePaidTo = ['', 'club', 'tommy', 'john'];
 
 const BlueRidgeTeamMemberSchema = new mongoose.Schema(
   {
@@ -14,6 +15,7 @@ const BlueRidgeTeamMemberSchema = new mongoose.Schema(
     isGuest: { type: Boolean, default: false },
     handicapIndex: { type: Number },
     isCaptain: { type: Boolean, default: false },
+    feePaidTo: { type: String, enum: FeePaidTo, default: '' },
     status: { type: String, enum: TeamMemberStatus, default: 'active', index: true },
   },
   { timestamps: true }
@@ -29,3 +31,4 @@ const BlueRidgeTeamMemberModel =
 module.exports = BlueRidgeTeamMemberModel;
 module.exports.schema = BlueRidgeTeamMemberSchema;
 module.exports.TeamMemberStatus = TeamMemberStatus;
+module.exports.FeePaidTo = FeePaidTo;

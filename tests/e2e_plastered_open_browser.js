@@ -234,6 +234,13 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
       if (doc && update.$set) Object.assign(doc, clone(update.$set), { updatedAt: new Date().toISOString() });
       return Promise.resolve({ acknowledged: true, matchedCount: doc ? 1 : 0, modifiedCount: doc ? 1 : 0 });
     },
+    updateMany(filter = {}, update = {}) {
+      const docs = many(state.registrations, filter);
+      docs.forEach((doc) => {
+        if (update.$set) Object.assign(doc, clone(update.$set), { updatedAt: new Date().toISOString() });
+      });
+      return Promise.resolve({ acknowledged: true, matchedCount: docs.length, modifiedCount: docs.length });
+    },
   };
 
   const BlueRidgeTeam = {
@@ -639,13 +646,13 @@ function buildEvent() {
     requirePartner: false,
     maxTeams: 60,
     maxPlayers: 120,
-    allowSingles: true,
-    allowSeekingPartner: true,
-    allowSeekingTeam: true,
-    allowPartialTeamSignup: true,
+    allowSingles: false,
+    allowSeekingPartner: false,
+    allowSeekingTeam: false,
+    allowPartialTeamSignup: false,
     allowFullTeamSignup: true,
     allowMemberGuestSignup: false,
-    allowCaptainSignup: true,
+    allowCaptainSignup: false,
     allowJoinExistingTeam: true,
     allowGuests: true,
     memberOnly: false,
@@ -700,6 +707,9 @@ async function main() {
         }))`);
         assert.strictEqual(stats[0].label, '120 player cap', 'Signup page should render the real player cap');
         assert.strictEqual(stats[1].label, '60 team cap', 'Signup page should render the real team cap');
+        const modeLabels = await evaluate(send, `Array.from(document.querySelectorAll('#modeButtons [data-action]')).map((node) => (node.textContent || '').trim())`);
+        assert.ok(modeLabels.some((label) => /Register 2-Man Team/i.test(label)), 'Signup sheet should still allow full-team registration');
+        assert.ok(!modeLabels.some((label) => /Captain Spot|Need A Partner|Need A Team|Register Solo|Partial Team/i.test(label)), 'Signup sheet should hide solo and partial-team options for this year');
 
         await evaluate(send, `(() => {
           document.querySelector('#modeButtons [data-mode="full_team"]').click();
