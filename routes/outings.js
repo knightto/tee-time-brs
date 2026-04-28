@@ -92,6 +92,13 @@ function parseNum(val) {
   return Number.isFinite(n) ? n : undefined;
 }
 
+function parseMoneyAmount(val, fallback = 0) {
+  if (val === undefined || val === null || val === '') return fallback;
+  const n = Number(val);
+  if (!Number.isFinite(n) || n < 0) return fallback;
+  return Number(n.toFixed(2));
+}
+
 function dateOnlyKey(value) {
   const raw = String(value || '').trim();
   const match = /^(\d{4}-\d{2}-\d{2})/.exec(raw);
@@ -129,6 +136,43 @@ function registrationAmountDueForAudit(event, entry, explicitCount) {
   const fee = Number(event && event.entryFee);
   if (!Number.isFinite(fee)) return 0;
   return Number((registrationPlayerCountForAudit(event, entry, explicitCount) * fee).toFixed(2));
+}
+
+async function getKegSponsorshipSummary(eventId, models) {
+  const BlueRidgeRegistration = models && models.BlueRidgeRegistration;
+  if (!BlueRidgeRegistration) return { totalAmount: 0, contributorCount: 0 };
+  if (typeof BlueRidgeRegistration.aggregate !== 'function') {
+    const registrations = await BlueRidgeRegistration.find({ eventId, status: 'registered' }).lean();
+    return (Array.isArray(registrations) ? registrations : []).reduce((summary, entry) => {
+      const amount = parseMoneyAmount(entry && entry.kegSponsorshipAmount, 0);
+      if (amount > 0) {
+        summary.totalAmount = Number((summary.totalAmount + amount).toFixed(2));
+        summary.contributorCount += 1;
+      }
+      return summary;
+    }, { totalAmount: 0, contributorCount: 0 });
+  }
+  const rows = await BlueRidgeRegistration.aggregate([
+    {
+      $match: {
+        eventId,
+        status: 'registered',
+        kegSponsorshipAmount: { $gt: 0 },
+      },
+    },
+    {
+      $group: {
+        _id: null,
+        totalAmount: { $sum: '$kegSponsorshipAmount' },
+        contributorCount: { $sum: 1 },
+      },
+    },
+  ]);
+  const row = rows && rows[0] ? rows[0] : {};
+  return {
+    totalAmount: Number(Number(row.totalAmount || 0).toFixed(2)),
+    contributorCount: Number(row.contributorCount || 0),
+  };
 }
 
 function summarizePlayers(players = []) {
@@ -426,6 +470,7 @@ async function ensurePlayersNotRegistered(eventId, players, BlueRidgeTeamMember)
 async function buildEventDetail(event, models, includeRegistrations = false) {
   const metrics = await getMetrics(event._id, models);
   const enriched = enrichEvent(event, metrics);
+  enriched.kegSponsorshipSummary = await getKegSponsorshipSummary(event._id, models);
   const teams = await models.BlueRidgeTeam.find({ eventId: event._id, status: { $in: ['active', 'incomplete'] } })
     .sort({ name: 1 })
     .lean();
@@ -588,6 +633,7 @@ router.post('/:eventId([0-9a-fA-F]{24})/register', async (req, res) => {
 
     const mode = String((req.body && req.body.mode) || '').trim();
     const notes = String((req.body && req.body.notes) || '').trim();
+    const kegSponsorshipAmount = parseMoneyAmount(req.body && req.body.kegSponsorshipAmount, 0);
     const teamNameInput = String((req.body && req.body.teamName) || '').trim();
     const teamIdInput = String((req.body && req.body.teamId) || '').trim();
     const players = normalizePlayers(req.body && req.body.players);
@@ -669,6 +715,7 @@ router.post('/:eventId([0-9a-fA-F]{24})/register', async (req, res) => {
       submittedByEmail: submitter.email,
       submittedByPhone: submitter.phone,
       notes,
+      kegSponsorshipAmount,
     });
 
     const memberDocs = players.map((p, idx) => ({
@@ -733,6 +780,7 @@ router.post('/:eventId([0-9a-fA-F]{24})/register', async (req, res) => {
         players: summarizePlayers(players),
         playerCount: players.length,
         amountDue: registrationAmountDueForAudit(event, registration, players.length),
+        kegSponsorshipAmount,
         notes,
       },
     });
@@ -771,6 +819,7 @@ router.put('/:eventId([0-9a-fA-F]{24})/registrations/:registrationId([0-9a-fA-F]
     if (!team || team.status === 'cancelled') return badRequest(res, 'Team is not available for updates');
     const previousTeamStatus = String(team.status || '');
     const previousNotes = String(registration.notes || '');
+    const previousKegSponsorshipAmount = parseMoneyAmount(registration.kegSponsorshipAmount, 0);
 
     const removeMemberIds = Array.isArray(req.body && req.body.removeMemberIds) ? req.body.removeMemberIds : [];
     const removedMembers = removeMemberIds.length
@@ -821,8 +870,16 @@ router.put('/:eventId([0-9a-fA-F]{24})/registrations/:registrationId([0-9a-fA-F]
       await BlueRidgeTeamMember.insertMany(docs, { ordered: true });
     }
 
+    let registrationChanged = false;
     if (req.body && typeof req.body.notes === 'string') {
       registration.notes = req.body.notes.trim();
+      registrationChanged = true;
+    }
+    if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'kegSponsorshipAmount')) {
+      registration.kegSponsorshipAmount = parseMoneyAmount(req.body.kegSponsorshipAmount, 0);
+      registrationChanged = true;
+    }
+    if (registrationChanged) {
       await registration.save();
     }
 
@@ -887,6 +944,26 @@ router.put('/:eventId([0-9a-fA-F]{24})/registrations/:registrationId([0-9a-fA-F]
           teamName: team && team.name || '',
           from: previousNotes,
           to: String(registration.notes || ''),
+        },
+      });
+    }
+
+    const nextKegSponsorshipAmount = parseMoneyAmount(registration.kegSponsorshipAmount, 0);
+    if (nextKegSponsorshipAmount !== previousKegSponsorshipAmount) {
+      await writeOutingAudit(models, {
+        outingId: event._id,
+        category: 'money',
+        action: 'keg_sponsorship_updated',
+        actor: auditActor(req),
+        method: req.method,
+        route: routePath(req),
+        summary: `Keg sponsorship updated for ${registration.submittedByName || 'registration'}`,
+        details: {
+          registrationId: String(registration && registration._id || ''),
+          teamId: String(team && team._id || ''),
+          teamName: team && team.name || '',
+          from: previousKegSponsorshipAmount,
+          to: nextKegSponsorshipAmount,
         },
       });
     }
@@ -974,6 +1051,7 @@ router.delete('/:eventId([0-9a-fA-F]{24})/registrations/:registrationId([0-9a-fA
         teamName: team && team.name || '',
         paymentStatus: registration && registration.paymentStatus || '',
         amountDue: registrationAmountDueForAudit(event, registration),
+        kegSponsorshipAmount: parseMoneyAmount(registration && registration.kegSponsorshipAmount, 0),
         players: summarizePlayers(existingMembers),
         notes: String(registration && registration.notes || ''),
       },

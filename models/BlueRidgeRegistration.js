@@ -24,6 +24,7 @@ const BlueRidgeRegistrationSchema = new mongoose.Schema(
     submittedByEmail: { type: String, required: true, trim: true, lowercase: true, maxlength: 180 },
     submittedByPhone: { type: String, trim: true, maxlength: 40 },
     notes: { type: String, trim: true, maxlength: 2000 },
+    kegSponsorshipAmount: { type: Number, min: 0, default: 0 },
     paymentStatus: { type: String, enum: PaymentStatus, default: 'unpaid' },
     cancelledAt: { type: Date },
   },

@@ -36,7 +36,7 @@
       background:
         linear-gradient(135deg, rgba(8, 27, 54, 0.94) 0%, rgba(13, 43, 87, 0.88) 34%, rgba(27, 77, 56, 0.84) 68%, rgba(203, 63, 51, 0.58) 100%),
         radial-gradient(circle at 20% 14%, rgba(241, 221, 179, 0.18), transparent 24%),
-        url("/assets/golf-background1.jpg") center center / cover no-repeat fixed;
+        url("/assets/plastered-open-course-mountain.webp") center center / cover no-repeat fixed;
       background-color: var(--navy-deep);
     }
 
@@ -1908,6 +1908,22 @@
       return Number((registrationPlayerCount(entry, event) * fee).toFixed(2));
     }
 
+    function registrationKegSponsorshipAmount(entry) {
+      const amount = Number(entry && entry.kegSponsorshipAmount);
+      return Number.isFinite(amount) && amount > 0 ? Number(amount.toFixed(2)) : 0;
+    }
+
+    function kegSponsorshipSummary(event, sourceRegistrations = activeRegistrationList(event)) {
+      return (Array.isArray(sourceRegistrations) ? sourceRegistrations : []).reduce((summary, entry) => {
+        const amount = registrationKegSponsorshipAmount(entry);
+        if (amount > 0) {
+          summary.totalAmount += amount;
+          summary.contributorCount += 1;
+        }
+        return summary;
+      }, { totalAmount: 0, contributorCount: 0 });
+    }
+
     function paymentSummary(event, sourceRegistrations = activeRegistrationList(event)) {
       return (Array.isArray(sourceRegistrations) ? sourceRegistrations : []).reduce((summary, entry) => {
         const amount = registrationAmountDue(entry, event);
@@ -2028,11 +2044,13 @@
     function renderStats(event) {
       const metrics = event && event.metrics || {};
       const fees = paymentSummary(event);
+      const kegSponsors = kegSponsorshipSummary(event);
       const stats = [
         { value: metrics.players || 0, label: `players${event && event.maxPlayers ? ` / ${event.maxPlayers}` : ''}` },
         { value: metrics.teams || 0, label: `teams${event && event.maxTeams ? ` / ${event.maxTeams}` : ''}` },
         { value: `${fees.paidCount}/${fees.totalEntries}`, label: 'active entries paid' },
         { value: formatCurrency(fees.paidAmount), label: 'collected' },
+        { value: formatCurrency(kegSponsors.totalAmount), label: `${kegSponsors.contributorCount} keg sponsor${kegSponsors.contributorCount === 1 ? '' : 's'}` },
         { value: formatCurrency(fees.outstandingAmount), label: 'outstanding' },
         { value: metrics.waitlist || 0, label: 'waitlist entries' },
         { value: formatCurrency(event && event.entryFee), label: 'entry fee each' },
@@ -2051,6 +2069,7 @@
         ? `${formatDateTime(event.signupOpenAt)} to ${formatDateTime(event.signupCloseAt)}`
         : 'Signup window not fully configured.';
       const fees = paymentSummary(event);
+      const kegSponsors = kegSponsorshipSummary(event);
       const historicalRefunds = paymentSummary(
         event,
         registrationList(event).filter((entry) => String(entry && entry.paymentStatus || '').toLowerCase() === 'refunded')
@@ -2068,6 +2087,7 @@
         tag(`Fee: ${formatCurrency(event && event.entryFee)} each`),
         tag(`Paid: ${fees.paidCount} / ${fees.totalEntries} active entries`, fees.totalEntries && fees.paidCount === fees.totalEntries ? 'paid' : (fees.paidCount ? 'pending' : 'unpaid')),
         tag(`Collected: ${formatCurrency(fees.paidAmount)}`, fees.paidAmount ? 'paid' : 'unpaid'),
+        tag(`Keg pledged: ${formatCurrency(kegSponsors.totalAmount)}`, kegSponsors.totalAmount ? 'paid' : 'unpaid'),
         tag(`Outstanding: ${formatCurrency(fees.outstandingAmount)}`, fees.outstandingAmount ? 'pending' : 'paid'),
         historicalRefunds.totalEntries ? tag(`Refunded: ${historicalRefunds.totalEntries}`, 'refunded') : '',
         tag(`Updated: ${formatDateTime(event && event.updatedAt)}`),
@@ -2294,6 +2314,7 @@
             const feeBadge = paymentBadgeForEntry(entry, event);
             const players = registrationPlayerCount(entry, event);
             const amountDue = registrationAmountDue(entry, event);
+            const kegSponsorshipAmount = registrationKegSponsorshipAmount(entry);
             return `
               <div class="registration-item" data-registration-id="${esc(String(entry && entry._id || ''))}" data-event-id="${esc(String(event && event._id || ''))}">
                 <div class="registration-item-top">
@@ -2314,6 +2335,7 @@
                   </div>
                 ` : ''}
                 <div class="record-muted">Fee due: ${esc(formatCurrency(amountDue))}</div>
+                ${kegSponsorshipAmount > 0 ? `<div class="record-muted">Keg sponsorship: ${esc(formatCurrency(kegSponsorshipAmount))}</div>` : ''}
                 <div class="payment-controls">
                   <select class="payment-select" data-payment-select>
                     ${PAYMENT_STATUS_OPTIONS.map((status) => `<option value="${esc(status)}"${String(entry && entry.paymentStatus || 'unpaid').toLowerCase() === status ? ' selected' : ''}>${esc(paymentStatusLabel(status))}</option>`).join('')}
@@ -2364,12 +2386,14 @@
       ].filter(Boolean).join('');
 
       const activeFees = paymentSummary(event);
+      const kegSponsors = kegSponsorshipSummary(event);
       const refundedFees = paymentSummary(
         event,
         registrationList(event).filter((entry) => String(entry && entry.paymentStatus || '').toLowerCase() === 'refunded')
       );
       document.getElementById('paymentSummary').innerHTML = [
         tag(`Collected: ${formatCurrency(activeFees.paidAmount)}`, activeFees.paidAmount ? 'paid' : 'unpaid'),
+        tag(`Keg pledged: ${formatCurrency(kegSponsors.totalAmount)}`, kegSponsors.totalAmount ? 'paid' : 'unpaid'),
         tag(`Outstanding: ${formatCurrency(activeFees.outstandingAmount)}`, activeFees.outstandingAmount ? 'pending' : 'paid'),
         tag(`Paid entries: ${activeFees.paidCount} / ${activeFees.totalEntries}`, activeFees.totalEntries && activeFees.paidCount === activeFees.totalEntries ? 'paid' : (activeFees.paidCount ? 'pending' : 'unpaid')),
         refundedFees.totalEntries ? tag(`Refunded: ${refundedFees.totalEntries}`, 'refunded') : '',
@@ -2396,6 +2420,8 @@
           const team = record.team || {};
           const members = Array.isArray(record.members) ? record.members : [];
           const feeSummary = record.paymentSummary || { text: 'No', css: 'unpaid' };
+          const teamKegSponsorshipAmount = (Array.isArray(record.registrations) ? record.registrations : [])
+            .reduce((sum, entry) => sum + registrationKegSponsorshipAmount(entry), 0);
           const teamNotes = (Array.isArray(record.registrations) ? record.registrations : [])
             .map((entry) => String(entry && entry.notes || '').trim())
             .filter(Boolean)
@@ -2426,6 +2452,12 @@
                   <span class="mini-label">Fees Paid</span>
                   <strong>${esc(feeSummary.text || 'No')}</strong>
                 </div>
+                ${teamKegSponsorshipAmount > 0 ? `
+                  <div class="record-card-fact payment paid">
+                    <span class="mini-label">Keg Sponsor</span>
+                    <strong>${esc(formatCurrency(teamKegSponsorshipAmount))}</strong>
+                  </div>
+                ` : ''}
                 ${teamNotes ? `
                   <div class="record-card-fact wide">
                     <span class="mini-label">Notes</span>
@@ -2453,6 +2485,7 @@
         if (record.kind === 'solo') {
           const entry = record.soloEntry || {};
           const feeBadge = paymentBadgeForEntry(entry, event);
+          const kegSponsorshipAmount = registrationKegSponsorshipAmount(entry);
           return `
             <article class="record-card" data-record-kind="solo" data-record-key="${esc(record.key)}">
               <div class="record-card-top">
@@ -2478,6 +2511,12 @@
                   <span class="mini-label">Payment</span>
                   <strong>${esc(feeBadge.text)}</strong>
                 </div>
+                ${kegSponsorshipAmount > 0 ? `
+                  <div class="record-card-fact payment paid">
+                    <span class="mini-label">Keg Sponsor</span>
+                    <strong>${esc(formatCurrency(kegSponsorshipAmount))}</strong>
+                  </div>
+                ` : ''}
               </div>
               <details class="record-details">
                 <summary>Open entry details</summary>

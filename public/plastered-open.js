@@ -62,6 +62,19 @@ function formatCurrency(value) {
   return `$${num.toFixed(0)}`;
 }
 
+function formatPledgeAmount(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num) || num <= 0) return '$0';
+  return num % 1 === 0 ? `$${num.toFixed(0)}` : `$${num.toFixed(2)}`;
+}
+
+function collectMoneyInput(id) {
+  const input = document.getElementById(id);
+  const num = Number(input && input.value);
+  if (!Number.isFinite(num) || num < 0) return 0;
+  return Number(num.toFixed(2));
+}
+
 function formatModeLabel(mode) {
   return String(mode || '')
     .split('_')
@@ -143,6 +156,24 @@ function updateStatusPills(status, labelOverride = '') {
   });
 }
 
+function renderKegSponsorTracker(detail) {
+  const tracker = document.getElementById('kegSponsorTracker');
+  const heroTracker = document.getElementById('heroKegSponsorTracker');
+  const summary = detail && detail.kegSponsorshipSummary ? detail.kegSponsorshipSummary : {};
+  const total = Number(summary.totalAmount || 0);
+  const count = Number(summary.contributorCount || 0);
+  if (tracker) {
+    tracker.innerHTML = `
+      <strong>${esc(formatPledgeAmount(total))} pledged</strong>
+      <span>${count > 0 ? `${esc(String(count))} team${count === 1 ? '' : 's'} contributing` : 'No team sponsorships yet.'}</span>
+    `;
+  }
+  if (heroTracker) {
+    heroTracker.textContent = `${formatPledgeAmount(total)} pledged`;
+    heroTracker.title = count > 0 ? `${count} team${count === 1 ? '' : 's'} contributing` : 'No team sponsorships yet.';
+  }
+}
+
 function resetManageLookupUi(clearStored = false) {
   const wrap = document.getElementById('manageWrap');
   const btn = document.getElementById('manageSignupBtn');
@@ -211,6 +242,7 @@ function renderFallbackState(message) {
   document.getElementById('statusNote').textContent = '';
   document.getElementById('liveMetaNote').textContent = 'Use the Facebook page for updates and sponsorship conversations while signup is unavailable.';
   renderNotes(null);
+  renderKegSponsorTracker(null);
   resetManageLookupUi(true);
 }
 
@@ -306,6 +338,7 @@ function renderLiveState(detail) {
   document.getElementById('liveMetaNote').textContent = detail.ruleSummary || 'Live outing details come from the Blue Ridge Outings system.';
   renderOpenTeams(detail);
   renderNotes(detail);
+  renderKegSponsorTracker(detail);
 }
 
 async function loadLiveEvent() {
@@ -387,6 +420,7 @@ function openSignup(mode, preferredTeamId = '') {
   document.getElementById('formMode').value = mode;
   document.getElementById('signupDialogMsg').textContent = '';
   document.getElementById('teamNameInput').value = '';
+  document.getElementById('kegSponsorshipAmountInput').value = '';
   document.getElementById('notesInput').value = '';
 
   const teamSelectField = document.getElementById('teamSelectField');
@@ -441,6 +475,7 @@ async function submitSignup(event) {
         mode: document.getElementById('formMode').value,
         teamName: document.getElementById('teamNameInput').value,
         teamId: document.getElementById('teamSelect').value,
+        kegSponsorshipAmount: collectMoneyInput('kegSponsorshipAmountInput'),
         notes: document.getElementById('notesInput').value,
         players
       })
@@ -509,6 +544,8 @@ function resetManageDialog() {
   document.getElementById('manageCapacityNote').textContent = '';
   document.getElementById('manageNotesField').classList.add('hidden');
   document.getElementById('manageNotesInput').value = '';
+  document.getElementById('manageKegSponsorshipField').classList.add('hidden');
+  document.getElementById('manageKegSponsorshipAmountInput').value = '';
   document.getElementById('manageDialogMsg').textContent = '';
   document.getElementById('manageCancelEntryBtn').classList.add('hidden');
   document.getElementById('manageCancelEntryBtn').textContent = 'Cancel Signup';
@@ -574,6 +611,8 @@ function openManageDialog() {
       const spotsOpen = Math.max(0, teamLimit(liveDetail) - currentMembers.length);
       document.getElementById('manageNotesField').classList.remove('hidden');
       document.getElementById('manageNotesInput').value = String(registration.notes || '').trim();
+      document.getElementById('manageKegSponsorshipField').classList.remove('hidden');
+      document.getElementById('manageKegSponsorshipAmountInput').value = Number(registration.kegSponsorshipAmount || 0) > 0 ? String(registration.kegSponsorshipAmount) : '';
       document.getElementById('manageSaveBtn').classList.remove('hidden');
       document.getElementById('manageAddWrap').classList.remove('hidden');
       document.getElementById('manageAddPlayers').dataset.maxRows = String(spotsOpen);
@@ -610,11 +649,13 @@ async function submitManageForm(event) {
   const requesterEmail = lastStatusLookup.requesterEmail;
   const registration = lastStatusLookup.payload.registration;
   const originalNotes = String(registration.notes || '').trim();
+  const originalKegSponsorshipAmount = Number(registration.kegSponsorshipAmount || 0);
   const notes = String(document.getElementById('manageNotesInput').value || '').trim();
+  const kegSponsorshipAmount = collectMoneyInput('manageKegSponsorshipAmountInput');
   const removeMemberIds = Array.from(document.querySelectorAll('[data-remove-member-id]:checked')).map((input) => input.dataset.removeMemberId).filter(Boolean);
   const addPlayers = collectManageAddPlayers();
 
-  if (!removeMemberIds.length && !addPlayers.length && notes === originalNotes) {
+  if (!removeMemberIds.length && !addPlayers.length && notes === originalNotes && kegSponsorshipAmount === originalKegSponsorshipAmount) {
     msg.textContent = 'No changes to save.';
     return;
   }
@@ -627,6 +668,7 @@ async function submitManageForm(event) {
         requesterEmail,
         removeMemberIds,
         addPlayers,
+        kegSponsorshipAmount,
         notes
       })
     });

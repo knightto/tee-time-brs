@@ -8,12 +8,12 @@
   <meta property="og:type" content="website">
   <meta property="og:title" content='Plastered "Open"'>
   <meta property="og:description" content='Friday, June 19, 2026. 9am shotgun. 2-man scramble teams. $85 includes golf, lunch, prizes, and post-round U.S. Open viewing.'>
-  <meta property="og:image" content="https://tee-time-brs.onrender.com/assets/plastered-open-hero-card.png">
-  <meta property="og:image:alt" content='Plastered "Open" Blue Ridge Shadows hero card'>
+  <meta property="og:image" content="https://tee-time-brs.onrender.com/assets/plastered-open-course-clubhouse.webp">
+  <meta property="og:image:alt" content='Blue Ridge Shadows course and clubhouse for the Plastered "Open"'>
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content='Plastered "Open"'>
   <meta name="twitter:description" content='June 19, 2026 golfer signup page with live registration when the outing opens.'>
-  <meta name="twitter:image" content="https://tee-time-brs.onrender.com/assets/plastered-open-hero-card.png">
+  <meta name="twitter:image" content="https://tee-time-brs.onrender.com/assets/plastered-open-course-clubhouse.webp">
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <link rel="stylesheet" href="/plastered-open.css">
 </head>
@@ -23,6 +23,7 @@
       <div class="hero-copy">
         <div class="hero-links">
           <a class="hero-banner" href="#kegSponsors">Looking for 2 "Keg Sponsors"</a>
+          <a id="heroKegSponsorTracker" class="hero-sponsor-total" href="#kegSponsors" aria-live="polite">$0 pledged</a>
           <a class="chip-link" href="https://www.facebook.com/plasteredmastersgolf" target="_blank" rel="noopener noreferrer">Facebook Page</a>
         </div>
         <p class="eyebrow">Plastered Open x U.S. Open Week</p>
@@ -40,9 +41,9 @@
         </div>
       </div>
 
-      <aside class="hero-gallery" aria-label='Plastered Open hero graphic'>
-        <figure class="hero-photo hero-photo-main hero-photo-card">
-          <img src="/assets/plastered-open-hero-card.png" alt='Plastered "Open" Blue Ridge Shadows clubhouse hero graphic'>
+      <aside class="hero-gallery" aria-label='Plastered Open course photos'>
+        <figure class="hero-photo hero-photo-main">
+          <img src="/assets/plastered-open-course-clubhouse.webp" alt='Blue Ridge Shadows clubhouse overlooking the course and pond'>
         </figure>
       </aside>
     </section>
@@ -130,6 +131,10 @@
               <strong>Sponsorships are available.</strong>
               <p>Contest money and sponsorships help cover outing cost and player prizes. If someone wants to put their name on the cooler, send them here.</p>
             </div>
+            <div id="kegSponsorTracker" class="sponsor-tracker" aria-live="polite">
+              <strong>$0 pledged</strong>
+              <span>No team sponsorships yet.</span>
+            </div>
             <a class="cta primary" href="https://www.facebook.com/plasteredmastersgolf" target="_blank" rel="noopener noreferrer">Message The Facebook Page</a>
           </div>
         </article>
@@ -156,6 +161,7 @@
         <label id="teamSelectField" class="field hidden">Open team<select id="teamSelect"></select></label>
         <div id="playersWrap" class="players-wrap"></div>
         <button id="addPlayerBtn" type="button" class="plain-btn">Add another golfer</button>
+        <label class="field">Keg sponsorship contribution <input id="kegSponsorshipAmountInput" type="number" min="0" step="1" inputmode="decimal" placeholder="Optional amount"></label>
         <label class="field">Notes<textarea id="notesInput" rows="4" placeholder="Anything the organizer should know?"></textarea></label>
         <div id="signupDialogMsg" class="dialog-msg"></div>
         <div class="dialog-actions">
@@ -215,6 +221,7 @@
         </div>
 
         <label id="manageNotesField" class="field hidden">Notes<textarea id="manageNotesInput" rows="4" placeholder="Update notes for the organizer"></textarea></label>
+        <label id="manageKegSponsorshipField" class="field hidden">Keg sponsorship contribution <input id="manageKegSponsorshipAmountInput" type="number" min="0" step="1" inputmode="decimal" placeholder="Optional amount"></label>
 
         <div id="manageDialogMsg" class="dialog-msg"></div>
         <div class="dialog-actions">

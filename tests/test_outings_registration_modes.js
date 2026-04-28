@@ -802,6 +802,45 @@ async function assertAdminEventUpdateAudit() {
   });
 }
 
+async function assertKegSponsorshipFlow() {
+  const event = buildEvent();
+  const { state, models } = createModels({ event });
+
+  await withRouter(models, async (baseUrl) => {
+    const createResult = await jsonRequest(baseUrl, `/${event._id}/register`, {
+      method: 'POST',
+      body: {
+        mode: 'full_team',
+        teamName: 'Keg Crew',
+        kegSponsorshipAmount: 150,
+        players: [
+          player('Keg Kim', 'keg-kim@example.com'),
+          player('Keg Ken', 'keg-ken@example.com'),
+        ],
+      },
+    });
+    assert.strictEqual(createResult.response.status, 201, 'Keg sponsorship signup should succeed');
+    assert.strictEqual(state.registrations[0].kegSponsorshipAmount, 150, 'Registration should store the keg sponsorship amount');
+    assert.strictEqual(createResult.payload.event.kegSponsorshipSummary.totalAmount, 150, 'Event detail should summarize keg sponsorship dollars');
+    assert.strictEqual(createResult.payload.event.kegSponsorshipSummary.contributorCount, 1, 'Event detail should summarize keg sponsorship contributors');
+
+    const registrationId = state.registrations[0]._id;
+    const updateResult = await jsonRequest(baseUrl, `/${event._id}/registrations/${registrationId}`, {
+      method: 'PUT',
+      body: {
+        requesterEmail: 'keg-kim@example.com',
+        kegSponsorshipAmount: 200,
+        notes: '',
+        removeMemberIds: [],
+        addPlayers: [],
+      },
+    });
+    assert.strictEqual(updateResult.response.status, 200, 'Keg sponsorship update should succeed');
+    assert.strictEqual(state.registrations[0].kegSponsorshipAmount, 200, 'Registration should update the keg sponsorship amount');
+    assert.strictEqual(updateResult.payload.event.kegSponsorshipSummary.totalAmount, 200, 'Updated event detail should summarize changed keg sponsorship dollars');
+  });
+}
+
 async function run() {
   await assertRegisterFlow({
     label: 'Single signup with auto-waitlist disabled',
@@ -921,6 +960,7 @@ async function run() {
   await assertAdminPaymentUpdateValidation();
   await assertAuditTrail();
   await assertAdminEventUpdateAudit();
+  await assertKegSponsorshipFlow();
 }
 
 run()

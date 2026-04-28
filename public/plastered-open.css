@@ -29,7 +29,7 @@ body {
     linear-gradient(135deg, rgba(8, 27, 54, 0.92) 0%, rgba(13, 43, 87, 0.88) 34%, rgba(27, 77, 56, 0.84) 68%, rgba(203, 63, 51, 0.62) 100%),
     radial-gradient(circle at 18% 18%, rgba(241, 221, 179, 0.22), transparent 20%),
     radial-gradient(circle at 82% 8%, rgba(203, 63, 51, 0.18), transparent 18%),
-    url("/assets/golf-background1.jpg") center center / cover no-repeat fixed;
+    url("/assets/plastered-open-course-mountain.webp") center center / cover no-repeat fixed;
   background-color: var(--navy-deep);
 }
 
@@ -81,6 +81,7 @@ a { color: inherit; }
 .cta,
 .action-btn,
 .plain-btn,
+.hero-sponsor-total,
 .mode-btn,
 .hero-banner,
 .team-pill {
@@ -104,6 +105,7 @@ a { color: inherit; }
 .cta,
 .action-btn,
 .plain-btn,
+.hero-sponsor-total,
 .hero-banner {
   display: inline-flex;
   align-items: center;
@@ -124,6 +126,15 @@ a { color: inherit; }
   text-transform: uppercase;
 }
 
+.hero-sponsor-total {
+  color: #fff8f0;
+  background: rgba(45, 109, 78, 0.42);
+  border: 1px solid rgba(241, 221, 179, 0.34);
+  box-shadow: 0 12px 24px rgba(6, 17, 33, 0.16);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .cta.primary,
 .action-btn {
   color: #fff8f0;
@@ -135,6 +146,7 @@ a { color: inherit; }
 .cta:hover,
 .action-btn:hover,
 .plain-btn:hover,
+.hero-sponsor-total:hover,
 .hero-banner:hover,
 .mode-btn:hover,
 .team-pill:hover { transform: translateY(-1px); }
@@ -247,36 +259,12 @@ a { color: inherit; }
   aspect-ratio: 5 / 6;
 }
 
-.hero-photo-card {
-  border: none;
-  background: transparent;
-  box-shadow: none;
-}
-
-.hero-photo-card::after { display: none; }
-
-.hero-photo-card img { object-fit: contain; }
-
-.hero-photo-main::after,
-.hero-photo-plastered::after,
-.hero-photo-fescue::after {
+.hero-photo-main::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(8, 27, 54, 0.04) 0%, rgba(8, 27, 54, 0.62) 100%);
+  background: linear-gradient(180deg, rgba(8, 27, 54, 0.04) 0%, rgba(8, 27, 54, 0.42) 100%);
   pointer-events: none;
-}
-
-.hero-photo-plastered {
-  background:
-    linear-gradient(145deg, rgba(241, 221, 179, 0.18) 0%, rgba(203, 63, 51, 0.14) 100%),
-    rgba(255, 255, 255, 0.06);
-}
-
-.hero-photo-plastered img {
-  object-fit: contain;
-  padding: 12px;
-  background: radial-gradient(circle at center, rgba(255, 255, 255, 0.96) 0%, rgba(244, 240, 232, 0.86) 65%, rgba(226, 216, 199, 0.68) 100%);
 }
 
 .hero-photo figcaption {
@@ -593,6 +581,28 @@ a { color: inherit; }
 }
 
 .sponsor-callout p { margin: 8px 0 0; color: var(--ink-soft); }
+
+.sponsor-tracker {
+  display: grid;
+  gap: 4px;
+  min-width: 150px;
+  padding: 12px 14px;
+  border-radius: 16px;
+  border: 1px solid rgba(45, 109, 78, 0.16);
+  background: rgba(45, 109, 78, 0.08);
+  color: var(--fairway-deep);
+}
+
+.sponsor-tracker strong {
+  font-size: 1.35rem;
+  line-height: 1;
+}
+
+.sponsor-tracker span {
+  color: var(--ink-soft);
+  font-weight: 700;
+}
+
 .footer-admin {
   margin-top: 20px;
   display: grid;
