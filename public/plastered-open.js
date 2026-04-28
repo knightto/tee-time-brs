@@ -1,6 +1,6 @@
 const TARGET_DATE_ISO = '2026-06-19';
 const TARGET_NAME_RE = /plastered/i;
-const FALLBACK_ENTRY_FEE = 85;
+const FALLBACK_ENTRY_FEE = 90;
 const FALLBACK_PLAYER_CAP = 120;
 const FALLBACK_TEAM_CAP = 60;
 const ORGANIZER_CONTACT_NOTE = 'After signing up, contact the organizer within 2 days or your team may be removed.';
@@ -241,7 +241,7 @@ function renderFallbackState(message) {
   document.getElementById('statsGrid').innerHTML = [
     statTile('120', 'golfer cap'),
     statTile('2-Man', 'scramble teams'),
-    statTile('$85', 'entry with lunch + prize pool'),
+    statTile('$90', 'entry with lunch + prize pool'),
     statTile('60', 'team cap')
   ].join('');
   document.getElementById('signupMessage').innerHTML = `<strong>Registration is temporarily unavailable.</strong> ${esc(message || 'Use the Facebook page for updates while the outing feed is unavailable.')}`;

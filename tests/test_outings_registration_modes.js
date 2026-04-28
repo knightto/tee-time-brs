@@ -575,7 +575,7 @@ async function assertWaitlistDisabledFlow() {
 }
 
 async function assertAdminPaymentUpdate() {
-  const event = buildEvent({ entryFee: 85 });
+  const event = buildEvent({ entryFee: 90 });
   const { state, models } = createModels({
     event,
     registrations: [{
@@ -693,7 +693,7 @@ async function assertAdminPaymentUpdateValidation() {
 }
 
 async function assertAuditTrail() {
-  const event = buildEvent({ entryFee: 85, autoWaitlist: true, status: 'open' });
+  const event = buildEvent({ entryFee: 90, autoWaitlist: true, status: 'open' });
   const { state, models } = createModels({ event });
 
   await withRouter(models, async (baseUrl) => {
@@ -788,7 +788,7 @@ async function assertAuditTrail() {
 }
 
 async function assertAdminEventUpdateAudit() {
-  const event = buildEvent({ entryFee: 85, registrationNotes: 'Original note' });
+  const event = buildEvent({ entryFee: 90, registrationNotes: 'Original note' });
   const { state, models } = createModels({ event });
 
   await withRouter(models, async (baseUrl) => {
@@ -945,7 +945,7 @@ async function assertActiveTeamDeleteRemovesRecords() {
 }
 
 async function assertFeeManagementFlow() {
-  const event = buildEvent({ entryFee: 85 });
+  const event = buildEvent({ entryFee: 90 });
   const teamId = '607f191e810c19729de861ba';
   const registrationId = '807f191e810c19729de861bb';
   const { state, models } = createModels({
@@ -991,10 +991,10 @@ async function assertFeeManagementFlow() {
   await withRouter(models, async (baseUrl) => {
     const fees = await jsonRequest(baseUrl, `/admin/events/${event._id}/fees?code=2000`);
     assert.strictEqual(fees.response.status, 200, 'Fee management should load');
-    assert.strictEqual(fees.payload.summary.entryFee, 85, 'Fee management should use the $85 entry fee');
+    assert.strictEqual(fees.payload.summary.entryFee, 90, 'Fee management should use the $90 entry fee');
     assert.strictEqual(fees.payload.summary.courseDue, 130, 'Course allocation should be $65 per active player');
     assert.strictEqual(fees.payload.summary.prizePoolDue, 50, 'Prize pool allocation should be $25 per active player');
-    assert.strictEqual(fees.payload.summary.perPlayerVariance, -5, 'Fee management should expose allocation variance');
+    assert.strictEqual(fees.payload.summary.perPlayerVariance, 0, 'Fee management should balance the per-player allocations');
 
     const ledgerCreate = await jsonRequest(baseUrl, `/admin/events/${event._id}/fee-ledger?code=2000`, {
       method: 'POST',
@@ -1014,7 +1014,7 @@ async function assertFeeManagementFlow() {
       method: 'PUT',
       body: {
         feeSchedule: [
-          { key: 'entry_fee', label: 'Player entry fee', amount: 85, basis: 'per_player', category: 'income', enabled: true },
+          { key: 'entry_fee', label: 'Player entry fee', amount: 90, basis: 'per_player', category: 'income', enabled: true },
           { key: 'course_fee', label: 'Course fee', amount: 65, basis: 'per_player', category: 'course', enabled: true },
           { key: 'prize_pool', label: 'Prize pool', amount: 25, basis: 'per_player', category: 'prize', enabled: true },
           { key: 'tournament_fees', label: 'Tourney fees', amount: 40, basis: 'flat', category: 'tournament', enabled: true },
@@ -1022,7 +1022,7 @@ async function assertFeeManagementFlow() {
       },
     });
     assert.strictEqual(scheduleUpdate.response.status, 200, 'Fee schedule update should succeed');
-    assert.strictEqual(state.outings[0].entryFee, 85, 'Fee schedule update should keep entry fee at $85');
+    assert.strictEqual(state.outings[0].entryFee, 90, 'Fee schedule update should keep entry fee at $90');
     assert.strictEqual(scheduleUpdate.payload.summary.tournamentFees, 40, 'Fee schedule should include tourney fees');
     assert.ok(
       state.audits.some((row) => String(row && row.action || '') === 'fee_schedule_updated'),
@@ -1209,3 +1209,4 @@ run()
     console.error(err);
     process.exit(1);
   });
+

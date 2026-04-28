@@ -20,7 +20,7 @@ const LEDGER_CATEGORIES = new Set([
   'other',
 ]);
 const DEFAULT_PLASTERED_FEE_SCHEDULE = [
-  { key: 'entry_fee', label: 'Player entry fee', amount: 85, basis: 'per_player', category: 'income', enabled: true, notes: 'Amount collected from each player.' },
+  { key: 'entry_fee', label: 'Player entry fee', amount: 90, basis: 'per_player', category: 'income', enabled: true, notes: 'Amount collected from each player.' },
   { key: 'course_fee', label: 'Course fee', amount: 65, basis: 'per_player', category: 'course', enabled: true, notes: 'Amount owed to the course for each player.' },
   { key: 'prize_pool', label: 'Prize pool', amount: 25, basis: 'per_player', category: 'prize', enabled: true, notes: 'Amount reserved for player payouts.' },
   { key: 'tournament_fees', label: 'Tourney fees', amount: 0, basis: 'flat', category: 'tournament', enabled: true, notes: 'Optional tournament-side costs.' },
