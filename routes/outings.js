@@ -8,6 +8,26 @@ const router = express.Router();
 const SITE_ADMIN_WRITE_CODE = process.env.SITE_ADMIN_WRITE_CODE || '2000';
 const REGISTRATION_PAYMENT_STATUSES = new Set(['unpaid', 'pending', 'paid', 'refunded']);
 const FEE_PAID_TO_VALUES = new Set(['', 'club', 'tommy', 'john']);
+const LEDGER_TYPES = new Set(['income', 'expense']);
+const LEDGER_CATEGORIES = new Set([
+  'raffle_income',
+  'raffle_purchase',
+  'outing_expense',
+  'course_payment',
+  'prize_pool',
+  'tournament_fee',
+  'sponsor_income',
+  'other',
+]);
+const DEFAULT_PLASTERED_FEE_SCHEDULE = [
+  { key: 'entry_fee', label: 'Player entry fee', amount: 85, basis: 'per_player', category: 'income', enabled: true, notes: 'Amount collected from each player.' },
+  { key: 'course_fee', label: 'Course fee', amount: 65, basis: 'per_player', category: 'course', enabled: true, notes: 'Amount owed to the course for each player.' },
+  { key: 'prize_pool', label: 'Prize pool', amount: 25, basis: 'per_player', category: 'prize', enabled: true, notes: 'Amount reserved for player payouts.' },
+  { key: 'tournament_fees', label: 'Tourney fees', amount: 0, basis: 'flat', category: 'tournament', enabled: true, notes: 'Optional tournament-side costs.' },
+  { key: 'raffle_income', label: 'Raffle income', amount: 0, basis: 'flat', category: 'raffle', enabled: true, notes: 'Track actual raffle money in the ledger.' },
+  { key: 'raffle_purchases', label: 'Raffle purchases', amount: 0, basis: 'flat', category: 'expense', enabled: true, notes: 'Track actual raffle purchases in the ledger.' },
+  { key: 'other_expenses', label: 'Other expenses', amount: 0, basis: 'flat', category: 'expense', enabled: true, notes: 'Food, supplies, signs, and other outing costs.' },
+];
 const PLASTERED_OPEN_ALERT_EMAILS = uniqueEmailList(
   String(process.env.PLASTERED_OPEN_ALERT_EMAILS || 'tommy.knight@gmail.com').split(',')
 );
@@ -18,6 +38,7 @@ function getSecondaryModels() {
   return {
     BlueRidgeOuting: conn.model('BlueRidgeOuting', require('../models/BlueRidgeOuting').schema),
     BlueRidgeOutingAuditLog: conn.model('BlueRidgeOutingAuditLog', require('../models/BlueRidgeOutingAuditLog').schema),
+    BlueRidgeOutingLedgerEntry: conn.model('BlueRidgeOutingLedgerEntry', require('../models/BlueRidgeOutingLedgerEntry').schema),
     BlueRidgeRegistration: conn.model('BlueRidgeRegistration', require('../models/BlueRidgeRegistration').schema),
     BlueRidgeTeam: conn.model('BlueRidgeTeam', require('../models/BlueRidgeTeam').schema),
     BlueRidgeTeamMember: conn.model('BlueRidgeTeamMember', require('../models/BlueRidgeTeamMember').schema),
@@ -130,6 +151,76 @@ function parseMoneyAmount(val, fallback = 0) {
   const n = Number(val);
   if (!Number.isFinite(n) || n < 0) return fallback;
   return Number(n.toFixed(2));
+}
+
+function slugKey(value, fallback = 'fee') {
+  const key = String(value || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return key || fallback;
+}
+
+function normalizeFeeBasis(value) {
+  const key = String(value || '').trim().toLowerCase();
+  return ['per_player', 'per_team', 'flat'].includes(key) ? key : 'per_player';
+}
+
+function normalizeFeeCategory(value) {
+  const key = String(value || '').trim().toLowerCase();
+  return ['income', 'course', 'prize', 'tournament', 'raffle', 'expense', 'other'].includes(key) ? key : 'other';
+}
+
+function normalizeFeeScheduleItems(items = []) {
+  const source = Array.isArray(items) ? items : [];
+  return source
+    .map((item, index) => {
+      const label = String(item && item.label || '').trim();
+      const key = slugKey(item && (item.key || label), `fee_${index + 1}`);
+      return {
+        key,
+        label: label || key.replace(/_/g, ' '),
+        amount: parseMoneyAmount(item && item.amount, 0),
+        basis: normalizeFeeBasis(item && item.basis),
+        category: normalizeFeeCategory(item && item.category),
+        enabled: parseBool(item && item.enabled, true),
+        notes: String(item && item.notes || '').trim().slice(0, 500),
+      };
+    })
+    .filter((item) => item.label);
+}
+
+function feeScheduleForEvent(event) {
+  const custom = normalizeFeeScheduleItems(event && event.feeSchedule || []);
+  if (custom.length) return custom;
+  if (isPlasteredOpenEvent(event)) return DEFAULT_PLASTERED_FEE_SCHEDULE.map((item) => ({ ...item }));
+  const entryFee = parseMoneyAmount(event && event.entryFee, 0);
+  return [
+    { key: 'entry_fee', label: 'Player entry fee', amount: entryFee, basis: 'per_player', category: 'income', enabled: true, notes: 'Amount collected from each player.' },
+  ];
+}
+
+function normalizeLedgerCategory(value) {
+  const key = String(value || '').trim().toLowerCase();
+  return LEDGER_CATEGORIES.has(key) ? key : 'other';
+}
+
+function coerceLedgerInput(body = {}) {
+  const category = normalizeLedgerCategory(body.category);
+  const inferredType = ['raffle_income', 'sponsor_income'].includes(category) ? 'income' : 'expense';
+  const type = String(body.type || inferredType).trim().toLowerCase();
+  return {
+    type: LEDGER_TYPES.has(type) ? type : inferredType,
+    category,
+    label: String(body.label || '').trim(),
+    amount: parseMoneyAmount(body.amount, 0),
+    paidTo: String(body.paidTo || '').trim(),
+    paidBy: String(body.paidBy || '').trim(),
+    method: String(body.method || '').trim(),
+    occurredAt: body.occurredAt ? new Date(body.occurredAt) : new Date(),
+    notes: String(body.notes || '').trim(),
+  };
 }
 
 function dateOnlyKey(value) {
@@ -301,6 +392,91 @@ async function getKegSponsorshipSummary(eventId, models) {
   return {
     totalAmount: Number(Number(row.totalAmount || 0).toFixed(2)),
     contributorCount: Number(row.contributorCount || 0),
+  };
+}
+
+function applyFeeScheduleItem(item, counts = {}) {
+  const amount = parseMoneyAmount(item && item.amount, 0);
+  const basis = normalizeFeeBasis(item && item.basis);
+  const multiplier = basis === 'per_player'
+    ? Number(counts.players || 0)
+    : basis === 'per_team'
+      ? Number(counts.teams || 0)
+      : 1;
+  return Number((amount * multiplier).toFixed(2));
+}
+
+function ledgerTotals(entries = []) {
+  return (Array.isArray(entries) ? entries : []).reduce((summary, entry) => {
+    const amount = parseMoneyAmount(entry && entry.amount, 0);
+    const type = String(entry && entry.type || '').toLowerCase() === 'income' ? 'income' : 'expense';
+    if (type === 'income') summary.income = Number((summary.income + amount).toFixed(2));
+    else summary.expense = Number((summary.expense + amount).toFixed(2));
+    const category = normalizeLedgerCategory(entry && entry.category);
+    summary.byCategory[category] = Number(((summary.byCategory[category] || 0) + amount).toFixed(2));
+    summary.net = Number((summary.income - summary.expense).toFixed(2));
+    return summary;
+  }, { income: 0, expense: 0, net: 0, byCategory: {} });
+}
+
+async function buildFeeManagementDetail(event, models) {
+  const [members, teams, registrations, ledgerEntries] = await Promise.all([
+    models.BlueRidgeTeamMember.find({ eventId: event._id, status: 'active' }).lean(),
+    models.BlueRidgeTeam.find({ eventId: event._id, status: { $in: ['active', 'incomplete'] } }).lean(),
+    models.BlueRidgeRegistration.find({ eventId: event._id, status: 'registered' }).lean(),
+    models.BlueRidgeOutingLedgerEntry.find({ eventId: event._id }).sort({ occurredAt: -1, createdAt: -1 }).lean(),
+  ]);
+  const schedule = feeScheduleForEvent(event);
+  const counts = {
+    players: Array.isArray(members) ? members.length : 0,
+    teams: Array.isArray(teams) ? teams.length : 0,
+    paidPlayers: (Array.isArray(members) ? members : []).filter((member) => normalizeFeePaidTo(member && member.feePaidTo)).length,
+    registrations: Array.isArray(registrations) ? registrations.length : 0,
+  };
+  const entryFee = parseMoneyAmount(event && event.entryFee, 0);
+  const entryIncome = Number((counts.paidPlayers * entryFee).toFixed(2));
+  const expectedEntryIncome = Number((counts.players * entryFee).toFixed(2));
+  const scheduleTotals = schedule.reduce((summary, item) => {
+    if (!item.enabled) return summary;
+    const total = applyFeeScheduleItem(item, counts);
+    summary.items.push({ ...item, total });
+    summary.byCategory[item.category] = Number(((summary.byCategory[item.category] || 0) + total).toFixed(2));
+    return summary;
+  }, { items: [], byCategory: {} });
+  const courseDue = Number(scheduleTotals.byCategory.course || 0);
+  const prizePoolDue = Number(scheduleTotals.byCategory.prize || 0);
+  const tournamentFees = Number(scheduleTotals.byCategory.tournament || 0);
+  const plannedExpenses = Number((courseDue + prizePoolDue + tournamentFees + Number(scheduleTotals.byCategory.expense || 0)).toFixed(2));
+  const requestedPerPlayerAllocations = schedule
+    .filter((item) => item.enabled && item.basis === 'per_player' && ['course', 'prize', 'tournament', 'expense'].includes(item.category))
+    .reduce((sum, item) => Number((sum + parseMoneyAmount(item.amount, 0)).toFixed(2)), 0);
+  const ledger = ledgerTotals(ledgerEntries);
+
+  return {
+    event: {
+      _id: event._id,
+      name: event.name,
+      startDate: event.startDate,
+      entryFee,
+    },
+    counts,
+    feeSchedule: schedule,
+    ledgerEntries,
+    summary: {
+      entryFee,
+      expectedEntryIncome,
+      entryIncome,
+      unpaidEntryIncome: Number((expectedEntryIncome - entryIncome).toFixed(2)),
+      courseDue,
+      prizePoolDue,
+      tournamentFees,
+      plannedExpenses,
+      plannedNet: Number((expectedEntryIncome - plannedExpenses).toFixed(2)),
+      requestedPerPlayerAllocations,
+      perPlayerVariance: Number((entryFee - requestedPerPlayerAllocations).toFixed(2)),
+      ledger,
+    },
+    scheduleTotals,
   };
 }
 
@@ -1726,27 +1902,18 @@ router.delete('/admin/events/:eventId/teams/:teamId', async (req, res) => {
       return res.json({ ok: true, team: team || { _id: req.params.teamId, status: 'deleted' }, event: detail });
     }
 
-    const activeMembers = await BlueRidgeTeamMember.find({
+    const teamMembers = await BlueRidgeTeamMember.find({
       eventId: event._id,
       teamId: team._id,
-      status: 'active',
     }).lean();
-    const activeRegistrations = await BlueRidgeRegistration.find({
+    const teamRegistrations = await BlueRidgeRegistration.find({
       eventId: event._id,
       teamId: team._id,
-      status: 'registered',
     }).lean();
 
-    await BlueRidgeTeamMember.updateMany(
-      { eventId: event._id, teamId: team._id, status: 'active' },
-      { $set: { status: 'cancelled' } }
-    );
-    await BlueRidgeRegistration.updateMany(
-      { eventId: event._id, teamId: team._id, status: 'registered' },
-      { $set: { status: 'cancelled', cancelledAt: new Date() } }
-    );
-    team.status = 'cancelled';
-    await team.save();
+    await BlueRidgeTeamMember.deleteMany({ eventId: event._id, teamId: team._id });
+    await BlueRidgeRegistration.deleteMany({ eventId: event._id, teamId: team._id });
+    await BlueRidgeTeam.deleteOne({ _id: team._id, eventId: event._id });
 
     await writeOutingAudit(models, {
       outingId: event._id,
@@ -1759,18 +1926,193 @@ router.delete('/admin/events/:eventId/teams/:teamId', async (req, res) => {
       details: {
         teamId: String(team && team._id || ''),
         teamName: team && team.name || '',
-        removedPlayers: summarizePlayers(activeMembers),
-        cancelledRegistrations: activeRegistrations.map((entry) => ({
+        removedPlayers: summarizePlayers(teamMembers),
+        deletedRegistrations: teamRegistrations.map((entry) => ({
           registrationId: String(entry && entry._id || ''),
           submittedByName: entry && entry.submittedByName || '',
           submittedByEmail: entry && entry.submittedByEmail || '',
+          status: entry && entry.status || '',
           paymentStatus: entry && entry.paymentStatus || '',
         })),
       },
     });
 
     const detail = await buildEventDetail(event, models, true);
-    res.json({ ok: true, team, event: detail });
+    res.json({ ok: true, team: { _id: team._id, name: team.name, status: 'deleted' }, event: detail });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/admin/events/:eventId/fees', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    if (!(await requireSecondaryConnection(res))) return;
+
+    const models = getSecondaryModels();
+    const event = await models.BlueRidgeOuting.findById(req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+
+    const detail = await buildFeeManagementDetail(event, models);
+    res.json(detail);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/admin/events/:eventId/fees', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    if (!(await requireSecondaryConnection(res))) return;
+
+    const models = getSecondaryModels();
+    const event = await models.BlueRidgeOuting.findById(req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+
+    const feeSchedule = normalizeFeeScheduleItems(req.body && req.body.feeSchedule || []);
+    if (!feeSchedule.length) return badRequest(res, 'At least one fee schedule item is required');
+    const previousSchedule = feeScheduleForEvent(event);
+    event.feeSchedule = feeSchedule;
+    const entryItem = feeSchedule.find((item) => item.key === 'entry_fee' || item.category === 'income');
+    if (entryItem && entryItem.basis === 'per_player') {
+      event.entryFee = parseMoneyAmount(entryItem.amount, event.entryFee || 0);
+    }
+    await event.save();
+
+    await writeOutingAudit(models, {
+      outingId: event._id,
+      category: 'money',
+      action: 'fee_schedule_updated',
+      actor: auditActor(req),
+      method: req.method,
+      route: routePath(req),
+      summary: `Fee schedule updated for ${event.name || 'outing'}`,
+      details: {
+        previousSchedule,
+        feeSchedule,
+        entryFee: event.entryFee,
+      },
+    });
+
+    const detail = await buildFeeManagementDetail(event, models);
+    res.json(detail);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/admin/events/:eventId/fee-ledger', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    if (!(await requireSecondaryConnection(res))) return;
+
+    const models = getSecondaryModels();
+    const event = await models.BlueRidgeOuting.findById(req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+    const payload = coerceLedgerInput(req.body || {});
+    if (!payload.label) return badRequest(res, 'label is required');
+    if (!payload.amount) return badRequest(res, 'amount is required');
+
+    const entry = await models.BlueRidgeOutingLedgerEntry.create({
+      eventId: event._id,
+      ...payload,
+    });
+
+    await writeOutingAudit(models, {
+      outingId: event._id,
+      category: 'money',
+      action: 'fee_ledger_entry_created',
+      actor: auditActor(req),
+      method: req.method,
+      route: routePath(req),
+      summary: `Ledger entry added: ${entry.label}`,
+      details: {
+        ledgerEntryId: String(entry && entry._id || ''),
+        type: entry.type,
+        category: entry.category,
+        label: entry.label,
+        amount: entry.amount,
+      },
+    });
+
+    const detail = await buildFeeManagementDetail(event, models);
+    res.status(201).json(detail);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/admin/events/:eventId/fee-ledger/:entryId', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    if (!(await requireSecondaryConnection(res))) return;
+
+    const models = getSecondaryModels();
+    const event = await models.BlueRidgeOuting.findById(req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+    const entry = await models.BlueRidgeOutingLedgerEntry.findOne({ _id: req.params.entryId, eventId: event._id });
+    if (!entry) return res.status(404).json({ error: 'Ledger entry not found' });
+
+    const previous = entry.toObject ? entry.toObject() : { ...entry };
+    const payload = coerceLedgerInput(req.body || {});
+    if (!payload.label) return badRequest(res, 'label is required');
+    if (!payload.amount) return badRequest(res, 'amount is required');
+    Object.assign(entry, payload);
+    await entry.save();
+
+    await writeOutingAudit(models, {
+      outingId: event._id,
+      category: 'money',
+      action: 'fee_ledger_entry_updated',
+      actor: auditActor(req),
+      method: req.method,
+      route: routePath(req),
+      summary: `Ledger entry updated: ${entry.label}`,
+      details: {
+        ledgerEntryId: String(entry && entry._id || ''),
+        changedFields: buildAuditChangeSet(previous, entry, Object.keys(payload)),
+      },
+    });
+
+    const detail = await buildFeeManagementDetail(event, models);
+    res.json(detail);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/admin/events/:eventId/fee-ledger/:entryId', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    if (!(await requireSecondaryConnection(res))) return;
+
+    const models = getSecondaryModels();
+    const event = await models.BlueRidgeOuting.findById(req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+    const entry = await models.BlueRidgeOutingLedgerEntry.findOne({ _id: req.params.entryId, eventId: event._id });
+    if (!entry) return res.status(404).json({ error: 'Ledger entry not found' });
+    const entrySnapshot = entry.toObject ? entry.toObject() : { ...entry };
+    await models.BlueRidgeOutingLedgerEntry.deleteOne({ _id: entry._id, eventId: event._id });
+
+    await writeOutingAudit(models, {
+      outingId: event._id,
+      category: 'money',
+      action: 'fee_ledger_entry_deleted',
+      actor: auditActor(req),
+      method: req.method,
+      route: routePath(req),
+      summary: `Ledger entry deleted: ${entrySnapshot.label || 'entry'}`,
+      details: {
+        ledgerEntryId: String(entrySnapshot && entrySnapshot._id || ''),
+        type: entrySnapshot.type,
+        category: entrySnapshot.category,
+        label: entrySnapshot.label,
+        amount: entrySnapshot.amount,
+      },
+    });
+
+    const detail = await buildFeeManagementDetail(event, models);
+    res.json(detail);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

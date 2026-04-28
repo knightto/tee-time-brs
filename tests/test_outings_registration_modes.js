@@ -144,12 +144,13 @@ function wrapStoredDoc(collection, doc) {
   return wrapped;
 }
 
-function createModels({ event, teams = [], members = [], registrations = [], waitlist = [] }) {
+function createModels({ event, teams = [], members = [], registrations = [], waitlist = [], ledgerEntries = [] }) {
   const nextTeamId = buildDocFactory('7');
   const nextRegistrationId = buildDocFactory('8');
   const nextMemberId = buildDocFactory('9');
   const nextWaitlistId = buildDocFactory('a');
   const nextAuditId = buildDocFactory('b');
+  const nextLedgerId = buildDocFactory('c');
 
   const state = {
     outings: createModelStore([event]),
@@ -157,6 +158,7 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
     members: createModelStore(members),
     registrations: createModelStore(registrations),
     waitlist: createModelStore(waitlist),
+    ledgerEntries: createModelStore(ledgerEntries),
     audits: createModelStore([]),
   };
 
@@ -334,11 +336,31 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
     },
   };
 
+  const BlueRidgeOutingLedgerEntry = {
+    find(filter = {}) {
+      return new FakeQuery(many(state.ledgerEntries, filter), { collection: state.ledgerEntries });
+    },
+    findOne(filter = {}) {
+      return new FakeQuery(first(state.ledgerEntries, filter), { single: true, collection: state.ledgerEntries });
+    },
+    create(doc) {
+      const saved = assignId(clone(doc), nextLedgerId);
+      state.ledgerEntries.push(saved);
+      return Promise.resolve(wrapStoredDoc(state.ledgerEntries, saved));
+    },
+    deleteOne(filter = {}) {
+      const index = state.ledgerEntries.findIndex((doc) => matches(doc, filter));
+      if (index >= 0) state.ledgerEntries.splice(index, 1);
+      return Promise.resolve({ acknowledged: true, deletedCount: index >= 0 ? 1 : 0 });
+    },
+  };
+
   return {
     state,
     models: {
       BlueRidgeOuting,
       BlueRidgeOutingAuditLog,
+      BlueRidgeOutingLedgerEntry,
       BlueRidgeRegistration,
       BlueRidgeTeam,
       BlueRidgeTeamMember,
@@ -858,6 +880,157 @@ async function assertKegSponsorshipFlow() {
   });
 }
 
+async function assertActiveTeamDeleteRemovesRecords() {
+  const event = buildEvent();
+  const teamId = '607f191e810c19729de861aa';
+  const registrationId = '807f191e810c19729de861ab';
+  const { state, models } = createModels({
+    event,
+    teams: [{
+      _id: teamId,
+      eventId: event._id,
+      name: 'Delete Me',
+      status: 'active',
+      memberCount: 2,
+    }],
+    registrations: [{
+      _id: registrationId,
+      eventId: event._id,
+      teamId,
+      mode: 'full_team',
+      status: 'registered',
+      submittedByName: 'Delete Dan',
+      submittedByEmail: 'delete-dan@example.com',
+      submittedByPhone: '555-0302',
+      paymentStatus: 'unpaid',
+    }],
+    members: [{
+      _id: '907f191e810c19729de861ac',
+      eventId: event._id,
+      teamId,
+      registrationId,
+      name: 'Delete Dan',
+      email: 'delete-dan@example.com',
+      emailKey: 'delete-dan@example.com',
+      phone: '555-0302',
+      status: 'active',
+    }, {
+      _id: '907f191e810c19729de861ad',
+      eventId: event._id,
+      teamId,
+      registrationId,
+      name: 'Delete Deb',
+      email: 'delete-deb@example.com',
+      emailKey: 'delete-deb@example.com',
+      phone: '555-0303',
+      status: 'active',
+    }],
+  });
+
+  await withRouter(models, async (baseUrl) => {
+    const result = await jsonRequest(baseUrl, `/admin/events/${event._id}/teams/${teamId}?code=2000`, {
+      method: 'DELETE',
+    });
+    assert.strictEqual(result.response.status, 200, 'Active team delete should succeed');
+    assert.strictEqual(state.teams.length, 0, 'Active team delete should remove the team record');
+    assert.strictEqual(state.registrations.length, 0, 'Active team delete should remove registration records');
+    assert.strictEqual(state.members.length, 0, 'Active team delete should remove member records');
+    assert.ok(
+      state.audits.some((row) => String(row && row.action || '') === 'team_admin_deleted'),
+      'Active team delete should write an audit row'
+    );
+    assert.deepStrictEqual(result.payload.event.teams, [], 'Deleted team should disappear from returned team list');
+    assert.deepStrictEqual(result.payload.event.registrations, [], 'Deleted team should disappear from returned registration list');
+  });
+}
+
+async function assertFeeManagementFlow() {
+  const event = buildEvent({ entryFee: 85 });
+  const teamId = '607f191e810c19729de861ba';
+  const registrationId = '807f191e810c19729de861bb';
+  const { state, models } = createModels({
+    event,
+    teams: [{
+      _id: teamId,
+      eventId: event._id,
+      name: 'Money Team',
+      status: 'active',
+    }],
+    registrations: [{
+      _id: registrationId,
+      eventId: event._id,
+      teamId,
+      mode: 'full_team',
+      status: 'registered',
+      submittedByName: 'Money Mike',
+      submittedByEmail: 'money-mike@example.com',
+      paymentStatus: 'paid',
+    }],
+    members: [{
+      _id: '907f191e810c19729de861bc',
+      eventId: event._id,
+      teamId,
+      registrationId,
+      name: 'Money Mike',
+      email: 'money-mike@example.com',
+      emailKey: 'money-mike@example.com',
+      status: 'active',
+      feePaidTo: 'tommy',
+    }, {
+      _id: '907f191e810c19729de861bd',
+      eventId: event._id,
+      teamId,
+      registrationId,
+      name: 'Money Molly',
+      email: 'money-molly@example.com',
+      emailKey: 'money-molly@example.com',
+      status: 'active',
+    }],
+  });
+
+  await withRouter(models, async (baseUrl) => {
+    const fees = await jsonRequest(baseUrl, `/admin/events/${event._id}/fees?code=2000`);
+    assert.strictEqual(fees.response.status, 200, 'Fee management should load');
+    assert.strictEqual(fees.payload.summary.entryFee, 85, 'Fee management should use the $85 entry fee');
+    assert.strictEqual(fees.payload.summary.courseDue, 130, 'Course allocation should be $65 per active player');
+    assert.strictEqual(fees.payload.summary.prizePoolDue, 50, 'Prize pool allocation should be $25 per active player');
+    assert.strictEqual(fees.payload.summary.perPlayerVariance, -5, 'Fee management should expose allocation variance');
+
+    const ledgerCreate = await jsonRequest(baseUrl, `/admin/events/${event._id}/fee-ledger?code=2000`, {
+      method: 'POST',
+      body: {
+        type: 'income',
+        category: 'raffle_income',
+        label: 'Raffle tickets',
+        amount: 100,
+        paidBy: 'Cash box',
+      },
+    });
+    assert.strictEqual(ledgerCreate.response.status, 201, 'Ledger entry should be created');
+    assert.strictEqual(state.ledgerEntries.length, 1, 'Ledger entry should be stored');
+    assert.strictEqual(ledgerCreate.payload.summary.ledger.income, 100, 'Ledger summary should include raffle income');
+
+    const scheduleUpdate = await jsonRequest(baseUrl, `/admin/events/${event._id}/fees?code=2000`, {
+      method: 'PUT',
+      body: {
+        feeSchedule: [
+          { key: 'entry_fee', label: 'Player entry fee', amount: 85, basis: 'per_player', category: 'income', enabled: true },
+          { key: 'course_fee', label: 'Course fee', amount: 65, basis: 'per_player', category: 'course', enabled: true },
+          { key: 'prize_pool', label: 'Prize pool', amount: 25, basis: 'per_player', category: 'prize', enabled: true },
+          { key: 'tournament_fees', label: 'Tourney fees', amount: 40, basis: 'flat', category: 'tournament', enabled: true },
+        ],
+      },
+    });
+    assert.strictEqual(scheduleUpdate.response.status, 200, 'Fee schedule update should succeed');
+    assert.strictEqual(state.outings[0].entryFee, 85, 'Fee schedule update should keep entry fee at $85');
+    assert.strictEqual(scheduleUpdate.payload.summary.tournamentFees, 40, 'Fee schedule should include tourney fees');
+    assert.ok(
+      state.audits.some((row) => String(row && row.action || '') === 'fee_schedule_updated'),
+      'Fee schedule update should write an audit row'
+    );
+  });
+}
+
 async function assertArchivedTeamDeleteRemovesRecords() {
   const event = buildEvent();
   const archivedTeamId = '507f191e810c19729de861aa';
@@ -1023,6 +1196,8 @@ async function run() {
   await assertAuditTrail();
   await assertAdminEventUpdateAudit();
   await assertKegSponsorshipFlow();
+  await assertActiveTeamDeleteRemovesRecords();
+  await assertFeeManagementFlow();
   await assertArchivedTeamDeleteRemovesRecords();
 }
 

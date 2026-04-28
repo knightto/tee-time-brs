@@ -1,6 +1,18 @@
 const mongoose = require('mongoose');
 
 const OutingStatus = ['draft', 'open', 'closed', 'waitlist', 'completed'];
+const FeeScheduleItemSchema = new mongoose.Schema(
+  {
+    key: { type: String, trim: true, maxlength: 60 },
+    label: { type: String, trim: true, maxlength: 120 },
+    amount: { type: Number, min: 0, default: 0 },
+    basis: { type: String, enum: ['per_player', 'per_team', 'flat'], default: 'per_player' },
+    category: { type: String, enum: ['income', 'course', 'prize', 'tournament', 'raffle', 'expense', 'other'], default: 'other' },
+    enabled: { type: Boolean, default: true },
+    notes: { type: String, trim: true, maxlength: 500 },
+  },
+  { _id: false }
+);
 
 const BlueRidgeOutingSchema = new mongoose.Schema(
   {
@@ -38,6 +50,7 @@ const BlueRidgeOutingSchema = new mongoose.Schema(
 
     flights: { type: String, trim: true, maxlength: 280 },
     entryFee: { type: Number, min: 0 },
+    feeSchedule: { type: [FeeScheduleItemSchema], default: undefined },
     registrationNotes: { type: String, trim: true, maxlength: 4000 },
     cancellationPolicy: { type: String, trim: true, maxlength: 4000 },
 

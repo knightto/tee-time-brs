@@ -1507,6 +1507,7 @@
       <div class="hero-top">
         <a class="chip" href="/plastered-open.html">Back To Signup Page</a>
         <a class="chip" href="/blue-ridge-outings-admin.html">Open Outings Admin</a>
+        <a class="chip" href="/plastered-open-fees.html">Fee Management</a>
       </div>
       <p class="eyebrow">Plastered Open Admin View</p>
       <h1>Registration List</h1>
@@ -2799,7 +2800,7 @@
       }
       const confirmText = isArchivedTeam
         ? `Delete archived team ${teamName}? This will permanently remove all registration and golfer records tied to this archived team.`
-        : `Delete ${teamName}? This will remove the team from the active roster and cancel its active registrations.`;
+        : `Delete ${teamName}? This will permanently remove the team, registrations, and golfer records tied to this team.`;
       if (!window.confirm(confirmText)) {
         return;
       }
@@ -2809,11 +2810,20 @@
       deleteBtn.textContent = 'Deleting...';
       msg.textContent = '';
       try {
-        await api(`/api/outings/admin/events/${encodeURIComponent(eventId)}/teams/${encodeURIComponent(teamId)}`, {
+        const payload = await api(`/api/outings/admin/events/${encodeURIComponent(eventId)}/teams/${encodeURIComponent(teamId)}`, {
           method: 'DELETE',
         });
         closeTeamEditDialog();
-        await loadRoster(`Deleted team ${teamName}.`);
+        if (payload && payload.event) {
+          currentEventData = payload.event;
+          currentEventId = String(payload.event._id || currentEventId || '');
+          renderStats(payload.event);
+          renderSummary(payload.event);
+          renderUnifiedRecords(payload.event);
+          setTopMsg(`Deleted team ${teamName}.`);
+        } else {
+          await loadRoster(`Deleted team ${teamName}.`);
+        }
       } catch (err) {
         msg.textContent = err && err.message ? err.message : 'Unable to delete team.';
       } finally {
@@ -3083,7 +3093,7 @@
       }
 
       try {
-        const events = await api('/api/outings/admin/events');
+        const events = await api('/api/outings/admin/events?fresh=1');
         const event = findPlasteredEvent(events);
         if (!event) {
           clearPanels();

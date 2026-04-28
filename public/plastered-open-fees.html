@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plastered "Open" Fee Management</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=League+Spartan:wght@400;500;600;700;800&display=swap");
+    :root {
+      --navy: #0d2b57;
+      --navy-deep: #081b36;
+      --fairway: #2d6d4e;
+      --paper: rgba(255, 251, 245, 0.98);
+      --ink: #1d2127;
+      --ink-soft: #626b68;
+      --line: rgba(21, 28, 39, 0.12);
+      --light-line: rgba(255, 255, 255, 0.18);
+      --red: #cb3f33;
+      --red-deep: #962a24;
+      --gold: #f1ddb3;
+      --green: #1f6b4a;
+      --shadow: 0 24px 56px rgba(6, 17, 33, 0.22);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "League Spartan", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: #fff8f0;
+      background:
+        linear-gradient(135deg, rgba(8, 27, 54, 0.94) 0%, rgba(13, 43, 87, 0.88) 38%, rgba(27, 77, 56, 0.82) 100%),
+        url("/assets/plastered-open-course-mountain.webp") center center / cover no-repeat fixed;
+      background-color: var(--navy-deep);
+    }
+    a { color: inherit; }
+    .wrap { max-width: 1280px; margin: 0 auto; padding: 18px 16px 44px; }
+    .hero, .panel {
+      border-radius: 24px;
+      border: 1px solid var(--light-line);
+      box-shadow: var(--shadow);
+    }
+    .hero {
+      padding: 24px;
+      background: linear-gradient(145deg, rgba(8, 27, 54, 0.94) 0%, rgba(13, 43, 87, 0.86) 54%, rgba(27, 77, 56, 0.72) 100%);
+    }
+    .hero-top, .toolbar, .metric-grid, .form-grid, .fee-row, .ledger-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .hero-top, .toolbar { justify-content: space-between; align-items: center; }
+    h1, h2 {
+      margin: 0;
+      font-family: "DM Serif Display", Georgia, "Times New Roman", serif;
+      line-height: 0.98;
+    }
+    h1 { font-size: clamp(2.5rem, 5vw, 4.5rem); }
+    h2 { color: var(--ink); font-size: clamp(1.6rem, 2.6vw, 2.2rem); }
+    .eyebrow {
+      margin: 16px 0 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-weight: 800;
+      font-size: 0.78rem;
+      color: rgba(255, 248, 240, 0.78);
+    }
+    .hero-copy { max-width: 58rem; color: rgba(255, 248, 240, 0.9); line-height: 1.5; font-size: 1.05rem; }
+    .chip, button {
+      font: inherit;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--light-line);
+      color: #fff8f0;
+      background: rgba(255, 255, 255, 0.08);
+      text-decoration: none;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    button.primary, .chip.primary {
+      background: linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%);
+      box-shadow: 0 12px 30px rgba(150, 42, 36, 0.26);
+    }
+    button:disabled { opacity: 0.62; cursor: wait; }
+    .toolbar { margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(255, 255, 255, 0.14); }
+    .toolbar input {
+      min-width: min(280px, 100%);
+      padding: 12px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(8, 27, 54, 0.45);
+      color: #fff8f0;
+      font: inherit;
+      font-weight: 700;
+    }
+    .msg { margin-top: 12px; min-height: 1.3rem; color: var(--gold); font-weight: 800; }
+    .panel {
+      margin-top: 18px;
+      padding: 22px;
+      background: var(--paper);
+      color: var(--ink);
+    }
+    .panel-head { display: flex; gap: 12px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; margin-bottom: 14px; }
+    .subhead { margin: 6px 0 0; color: var(--ink-soft); line-height: 1.45; }
+    .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 14px; }
+    .metric {
+      min-height: 108px;
+      padding: 15px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: linear-gradient(165deg, rgba(255, 255, 255, 0.95), rgba(252, 248, 241, 0.88));
+      box-shadow: 0 10px 22px rgba(6, 17, 33, 0.08);
+    }
+    .metric strong { display: block; font-size: 1.8rem; color: var(--navy); line-height: 1; }
+    .metric span { display: block; margin-top: 7px; color: var(--ink-soft); font-weight: 700; }
+    .metric.warn strong { color: var(--red-deep); }
+    .fee-table, .ledger-table { display: grid; gap: 9px; }
+    .fee-row, .ledger-row {
+      display: grid;
+      grid-template-columns: minmax(170px, 1.2fr) 110px 130px 130px minmax(170px, 1fr) 42px;
+      gap: 9px;
+      align-items: center;
+    }
+    .ledger-row { grid-template-columns: 116px 150px minmax(160px, 1.1fr) 110px 130px minmax(160px, 1fr) 42px; }
+    .table-head {
+      color: var(--ink-soft);
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 800;
+    }
+    input, select, textarea {
+      width: 100%;
+      min-height: 42px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(21, 28, 39, 0.14);
+      background: rgba(255, 255, 255, 0.92);
+      color: var(--ink);
+      font: inherit;
+      font-weight: 700;
+    }
+    textarea { min-height: 42px; resize: vertical; }
+    .icon-btn {
+      width: 42px;
+      min-height: 42px;
+      padding: 0;
+      color: var(--red-deep);
+      background: rgba(203, 63, 51, 0.08);
+      border-color: rgba(203, 63, 51, 0.2);
+      font-size: 1.3rem;
+    }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    .ledger-list { display: grid; gap: 10px; }
+    .ledger-card {
+      display: grid;
+      grid-template-columns: 110px 140px minmax(180px, 1fr) 100px minmax(180px, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.68);
+    }
+    .ledger-card strong { color: var(--navy); }
+    .ledger-card .amount-income { color: var(--green); }
+    .ledger-card .amount-expense { color: var(--red-deep); }
+    .empty-card {
+      padding: 18px;
+      border: 1px dashed rgba(21, 28, 39, 0.22);
+      border-radius: 16px;
+      color: var(--ink-soft);
+      font-weight: 700;
+      text-align: center;
+    }
+    @media (max-width: 900px) {
+      .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .fee-row, .ledger-row, .ledger-card { grid-template-columns: 1fr; }
+      .table-head { display: none; }
+    }
+    @media (max-width: 560px) {
+      .metric-grid { grid-template-columns: 1fr; }
+      .hero, .panel { border-radius: 18px; padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <div class="hero-top">
+        <a class="chip" href="/plastered-open-registration-list.html">Back To Registration List</a>
+        <a class="chip" href="/plastered-open.html">Signup Page</a>
+      </div>
+      <p class="eyebrow">Plastered Open Admin View</p>
+      <h1>Fee Management</h1>
+      <p class="hero-copy">Track the $85 entry fee, course fees, prize pool, tourney fees, and the raffle ledger in one place.</p>
+      <div class="toolbar">
+        <input id="adminCode" type="password" placeholder="Admin code" autocomplete="current-password">
+        <button id="loadBtn" class="primary" type="button">Load Fees</button>
+      </div>
+      <div id="topMsg" class="msg"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Snapshot</h2>
+          <p id="snapshotSubhead" class="subhead">Load the Plastered "Open" fees to see collected money, allocations, and variance.</p>
+        </div>
+      </div>
+      <div id="metricGrid" class="metric-grid"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Fee Schedule</h2>
+          <p class="subhead">Amounts can be per player, per team, or flat. The default is $85 entry, $65 course, and $25 prize pool.</p>
+        </div>
+        <button id="addFeeBtn" type="button">Add Fee</button>
+      </div>
+      <div class="fee-table">
+        <div class="fee-row table-head">
+          <div>Label</div><div>Amount</div><div>Basis</div><div>Category</div><div>Notes</div><div></div>
+        </div>
+        <div id="feeRows"></div>
+      </div>
+      <div class="actions">
+        <button id="saveFeesBtn" class="primary" type="button">Save Fee Schedule</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Raffle And Expense Ledger</h2>
+          <p class="subhead">Use this for raffle income, raffle purchases, outing expenses, sponsor income, and course or prize payouts.</p>
+        </div>
+      </div>
+      <div class="ledger-table">
+        <div class="ledger-row table-head">
+          <div>Type</div><div>Category</div><div>Label</div><div>Amount</div><div>Paid By/To</div><div>Notes</div><div></div>
+        </div>
+        <div id="newLedgerRow"></div>
+      </div>
+      <div class="actions">
+        <button id="addLedgerBtn" class="primary" type="button">Add Ledger Entry</button>
+      </div>
+      <div id="ledgerList" class="ledger-list"></div>
+    </section>
+  </main>
+
+  <script>
+    const ADMIN_KEY = 'teeTimeMainAdminCode';
+    const state = { eventId: '', data: null, editingLedgerId: '' };
+    const $ = (id) => document.getElementById(id);
+
+    function money(value) {
+      const amount = Number(value || 0);
+      return amount % 1 === 0 ? `$${amount.toFixed(0)}` : `$${amount.toFixed(2)}`;
+    }
+
+    function esc(value) {
+      return String(value || '').replace(/[&<>"']/g, (ch) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
+    }
+
+    function getCode() {
+      const code = String($('adminCode').value || '').trim();
+      if (code) {
+        try { sessionStorage.setItem(ADMIN_KEY, code); } catch (_err) {}
+      }
+      return code;
+    }
+
+    async function api(path, options = {}) {
+      const code = getCode();
+      const url = new URL(path, window.location.origin);
+      if (code && !url.searchParams.has('code')) url.searchParams.set('code', code);
+      const resp = await fetch(url.toString(), options);
+      const text = await resp.text();
+      let payload = null;
+      try { payload = text ? JSON.parse(text) : null; } catch (_err) { payload = text; }
+      if (!resp.ok) {
+        throw new Error(payload && payload.error ? payload.error : `Request failed (${resp.status})`);
+      }
+      return payload;
+    }
+
+    function setMsg(message) {
+      $('topMsg').textContent = message || '';
+    }
+
+    function feeRow(item = {}) {
+      const id = `fee_${Math.random().toString(16).slice(2)}`;
+      return `
+        <div class="fee-row" data-fee-row>
+          <input data-fee-key type="hidden" value="${esc(item.key || '')}">
+          <input data-fee-label value="${esc(item.label || '')}" placeholder="Fee label">
+          <input data-fee-amount type="number" min="0" step="0.01" value="${Number(item.amount || 0)}">
+          <select data-fee-basis>
+            ${['per_player','per_team','flat'].map((value) => `<option value="${value}"${value === item.basis ? ' selected' : ''}>${value.replace('_', ' ')}</option>`).join('')}
+          </select>
+          <select data-fee-category>
+            ${['income','course','prize','tournament','raffle','expense','other'].map((value) => `<option value="${value}"${value === item.category ? ' selected' : ''}>${value.replace('_', ' ')}</option>`).join('')}
+          </select>
+          <input data-fee-notes value="${esc(item.notes || '')}" placeholder="Notes">
+          <button class="icon-btn" type="button" data-remove-fee aria-label="Remove fee ${esc(item.label || id)}">&times;</button>
+        </div>
+      `;
+    }
+
+    function ledgerInputRow(entry = {}) {
+      return `
+        <div class="ledger-row">
+          <select id="ledgerType">
+            <option value="income"${entry.type === 'income' ? ' selected' : ''}>Income</option>
+            <option value="expense"${entry.type === 'expense' ? ' selected' : ''}>Expense</option>
+          </select>
+          <select id="ledgerCategory">
+            ${['raffle_income','raffle_purchase','outing_expense','course_payment','prize_pool','tournament_fee','sponsor_income','other'].map((value) => `<option value="${value}"${value === entry.category ? ' selected' : ''}>${value.replace(/_/g, ' ')}</option>`).join('')}
+          </select>
+          <input id="ledgerLabel" value="${esc(entry.label || '')}" placeholder="Label">
+          <input id="ledgerAmount" type="number" min="0" step="0.01" value="${entry.amount ? Number(entry.amount) : ''}" placeholder="Amount">
+          <input id="ledgerParty" value="${esc(entry.type === 'income' ? entry.paidBy || '' : entry.paidTo || '')}" placeholder="Paid by/to">
+          <input id="ledgerNotes" value="${esc(entry.notes || '')}" placeholder="Notes">
+          <button class="icon-btn" id="clearLedgerBtn" type="button" aria-label="Clear ledger form">&times;</button>
+        </div>
+      `;
+    }
+
+    function collectFees() {
+      return Array.from(document.querySelectorAll('[data-fee-row]')).map((row, index) => {
+        const label = row.querySelector('[data-fee-label]').value.trim();
+        return {
+          key: row.querySelector('[data-fee-key]').value.trim() || label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || `fee_${index + 1}`,
+          label,
+          amount: Number(row.querySelector('[data-fee-amount]').value || 0),
+          basis: row.querySelector('[data-fee-basis]').value,
+          category: row.querySelector('[data-fee-category]').value,
+          enabled: true,
+          notes: row.querySelector('[data-fee-notes]').value.trim(),
+        };
+      }).filter((item) => item.label);
+    }
+
+    function collectLedger() {
+      const type = $('ledgerType').value;
+      const party = $('ledgerParty').value.trim();
+      return {
+        type,
+        category: $('ledgerCategory').value,
+        label: $('ledgerLabel').value.trim(),
+        amount: Number($('ledgerAmount').value || 0),
+        paidBy: type === 'income' ? party : '',
+        paidTo: type === 'expense' ? party : '',
+        notes: $('ledgerNotes').value.trim(),
+      };
+    }
+
+    function renderMetrics(data) {
+      const s = data && data.summary || {};
+      const counts = data && data.counts || {};
+      const varianceClass = Number(s.perPlayerVariance || 0) < 0 ? ' warn' : '';
+      $('snapshotSubhead').textContent = `${counts.players || 0} active players, ${counts.paidPlayers || 0} marked paid, ${counts.teams || 0} teams.`;
+      $('metricGrid').innerHTML = `
+        <div class="metric"><strong>${money(s.entryFee)}</strong><span>entry fee per player</span></div>
+        <div class="metric"><strong>${money(s.expectedEntryIncome)}</strong><span>expected entry income</span></div>
+        <div class="metric"><strong>${money(s.courseDue)}</strong><span>course allocation</span></div>
+        <div class="metric"><strong>${money(s.prizePoolDue)}</strong><span>prize pool allocation</span></div>
+        <div class="metric${varianceClass}"><strong>${money(s.perPlayerVariance)}</strong><span>entry less per-player allocations</span></div>
+        <div class="metric"><strong>${money(s.ledger && s.ledger.income)}</strong><span>ledger income</span></div>
+        <div class="metric"><strong>${money(s.ledger && s.ledger.expense)}</strong><span>ledger expenses</span></div>
+        <div class="metric${Number(s.ledger && s.ledger.net || 0) < 0 ? ' warn' : ''}"><strong>${money(s.ledger && s.ledger.net)}</strong><span>ledger net</span></div>
+      `;
+    }
+
+    function renderLedger(data) {
+      const entries = Array.isArray(data && data.ledgerEntries) ? data.ledgerEntries : [];
+      if (!entries.length) {
+        $('ledgerList').innerHTML = '<div class="empty-card">No ledger entries yet.</div>';
+        return;
+      }
+      $('ledgerList').innerHTML = entries.map((entry) => {
+        const type = String(entry.type || 'expense');
+        const party = type === 'income' ? entry.paidBy : entry.paidTo;
+        return `
+          <div class="ledger-card">
+            <strong>${esc(type)}</strong>
+            <span>${esc(String(entry.category || '').replace(/_/g, ' '))}</span>
+            <span>${esc(entry.label || '')}</span>
+            <strong class="amount-${esc(type)}">${type === 'income' ? '+' : '-'}${money(entry.amount)}</strong>
+            <span>${esc(party || '')}</span>
+            <div>
+              <button type="button" data-edit-ledger="${esc(entry._id || '')}">Edit</button>
+              <button type="button" data-delete-ledger="${esc(entry._id || '')}">Delete</button>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function render(data) {
+      state.data = data;
+      state.eventId = String(data && data.event && data.event._id || state.eventId || '');
+      renderMetrics(data);
+      $('feeRows').innerHTML = (Array.isArray(data && data.feeSchedule) ? data.feeSchedule : []).map(feeRow).join('');
+      $('newLedgerRow').innerHTML = ledgerInputRow();
+      renderLedger(data);
+      setMsg(`Loaded fees for ${data && data.event && data.event.name ? data.event.name : 'Plastered Open'}.`);
+    }
+
+    async function findPlasteredEventId() {
+      const events = await api('/api/outings/admin/events?fresh=1');
+      const event = (Array.isArray(events) ? events : []).find((item) => /plastered/i.test(String(item && item.name || '')));
+      if (!event) throw new Error('Plastered Open outing was not found.');
+      return String(event._id || '');
+    }
+
+    async function loadFees(message) {
+      setMsg('Loading fees...');
+      if (!state.eventId) state.eventId = await findPlasteredEventId();
+      const data = await api(`/api/outings/admin/events/${encodeURIComponent(state.eventId)}/fees`);
+      render(data);
+      if (message) setMsg(message);
+    }
+
+    async function saveFees() {
+      const btn = $('saveFeesBtn');
+      btn.disabled = true;
+      try {
+        const payload = await api(`/api/outings/admin/events/${encodeURIComponent(state.eventId)}/fees`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ feeSchedule: collectFees() }),
+        });
+        render(payload);
+        setMsg('Fee schedule saved.');
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    async function saveLedger() {
+      const payload = collectLedger();
+      const method = state.editingLedgerId ? 'PUT' : 'POST';
+      const path = state.editingLedgerId
+        ? `/api/outings/admin/events/${encodeURIComponent(state.eventId)}/fee-ledger/${encodeURIComponent(state.editingLedgerId)}`
+        : `/api/outings/admin/events/${encodeURIComponent(state.eventId)}/fee-ledger`;
+      const data = await api(path, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      state.editingLedgerId = '';
+      render(data);
+      setMsg(method === 'POST' ? 'Ledger entry added.' : 'Ledger entry updated.');
+    }
+
+    function init() {
+      try {
+        const saved = sessionStorage.getItem(ADMIN_KEY);
+        if (saved) $('adminCode').value = saved;
+      } catch (_err) {}
+      $('newLedgerRow').innerHTML = ledgerInputRow();
+      $('loadBtn').addEventListener('click', () => loadFees().catch((err) => setMsg(err.message || 'Unable to load fees.')));
+      $('addFeeBtn').addEventListener('click', () => {
+        $('feeRows').insertAdjacentHTML('beforeend', feeRow({ basis: 'flat', category: 'other' }));
+      });
+      $('saveFeesBtn').addEventListener('click', () => saveFees().catch((err) => setMsg(err.message || 'Unable to save fees.')));
+      $('addLedgerBtn').addEventListener('click', () => saveLedger().catch((err) => setMsg(err.message || 'Unable to save ledger entry.')));
+      document.addEventListener('click', async (event) => {
+        const removeFee = event.target.closest('[data-remove-fee]');
+        if (removeFee) {
+          removeFee.closest('[data-fee-row]').remove();
+          return;
+        }
+        if (event.target.id === 'clearLedgerBtn') {
+          state.editingLedgerId = '';
+          $('newLedgerRow').innerHTML = ledgerInputRow();
+          return;
+        }
+        const editLedger = event.target.closest('[data-edit-ledger]');
+        if (editLedger) {
+          const id = editLedger.dataset.editLedger;
+          const entry = (state.data.ledgerEntries || []).find((item) => String(item._id) === String(id));
+          if (entry) {
+            state.editingLedgerId = id;
+            $('newLedgerRow').innerHTML = ledgerInputRow(entry);
+            setMsg(`Editing ledger entry: ${entry.label || 'entry'}`);
+          }
+          return;
+        }
+        const deleteLedger = event.target.closest('[data-delete-ledger]');
+        if (deleteLedger) {
+          const id = deleteLedger.dataset.deleteLedger;
+          if (!window.confirm('Delete this ledger entry?')) return;
+          const data = await api(`/api/outings/admin/events/${encodeURIComponent(state.eventId)}/fee-ledger/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          render(data);
+          setMsg('Ledger entry deleted.');
+        }
+      });
+      if (getCode()) loadFees().catch((err) => setMsg(err.message || 'Unable to load fees.'));
+      else setMsg('Enter the outings admin code to load fee management.');
+    }
+
+    init();
+  </script>
+</body>
+</html>
