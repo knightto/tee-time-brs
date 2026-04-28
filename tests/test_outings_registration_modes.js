@@ -1009,6 +1009,28 @@ async function assertFeeManagementFlow() {
     assert.strictEqual(ledgerCreate.response.status, 201, 'Ledger entry should be created');
     assert.strictEqual(state.ledgerEntries.length, 1, 'Ledger entry should be stored');
     assert.strictEqual(ledgerCreate.payload.summary.ledger.income, 100, 'Ledger summary should include raffle income');
+    const ledgerId = state.ledgerEntries[0]._id;
+
+    const ledgerUpdate = await jsonRequest(baseUrl, `/admin/events/${event._id}/fee-ledger/${ledgerId}?code=2000`, {
+      method: 'PUT',
+      body: {
+        type: 'expense',
+        category: 'raffle_purchase',
+        label: 'Raffle prize buy',
+        amount: 35,
+        paidTo: 'Prize shop',
+      },
+    });
+    assert.strictEqual(ledgerUpdate.response.status, 200, 'Ledger entry update should succeed');
+    assert.strictEqual(state.ledgerEntries[0].type, 'expense', 'Ledger update should persist type changes');
+    assert.strictEqual(ledgerUpdate.payload.summary.ledger.expense, 35, 'Ledger summary should include updated expense');
+
+    const ledgerDelete = await jsonRequest(baseUrl, `/admin/events/${event._id}/fee-ledger/${ledgerId}?code=2000`, {
+      method: 'DELETE',
+    });
+    assert.strictEqual(ledgerDelete.response.status, 200, 'Ledger entry delete should succeed');
+    assert.strictEqual(state.ledgerEntries.length, 0, 'Ledger delete should remove the stored entry');
+    assert.strictEqual(ledgerDelete.payload.summary.ledger.expense, 0, 'Ledger summary should clear deleted entries');
 
     const scheduleUpdate = await jsonRequest(baseUrl, `/admin/events/${event._id}/fees?code=2000`, {
       method: 'PUT',

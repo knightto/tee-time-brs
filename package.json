@@ -21,6 +21,7 @@
         "seed:outings": "node scripts/seed_blue_ridge_outings.js",
         "seed:masters": "node scripts/seed_masters_pool.js",
         "seed:plastered": "node scripts/seed_plastered_open.js",
+        "seed:plastered:fees": "node scripts/seed_plastered_open_fee_ledger.js",
         "seed:plastered:full": "node scripts/seed_plastered_open.js && node scripts/seed_plastered_open_tournament.js"
     },
     "dependencies": {

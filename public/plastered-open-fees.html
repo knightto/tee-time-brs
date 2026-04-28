@@ -258,6 +258,15 @@
     const ADMIN_KEY = 'teeTimeMainAdminCode';
     const state = { eventId: '', data: null, editingLedgerId: '' };
     const $ = (id) => document.getElementById(id);
+    const DEFAULT_FEE_SCHEDULE = [
+      { key: 'entry_fee', label: 'Player entry fee', amount: 90, basis: 'per_player', category: 'income', enabled: true, notes: 'Amount collected from each player.' },
+      { key: 'course_fee', label: 'Course fee', amount: 65, basis: 'per_player', category: 'course', enabled: true, notes: 'Amount owed to the course for each player.' },
+      { key: 'prize_pool', label: 'Prize pool', amount: 25, basis: 'per_player', category: 'prize', enabled: true, notes: 'Amount reserved for player payouts.' },
+      { key: 'tournament_fees', label: 'Tourney fees', amount: 0, basis: 'flat', category: 'tournament', enabled: true, notes: 'Optional tournament-side costs.' },
+      { key: 'raffle_income', label: 'Raffle income', amount: 0, basis: 'flat', category: 'raffle', enabled: true, notes: 'Track actual raffle money in the ledger.' },
+      { key: 'raffle_purchases', label: 'Raffle purchases', amount: 0, basis: 'flat', category: 'expense', enabled: true, notes: 'Track actual raffle purchases in the ledger.' },
+      { key: 'other_expenses', label: 'Other expenses', amount: 0, basis: 'flat', category: 'expense', enabled: true, notes: 'Food, supplies, signs, and other outing costs.' },
+    ];
 
     function money(value) {
       const amount = Number(value || 0);
@@ -276,6 +285,18 @@
       return code;
     }
 
+    function readInitialCode() {
+      try {
+        const fromUrl = new URLSearchParams(window.location.search).get('code');
+        if (fromUrl) return String(fromUrl).trim();
+      } catch (_err) {}
+      try {
+        return String(sessionStorage.getItem(ADMIN_KEY) || '').trim();
+      } catch (_err) {
+        return '';
+      }
+    }
+
     async function api(path, options = {}) {
       const code = getCode();
       const url = new URL(path, window.location.origin);
@@ -292,6 +313,26 @@
 
     function setMsg(message) {
       $('topMsg').textContent = message || '';
+    }
+
+    function setFeeActionsEnabled(enabled) {
+      ['addFeeBtn', 'saveFeesBtn', 'addLedgerBtn'].forEach((id) => {
+        const btn = $(id);
+        if (btn) btn.disabled = !enabled;
+      });
+    }
+
+    async function ensureFeesLoaded() {
+      if (state.eventId && state.data) return;
+      await loadFees();
+      if (!state.eventId) throw new Error('Load fee management before adding ledger entries.');
+    }
+
+    function renderDefaultRows() {
+      $('feeRows').innerHTML = DEFAULT_FEE_SCHEDULE.map(feeRow).join('');
+      $('newLedgerRow').innerHTML = ledgerInputRow();
+      $('ledgerList').innerHTML = '<div class="empty-card">Load fees to view saved ledger entries.</div>';
+      setFeeActionsEnabled(false);
     }
 
     function feeRow(item = {}) {
@@ -410,6 +451,7 @@
       $('feeRows').innerHTML = (Array.isArray(data && data.feeSchedule) ? data.feeSchedule : []).map(feeRow).join('');
       $('newLedgerRow').innerHTML = ledgerInputRow();
       renderLedger(data);
+      setFeeActionsEnabled(Boolean(state.eventId));
       setMsg(`Loaded fees for ${data && data.event && data.event.name ? data.event.name : 'Plastered Open'}.`);
     }
 
@@ -429,6 +471,7 @@
     }
 
     async function saveFees() {
+      await ensureFeesLoaded();
       const btn = $('saveFeesBtn');
       btn.disabled = true;
       try {
@@ -440,11 +483,12 @@
         render(payload);
         setMsg('Fee schedule saved.');
       } finally {
-        btn.disabled = false;
+        btn.disabled = !state.eventId;
       }
     }
 
     async function saveLedger() {
+      await ensureFeesLoaded();
       const payload = collectLedger();
       const method = state.editingLedgerId ? 'PUT' : 'POST';
       const path = state.editingLedgerId
@@ -461,14 +505,17 @@
     }
 
     function init() {
-      try {
-        const saved = sessionStorage.getItem(ADMIN_KEY);
-        if (saved) $('adminCode').value = saved;
-      } catch (_err) {}
-      $('newLedgerRow').innerHTML = ledgerInputRow();
+      const saved = readInitialCode();
+      if (saved) $('adminCode').value = saved;
+      renderDefaultRows();
       $('loadBtn').addEventListener('click', () => loadFees().catch((err) => setMsg(err.message || 'Unable to load fees.')));
-      $('addFeeBtn').addEventListener('click', () => {
-        $('feeRows').insertAdjacentHTML('beforeend', feeRow({ basis: 'flat', category: 'other' }));
+      $('addFeeBtn').addEventListener('click', async () => {
+        try {
+          await ensureFeesLoaded();
+          $('feeRows').insertAdjacentHTML('beforeend', feeRow({ basis: 'flat', category: 'other' }));
+        } catch (err) {
+          setMsg(err && err.message ? err.message : 'Unable to add fee row.');
+        }
       });
       $('saveFeesBtn').addEventListener('click', () => saveFees().catch((err) => setMsg(err.message || 'Unable to save fees.')));
       $('addLedgerBtn').addEventListener('click', () => saveLedger().catch((err) => setMsg(err.message || 'Unable to save ledger entry.')));
@@ -485,6 +532,7 @@
         }
         const editLedger = event.target.closest('[data-edit-ledger]');
         if (editLedger) {
+          if (!state.data) return;
           const id = editLedger.dataset.editLedger;
           const entry = (state.data.ledgerEntries || []).find((item) => String(item._id) === String(id));
           if (entry) {
@@ -498,9 +546,14 @@
         if (deleteLedger) {
           const id = deleteLedger.dataset.deleteLedger;
           if (!window.confirm('Delete this ledger entry?')) return;
-          const data = await api(`/api/outings/admin/events/${encodeURIComponent(state.eventId)}/fee-ledger/${encodeURIComponent(id)}`, { method: 'DELETE' });
-          render(data);
-          setMsg('Ledger entry deleted.');
+          try {
+            await ensureFeesLoaded();
+            const data = await api(`/api/outings/admin/events/${encodeURIComponent(state.eventId)}/fee-ledger/${encodeURIComponent(id)}`, { method: 'DELETE' });
+            render(data);
+            setMsg('Ledger entry deleted.');
+          } catch (err) {
+            setMsg(err && err.message ? err.message : 'Unable to delete ledger entry.');
+          }
         }
       });
       if (getCode()) loadFees().catch((err) => setMsg(err.message || 'Unable to load fees.'));
