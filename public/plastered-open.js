@@ -75,6 +75,20 @@ function collectMoneyInput(id) {
   return Number(num.toFixed(2));
 }
 
+function openSponsorRequestDialog() {
+  const dialog = document.getElementById('sponsorRequestDialog');
+  const msg = document.getElementById('sponsorRequestMsg');
+  if (msg) msg.textContent = '';
+  if (dialog && typeof dialog.showModal === 'function') dialog.showModal();
+  else if (dialog) dialog.setAttribute('open', 'open');
+}
+
+function closeSponsorRequestDialog() {
+  const dialog = document.getElementById('sponsorRequestDialog');
+  if (dialog && dialog.open && typeof dialog.close === 'function') dialog.close();
+  else if (dialog) dialog.removeAttribute('open');
+}
+
 function formatModeLabel(mode) {
   return String(mode || '')
     .split('_')
@@ -533,6 +547,44 @@ async function submitWaitlist(event) {
   }
 }
 
+async function submitSponsorRequest(event) {
+  event.preventDefault();
+  const msg = document.getElementById('sponsorRequestMsg');
+  const submitBtn = document.getElementById('submitSponsorRequestBtn');
+  const payload = {
+    name: String(document.getElementById('sponsorNameInput').value || '').trim(),
+    email: String(document.getElementById('sponsorEmailInput').value || '').trim(),
+    phone: String(document.getElementById('sponsorPhoneInput').value || '').trim(),
+    amount: collectMoneyInput('sponsorAmountInput'),
+    displayName: String(document.getElementById('sponsorDisplayNameInput').value || '').trim(),
+    notes: String(document.getElementById('sponsorNotesInput').value || '').trim(),
+  };
+  if (!payload.name || !payload.email) {
+    msg.textContent = 'Name and email are required.';
+    return;
+  }
+
+  const original = submitBtn.textContent;
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Sending...';
+  msg.textContent = '';
+  try {
+    await api('/api/outings/plastered-open/sponsor-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    msg.textContent = 'Request sent. Tommy will follow up.';
+    document.getElementById('sponsorRequestForm').reset();
+    setTimeout(() => closeSponsorRequestDialog(), 900);
+  } catch (err) {
+    msg.textContent = err && err.message ? err.message : 'Unable to send the sponsor request.';
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = original;
+  }
+}
+
 function resetManageDialog() {
   document.getElementById('manageDialogTitle').textContent = 'Manage Signup';
   document.getElementById('manageDialogSubtitle').textContent = 'Review your current registration and make changes.';
@@ -789,13 +841,17 @@ window.addEventListener('DOMContentLoaded', async () => {
 
   document.getElementById('cancelSignupBtn').addEventListener('click', () => document.getElementById('signupDialog').close());
   document.getElementById('cancelWaitlistBtn').addEventListener('click', () => document.getElementById('waitlistDialog').close());
+  document.getElementById('cancelSponsorRequestBtn').addEventListener('click', () => closeSponsorRequestDialog());
   document.getElementById('manageCloseBtn').addEventListener('click', () => document.getElementById('manageDialog').close());
   document.getElementById('signupForm').addEventListener('submit', submitSignup);
   document.getElementById('waitlistForm').addEventListener('submit', submitWaitlist);
+  document.getElementById('sponsorRequestForm').addEventListener('submit', submitSponsorRequest);
   document.getElementById('manageForm').addEventListener('submit', submitManageForm);
   document.getElementById('statusCheckBtn').addEventListener('click', () => checkStatus());
   document.getElementById('manageSignupBtn').addEventListener('click', openManageDialog);
   document.getElementById('manageCancelEntryBtn').addEventListener('click', cancelManagedEntry);
+  document.getElementById('kegSponsorRequestBtn').addEventListener('click', openSponsorRequestDialog);
+  document.getElementById('kegSponsorPanelBtn').addEventListener('click', openSponsorRequestDialog);
 
   await loadLiveEvent();
 });

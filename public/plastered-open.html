@@ -22,7 +22,7 @@
     <section class="hero">
       <div class="hero-copy">
         <div class="hero-links">
-          <a class="hero-banner" href="#kegSponsors">Looking for 2 "Keg Sponsors"</a>
+          <button id="kegSponsorRequestBtn" class="hero-banner" type="button">Become A Keg Sponsor</button>
           <a id="heroKegSponsorTracker" class="hero-sponsor-total" href="#kegSponsors" aria-live="polite">$0 pledged</a>
           <a class="chip-link" href="https://www.facebook.com/plasteredmastersgolf" target="_blank" rel="noopener noreferrer">Facebook Page</a>
         </div>
@@ -135,7 +135,7 @@
               <strong>$0 pledged</strong>
               <span>No team sponsorships yet.</span>
             </div>
-            <a class="cta primary" href="https://www.facebook.com/plasteredmastersgolf" target="_blank" rel="noopener noreferrer">Message The Facebook Page</a>
+            <button id="kegSponsorPanelBtn" class="cta primary" type="button">Request Sponsorship Info</button>
           </div>
         </article>
       </div>
@@ -193,6 +193,32 @@
         <div class="dialog-actions">
           <button id="cancelWaitlistBtn" type="button" class="plain-btn">Cancel</button>
           <button type="submit" class="action-btn">Join Waitlist</button>
+        </div>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="sponsorRequestDialog">
+    <form id="sponsorRequestForm" class="dialog-card" method="dialog">
+      <div class="dialog-head">
+        <h3>Keg Sponsor Request</h3>
+        <p>Send your sponsorship details to the organizer.</p>
+      </div>
+      <div class="dialog-body">
+        <div class="grid2">
+          <label class="field">Name<input id="sponsorNameInput" type="text" required autocomplete="name"></label>
+          <label class="field">Email<input id="sponsorEmailInput" type="email" required autocomplete="email"></label>
+        </div>
+        <div class="grid2">
+          <label class="field">Phone<input id="sponsorPhoneInput" type="text" autocomplete="tel"></label>
+          <label class="field">Pledge amount<input id="sponsorAmountInput" type="number" min="0" step="1" inputmode="decimal" placeholder="Optional"></label>
+        </div>
+        <label class="field">Sponsor name to display<input id="sponsorDisplayNameInput" type="text" placeholder="Business, family, or group name"></label>
+        <label class="field">Notes<textarea id="sponsorNotesInput" rows="4" placeholder="Anything Tommy should know?"></textarea></label>
+        <div id="sponsorRequestMsg" class="dialog-msg"></div>
+        <div class="dialog-actions">
+          <button id="cancelSponsorRequestBtn" type="button" class="plain-btn">Cancel</button>
+          <button id="submitSponsorRequestBtn" type="submit" class="action-btn">Send Request</button>
         </div>
       </div>
     </form>

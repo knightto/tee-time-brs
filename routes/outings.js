@@ -679,6 +679,57 @@ router.get('/', async (_req, res) => {
   }
 });
 
+router.post('/plastered-open/sponsor-request', async (req, res) => {
+  try {
+    const name = String(req.body && req.body.name || '').trim();
+    const email = normalizeEmail(req.body && req.body.email || '');
+    const phone = String(req.body && req.body.phone || '').trim();
+    const displayName = String(req.body && req.body.displayName || '').trim();
+    const notes = String(req.body && req.body.notes || '').trim();
+    const amount = parseMoneyAmount(req.body && req.body.amount, 0);
+
+    if (!name || !email) return badRequest(res, 'name and email are required');
+    if (!email.includes('@')) return badRequest(res, 'A valid email is required');
+
+    let event = null;
+    if (await requireSecondaryConnection(res)) {
+      const models = getSecondaryModels();
+      event = await models.BlueRidgeOuting.findOne({
+        name: /plastered/i,
+        startDate: new Date('2026-06-19'),
+      }).lean();
+    } else {
+      return;
+    }
+
+    const subject = `Plastered Open Keg Sponsor Request: ${displayName || name}`;
+    const html = `
+      <div style="font-family:Arial,sans-serif;line-height:1.45;color:#1f2937;">
+        <h2 style="margin:0 0 12px;">Plastered Open Keg Sponsor Request</h2>
+        <p><strong>Name:</strong> ${escapeHtml(name)}</p>
+        <p><strong>Email:</strong> ${escapeHtml(email)}</p>
+        ${phone ? `<p><strong>Phone:</strong> ${escapeHtml(phone)}</p>` : ''}
+        ${displayName ? `<p><strong>Sponsor name to display:</strong> ${escapeHtml(displayName)}</p>` : ''}
+        <p><strong>Pledge amount:</strong> ${escapeHtml(formatMoney(amount))}</p>
+        ${notes ? `<p><strong>Notes:</strong><br>${escapeHtml(notes).replace(/\n/g, '<br>')}</p>` : ''}
+        ${event ? `<p><strong>Event:</strong> ${escapeHtml(event.name || 'Plastered Open')} (${escapeHtml(formatDateOnly(event.startDate))})</p>` : ''}
+        <p><a href="${escapeHtml(siteUrl('/plastered-open-registration-list.html'))}">Open Plastered Open registration list</a></p>
+      </div>
+    `;
+
+    const result = await sendPlasteredOpenAlertEmail(subject, html);
+    if (!result || !result.ok) {
+      const details = result && result.error && result.error.message
+        ? result.error.message
+        : 'Email delivery is not configured';
+      return res.status(503).json({ error: 'Unable to send sponsor request email', details });
+    }
+    res.status(201).json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/:eventId([0-9a-fA-F]{24})', async (req, res) => {
   try {
     if (!(await requireSecondaryConnection(res))) return;
