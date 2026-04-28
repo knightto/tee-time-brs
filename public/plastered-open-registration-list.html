@@ -2690,6 +2690,7 @@
       document.getElementById('teamEditTeamId').value = String(team._id || '');
       document.getElementById('teamEditName').value = String(team.name || record.title || '');
       document.getElementById('teamEditSubtitle').textContent = `Editing ${team.name || record.title || 'team'} (${members.length} golfer${members.length === 1 ? '' : 's'}).`;
+      document.getElementById('teamEditDeleteBtn').dataset.archivedTeam = record.key && String(record.key).startsWith('archived-team:') ? '1' : '';
       document.getElementById('teamEditMsg').textContent = '';
       document.getElementById('teamEditAddPlayers').innerHTML = '';
       document.getElementById('teamEditMembers').innerHTML = members.length
@@ -2791,11 +2792,15 @@
       const eventId = String(document.getElementById('teamEditEventId').value || currentEventId || '').trim();
       const teamId = String(document.getElementById('teamEditTeamId').value || '').trim();
       const teamName = String(document.getElementById('teamEditName').value || 'this team').trim() || 'this team';
+      const isArchivedTeam = String(deleteBtn && deleteBtn.dataset.archivedTeam || '') === '1';
       if (!eventId || !teamId) {
         msg.textContent = 'Team record is not available for deletion.';
         return;
       }
-      if (!window.confirm(`Delete ${teamName}? This will remove the team from the active roster and cancel its active registrations.`)) {
+      const confirmText = isArchivedTeam
+        ? `Delete archived team ${teamName}? This will permanently remove all registration and golfer records tied to this archived team.`
+        : `Delete ${teamName}? This will remove the team from the active roster and cancel its active registrations.`;
+      if (!window.confirm(confirmText)) {
         return;
       }
 

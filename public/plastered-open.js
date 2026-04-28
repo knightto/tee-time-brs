@@ -415,7 +415,8 @@ function openSignup(mode, preferredTeamId = '') {
   };
 
   document.getElementById('signupDialogTitle').textContent = titles[mode] || 'Register';
-  document.getElementById('signupDialogSubtitle').textContent = `${liveDetail.name || 'Plastered "Open"'} | ${liveDetail.ruleSummary || 'Outing registration'} | ${ORGANIZER_CONTACT_NOTE}`;
+  document.getElementById('signupDialogSubtitle').textContent = `${liveDetail.name || 'Plastered "Open"'} | ${liveDetail.ruleSummary || 'Outing registration'}`;
+  document.getElementById('signupContactWarning').textContent = ORGANIZER_CONTACT_NOTE;
   document.getElementById('formEventId').value = liveDetail._id;
   document.getElementById('formMode').value = mode;
   document.getElementById('signupDialogMsg').textContent = '';

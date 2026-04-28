@@ -1,5 +1,6 @@
 const express = require('express');
 const { getSecondaryConn, initSecondaryConn } = require('../secondary-conn');
+const fetch = global.fetch || require('node-fetch');
 
 initSecondaryConn();
 
@@ -7,6 +8,9 @@ const router = express.Router();
 const SITE_ADMIN_WRITE_CODE = process.env.SITE_ADMIN_WRITE_CODE || '2000';
 const REGISTRATION_PAYMENT_STATUSES = new Set(['unpaid', 'pending', 'paid', 'refunded']);
 const FEE_PAID_TO_VALUES = new Set(['', 'club', 'tommy', 'john']);
+const PLASTERED_OPEN_ALERT_EMAILS = uniqueEmailList(
+  String(process.env.PLASTERED_OPEN_ALERT_EMAILS || 'tommy.knight@gmail.com').split(',')
+);
 
 function getSecondaryModels() {
   const conn = getSecondaryConn();
@@ -61,6 +65,35 @@ function badRequest(res, msg) {
 
 function normalizeEmail(email) {
   return String(email || '').trim().toLowerCase();
+}
+
+function uniqueEmailList(values = []) {
+  const seen = new Set();
+  const out = [];
+  (Array.isArray(values) ? values.flat(Infinity) : [values]).forEach((value) => {
+    const email = normalizeEmail(value);
+    if (!email || seen.has(email)) return;
+    seen.add(email);
+    out.push(email);
+  });
+  return out;
+}
+
+function escapeHtml(value) {
+  return String(value || '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function normalizeEmailSubject(subject = '') {
+  const raw = String(subject || '').trim();
+  if (process.env.E2E_TEST_MODE === '1' && !/^THIS IS A TEST\b/i.test(raw)) {
+    return `THIS IS A TEST - ${raw}`;
+  }
+  return raw;
 }
 
 function formatModeLabel(mode) {
@@ -120,6 +153,102 @@ function formatDateRange(startDate, endDate) {
   if (!startKey && !endKey) return '';
   if (!endKey || startKey === endKey) return formatDateOnly(startDate);
   return `${formatDateOnly(startDate)} - ${formatDateOnly(endDate)}`;
+}
+
+function isPlasteredOpenEvent(event) {
+  return /plastered/i.test(String(event && event.name || ''));
+}
+
+function formatMoney(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return '$0';
+  return amount % 1 === 0 ? `$${amount.toFixed(0)}` : `$${amount.toFixed(2)}`;
+}
+
+function siteUrl(pathname = '/') {
+  const base = String(process.env.SITE_URL || process.env.RENDER_EXTERNAL_URL || '').trim().replace(/\/+$/, '');
+  if (!base) return pathname;
+  return `${base}${pathname.startsWith('/') ? pathname : `/${pathname}`}`;
+}
+
+async function sendPlasteredOpenAlertEmail(subject, html) {
+  if (!PLASTERED_OPEN_ALERT_EMAILS.length) return { ok: true, skipped: true, reason: 'no-recipients' };
+  const normalizedSubject = normalizeEmailSubject(subject);
+  if (process.env.E2E_TEST_MODE === '1') {
+    return {
+      ok: true,
+      simulated: true,
+      data: { to: PLASTERED_OPEN_ALERT_EMAILS, subject: normalizedSubject, bytes: String(html || '').length },
+    };
+  }
+  if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM) {
+    return { ok: false, disabled: true };
+  }
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const resp = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: process.env.RESEND_FROM,
+        to: PLASTERED_OPEN_ALERT_EMAILS,
+        subject: normalizedSubject,
+        html,
+      }),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!resp.ok) {
+      const text = await resp.text();
+      return { ok: false, error: { message: `Resend HTTP ${resp.status}: ${text}` } };
+    }
+    return { ok: true, data: await resp.json() };
+  } catch (err) {
+    clearTimeout(timer);
+    return { ok: false, error: { message: err && err.message ? err.message : String(err) } };
+  }
+}
+
+function playersListHtml(players = []) {
+  const list = summarizePlayers(players).filter((player) => player.name || player.email);
+  if (!list.length) return '<li>No golfers listed.</li>';
+  return list.map((player) => {
+    const contact = [player.email, player.phone].filter(Boolean).join(' | ');
+    return `<li><strong>${escapeHtml(player.name || 'Golfer')}</strong>${contact ? ` - ${escapeHtml(contact)}` : ''}</li>`;
+  }).join('');
+}
+
+async function notifyPlasteredOpenRegistration(event, payload = {}) {
+  if (!isPlasteredOpenEvent(event)) return;
+  const action = String(payload.action || 'updated');
+  const teamName = String(payload.teamName || '').trim();
+  const subjectAction = action === 'created' ? 'New Signup' : action === 'cancelled' ? 'Signup Cancelled' : 'Signup Updated';
+  const subject = `Plastered Open ${subjectAction}${teamName ? `: ${teamName}` : ''}`;
+  const changes = Array.isArray(payload.changes) ? payload.changes.filter(Boolean) : [];
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.45;color:#1f2937;">
+      <h2 style="margin:0 0 12px;">${escapeHtml(subject)}</h2>
+      <p><strong>Event:</strong> ${escapeHtml(event && event.name || 'Plastered Open')}</p>
+      <p><strong>Submitted by:</strong> ${escapeHtml(payload.submittedByName || '')}${payload.submittedByEmail ? ` (${escapeHtml(payload.submittedByEmail)})` : ''}</p>
+      ${teamName ? `<p><strong>Team:</strong> ${escapeHtml(teamName)}</p>` : ''}
+      <p><strong>Mode:</strong> ${escapeHtml(formatModeLabel(payload.mode || ''))}</p>
+      <p><strong>Keg sponsorship:</strong> ${escapeHtml(formatMoney(payload.kegSponsorshipAmount || 0))}</p>
+      ${payload.notes ? `<p><strong>Notes:</strong> ${escapeHtml(payload.notes)}</p>` : ''}
+      ${changes.length ? `<h3>Changes</h3><ul>${changes.map((change) => `<li>${escapeHtml(change)}</li>`).join('')}</ul>` : ''}
+      <h3>Golfers</h3>
+      <ul>${playersListHtml(payload.players)}</ul>
+      <p><a href="${escapeHtml(siteUrl('/plastered-open-registration-list.html'))}">Open full registration list</a></p>
+    </div>
+  `;
+  const result = await sendPlasteredOpenAlertEmail(subject, html);
+  if ((!result || !result.ok) && !(result && result.disabled)) {
+    console.error('Plastered Open alert email failed', result && result.error ? result.error : result);
+  }
 }
 
 function registrationPlayerCountForAudit(event, entry, explicitCount) {
@@ -785,6 +914,17 @@ router.post('/:eventId([0-9a-fA-F]{24})/register', async (req, res) => {
       },
     });
 
+    await notifyPlasteredOpenRegistration(event, {
+      action: 'created',
+      teamName: createdTeam && createdTeam.name || '',
+      submittedByName: submitter && submitter.name || '',
+      submittedByEmail: submitter && submitter.email || '',
+      mode,
+      kegSponsorshipAmount,
+      notes,
+      players,
+    });
+
     const detail = await buildEventDetail(event, models, false);
     res.status(201).json({ ok: true, registration, event: detail });
   } catch (err) {
@@ -983,6 +1123,31 @@ router.put('/:eventId([0-9a-fA-F]{24})/registrations/:registrationId([0-9a-fA-F]
       }
     );
 
+    const notificationChanges = [];
+    if (addPlayers.length) notificationChanges.push(`Added ${addPlayers.length} golfer${addPlayers.length === 1 ? '' : 's'}`);
+    if (removedMembers.length) notificationChanges.push(`Removed ${removedMembers.length} golfer${removedMembers.length === 1 ? '' : 's'}`);
+    if (String(registration.notes || '') !== previousNotes) notificationChanges.push('Updated registration notes');
+    if (nextKegSponsorshipAmount !== previousKegSponsorshipAmount) {
+      notificationChanges.push(`Updated keg sponsorship from ${formatMoney(previousKegSponsorshipAmount)} to ${formatMoney(nextKegSponsorshipAmount)}`);
+    }
+    if (previousTeamStatus !== teamStatus) notificationChanges.push(`Team status changed from ${previousTeamStatus || 'unknown'} to ${teamStatus}`);
+    if (notificationChanges.length) {
+      const currentMembers = await BlueRidgeTeamMember.find({ teamId: team._id, status: 'active' })
+        .sort({ isCaptain: -1, createdAt: 1 })
+        .lean();
+      await notifyPlasteredOpenRegistration(event, {
+        action: 'updated',
+        teamName: team && team.name || '',
+        submittedByName: registration && registration.submittedByName || '',
+        submittedByEmail: registration && registration.submittedByEmail || '',
+        mode: registration && registration.mode || '',
+        kegSponsorshipAmount: nextKegSponsorshipAmount,
+        notes: String(registration && registration.notes || ''),
+        players: currentMembers,
+        changes: notificationChanges,
+      });
+    }
+
     const detail = await buildEventDetail(event, models, false);
     res.json({ ok: true, event: detail });
   } catch (err) {
@@ -1070,6 +1235,18 @@ router.delete('/:eventId([0-9a-fA-F]{24})/registrations/:registrationId([0-9a-fA
         teamId: registration.teamId ? String(registration.teamId) : '',
       }
     );
+
+    await notifyPlasteredOpenRegistration(event, {
+      action: 'cancelled',
+      teamName: team && team.name || '',
+      submittedByName: registration && registration.submittedByName || '',
+      submittedByEmail: registration && registration.submittedByEmail || '',
+      mode: registration && registration.mode || '',
+      kegSponsorshipAmount: parseMoneyAmount(registration && registration.kegSponsorshipAmount, 0),
+      notes: String(registration && registration.notes || ''),
+      players: existingMembers,
+      changes: ['Registration cancelled'],
+    });
 
     const detail = await buildEventDetail(event, models, false);
     res.json({ ok: true, event: detail });
@@ -1453,10 +1630,49 @@ router.delete('/admin/events/:eventId/teams/:teamId', async (req, res) => {
     if (!event) return res.status(404).json({ error: 'Event not found' });
 
     const team = await BlueRidgeTeam.findOne({ _id: req.params.teamId, eventId: event._id });
-    if (!team) return res.status(404).json({ error: 'Team not found' });
-    if (team.status === 'cancelled') {
+    if (!team || team.status === 'cancelled') {
+      const archivedMembers = await BlueRidgeTeamMember.find({
+        eventId: event._id,
+        teamId: req.params.teamId,
+      }).lean();
+      const archivedRegistrations = await BlueRidgeRegistration.find({
+        eventId: event._id,
+        teamId: req.params.teamId,
+      }).lean();
+      if (!team && !archivedMembers.length && !archivedRegistrations.length) {
+        return res.status(404).json({ error: 'Team not found' });
+      }
+
+      await BlueRidgeTeamMember.deleteMany({ eventId: event._id, teamId: req.params.teamId });
+      await BlueRidgeRegistration.deleteMany({ eventId: event._id, teamId: req.params.teamId });
+      if (team) {
+        await BlueRidgeTeam.deleteOne({ _id: team._id, eventId: event._id });
+      }
+
+      await writeOutingAudit(models, {
+        outingId: event._id,
+        category: 'team',
+        action: 'archived_team_admin_deleted',
+        actor: auditActor(req),
+        method: req.method,
+        route: routePath(req),
+        summary: `Archived team records deleted: ${team && team.name || 'Archived Team'}`,
+        details: {
+          teamId: String(req.params.teamId || ''),
+          teamName: team && team.name || 'Archived Team',
+          deletedPlayers: summarizePlayers(archivedMembers),
+          deletedRegistrations: archivedRegistrations.map((entry) => ({
+            registrationId: String(entry && entry._id || ''),
+            submittedByName: entry && entry.submittedByName || '',
+            submittedByEmail: entry && entry.submittedByEmail || '',
+            status: entry && entry.status || '',
+            paymentStatus: entry && entry.paymentStatus || '',
+          })),
+        },
+      });
+
       const detail = await buildEventDetail(event, models, true);
-      return res.json({ ok: true, team, event: detail });
+      return res.json({ ok: true, team: team || { _id: req.params.teamId, status: 'deleted' }, event: detail });
     }
 
     const activeMembers = await BlueRidgeTeamMember.find({

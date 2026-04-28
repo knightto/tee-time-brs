@@ -210,6 +210,12 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
       if (doc && update.$set) Object.assign(doc, clone(update.$set), { updatedAt: new Date().toISOString() });
       return Promise.resolve({ acknowledged: true, matchedCount: doc ? 1 : 0, modifiedCount: doc ? 1 : 0 });
     },
+    deleteMany(filter = {}) {
+      const before = state.registrations.length;
+      state.registrations = state.registrations.filter((doc) => !matches(doc, filter));
+      const deletedCount = before - state.registrations.length;
+      return Promise.resolve({ acknowledged: true, deletedCount });
+    },
   };
 
   const BlueRidgeTeam = {
@@ -240,6 +246,11 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
       const doc = first(state.teams, filter);
       if (doc && update.$set) Object.assign(doc, clone(update.$set));
       return Promise.resolve({ acknowledged: true, matchedCount: doc ? 1 : 0, modifiedCount: doc ? 1 : 0 });
+    },
+    deleteOne(filter = {}) {
+      const index = state.teams.findIndex((doc) => matches(doc, filter));
+      if (index >= 0) state.teams.splice(index, 1);
+      return Promise.resolve({ acknowledged: true, deletedCount: index >= 0 ? 1 : 0 });
     },
   };
 
@@ -275,6 +286,12 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
         if (update.$set) Object.assign(doc, clone(update.$set), { updatedAt: new Date().toISOString() });
       });
       return Promise.resolve({ acknowledged: true, matchedCount: docs.length, modifiedCount: docs.length });
+    },
+    deleteMany(filter = {}) {
+      const before = state.members.length;
+      state.members = state.members.filter((doc) => !matches(doc, filter));
+      const deletedCount = before - state.members.length;
+      return Promise.resolve({ acknowledged: true, deletedCount });
     },
   };
 
@@ -841,6 +858,51 @@ async function assertKegSponsorshipFlow() {
   });
 }
 
+async function assertArchivedTeamDeleteRemovesRecords() {
+  const event = buildEvent();
+  const archivedTeamId = '507f191e810c19729de861aa';
+  const { state, models } = createModels({
+    event,
+    registrations: [{
+      _id: '807f191e810c19729de861ab',
+      eventId: event._id,
+      teamId: archivedTeamId,
+      mode: 'full_team',
+      status: 'cancelled',
+      submittedByName: 'Archived Ann',
+      submittedByEmail: 'archived-ann@example.com',
+      submittedByPhone: '555-0301',
+      paymentStatus: 'unpaid',
+      kegSponsorshipAmount: 25,
+    }],
+    members: [{
+      _id: '907f191e810c19729de861ac',
+      eventId: event._id,
+      teamId: archivedTeamId,
+      registrationId: '807f191e810c19729de861ab',
+      name: 'Archived Ann',
+      email: 'archived-ann@example.com',
+      emailKey: 'archived-ann@example.com',
+      phone: '555-0301',
+      status: 'cancelled',
+    }],
+  });
+
+  await withRouter(models, async (baseUrl) => {
+    const result = await jsonRequest(baseUrl, `/admin/events/${event._id}/teams/${archivedTeamId}?code=2000`, {
+      method: 'DELETE',
+    });
+    assert.strictEqual(result.response.status, 200, 'Archived team delete should succeed');
+    assert.strictEqual(state.registrations.length, 0, 'Archived team delete should remove registration records');
+    assert.strictEqual(state.members.length, 0, 'Archived team delete should remove member records');
+    assert.ok(
+      state.audits.some((row) => String(row && row.action || '') === 'archived_team_admin_deleted'),
+      'Archived team delete should write an audit row'
+    );
+    assert.deepStrictEqual(result.payload.event.registrations, [], 'Archived team should disappear from returned registration list');
+  });
+}
+
 async function run() {
   await assertRegisterFlow({
     label: 'Single signup with auto-waitlist disabled',
@@ -961,6 +1023,7 @@ async function run() {
   await assertAuditTrail();
   await assertAdminEventUpdateAudit();
   await assertKegSponsorshipFlow();
+  await assertArchivedTeamDeleteRemovesRecords();
 }
 
 run()
