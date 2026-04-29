@@ -166,6 +166,11 @@
       border-radius: 16px;
       background: rgba(255, 255, 255, 0.68);
     }
+    .ledger-card.just-saved {
+      border-color: rgba(31, 107, 74, 0.55);
+      background: rgba(31, 107, 74, 0.12);
+      box-shadow: 0 0 0 3px rgba(31, 107, 74, 0.12);
+    }
     .ledger-card strong { color: var(--navy); }
     .ledger-card .amount-income { color: var(--green); }
     .ledger-card .amount-expense { color: var(--red-deep); }
@@ -213,7 +218,7 @@
       </div>
       <p class="eyebrow">Plastered Open Admin View</p>
       <h1>Fee Management</h1>
-      <p class="hero-copy">Track the $90 entry fee, course fees, prize pool, tourney fees, and the raffle ledger in one place.</p>
+      <p class="hero-copy">Track non-member $90 entries, Blue Ridge Shadows member $45 entries, course fees, prize pool, raffle income, and 50/50 raffle income in one place.</p>
       <div class="toolbar">
         <input id="adminCode" type="password" placeholder="Admin code" autocomplete="current-password">
         <button id="loadBtn" class="primary" type="button">Load Fees</button>
@@ -225,7 +230,7 @@
       <div class="panel-head">
         <div>
           <h2>Snapshot</h2>
-          <p id="snapshotSubhead" class="subhead">Load the Plastered "Open" fees to see collected money, allocations, and variance.</p>
+          <p id="snapshotSubhead" class="subhead">Load the Plastered "Open" fees to see collected money, course allocation, prize pool allocation, and raffle income. Final flight payouts can be set the day of the outing once the field and flight count are known.</p>
         </div>
       </div>
       <div id="metricGrid" class="metric-grid"></div>
@@ -235,7 +240,7 @@
       <div class="panel-head">
         <div>
           <h2>Fee Schedule</h2>
-          <p class="subhead">Amounts can be per player, per team, or flat. The default is $90 entry, $65 course, and $25 prize pool.</p>
+          <p class="subhead">Defaults: non-members pay $90 ($65 course, $25 prize pool). Blue Ridge Shadows members pay $45 ($20 food/course, $25 prize pool).</p>
         </div>
         <button id="addFeeBtn" type="button">Add Fee</button>
       </div>
@@ -257,29 +262,34 @@
           <p class="subhead">Use this for raffle income, raffle purchases, outing expenses, sponsor income, and course or prize payouts.</p>
         </div>
       </div>
-      <div class="ledger-table">
-        <div class="ledger-row table-head">
-          <div>Type</div><div>Category</div><div>Label</div><div>Amount</div><div>Paid By/To</div><div>Notes</div><div></div>
+      <form id="ledgerForm">
+        <div class="ledger-table">
+          <div class="ledger-row table-head">
+            <div>Type</div><div>Category</div><div>Label</div><div>Amount</div><div>Paid By/To</div><div>Notes</div><div></div>
+          </div>
+          <div id="newLedgerRow"></div>
         </div>
-        <div id="newLedgerRow"></div>
-      </div>
-      <div class="actions">
-        <button id="addLedgerBtn" class="primary" type="button">Add Ledger Entry</button>
-      </div>
+        <div class="actions">
+          <button id="addLedgerBtn" class="primary" type="submit">Add Ledger Entry</button>
+        </div>
+      </form>
       <div id="ledgerList" class="ledger-list"></div>
     </section>
   </main>
 
   <script>
     const ADMIN_KEY = 'teeTimeMainAdminCode';
-    const state = { eventId: '', data: null, editingLedgerId: '' };
+    const state = { eventId: '', data: null, editingLedgerId: '', lastSavedLedgerId: '' };
     const $ = (id) => document.getElementById(id);
     const DEFAULT_FEE_SCHEDULE = [
-      { key: 'entry_fee', label: 'Player entry fee', amount: 90, basis: 'per_player', category: 'income', enabled: true, notes: 'Amount collected from each player.' },
-      { key: 'course_fee', label: 'Course fee', amount: 65, basis: 'per_player', category: 'course', enabled: true, notes: 'Amount owed to the course for each player.' },
+      { key: 'non_member_entry_fee', label: 'Non-member player entry fee', amount: 90, basis: 'per_player', category: 'income', enabled: true, notes: 'Amount collected from each player who is not a Blue Ridge Shadows golf club member.' },
+      { key: 'member_entry_fee', label: 'Blue Ridge Shadows member entry fee', amount: 45, basis: 'per_player', category: 'income', enabled: true, notes: 'Amount collected from each Blue Ridge Shadows golf club member.' },
+      { key: 'non_member_course_fee', label: 'Non-member course allocation', amount: 65, basis: 'per_player', category: 'course', enabled: true, notes: 'Amount owed to the course for each non-member player.' },
+      { key: 'member_course_fee', label: 'Member food allocation', amount: 20, basis: 'per_player', category: 'course', enabled: true, notes: 'Amount owed to the course for member food.' },
       { key: 'prize_pool', label: 'Prize pool', amount: 25, basis: 'per_player', category: 'prize', enabled: true, notes: 'Amount reserved for player payouts.' },
       { key: 'tournament_fees', label: 'Tourney fees', amount: 0, basis: 'flat', category: 'tournament', enabled: true, notes: 'Optional tournament-side costs.' },
       { key: 'raffle_income', label: 'Raffle income', amount: 0, basis: 'flat', category: 'raffle', enabled: true, notes: 'Track actual raffle money in the ledger.' },
+      { key: 'fifty_fifty_income', label: '50/50 raffle income', amount: 0, basis: 'flat', category: 'raffle', enabled: true, notes: 'Track actual 50/50 raffle money in the ledger.' },
       { key: 'raffle_purchases', label: 'Raffle purchases', amount: 0, basis: 'flat', category: 'expense', enabled: true, notes: 'Track actual raffle purchases in the ledger.' },
       { key: 'other_expenses', label: 'Other expenses', amount: 0, basis: 'flat', category: 'expense', enabled: true, notes: 'Food, supplies, signs, and other outing costs.' },
     ];
@@ -332,10 +342,12 @@
     }
 
     function setFeeActionsEnabled(enabled) {
-      ['addFeeBtn', 'saveFeesBtn', 'addLedgerBtn'].forEach((id) => {
+      ['addFeeBtn', 'saveFeesBtn'].forEach((id) => {
         const btn = $(id);
         if (btn) btn.disabled = !enabled;
       });
+      const ledgerBtn = $('addLedgerBtn');
+      if (ledgerBtn) ledgerBtn.disabled = false;
     }
 
     async function ensureFeesLoaded() {
@@ -378,7 +390,7 @@
             <option value="expense"${entry.type === 'expense' ? ' selected' : ''}>Expense</option>
           </select>
           <select id="ledgerCategory">
-            ${['raffle_income','raffle_purchase','outing_expense','course_payment','prize_pool','tournament_fee','sponsor_income','other'].map((value) => `<option value="${value}"${value === entry.category ? ' selected' : ''}>${value.replace(/_/g, ' ')}</option>`).join('')}
+            ${['raffle_income','fifty_fifty_income','raffle_purchase','outing_expense','course_payment','prize_pool','tournament_fee','sponsor_income','other'].map((value) => `<option value="${value}"${value === entry.category ? ' selected' : ''}>${value.replace(/_/g, ' ')}</option>`).join('')}
           </select>
           <input id="ledgerLabel" value="${esc(entry.label || '')}" placeholder="Label">
           <input id="ledgerAmount" type="number" min="0" step="0.01" value="${entry.amount ? Number(entry.amount) : ''}" placeholder="Amount">
@@ -418,17 +430,37 @@
       };
     }
 
+    function validateLedgerPayload(payload = {}) {
+      if (!payload.label) throw new Error('Enter a label for the ledger entry.');
+      if (!Number.isFinite(Number(payload.amount)) || Number(payload.amount) <= 0) {
+        throw new Error('Enter an amount greater than $0.');
+      }
+    }
+
+    function syncLedgerTypeToCategory() {
+      const category = $('ledgerCategory') && $('ledgerCategory').value;
+      if (!category || !$('ledgerType')) return;
+      if (category === 'raffle_income' || category === 'fifty_fifty_income' || category === 'sponsor_income') {
+        $('ledgerType').value = 'income';
+      } else if (category !== 'other') {
+        $('ledgerType').value = 'expense';
+      }
+    }
+
     function renderMetrics(data) {
       const s = data && data.summary || {};
       const counts = data && data.counts || {};
       const varianceClass = Number(s.perPlayerVariance || 0) < 0 ? ' warn' : '';
-      $('snapshotSubhead').textContent = `${counts.players || 0} active players, ${counts.paidPlayers || 0} marked paid, ${counts.teams || 0} teams.`;
+      $('snapshotSubhead').textContent = `${counts.players || 0} active players (${counts.memberPlayers || 0} BRS members, ${counts.nonMemberPlayers || 0} non-members), ${counts.paidPlayers || 0} marked paid, ${counts.teams || 0} teams.`;
       $('metricGrid').innerHTML = `
-        <div class="metric"><strong>${money(s.entryFee)}</strong><span>entry fee per player</span></div>
+        <div class="metric"><strong>${money(s.nonMemberEntryFee || 90)} / ${money(s.memberEntryFee || 45)}</strong><span>non-member / BRS member entry</span></div>
         <div class="metric"><strong>${money(s.expectedEntryIncome)}</strong><span>expected entry income</span></div>
         <div class="metric"><strong>${money(s.courseDue)}</strong><span>course allocation</span></div>
         <div class="metric"><strong>${money(s.prizePoolDue)}</strong><span>prize pool allocation</span></div>
-        <div class="metric${varianceClass}"><strong>${money(s.perPlayerVariance)}</strong><span>entry less per-player allocations</span></div>
+        <div class="metric"><strong>${counts.memberPlayers || 0}</strong><span>BRS member players</span></div>
+        <div class="metric"><strong>${counts.nonMemberPlayers || 0}</strong><span>non-member players</span></div>
+        <div class="metric"><strong>${money(s.ledger && s.ledger.byCategory && s.ledger.byCategory.raffle_income)}</strong><span>raffle income</span></div>
+        <div class="metric"><strong>${money(s.ledger && s.ledger.byCategory && s.ledger.byCategory.fifty_fifty_income)}</strong><span>50/50 raffle income</span></div>
         <div class="metric"><strong>${money(s.ledger && s.ledger.income)}</strong><span>ledger income</span></div>
         <div class="metric"><strong>${money(s.ledger && s.ledger.expense)}</strong><span>ledger expenses</span></div>
         <div class="metric${Number(s.ledger && s.ledger.net || 0) < 0 ? ' warn' : ''}"><strong>${money(s.ledger && s.ledger.net)}</strong><span>ledger net</span></div>
@@ -444,8 +476,9 @@
       $('ledgerList').innerHTML = entries.map((entry) => {
         const type = String(entry.type || 'expense');
         const party = type === 'income' ? entry.paidBy : entry.paidTo;
+        const id = String(entry._id || '');
         return `
-          <div class="ledger-card">
+          <div class="ledger-card${id && id === state.lastSavedLedgerId ? ' just-saved' : ''}" data-ledger-id="${esc(id)}">
             <strong>${esc(type)}</strong>
             <span>${esc(String(entry.category || '').replace(/_/g, ' '))}</span>
             <span>${esc(entry.label || '')}</span>
@@ -458,6 +491,11 @@
           </div>
         `;
       }).join('');
+      if (state.lastSavedLedgerId) {
+        const node = Array.from(document.querySelectorAll('[data-ledger-id]'))
+          .find((item) => String(item.dataset.ledgerId || '') === state.lastSavedLedgerId);
+        if (node) node.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
     }
 
     function render(data) {
@@ -504,20 +542,49 @@
     }
 
     async function saveLedger() {
-      await ensureFeesLoaded();
       const payload = collectLedger();
+      validateLedgerPayload(payload);
+      if (!state.eventId || !state.data) {
+        await loadFees('Loaded fees. Saving ledger entry...');
+        const restoredType = $('ledgerType');
+        const restoredCategory = $('ledgerCategory');
+        if (restoredType) restoredType.value = payload.type;
+        if (restoredCategory) restoredCategory.value = payload.category;
+        if ($('ledgerLabel')) $('ledgerLabel').value = payload.label;
+        if ($('ledgerAmount')) $('ledgerAmount').value = payload.amount || '';
+        if ($('ledgerParty')) $('ledgerParty').value = payload.paidBy || payload.paidTo || '';
+        if ($('ledgerNotes')) $('ledgerNotes').value = payload.notes || '';
+      }
+      const btn = $('addLedgerBtn');
       const method = state.editingLedgerId ? 'PUT' : 'POST';
       const path = state.editingLedgerId
         ? `/api/outings/admin/events/${encodeURIComponent(state.eventId)}/fee-ledger/${encodeURIComponent(state.editingLedgerId)}`
         : `/api/outings/admin/events/${encodeURIComponent(state.eventId)}/fee-ledger`;
-      const data = await api(path, {
-        method,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      state.editingLedgerId = '';
-      render(data);
-      setMsg(method === 'POST' ? 'Ledger entry added.' : 'Ledger entry updated.');
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = state.editingLedgerId ? 'Updating...' : 'Adding...';
+      setMsg(state.editingLedgerId ? 'Updating ledger entry...' : 'Adding ledger entry...');
+      try {
+        const data = await api(path, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const savedEntry = Array.isArray(data && data.ledgerEntries)
+          ? data.ledgerEntries.find((entry) => (
+            String(entry && entry.label || '') === payload.label
+            && Number(entry && entry.amount) === Number(payload.amount)
+            && String(entry && entry.category || '') === payload.category
+          ))
+          : null;
+        state.lastSavedLedgerId = savedEntry ? String(savedEntry._id || '') : '';
+        state.editingLedgerId = '';
+        render(data);
+        setMsg(`${method === 'POST' ? 'Added' : 'Updated'} ${payload.label} (${payload.category.replace(/_/g, ' ')}, ${money(payload.amount)}).`);
+      } finally {
+        btn.disabled = !state.eventId;
+        btn.textContent = original;
+      }
     }
 
     function init() {
@@ -534,7 +601,13 @@
         }
       });
       $('saveFeesBtn').addEventListener('click', () => saveFees().catch((err) => setMsg(err.message || 'Unable to save fees.')));
-      $('addLedgerBtn').addEventListener('click', () => saveLedger().catch((err) => setMsg(err.message || 'Unable to save ledger entry.')));
+      $('ledgerForm').addEventListener('submit', (event) => {
+        event.preventDefault();
+        saveLedger().catch((err) => setMsg(err.message || 'Unable to save ledger entry.'));
+      });
+      document.addEventListener('change', (event) => {
+        if (event.target && event.target.id === 'ledgerCategory') syncLedgerTypeToCategory();
+      });
       document.addEventListener('click', async (event) => {
         const removeFee = event.target.closest('[data-remove-fee]');
         if (removeFee) {

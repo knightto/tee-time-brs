@@ -13,6 +13,7 @@ const BlueRidgeTeamMemberSchema = new mongoose.Schema(
     emailKey: { type: String, required: true, trim: true, lowercase: true, maxlength: 180 },
     phone: { type: String, trim: true, maxlength: 40 },
     isGuest: { type: Boolean, default: false },
+    isClubMember: { type: Boolean, default: false },
     handicapIndex: { type: Number },
     isCaptain: { type: Boolean, default: false },
     feePaidTo: { type: String, enum: FeePaidTo, default: '' },

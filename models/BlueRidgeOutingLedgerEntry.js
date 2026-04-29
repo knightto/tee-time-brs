@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const LedgerEntryType = ['income', 'expense'];
 const LedgerEntryCategory = [
   'raffle_income',
+  'fifty_fifty_income',
   'raffle_purchase',
   'outing_expense',
   'course_payment',

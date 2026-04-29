@@ -11,6 +11,7 @@ const FEE_PAID_TO_VALUES = new Set(['', 'club', 'tommy', 'john']);
 const LEDGER_TYPES = new Set(['income', 'expense']);
 const LEDGER_CATEGORIES = new Set([
   'raffle_income',
+  'fifty_fifty_income',
   'raffle_purchase',
   'outing_expense',
   'course_payment',
@@ -20,11 +21,14 @@ const LEDGER_CATEGORIES = new Set([
   'other',
 ]);
 const DEFAULT_PLASTERED_FEE_SCHEDULE = [
-  { key: 'entry_fee', label: 'Player entry fee', amount: 90, basis: 'per_player', category: 'income', enabled: true, notes: 'Amount collected from each player.' },
-  { key: 'course_fee', label: 'Course fee', amount: 65, basis: 'per_player', category: 'course', enabled: true, notes: 'Amount owed to the course for each player.' },
+  { key: 'non_member_entry_fee', label: 'Non-member player entry fee', amount: 90, basis: 'per_player', category: 'income', enabled: true, notes: 'Amount collected from each player who is not a Blue Ridge Shadows golf club member.' },
+  { key: 'member_entry_fee', label: 'Blue Ridge Shadows member entry fee', amount: 45, basis: 'per_player', category: 'income', enabled: true, notes: 'Amount collected from each Blue Ridge Shadows golf club member.' },
+  { key: 'non_member_course_fee', label: 'Non-member course allocation', amount: 65, basis: 'per_player', category: 'course', enabled: true, notes: 'Amount owed to the course for each non-member player.' },
+  { key: 'member_course_fee', label: 'Member food allocation', amount: 20, basis: 'per_player', category: 'course', enabled: true, notes: 'Amount owed to the course for member food.' },
   { key: 'prize_pool', label: 'Prize pool', amount: 25, basis: 'per_player', category: 'prize', enabled: true, notes: 'Amount reserved for player payouts.' },
   { key: 'tournament_fees', label: 'Tourney fees', amount: 0, basis: 'flat', category: 'tournament', enabled: true, notes: 'Optional tournament-side costs.' },
   { key: 'raffle_income', label: 'Raffle income', amount: 0, basis: 'flat', category: 'raffle', enabled: true, notes: 'Track actual raffle money in the ledger.' },
+  { key: 'fifty_fifty_income', label: '50/50 raffle income', amount: 0, basis: 'flat', category: 'raffle', enabled: true, notes: 'Track actual 50/50 raffle money in the ledger.' },
   { key: 'raffle_purchases', label: 'Raffle purchases', amount: 0, basis: 'flat', category: 'expense', enabled: true, notes: 'Track actual raffle purchases in the ledger.' },
   { key: 'other_expenses', label: 'Other expenses', amount: 0, basis: 'flat', category: 'expense', enabled: true, notes: 'Food, supplies, signs, and other outing costs.' },
 ];
@@ -210,7 +214,7 @@ function normalizeLedgerCategory(value) {
 
 function coerceLedgerInput(body = {}) {
   const category = normalizeLedgerCategory(body.category);
-  const inferredType = ['raffle_income', 'sponsor_income'].includes(category) ? 'income' : 'expense';
+  const inferredType = ['raffle_income', 'fifty_fifty_income', 'sponsor_income'].includes(category) ? 'income' : 'expense';
   const type = String(body.type || inferredType).trim().toLowerCase();
   return {
     type: LEDGER_TYPES.has(type) ? type : inferredType,
@@ -250,6 +254,25 @@ function formatDateRange(startDate, endDate) {
 
 function isPlasteredOpenEvent(event) {
   return /plastered/i.test(String(event && event.name || ''));
+}
+
+function playerFeeBreakdown(member = {}, event = null) {
+  const isClubMember = Boolean(member && member.isClubMember);
+  if (isPlasteredOpenEvent(event)) {
+    return {
+      isClubMember,
+      entryFee: isClubMember ? 45 : 90,
+      courseFee: isClubMember ? 20 : 65,
+      prizePool: 25,
+    };
+  }
+  const entryFee = parseMoneyAmount(event && event.entryFee, 0);
+  return {
+    isClubMember,
+    entryFee,
+    courseFee: 0,
+    prizePool: 0,
+  };
 }
 
 function formatMoney(value) {
@@ -409,6 +432,9 @@ async function getKegSponsorshipSummary(eventId, models) {
 function applyFeeScheduleItem(item, counts = {}) {
   const amount = parseMoneyAmount(item && item.amount, 0);
   const basis = normalizeFeeBasis(item && item.basis);
+  const key = String(item && item.key || '').trim().toLowerCase();
+  if (key.includes('non_member')) return Number((amount * Number(counts.nonMemberPlayers || 0)).toFixed(2));
+  if (key.includes('member_')) return Number((amount * Number(counts.memberPlayers || 0)).toFixed(2));
   const multiplier = basis === 'per_player'
     ? Number(counts.players || 0)
     : basis === 'per_team'
@@ -542,13 +568,20 @@ async function buildFeeManagementDetail(event, models) {
   const schedule = feeScheduleForEvent(event);
   const counts = {
     players: Array.isArray(members) ? members.length : 0,
+    memberPlayers: (Array.isArray(members) ? members : []).filter((member) => Boolean(member && member.isClubMember)).length,
+    nonMemberPlayers: (Array.isArray(members) ? members : []).filter((member) => !Boolean(member && member.isClubMember)).length,
     teams: Array.isArray(teams) ? teams.length : 0,
     paidPlayers: (Array.isArray(members) ? members : []).filter((member) => normalizeFeePaidTo(member && member.feePaidTo)).length,
     registrations: Array.isArray(registrations) ? registrations.length : 0,
   };
-  const entryFee = parseMoneyAmount(event && event.entryFee, 0);
-  const entryIncome = Number((counts.paidPlayers * entryFee).toFixed(2));
-  const expectedEntryIncome = Number((counts.players * entryFee).toFixed(2));
+  const memberFeeRows = (Array.isArray(members) ? members : []).map((member) => ({
+    member,
+    ...playerFeeBreakdown(member, event),
+    feePaidTo: normalizeFeePaidTo(member && member.feePaidTo),
+  }));
+  const entryFee = parseMoneyAmount(event && event.entryFee, isPlasteredOpenEvent(event) ? 90 : 0);
+  const expectedEntryIncome = Number(memberFeeRows.reduce((sum, row) => sum + row.entryFee, 0).toFixed(2));
+  const entryIncome = Number(memberFeeRows.reduce((sum, row) => sum + (row.feePaidTo ? row.entryFee : 0), 0).toFixed(2));
   const scheduleTotals = schedule.reduce((summary, item) => {
     if (!item.enabled) return summary;
     const total = applyFeeScheduleItem(item, counts);
@@ -556,8 +589,12 @@ async function buildFeeManagementDetail(event, models) {
     summary.byCategory[item.category] = Number(((summary.byCategory[item.category] || 0) + total).toFixed(2));
     return summary;
   }, { items: [], byCategory: {} });
-  const courseDue = Number(scheduleTotals.byCategory.course || 0);
-  const prizePoolDue = Number(scheduleTotals.byCategory.prize || 0);
+  const courseDue = isPlasteredOpenEvent(event)
+    ? Number(memberFeeRows.reduce((sum, row) => sum + row.courseFee, 0).toFixed(2))
+    : Number(scheduleTotals.byCategory.course || 0);
+  const prizePoolDue = isPlasteredOpenEvent(event)
+    ? Number(memberFeeRows.reduce((sum, row) => sum + row.prizePool, 0).toFixed(2))
+    : Number(scheduleTotals.byCategory.prize || 0);
   const tournamentFees = Number(scheduleTotals.byCategory.tournament || 0);
   const plannedExpenses = Number((courseDue + prizePoolDue + tournamentFees + Number(scheduleTotals.byCategory.expense || 0)).toFixed(2));
   const requestedPerPlayerAllocations = schedule
@@ -577,6 +614,11 @@ async function buildFeeManagementDetail(event, models) {
     ledgerEntries,
     summary: {
       entryFee,
+      memberEntryFee: isPlasteredOpenEvent(event) ? 45 : entryFee,
+      nonMemberEntryFee: isPlasteredOpenEvent(event) ? 90 : entryFee,
+      memberCourseFee: isPlasteredOpenEvent(event) ? 20 : 0,
+      nonMemberCourseFee: isPlasteredOpenEvent(event) ? 65 : 0,
+      prizePoolPerPlayer: isPlasteredOpenEvent(event) ? 25 : 0,
       expectedEntryIncome,
       entryIncome,
       unpaidEntryIncome: Number((expectedEntryIncome - entryIncome).toFixed(2)),
@@ -586,7 +628,7 @@ async function buildFeeManagementDetail(event, models) {
       plannedExpenses,
       plannedNet: Number((expectedEntryIncome - plannedExpenses).toFixed(2)),
       requestedPerPlayerAllocations,
-      perPlayerVariance: Number((entryFee - requestedPerPlayerAllocations).toFixed(2)),
+      perPlayerVariance: isPlasteredOpenEvent(event) ? 0 : Number((entryFee - requestedPerPlayerAllocations).toFixed(2)),
       ledger,
     },
     scheduleTotals,
@@ -599,6 +641,7 @@ function summarizePlayers(players = []) {
     email: normalizeEmail(player && (player.email || player.emailKey) || ''),
     phone: String(player && player.phone || '').trim(),
     isGuest: Boolean(player && player.isGuest),
+    isClubMember: Boolean(player && player.isClubMember),
     feePaidTo: normalizeFeePaidTo(player && player.feePaidTo),
   }));
 }
@@ -761,6 +804,7 @@ function normalizePlayers(rawPlayers) {
       email: normalizeEmail((p && p.email) || ''),
       phone: String((p && p.phone) || '').trim(),
       isGuest: Boolean(p && p.isGuest),
+      isClubMember: Boolean(p && p.isClubMember),
       handicapIndex: parseNum(p && p.handicapIndex),
       isCaptain: Boolean(p && p.isCaptain),
     }))
@@ -923,6 +967,9 @@ async function buildEventDetail(event, models, includeRegistrations = false) {
   if (includeRegistrations) {
     enriched.registrations = await models.BlueRidgeRegistration.find({ eventId: event._id }).sort({ createdAt: -1 }).lean();
     enriched.waitlist = await models.BlueRidgeWaitlist.find({ eventId: event._id }).sort({ createdAt: -1 }).lean();
+    enriched.members = await models.BlueRidgeTeamMember.find({ eventId: event._id, status: 'active' })
+      .sort({ isCaptain: -1, createdAt: 1 })
+      .lean();
   }
 
   return enriched;
@@ -1196,6 +1243,7 @@ router.post('/:eventId([0-9a-fA-F]{24})/register', async (req, res) => {
       emailKey: p.email,
       phone: p.phone,
       isGuest: Boolean(p.isGuest),
+      isClubMember: Boolean(p.isClubMember),
       handicapIndex: p.handicapIndex,
       isCaptain: Boolean(p.isCaptain || idx === 0),
       status: 'active',
@@ -1343,6 +1391,7 @@ router.put('/:eventId([0-9a-fA-F]{24})/registrations/:registrationId([0-9a-fA-F]
         emailKey: p.email,
         phone: p.phone,
         isGuest: Boolean(p.isGuest),
+        isClubMember: Boolean(p.isClubMember),
         handicapIndex: p.handicapIndex,
         isCaptain: false,
         status: 'active',
@@ -1795,6 +1844,7 @@ router.put('/admin/events/:eventId/teams/:teamId', async (req, res) => {
         memberId: String(entry && entry.memberId || '').trim(),
         email: normalizeEmail(entry && entry.email || ''),
         phone: String(entry && entry.phone || '').trim(),
+        isClubMember: Boolean(entry && entry.isClubMember),
       })).filter((entry) => entry.memberId)
       : [];
 
@@ -1819,6 +1869,7 @@ router.put('/admin/events/:eventId/teams/:teamId', async (req, res) => {
 
       const previousEmail = normalizeEmail(member.emailKey || member.email || '');
       const previousPhone = String(member.phone || '').trim();
+      const previousIsClubMember = Boolean(member.isClubMember);
       if (entry.email !== previousEmail) {
         const duplicate = await BlueRidgeTeamMember.findOne({
           eventId: event._id,
@@ -1830,16 +1881,18 @@ router.put('/admin/events/:eventId/teams/:teamId', async (req, res) => {
         }
       }
 
-      if (entry.email === previousEmail && entry.phone === previousPhone) continue;
+      if (entry.email === previousEmail && entry.phone === previousPhone && entry.isClubMember === previousIsClubMember) continue;
       member.email = entry.email;
       member.emailKey = entry.email;
       member.phone = entry.phone;
+      member.isClubMember = entry.isClubMember;
       await member.save();
       contactUpdates.push({
         memberId: String(member && member._id || ''),
         name: member && member.name || '',
         email: { from: previousEmail, to: entry.email },
         phone: { from: previousPhone, to: entry.phone },
+        isClubMember: { from: previousIsClubMember, to: entry.isClubMember },
       });
     }
 
@@ -1911,6 +1964,7 @@ router.put('/admin/events/:eventId/teams/:teamId', async (req, res) => {
         emailKey: player.email,
         phone: player.phone,
         isGuest: Boolean(player.isGuest),
+        isClubMember: Boolean(player.isClubMember),
         isCaptain: false,
         feePaidTo: player.feePaidTo,
         status: 'active',

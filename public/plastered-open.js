@@ -241,7 +241,7 @@ function renderFallbackState(message) {
   document.getElementById('statsGrid').innerHTML = [
     statTile('120', 'golfer cap'),
     statTile('2-Man', 'scramble teams'),
-    statTile('$90', 'entry with lunch + prize pool'),
+    statTile('$90 / $45', 'non-member / BRS member'),
     statTile('60', 'team cap')
   ].join('');
   document.getElementById('signupMessage').innerHTML = `<strong>Registration is temporarily unavailable.</strong> ${esc(message || 'Use the Facebook page for updates while the outing feed is unavailable.')}`;
@@ -322,7 +322,6 @@ function renderOpenTeams(detail) {
 function renderLiveState(detail) {
   liveDetail = detail;
   updateStatusPills(detail.status);
-  const fee = formatCurrency(detail.entryFee);
   const players = Number(detail && detail.metrics && detail.metrics.players) || 0;
   const teams = Number(detail && detail.metrics && detail.metrics.teams) || 0;
   const spotsLeft = Math.max(0, playerCap(detail) - players);
@@ -332,7 +331,7 @@ function renderLiveState(detail) {
     statTile(String(players), `${playerCap(detail)} player cap`),
     statTile(String(teams), `${teamCap(detail)} team cap`),
     statTile(String(spotsLeft), 'player spots left'),
-    statTile(fee, detail.signupCloseAt ? `signup closes ${formatDateTime(detail.signupCloseAt)}` : 'entry with lunch + prize pool')
+    statTile('$90 / $45', detail.signupCloseAt ? `non-member / BRS member` : 'non-member / BRS member')
   ].join('');
 
   const status = String(detail.status || '').toLowerCase();
@@ -373,11 +372,11 @@ async function loadLiveEvent() {
 }
 
 function playerRowTemplate(index) {
-  return `<div class="player-row" data-player-row="${index}"><div class="grid2"><label class="field">Name<input type="text" data-player-name required></label><label class="field">Email<input type="email" data-player-email required autocomplete="email"></label></div><div class="grid2"><label class="field">Phone<input type="text" data-player-phone autocomplete="tel"></label><label class="field">Handicap Index<input type="number" step="0.1" data-player-hcp></label></div><div class="player-tools"><label><input type="checkbox" data-player-guest> Guest</label><button type="button" class="plain-btn" data-action="remove-player">Remove golfer</button></div></div>`;
+  return `<div class="player-row" data-player-row="${index}"><div class="grid2"><label class="field">Name<input type="text" data-player-name required></label><label class="field">Email<input type="email" data-player-email required autocomplete="email"></label></div><div class="grid2"><label class="field">Phone<input type="text" data-player-phone autocomplete="tel"></label><label class="field">Handicap Index<input type="number" step="0.1" data-player-hcp></label></div><div class="player-tools"><label><input type="checkbox" data-player-club-member> Blue Ridge Shadows member ($45)</label><label><input type="checkbox" data-player-guest> Guest</label><button type="button" class="plain-btn" data-action="remove-player">Remove golfer</button></div></div>`;
 }
 
 function manageAddPlayerRowTemplate(index) {
-  return `<div class="player-row" data-manage-player-row="${index}"><div class="grid2"><label class="field">Name<input type="text" data-manage-player-name></label><label class="field">Email<input type="email" data-manage-player-email autocomplete="email"></label></div><div class="grid2"><label class="field">Phone<input type="text" data-manage-player-phone autocomplete="tel"></label><label class="field">Handicap Index<input type="number" step="0.1" data-manage-player-hcp></label></div><div class="player-tools"><label><input type="checkbox" data-manage-player-guest> Guest</label><button type="button" class="plain-btn" data-action="remove-manage-player">Remove golfer</button></div></div>`;
+  return `<div class="player-row" data-manage-player-row="${index}"><div class="grid2"><label class="field">Name<input type="text" data-manage-player-name></label><label class="field">Email<input type="email" data-manage-player-email autocomplete="email"></label></div><div class="grid2"><label class="field">Phone<input type="text" data-manage-player-phone autocomplete="tel"></label><label class="field">Handicap Index<input type="number" step="0.1" data-manage-player-hcp></label></div><div class="player-tools"><label><input type="checkbox" data-manage-player-club-member> Blue Ridge Shadows member ($45)</label><label><input type="checkbox" data-manage-player-guest> Guest</label><button type="button" class="plain-btn" data-action="remove-manage-player">Remove golfer</button></div></div>`;
 }
 
 function setPlayerCount(count) {
@@ -401,6 +400,7 @@ function collectPlayers() {
     email: String(row.querySelector('[data-player-email]')?.value || '').trim(),
     phone: String(row.querySelector('[data-player-phone]')?.value || '').trim(),
     handicapIndex: String(row.querySelector('[data-player-hcp]')?.value || '').trim(),
+    isClubMember: Boolean(row.querySelector('[data-player-club-member]')?.checked),
     isGuest: Boolean(row.querySelector('[data-player-guest]')?.checked)
   }));
 }
@@ -411,6 +411,7 @@ function collectManageAddPlayers() {
     email: String(row.querySelector('[data-manage-player-email]')?.value || '').trim(),
     phone: String(row.querySelector('[data-manage-player-phone]')?.value || '').trim(),
     handicapIndex: String(row.querySelector('[data-manage-player-hcp]')?.value || '').trim(),
+    isClubMember: Boolean(row.querySelector('[data-manage-player-club-member]')?.checked),
     isGuest: Boolean(row.querySelector('[data-manage-player-guest]')?.checked)
   })).filter((player) => player.name || player.email);
 }
@@ -608,6 +609,8 @@ function resetManageDialog() {
 function managePlayerCardTemplate(member, removable = false) {
   const badges = [];
   if (member && member.isCaptain) badges.push('Captain');
+  if (member && member.isClubMember) badges.push('BRS member');
+  if (member && member.isGuest) badges.push('Guest');
   if (removable) badges.push('Your signup');
   return `
     <div class="manage-player-card">

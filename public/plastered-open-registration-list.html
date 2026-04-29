@@ -1910,6 +1910,20 @@
       return Number((registrationPlayerCount(entry, event) * fee).toFixed(2));
     }
 
+    function memberEntryFee(member, event) {
+      if (/plastered/i.test(String(event && event.name || ''))) {
+        return member && member.isClubMember ? 45 : 90;
+      }
+      const fee = Number(event && event.entryFee);
+      return Number.isFinite(fee) ? fee : 0;
+    }
+
+    function rosterAmountDue(members, event) {
+      return Number((Array.isArray(members) ? members : [])
+        .reduce((sum, member) => sum + memberEntryFee(member, event), 0)
+        .toFixed(2));
+    }
+
     function registrationKegSponsorshipAmount(entry) {
       const amount = Number(entry && entry.kegSponsorshipAmount);
       return Number.isFinite(amount) && amount > 0 ? Number(amount.toFixed(2)) : 0;
@@ -1927,6 +1941,33 @@
     }
 
     function paymentSummary(event, sourceRegistrations = activeRegistrationList(event)) {
+      const activeMembers = Array.isArray(event && event.members) ? event.members : [];
+      if (activeMembers.length) {
+        return activeMembers.reduce((summary, member) => {
+          const amount = memberEntryFee(member, event);
+          const paid = String(member && member.feePaidTo || '').trim();
+          summary.totalEntries += 1;
+          summary.totalDue += amount;
+          if (paid) {
+            summary.paidCount += 1;
+            summary.paidAmount += amount;
+          } else {
+            summary.unpaidCount += 1;
+            summary.outstandingAmount += amount;
+          }
+          return summary;
+        }, {
+          totalEntries: 0,
+          totalDue: 0,
+          paidCount: 0,
+          paidAmount: 0,
+          pendingCount: 0,
+          unpaidCount: 0,
+          refundedCount: 0,
+          refundedAmount: 0,
+          outstandingAmount: 0,
+        });
+      }
       return (Array.isArray(sourceRegistrations) ? sourceRegistrations : []).reduce((summary, entry) => {
         const amount = registrationAmountDue(entry, event);
         const paymentStatus = String(entry && entry.paymentStatus || 'unpaid').toLowerCase();
@@ -1976,11 +2017,12 @@
       const entry = matched || fallback;
       if (!entry) return { text: 'Payment unknown', css: 'unpaid', warning: true };
       const badge = paymentBadgeForEntry(entry, event);
+      const memberFee = memberEntryFee(member, event);
       const feePaidTo = String(member && member.feePaidTo || '').trim().toLowerCase();
       const locationSuffix = feePaidTo ? ` | ${feePaidToLabel(feePaidTo)}` : '';
       return {
         ...badge,
-        text: `${badge.text}${locationSuffix}`,
+        text: `${badge.css === 'paid' ? 'Paid' : badge.css === 'refunded' ? 'Refunded' : badge.css === 'pending' ? 'Pending' : 'Due'} ${formatCurrency(memberFee)}${locationSuffix}`,
         feePaidTo,
         warning: String(entry.paymentStatus || 'unpaid').toLowerCase() !== 'paid',
       };
@@ -2293,6 +2335,7 @@
                   <strong>${esc(person && person.name || 'Golfer')}</strong>
                   <div class="record-inline tags">
                     ${person && person.isGuest ? '<span class="member-flag">Guest</span>' : ''}
+                    ${person && person.isClubMember ? '<span class="member-flag">BRS Member</span>' : '<span class="member-flag">Non-member</span>'}
                     ${tag(payment.text, payment.css)}
                   </div>
                 </div>
@@ -2660,6 +2703,7 @@
           <label class="field">Email<input type="email" data-team-edit-player-email></label>
           <label class="field">Phone<input type="text" data-team-edit-player-phone></label>
           <label class="field">Fee Paid<select data-team-edit-player-fee-paid-to>${FEE_PAID_TO_OPTIONS.map((option) => `<option value="${esc(option.value)}">${esc(option.label)}</option>`).join('')}</select></label>
+          <label class="field checkbox-field"><input type="checkbox" data-team-edit-player-club-member> BRS member ($45)</label>
           <button type="button" class="payment-save" data-action="remove-team-edit-player">Remove</button>
         </div>
       `;
@@ -2707,6 +2751,7 @@
                     <label class="field">Email<input type="email" value="${esc(member && member.email || '')}" data-team-edit-member-email></label>
                     <label class="field">Phone<input type="text" value="${esc(member && member.phone || '')}" data-team-edit-member-phone></label>
                   </span>
+                  <label class="field checkbox-field"><input type="checkbox" data-team-edit-member-club-member${member && member.isClubMember ? ' checked' : ''}> BRS member ($45)</label>
                   ${payment.warning ? `<span class="person-payment-warning">${esc(payment.text)} - this golfer is not marked paid.</span>` : `<span class="record-muted">${esc(payment.text)}</span>`}
                   <span class="member-fee-location">Fee paid: ${esc(feePaidToLabel(member && member.feePaidTo))}</span>
                   <select class="fee-location-select" data-team-edit-member-fee-paid-to data-member-id="${esc(String(member && member._id || ''))}" aria-label="Fee paid destination for ${esc(member && member.name || 'golfer')}">
@@ -2728,6 +2773,7 @@
         name: String(row.querySelector('[data-team-edit-player-name]') && row.querySelector('[data-team-edit-player-name]').value || '').trim(),
         email: String(row.querySelector('[data-team-edit-player-email]') && row.querySelector('[data-team-edit-player-email]').value || '').trim(),
         phone: String(row.querySelector('[data-team-edit-player-phone]') && row.querySelector('[data-team-edit-player-phone]').value || '').trim(),
+        isClubMember: Boolean(row.querySelector('[data-team-edit-player-club-member]') && row.querySelector('[data-team-edit-player-club-member]').checked),
         feePaidTo: String(row.querySelector('[data-team-edit-player-fee-paid-to]') && row.querySelector('[data-team-edit-player-fee-paid-to]').value || '').trim(),
       })).filter((player) => player.name || player.email || player.phone);
     }
@@ -2737,6 +2783,7 @@
         memberId: String(row.dataset.memberId || '').trim(),
         email: String(row.querySelector('[data-team-edit-member-email]') && row.querySelector('[data-team-edit-member-email]').value || '').trim(),
         phone: String(row.querySelector('[data-team-edit-member-phone]') && row.querySelector('[data-team-edit-member-phone]').value || '').trim(),
+        isClubMember: Boolean(row.querySelector('[data-team-edit-member-club-member]') && row.querySelector('[data-team-edit-member-club-member]').checked),
       })).filter((entry) => entry.memberId);
     }
 
@@ -2876,6 +2923,7 @@
                   <div class="team-member-top">
                     <strong>${esc(member.name || 'Golfer')}</strong>
                     ${member.isGuest ? '<span class="member-flag">Guest</span>' : ''}
+                    ${member.isClubMember ? '<span class="member-flag">BRS Member</span>' : '<span class="member-flag">Non-member</span>'}
                   </div>
                   ${teamMemberContactMarkup(member)}
                 </li>
