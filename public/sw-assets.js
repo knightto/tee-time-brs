@@ -48,6 +48,7 @@ self.__SW_ASSETS = [
   "/myrtle/lodging-and-maps.html",
   "/myrtle/prize-report.html",
   "/myrtle/trip-2026.html",
+  "/plastered-open-communications.html",
   "/plastered-open-fees.html",
   "/plastered-open-registration-list.html",
   "/plastered-open.css",

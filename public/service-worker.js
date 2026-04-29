@@ -1,6 +1,6 @@
 importScripts('/sw-assets.js');
 
-const CACHE_NAME = 'tee-time-brs-v13';
+const CACHE_NAME = 'tee-time-brs-v14';
 const ASSETS_TO_CACHE = Array.isArray(self.__SW_ASSETS) ? self.__SW_ASSETS : ['/', '/index.html', '/style.css', '/script.js'];
 
 self.addEventListener('install', event => {

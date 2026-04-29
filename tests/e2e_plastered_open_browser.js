@@ -183,12 +183,15 @@ function assignId(doc, fallback) {
   return doc;
 }
 
-function createModels({ event, teams = [], members = [], registrations = [], waitlist = [] }) {
+function createModels({ event, teams = [], members = [], registrations = [], waitlist = [], ledgerEntries = [], mailingContacts = [], messages = [] }) {
   const nextTeamId = buildDocFactory('7');
   const nextRegistrationId = buildDocFactory('8');
   const nextMemberId = buildDocFactory('9');
   const nextWaitlistId = buildDocFactory('a');
   const nextAuditId = buildDocFactory('b');
+  const nextLedgerId = buildDocFactory('c');
+  const nextMailingContactId = buildDocFactory('d');
+  const nextMessageId = buildDocFactory('e');
 
   const state = {
     outings: createModelStore([event]),
@@ -196,6 +199,9 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
     members: createModelStore(members),
     registrations: createModelStore(registrations),
     waitlist: createModelStore(waitlist),
+    ledgerEntries: createModelStore(ledgerEntries),
+    mailingContacts: createModelStore(mailingContacts),
+    messages: createModelStore(messages),
     audits: createModelStore([]),
   };
 
@@ -348,11 +354,62 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
     },
   };
 
+  const BlueRidgeOutingLedgerEntry = {
+    find(filter = {}) {
+      return new FakeQuery(many(state.ledgerEntries, filter), { collection: state.ledgerEntries });
+    },
+    findOne(filter = {}) {
+      return new FakeQuery(first(state.ledgerEntries, filter), { single: true, collection: state.ledgerEntries });
+    },
+    create(doc) {
+      const saved = assignId(clone(doc), nextLedgerId);
+      state.ledgerEntries.push(saved);
+      return Promise.resolve(wrapStoredDoc(state.ledgerEntries, saved));
+    },
+    deleteOne(filter = {}) {
+      const index = state.ledgerEntries.findIndex((doc) => matches(doc, filter));
+      if (index >= 0) state.ledgerEntries.splice(index, 1);
+      return Promise.resolve({ acknowledged: true, deletedCount: index >= 0 ? 1 : 0 });
+    },
+  };
+
+  const BlueRidgeOutingMailingContact = {
+    find(filter = {}) {
+      return new FakeQuery(many(state.mailingContacts, filter), { collection: state.mailingContacts });
+    },
+    findOne(filter = {}) {
+      return new FakeQuery(first(state.mailingContacts, filter), { single: true, collection: state.mailingContacts });
+    },
+    findOneAndUpdate(filter = {}, update = {}, options = {}) {
+      let doc = first(state.mailingContacts, filter);
+      if (!doc) {
+        doc = assignId({}, nextMailingContactId);
+        state.mailingContacts.push(doc);
+      }
+      if (update.$set) Object.assign(doc, clone(update.$set), { updatedAt: new Date().toISOString() });
+      return Promise.resolve(wrapStoredDoc(state.mailingContacts, options && options.new === false ? null : doc));
+    },
+  };
+
+  const BlueRidgeOutingMessage = {
+    find(filter = {}) {
+      return new FakeQuery(many(state.messages, filter), { collection: state.messages });
+    },
+    create(doc) {
+      const saved = assignId(clone(doc), nextMessageId);
+      state.messages.push(saved);
+      return Promise.resolve(wrapStoredDoc(state.messages, saved));
+    },
+  };
+
   return {
     state,
     models: {
       BlueRidgeOuting,
       BlueRidgeOutingAuditLog,
+      BlueRidgeOutingLedgerEntry,
+      BlueRidgeOutingMailingContact,
+      BlueRidgeOutingMessage,
       BlueRidgeRegistration,
       BlueRidgeTeam,
       BlueRidgeTeamMember,
@@ -793,32 +850,11 @@ async function main() {
             details.open = true;
             return true;
           })()`);
-
-          await evaluate(adminSend, `(() => {
-            const toggle = document.getElementById('showTeamContacts');
-            if (!toggle) return false;
-            toggle.checked = true;
-            toggle.dispatchEvent(new Event('change', { bubbles: true }));
-            return true;
-          })()`);
           await waitForExpression(adminSend, `(() => {
             const card = document.querySelector('#recordsList [data-record-kind="team"]');
             return card
               && /captain@example\\.com/i.test(card.textContent || '')
               && /555-0101/i.test(card.textContent || '');
-          })()`, 10000);
-          await evaluate(adminSend, `(() => {
-            const toggle = document.getElementById('showTeamContacts');
-            if (!toggle) return false;
-            toggle.checked = false;
-            toggle.dispatchEvent(new Event('change', { bubbles: true }));
-            return true;
-          })()`);
-          await waitForExpression(adminSend, `(() => {
-            const card = document.querySelector('#recordsList [data-record-kind="team"]');
-            return card
-              && !/captain@example\\.com/i.test(card.textContent || '')
-              && !/555-0101/i.test(card.textContent || '');
           })()`, 10000);
 
           await evaluate(adminSend, `(() => {

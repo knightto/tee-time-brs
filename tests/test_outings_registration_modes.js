@@ -82,6 +82,11 @@ class FakeQuery {
     return this;
   }
 
+  limit(count) {
+    if (!this.single && Array.isArray(this.value)) this.value = this.value.slice(0, Number(count) || 0);
+    return this;
+  }
+
   lean() {
     return Promise.resolve(clone(this.value));
   }
@@ -144,13 +149,15 @@ function wrapStoredDoc(collection, doc) {
   return wrapped;
 }
 
-function createModels({ event, teams = [], members = [], registrations = [], waitlist = [], ledgerEntries = [] }) {
+function createModels({ event, teams = [], members = [], registrations = [], waitlist = [], ledgerEntries = [], mailingContacts = [], messages = [] }) {
   const nextTeamId = buildDocFactory('7');
   const nextRegistrationId = buildDocFactory('8');
   const nextMemberId = buildDocFactory('9');
   const nextWaitlistId = buildDocFactory('a');
   const nextAuditId = buildDocFactory('b');
   const nextLedgerId = buildDocFactory('c');
+  const nextMailingContactId = buildDocFactory('d');
+  const nextMessageId = buildDocFactory('e');
 
   const state = {
     outings: createModelStore([event]),
@@ -159,6 +166,8 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
     registrations: createModelStore(registrations),
     waitlist: createModelStore(waitlist),
     ledgerEntries: createModelStore(ledgerEntries),
+    mailingContacts: createModelStore(mailingContacts),
+    messages: createModelStore(messages),
     audits: createModelStore([]),
   };
 
@@ -355,12 +364,43 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
     },
   };
 
+  const BlueRidgeOutingMailingContact = {
+    find(filter = {}) {
+      return new FakeQuery(many(state.mailingContacts, filter), { collection: state.mailingContacts });
+    },
+    findOne(filter = {}) {
+      return new FakeQuery(first(state.mailingContacts, filter), { single: true, collection: state.mailingContacts });
+    },
+    findOneAndUpdate(filter = {}, update = {}, options = {}) {
+      let doc = first(state.mailingContacts, filter);
+      if (!doc) {
+        doc = assignId({}, nextMailingContactId);
+        state.mailingContacts.push(doc);
+      }
+      if (update.$set) Object.assign(doc, clone(update.$set), { updatedAt: new Date().toISOString() });
+      return Promise.resolve(wrapStoredDoc(state.mailingContacts, options && options.new === false ? null : doc));
+    },
+  };
+
+  const BlueRidgeOutingMessage = {
+    find(filter = {}) {
+      return new FakeQuery(many(state.messages, filter), { collection: state.messages });
+    },
+    create(doc) {
+      const saved = assignId(clone(doc), nextMessageId);
+      state.messages.push(saved);
+      return Promise.resolve(wrapStoredDoc(state.messages, saved));
+    },
+  };
+
   return {
     state,
     models: {
       BlueRidgeOuting,
       BlueRidgeOutingAuditLog,
       BlueRidgeOutingLedgerEntry,
+      BlueRidgeOutingMailingContact,
+      BlueRidgeOutingMessage,
       BlueRidgeRegistration,
       BlueRidgeTeam,
       BlueRidgeTeamMember,
@@ -1053,6 +1093,124 @@ async function assertFeeManagementFlow() {
   });
 }
 
+async function assertCommunicationsAdminFlow() {
+  const previousE2eMode = process.env.E2E_TEST_MODE;
+  process.env.E2E_TEST_MODE = '1';
+  const event = buildEvent({ entryFee: 90 });
+  const teamId = '607f191e810c19729de862ba';
+  const registrationId = '807f191e810c19729de862bb';
+  const { state, models } = createModels({
+    event,
+    teams: [{
+      _id: teamId,
+      eventId: event._id,
+      name: 'Mail Team',
+      status: 'active',
+    }],
+    registrations: [{
+      _id: registrationId,
+      eventId: event._id,
+      teamId,
+      mode: 'full_team',
+      status: 'registered',
+      submittedByName: 'Mail Owner',
+      submittedByEmail: 'mail-owner@example.com',
+      paymentStatus: 'paid',
+      kegSponsorshipAmount: 50,
+    }],
+    members: [{
+      _id: '907f191e810c19729de862bc',
+      eventId: event._id,
+      teamId,
+      registrationId,
+      name: 'Mail Owner',
+      email: 'mail-owner@example.com',
+      emailKey: 'mail-owner@example.com',
+      status: 'active',
+      feePaidTo: 'tommy',
+    }, {
+      _id: '907f191e810c19729de862bd',
+      eventId: event._id,
+      teamId,
+      registrationId,
+      name: 'Mail Partner',
+      email: 'mail-partner@example.com',
+      emailKey: 'mail-partner@example.com',
+      status: 'active',
+    }],
+    waitlist: [{
+      _id: 'a07f191e810c19729de862be',
+      eventId: event._id,
+      name: 'Waiting Wendy',
+      email: 'waiting@example.com',
+      emailKey: 'waiting@example.com',
+      status: 'active',
+    }],
+  });
+
+  try {
+    await withRouter(models, async (baseUrl) => {
+      const blocked = await jsonRequest(baseUrl, `/admin/events/${event._id}/communications`);
+      assert.strictEqual(blocked.response.status, 403, 'Communications should require admin code');
+
+      const loaded = await jsonRequest(baseUrl, `/admin/events/${event._id}/communications?code=2000`);
+      assert.strictEqual(loaded.response.status, 200, 'Admin communications should load');
+      assert.strictEqual(loaded.payload.counts.registered, 2, 'Communications should include registered golfers');
+      assert.strictEqual(loaded.payload.counts.waitlist, 1, 'Communications should include waitlist contacts');
+      assert.strictEqual(loaded.payload.counts.sponsors, 1, 'Communications should include sponsor contacts');
+
+      const contact = await jsonRequest(baseUrl, `/admin/events/${event._id}/communications/contacts?code=2000`, {
+        method: 'POST',
+        body: {
+          name: 'Manual Mary',
+          email: 'manual@example.com',
+          phone: '555-0111',
+          tags: 'volunteer, sponsor',
+          notes: 'Manual contact',
+        },
+      });
+      assert.strictEqual(contact.response.status, 201, 'Manual contact save should succeed');
+      assert.strictEqual(state.mailingContacts.length, 1, 'Manual contact should be stored');
+      assert.strictEqual(contact.payload.counts.manual, 1, 'Manual contact should be counted');
+
+      const testSend = await jsonRequest(baseUrl, `/admin/events/${event._id}/communications/send?code=2000`, {
+        method: 'POST',
+        body: {
+          testOnly: true,
+          testEmail: 'tommy@example.com',
+          audience: 'all',
+          subject: 'Test Plastered message',
+          body: 'This is a test.',
+        },
+      });
+      assert.strictEqual(testSend.response.status, 201, 'Test message should send');
+      assert.strictEqual(state.messages[0].status, 'test', 'Test message should be logged as test');
+      assert.strictEqual(state.messages[0].recipientCount, 1, 'Test message should only go to the test recipient');
+
+      const liveSend = await jsonRequest(baseUrl, `/admin/events/${event._id}/communications/send?code=2000`, {
+        method: 'POST',
+        body: {
+          audience: 'registered',
+          subject: 'Live Plastered update',
+          body: 'Pairings will be posted soon.',
+        },
+      });
+      assert.strictEqual(liveSend.response.status, 201, 'Live message should send');
+      assert.strictEqual(state.messages[1].status, 'sent', 'Live message should be logged as sent');
+      assert.strictEqual(state.messages[1].recipientCount, 2, 'Live registered message should include registered golfers');
+
+      const deleteContact = await jsonRequest(baseUrl, `/admin/events/${event._id}/communications/contacts/${state.mailingContacts[0]._id}?code=2000`, {
+        method: 'DELETE',
+      });
+      assert.strictEqual(deleteContact.response.status, 200, 'Manual contact delete should succeed');
+      assert.strictEqual(state.mailingContacts[0].status, 'unsubscribed', 'Manual contact should be unsubscribed');
+    });
+  } finally {
+    if (previousE2eMode === undefined) delete process.env.E2E_TEST_MODE;
+    else process.env.E2E_TEST_MODE = previousE2eMode;
+  }
+}
+
 async function assertArchivedTeamDeleteRemovesRecords() {
   const event = buildEvent();
   const archivedTeamId = '507f191e810c19729de861aa';
@@ -1220,6 +1378,7 @@ async function run() {
   await assertKegSponsorshipFlow();
   await assertActiveTeamDeleteRemovesRecords();
   await assertFeeManagementFlow();
+  await assertCommunicationsAdminFlow();
   await assertArchivedTeamDeleteRemovesRecords();
 }
 

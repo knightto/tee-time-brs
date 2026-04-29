@@ -39,6 +39,8 @@ function getSecondaryModels() {
     BlueRidgeOuting: conn.model('BlueRidgeOuting', require('../models/BlueRidgeOuting').schema),
     BlueRidgeOutingAuditLog: conn.model('BlueRidgeOutingAuditLog', require('../models/BlueRidgeOutingAuditLog').schema),
     BlueRidgeOutingLedgerEntry: conn.model('BlueRidgeOutingLedgerEntry', require('../models/BlueRidgeOutingLedgerEntry').schema),
+    BlueRidgeOutingMailingContact: conn.model('BlueRidgeOutingMailingContact', require('../models/BlueRidgeOutingMailingContact').schema),
+    BlueRidgeOutingMessage: conn.model('BlueRidgeOutingMessage', require('../models/BlueRidgeOutingMessage').schema),
     BlueRidgeRegistration: conn.model('BlueRidgeRegistration', require('../models/BlueRidgeRegistration').schema),
     BlueRidgeTeam: conn.model('BlueRidgeTeam', require('../models/BlueRidgeTeam').schema),
     BlueRidgeTeamMember: conn.model('BlueRidgeTeamMember', require('../models/BlueRidgeTeamMember').schema),
@@ -263,13 +265,21 @@ function siteUrl(pathname = '/') {
 }
 
 async function sendPlasteredOpenAlertEmail(subject, html) {
-  if (!PLASTERED_OPEN_ALERT_EMAILS.length) return { ok: true, skipped: true, reason: 'no-recipients' };
+  return sendPlasteredOpenEmail(PLASTERED_OPEN_ALERT_EMAILS, subject, html);
+}
+
+async function sendPlasteredOpenEmail(to, subject, html, options = {}) {
+  const recipients = uniqueEmailList(to);
+  if (!recipients.length) return { ok: true, skipped: true, reason: 'no-recipients' };
   const normalizedSubject = normalizeEmailSubject(subject);
+  const useBcc = Boolean(options.bcc && recipients.length > 1);
+  const toAddress = useBcc ? (PLASTERED_OPEN_ALERT_EMAILS[0] || recipients[0]) : recipients;
+  const bccRecipients = useBcc ? recipients.filter((email) => email !== toAddress) : [];
   if (process.env.E2E_TEST_MODE === '1') {
     return {
       ok: true,
       simulated: true,
-      data: { to: PLASTERED_OPEN_ALERT_EMAILS, subject: normalizedSubject, bytes: String(html || '').length },
+      data: { to: toAddress, bcc: bccRecipients, subject: normalizedSubject, bytes: String(html || '').length },
     };
   }
   if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM) {
@@ -287,7 +297,8 @@ async function sendPlasteredOpenAlertEmail(subject, html) {
       },
       body: JSON.stringify({
         from: process.env.RESEND_FROM,
-        to: PLASTERED_OPEN_ALERT_EMAILS,
+        to: toAddress,
+        ...(bccRecipients.length ? { bcc: bccRecipients } : {}),
         subject: normalizedSubject,
         html,
       }),
@@ -417,6 +428,108 @@ function ledgerTotals(entries = []) {
     summary.net = Number((summary.income - summary.expense).toFixed(2));
     return summary;
   }, { income: 0, expense: 0, net: 0, byCategory: {} });
+}
+
+function addAudienceRecipient(map, raw = {}, group = 'all') {
+  const email = normalizeEmail(raw.email || raw.emailKey || raw.submittedByEmail || '');
+  if (!email || !email.includes('@')) return;
+  const existing = map.get(email) || {
+    name: String(raw.name || raw.submittedByName || '').trim(),
+    email,
+    phone: String(raw.phone || raw.submittedByPhone || '').trim(),
+    groups: [],
+    paymentStatus: '',
+    source: '',
+  };
+  const groupKey = String(group || '').trim().toLowerCase();
+  if (groupKey && !existing.groups.includes(groupKey)) existing.groups.push(groupKey);
+  if (!existing.name) existing.name = String(raw.name || raw.submittedByName || '').trim();
+  if (!existing.phone) existing.phone = String(raw.phone || raw.submittedByPhone || '').trim();
+  if (raw.paymentStatus && !existing.paymentStatus) existing.paymentStatus = String(raw.paymentStatus || '').toLowerCase();
+  if (raw.source && !existing.source) existing.source = String(raw.source || '').toLowerCase();
+  map.set(email, existing);
+}
+
+function audienceCounts(recipients = []) {
+  const counts = { all: recipients.length };
+  recipients.forEach((recipient) => {
+    (recipient.groups || []).forEach((group) => {
+      counts[group] = (counts[group] || 0) + 1;
+    });
+  });
+  return counts;
+}
+
+function filterAudienceRecipients(recipients = [], audience = 'all') {
+  const key = String(audience || 'all').trim().toLowerCase();
+  if (key === 'all') return recipients;
+  return recipients.filter((recipient) => Array.isArray(recipient.groups) && recipient.groups.includes(key));
+}
+
+async function buildCommunicationAudience(event, models) {
+  const [members, registrations, waitlist, manualContacts, messages] = await Promise.all([
+    models.BlueRidgeTeamMember.find({ eventId: event._id, status: 'active' }).lean(),
+    models.BlueRidgeRegistration.find({ eventId: event._id, status: 'registered' }).sort({ createdAt: -1 }).lean(),
+    models.BlueRidgeWaitlist.find({ eventId: event._id, status: 'active' }).sort({ createdAt: -1 }).lean(),
+    models.BlueRidgeOutingMailingContact.find({ eventId: event._id, status: 'subscribed' }).sort({ createdAt: -1 }).lean(),
+    models.BlueRidgeOutingMessage.find({ eventId: event._id }).sort({ sentAt: -1 }).limit(50).lean(),
+  ]);
+  const map = new Map();
+  (Array.isArray(members) ? members : []).forEach((member) => {
+    addAudienceRecipient(map, { ...member, source: 'registration' }, 'registered');
+    const paidTo = normalizeFeePaidTo(member && member.feePaidTo);
+    addAudienceRecipient(map, member, paidTo ? 'paid' : 'unpaid');
+  });
+  (Array.isArray(registrations) ? registrations : []).forEach((registration) => {
+    addAudienceRecipient(map, { ...registration, source: 'registration' }, 'submitting');
+    if (String(registration && registration.paymentStatus || '').toLowerCase() === 'paid') {
+      addAudienceRecipient(map, registration, 'paid');
+    }
+    if (parseMoneyAmount(registration && registration.kegSponsorshipAmount, 0) > 0) {
+      addAudienceRecipient(map, { ...registration, source: 'sponsor' }, 'sponsors');
+    }
+  });
+  (Array.isArray(waitlist) ? waitlist : []).forEach((entry) => {
+    addAudienceRecipient(map, { ...entry, source: 'waitlist' }, 'waitlist');
+  });
+  (Array.isArray(manualContacts) ? manualContacts : []).forEach((contact) => {
+    addAudienceRecipient(map, { ...contact, source: contact.source || 'manual' }, 'manual');
+    (Array.isArray(contact.tags) ? contact.tags : []).forEach((tag) => addAudienceRecipient(map, contact, tag));
+  });
+  const recipients = Array.from(map.values()).sort((a, b) => {
+    const left = String(a.name || a.email || '');
+    const right = String(b.name || b.email || '');
+    return left.localeCompare(right);
+  });
+  return {
+    event: { _id: event._id, name: event.name, startDate: event.startDate },
+    recipients,
+    counts: audienceCounts(recipients),
+    manualContacts,
+    messages,
+    groups: [
+      { key: 'all', label: 'Everyone' },
+      { key: 'registered', label: 'Registered golfers' },
+      { key: 'submitting', label: 'Signup owners' },
+      { key: 'paid', label: 'Paid golfers' },
+      { key: 'unpaid', label: 'Unpaid golfers' },
+      { key: 'waitlist', label: 'Waitlist' },
+      { key: 'sponsors', label: 'Sponsors' },
+      { key: 'manual', label: 'Manual contacts' },
+    ],
+  };
+}
+
+function communicationEmailHtml(event, body) {
+  const safeBody = escapeHtml(body).replace(/\n/g, '<br>');
+  return `
+    <div style="font-family:Arial,sans-serif;line-height:1.5;color:#1f2937;">
+      <h2 style="margin:0 0 12px;">${escapeHtml(event && event.name || 'Plastered Open')}</h2>
+      <div>${safeBody}</div>
+      <hr style="border:none;border-top:1px solid #e5e7eb;margin:18px 0;">
+      <p style="font-size:13px;color:#6b7280;">You are receiving this because you are connected to the Plastered Open outing.</p>
+    </div>
+  `;
 }
 
 async function buildFeeManagementDetail(event, models) {
@@ -2113,6 +2226,176 @@ router.delete('/admin/events/:eventId/fee-ledger/:entryId', async (req, res) => 
 
     const detail = await buildFeeManagementDetail(event, models);
     res.json(detail);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/admin/events/:eventId/communications', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    if (!(await requireSecondaryConnection(res))) return;
+
+    const models = getSecondaryModels();
+    const event = await models.BlueRidgeOuting.findById(req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+
+    res.json(await buildCommunicationAudience(event, models));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/admin/events/:eventId/communications/contacts', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    if (!(await requireSecondaryConnection(res))) return;
+
+    const models = getSecondaryModels();
+    const event = await models.BlueRidgeOuting.findById(req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+
+    const name = String(req.body && req.body.name || '').trim();
+    const email = normalizeEmail(req.body && req.body.email || '');
+    const phone = String(req.body && req.body.phone || '').trim();
+    const notes = String(req.body && req.body.notes || '').trim();
+    const tags = String(req.body && req.body.tags || '')
+      .split(',')
+      .map((tag) => String(tag || '').trim().toLowerCase())
+      .filter(Boolean);
+    if (!email || !email.includes('@')) return badRequest(res, 'A valid email is required');
+
+    await models.BlueRidgeOutingMailingContact.findOneAndUpdate(
+      { eventId: event._id, emailKey: email },
+      {
+        $set: {
+          eventId: event._id,
+          name,
+          email,
+          emailKey: email,
+          phone,
+          notes,
+          tags,
+          source: 'manual',
+          status: 'subscribed',
+        },
+      },
+      { new: true, upsert: true, runValidators: true, setDefaultsOnInsert: true }
+    );
+
+    await writeOutingAudit(models, {
+      outingId: event._id,
+      category: 'event',
+      action: 'mailing_contact_saved',
+      actor: auditActor(req),
+      method: req.method,
+      route: routePath(req),
+      summary: `Mailing contact saved: ${name || email}`,
+      details: { name, email, phone, tags },
+    });
+
+    res.status(201).json(await buildCommunicationAudience(event, models));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/admin/events/:eventId/communications/contacts/:contactId', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    if (!(await requireSecondaryConnection(res))) return;
+
+    const models = getSecondaryModels();
+    const event = await models.BlueRidgeOuting.findById(req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+    const contact = await models.BlueRidgeOutingMailingContact.findOne({ _id: req.params.contactId, eventId: event._id });
+    if (!contact) return res.status(404).json({ error: 'Mailing contact not found' });
+    contact.status = 'unsubscribed';
+    await contact.save();
+
+    await writeOutingAudit(models, {
+      outingId: event._id,
+      category: 'event',
+      action: 'mailing_contact_removed',
+      actor: auditActor(req),
+      method: req.method,
+      route: routePath(req),
+      summary: `Mailing contact removed: ${contact.name || contact.email}`,
+      details: { contactId: String(contact._id), email: contact.email },
+    });
+
+    res.json(await buildCommunicationAudience(event, models));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/admin/events/:eventId/communications/send', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    if (!(await requireSecondaryConnection(res))) return;
+
+    const models = getSecondaryModels();
+    const event = await models.BlueRidgeOuting.findById(req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+
+    const subject = String(req.body && req.body.subject || '').trim();
+    const body = String(req.body && req.body.body || '').trim();
+    const audience = String(req.body && req.body.audience || 'all').trim().toLowerCase();
+    const testEmail = normalizeEmail(req.body && req.body.testEmail || '');
+    const isTest = parseBool(req.body && req.body.testOnly, false);
+    if (!subject) return badRequest(res, 'Subject is required');
+    if (!body) return badRequest(res, 'Message body is required');
+
+    const audiencePayload = await buildCommunicationAudience(event, models);
+    const selected = isTest
+      ? [{ name: 'Test recipient', email: testEmail, groups: ['test'] }]
+      : filterAudienceRecipients(audiencePayload.recipients, audience);
+    if (isTest && (!testEmail || !testEmail.includes('@'))) return badRequest(res, 'A test email is required');
+    if (!selected.length) return badRequest(res, 'No recipients match this audience');
+
+    const html = communicationEmailHtml(event, body);
+    const sendResult = await sendPlasteredOpenEmail(selected.map((recipient) => recipient.email), subject, html, { bcc: !isTest });
+    const status = sendResult && sendResult.ok ? (isTest ? 'test' : 'sent') : 'failed';
+    const message = await models.BlueRidgeOutingMessage.create({
+      eventId: event._id,
+      subject,
+      body,
+      audience,
+      status,
+      recipientCount: selected.length,
+      recipients: selected.map((recipient) => ({
+        name: recipient.name || '',
+        email: recipient.email,
+        groups: recipient.groups || [],
+      })),
+      testEmail: isTest ? testEmail : '',
+      providerResponse: sendResult && sendResult.data ? sendResult.data : sendResult || {},
+      error: sendResult && sendResult.error && sendResult.error.message ? sendResult.error.message : '',
+      sentAt: new Date(),
+    });
+
+    await writeOutingAudit(models, {
+      outingId: event._id,
+      category: 'event',
+      action: isTest ? 'communication_test_sent' : 'communication_sent',
+      actor: auditActor(req),
+      method: req.method,
+      route: routePath(req),
+      summary: `${isTest ? 'Test message' : 'Message'} sent: ${subject}`,
+      details: {
+        messageId: String(message && message._id || ''),
+        audience,
+        recipientCount: selected.length,
+        testEmail: isTest ? testEmail : '',
+        status,
+      },
+    });
+
+    if (status === 'failed') {
+      return res.status(503).json({ error: 'Unable to send message', result: sendResult, message });
+    }
+    res.status(201).json({ ok: true, message, communications: await buildCommunicationAudience(event, models) });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

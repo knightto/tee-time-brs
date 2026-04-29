@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Plastered "Open" Communications</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <style>
+    @import url("https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=League+Spartan:wght@400;500;600;700;800&display=swap");
+    :root {
+      --navy: #0d2b57;
+      --navy-deep: #081b36;
+      --fairway: #2d6d4e;
+      --paper: rgba(255, 251, 245, 0.98);
+      --ink: #1d2127;
+      --ink-soft: #626b68;
+      --line: rgba(21, 28, 39, 0.12);
+      --light-line: rgba(255, 255, 255, 0.18);
+      --red: #cb3f33;
+      --red-deep: #962a24;
+      --gold: #f1ddb3;
+      --shadow: 0 24px 56px rgba(6, 17, 33, 0.22);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "League Spartan", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: #fff8f0;
+      background:
+        linear-gradient(135deg, rgba(8, 27, 54, 0.94) 0%, rgba(13, 43, 87, 0.88) 38%, rgba(27, 77, 56, 0.82) 100%),
+        url("/assets/plastered-open-course-mountain.webp") center center / cover no-repeat fixed;
+      background-color: var(--navy-deep);
+    }
+    .wrap { max-width: 1260px; margin: 0 auto; padding: 18px 16px 44px; }
+    .hero, .panel {
+      border-radius: 24px;
+      border: 1px solid var(--light-line);
+      box-shadow: var(--shadow);
+    }
+    .hero {
+      padding: 24px;
+      background: linear-gradient(145deg, rgba(8, 27, 54, 0.94) 0%, rgba(13, 43, 87, 0.86) 54%, rgba(27, 77, 56, 0.72) 100%);
+    }
+    .hero-top, .toolbar, .metric-grid, .form-grid, .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .hero-top, .toolbar { justify-content: space-between; align-items: center; }
+    h1, h2 {
+      margin: 0;
+      font-family: "DM Serif Display", Georgia, "Times New Roman", serif;
+      line-height: 0.98;
+    }
+    h1 { font-size: clamp(2.5rem, 5vw, 4.5rem); }
+    h2 { color: var(--ink); font-size: clamp(1.45rem, 2.4vw, 2.1rem); }
+    .eyebrow {
+      margin: 16px 0 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.18em;
+      font-weight: 800;
+      font-size: 0.78rem;
+      color: rgba(255, 248, 240, 0.78);
+    }
+    .hero-copy { max-width: 58rem; color: rgba(255, 248, 240, 0.9); line-height: 1.5; font-size: 1.05rem; }
+    .chip, button {
+      font: inherit;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 42px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--light-line);
+      color: #fff8f0;
+      background: rgba(255, 255, 255, 0.08);
+      text-decoration: none;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    button.primary, .chip.primary {
+      background: linear-gradient(135deg, var(--red) 0%, var(--red-deep) 100%);
+      box-shadow: 0 12px 30px rgba(150, 42, 36, 0.26);
+    }
+    button:disabled { opacity: 0.58; cursor: wait; }
+    .toolbar { margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(255, 255, 255, 0.14); }
+    .toolbar input {
+      min-width: min(280px, 100%);
+      padding: 12px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(8, 27, 54, 0.45);
+      color: #fff8f0;
+      font: inherit;
+      font-weight: 700;
+    }
+    .msg { margin-top: 12px; min-height: 1.3rem; color: var(--gold); font-weight: 800; }
+    .panel {
+      margin-top: 18px;
+      padding: 22px;
+      background: var(--paper);
+      color: var(--ink);
+    }
+    .panel-head { display: flex; gap: 12px; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; margin-bottom: 14px; }
+    .subhead { margin: 6px 0 0; color: var(--ink-soft); line-height: 1.45; }
+    .metric-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 14px; }
+    .metric {
+      min-height: 96px;
+      padding: 15px;
+      border-radius: 16px;
+      border: 1px solid var(--line);
+      background: linear-gradient(165deg, rgba(255, 255, 255, 0.95), rgba(252, 248, 241, 0.88));
+      box-shadow: 0 10px 22px rgba(6, 17, 33, 0.08);
+    }
+    .metric strong { display: block; font-size: 1.8rem; color: var(--navy); line-height: 1; }
+    .metric span { display: block; margin-top: 7px; color: var(--ink-soft); font-weight: 700; }
+    .grid { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(320px, 0.9fr); gap: 18px; align-items: start; }
+    .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    label { display: grid; gap: 6px; font-weight: 800; color: #284234; }
+    input, select, textarea {
+      width: 100%;
+      min-height: 42px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(21, 28, 39, 0.14);
+      background: rgba(255, 255, 255, 0.92);
+      color: var(--ink);
+      font: inherit;
+      font-weight: 700;
+    }
+    textarea { min-height: 180px; resize: vertical; line-height: 1.45; }
+    .list { display: grid; gap: 10px; }
+    .list-item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: center;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.68);
+    }
+    .list-item strong { color: var(--navy); }
+    .list-item span { color: var(--ink-soft); font-weight: 700; }
+    .recipient-preview {
+      max-height: 360px;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255,255,255,0.62);
+      padding: 10px;
+    }
+    .empty-card {
+      padding: 18px;
+      border: 1px dashed rgba(21, 28, 39, 0.22);
+      border-radius: 16px;
+      color: var(--ink-soft);
+      font-weight: 700;
+      text-align: center;
+    }
+    @media (max-width: 900px) {
+      .grid, .form-grid, .metric-grid { grid-template-columns: 1fr; }
+      .hero, .panel { border-radius: 18px; padding: 16px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <div class="hero-top">
+        <a class="chip" href="/plastered-open-registration-list.html">Back To Registration List</a>
+        <a class="chip" href="/plastered-open-fees.html">Fee Management</a>
+      </div>
+      <p class="eyebrow">Admin Only</p>
+      <h1>Plastered Open Communications</h1>
+      <p class="hero-copy">Build messages from the live roster, waitlist, sponsors, and admin-added contacts. Recipient lists and sending are protected by the outings admin code.</p>
+      <div class="toolbar">
+        <input id="adminCode" type="password" placeholder="Admin code" autocomplete="current-password">
+        <button id="loadBtn" class="primary" type="button">Load Communications</button>
+      </div>
+      <div id="topMsg" class="msg"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Audience Snapshot</h2>
+          <p id="snapshotSubhead" class="subhead">Load communications to see the active mailing list.</p>
+        </div>
+      </div>
+      <div id="metricGrid" class="metric-grid"></div>
+    </section>
+
+    <section class="grid">
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Compose Message</h2>
+            <p class="subhead">Send a test first, then send live when the copy and audience look right.</p>
+          </div>
+        </div>
+        <div class="form-grid">
+          <label>Audience<select id="audienceSelect"></select></label>
+          <label>Test email<input id="testEmailInput" type="email" placeholder="you@example.com"></label>
+        </div>
+        <label>Subject<input id="subjectInput" type="text" placeholder="Plastered Open update"></label>
+        <label>Message<textarea id="bodyInput" placeholder="Write the message to send..."></textarea></label>
+        <div class="actions">
+          <button id="sendTestBtn" type="button">Send Test</button>
+          <button id="sendLiveBtn" class="primary" type="button">Send Live Message</button>
+        </div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Recipient Preview</h2>
+            <p class="subhead">Preview updates when the audience changes.</p>
+          </div>
+        </div>
+        <div id="recipientPreview" class="recipient-preview"></div>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Manual Contacts</h2>
+            <p class="subhead">Admin-only additions for people who should get updates but are not registered.</p>
+          </div>
+        </div>
+        <div class="form-grid">
+          <label>Name<input id="contactNameInput" type="text" placeholder="Contact name"></label>
+          <label>Email<input id="contactEmailInput" type="email" placeholder="contact@example.com"></label>
+        </div>
+        <div class="form-grid">
+          <label>Phone<input id="contactPhoneInput" type="text" placeholder="Optional"></label>
+          <label>Tags<input id="contactTagsInput" type="text" placeholder="sponsor, family, volunteer"></label>
+        </div>
+        <label>Notes<input id="contactNotesInput" type="text" placeholder="Optional note"></label>
+        <div class="actions">
+          <button id="saveContactBtn" class="primary" type="button">Save Contact</button>
+        </div>
+        <div id="manualContactsList" class="list" style="margin-top:14px;"></div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Message History</h2>
+            <p class="subhead">Recent test and live messages sent from this page.</p>
+          </div>
+        </div>
+        <div id="messageHistory" class="list"></div>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const ADMIN_KEY = 'teeTimeMainAdminCode';
+    const state = { eventId: '', data: null };
+    const $ = (id) => document.getElementById(id);
+
+    function esc(value) {
+      return String(value || '').replace(/[&<>"']/g, (ch) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[ch]));
+    }
+
+    function readInitialCode() {
+      try {
+        const fromUrl = new URLSearchParams(window.location.search).get('code');
+        if (fromUrl) return String(fromUrl).trim();
+      } catch (_err) {}
+      try { return String(sessionStorage.getItem(ADMIN_KEY) || '').trim(); } catch (_err) { return ''; }
+    }
+
+    function getCode() {
+      const code = String($('adminCode').value || '').trim();
+      if (code) {
+        try { sessionStorage.setItem(ADMIN_KEY, code); } catch (_err) {}
+      }
+      return code;
+    }
+
+    async function api(path, options = {}) {
+      const code = getCode();
+      const url = new URL(path, window.location.origin);
+      if (code && !url.searchParams.has('code')) url.searchParams.set('code', code);
+      const resp = await fetch(url.toString(), options);
+      const text = await resp.text();
+      let payload = null;
+      try { payload = text ? JSON.parse(text) : null; } catch (_err) { payload = text; }
+      if (!resp.ok) throw new Error(payload && payload.error ? payload.error : `Request failed (${resp.status})`);
+      return payload;
+    }
+
+    function setMsg(message) { $('topMsg').textContent = message || ''; }
+
+    function setActionsEnabled(enabled) {
+      ['sendTestBtn', 'sendLiveBtn', 'saveContactBtn'].forEach((id) => {
+        const btn = $(id);
+        if (btn) btn.disabled = !enabled;
+      });
+    }
+
+    function selectedRecipients() {
+      const audience = $('audienceSelect').value || 'all';
+      const recipients = Array.isArray(state.data && state.data.recipients) ? state.data.recipients : [];
+      return audience === 'all' ? recipients : recipients.filter((recipient) => Array.isArray(recipient.groups) && recipient.groups.includes(audience));
+    }
+
+    function renderMetrics(data) {
+      const counts = data && data.counts || {};
+      const groups = Array.isArray(data && data.groups) ? data.groups : [];
+      $('metricGrid').innerHTML = groups.slice(0, 8).map((group) => `
+        <div class="metric"><strong>${Number(counts[group.key] || 0)}</strong><span>${esc(group.label)}</span></div>
+      `).join('');
+      $('snapshotSubhead').textContent = `${Number(counts.all || 0)} reachable contacts across roster, waitlist, sponsors, and manual contacts.`;
+    }
+
+    function renderAudienceSelect(data) {
+      const counts = data && data.counts || {};
+      const groups = Array.isArray(data && data.groups) ? data.groups : [];
+      $('audienceSelect').innerHTML = groups.map((group) => `<option value="${esc(group.key)}">${esc(group.label)} (${Number(counts[group.key] || 0)})</option>`).join('');
+    }
+
+    function renderRecipientPreview() {
+      const recipients = selectedRecipients();
+      if (!recipients.length) {
+        $('recipientPreview').innerHTML = '<div class="empty-card">No recipients in this audience.</div>';
+        return;
+      }
+      $('recipientPreview').innerHTML = recipients.map((recipient) => `
+        <div class="list-item">
+          <div><strong>${esc(recipient.name || recipient.email)}</strong><br><span>${esc(recipient.email)} | ${(recipient.groups || []).map(esc).join(', ')}</span></div>
+        </div>
+      `).join('');
+    }
+
+    function renderManualContacts(data) {
+      const contacts = Array.isArray(data && data.manualContacts) ? data.manualContacts : [];
+      if (!contacts.length) {
+        $('manualContactsList').innerHTML = '<div class="empty-card">No manual contacts yet.</div>';
+        return;
+      }
+      $('manualContactsList').innerHTML = contacts.map((contact) => `
+        <div class="list-item">
+          <div><strong>${esc(contact.name || contact.email)}</strong><br><span>${esc(contact.email)}${Array.isArray(contact.tags) && contact.tags.length ? ` | ${contact.tags.map(esc).join(', ')}` : ''}</span></div>
+          <button type="button" data-delete-contact="${esc(contact._id || '')}">Remove</button>
+        </div>
+      `).join('');
+    }
+
+    function renderHistory(data) {
+      const messages = Array.isArray(data && data.messages) ? data.messages : [];
+      if (!messages.length) {
+        $('messageHistory').innerHTML = '<div class="empty-card">No messages sent yet.</div>';
+        return;
+      }
+      $('messageHistory').innerHTML = messages.map((message) => `
+        <div class="list-item">
+          <div><strong>${esc(message.subject || 'Message')}</strong><br><span>${esc(message.status || '')} | ${Number(message.recipientCount || 0)} recipients | ${message.sentAt ? new Date(message.sentAt).toLocaleString() : ''}</span></div>
+        </div>
+      `).join('');
+    }
+
+    function render(data) {
+      state.data = data;
+      state.eventId = String(data && data.event && data.event._id || state.eventId || '');
+      renderMetrics(data);
+      renderAudienceSelect(data);
+      renderRecipientPreview();
+      renderManualContacts(data);
+      renderHistory(data);
+      setActionsEnabled(Boolean(state.eventId));
+      setMsg(`Loaded communications for ${data && data.event && data.event.name ? data.event.name : 'Plastered Open'}.`);
+    }
+
+    async function findPlasteredEventId() {
+      const events = await api('/api/outings/admin/events?fresh=1');
+      const event = (Array.isArray(events) ? events : []).find((item) => /plastered/i.test(String(item && item.name || '')));
+      if (!event) throw new Error('Plastered Open outing was not found.');
+      return String(event._id || '');
+    }
+
+    async function loadCommunications(message) {
+      setMsg('Loading communications...');
+      if (!state.eventId) state.eventId = await findPlasteredEventId();
+      const data = await api(`/api/outings/admin/events/${encodeURIComponent(state.eventId)}/communications`);
+      render(data);
+      if (message) setMsg(message);
+    }
+
+    async function ensureLoaded() {
+      if (state.eventId && state.data) return;
+      await loadCommunications();
+    }
+
+    async function sendMessage(testOnly) {
+      await ensureLoaded();
+      const payload = {
+        audience: $('audienceSelect').value || 'all',
+        subject: $('subjectInput').value.trim(),
+        body: $('bodyInput').value.trim(),
+        testOnly,
+        testEmail: $('testEmailInput').value.trim(),
+      };
+      const data = await api(`/api/outings/admin/events/${encodeURIComponent(state.eventId)}/communications/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      render(data.communications);
+      setMsg(testOnly ? 'Test message sent.' : `Live message sent to ${data.message && data.message.recipientCount || 0} recipients.`);
+    }
+
+    async function saveContact() {
+      await ensureLoaded();
+      const payload = {
+        name: $('contactNameInput').value.trim(),
+        email: $('contactEmailInput').value.trim(),
+        phone: $('contactPhoneInput').value.trim(),
+        tags: $('contactTagsInput').value.trim(),
+        notes: $('contactNotesInput').value.trim(),
+      };
+      const data = await api(`/api/outings/admin/events/${encodeURIComponent(state.eventId)}/communications/contacts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      ['contactNameInput', 'contactEmailInput', 'contactPhoneInput', 'contactTagsInput', 'contactNotesInput'].forEach((id) => { $(id).value = ''; });
+      render(data);
+      setMsg('Manual contact saved.');
+    }
+
+    function init() {
+      const saved = readInitialCode();
+      if (saved) $('adminCode').value = saved;
+      setActionsEnabled(false);
+      $('loadBtn').addEventListener('click', () => loadCommunications().catch((err) => setMsg(err.message || 'Unable to load communications.')));
+      $('audienceSelect').addEventListener('change', renderRecipientPreview);
+      $('sendTestBtn').addEventListener('click', () => sendMessage(true).catch((err) => setMsg(err.message || 'Unable to send test.')));
+      $('sendLiveBtn').addEventListener('click', () => {
+        const count = selectedRecipients().length;
+        if (!window.confirm(`Send this message to ${count} recipients?`)) return;
+        sendMessage(false).catch((err) => setMsg(err.message || 'Unable to send message.'));
+      });
+      $('saveContactBtn').addEventListener('click', () => saveContact().catch((err) => setMsg(err.message || 'Unable to save contact.')));
+      document.addEventListener('click', async (event) => {
+        const btn = event.target.closest('[data-delete-contact]');
+        if (!btn) return;
+        if (!window.confirm('Remove this manual contact from the mailing list?')) return;
+        try {
+          await ensureLoaded();
+          const data = await api(`/api/outings/admin/events/${encodeURIComponent(state.eventId)}/communications/contacts/${encodeURIComponent(btn.dataset.deleteContact)}`, { method: 'DELETE' });
+          render(data);
+          setMsg('Manual contact removed.');
+        } catch (err) {
+          setMsg(err && err.message ? err.message : 'Unable to remove contact.');
+        }
+      });
+      if (getCode()) loadCommunications().catch((err) => setMsg(err.message || 'Unable to load communications.'));
+      else setMsg('Enter the outings admin code to load communications.');
+    }
+
+    init();
+  </script>
+</body>
+</html>
