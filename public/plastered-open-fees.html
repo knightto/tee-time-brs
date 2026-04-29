@@ -169,6 +169,22 @@
     .ledger-card strong { color: var(--navy); }
     .ledger-card .amount-income { color: var(--green); }
     .ledger-card .amount-expense { color: var(--red-deep); }
+    .ledger-actions {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+    .panel button.secondary {
+      color: var(--navy);
+      background: rgba(13, 43, 87, 0.08);
+      border-color: rgba(13, 43, 87, 0.18);
+    }
+    .panel button.danger {
+      color: var(--red-deep);
+      background: rgba(203, 63, 51, 0.1);
+      border-color: rgba(203, 63, 51, 0.24);
+    }
     .empty-card {
       padding: 18px;
       border: 1px dashed rgba(21, 28, 39, 0.22);
@@ -435,9 +451,9 @@
             <span>${esc(entry.label || '')}</span>
             <strong class="amount-${esc(type)}">${type === 'income' ? '+' : '-'}${money(entry.amount)}</strong>
             <span>${esc(party || '')}</span>
-            <div>
-              <button type="button" data-edit-ledger="${esc(entry._id || '')}">Edit</button>
-              <button type="button" data-delete-ledger="${esc(entry._id || '')}">Delete</button>
+            <div class="ledger-actions">
+              <button class="secondary" type="button" data-edit-ledger="${esc(entry._id || '')}">Edit</button>
+              <button class="danger" type="button" data-delete-ledger="${esc(entry._id || '')}">Remove</button>
             </div>
           </div>
         `;
@@ -545,7 +561,7 @@
         const deleteLedger = event.target.closest('[data-delete-ledger]');
         if (deleteLedger) {
           const id = deleteLedger.dataset.deleteLedger;
-          if (!window.confirm('Delete this ledger entry?')) return;
+          if (!window.confirm('Remove this ledger entry?')) return;
           try {
             await ensureFeesLoaded();
             const data = await api(`/api/outings/admin/events/${encodeURIComponent(state.eventId)}/fee-ledger/${encodeURIComponent(id)}`, { method: 'DELETE' });
