@@ -86,8 +86,9 @@ a { color: inherit; }
 
 .hero-links {
   display: grid;
-  grid-template-columns: minmax(250px, 1.35fr) minmax(160px, 0.72fr) minmax(150px, 0.68fr);
+  grid-template-columns: minmax(240px, auto) minmax(92px, max-content) minmax(96px, max-content);
   align-items: center;
+  justify-content: start;
   max-width: 820px;
 }
 
@@ -148,13 +149,17 @@ a { color: inherit; }
   background: rgba(45, 109, 78, 0.42);
   border: 1px solid rgba(241, 221, 179, 0.34);
   box-shadow: 0 12px 24px rgba(6, 17, 33, 0.16);
-  letter-spacing: 0.04em;
-  min-height: 52px;
+  font-size: 0.78rem;
+  letter-spacing: 0.03em;
+  min-height: 30px;
+  padding: 5px 9px;
   text-transform: uppercase;
 }
 
 .chip-link {
-  min-height: 52px;
+  min-height: 30px;
+  padding: 5px 9px;
+  font-size: 0.78rem;
 }
 
 .cta.primary,
@@ -227,7 +232,7 @@ a { color: inherit; }
 }
 .hero-actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 240px);
   gap: 12px;
   margin-top: 10px;
   width: min(100%, 500px);
@@ -357,8 +362,9 @@ a { color: inherit; }
 }
 
 .signup-panel {
-  position: sticky;
-  top: 18px;
+  position: relative !important;
+  top: auto !important;
+  z-index: 0;
   padding: 16px;
   background: var(--paper-strong);
 }
@@ -813,7 +819,7 @@ dialog::backdrop {
     max-width: none;
   }
 
-  .hero-links > a { width: 100%; }
+  .hero-links > a { width: auto; }
 
   .hero-copy-text {
     font-size: 1rem;
