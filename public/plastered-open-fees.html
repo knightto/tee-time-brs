@@ -144,6 +144,32 @@
     }
     .planning-output .metric { min-height: 96px; padding: 13px; }
     .planning-output .metric strong { font-size: 1.45rem; }
+    .contest-table { display: grid; gap: 9px; margin-top: 14px; }
+    .contest-row {
+      display: grid;
+      grid-template-columns: minmax(150px, 1fr) minmax(150px, 1fr) 110px 84px minmax(160px, 1fr) 42px;
+      gap: 9px;
+      align-items: center;
+    }
+    .cash-grid {
+      display: grid;
+      grid-template-columns: minmax(280px, 0.9fr) minmax(320px, 1.1fr);
+      gap: 12px;
+      align-items: start;
+      margin-top: 14px;
+    }
+    .cash-input-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .cash-input-grid label {
+      display: grid;
+      gap: 6px;
+      color: var(--ink-soft);
+      font-weight: 800;
+    }
+    .cash-input-grid label.full { grid-column: 1 / -1; }
     .fee-table, .ledger-table { display: grid; gap: 9px; }
     .fee-row, .ledger-row {
       display: grid;
@@ -226,13 +252,13 @@
     }
     @media (max-width: 900px) {
       .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .planning-grid, .planning-output { grid-template-columns: 1fr; }
-      .fee-row, .ledger-row, .ledger-card { grid-template-columns: 1fr; }
+      .planning-grid, .planning-output, .cash-grid { grid-template-columns: 1fr; }
+      .fee-row, .ledger-row, .ledger-card, .contest-row { grid-template-columns: 1fr; }
       .table-head { display: none; }
     }
     @media (max-width: 560px) {
       .metric-grid { grid-template-columns: 1fr; }
-      .planning-form { grid-template-columns: 1fr; }
+      .planning-form, .cash-input-grid { grid-template-columns: 1fr; }
       .hero, .panel { border-radius: 18px; padding: 16px; }
     }
   </style>
@@ -310,6 +336,64 @@
       </div>
       <div class="actions">
         <button id="savePlanningBtn" class="primary" type="button">Save Payout And Raffle Planning</button>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Prize / Contest Tracker</h2>
+          <p class="subhead">Track closest-to-pin, long drive, putting contest, skins, or other winner payouts. Paid rows count against the remaining contest payout total.</p>
+        </div>
+        <button id="addContestBtn" type="button">Add Contest</button>
+      </div>
+      <div id="contestSummary" class="metric-grid"></div>
+      <div class="contest-table">
+        <div class="contest-row table-head">
+          <div>Contest</div><div>Winner</div><div>Payout</div><div>Paid</div><div>Notes</div><div></div>
+        </div>
+        <div id="contestRows"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Day-Of Cash Reconciliation</h2>
+          <p class="subhead">Enter counted cash by collection bucket. Expected amounts are calculated from checked-in/player fee locations plus ledger raffle, 50/50, and sponsor income.</p>
+        </div>
+      </div>
+      <div class="cash-grid">
+        <div class="cash-input-grid">
+          <label>Club counted
+            <input id="clubCash" type="number" min="0" step="0.01">
+          </label>
+          <label>Tommy counted
+            <input id="tommyCash" type="number" min="0" step="0.01">
+          </label>
+          <label>John counted
+            <input id="johnCash" type="number" min="0" step="0.01">
+          </label>
+          <label>Raffle counted
+            <input id="raffleCash" type="number" min="0" step="0.01">
+          </label>
+          <label>50/50 counted
+            <input id="fiftyFiftyCash" type="number" min="0" step="0.01">
+          </label>
+          <label>Sponsor counted
+            <input id="sponsorCash" type="number" min="0" step="0.01">
+          </label>
+          <label>Other counted
+            <input id="otherCash" type="number" min="0" step="0.01">
+          </label>
+          <label class="full">Reconciliation notes
+            <textarea id="cashReconciliationNotes" placeholder="Optional notes"></textarea>
+          </label>
+        </div>
+        <div id="cashReconciliationOutput" class="planning-output"></div>
+      </div>
+      <div class="actions">
+        <button id="saveCloseoutBtn" class="primary" type="button">Save Contests And Cash</button>
       </div>
     </section>
 
@@ -419,7 +503,7 @@
     }
 
     function setFeeActionsEnabled(enabled) {
-      ['addFeeBtn', 'saveFeesBtn', 'savePlanningBtn'].forEach((id) => {
+      ['addFeeBtn', 'saveFeesBtn', 'savePlanningBtn', 'addContestBtn', 'saveCloseoutBtn'].forEach((id) => {
         const btn = $(id);
         if (btn) btn.disabled = !enabled;
       });
@@ -438,6 +522,9 @@
       $('newLedgerRow').innerHTML = ledgerInputRow();
       $('payoutPlannerOutput').innerHTML = '<div class="empty-card">Load fees to plan flight payouts.</div>';
       $('raffleCloseoutOutput').innerHTML = '<div class="empty-card">Load fees to close out raffle money.</div>';
+      $('contestSummary').innerHTML = '';
+      $('contestRows').innerHTML = '<div class="empty-card">Load fees to track contest payouts.</div>';
+      $('cashReconciliationOutput').innerHTML = '<div class="empty-card">Load fees to reconcile day-of cash.</div>';
       $('ledgerList').innerHTML = '<div class="empty-card">Load fees to view saved ledger entries.</div>';
       setFeeActionsEnabled(false);
     }
@@ -546,6 +633,19 @@
       `;
     }
 
+    function contestRow(item = {}) {
+      return `
+        <div class="contest-row" data-contest-row>
+          <input data-contest-name value="${esc(item.contest || '')}" placeholder="Closest-to-pin, long drive...">
+          <input data-contest-winner value="${esc(item.winner || '')}" placeholder="Winner">
+          <input data-contest-amount type="number" min="0" step="0.01" value="${Number(item.amount || 0)}" placeholder="Payout">
+          <label class="planning-form-label"><input data-contest-paid type="checkbox"${item.paid ? ' checked' : ''}> Paid</label>
+          <input data-contest-notes value="${esc(item.notes || '')}" placeholder="Notes">
+          <button class="icon-btn" type="button" data-remove-contest aria-label="Remove contest row">&times;</button>
+        </div>
+      `;
+    }
+
     function calculatePayoutPlanner() {
       const prizePoolPerPlayer = Number(state.data && state.data.summary && state.data.summary.prizePoolPerPlayer || 25);
       const finalPlayerCount = Math.max(0, Math.floor(Number($('finalPlayerCount').value || 0)));
@@ -577,6 +677,29 @@
       };
     }
 
+    function collectContestPrizes() {
+      return Array.from(document.querySelectorAll('[data-contest-row]')).map((row) => ({
+        contest: row.querySelector('[data-contest-name]').value.trim(),
+        winner: row.querySelector('[data-contest-winner]').value.trim(),
+        amount: Number(row.querySelector('[data-contest-amount]').value || 0),
+        paid: Boolean(row.querySelector('[data-contest-paid]').checked),
+        notes: row.querySelector('[data-contest-notes]').value.trim(),
+      })).filter((item) => item.contest || item.winner || item.amount || item.notes);
+    }
+
+    function collectCashReconciliation() {
+      return {
+        clubCash: Number($('clubCash').value || 0),
+        tommyCash: Number($('tommyCash').value || 0),
+        johnCash: Number($('johnCash').value || 0),
+        raffleCash: Number($('raffleCash').value || 0),
+        fiftyFiftyCash: Number($('fiftyFiftyCash').value || 0),
+        sponsorCash: Number($('sponsorCash').value || 0),
+        otherCash: Number($('otherCash').value || 0),
+        notes: $('cashReconciliationNotes').value.trim(),
+      };
+    }
+
     function renderPayoutPlannerOutput() {
       const planner = calculatePayoutPlanner();
       $('payoutPlannerOutput').innerHTML = `
@@ -601,6 +724,54 @@
       `;
     }
 
+    function renderContestPrizes(data) {
+      const detail = data && data.contestPrizes || {};
+      const rows = Array.isArray(detail.rows) ? detail.rows : [];
+      $('contestSummary').innerHTML = `
+        <div class="metric"><strong>${money(detail.totalPayouts)}</strong><span>contest payouts</span></div>
+        <div class="metric"><strong>${money(detail.paidPayouts)}</strong><span>paid contest payouts</span></div>
+        <div class="metric${Number(detail.unpaidPayouts || 0) > 0 ? ' warn' : ''}"><strong>${money(detail.unpaidPayouts)}</strong><span>still owed</span></div>
+        <div class="metric"><strong>${Number(detail.contestCount || 0)}</strong><span>contest rows</span></div>
+      `;
+      $('contestRows').innerHTML = rows.length ? rows.map(contestRow).join('') : contestRow({ contest: 'Closest To Pin', amount: 0 });
+    }
+
+    function cashValue(data, key) {
+      const rec = data && data.cashReconciliation || {};
+      const counted = rec.counted || {};
+      return Number(counted[key] ?? rec[key] ?? 0);
+    }
+
+    function renderCashReconciliation(data) {
+      const rec = data && data.cashReconciliation || {};
+      ['clubCash', 'tommyCash', 'johnCash', 'raffleCash', 'fiftyFiftyCash', 'sponsorCash', 'otherCash'].forEach((key) => {
+        if ($(key)) $(key).value = cashValue(data, key);
+      });
+      $('cashReconciliationNotes').value = rec.notes || '';
+      renderCashReconciliationOutput();
+    }
+
+    function renderCashReconciliationOutput() {
+      const rec = state.data && state.data.cashReconciliation || {};
+      const expected = rec.expected || {};
+      const counted = collectCashReconciliation();
+      const keys = ['clubCash', 'tommyCash', 'johnCash', 'raffleCash', 'fiftyFiftyCash', 'sponsorCash', 'otherCash'];
+      const countedTotal = Number(keys.reduce((sum, key) => sum + Number(counted[key] || 0), 0).toFixed(2));
+      const expectedTotal = Number(keys.reduce((sum, key) => sum + Number(expected[key] || 0), 0).toFixed(2));
+      const varianceTotal = Number((countedTotal - expectedTotal).toFixed(2));
+      $('cashReconciliationOutput').innerHTML = `
+        <div class="metric"><strong>${money(expectedTotal)}</strong><span>expected cash</span></div>
+        <div class="metric"><strong>${money(countedTotal)}</strong><span>counted cash</span></div>
+        <div class="metric${varianceTotal ? ' warn' : ''}"><strong>${money(varianceTotal)}</strong><span>cash variance</span></div>
+        <div class="metric"><strong>${money(expected.clubCash || 0)}</strong><span>club expected</span></div>
+        <div class="metric"><strong>${money(expected.tommyCash || 0)}</strong><span>Tommy expected</span></div>
+        <div class="metric"><strong>${money(expected.johnCash || 0)}</strong><span>John expected</span></div>
+        <div class="metric"><strong>${money(expected.raffleCash || 0)}</strong><span>raffle expected</span></div>
+        <div class="metric"><strong>${money(expected.fiftyFiftyCash || 0)}</strong><span>50/50 expected</span></div>
+        <div class="metric"><strong>${money(rec.unpaidContestPayouts || 0)}</strong><span>contest payouts owed</span></div>
+      `;
+    }
+
     function renderPlanning(data) {
       const planner = data && data.payoutPlanner || {};
       const closeout = data && data.raffleCloseout || {};
@@ -612,6 +783,8 @@
       $('raffleCloseoutNotes').value = closeout.notes || '';
       renderPayoutPlannerOutput();
       renderRaffleCloseoutOutput();
+      renderContestPrizes(data);
+      renderCashReconciliation(data);
     }
 
     function collectPlanning() {
@@ -626,6 +799,8 @@
           rafflePrizeCost: Number($('rafflePrizeCost').value || 0),
           notes: $('raffleCloseoutNotes').value.trim(),
         },
+        contestPrizes: collectContestPrizes(),
+        cashReconciliation: collectCashReconciliation(),
       };
     }
 
@@ -721,6 +896,23 @@
       }
     }
 
+    async function saveCloseout() {
+      await ensureFeesLoaded();
+      const btn = $('saveCloseoutBtn');
+      btn.disabled = true;
+      try {
+        const data = await api(`/api/outings/admin/events/${encodeURIComponent(state.eventId)}/fee-planning`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(collectPlanning()),
+        });
+        render(data);
+        setMsg('Contest payouts and cash reconciliation saved.');
+      } finally {
+        btn.disabled = !state.eventId;
+      }
+    }
+
     async function saveLedger() {
       const payload = collectLedger();
       validateLedgerPayload(payload);
@@ -780,8 +972,17 @@
           setMsg(err && err.message ? err.message : 'Unable to add fee row.');
         }
       });
+      $('addContestBtn').addEventListener('click', async () => {
+        try {
+          await ensureFeesLoaded();
+          $('contestRows').insertAdjacentHTML('beforeend', contestRow());
+        } catch (err) {
+          setMsg(err && err.message ? err.message : 'Unable to add contest row.');
+        }
+      });
       $('saveFeesBtn').addEventListener('click', () => saveFees().catch((err) => setMsg(err.message || 'Unable to save fees.')));
       $('savePlanningBtn').addEventListener('click', () => savePlanning().catch((err) => setMsg(err.message || 'Unable to save planning.')));
+      $('saveCloseoutBtn').addEventListener('click', () => saveCloseout().catch((err) => setMsg(err.message || 'Unable to save contests and cash.')));
       $('ledgerForm').addEventListener('submit', (event) => {
         event.preventDefault();
         saveLedger().catch((err) => setMsg(err.message || 'Unable to save ledger entry.'));
@@ -792,6 +993,9 @@
       ['fiftyFiftyPayout', 'rafflePrizeCost'].forEach((id) => {
         $(id).addEventListener('input', renderRaffleCloseoutOutput);
       });
+      ['clubCash', 'tommyCash', 'johnCash', 'raffleCash', 'fiftyFiftyCash', 'sponsorCash', 'otherCash'].forEach((id) => {
+        $(id).addEventListener('input', renderCashReconciliationOutput);
+      });
       document.addEventListener('change', (event) => {
         if (event.target && event.target.id === 'ledgerCategory') syncLedgerTypeToCategory();
       });
@@ -799,6 +1003,12 @@
         const removeFee = event.target.closest('[data-remove-fee]');
         if (removeFee) {
           removeFee.closest('[data-fee-row]').remove();
+          return;
+        }
+        const removeContest = event.target.closest('[data-remove-contest]');
+        if (removeContest) {
+          removeContest.closest('[data-contest-row]').remove();
+          renderCashReconciliationOutput();
           return;
         }
         if (event.target.id === 'clearLedgerBtn') {

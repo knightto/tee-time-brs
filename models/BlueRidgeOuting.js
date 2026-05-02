@@ -32,6 +32,31 @@ const RaffleCloseoutSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const ContestPrizeSchema = new mongoose.Schema(
+  {
+    contest: { type: String, trim: true, maxlength: 120 },
+    winner: { type: String, trim: true, maxlength: 120 },
+    amount: { type: Number, min: 0, default: 0 },
+    paid: { type: Boolean, default: false },
+    notes: { type: String, trim: true, maxlength: 500 },
+  },
+  { _id: false }
+);
+
+const CashReconciliationSchema = new mongoose.Schema(
+  {
+    clubCash: { type: Number, min: 0, default: 0 },
+    tommyCash: { type: Number, min: 0, default: 0 },
+    johnCash: { type: Number, min: 0, default: 0 },
+    raffleCash: { type: Number, min: 0, default: 0 },
+    fiftyFiftyCash: { type: Number, min: 0, default: 0 },
+    sponsorCash: { type: Number, min: 0, default: 0 },
+    otherCash: { type: Number, min: 0, default: 0 },
+    notes: { type: String, trim: true, maxlength: 1000 },
+  },
+  { _id: false }
+);
+
 const BlueRidgeOutingSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 140 },
@@ -71,6 +96,8 @@ const BlueRidgeOutingSchema = new mongoose.Schema(
     feeSchedule: { type: [FeeScheduleItemSchema], default: undefined },
     payoutPlanner: { type: PayoutPlannerSchema, default: undefined },
     raffleCloseout: { type: RaffleCloseoutSchema, default: undefined },
+    contestPrizes: { type: [ContestPrizeSchema], default: undefined },
+    cashReconciliation: { type: CashReconciliationSchema, default: undefined },
     registrationNotes: { type: String, trim: true, maxlength: 4000 },
     cancellationPolicy: { type: String, trim: true, maxlength: 4000 },
 

@@ -479,6 +479,31 @@ function normalizeRaffleCloseoutInput(body = {}, fallback = {}) {
   };
 }
 
+function normalizeContestPrizesInput(items = []) {
+  return (Array.isArray(items) ? items : [])
+    .map((item) => ({
+      contest: String(item && item.contest || '').trim().slice(0, 120),
+      winner: String(item && item.winner || '').trim().slice(0, 120),
+      amount: parseMoneyAmount(item && item.amount, 0),
+      paid: parseBool(item && item.paid, false),
+      notes: String(item && item.notes || '').trim().slice(0, 500),
+    }))
+    .filter((item) => item.contest || item.winner || item.amount || item.notes);
+}
+
+function normalizeCashReconciliationInput(body = {}, fallback = {}) {
+  return {
+    clubCash: parseMoneyAmount(body.clubCash, fallback.clubCash || 0),
+    tommyCash: parseMoneyAmount(body.tommyCash, fallback.tommyCash || 0),
+    johnCash: parseMoneyAmount(body.johnCash, fallback.johnCash || 0),
+    raffleCash: parseMoneyAmount(body.raffleCash, fallback.raffleCash || 0),
+    fiftyFiftyCash: parseMoneyAmount(body.fiftyFiftyCash, fallback.fiftyFiftyCash || 0),
+    sponsorCash: parseMoneyAmount(body.sponsorCash, fallback.sponsorCash || 0),
+    otherCash: parseMoneyAmount(body.otherCash, fallback.otherCash || 0),
+    notes: String(Object.prototype.hasOwnProperty.call(body, 'notes') ? body.notes : fallback.notes || '').trim().slice(0, 1000),
+  };
+}
+
 function buildPayoutPlannerDetail(event, counts = {}, summary = {}) {
   const saved = event && event.payoutPlanner || {};
   const prizePoolPerPlayer = parseMoneyAmount(summary.prizePoolPerPlayer, 0);
@@ -533,6 +558,69 @@ function buildRaffleCloseoutDetail(event, ledger = {}) {
     raffleNet,
     totalRetained: Number((fiftyFiftyRetained + raffleNet).toFixed(2)),
     notes: String(saved.notes || ''),
+  };
+}
+
+function buildContestPrizeDetail(event) {
+  const rows = normalizeContestPrizesInput(event && event.contestPrizes || []);
+  const totalPayouts = Number(rows.reduce((sum, row) => sum + row.amount, 0).toFixed(2));
+  const paidPayouts = Number(rows.reduce((sum, row) => sum + (row.paid ? row.amount : 0), 0).toFixed(2));
+  return {
+    rows,
+    totalPayouts,
+    paidPayouts,
+    unpaidPayouts: Number((totalPayouts - paidPayouts).toFixed(2)),
+    contestCount: rows.length,
+    paidCount: rows.filter((row) => row.paid).length,
+  };
+}
+
+function buildCashReconciliationDetail(event, memberFeeRows = [], ledger = {}, contestPrizes = {}) {
+  const saved = normalizeCashReconciliationInput(event && event.cashReconciliation || {});
+  const byLocation = memberFeeRows.reduce((summary, row) => {
+    const paidTo = normalizeFeePaidTo(row && row.feePaidTo);
+    if (paidTo) summary[paidTo] = Number((summary[paidTo] + Number(row.entryFee || 0)).toFixed(2));
+    return summary;
+  }, { club: 0, tommy: 0, john: 0 });
+  const byCategory = ledger && ledger.byCategory || {};
+  const expected = {
+    clubCash: byLocation.club,
+    tommyCash: byLocation.tommy,
+    johnCash: byLocation.john,
+    raffleCash: parseMoneyAmount(byCategory.raffle_income, 0),
+    fiftyFiftyCash: parseMoneyAmount(byCategory.fifty_fifty_income, 0),
+    sponsorCash: parseMoneyAmount(byCategory.sponsor_income, 0),
+    otherCash: 0,
+  };
+  const counted = {
+    clubCash: saved.clubCash,
+    tommyCash: saved.tommyCash,
+    johnCash: saved.johnCash,
+    raffleCash: saved.raffleCash,
+    fiftyFiftyCash: saved.fiftyFiftyCash,
+    sponsorCash: saved.sponsorCash,
+    otherCash: saved.otherCash,
+  };
+  const keys = Object.keys(expected);
+  const expectedTotal = Number(keys.reduce((sum, key) => sum + Number(expected[key] || 0), 0).toFixed(2));
+  const countedTotal = Number(keys.reduce((sum, key) => sum + Number(counted[key] || 0), 0).toFixed(2));
+  const variances = keys.reduce((out, key) => {
+    out[key] = Number((Number(counted[key] || 0) - Number(expected[key] || 0)).toFixed(2));
+    return out;
+  }, {});
+  return {
+    ...saved,
+    expected,
+    counted,
+    variances,
+    expectedTotal,
+    countedTotal,
+    varianceTotal: Number((countedTotal - expectedTotal).toFixed(2)),
+    recordedLedgerIncome: parseMoneyAmount(ledger && ledger.income, 0),
+    recordedLedgerExpenses: parseMoneyAmount(ledger && ledger.expense, 0),
+    contestPayouts: parseMoneyAmount(contestPrizes && contestPrizes.totalPayouts, 0),
+    unpaidContestPayouts: parseMoneyAmount(contestPrizes && contestPrizes.unpaidPayouts, 0),
+    notes: saved.notes,
   };
 }
 
@@ -681,6 +769,7 @@ async function buildFeeManagementDetail(event, models) {
     .filter((item) => item.enabled && item.basis === 'per_player' && ['course', 'prize', 'tournament', 'expense'].includes(item.category))
     .reduce((sum, item) => Number((sum + parseMoneyAmount(item.amount, 0)).toFixed(2)), 0);
   const ledger = ledgerTotals(ledgerEntries);
+  const contestPrizes = buildContestPrizeDetail(event);
   const summary = {
     entryFee,
     memberEntryFee: isPlasteredOpenEvent(event) ? 45 : entryFee,
@@ -714,6 +803,8 @@ async function buildFeeManagementDetail(event, models) {
     summary,
     payoutPlanner: buildPayoutPlannerDetail(event, counts, summary),
     raffleCloseout: buildRaffleCloseoutDetail(event, ledger),
+    contestPrizes,
+    cashReconciliation: buildCashReconciliationDetail(event, memberFeeRows, ledger, contestPrizes),
     scheduleTotals,
   };
 }
@@ -2407,9 +2498,17 @@ router.put('/admin/events/:eventId/fee-planning', async (req, res) => {
     const previous = {
       payoutPlanner: event.payoutPlanner && typeof event.payoutPlanner.toObject === 'function' ? event.payoutPlanner.toObject() : { ...(event.payoutPlanner || {}) },
       raffleCloseout: event.raffleCloseout && typeof event.raffleCloseout.toObject === 'function' ? event.raffleCloseout.toObject() : { ...(event.raffleCloseout || {}) },
+      contestPrizes: normalizeContestPrizesInput(event.contestPrizes || []),
+      cashReconciliation: event.cashReconciliation && typeof event.cashReconciliation.toObject === 'function' ? event.cashReconciliation.toObject() : { ...(event.cashReconciliation || {}) },
     };
     event.payoutPlanner = normalizePayoutPlannerInput(req.body && req.body.payoutPlanner || {}, previous.payoutPlanner);
     event.raffleCloseout = normalizeRaffleCloseoutInput(req.body && req.body.raffleCloseout || {}, previous.raffleCloseout);
+    if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'contestPrizes')) {
+      event.contestPrizes = normalizeContestPrizesInput(req.body.contestPrizes);
+    }
+    if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'cashReconciliation')) {
+      event.cashReconciliation = normalizeCashReconciliationInput(req.body.cashReconciliation || {}, previous.cashReconciliation);
+    }
     await event.save();
 
     await writeOutingAudit(models, {
@@ -2424,6 +2523,8 @@ router.put('/admin/events/:eventId/fee-planning', async (req, res) => {
         previous,
         payoutPlanner: event.payoutPlanner,
         raffleCloseout: event.raffleCloseout,
+        contestPrizes: event.contestPrizes,
+        cashReconciliation: event.cashReconciliation,
       },
     });
 

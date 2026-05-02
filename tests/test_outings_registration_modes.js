@@ -1195,6 +1195,20 @@ async function assertFeeManagementFlow() {
           rafflePrizeCost: 75,
           notes: 'Cash box balanced.',
         },
+        contestPrizes: [
+          { contest: 'Closest To Pin', winner: 'Money Mike', amount: 75, paid: true, notes: 'Hole 4' },
+          { contest: 'Long Drive', winner: 'Money Molly', amount: 50, paid: false, notes: 'Hole 12' },
+        ],
+        cashReconciliation: {
+          clubCash: 0,
+          tommyCash: 90,
+          johnCash: 0,
+          raffleCash: 300,
+          fiftyFiftyCash: 200,
+          sponsorCash: 0,
+          otherCash: 10,
+          notes: 'Extra $10 from mulligans.',
+        },
       },
     });
     assert.strictEqual(planningUpdate.response.status, 200, 'Payout and raffle planning update should succeed');
@@ -1208,8 +1222,19 @@ async function assertFeeManagementFlow() {
     assert.strictEqual(planningUpdate.payload.raffleCloseout.raffleNet, 225, 'Raffle closeout should subtract prize costs from raffle income');
     assert.strictEqual(planningUpdate.payload.raffleCloseout.fiftyFiftyRetained, 100, '50/50 closeout should show retained amount');
     assert.strictEqual(planningUpdate.payload.raffleCloseout.totalRetained, 325, 'Closeout should total raffle net plus retained 50/50');
+    assert.strictEqual(planningUpdate.payload.contestPrizes.totalPayouts, 125, 'Contest tracker should total contest payouts');
+    assert.strictEqual(planningUpdate.payload.contestPrizes.paidPayouts, 75, 'Contest tracker should total paid contest payouts');
+    assert.strictEqual(planningUpdate.payload.contestPrizes.unpaidPayouts, 50, 'Contest tracker should expose unpaid contest payouts');
+    assert.strictEqual(planningUpdate.payload.cashReconciliation.expected.tommyCash, 90, 'Cash reconciliation should expect player cash by fee-paid location');
+    assert.strictEqual(planningUpdate.payload.cashReconciliation.expected.raffleCash, 300, 'Cash reconciliation should expect raffle cash from ledger');
+    assert.strictEqual(planningUpdate.payload.cashReconciliation.expected.fiftyFiftyCash, 200, 'Cash reconciliation should expect 50/50 cash from ledger');
+    assert.strictEqual(planningUpdate.payload.cashReconciliation.countedTotal, 600, 'Cash reconciliation should total counted cash');
+    assert.strictEqual(planningUpdate.payload.cashReconciliation.expectedTotal, 590, 'Cash reconciliation should total expected cash');
+    assert.strictEqual(planningUpdate.payload.cashReconciliation.varianceTotal, 10, 'Cash reconciliation should expose counted-vs-expected variance');
     assert.strictEqual(state.outings[0].payoutPlanner.finalPlayerCount, 72, 'Planner should save on the outing record');
     assert.strictEqual(state.outings[0].raffleCloseout.rafflePrizeCost, 75, 'Raffle closeout should save on the outing record');
+    assert.strictEqual(state.outings[0].contestPrizes.length, 2, 'Contest prize rows should save on the outing record');
+    assert.strictEqual(state.outings[0].cashReconciliation.otherCash, 10, 'Cash reconciliation should save on the outing record');
     assert.ok(
       state.audits.some((row) => String(row && row.action || '') === 'fee_planning_updated'),
       'Planning update should write an audit row'
