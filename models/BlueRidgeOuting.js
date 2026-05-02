@@ -14,6 +14,24 @@ const FeeScheduleItemSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const PayoutPlannerSchema = new mongoose.Schema(
+  {
+    finalPlayerCount: { type: Number, min: 0, default: 0 },
+    flightCount: { type: Number, min: 1, default: 1 },
+    notes: { type: String, trim: true, maxlength: 1000 },
+  },
+  { _id: false }
+);
+
+const RaffleCloseoutSchema = new mongoose.Schema(
+  {
+    fiftyFiftyPayout: { type: Number, min: 0, default: 0 },
+    rafflePrizeCost: { type: Number, min: 0, default: 0 },
+    notes: { type: String, trim: true, maxlength: 1000 },
+  },
+  { _id: false }
+);
+
 const BlueRidgeOutingSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 140 },
@@ -51,6 +69,8 @@ const BlueRidgeOutingSchema = new mongoose.Schema(
     flights: { type: String, trim: true, maxlength: 280 },
     entryFee: { type: Number, min: 0 },
     feeSchedule: { type: [FeeScheduleItemSchema], default: undefined },
+    payoutPlanner: { type: PayoutPlannerSchema, default: undefined },
+    raffleCloseout: { type: RaffleCloseoutSchema, default: undefined },
     registrationNotes: { type: String, trim: true, maxlength: 4000 },
     cancellationPolicy: { type: String, trim: true, maxlength: 4000 },
 

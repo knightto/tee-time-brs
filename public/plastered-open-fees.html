@@ -44,7 +44,7 @@
       padding: 24px;
       background: linear-gradient(145deg, rgba(8, 27, 54, 0.94) 0%, rgba(13, 43, 87, 0.86) 54%, rgba(27, 77, 56, 0.72) 100%);
     }
-    .hero-top, .toolbar, .metric-grid, .form-grid, .fee-row, .ledger-row {
+    .hero-top, .toolbar, .metric-grid, .form-grid, .fee-row, .ledger-row, .planning-grid {
       display: flex;
       flex-wrap: wrap;
       gap: 12px;
@@ -118,6 +118,32 @@
     .metric strong { display: block; font-size: 1.8rem; color: var(--navy); line-height: 1; }
     .metric span { display: block; margin-top: 7px; color: var(--ink-soft); font-weight: 700; }
     .metric.warn strong { color: var(--red-deep); }
+    .planning-grid {
+      display: grid;
+      grid-template-columns: minmax(260px, 0.8fr) minmax(320px, 1.2fr);
+      align-items: start;
+      margin-top: 14px;
+    }
+    .planning-form {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .planning-form label {
+      display: grid;
+      gap: 6px;
+      color: var(--ink-soft);
+      font-weight: 800;
+    }
+    .planning-form label.full { grid-column: 1 / -1; }
+    .planning-form textarea { min-height: 86px; }
+    .planning-output {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+    .planning-output .metric { min-height: 96px; padding: 13px; }
+    .planning-output .metric strong { font-size: 1.45rem; }
     .fee-table, .ledger-table { display: grid; gap: 9px; }
     .fee-row, .ledger-row {
       display: grid;
@@ -200,11 +226,13 @@
     }
     @media (max-width: 900px) {
       .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .planning-grid, .planning-output { grid-template-columns: 1fr; }
       .fee-row, .ledger-row, .ledger-card { grid-template-columns: 1fr; }
       .table-head { display: none; }
     }
     @media (max-width: 560px) {
       .metric-grid { grid-template-columns: 1fr; }
+      .planning-form { grid-template-columns: 1fr; }
       .hero, .panel { border-radius: 18px; padding: 16px; }
     }
   </style>
@@ -234,6 +262,55 @@
         </div>
       </div>
       <div id="metricGrid" class="metric-grid"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Flight / Payout Planner</h2>
+          <p class="subhead">Enter the final field and flight count on outing day. Payouts use the $25 per-player prize pool and split each flight 50% / 30% / 20% for 1st, 2nd, and 3rd.</p>
+        </div>
+      </div>
+      <div class="planning-grid">
+        <div class="planning-form">
+          <label>Final players
+            <input id="finalPlayerCount" type="number" min="0" step="1" placeholder="Players">
+          </label>
+          <label>Flights
+            <input id="flightCount" type="number" min="1" step="1" placeholder="Flights">
+          </label>
+          <label class="full">Payout notes
+            <textarea id="payoutPlannerNotes" placeholder="Optional notes"></textarea>
+          </label>
+        </div>
+        <div id="payoutPlannerOutput" class="planning-output"></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <div>
+          <h2>Raffle / 50-50 Closeout</h2>
+          <p class="subhead">Ledger entries supply raffle and 50/50 income. Confirm the 50/50 payout and raffle prize costs here to see retained money.</p>
+        </div>
+      </div>
+      <div class="planning-grid">
+        <div class="planning-form">
+          <label>50/50 payout
+            <input id="fiftyFiftyPayout" type="number" min="0" step="0.01" placeholder="Winner payout">
+          </label>
+          <label>Raffle prize cost
+            <input id="rafflePrizeCost" type="number" min="0" step="0.01" placeholder="Prize cost">
+          </label>
+          <label class="full">Raffle notes
+            <textarea id="raffleCloseoutNotes" placeholder="Optional notes"></textarea>
+          </label>
+        </div>
+        <div id="raffleCloseoutOutput" class="planning-output"></div>
+      </div>
+      <div class="actions">
+        <button id="savePlanningBtn" class="primary" type="button">Save Payout And Raffle Planning</button>
+      </div>
     </section>
 
     <section class="panel">
@@ -342,7 +419,7 @@
     }
 
     function setFeeActionsEnabled(enabled) {
-      ['addFeeBtn', 'saveFeesBtn'].forEach((id) => {
+      ['addFeeBtn', 'saveFeesBtn', 'savePlanningBtn'].forEach((id) => {
         const btn = $(id);
         if (btn) btn.disabled = !enabled;
       });
@@ -359,6 +436,8 @@
     function renderDefaultRows() {
       $('feeRows').innerHTML = DEFAULT_FEE_SCHEDULE.map(feeRow).join('');
       $('newLedgerRow').innerHTML = ledgerInputRow();
+      $('payoutPlannerOutput').innerHTML = '<div class="empty-card">Load fees to plan flight payouts.</div>';
+      $('raffleCloseoutOutput').innerHTML = '<div class="empty-card">Load fees to close out raffle money.</div>';
       $('ledgerList').innerHTML = '<div class="empty-card">Load fees to view saved ledger entries.</div>';
       setFeeActionsEnabled(false);
     }
@@ -467,6 +546,89 @@
       `;
     }
 
+    function calculatePayoutPlanner() {
+      const prizePoolPerPlayer = Number(state.data && state.data.summary && state.data.summary.prizePoolPerPlayer || 25);
+      const finalPlayerCount = Math.max(0, Math.floor(Number($('finalPlayerCount').value || 0)));
+      const flightCount = Math.max(1, Math.floor(Number($('flightCount').value || 1)));
+      const totalPrizePool = Number((finalPlayerCount * prizePoolPerPlayer).toFixed(2));
+      const perFlightPool = Number((totalPrizePool / flightCount).toFixed(2));
+      const first = Number((perFlightPool * 0.5).toFixed(2));
+      const second = Number((perFlightPool * 0.3).toFixed(2));
+      const third = Number((perFlightPool - first - second).toFixed(2));
+      return { prizePoolPerPlayer, finalPlayerCount, flightCount, totalPrizePool, perFlightPool, payouts: { first, second, third } };
+    }
+
+    function calculateRaffleCloseout() {
+      const loaded = state.data && state.data.raffleCloseout || {};
+      const raffleIncome = Number(loaded.raffleIncome || 0);
+      const fiftyFiftyIncome = Number(loaded.fiftyFiftyIncome || 0);
+      const fiftyFiftyPayout = Number($('fiftyFiftyPayout').value || 0);
+      const rafflePrizeCost = Number($('rafflePrizeCost').value || 0);
+      const fiftyFiftyRetained = Number((fiftyFiftyIncome - fiftyFiftyPayout).toFixed(2));
+      const raffleNet = Number((raffleIncome - rafflePrizeCost).toFixed(2));
+      return {
+        raffleIncome,
+        fiftyFiftyIncome,
+        fiftyFiftyPayout,
+        rafflePrizeCost,
+        fiftyFiftyRetained,
+        raffleNet,
+        totalRetained: Number((fiftyFiftyRetained + raffleNet).toFixed(2)),
+      };
+    }
+
+    function renderPayoutPlannerOutput() {
+      const planner = calculatePayoutPlanner();
+      $('payoutPlannerOutput').innerHTML = `
+        <div class="metric"><strong>${money(planner.totalPrizePool)}</strong><span>total prize pool</span></div>
+        <div class="metric"><strong>${money(planner.perFlightPool)}</strong><span>per flight pool</span></div>
+        <div class="metric"><strong>${money(planner.payouts.first)}</strong><span>1st place per flight</span></div>
+        <div class="metric"><strong>${money(planner.payouts.second)}</strong><span>2nd place per flight</span></div>
+        <div class="metric"><strong>${money(planner.payouts.third)}</strong><span>3rd place per flight</span></div>
+        <div class="metric"><strong>${planner.flightCount}</strong><span>flight count</span></div>
+      `;
+    }
+
+    function renderRaffleCloseoutOutput() {
+      const closeout = calculateRaffleCloseout();
+      $('raffleCloseoutOutput').innerHTML = `
+        <div class="metric"><strong>${money(closeout.raffleIncome)}</strong><span>raffle income</span></div>
+        <div class="metric"><strong>${money(closeout.fiftyFiftyIncome)}</strong><span>50/50 income</span></div>
+        <div class="metric"><strong>${money(closeout.fiftyFiftyPayout)}</strong><span>50/50 winner payout</span></div>
+        <div class="metric${closeout.fiftyFiftyRetained < 0 ? ' warn' : ''}"><strong>${money(closeout.fiftyFiftyRetained)}</strong><span>50/50 retained</span></div>
+        <div class="metric${closeout.raffleNet < 0 ? ' warn' : ''}"><strong>${money(closeout.raffleNet)}</strong><span>raffle net</span></div>
+        <div class="metric${closeout.totalRetained < 0 ? ' warn' : ''}"><strong>${money(closeout.totalRetained)}</strong><span>total retained</span></div>
+      `;
+    }
+
+    function renderPlanning(data) {
+      const planner = data && data.payoutPlanner || {};
+      const closeout = data && data.raffleCloseout || {};
+      $('finalPlayerCount').value = Number(planner.finalPlayerCount || 0);
+      $('flightCount').value = Number(planner.flightCount || 1);
+      $('payoutPlannerNotes').value = planner.notes || '';
+      $('fiftyFiftyPayout').value = Number(closeout.fiftyFiftyPayout || 0);
+      $('rafflePrizeCost').value = Number(closeout.rafflePrizeCost || 0);
+      $('raffleCloseoutNotes').value = closeout.notes || '';
+      renderPayoutPlannerOutput();
+      renderRaffleCloseoutOutput();
+    }
+
+    function collectPlanning() {
+      return {
+        payoutPlanner: {
+          finalPlayerCount: Number($('finalPlayerCount').value || 0),
+          flightCount: Number($('flightCount').value || 1),
+          notes: $('payoutPlannerNotes').value.trim(),
+        },
+        raffleCloseout: {
+          fiftyFiftyPayout: Number($('fiftyFiftyPayout').value || 0),
+          rafflePrizeCost: Number($('rafflePrizeCost').value || 0),
+          notes: $('raffleCloseoutNotes').value.trim(),
+        },
+      };
+    }
+
     function renderLedger(data) {
       const entries = Array.isArray(data && data.ledgerEntries) ? data.ledgerEntries : [];
       if (!entries.length) {
@@ -502,6 +664,7 @@
       state.data = data;
       state.eventId = String(data && data.event && data.event._id || state.eventId || '');
       renderMetrics(data);
+      renderPlanning(data);
       $('feeRows').innerHTML = (Array.isArray(data && data.feeSchedule) ? data.feeSchedule : []).map(feeRow).join('');
       $('newLedgerRow').innerHTML = ledgerInputRow();
       renderLedger(data);
@@ -536,6 +699,23 @@
         });
         render(payload);
         setMsg('Fee schedule saved.');
+      } finally {
+        btn.disabled = !state.eventId;
+      }
+    }
+
+    async function savePlanning() {
+      await ensureFeesLoaded();
+      const btn = $('savePlanningBtn');
+      btn.disabled = true;
+      try {
+        const data = await api(`/api/outings/admin/events/${encodeURIComponent(state.eventId)}/fee-planning`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(collectPlanning()),
+        });
+        render(data);
+        setMsg('Payout and raffle planning saved.');
       } finally {
         btn.disabled = !state.eventId;
       }
@@ -601,9 +781,16 @@
         }
       });
       $('saveFeesBtn').addEventListener('click', () => saveFees().catch((err) => setMsg(err.message || 'Unable to save fees.')));
+      $('savePlanningBtn').addEventListener('click', () => savePlanning().catch((err) => setMsg(err.message || 'Unable to save planning.')));
       $('ledgerForm').addEventListener('submit', (event) => {
         event.preventDefault();
         saveLedger().catch((err) => setMsg(err.message || 'Unable to save ledger entry.'));
+      });
+      ['finalPlayerCount', 'flightCount'].forEach((id) => {
+        $(id).addEventListener('input', renderPayoutPlannerOutput);
+      });
+      ['fiftyFiftyPayout', 'rafflePrizeCost'].forEach((id) => {
+        $(id).addEventListener('input', renderRaffleCloseoutOutput);
       });
       document.addEventListener('change', (event) => {
         if (event.target && event.target.id === 'ledgerCategory') syncLedgerTypeToCategory();

@@ -1072,6 +1072,66 @@ async function assertFeeManagementFlow() {
     assert.strictEqual(state.ledgerEntries.length, 0, 'Ledger delete should remove the stored entry');
     assert.strictEqual(ledgerDelete.payload.summary.ledger.expense, 0, 'Ledger summary should clear deleted entries');
 
+    const raffleIncome = await jsonRequest(baseUrl, `/admin/events/${event._id}/fee-ledger?code=2000`, {
+      method: 'POST',
+      body: {
+        type: 'income',
+        category: 'raffle_income',
+        label: 'Day-of raffle tickets',
+        amount: 300,
+        paidBy: 'Cash box',
+      },
+    });
+    assert.strictEqual(raffleIncome.response.status, 201, 'Raffle income should be tracked in the ledger');
+
+    const fiftyFiftyIncome = await jsonRequest(baseUrl, `/admin/events/${event._id}/fee-ledger?code=2000`, {
+      method: 'POST',
+      body: {
+        type: 'income',
+        category: 'fifty_fifty_income',
+        label: '50/50 tickets',
+        amount: 200,
+        paidBy: 'Cash box',
+      },
+    });
+    assert.strictEqual(fiftyFiftyIncome.response.status, 201, '50/50 income should be tracked in the ledger');
+    assert.strictEqual(fiftyFiftyIncome.payload.raffleCloseout.raffleIncome, 300, 'Raffle closeout should include raffle income');
+    assert.strictEqual(fiftyFiftyIncome.payload.raffleCloseout.fiftyFiftyIncome, 200, 'Raffle closeout should include 50/50 income');
+    assert.strictEqual(fiftyFiftyIncome.payload.raffleCloseout.fiftyFiftyPayout, 100, 'Default 50/50 payout should be half of income');
+
+    const planningUpdate = await jsonRequest(baseUrl, `/admin/events/${event._id}/fee-planning?code=2000`, {
+      method: 'PUT',
+      body: {
+        payoutPlanner: {
+          finalPlayerCount: 72,
+          flightCount: 3,
+          notes: 'Finalize after check-in closes.',
+        },
+        raffleCloseout: {
+          fiftyFiftyPayout: 100,
+          rafflePrizeCost: 75,
+          notes: 'Cash box balanced.',
+        },
+      },
+    });
+    assert.strictEqual(planningUpdate.response.status, 200, 'Payout and raffle planning update should succeed');
+    assert.strictEqual(planningUpdate.payload.payoutPlanner.finalPlayerCount, 72, 'Planner should persist final player count');
+    assert.strictEqual(planningUpdate.payload.payoutPlanner.flightCount, 3, 'Planner should persist flight count');
+    assert.strictEqual(planningUpdate.payload.payoutPlanner.totalPrizePool, 1800, 'Planner should calculate $25 per final player');
+    assert.strictEqual(planningUpdate.payload.payoutPlanner.perFlightPool, 600, 'Planner should divide prize pool by flight count');
+    assert.strictEqual(planningUpdate.payload.payoutPlanner.payouts.first, 300, 'Planner should calculate first-place payout per flight');
+    assert.strictEqual(planningUpdate.payload.payoutPlanner.payouts.second, 180, 'Planner should calculate second-place payout per flight');
+    assert.strictEqual(planningUpdate.payload.payoutPlanner.payouts.third, 120, 'Planner should calculate third-place payout per flight');
+    assert.strictEqual(planningUpdate.payload.raffleCloseout.raffleNet, 225, 'Raffle closeout should subtract prize costs from raffle income');
+    assert.strictEqual(planningUpdate.payload.raffleCloseout.fiftyFiftyRetained, 100, '50/50 closeout should show retained amount');
+    assert.strictEqual(planningUpdate.payload.raffleCloseout.totalRetained, 325, 'Closeout should total raffle net plus retained 50/50');
+    assert.strictEqual(state.outings[0].payoutPlanner.finalPlayerCount, 72, 'Planner should save on the outing record');
+    assert.strictEqual(state.outings[0].raffleCloseout.rafflePrizeCost, 75, 'Raffle closeout should save on the outing record');
+    assert.ok(
+      state.audits.some((row) => String(row && row.action || '') === 'fee_planning_updated'),
+      'Planning update should write an audit row'
+    );
+
     const scheduleUpdate = await jsonRequest(baseUrl, `/admin/events/${event._id}/fees?code=2000`, {
       method: 'PUT',
       body: {

@@ -3,6 +3,8 @@ const TARGET_NAME_RE = /plastered/i;
 const FALLBACK_ENTRY_FEE = 90;
 const FALLBACK_PLAYER_CAP = 120;
 const FALLBACK_TEAM_CAP = 60;
+const KEG_COST = 350;
+const KEG_GOAL_COUNT = 2;
 const ORGANIZER_CONTACT_NOTE = 'After signing up, contact the organizer within 2 days or your team may be removed.';
 
 let liveEvent = null;
@@ -62,10 +64,16 @@ function formatCurrency(value) {
   return `$${num.toFixed(0)}`;
 }
 
-function formatPledgeAmount(value) {
-  const num = Number(value);
-  if (!Number.isFinite(num) || num <= 0) return '$0';
-  return num % 1 === 0 ? `$${num.toFixed(0)}` : `$${num.toFixed(2)}`;
+function kegGoalProgress(total) {
+  const amount = Number(total);
+  const goal = KEG_COST * KEG_GOAL_COUNT;
+  const percent = goal > 0 && Number.isFinite(amount) ? Math.max(0, Math.round((amount / goal) * 100)) : 0;
+  return {
+    goal,
+    percent,
+    label: `${percent}% of ${KEG_GOAL_COUNT}-keg goal`,
+    compactLabel: `${percent}% keg goal`,
+  };
 }
 
 function collectMoneyInput(id) {
@@ -176,15 +184,17 @@ function renderKegSponsorTracker(detail) {
   const summary = detail && detail.kegSponsorshipSummary ? detail.kegSponsorshipSummary : {};
   const total = Number(summary.totalAmount || 0);
   const count = Number(summary.contributorCount || 0);
+  const progress = kegGoalProgress(total);
+  const contributorText = count > 0 ? `${esc(String(count))} team${count === 1 ? '' : 's'} contributing` : 'No team sponsorships yet.';
   if (tracker) {
     tracker.innerHTML = `
-      <strong>${esc(formatPledgeAmount(total))} pledged</strong>
-      <span>${count > 0 ? `${esc(String(count))} team${count === 1 ? '' : 's'} contributing` : 'No team sponsorships yet.'}</span>
+      <strong>${esc(progress.label)}</strong>
+      <span>${contributorText}. Goal is ${KEG_GOAL_COUNT} kegs.</span>
     `;
   }
   if (heroTracker) {
-    heroTracker.textContent = `${formatPledgeAmount(total)} pledged`;
-    heroTracker.title = count > 0 ? `${count} team${count === 1 ? '' : 's'} contributing` : 'No team sponsorships yet.';
+    heroTracker.textContent = progress.compactLabel;
+    heroTracker.title = `${progress.label}. ${count > 0 ? `${count} team${count === 1 ? '' : 's'} contributing.` : 'No team sponsorships yet.'}`;
   }
 }
 

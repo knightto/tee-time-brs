@@ -159,6 +159,13 @@ function parseMoneyAmount(val, fallback = 0) {
   return Number(n.toFixed(2));
 }
 
+function parseWholeNumber(val, fallback = 0, min = 0) {
+  if (val === undefined || val === null || val === '') return fallback;
+  const n = Math.floor(Number(val));
+  if (!Number.isFinite(n) || n < min) return fallback;
+  return n;
+}
+
 function slugKey(value, fallback = 'fee') {
   const key = String(value || '')
     .trim()
@@ -456,6 +463,79 @@ function ledgerTotals(entries = []) {
   }, { income: 0, expense: 0, net: 0, byCategory: {} });
 }
 
+function normalizePayoutPlannerInput(body = {}, fallback = {}) {
+  return {
+    finalPlayerCount: parseWholeNumber(body.finalPlayerCount, fallback.finalPlayerCount || 0, 0),
+    flightCount: parseWholeNumber(body.flightCount, fallback.flightCount || 1, 1),
+    notes: String(Object.prototype.hasOwnProperty.call(body, 'notes') ? body.notes : fallback.notes || '').trim().slice(0, 1000),
+  };
+}
+
+function normalizeRaffleCloseoutInput(body = {}, fallback = {}) {
+  return {
+    fiftyFiftyPayout: parseMoneyAmount(body.fiftyFiftyPayout, fallback.fiftyFiftyPayout || 0),
+    rafflePrizeCost: parseMoneyAmount(body.rafflePrizeCost, fallback.rafflePrizeCost || 0),
+    notes: String(Object.prototype.hasOwnProperty.call(body, 'notes') ? body.notes : fallback.notes || '').trim().slice(0, 1000),
+  };
+}
+
+function buildPayoutPlannerDetail(event, counts = {}, summary = {}) {
+  const saved = event && event.payoutPlanner || {};
+  const prizePoolPerPlayer = parseMoneyAmount(summary.prizePoolPerPlayer, 0);
+  const finalPlayerCount = parseWholeNumber(saved.finalPlayerCount, Number(counts.players || 0), 0);
+  const flightCount = parseWholeNumber(saved.flightCount, 1, 1);
+  const totalPrizePool = Number((finalPlayerCount * prizePoolPerPlayer).toFixed(2));
+  const perFlightPool = flightCount > 0 ? Number((totalPrizePool / flightCount).toFixed(2)) : 0;
+  const first = Number((perFlightPool * 0.5).toFixed(2));
+  const second = Number((perFlightPool * 0.3).toFixed(2));
+  const third = Number((perFlightPool - first - second).toFixed(2));
+
+  return {
+    finalPlayerCount,
+    flightCount,
+    prizePoolPerPlayer,
+    totalPrizePool,
+    perFlightPool,
+    payouts: {
+      first,
+      second,
+      third,
+      totalFirst: Number((first * flightCount).toFixed(2)),
+      totalSecond: Number((second * flightCount).toFixed(2)),
+      totalThird: Number((third * flightCount).toFixed(2)),
+    },
+    allocation: { first: 50, second: 30, third: 20 },
+    notes: String(saved.notes || ''),
+  };
+}
+
+function buildRaffleCloseoutDetail(event, ledger = {}) {
+  const saved = event && event.raffleCloseout || {};
+  const byCategory = ledger && ledger.byCategory || {};
+  const raffleIncome = parseMoneyAmount(byCategory.raffle_income, 0);
+  const fiftyFiftyIncome = parseMoneyAmount(byCategory.fifty_fifty_income, 0);
+  const savedPayout = saved.fiftyFiftyPayout;
+  const fiftyFiftyPayout = savedPayout === undefined || savedPayout === null || savedPayout === ''
+    ? Number((fiftyFiftyIncome / 2).toFixed(2))
+    : parseMoneyAmount(savedPayout, 0);
+  const rafflePrizeCost = saved.rafflePrizeCost === undefined || saved.rafflePrizeCost === null || saved.rafflePrizeCost === ''
+    ? parseMoneyAmount(byCategory.raffle_purchase, 0)
+    : parseMoneyAmount(saved.rafflePrizeCost, 0);
+  const fiftyFiftyRetained = Number((fiftyFiftyIncome - fiftyFiftyPayout).toFixed(2));
+  const raffleNet = Number((raffleIncome - rafflePrizeCost).toFixed(2));
+
+  return {
+    raffleIncome,
+    fiftyFiftyIncome,
+    fiftyFiftyPayout,
+    fiftyFiftyRetained,
+    rafflePrizeCost,
+    raffleNet,
+    totalRetained: Number((fiftyFiftyRetained + raffleNet).toFixed(2)),
+    notes: String(saved.notes || ''),
+  };
+}
+
 function addAudienceRecipient(map, raw = {}, group = 'all') {
   const email = normalizeEmail(raw.email || raw.emailKey || raw.submittedByEmail || '');
   if (!email || !email.includes('@')) return;
@@ -601,6 +681,25 @@ async function buildFeeManagementDetail(event, models) {
     .filter((item) => item.enabled && item.basis === 'per_player' && ['course', 'prize', 'tournament', 'expense'].includes(item.category))
     .reduce((sum, item) => Number((sum + parseMoneyAmount(item.amount, 0)).toFixed(2)), 0);
   const ledger = ledgerTotals(ledgerEntries);
+  const summary = {
+    entryFee,
+    memberEntryFee: isPlasteredOpenEvent(event) ? 45 : entryFee,
+    nonMemberEntryFee: isPlasteredOpenEvent(event) ? 90 : entryFee,
+    memberCourseFee: isPlasteredOpenEvent(event) ? 20 : 0,
+    nonMemberCourseFee: isPlasteredOpenEvent(event) ? 65 : 0,
+    prizePoolPerPlayer: isPlasteredOpenEvent(event) ? 25 : 0,
+    expectedEntryIncome,
+    entryIncome,
+    unpaidEntryIncome: Number((expectedEntryIncome - entryIncome).toFixed(2)),
+    courseDue,
+    prizePoolDue,
+    tournamentFees,
+    plannedExpenses,
+    plannedNet: Number((expectedEntryIncome - plannedExpenses).toFixed(2)),
+    requestedPerPlayerAllocations,
+    perPlayerVariance: isPlasteredOpenEvent(event) ? 0 : Number((entryFee - requestedPerPlayerAllocations).toFixed(2)),
+    ledger,
+  };
 
   return {
     event: {
@@ -612,25 +711,9 @@ async function buildFeeManagementDetail(event, models) {
     counts,
     feeSchedule: schedule,
     ledgerEntries,
-    summary: {
-      entryFee,
-      memberEntryFee: isPlasteredOpenEvent(event) ? 45 : entryFee,
-      nonMemberEntryFee: isPlasteredOpenEvent(event) ? 90 : entryFee,
-      memberCourseFee: isPlasteredOpenEvent(event) ? 20 : 0,
-      nonMemberCourseFee: isPlasteredOpenEvent(event) ? 65 : 0,
-      prizePoolPerPlayer: isPlasteredOpenEvent(event) ? 25 : 0,
-      expectedEntryIncome,
-      entryIncome,
-      unpaidEntryIncome: Number((expectedEntryIncome - entryIncome).toFixed(2)),
-      courseDue,
-      prizePoolDue,
-      tournamentFees,
-      plannedExpenses,
-      plannedNet: Number((expectedEntryIncome - plannedExpenses).toFixed(2)),
-      requestedPerPlayerAllocations,
-      perPlayerVariance: isPlasteredOpenEvent(event) ? 0 : Number((entryFee - requestedPerPlayerAllocations).toFixed(2)),
-      ledger,
-    },
+    summary,
+    payoutPlanner: buildPayoutPlannerDetail(event, counts, summary),
+    raffleCloseout: buildRaffleCloseoutDetail(event, ledger),
     scheduleTotals,
   };
 }
@@ -2158,6 +2241,45 @@ router.put('/admin/events/:eventId/fees', async (req, res) => {
         previousSchedule,
         feeSchedule,
         entryFee: event.entryFee,
+      },
+    });
+
+    const detail = await buildFeeManagementDetail(event, models);
+    res.json(detail);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/admin/events/:eventId/fee-planning', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    if (!(await requireSecondaryConnection(res))) return;
+
+    const models = getSecondaryModels();
+    const event = await models.BlueRidgeOuting.findById(req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+
+    const previous = {
+      payoutPlanner: event.payoutPlanner && typeof event.payoutPlanner.toObject === 'function' ? event.payoutPlanner.toObject() : { ...(event.payoutPlanner || {}) },
+      raffleCloseout: event.raffleCloseout && typeof event.raffleCloseout.toObject === 'function' ? event.raffleCloseout.toObject() : { ...(event.raffleCloseout || {}) },
+    };
+    event.payoutPlanner = normalizePayoutPlannerInput(req.body && req.body.payoutPlanner || {}, previous.payoutPlanner);
+    event.raffleCloseout = normalizeRaffleCloseoutInput(req.body && req.body.raffleCloseout || {}, previous.raffleCloseout);
+    await event.save();
+
+    await writeOutingAudit(models, {
+      outingId: event._id,
+      category: 'money',
+      action: 'fee_planning_updated',
+      actor: auditActor(req),
+      method: req.method,
+      route: routePath(req),
+      summary: `Payout and raffle planning updated for ${event.name || 'outing'}`,
+      details: {
+        previous,
+        payoutPlanner: event.payoutPlanner,
+        raffleCloseout: event.raffleCloseout,
       },
     });
 
