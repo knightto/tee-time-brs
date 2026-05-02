@@ -504,6 +504,33 @@ function normalizeCashReconciliationInput(body = {}, fallback = {}) {
   };
 }
 
+function normalizeFlightAssignmentsInput(items = []) {
+  return (Array.isArray(items) ? items : [])
+    .map((item, index) => ({
+      teamId: String(item && item.teamId || '').trim().slice(0, 80),
+      teamName: String(item && item.teamName || '').trim().slice(0, 120),
+      flight: parseWholeNumber(item && item.flight, 1, 1),
+      startingHole: String(item && item.startingHole || '').trim().slice(0, 20),
+      pairingGroup: parseWholeNumber(item && item.pairingGroup, Math.floor(index / 2) + 1, 1),
+      position: parseWholeNumber(item && item.position, index + 1, 1),
+      playerNames: (Array.isArray(item && item.playerNames) ? item.playerNames : [])
+        .map((name) => String(name || '').trim().slice(0, 80))
+        .filter(Boolean),
+    }))
+    .filter((item) => item.teamId || item.teamName);
+}
+
+function normalizeFlightBuilderInput(body = {}, fallback = {}) {
+  return {
+    flightCount: parseWholeNumber(body.flightCount, fallback.flightCount || 1, 1),
+    checkedInOnly: parseBool(body.checkedInOnly, fallback.checkedInOnly !== undefined ? Boolean(fallback.checkedInOnly) : true),
+    teamsPerHole: Math.min(4, parseWholeNumber(body.teamsPerHole, fallback.teamsPerHole || 2, 1)),
+    startingHoleStart: Math.min(18, parseWholeNumber(body.startingHoleStart, fallback.startingHoleStart || 1, 1)),
+    assignments: normalizeFlightAssignmentsInput(body.assignments || fallback.assignments || []),
+    notes: String(Object.prototype.hasOwnProperty.call(body, 'notes') ? body.notes : fallback.notes || '').trim().slice(0, 1000),
+  };
+}
+
 function buildPayoutPlannerDetail(event, counts = {}, summary = {}) {
   const saved = event && event.payoutPlanner || {};
   const prizePoolPerPlayer = parseMoneyAmount(summary.prizePoolPerPlayer, 0);
@@ -621,6 +648,109 @@ function buildCashReconciliationDetail(event, memberFeeRows = [], ledger = {}, c
     contestPayouts: parseMoneyAmount(contestPrizes && contestPrizes.totalPayouts, 0),
     unpaidContestPayouts: parseMoneyAmount(contestPrizes && contestPrizes.unpaidPayouts, 0),
     notes: saved.notes,
+  };
+}
+
+function holeLabel(start, offset) {
+  const base = Math.min(18, Math.max(1, Number(start || 1)));
+  return String((((base - 1 + offset) % 18) + 1));
+}
+
+function teamRosterRows(teams = [], members = []) {
+  const byTeam = new Map();
+  (Array.isArray(members) ? members : []).forEach((member) => {
+    const key = String(member && member.teamId || '');
+    if (!key) return;
+    const list = byTeam.get(key) || [];
+    list.push(member);
+    byTeam.set(key, list);
+  });
+  return (Array.isArray(teams) ? teams : []).map((team) => {
+    const teamMembers = byTeam.get(String(team && team._id || '')) || [];
+    return {
+      teamId: String(team && team._id || ''),
+      teamName: String(team && team.name || 'Unnamed Team'),
+      playerNames: teamMembers.map((member) => String(member && member.name || '').trim()).filter(Boolean),
+      playerCount: teamMembers.length,
+      checkedInCount: teamMembers.filter((member) => Boolean(member && member.checkedIn)).length,
+      allCheckedIn: teamMembers.length > 0 && teamMembers.every((member) => Boolean(member && member.checkedIn)),
+      anyCheckedIn: teamMembers.some((member) => Boolean(member && member.checkedIn)),
+    };
+  });
+}
+
+function generateFlightAssignments(eligibleTeams = [], config = {}) {
+  const flightCount = parseWholeNumber(config.flightCount, 1, 1);
+  const teamsPerHole = Math.min(4, parseWholeNumber(config.teamsPerHole, 2, 1));
+  const startingHoleStart = Math.min(18, parseWholeNumber(config.startingHoleStart, 1, 1));
+  return eligibleTeams.map((team, index) => {
+    const flight = Math.min(flightCount, Math.floor((index * flightCount) / Math.max(1, eligibleTeams.length)) + 1);
+    const pairingGroup = Math.floor(index / teamsPerHole) + 1;
+    return {
+      teamId: team.teamId,
+      teamName: team.teamName,
+      playerNames: team.playerNames,
+      flight,
+      startingHole: holeLabel(startingHoleStart, pairingGroup - 1),
+      pairingGroup,
+      position: index + 1,
+    };
+  });
+}
+
+function buildFlightBuilderDetail(event, teams = [], members = [], payoutPlanner = {}) {
+  const saved = normalizeFlightBuilderInput(event && event.flightBuilder || {}, {
+    flightCount: payoutPlanner && payoutPlanner.flightCount || 1,
+    checkedInOnly: true,
+    teamsPerHole: 2,
+    startingHoleStart: 1,
+  });
+  const roster = teamRosterRows(teams, members);
+  const eligibleTeams = roster
+    .filter((team) => (saved.checkedInOnly ? team.anyCheckedIn : team.playerCount > 0))
+    .sort((left, right) => left.teamName.localeCompare(right.teamName));
+  const savedAssignments = normalizeFlightAssignmentsInput(saved.assignments);
+  const sourceAssignments = savedAssignments.length ? savedAssignments : generateFlightAssignments(eligibleTeams, saved);
+  const eligibleIds = new Set(eligibleTeams.map((team) => team.teamId));
+  const assignments = sourceAssignments
+    .filter((assignment) => !assignment.teamId || eligibleIds.has(assignment.teamId))
+    .map((assignment, index) => {
+      const team = eligibleTeams.find((item) => item.teamId === assignment.teamId) || {};
+      return {
+        ...assignment,
+        teamName: team.teamName || assignment.teamName,
+        playerNames: team.playerNames || assignment.playerNames || [],
+        playerCount: team.playerCount || (assignment.playerNames || []).length,
+        checkedInCount: team.checkedInCount || 0,
+        position: assignment.position || index + 1,
+      };
+    });
+  const byFlight = assignments.reduce((out, assignment) => {
+    const key = String(assignment.flight || 1);
+    const list = out[key] || [];
+    list.push(assignment);
+    out[key] = list;
+    return out;
+  }, {});
+  const byHole = assignments.reduce((out, assignment) => {
+    const key = String(assignment.startingHole || '');
+    if (!key) return out;
+    const list = out[key] || [];
+    list.push(assignment);
+    out[key] = list;
+    return out;
+  }, {});
+  return {
+    ...saved,
+    eligibleTeams,
+    assignments,
+    byFlight,
+    byHole,
+    teamCount: eligibleTeams.length,
+    assignedTeamCount: assignments.length,
+    unassignedTeamCount: Math.max(0, eligibleTeams.length - assignments.length),
+    payouts: payoutPlanner && payoutPlanner.payouts || {},
+    perFlightPool: payoutPlanner && payoutPlanner.perFlightPool || 0,
   };
 }
 
@@ -790,6 +920,8 @@ async function buildFeeManagementDetail(event, models) {
     ledger,
   };
 
+  const payoutPlanner = buildPayoutPlannerDetail(event, counts, summary);
+
   return {
     event: {
       _id: event._id,
@@ -801,10 +933,11 @@ async function buildFeeManagementDetail(event, models) {
     feeSchedule: schedule,
     ledgerEntries,
     summary,
-    payoutPlanner: buildPayoutPlannerDetail(event, counts, summary),
+    payoutPlanner,
     raffleCloseout: buildRaffleCloseoutDetail(event, ledger),
     contestPrizes,
     cashReconciliation: buildCashReconciliationDetail(event, memberFeeRows, ledger, contestPrizes),
+    flightBuilder: buildFlightBuilderDetail(event, teams, members, payoutPlanner),
     scheduleTotals,
   };
 }
@@ -2500,6 +2633,7 @@ router.put('/admin/events/:eventId/fee-planning', async (req, res) => {
       raffleCloseout: event.raffleCloseout && typeof event.raffleCloseout.toObject === 'function' ? event.raffleCloseout.toObject() : { ...(event.raffleCloseout || {}) },
       contestPrizes: normalizeContestPrizesInput(event.contestPrizes || []),
       cashReconciliation: event.cashReconciliation && typeof event.cashReconciliation.toObject === 'function' ? event.cashReconciliation.toObject() : { ...(event.cashReconciliation || {}) },
+      flightBuilder: event.flightBuilder && typeof event.flightBuilder.toObject === 'function' ? event.flightBuilder.toObject() : { ...(event.flightBuilder || {}) },
     };
     event.payoutPlanner = normalizePayoutPlannerInput(req.body && req.body.payoutPlanner || {}, previous.payoutPlanner);
     event.raffleCloseout = normalizeRaffleCloseoutInput(req.body && req.body.raffleCloseout || {}, previous.raffleCloseout);
@@ -2508,6 +2642,9 @@ router.put('/admin/events/:eventId/fee-planning', async (req, res) => {
     }
     if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'cashReconciliation')) {
       event.cashReconciliation = normalizeCashReconciliationInput(req.body.cashReconciliation || {}, previous.cashReconciliation);
+    }
+    if (req.body && Object.prototype.hasOwnProperty.call(req.body, 'flightBuilder')) {
+      event.flightBuilder = normalizeFlightBuilderInput(req.body.flightBuilder || {}, previous.flightBuilder);
     }
     await event.save();
 
@@ -2525,6 +2662,7 @@ router.put('/admin/events/:eventId/fee-planning', async (req, res) => {
         raffleCloseout: event.raffleCloseout,
         contestPrizes: event.contestPrizes,
         cashReconciliation: event.cashReconciliation,
+        flightBuilder: event.flightBuilder,
       },
     });
 

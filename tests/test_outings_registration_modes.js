@@ -1099,6 +1099,7 @@ async function assertFeeManagementFlow() {
       emailKey: 'money-mike@example.com',
       status: 'active',
       feePaidTo: 'tommy',
+      checkedIn: true,
     }, {
       _id: '907f191e810c19729de861bd',
       eventId: event._id,
@@ -1108,6 +1109,7 @@ async function assertFeeManagementFlow() {
       email: 'money-molly@example.com',
       emailKey: 'money-molly@example.com',
       status: 'active',
+      checkedIn: true,
     }],
   });
 
@@ -1209,6 +1211,22 @@ async function assertFeeManagementFlow() {
           otherCash: 10,
           notes: 'Extra $10 from mulligans.',
         },
+        flightBuilder: {
+          flightCount: 3,
+          checkedInOnly: true,
+          teamsPerHole: 2,
+          startingHoleStart: 4,
+          notes: 'Start on assigned hole.',
+          assignments: [{
+            teamId,
+            teamName: 'Money Team',
+            flight: 2,
+            startingHole: '4',
+            pairingGroup: 1,
+            position: 1,
+            playerNames: ['Money Mike', 'Money Molly'],
+          }],
+        },
       },
     });
     assert.strictEqual(planningUpdate.response.status, 200, 'Payout and raffle planning update should succeed');
@@ -1231,10 +1249,17 @@ async function assertFeeManagementFlow() {
     assert.strictEqual(planningUpdate.payload.cashReconciliation.countedTotal, 600, 'Cash reconciliation should total counted cash');
     assert.strictEqual(planningUpdate.payload.cashReconciliation.expectedTotal, 590, 'Cash reconciliation should total expected cash');
     assert.strictEqual(planningUpdate.payload.cashReconciliation.varianceTotal, 10, 'Cash reconciliation should expose counted-vs-expected variance');
+    assert.strictEqual(planningUpdate.payload.flightBuilder.flightCount, 3, 'Flight builder should persist flight count');
+    assert.strictEqual(planningUpdate.payload.flightBuilder.teamCount, 1, 'Flight builder should count checked-in eligible teams');
+    assert.strictEqual(planningUpdate.payload.flightBuilder.assignedTeamCount, 1, 'Flight builder should count assigned teams');
+    assert.strictEqual(planningUpdate.payload.flightBuilder.assignments[0].startingHole, '4', 'Starting-hole sheet should persist assigned holes');
+    assert.strictEqual(planningUpdate.payload.flightBuilder.assignments[0].flight, 2, 'Flight builder should persist assigned flight');
+    assert.strictEqual(planningUpdate.payload.flightBuilder.perFlightPool, 600, 'Flight builder should use payout planner per-flight pool');
     assert.strictEqual(state.outings[0].payoutPlanner.finalPlayerCount, 72, 'Planner should save on the outing record');
     assert.strictEqual(state.outings[0].raffleCloseout.rafflePrizeCost, 75, 'Raffle closeout should save on the outing record');
     assert.strictEqual(state.outings[0].contestPrizes.length, 2, 'Contest prize rows should save on the outing record');
     assert.strictEqual(state.outings[0].cashReconciliation.otherCash, 10, 'Cash reconciliation should save on the outing record');
+    assert.strictEqual(state.outings[0].flightBuilder.assignments.length, 1, 'Flight assignments should save on the outing record');
     assert.ok(
       state.audits.some((row) => String(row && row.action || '') === 'fee_planning_updated'),
       'Planning update should write an audit row'

@@ -57,6 +57,31 @@ const CashReconciliationSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const FlightAssignmentSchema = new mongoose.Schema(
+  {
+    teamId: { type: String, trim: true, maxlength: 80 },
+    teamName: { type: String, trim: true, maxlength: 120 },
+    flight: { type: Number, min: 1, default: 1 },
+    startingHole: { type: String, trim: true, maxlength: 20 },
+    pairingGroup: { type: Number, min: 1, default: 1 },
+    position: { type: Number, min: 1, default: 1 },
+    playerNames: { type: [String], default: undefined },
+  },
+  { _id: false }
+);
+
+const FlightBuilderSchema = new mongoose.Schema(
+  {
+    flightCount: { type: Number, min: 1, default: 1 },
+    checkedInOnly: { type: Boolean, default: true },
+    teamsPerHole: { type: Number, min: 1, max: 4, default: 2 },
+    startingHoleStart: { type: Number, min: 1, max: 18, default: 1 },
+    assignments: { type: [FlightAssignmentSchema], default: undefined },
+    notes: { type: String, trim: true, maxlength: 1000 },
+  },
+  { _id: false }
+);
+
 const BlueRidgeOutingSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true, maxlength: 140 },
@@ -98,6 +123,7 @@ const BlueRidgeOutingSchema = new mongoose.Schema(
     raffleCloseout: { type: RaffleCloseoutSchema, default: undefined },
     contestPrizes: { type: [ContestPrizeSchema], default: undefined },
     cashReconciliation: { type: CashReconciliationSchema, default: undefined },
+    flightBuilder: { type: FlightBuilderSchema, default: undefined },
     registrationNotes: { type: String, trim: true, maxlength: 4000 },
     cancellationPolicy: { type: String, trim: true, maxlength: 4000 },
 

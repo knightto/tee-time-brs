@@ -170,6 +170,46 @@
       font-weight: 800;
     }
     .cash-input-grid label.full { grid-column: 1 / -1; }
+    .sheet-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 12px;
+    }
+    .sheet-table {
+      display: grid;
+      gap: 9px;
+      margin-top: 14px;
+    }
+    .sheet-row {
+      display: grid;
+      grid-template-columns: 72px minmax(130px, 0.8fr) minmax(170px, 1.2fr) 80px minmax(170px, 1.2fr);
+      gap: 9px;
+      align-items: center;
+      padding: 11px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.72);
+    }
+    .sheet-row strong { color: var(--navy); }
+    .print-sheet {
+      display: none;
+      margin-top: 14px;
+    }
+    @media print {
+      body { background: #fff; color: #000; }
+      .hero, .panel:not(.printable-panel) { display: none !important; }
+      .wrap { max-width: none; padding: 0; }
+      .printable-panel {
+        display: block !important;
+        box-shadow: none;
+        border: 0;
+        background: #fff;
+        color: #000;
+      }
+      .panel-head, .sheet-actions, .planning-grid { display: none !important; }
+      .print-sheet { display: block; }
+    }
     .fee-table, .ledger-table { display: grid; gap: 9px; }
     .fee-row, .ledger-row {
       display: grid;
@@ -253,7 +293,7 @@
     @media (max-width: 900px) {
       .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .planning-grid, .planning-output, .cash-grid { grid-template-columns: 1fr; }
-      .fee-row, .ledger-row, .ledger-card, .contest-row { grid-template-columns: 1fr; }
+      .fee-row, .ledger-row, .ledger-card, .contest-row, .sheet-row { grid-template-columns: 1fr; }
       .table-head { display: none; }
     }
     @media (max-width: 560px) {
@@ -311,6 +351,40 @@
         </div>
         <div id="payoutPlannerOutput" class="planning-output"></div>
       </div>
+    </section>
+
+    <section class="panel printable-panel">
+      <div class="panel-head">
+        <div>
+          <h2>Flight Builder / Starting Holes</h2>
+          <p class="subhead">Generate flights from checked-in teams, connect each flight to the payout planner, and build a printable shotgun starting-hole sheet.</p>
+        </div>
+      </div>
+      <div class="planning-grid">
+        <div class="planning-form">
+          <label>Flights
+            <input id="flightBuilderCount" type="number" min="1" step="1">
+          </label>
+          <label>Teams per hole
+            <input id="teamsPerHole" type="number" min="1" max="4" step="1">
+          </label>
+          <label>First starting hole
+            <input id="startingHoleStart" type="number" min="1" max="18" step="1">
+          </label>
+          <label class="full"><input id="checkedInOnly" type="checkbox"> Checked-in teams only</label>
+          <label class="full">Sheet notes
+            <textarea id="flightBuilderNotes" placeholder="Optional starter notes"></textarea>
+          </label>
+        </div>
+        <div id="flightBuilderOutput" class="planning-output"></div>
+      </div>
+      <div class="sheet-actions">
+        <button id="generateFlightsBtn" type="button">Generate Flights And Holes</button>
+        <button id="saveFlightsBtn" class="primary" type="button">Save Flight Sheet</button>
+        <button id="printFlightsBtn" type="button">Print Starting Sheet</button>
+      </div>
+      <div id="flightSheet" class="sheet-table"></div>
+      <div id="printFlightSheet" class="print-sheet"></div>
     </section>
 
     <section class="panel">
@@ -503,7 +577,7 @@
     }
 
     function setFeeActionsEnabled(enabled) {
-      ['addFeeBtn', 'saveFeesBtn', 'savePlanningBtn', 'addContestBtn', 'saveCloseoutBtn'].forEach((id) => {
+      ['addFeeBtn', 'saveFeesBtn', 'savePlanningBtn', 'addContestBtn', 'saveCloseoutBtn', 'generateFlightsBtn', 'saveFlightsBtn', 'printFlightsBtn'].forEach((id) => {
         const btn = $(id);
         if (btn) btn.disabled = !enabled;
       });
@@ -525,6 +599,9 @@
       $('contestSummary').innerHTML = '';
       $('contestRows').innerHTML = '<div class="empty-card">Load fees to track contest payouts.</div>';
       $('cashReconciliationOutput').innerHTML = '<div class="empty-card">Load fees to reconcile day-of cash.</div>';
+      $('flightBuilderOutput').innerHTML = '<div class="empty-card">Load fees to build flights.</div>';
+      $('flightSheet').innerHTML = '<div class="empty-card">Load fees to build the starting-hole sheet.</div>';
+      $('printFlightSheet').innerHTML = '';
       $('ledgerList').innerHTML = '<div class="empty-card">Load fees to view saved ledger entries.</div>';
       setFeeActionsEnabled(false);
     }
@@ -700,6 +777,25 @@
       };
     }
 
+    function collectFlightBuilder() {
+      return {
+        flightCount: Number($('flightBuilderCount').value || $('flightCount').value || 1),
+        checkedInOnly: Boolean($('checkedInOnly').checked),
+        teamsPerHole: Number($('teamsPerHole').value || 2),
+        startingHoleStart: Number($('startingHoleStart').value || 1),
+        assignments: Array.from(document.querySelectorAll('[data-flight-assignment]')).map((row, index) => ({
+          teamId: row.dataset.teamId || '',
+          teamName: row.dataset.teamName || '',
+          playerNames: String(row.dataset.playerNames || '').split('|').filter(Boolean),
+          flight: Number(row.querySelector('[data-assignment-flight]').value || 1),
+          startingHole: row.querySelector('[data-assignment-hole]').value.trim(),
+          pairingGroup: Number(row.dataset.pairingGroup || Math.floor(index / Number($('teamsPerHole').value || 2)) + 1),
+          position: index + 1,
+        })),
+        notes: $('flightBuilderNotes').value.trim(),
+      };
+    }
+
     function renderPayoutPlannerOutput() {
       const planner = calculatePayoutPlanner();
       $('payoutPlannerOutput').innerHTML = `
@@ -772,6 +868,87 @@
       `;
     }
 
+    function holeLabel(start, offset) {
+      const base = Math.min(18, Math.max(1, Number(start || 1)));
+      return String((((base - 1 + offset) % 18) + 1));
+    }
+
+    function generatedFlightAssignments() {
+      const builder = state.data && state.data.flightBuilder || {};
+      const teams = Array.isArray(builder.eligibleTeams) ? builder.eligibleTeams.slice() : [];
+      const flightCount = Math.max(1, Math.floor(Number($('flightBuilderCount').value || $('flightCount').value || 1)));
+      const teamsPerHole = Math.max(1, Math.min(4, Math.floor(Number($('teamsPerHole').value || 2))));
+      const startingHoleStart = Math.max(1, Math.min(18, Math.floor(Number($('startingHoleStart').value || 1))));
+      return teams.sort((left, right) => String(left.teamName || '').localeCompare(String(right.teamName || ''))).map((team, index) => {
+        const pairingGroup = Math.floor(index / teamsPerHole) + 1;
+        return {
+          teamId: team.teamId,
+          teamName: team.teamName,
+          playerNames: team.playerNames || [],
+          playerCount: team.playerCount || 0,
+          checkedInCount: team.checkedInCount || 0,
+          flight: Math.min(flightCount, Math.floor((index * flightCount) / Math.max(1, teams.length)) + 1),
+          startingHole: holeLabel(startingHoleStart, pairingGroup - 1),
+          pairingGroup,
+          position: index + 1,
+        };
+      });
+    }
+
+    function renderFlightBuilder(data) {
+      const builder = data && data.flightBuilder || {};
+      $('flightBuilderCount').value = Number(builder.flightCount || (data && data.payoutPlanner && data.payoutPlanner.flightCount) || 1);
+      $('checkedInOnly').checked = builder.checkedInOnly !== false;
+      $('teamsPerHole').value = Number(builder.teamsPerHole || 2);
+      $('startingHoleStart').value = Number(builder.startingHoleStart || 1);
+      $('flightBuilderNotes').value = builder.notes || '';
+      renderFlightBuilderOutput(builder);
+      renderFlightSheet(Array.isArray(builder.assignments) ? builder.assignments : []);
+    }
+
+    function renderFlightBuilderOutput(builder = {}) {
+      const payouts = builder.payouts || {};
+      $('flightBuilderOutput').innerHTML = `
+        <div class="metric"><strong>${Number(builder.assignedTeamCount || 0)} / ${Number(builder.teamCount || 0)}</strong><span>assigned teams</span></div>
+        <div class="metric"><strong>${money(builder.perFlightPool || 0)}</strong><span>per flight pool</span></div>
+        <div class="metric"><strong>${money(payouts.first || 0)}</strong><span>1st per flight</span></div>
+        <div class="metric"><strong>${money(payouts.second || 0)}</strong><span>2nd per flight</span></div>
+        <div class="metric"><strong>${money(payouts.third || 0)}</strong><span>3rd per flight</span></div>
+        <div class="metric${Number(builder.unassignedTeamCount || 0) ? ' warn' : ''}"><strong>${Number(builder.unassignedTeamCount || 0)}</strong><span>unassigned teams</span></div>
+      `;
+    }
+
+    function renderFlightSheet(assignments = []) {
+      const rows = Array.isArray(assignments) ? assignments : [];
+      if (!rows.length) {
+        $('flightSheet').innerHTML = '<div class="empty-card">No flight assignments yet. Generate flights after check-in.</div>';
+        $('printFlightSheet').innerHTML = '';
+        return;
+      }
+      $('flightSheet').innerHTML = `
+        <div class="sheet-row table-head"><div>Hole</div><div>Flight</div><div>Team</div><div>Players</div><div>Golfers</div></div>
+        ${rows.map((row) => `
+          <div class="sheet-row" data-flight-assignment data-team-id="${esc(row.teamId || '')}" data-team-name="${esc(row.teamName || '')}" data-player-names="${esc((row.playerNames || []).join('|'))}" data-pairing-group="${esc(row.pairingGroup || '')}">
+            <input data-assignment-hole value="${esc(row.startingHole || '')}" placeholder="Hole">
+            <select data-assignment-flight>
+              ${Array.from({ length: Math.max(1, Number($('flightBuilderCount').value || 1)) }, (_v, idx) => idx + 1).map((flight) => `<option value="${flight}"${Number(row.flight || 1) === flight ? ' selected' : ''}>Flight ${flight}</option>`).join('')}
+            </select>
+            <strong>${esc(row.teamName || 'Team')}</strong>
+            <span>${esc(`${row.checkedInCount || 0}/${row.playerCount || (row.playerNames || []).length || 0}`)}</span>
+            <span>${esc((row.playerNames || []).join(', '))}</span>
+          </div>
+        `).join('')}
+      `;
+      $('printFlightSheet').innerHTML = `
+        <h1>Plastered Open Starting-Hole Sheet</h1>
+        <table style="width:100%;border-collapse:collapse;">
+          <thead><tr><th style="text-align:left;border-bottom:1px solid #000;">Hole</th><th style="text-align:left;border-bottom:1px solid #000;">Flight</th><th style="text-align:left;border-bottom:1px solid #000;">Team</th><th style="text-align:left;border-bottom:1px solid #000;">Golfers</th></tr></thead>
+          <tbody>${rows.map((row) => `<tr><td>${esc(row.startingHole || '')}</td><td>Flight ${esc(row.flight || '')}</td><td>${esc(row.teamName || '')}</td><td>${esc((row.playerNames || []).join(', '))}</td></tr>`).join('')}</tbody>
+        </table>
+        ${$('flightBuilderNotes').value.trim() ? `<p>${esc($('flightBuilderNotes').value.trim())}</p>` : ''}
+      `;
+    }
+
     function renderPlanning(data) {
       const planner = data && data.payoutPlanner || {};
       const closeout = data && data.raffleCloseout || {};
@@ -785,6 +962,7 @@
       renderRaffleCloseoutOutput();
       renderContestPrizes(data);
       renderCashReconciliation(data);
+      renderFlightBuilder(data);
     }
 
     function collectPlanning() {
@@ -801,6 +979,7 @@
         },
         contestPrizes: collectContestPrizes(),
         cashReconciliation: collectCashReconciliation(),
+        flightBuilder: collectFlightBuilder(),
       };
     }
 
@@ -983,18 +1162,38 @@
       $('saveFeesBtn').addEventListener('click', () => saveFees().catch((err) => setMsg(err.message || 'Unable to save fees.')));
       $('savePlanningBtn').addEventListener('click', () => savePlanning().catch((err) => setMsg(err.message || 'Unable to save planning.')));
       $('saveCloseoutBtn').addEventListener('click', () => saveCloseout().catch((err) => setMsg(err.message || 'Unable to save contests and cash.')));
+      $('generateFlightsBtn').addEventListener('click', async () => {
+        try {
+          await ensureFeesLoaded();
+          renderFlightSheet(generatedFlightAssignments());
+          renderFlightBuilderOutput({ ...(state.data.flightBuilder || {}), assignments: collectFlightBuilder().assignments, assignedTeamCount: collectFlightBuilder().assignments.length, unassignedTeamCount: 0 });
+          setMsg('Generated flight and starting-hole sheet. Save it to keep these assignments.');
+        } catch (err) {
+          setMsg(err && err.message ? err.message : 'Unable to generate flights.');
+        }
+      });
+      $('saveFlightsBtn').addEventListener('click', () => savePlanning().then(() => setMsg('Flight sheet saved.')).catch((err) => setMsg(err.message || 'Unable to save flight sheet.')));
+      $('printFlightsBtn').addEventListener('click', () => window.print());
       $('ledgerForm').addEventListener('submit', (event) => {
         event.preventDefault();
         saveLedger().catch((err) => setMsg(err.message || 'Unable to save ledger entry.'));
       });
       ['finalPlayerCount', 'flightCount'].forEach((id) => {
-        $(id).addEventListener('input', renderPayoutPlannerOutput);
+        $(id).addEventListener('input', () => {
+          renderPayoutPlannerOutput();
+          if (id === 'flightCount' && $('flightBuilderCount')) $('flightBuilderCount').value = $('flightCount').value || 1;
+        });
       });
       ['fiftyFiftyPayout', 'rafflePrizeCost'].forEach((id) => {
         $(id).addEventListener('input', renderRaffleCloseoutOutput);
       });
       ['clubCash', 'tommyCash', 'johnCash', 'raffleCash', 'fiftyFiftyCash', 'sponsorCash', 'otherCash'].forEach((id) => {
         $(id).addEventListener('input', renderCashReconciliationOutput);
+      });
+      ['flightBuilderCount', 'teamsPerHole', 'startingHoleStart'].forEach((id) => {
+        $(id).addEventListener('input', () => {
+          if (state.data) renderFlightSheet(generatedFlightAssignments());
+        });
       });
       document.addEventListener('change', (event) => {
         if (event.target && event.target.id === 'ledgerCategory') syncLedgerTypeToCategory();
