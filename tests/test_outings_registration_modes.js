@@ -682,6 +682,8 @@ async function assertAdminPaymentUpdate() {
     assert.strictEqual(response.status, 200, 'Admin payment update should return 200');
     assert.strictEqual(payload.registration.paymentStatus, 'paid', 'Admin payment update should return the new status');
     assert.strictEqual(state.registrations[0].paymentStatus, 'paid', 'Admin payment update should persist the new status');
+    assert.strictEqual(state.members[0].feePaidTo, 'tommy', 'Admin payment update should mark linked player fees collected by default');
+    assert.strictEqual(state.members[1].feePaidTo, 'tommy', 'Admin payment update should mark all linked player fees collected by default');
 
     const auditResult = await jsonRequest(baseUrl, `/admin/events/${event._id}/audit-log?code=2000`);
     assert.strictEqual(auditResult.response.status, 200, 'Admin audit log should load');
@@ -695,6 +697,87 @@ async function assertAdminPaymentUpdate() {
       'Admin audit log should include the payment change'
     );
     assert.ok(state.audits.some((row) => String(row && row.action || '') === 'payment_status_updated'), 'Payment change should persist in audit state');
+  });
+}
+
+async function assertAdminCheckInUpdate() {
+  const event = buildEvent({ entryFee: 90 });
+  const movingMemberId = '507f191e810c19729de863f1';
+  const registrationId = '507f191e810c19729de863ee';
+  const sourceTeamId = '507f191e810c19729de863ef';
+  const targetTeamId = '507f191e810c19729de863f0';
+  const { state, models } = createModels({
+    event,
+    registrations: [{
+      _id: registrationId,
+      eventId: event._id,
+      mode: 'join_team',
+      status: 'registered',
+      teamId: sourceTeamId,
+      submittedByName: 'Checkin Charlie',
+      submittedByEmail: 'checkin@example.com',
+      submittedByPhone: '555-0107',
+      paymentStatus: 'unpaid',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }],
+    teams: [{
+      _id: sourceTeamId,
+      eventId: event._id,
+      name: 'Original Team',
+      targetSize: 2,
+      status: 'incomplete',
+    }, {
+      _id: targetTeamId,
+      eventId: event._id,
+      name: 'Target Team',
+      targetSize: 2,
+      status: 'incomplete',
+    }],
+    members: [{
+      _id: movingMemberId,
+      eventId: event._id,
+      teamId: sourceTeamId,
+      registrationId,
+      name: 'Checkin Charlie',
+      email: 'checkin@example.com',
+      emailKey: 'checkin@example.com',
+      phone: '555-0107',
+      isCaptain: false,
+      isClubMember: false,
+      feePaidTo: '',
+      status: 'active',
+    }],
+  });
+
+  await withRouter(models, async (baseUrl) => {
+    const result = await jsonRequest(baseUrl, `/admin/events/${event._id}/check-in/${movingMemberId}?code=2000`, {
+      method: 'PUT',
+      body: {
+        checkedIn: true,
+        feePaidTo: 'john',
+        isClubMember: true,
+        teamId: targetTeamId,
+        checkInNotes: 'Paid cash at table one.',
+      },
+    });
+
+    assert.strictEqual(result.response.status, 200, 'Admin check-in update should return 200');
+    assert.strictEqual(state.members[0].checkedIn, true, 'Check-in should persist arrival status');
+    assert.ok(state.members[0].checkedInAt, 'Check-in should stamp arrival time');
+    assert.strictEqual(state.members[0].feePaidTo, 'john', 'Check-in should persist fee collection location');
+    assert.strictEqual(state.members[0].isClubMember, true, 'Check-in should persist BRS member status');
+    assert.strictEqual(state.members[0].teamId, targetTeamId, 'Check-in should move the player to the selected team');
+    assert.strictEqual(state.registrations[0].teamId, targetTeamId, 'Check-in should keep the registration team assignment in sync');
+    assert.strictEqual(state.teams.find((team) => team._id === sourceTeamId).status, 'cancelled', 'Empty source team should be cancelled');
+    assert.strictEqual(state.teams.find((team) => team._id === targetTeamId).status, 'incomplete', 'Target team should remain incomplete until full');
+    assert.strictEqual(result.payload.event.metrics.players, 1, 'Returned event metrics should stay current after check-in');
+    assert.strictEqual(result.payload.event.teams.length, 1, 'Returned event should exclude the emptied cancelled team');
+    assert.strictEqual(result.payload.event.members[0].feePaidTo, 'john', 'Returned event should include refreshed player payment state');
+    assert.ok(
+      state.audits.some((row) => String(row && row.action || '') === 'player_check_in_updated'),
+      'Check-in update should write an audit row'
+    );
   });
 }
 
@@ -1432,6 +1515,7 @@ async function run() {
   await assertWaitlistFlow();
   await assertWaitlistDisabledFlow();
   await assertAdminPaymentUpdate();
+  await assertAdminCheckInUpdate();
   await assertAdminPaymentUpdateValidation();
   await assertAuditTrail();
   await assertAdminEventUpdateAudit();

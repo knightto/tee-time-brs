@@ -1148,6 +1148,88 @@
       gap: 12px;
     }
 
+    .checkin-board {
+      margin-top: 16px;
+      display: grid;
+      gap: 10px;
+    }
+
+    .checkin-row {
+      display: grid;
+      grid-template-columns: minmax(180px, 1.2fr) 120px minmax(150px, 0.9fr) 132px minmax(170px, 1fr) minmax(180px, 1fr) auto;
+      gap: 9px;
+      align-items: center;
+      padding: 11px;
+      border-radius: 16px;
+      border: 1px solid rgba(21, 28, 39, 0.08);
+      background: #fffbf4;
+      color: var(--ink);
+      box-shadow: 0 8px 18px rgba(6, 17, 33, 0.07);
+    }
+
+    .checkin-row.is-arrived {
+      border-color: rgba(25, 70, 52, 0.28);
+      background: linear-gradient(165deg, rgba(255, 251, 244, 0.98), rgba(235, 248, 240, 0.94));
+    }
+
+    .checkin-person {
+      min-width: 0;
+      display: grid;
+      gap: 3px;
+    }
+
+    .checkin-person strong {
+      color: var(--navy);
+      line-height: 1.1;
+      overflow-wrap: anywhere;
+    }
+
+    .checkin-meta {
+      color: var(--ink-soft);
+      font-size: 0.86rem;
+      line-height: 1.25;
+      overflow-wrap: anywhere;
+    }
+
+    .checkin-toggle {
+      min-height: 42px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 9px 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(21, 28, 39, 0.1);
+      background: rgba(255, 255, 255, 0.68);
+      color: var(--ink);
+      font-weight: 800;
+    }
+
+    .checkin-toggle input {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--fairway-deep);
+    }
+
+    .checkin-row select,
+    .checkin-row input[type="text"] {
+      width: 100%;
+      min-height: 42px;
+      padding: 9px 10px;
+      border-radius: 14px;
+      border: 1px solid rgba(21, 28, 39, 0.12);
+      background: #fffdf8;
+      color: var(--ink);
+      font: inherit;
+      font-weight: 700;
+    }
+
+    .checkin-save {
+      min-width: 76px;
+      color: #fff8f0;
+      background: linear-gradient(135deg, var(--us-red) 0%, var(--us-red-deep) 100%);
+      border-color: rgba(150, 42, 36, 0.22);
+    }
+
     .record-card {
       min-width: 0;
       padding: 14px;
@@ -1492,6 +1574,9 @@
       .payment-save {
         width: 100%;
       }
+      .checkin-row {
+        grid-template-columns: 1fr;
+      }
       .edit-player-row {
         grid-template-columns: 1fr;
       }
@@ -1533,6 +1618,15 @@
       <h2>Event Snapshot</h2>
       <p id="eventSummary" class="subhead">Load the admin feed to view the Plastered "Open" registration list.</p>
       <div id="statusRow" class="status-row"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Day-Of Check-In</h2>
+      <p class="subhead">Track arrivals, fee collection location, member pricing, team assignment, and check-in notes from one board. Saving a row refreshes every roster and money summary on this page.</p>
+      <div id="checkInSummary" class="status-row"></div>
+      <div id="checkInBoard" class="checkin-board">
+        <div class="empty-card">No check-in data loaded yet.</div>
+      </div>
     </section>
 
     <section class="panel">
@@ -2136,6 +2230,99 @@
         historicalRefunds.totalEntries ? tag(`Refunded: ${historicalRefunds.totalEntries}`, 'refunded') : '',
         tag(`Updated: ${formatDateTime(event && event.updatedAt)}`),
       ].filter(Boolean).join('');
+    }
+
+    function teamNameForMember(member, teamMap) {
+      const team = teamMap.get(String(member && member.teamId || ''));
+      return team && team.name ? team.name : 'No team assigned';
+    }
+
+    function checkInSummary(event) {
+      const members = Array.isArray(event && event.members) ? event.members : [];
+      return members.reduce((summary, member) => {
+        const amount = memberEntryFee(member, event);
+        summary.total += 1;
+        summary.totalDue += amount;
+        if (member && member.checkedIn) summary.arrived += 1;
+        if (member && member.isClubMember) summary.members += 1;
+        else summary.nonMembers += 1;
+        if (String(member && member.feePaidTo || '').trim()) {
+          summary.paid += 1;
+          summary.collected += amount;
+        } else {
+          summary.unpaid += 1;
+          summary.outstanding += amount;
+        }
+        return summary;
+      }, { total: 0, arrived: 0, paid: 0, unpaid: 0, members: 0, nonMembers: 0, collected: 0, outstanding: 0, totalDue: 0 });
+    }
+
+    function renderCheckInBoard(event) {
+      const members = Array.isArray(event && event.members) ? event.members.slice() : [];
+      const teams = Array.isArray(event && event.teams) ? event.teams : [];
+      const teamMap = new Map(teams.map((team) => [String(team && team._id || ''), team]));
+      const summary = checkInSummary(event);
+      const summaryEl = document.getElementById('checkInSummary');
+      const board = document.getElementById('checkInBoard');
+
+      summaryEl.innerHTML = [
+        tag(`Arrived: ${summary.arrived} / ${summary.total}`, summary.total && summary.arrived === summary.total ? 'paid' : (summary.arrived ? 'pending' : 'unpaid')),
+        tag(`Paid: ${summary.paid} / ${summary.total}`, summary.total && summary.paid === summary.total ? 'paid' : (summary.paid ? 'pending' : 'unpaid')),
+        tag(`Collected: ${formatCurrency(summary.collected)}`, summary.collected ? 'paid' : 'unpaid'),
+        tag(`Outstanding: ${formatCurrency(summary.outstanding)}`, summary.outstanding ? 'pending' : 'paid'),
+        tag(`${summary.members} BRS members`),
+        tag(`${summary.nonMembers} non-members`),
+      ].join('');
+
+      if (!members.length) {
+        board.innerHTML = '<div class="empty-card">No active golfers are available for check-in.</div>';
+        return;
+      }
+
+      const teamOptions = teams
+        .filter((team) => String(team && team.status || '').toLowerCase() !== 'cancelled')
+        .map((team) => `<option value="${esc(String(team && team._id || ''))}">${esc(team && team.name || 'Unnamed Team')} (${esc(String(team && team.memberCount || 0))})</option>`)
+        .join('');
+
+      members.sort((left, right) => {
+        const leftTeam = teamNameForMember(left, teamMap);
+        const rightTeam = teamNameForMember(right, teamMap);
+        const teamCompare = leftTeam.localeCompare(rightTeam);
+        if (teamCompare) return teamCompare;
+        return String(left && left.name || '').localeCompare(String(right && right.name || ''));
+      });
+
+      board.innerHTML = members.map((member) => {
+        const memberId = String(member && member._id || '');
+        const teamId = String(member && member.teamId || '');
+        const paid = String(member && member.feePaidTo || '').trim();
+        return `
+          <div class="checkin-row${member && member.checkedIn ? ' is-arrived' : ''}" data-checkin-member-id="${esc(memberId)}">
+            <div class="checkin-person">
+              <strong>${esc(member && member.name || 'Golfer')}</strong>
+              <span class="checkin-meta">${esc(teamNameForMember(member, teamMap))}</span>
+              <span class="checkin-meta">${esc(formatCurrency(memberEntryFee(member, event)))} due${paid ? ` | paid ${feePaidToLabel(paid)}` : ''}</span>
+            </div>
+            <label class="checkin-toggle"><input type="checkbox" data-checkin-arrived${member && member.checkedIn ? ' checked' : ''}> Arrived</label>
+            <select data-checkin-fee-paid-to aria-label="Fee paid location for ${esc(member && member.name || 'golfer')}">
+              ${FEE_PAID_TO_OPTIONS.map((option) => `<option value="${esc(option.value)}"${String(member && member.feePaidTo || '').toLowerCase() === option.value ? ' selected' : ''}>${esc(option.label)}</option>`).join('')}
+            </select>
+            <label class="checkin-toggle"><input type="checkbox" data-checkin-club-member${member && member.isClubMember ? ' checked' : ''}> BRS member</label>
+            <select data-checkin-team-id aria-label="Team assignment for ${esc(member && member.name || 'golfer')}">
+              <option value="">No team</option>
+              ${teamOptions}
+            </select>
+            <input type="text" data-checkin-notes value="${esc(member && member.checkInNotes || '')}" placeholder="Check-in notes">
+            <button type="button" class="checkin-save" data-action="save-checkin">Save</button>
+          </div>
+        `;
+      }).join('');
+
+      board.querySelectorAll('[data-checkin-team-id]').forEach((select) => {
+        const row = select.closest('[data-checkin-member-id]');
+        const member = members.find((item) => String(item && item._id || '') === String(row && row.dataset.checkinMemberId || ''));
+        select.value = String(member && member.teamId || '');
+      });
     }
 
     function timeValue(value) {
@@ -2787,6 +2974,51 @@
       })).filter((entry) => entry.memberId);
     }
 
+    async function saveCheckInRow(row) {
+      if (!row) return;
+      const memberId = String(row.dataset.checkinMemberId || '').trim();
+      if (!currentEventId || !memberId) return;
+      const btn = row.querySelector('[data-action="save-checkin"]');
+      const payload = {
+        checkedIn: Boolean(row.querySelector('[data-checkin-arrived]') && row.querySelector('[data-checkin-arrived]').checked),
+        feePaidTo: String(row.querySelector('[data-checkin-fee-paid-to]') && row.querySelector('[data-checkin-fee-paid-to]').value || '').trim(),
+        isClubMember: Boolean(row.querySelector('[data-checkin-club-member]') && row.querySelector('[data-checkin-club-member]').checked),
+        teamId: String(row.querySelector('[data-checkin-team-id]') && row.querySelector('[data-checkin-team-id]').value || '').trim(),
+        checkInNotes: String(row.querySelector('[data-checkin-notes]') && row.querySelector('[data-checkin-notes]').value || '').trim(),
+      };
+      const original = btn ? btn.textContent : '';
+      if (btn) {
+        btn.disabled = true;
+        btn.textContent = 'Saving...';
+      }
+      try {
+        const response = await api(`/api/outings/admin/events/${encodeURIComponent(currentEventId)}/check-in/${encodeURIComponent(memberId)}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (response && response.event) {
+          currentEventData = response.event;
+          currentEventId = String(response.event._id || currentEventId || '');
+          renderStats(response.event);
+          renderSummary(response.event);
+          renderCheckInBoard(response.event);
+          renderUnifiedRecords(response.event);
+          const name = response.member && response.member.name ? response.member.name : 'golfer';
+          setTopMsg(`Saved check-in for ${name}.`);
+        } else {
+          await loadRoster('Saved check-in row.');
+        }
+      } catch (err) {
+        setTopMsg(err && err.message ? err.message : 'Unable to save check-in row.');
+      } finally {
+        if (btn) {
+          btn.disabled = false;
+          btn.textContent = original;
+        }
+      }
+    }
+
     async function saveTeamEdit(event) {
       event.preventDefault();
       const msg = document.getElementById('teamEditMsg');
@@ -2867,6 +3099,7 @@
           currentEventId = String(payload.event._id || currentEventId || '');
           renderStats(payload.event);
           renderSummary(payload.event);
+          renderCheckInBoard(payload.event);
           renderUnifiedRecords(payload.event);
           setTopMsg(`Deleted team ${teamName}.`);
         } else {
@@ -3127,6 +3360,8 @@
       document.getElementById('statsGrid').innerHTML = '';
       document.getElementById('eventSummary').textContent = 'Load the admin feed to view the Plastered "Open" registration list.';
       document.getElementById('statusRow').innerHTML = '';
+      document.getElementById('checkInSummary').innerHTML = '';
+      document.getElementById('checkInBoard').innerHTML = '<div class="empty-card">No check-in data loaded yet.</div>';
       document.getElementById('recordsSummary').innerHTML = '';
       document.getElementById('paymentSummary').innerHTML = '';
       document.getElementById('recordsList').innerHTML = '<div class="empty-card">No registration data loaded yet.</div>';
@@ -3153,6 +3388,7 @@
         currentEventData = event;
         renderStats(event);
         renderSummary(event);
+        renderCheckInBoard(event);
         renderUnifiedRecords(event);
         setTopMsg(messageOverride || `Loaded ${event.name || 'Plastered "Open"'} registration list.`);
       } catch (err) {
@@ -3253,6 +3489,11 @@
       document.getElementById('recordsSearch').addEventListener('input', (event) => {
         currentRecordSearch = String(event.target && event.target.value || '').trim().toLowerCase();
         if (currentEventData) renderUnifiedRecords(currentEventData);
+      });
+      document.getElementById('checkInBoard').addEventListener('click', async (event) => {
+        const btn = event.target.closest('[data-action="save-checkin"]');
+        if (!btn) return;
+        await saveCheckInRow(btn.closest('[data-checkin-member-id]'));
       });
       document.getElementById('recordsList').addEventListener('click', async (event) => {
         const editBtn = event.target.closest('[data-action="edit-team"]');

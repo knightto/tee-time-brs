@@ -1081,6 +1081,24 @@ async function maybeWriteTeamStatusAudit(models, req, event, team, previousStatu
   });
 }
 
+async function refreshTeamStatusFromRoster(models, event, teamId) {
+  const id = String(teamId || '').trim();
+  if (!id) return null;
+  const team = await models.BlueRidgeTeam.findOne({ _id: id, eventId: event._id });
+  if (!team) return null;
+
+  const teamCount = await models.BlueRidgeTeamMember.countDocuments({ teamId: team._id, status: 'active' });
+  const exact = Number(event.teamSizeExact || 0);
+  const fullThreshold = exact > 0 ? exact : Number(event.teamSizeMax || team.targetSize || 4);
+  const nextStatus = teamCount <= 0 ? 'cancelled' : (teamCount >= fullThreshold ? 'active' : 'incomplete');
+  const previousStatus = String(team.status || '').toLowerCase();
+  if (previousStatus !== nextStatus) {
+    team.status = nextStatus;
+    await team.save();
+  }
+  return { team, previousStatus, nextStatus, teamCount };
+}
+
 router.get('/', async (_req, res) => {
   try {
     if (!(await requireSecondaryConnection(res))) return;
@@ -1846,7 +1864,7 @@ router.put('/admin/events/:eventId/registrations/:registrationId/payment', async
     }
 
     const models = getSecondaryModels();
-    const { BlueRidgeOuting, BlueRidgeRegistration } = models;
+    const { BlueRidgeOuting, BlueRidgeRegistration, BlueRidgeTeamMember } = models;
 
     const event = await BlueRidgeOuting.findById(req.params.eventId);
     if (!event) return res.status(404).json({ error: 'Event not found' });
@@ -1860,6 +1878,28 @@ router.put('/admin/events/:eventId/registrations/:registrationId/payment', async
       { _id: registration._id, eventId: event._id },
       { $set: { paymentStatus } }
     );
+
+    const linkedMembers = await BlueRidgeTeamMember.find({
+      eventId: event._id,
+      registrationId: registration._id,
+      status: 'active',
+    });
+    const memberFeeLocationUpdates = [];
+    for (const member of linkedMembers) {
+      const previousFeePaidTo = normalizeFeePaidTo(member && member.feePaidTo);
+      const nextFeePaidTo = paymentStatus === 'paid'
+        ? (previousFeePaidTo || 'tommy')
+        : (paymentStatus === 'unpaid' || paymentStatus === 'refunded' ? '' : previousFeePaidTo);
+      if (nextFeePaidTo === previousFeePaidTo) continue;
+      member.feePaidTo = nextFeePaidTo;
+      await member.save();
+      memberFeeLocationUpdates.push({
+        memberId: String(member && member._id || ''),
+        name: member && member.name || '',
+        from: previousFeePaidTo,
+        to: nextFeePaidTo,
+      });
+    }
 
     if (previousPaymentStatus !== paymentStatus) {
       await writeOutingAudit(models, {
@@ -1880,6 +1920,7 @@ router.put('/admin/events/:eventId/registrations/:registrationId/payment', async
           from: previousPaymentStatus,
           to: paymentStatus,
           amountDue: registrationAmountDueForAudit(event, registration),
+          memberFeeLocationUpdates,
         },
       });
     }
@@ -1891,6 +1932,109 @@ router.put('/admin/events/:eventId/registrations/:registrationId/payment', async
 
     res.json({ ok: true, registration: refreshed || { _id: registration._id, paymentStatus }, event: detail });
   } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/admin/events/:eventId/check-in/:memberId', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    if (!(await requireSecondaryConnection(res))) return;
+
+    const models = getSecondaryModels();
+    const { BlueRidgeOuting, BlueRidgeRegistration, BlueRidgeTeam, BlueRidgeTeamMember } = models;
+
+    const event = await BlueRidgeOuting.findById(req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+
+    const member = await BlueRidgeTeamMember.findOne({
+      _id: req.params.memberId,
+      eventId: event._id,
+      status: 'active',
+    });
+    if (!member) return res.status(404).json({ error: 'Golfer not found' });
+
+    const previous = member.toObject ? member.toObject() : { ...member };
+    const previousTeamId = String(member.teamId || '').trim();
+    const nextTeamId = String(req.body && req.body.teamId !== undefined ? req.body.teamId : previousTeamId).trim();
+    let nextTeam = null;
+
+    if (nextTeamId) {
+      nextTeam = await BlueRidgeTeam.findOne({
+        _id: nextTeamId,
+        eventId: event._id,
+        status: { $in: ['active', 'incomplete'] },
+      });
+      if (!nextTeam) return badRequest(res, 'Selected team is not available');
+
+      if (nextTeamId !== previousTeamId) {
+        const currentCount = await BlueRidgeTeamMember.countDocuments({ eventId: event._id, teamId: nextTeam._id, status: 'active' });
+        const exact = Number(event.teamSizeExact || 0);
+        const maxSize = exact > 0 ? exact : Number(event.teamSizeMax || nextTeam.targetSize || 4);
+        if (currentCount >= maxSize) return badRequest(res, 'Selected team is already full');
+      }
+    }
+
+    const checkedIn = parseBool(req.body && req.body.checkedIn, Boolean(member.checkedIn));
+    member.checkedIn = checkedIn;
+    member.checkedInAt = checkedIn ? (member.checkedInAt || new Date()) : undefined;
+    member.feePaidTo = normalizeFeePaidTo(req.body && req.body.feePaidTo);
+    member.isClubMember = parseBool(req.body && req.body.isClubMember, Boolean(member.isClubMember));
+    member.checkInNotes = String(req.body && req.body.checkInNotes || '').trim().slice(0, 1000);
+    if (nextTeamId && nextTeamId !== previousTeamId) member.teamId = nextTeamId;
+    await member.save();
+
+    if (nextTeamId && nextTeamId !== previousTeamId && member.registrationId) {
+      await BlueRidgeRegistration.updateOne(
+        { _id: member.registrationId, eventId: event._id },
+        { $set: { teamId: nextTeamId } }
+      );
+    }
+
+    const touchedTeamIds = [...new Set([previousTeamId, nextTeamId].filter(Boolean))];
+    const teamStatusUpdates = [];
+    for (const teamId of touchedTeamIds) {
+      const update = await refreshTeamStatusFromRoster(models, event, teamId);
+      if (update) {
+        teamStatusUpdates.push({
+          teamId: String(update.team && update.team._id || teamId),
+          teamName: update.team && update.team.name || '',
+          from: update.previousStatus,
+          to: update.nextStatus,
+          activePlayerCount: update.teamCount,
+        });
+      }
+    }
+
+    await writeOutingAudit(models, {
+      outingId: event._id,
+      category: 'player',
+      action: 'player_check_in_updated',
+      actor: auditActor(req),
+      method: req.method,
+      route: routePath(req),
+      summary: `Check-in updated for ${member.name || 'golfer'}`,
+      details: {
+        memberId: String(member && member._id || ''),
+        name: member && member.name || '',
+        checkedIn: { from: Boolean(previous.checkedIn), to: Boolean(member.checkedIn) },
+        feePaidTo: { from: normalizeFeePaidTo(previous.feePaidTo), to: normalizeFeePaidTo(member.feePaidTo) },
+        isClubMember: { from: Boolean(previous.isClubMember), to: Boolean(member.isClubMember) },
+        teamId: { from: previousTeamId, to: String(member.teamId || '') },
+        checkInNotes: member.checkInNotes || '',
+        teamStatusUpdates,
+      },
+    });
+
+    const detail = await buildEventDetail(event, models, true);
+    const refreshed = Array.isArray(detail.members)
+      ? detail.members.find((entry) => String(entry && entry._id || '') === String(member._id))
+      : null;
+    res.json({ ok: true, member: refreshed || member, event: detail });
+  } catch (err) {
+    if (err && err.code === 11000) {
+      return res.status(409).json({ error: 'Check-in update would duplicate an existing golfer' });
+    }
     res.status(500).json({ error: err.message });
   }
 });

@@ -17,6 +17,9 @@ const BlueRidgeTeamMemberSchema = new mongoose.Schema(
     handicapIndex: { type: Number },
     isCaptain: { type: Boolean, default: false },
     feePaidTo: { type: String, enum: FeePaidTo, default: '' },
+    checkedIn: { type: Boolean, default: false },
+    checkedInAt: { type: Date },
+    checkInNotes: { type: String, trim: true, maxlength: 1000 },
     status: { type: String, enum: TeamMemberStatus, default: 'active', index: true },
   },
   { timestamps: true }

@@ -879,8 +879,8 @@ async function main() {
           assert.ok(recordText.includes('Original full-team note'), 'Unified team card should include the registration note');
 
           const paymentSummaryBefore = normalizeText(await evaluate(adminSend, `document.getElementById('paymentSummary')?.innerText || ''`));
-          assert.ok(paymentSummaryBefore.includes('Paid entries: 0 / 1'), 'Payment snapshot should start with no paid entries');
-          assert.ok(paymentSummaryBefore.includes('Outstanding: $170'), 'Payment snapshot should show the outstanding amount');
+          assert.ok(paymentSummaryBefore.includes('Paid entries: 0 / 2'), 'Payment snapshot should start with no paid player fees');
+          assert.ok(paymentSummaryBefore.includes('Outstanding: $180'), 'Payment snapshot should show the outstanding amount');
 
           await evaluate(adminSend, `(() => {
             const details = document.querySelector('#recordsList [data-record-kind="team"] .record-details');
@@ -900,12 +900,13 @@ async function main() {
             const summary = document.getElementById('paymentSummary');
             const feeValue = document.querySelector('#recordsList [data-record-kind="team"] .record-card-fact.payment strong');
             return topMsg && /Saved Paid/i.test(topMsg.textContent || '')
-              && summary && /Collected: \\$170/i.test(summary.textContent || '')
+              && summary && /Collected: \\$180/i.test(summary.textContent || '')
               && feeValue && /Yes for both/i.test(feeValue.textContent || '');
           })()`, 20000);
         });
 
         assert.strictEqual(state.registrations[0].paymentStatus, 'paid', 'Payment panel should persist the paid status');
+        assert.strictEqual(state.members.filter((member) => member.feePaidTo).length, 2, 'Payment panel should mark both player fees collected');
 
         await evaluate(send, `(() => {
           document.getElementById('manageSignupBtn').click();
