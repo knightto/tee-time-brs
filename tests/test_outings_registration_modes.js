@@ -25,6 +25,13 @@ function matches(doc, filter = {}) {
       if (Object.prototype.hasOwnProperty.call(expected, '$in')) {
         return expected.$in.some((item) => sameValue(actual, item));
       }
+      if (Object.prototype.hasOwnProperty.call(expected, '$gte')) {
+        if (new Date(actual).getTime() < new Date(expected.$gte).getTime()) return false;
+      }
+      if (Object.prototype.hasOwnProperty.call(expected, '$lt')) {
+        if (new Date(actual).getTime() >= new Date(expected.$lt).getTime()) return false;
+      }
+      return true;
     }
     return sameValue(actual, expected);
   });
@@ -149,7 +156,7 @@ function wrapStoredDoc(collection, doc) {
   return wrapped;
 }
 
-function createModels({ event, teams = [], members = [], registrations = [], waitlist = [], ledgerEntries = [], mailingContacts = [], messages = [] }) {
+function createModels({ event, teams = [], members = [], registrations = [], waitlist = [], ledgerEntries = [], mailingContacts = [], messages = [], audits = [] }) {
   const nextTeamId = buildDocFactory('7');
   const nextRegistrationId = buildDocFactory('8');
   const nextMemberId = buildDocFactory('9');
@@ -168,7 +175,7 @@ function createModels({ event, teams = [], members = [], registrations = [], wai
     ledgerEntries: createModelStore(ledgerEntries),
     mailingContacts: createModelStore(mailingContacts),
     messages: createModelStore(messages),
-    audits: createModelStore([]),
+    audits: createModelStore(audits),
   };
 
   function first(collection, filter) {
@@ -910,6 +917,83 @@ async function assertAuditTrail() {
   });
 }
 
+async function assertAuditChangeReport() {
+  const event = buildEvent({ entryFee: 90 });
+  const today = '2026-06-19';
+  const { models } = createModels({
+    event,
+    audits: [{
+      _id: 'a17f191e810c19729de86001',
+      outingId: event._id,
+      category: 'team',
+      action: 'team_roster_admin_updated',
+      actor: 'admin',
+      method: 'PUT',
+      route: '/api/outings/admin/events/team',
+      summary: 'Team updated: Report Team',
+      details: { teamName: 'Report Team', activePlayerCount: 2 },
+      timestamp: `${today}T13:00:00.000Z`,
+    }, {
+      _id: 'a17f191e810c19729de86002',
+      outingId: event._id,
+      category: 'money',
+      action: 'payment_status_updated',
+      actor: 'admin',
+      method: 'PUT',
+      route: '/api/outings/admin/events/payment',
+      summary: 'Payment updated for Pay Pat',
+      details: { submittedByName: 'Pay Pat', from: 'unpaid', to: 'paid', amountDue: 90 },
+      timestamp: `${today}T14:00:00.000Z`,
+    }, {
+      _id: 'a17f191e810c19729de86003',
+      outingId: event._id,
+      category: 'player',
+      action: 'player_check_in_updated',
+      actor: 'admin',
+      method: 'PUT',
+      route: '/api/outings/admin/events/check-in',
+      summary: 'Check-in updated for Check Chuck',
+      details: { name: 'Check Chuck', feePaidTo: { from: '', to: 'tommy' } },
+      timestamp: `${today}T15:00:00.000Z`,
+    }, {
+      _id: 'a17f191e810c19729de86004',
+      outingId: event._id,
+      category: 'money',
+      action: 'fee_planning_updated',
+      actor: 'admin',
+      method: 'PUT',
+      route: '/api/outings/admin/events/planning',
+      summary: 'Payout and raffle planning updated for Plastered Open',
+      details: {},
+      timestamp: `${today}T16:00:00.000Z`,
+    }, {
+      _id: 'a17f191e810c19729de86005',
+      outingId: event._id,
+      category: 'team',
+      action: 'team_admin_deleted',
+      actor: 'admin',
+      method: 'DELETE',
+      route: '/api/outings/admin/events/team',
+      summary: 'Old team deleted',
+      details: { teamName: 'Old Team' },
+      timestamp: '2026-06-18T16:00:00.000Z',
+    }],
+  });
+
+  await withRouter(models, async (baseUrl) => {
+    const result = await jsonRequest(baseUrl, `/admin/events/${event._id}/audit-report?code=2000&date=${today}`);
+    assert.strictEqual(result.response.status, 200, 'Audit change report should load');
+    assert.strictEqual(result.payload.totalChanges, 4, 'Audit change report should include only the requested date');
+    const sectionCounts = Object.fromEntries(result.payload.sections.map((section) => [section.key, section.count]));
+    assert.strictEqual(sectionCounts.teams, 1, 'Audit change report should group team changes');
+    assert.strictEqual(sectionCounts.payments, 1, 'Audit change report should group payment changes');
+    assert.strictEqual(sectionCounts.checkins, 1, 'Audit change report should group check-in changes');
+    assert.strictEqual(sectionCounts.payouts, 1, 'Audit change report should group payout changes');
+    const paymentRow = result.payload.sections.find((section) => section.key === 'payments').rows[0];
+    assert.ok(/Amount: \$90/i.test(paymentRow.detailLine), 'Audit change report should expose readable payment details');
+  });
+}
+
 async function assertAdminEventUpdateAudit() {
   const event = buildEvent({ entryFee: 90, registrationNotes: 'Original note' });
   const { state, models } = createModels({ event });
@@ -1568,6 +1652,7 @@ async function run() {
   await assertAdminCheckInUpdate();
   await assertAdminPaymentUpdateValidation();
   await assertAuditTrail();
+  await assertAuditChangeReport();
   await assertAdminEventUpdateAudit();
   await assertKegSponsorshipFlow();
   await assertActiveTeamDeleteRemovesRecords();

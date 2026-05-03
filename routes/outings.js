@@ -983,6 +983,93 @@ function buildAuditChangeSet(previousDoc, nextDoc, keys = []) {
   }, {});
 }
 
+function auditReportDateRange(value) {
+  const dateKey = dateOnlyKey(value || new Date());
+  const start = new Date(`${dateKey}T00:00:00.000Z`);
+  const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);
+  return { dateKey, start, end };
+}
+
+function auditReportSection(row = {}) {
+  const action = String(row.action || '').toLowerCase();
+  const category = String(row.category || '').toLowerCase();
+  if (action.includes('check_in')) return 'checkins';
+  if (category === 'team' || action.includes('team') || action.includes('players_removed')) return 'teams';
+  if (category === 'money' && (action.includes('payment') || action.includes('fee_ledger') || action.includes('fee_schedule'))) return 'payments';
+  if (category === 'money' && (action.includes('planning') || action.includes('payout') || action.includes('prize'))) return 'payouts';
+  if (category === 'registration' || action.includes('registration')) return 'registrations';
+  if (category === 'waitlist') return 'waitlist';
+  return 'other';
+}
+
+function auditReportDetailLine(details = {}) {
+  const pieces = [];
+  if (details.teamName) pieces.push(`Team: ${details.teamName}`);
+  if (details.name) pieces.push(`Golfer: ${details.name}`);
+  if (details.submittedByName) pieces.push(`Submitted by: ${details.submittedByName}`);
+  if (details.from !== undefined || details.to !== undefined) {
+    pieces.push(`${details.from || 'none'} -> ${details.to || 'none'}`);
+  }
+  if (details.amountDue !== undefined) pieces.push(`Amount: ${formatMoney(details.amountDue)}`);
+  if (details.activePlayerCount !== undefined) pieces.push(`Active players: ${details.activePlayerCount}`);
+  if (Array.isArray(details.addedPlayers) && details.addedPlayers.length) {
+    pieces.push(`Added: ${details.addedPlayers.map((player) => player.name || player.email).filter(Boolean).join(', ')}`);
+  }
+  if (Array.isArray(details.removedPlayers) && details.removedPlayers.length) {
+    pieces.push(`Removed: ${details.removedPlayers.map((player) => player.name || player.email).filter(Boolean).join(', ')}`);
+  }
+  if (Array.isArray(details.feeLocationUpdates) && details.feeLocationUpdates.length) {
+    pieces.push(`Fee updates: ${details.feeLocationUpdates.map((item) => `${item.name || 'golfer'} ${item.from || 'none'} -> ${item.to || 'none'}`).join(', ')}`);
+  }
+  if (Array.isArray(details.teamStatusUpdates) && details.teamStatusUpdates.length) {
+    pieces.push(`Team status: ${details.teamStatusUpdates.map((item) => `${item.teamName || 'team'} ${item.from || 'none'} -> ${item.to || 'none'}`).join(', ')}`);
+  }
+  return pieces.join(' | ');
+}
+
+function buildAuditChangeReport(event, rows = [], dateKey = '') {
+  const sectionDefs = [
+    { key: 'teams', label: 'Teams And Rosters' },
+    { key: 'payments', label: 'Payments And Fees' },
+    { key: 'checkins', label: 'Check-Ins' },
+    { key: 'payouts', label: 'Payouts And Prize Planning' },
+    { key: 'registrations', label: 'Registrations' },
+    { key: 'waitlist', label: 'Waitlist' },
+    { key: 'other', label: 'Other Changes' },
+  ];
+  const grouped = sectionDefs.reduce((out, section) => {
+    out[section.key] = [];
+    return out;
+  }, {});
+  (Array.isArray(rows) ? rows : []).forEach((row) => {
+    const key = auditReportSection(row);
+    const details = row && row.details && typeof row.details === 'object' ? row.details : {};
+    grouped[key].push({
+      _id: row._id,
+      timestamp: row.timestamp,
+      timeLabel: row.timestamp ? new Date(row.timestamp).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '',
+      category: row.category || 'event',
+      action: row.action || '',
+      actor: row.actor || '',
+      summary: row.summary || row.action || 'Change recorded',
+      detailLine: auditReportDetailLine(details),
+      details,
+    });
+  });
+  const sections = sectionDefs.map((section) => ({
+    ...section,
+    count: grouped[section.key].length,
+    rows: grouped[section.key],
+  }));
+  return {
+    eventId: String(event && event._id || ''),
+    eventName: event && event.name || '',
+    date: dateKey,
+    totalChanges: sections.reduce((sum, section) => sum + section.count, 0),
+    sections,
+  };
+}
+
 async function writeOutingAudit(models, payload = {}) {
   const BlueRidgeOutingAuditLog = models && models.BlueRidgeOutingAuditLog;
   if (!BlueRidgeOutingAuditLog || !payload.outingId || !payload.action) return null;
@@ -3001,6 +3088,27 @@ router.get('/admin/events/:eventId/audit-log', async (req, res) => {
       count: auditRows.length,
       rows: auditRows,
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/admin/events/:eventId/audit-report', async (req, res) => {
+  try {
+    if (!isAdmin(req)) return res.status(403).json({ error: 'Admin code required' });
+    if (!(await requireSecondaryConnection(res))) return;
+
+    const models = getSecondaryModels();
+    const event = await models.BlueRidgeOuting.findById(req.params.eventId);
+    if (!event) return res.status(404).json({ error: 'Event not found' });
+
+    const { dateKey, start, end } = auditReportDateRange(req.query.date || new Date());
+    const rows = await models.BlueRidgeOutingAuditLog.find({
+      outingId: event._id,
+      timestamp: { $gte: start, $lt: end },
+    }).sort({ timestamp: -1 }).lean();
+
+    res.json(buildAuditChangeReport(event, rows, dateKey));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

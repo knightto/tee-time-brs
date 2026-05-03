@@ -378,6 +378,79 @@
       text-align: center;
     }
 
+    .report-controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .report-date {
+      min-height: 40px;
+      padding: 9px 12px;
+      border-radius: 12px;
+      border: 1px solid rgba(21, 28, 39, 0.12);
+      background: #fffdf8;
+      color: var(--ink);
+      font: inherit;
+      font-weight: 700;
+    }
+
+    .report-section {
+      display: grid;
+      gap: 9px;
+      padding: 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(21, 28, 39, 0.08);
+      background: #fffbf4;
+    }
+
+    .report-section h3 {
+      margin: 0;
+      color: var(--navy);
+      font-size: 1rem;
+    }
+
+    .report-row {
+      display: grid;
+      gap: 4px;
+      padding: 9px 10px;
+      border-radius: 12px;
+      border: 1px solid rgba(21, 28, 39, 0.07);
+      background: rgba(255, 255, 255, 0.86);
+    }
+
+    .report-row strong {
+      color: var(--ink);
+      overflow-wrap: anywhere;
+    }
+
+    .report-row span {
+      color: var(--ink-soft);
+      line-height: 1.32;
+    }
+
+    @media print {
+      body { background: #fff; color: #000; }
+      .hero, .panel, .admin-code-dialog, .team-edit-dialog, .audit-dialog:not([data-printing="report"]) { display: none !important; }
+      .audit-dialog[data-printing="report"] {
+        display: block !important;
+        position: static;
+        width: auto;
+        max-height: none;
+      }
+      .audit-dialog[data-printing="report"] .audit-dialog-card {
+        box-shadow: none;
+        border: 0;
+        background: #fff;
+        color: #000;
+        max-height: none;
+      }
+      .audit-dialog[data-printing="report"] .dialog-actions,
+      .audit-dialog[data-printing="report"] #closeReportBtn { display: none !important; }
+      .audit-list { max-height: none; overflow: visible; }
+    }
+
     .team-edit-form {
       display: grid;
       gap: 14px;
@@ -1604,6 +1677,7 @@
         <div class="toolbar-group">
           <button id="updateInfoBtn" type="button" class="primary">Update Info</button>
           <button id="viewAuditBtn" type="button" class="secondary">View Audit</button>
+          <button id="changeReportBtn" type="button" class="secondary">Change Report</button>
         </div>
         <div class="toolbar-group">
           <a id="rawJsonLink" class="action-link secondary" href="/api/outings/admin/events" target="_blank" rel="noopener noreferrer">Open Raw Admin JSON</a>
@@ -1677,6 +1751,27 @@
       <div id="auditSummary" class="audit-summary"></div>
       <div id="auditList" class="audit-list">
         <div class="audit-empty">No audit entries loaded yet.</div>
+      </div>
+    </div>
+  </dialog>
+
+  <dialog id="reportDialog" class="audit-dialog">
+    <div class="audit-dialog-card">
+      <div class="audit-header">
+        <div>
+          <h2>Change Report</h2>
+          <p id="reportStatus" class="dialog-copy">Loading report...</p>
+        </div>
+        <button id="closeReportBtn" type="button" class="secondary">Close</button>
+      </div>
+      <div class="report-controls">
+        <input id="reportDate" class="report-date" type="date">
+        <button id="loadReportBtn" type="button" class="secondary">Load Date</button>
+        <button id="printReportBtn" type="button" class="primary">Print Report</button>
+      </div>
+      <div id="reportSummary" class="audit-summary"></div>
+      <div id="reportList" class="audit-list">
+        <div class="audit-empty">No report loaded yet.</div>
       </div>
     </div>
   </dialog>
@@ -1764,6 +1859,13 @@
       const dialog = document.getElementById('auditDialog');
       if (dialog && dialog.open && typeof dialog.close === 'function') dialog.close();
       else if (dialog) dialog.removeAttribute('open');
+    }
+
+    function closeReportDialog() {
+      const dialog = document.getElementById('reportDialog');
+      if (dialog && dialog.open && typeof dialog.close === 'function') dialog.close();
+      else if (dialog) dialog.removeAttribute('open');
+      if (dialog) dialog.removeAttribute('data-printing');
     }
 
     function closeTeamEditDialog() {
@@ -2844,6 +2946,60 @@
       }).join('');
     }
 
+    function renderReportSections(sections) {
+      const list = document.getElementById('reportList');
+      const entries = Array.isArray(sections) ? sections : [];
+      const visible = entries.filter((section) => Number(section && section.count || 0) > 0);
+      if (!visible.length) {
+        list.innerHTML = '<div class="audit-empty">No changes were recorded for this date.</div>';
+        return;
+      }
+      list.innerHTML = visible.map((section) => `
+        <section class="report-section">
+          <h3>${esc(section.label || 'Changes')} (${esc(section.count || 0)})</h3>
+          ${(Array.isArray(section.rows) ? section.rows : []).map((row) => `
+            <div class="report-row">
+              <strong>${esc(row.timeLabel ? `${row.timeLabel} - ${row.summary || 'Change recorded'}` : row.summary || 'Change recorded')}</strong>
+              <span>${esc(row.detailLine || row.action || '')}</span>
+            </div>
+          `).join('')}
+        </section>
+      `).join('');
+    }
+
+    async function openChangeReportDialog(dateOverride = '') {
+      if (!currentEventId) {
+        setTopMsg('Load the registration list before opening the change report.');
+        return;
+      }
+      const dialog = document.getElementById('reportDialog');
+      const status = document.getElementById('reportStatus');
+      const summary = document.getElementById('reportSummary');
+      const list = document.getElementById('reportList');
+      const dateInput = document.getElementById('reportDate');
+      const dateValue = dateOverride || dateInput.value || new Date().toISOString().slice(0, 10);
+      dateInput.value = dateValue;
+      status.textContent = 'Loading change report...';
+      summary.innerHTML = '';
+      list.innerHTML = '<div class="audit-empty">Loading report...</div>';
+      if (dialog && typeof dialog.showModal === 'function' && !dialog.open) dialog.showModal();
+      else if (dialog) dialog.setAttribute('open', 'open');
+
+      try {
+        const payload = await api(`/api/outings/admin/events/${encodeURIComponent(currentEventId)}/audit-report?date=${encodeURIComponent(dateValue)}`);
+        const sections = Array.isArray(payload && payload.sections) ? payload.sections : [];
+        status.textContent = `${payload && payload.eventName ? payload.eventName : 'Outing'} changes for ${payload && payload.date ? payload.date : dateValue}.`;
+        summary.innerHTML = [
+          tag(`${payload && payload.totalChanges || 0} total changes`),
+          ...sections.filter((section) => Number(section && section.count || 0) > 0).map((section) => tag(`${section.count} ${section.label}`)),
+        ].join('');
+        renderReportSections(sections);
+      } catch (err) {
+        status.textContent = err && err.message ? err.message : 'Failed to load change report.';
+        list.innerHTML = '<div class="audit-empty">Failed to load change report.</div>';
+      }
+    }
+
     async function openAuditDialog() {
       if (!currentEventId) {
         setTopMsg('Load the registration list before opening the audit.');
@@ -3406,6 +3562,10 @@
       const adminCodeDialogCancel = document.getElementById('adminCodeDialogCancel');
       const auditDialog = document.getElementById('auditDialog');
       const closeAuditBtn = document.getElementById('closeAuditBtn');
+      const reportDialog = document.getElementById('reportDialog');
+      const closeReportBtn = document.getElementById('closeReportBtn');
+      const loadReportBtn = document.getElementById('loadReportBtn');
+      const printReportBtn = document.getElementById('printReportBtn');
       const teamEditDialog = document.getElementById('teamEditDialog');
       const teamEditForm = document.getElementById('teamEditForm');
       const closeTeamEditBtn = document.getElementById('closeTeamEditBtn');
@@ -3432,6 +3592,25 @@
         auditDialog.addEventListener('cancel', (event) => {
           event.preventDefault();
           closeAuditDialog();
+        });
+      }
+      if (closeReportBtn) closeReportBtn.addEventListener('click', () => closeReportDialog());
+      if (loadReportBtn) {
+        loadReportBtn.addEventListener('click', () => openChangeReportDialog(document.getElementById('reportDate').value));
+      }
+      if (printReportBtn) {
+        printReportBtn.addEventListener('click', () => {
+          if (reportDialog) reportDialog.setAttribute('data-printing', 'report');
+          window.print();
+          setTimeout(() => {
+            if (reportDialog) reportDialog.removeAttribute('data-printing');
+          }, 250);
+        });
+      }
+      if (reportDialog) {
+        reportDialog.addEventListener('cancel', (event) => {
+          event.preventDefault();
+          closeReportDialog();
         });
       }
       if (teamEditForm) teamEditForm.addEventListener('submit', saveTeamEdit);
@@ -3475,6 +3654,20 @@
           if (!currentEventId) return;
         }
         await openAuditDialog();
+      });
+      document.getElementById('changeReportBtn').addEventListener('click', async () => {
+        if (!getCode()) {
+          const loaded = await promptForAdminCodeAndLoad({
+            message: 'Enter the outings admin code to open today\'s change report.',
+            submitLabel: 'View Report',
+            clearOnCancel: false,
+          });
+          if (!loaded) return;
+        } else if (!currentEventId) {
+          await loadRoster();
+          if (!currentEventId) return;
+        }
+        await openChangeReportDialog();
       });
       const recordsFilters = document.getElementById('recordsFilters');
       recordsFilters.addEventListener('click', (event) => {
