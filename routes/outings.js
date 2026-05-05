@@ -2380,9 +2380,11 @@ router.put('/admin/events/:eventId/teams/:teamId', async (req, res) => {
     const memberUpdates = Array.isArray(req.body && req.body.memberUpdates)
       ? req.body.memberUpdates.map((entry) => ({
         memberId: String(entry && entry.memberId || '').trim(),
+        name: String(entry && entry.name || '').trim(),
         email: normalizeEmail(entry && entry.email || ''),
         phone: String(entry && entry.phone || '').trim(),
         isClubMember: Boolean(entry && entry.isClubMember),
+        isGuest: Boolean(entry && entry.isGuest),
       })).filter((entry) => entry.memberId)
       : [];
 
@@ -2396,6 +2398,7 @@ router.put('/admin/events/:eventId/teams/:teamId', async (req, res) => {
 
     const contactUpdates = [];
     for (const entry of memberUpdates) {
+      if (!entry.name) return badRequest(res, 'Team member name is required');
       if (!entry.email) return badRequest(res, 'Team member email is required');
       const member = await BlueRidgeTeamMember.findOne({
         _id: entry.memberId,
@@ -2405,9 +2408,11 @@ router.put('/admin/events/:eventId/teams/:teamId', async (req, res) => {
       });
       if (!member) continue;
 
+      const previousName = String(member.name || '').trim();
       const previousEmail = normalizeEmail(member.emailKey || member.email || '');
       const previousPhone = String(member.phone || '').trim();
       const previousIsClubMember = Boolean(member.isClubMember);
+      const previousIsGuest = Boolean(member.isGuest);
       if (entry.email !== previousEmail) {
         const duplicate = await BlueRidgeTeamMember.findOne({
           eventId: event._id,
@@ -2419,18 +2424,49 @@ router.put('/admin/events/:eventId/teams/:teamId', async (req, res) => {
         }
       }
 
-      if (entry.email === previousEmail && entry.phone === previousPhone && entry.isClubMember === previousIsClubMember) continue;
+      if (
+        entry.name === previousName
+        && entry.email === previousEmail
+        && entry.phone === previousPhone
+        && entry.isClubMember === previousIsClubMember
+        && entry.isGuest === previousIsGuest
+      ) continue;
+      const previousMember = member.toObject ? member.toObject() : { ...member };
+      member.name = entry.name;
       member.email = entry.email;
       member.emailKey = entry.email;
       member.phone = entry.phone;
       member.isClubMember = entry.isClubMember;
+      member.isGuest = entry.isGuest;
       await member.save();
+
+      let registrationUpdated = false;
+      if (member.registrationId) {
+        const registration = await BlueRidgeRegistration.findOne({
+          _id: member.registrationId,
+          eventId: event._id,
+          status: 'registered',
+        });
+        if (registration) {
+          const registrationEmail = normalizeEmail(registration.submittedByEmail || '');
+          const shouldSyncRegistration = Boolean(member.isCaptain)
+            || registrationEmail === previousEmail
+            || (String(registration.submittedByName || '').trim() === previousName && !registrationEmail);
+          if (shouldSyncRegistration) {
+            registration.submittedByName = entry.name;
+            registration.submittedByEmail = entry.email;
+            registration.submittedByPhone = entry.phone;
+            await registration.save();
+            registrationUpdated = true;
+          }
+        }
+      }
+
       contactUpdates.push({
         memberId: String(member && member._id || ''),
         name: member && member.name || '',
-        email: { from: previousEmail, to: entry.email },
-        phone: { from: previousPhone, to: entry.phone },
-        isClubMember: { from: previousIsClubMember, to: entry.isClubMember },
+        changedFields: buildAuditChangeSet(previousMember, member, ['name', 'email', 'phone', 'isGuest', 'isClubMember']),
+        registrationUpdated,
       });
     }
 

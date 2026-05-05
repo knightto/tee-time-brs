@@ -543,15 +543,35 @@
 
     .member-contact-edit-grid {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(120px, 0.7fr);
+      grid-template-columns: minmax(160px, 1fr) minmax(180px, 1fr) minmax(120px, 0.7fr);
       gap: 8px;
       align-items: end;
     }
 
-    .remove-member-row input {
+    .remove-member-check {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 22px;
+      color: var(--us-red-deep);
+      font-size: 0.74rem;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0;
+    }
+
+    .remove-member-check input {
       width: 18px;
       height: 18px;
-      margin-top: 1px;
+      margin: 0;
+      accent-color: var(--us-red);
+    }
+
+    .checkbox-field input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+      margin: 0;
       accent-color: var(--us-red);
     }
 
@@ -1214,6 +1234,72 @@
       color: var(--ink);
     }
 
+    .expandable-panel {
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .expandable-panel > summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      padding: 24px;
+      cursor: pointer;
+      list-style: none;
+    }
+
+    .expandable-panel > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .panel-summary-copy {
+      min-width: 0;
+      display: grid;
+      gap: 8px;
+    }
+
+    .panel-summary-title {
+      color: var(--navy);
+      font-size: clamp(1.35rem, 2vw, 2rem);
+      font-family: "Georgia", serif;
+      font-weight: 900;
+      line-height: 1.05;
+    }
+
+    .panel-summary-subhead {
+      max-width: 860px;
+      color: var(--ink-soft);
+      line-height: 1.45;
+    }
+
+    .panel-summary-action {
+      flex: 0 0 auto;
+      min-width: 86px;
+      padding: 9px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(21, 28, 39, 0.1);
+      background: #fffdf8;
+      color: var(--navy);
+      font-size: 0.78rem;
+      font-weight: 900;
+      letter-spacing: 0.06em;
+      text-align: center;
+      text-transform: uppercase;
+    }
+
+    .panel-summary-action::before {
+      content: "Open";
+    }
+
+    .expandable-panel[open] .panel-summary-action::before {
+      content: "Close";
+    }
+
+    .expandable-panel-body {
+      padding: 0 24px 24px;
+    }
+
     .records-grid {
       margin-top: 16px;
       display: grid;
@@ -1577,6 +1663,13 @@
       .records-controls {
         justify-content: flex-start;
       }
+      .expandable-panel > summary {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .panel-summary-action {
+        align-self: flex-start;
+      }
       .records-search {
         width: 100%;
         min-width: 0;
@@ -1694,14 +1787,21 @@
       <div id="statusRow" class="status-row"></div>
     </section>
 
-    <section class="panel">
-      <h2>Day-Of Check-In</h2>
-      <p class="subhead">Track arrivals, fee collection location, member pricing, team assignment, and check-in notes from one board. Saving a row refreshes every roster and money summary on this page.</p>
-      <div id="checkInSummary" class="status-row"></div>
-      <div id="checkInBoard" class="checkin-board">
-        <div class="empty-card">No check-in data loaded yet.</div>
+    <details class="panel expandable-panel" id="checkInPanel">
+      <summary>
+        <span class="panel-summary-copy">
+          <span class="panel-summary-title">Day-Of Check-In</span>
+          <span class="panel-summary-subhead">Track arrivals, fee collection location, member pricing, team assignment, and check-in notes from one board. Saving a row refreshes every roster and money summary on this page.</span>
+        </span>
+        <span class="panel-summary-action" aria-hidden="true"></span>
+      </summary>
+      <div class="expandable-panel-body">
+        <div id="checkInSummary" class="status-row"></div>
+        <div id="checkInBoard" class="checkin-board">
+          <div class="empty-card">No check-in data loaded yet.</div>
+        </div>
       </div>
-    </section>
+    </details>
 
     <section class="panel">
       <h2>Unified Roster</h2>
@@ -2769,7 +2869,7 @@
                   <div class="record-card-preview">${esc(record.preview || 'No golfers listed')}</div>
                 </div>
                 <div class="record-card-head-right">
-                  <button type="button" class="payment-save" data-action="edit-team" data-record-key="${esc(record.key)}">Edit</button>
+                  <button type="button" class="payment-save" data-action="edit-team" data-record-key="${esc(record.key)}">Edit Team / Golfers</button>
                   <span class="team-status-dot ${esc(recordStatusDotClass(record.status))}" aria-label="Status: ${esc(record.status || 'active')}" title="${esc(record.status || 'active')}"></span>
                 </div>
               </div>
@@ -2803,7 +2903,10 @@
                 <summary>Open team details</summary>
                 <div class="record-detail-grid">
                   <section class="record-section">
-                    <h4>Golfers</h4>
+                    <div class="audit-header">
+                      <h4>Golfers</h4>
+                      <button type="button" class="payment-save" data-action="edit-team" data-record-key="${esc(record.key)}">Edit Names / Players</button>
+                    </div>
                     ${renderPeopleList(members, { event, registrations: record.registrations })}
                   </section>
                   <section class="record-section">
@@ -3087,14 +3190,18 @@
             const payment = memberPaymentBadge(member, record.registrations, currentEventData);
             return `
               <div class="remove-member-row" data-team-edit-member-row data-member-id="${esc(String(member && member._id || ''))}">
-                <input type="checkbox" value="${esc(String(member && member._id || ''))}" data-team-edit-remove-member>
+                <label class="remove-member-check">
+                  <input type="checkbox" value="${esc(String(member && member._id || ''))}" data-team-edit-remove-member>
+                  Remove
+                </label>
                 <span class="remove-member-row-main">
-                  <strong>${esc(member && member.name || 'Golfer')}</strong>
                   <span class="member-contact-edit-grid">
+                    <label class="field">Name<input type="text" value="${esc(member && member.name || '')}" data-team-edit-member-name></label>
                     <label class="field">Email<input type="email" value="${esc(member && member.email || '')}" data-team-edit-member-email></label>
                     <label class="field">Phone<input type="text" value="${esc(member && member.phone || '')}" data-team-edit-member-phone></label>
                   </span>
                   <label class="field checkbox-field"><input type="checkbox" data-team-edit-member-club-member${member && member.isClubMember ? ' checked' : ''}> BRS member ($45)</label>
+                  <label class="field checkbox-field"><input type="checkbox" data-team-edit-member-guest${member && member.isGuest ? ' checked' : ''}> Guest</label>
                   ${payment.warning ? `<span class="person-payment-warning">${esc(payment.text)} - this golfer is not marked paid.</span>` : `<span class="record-muted">${esc(payment.text)}</span>`}
                   <span class="member-fee-location">Fee paid: ${esc(feePaidToLabel(member && member.feePaidTo))}</span>
                   <select class="fee-location-select" data-team-edit-member-fee-paid-to data-member-id="${esc(String(member && member._id || ''))}" aria-label="Fee paid destination for ${esc(member && member.name || 'golfer')}">
@@ -3124,9 +3231,11 @@
     function teamEditMemberUpdatesPayload() {
       return Array.from(document.querySelectorAll('[data-team-edit-member-row]')).map((row) => ({
         memberId: String(row.dataset.memberId || '').trim(),
+        name: String(row.querySelector('[data-team-edit-member-name]') && row.querySelector('[data-team-edit-member-name]').value || '').trim(),
         email: String(row.querySelector('[data-team-edit-member-email]') && row.querySelector('[data-team-edit-member-email]').value || '').trim(),
         phone: String(row.querySelector('[data-team-edit-member-phone]') && row.querySelector('[data-team-edit-member-phone]').value || '').trim(),
         isClubMember: Boolean(row.querySelector('[data-team-edit-member-club-member]') && row.querySelector('[data-team-edit-member-club-member]').checked),
+        isGuest: Boolean(row.querySelector('[data-team-edit-member-guest]') && row.querySelector('[data-team-edit-member-guest]').checked),
       })).filter((entry) => entry.memberId);
     }
 
@@ -3194,8 +3303,8 @@
         msg.textContent = 'New golfers need both name and email.';
         return;
       }
-      if (memberUpdates.some((entry) => !entry.email)) {
-        msg.textContent = 'Current golfers need an email address.';
+      if (memberUpdates.some((entry) => !entry.name || !entry.email)) {
+        msg.textContent = 'Current golfers need both name and email.';
         return;
       }
       if (!eventId || !teamId || !teamName) {

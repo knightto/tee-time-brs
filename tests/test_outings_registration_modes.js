@@ -1151,6 +1151,128 @@ async function assertActiveTeamDeleteRemovesRecords() {
   });
 }
 
+async function assertAdminTeamEditUpdatesGolferInformation() {
+  const event = buildEvent();
+  const teamId = '607f191e810c19729de861ea';
+  const registrationId = '807f191e810c19729de861eb';
+  const captainId = '907f191e810c19729de861ec';
+  const partnerId = '907f191e810c19729de861ed';
+  const { state, models } = createModels({
+    event,
+    teams: [{
+      _id: teamId,
+      eventId: event._id,
+      name: 'Edit Team',
+      status: 'active',
+    }],
+    registrations: [{
+      _id: registrationId,
+      eventId: event._id,
+      teamId,
+      mode: 'full_team',
+      status: 'registered',
+      submittedByName: 'Edit Captain',
+      submittedByEmail: 'edit-captain@example.com',
+      submittedByPhone: '555-0401',
+      paymentStatus: 'unpaid',
+    }],
+    members: [{
+      _id: captainId,
+      eventId: event._id,
+      teamId,
+      registrationId,
+      name: 'Edit Captain',
+      email: 'edit-captain@example.com',
+      emailKey: 'edit-captain@example.com',
+      phone: '555-0401',
+      isCaptain: true,
+      isGuest: false,
+      isClubMember: false,
+      status: 'active',
+    }, {
+      _id: partnerId,
+      eventId: event._id,
+      teamId,
+      registrationId,
+      name: 'Edit Partner',
+      email: 'edit-partner@example.com',
+      emailKey: 'edit-partner@example.com',
+      phone: '555-0402',
+      isGuest: false,
+      isClubMember: false,
+      status: 'active',
+    }],
+  });
+
+  await withRouter(models, async (baseUrl) => {
+    const result = await jsonRequest(baseUrl, `/admin/events/${event._id}/teams/${teamId}?code=2000`, {
+      method: 'PUT',
+      body: {
+        teamName: 'Edited Team Name',
+        removeMemberIds: [],
+        addPlayers: [],
+        memberFeeLocations: [{ memberId: partnerId, feePaidTo: 'john' }],
+        memberUpdates: [{
+          memberId: captainId,
+          name: 'Edited Captain',
+          email: 'edited-captain@example.com',
+          phone: '555-0499',
+          isGuest: false,
+          isClubMember: true,
+        }, {
+          memberId: partnerId,
+          name: 'Edited Guest',
+          email: 'edited-guest@example.com',
+          phone: '555-0488',
+          isGuest: true,
+          isClubMember: false,
+        }],
+      },
+    });
+
+    assert.strictEqual(result.response.status, 200, 'Admin team edit should update golfer details');
+    assert.strictEqual(state.teams[0].name, 'Edited Team Name', 'Team edit should persist team name');
+    assert.strictEqual(state.members[0].name, 'Edited Captain', 'Team edit should persist captain name');
+    assert.strictEqual(state.members[0].emailKey, 'edited-captain@example.com', 'Team edit should persist captain email key');
+    assert.strictEqual(state.members[0].phone, '555-0499', 'Team edit should persist captain phone');
+    assert.strictEqual(state.members[0].isClubMember, true, 'Team edit should persist captain member flag');
+    assert.strictEqual(state.members[1].name, 'Edited Guest', 'Team edit should persist partner name');
+    assert.strictEqual(state.members[1].emailKey, 'edited-guest@example.com', 'Team edit should persist partner email key');
+    assert.strictEqual(state.members[1].phone, '555-0488', 'Team edit should persist partner phone');
+    assert.strictEqual(state.members[1].isGuest, true, 'Team edit should persist partner guest flag');
+    assert.strictEqual(state.members[1].feePaidTo, 'john', 'Team edit should persist fee location changes');
+    assert.strictEqual(state.registrations[0].submittedByName, 'Edited Captain', 'Captain edit should sync registration submitter name');
+    assert.strictEqual(state.registrations[0].submittedByEmail, 'edited-captain@example.com', 'Captain edit should sync registration submitter email');
+    assert.strictEqual(state.registrations[0].submittedByPhone, '555-0499', 'Captain edit should sync registration submitter phone');
+    assert.ok(
+      state.audits.some((row) => {
+        const details = row && row.details || {};
+        return String(row && row.action || '') === 'team_roster_admin_updated'
+          && Array.isArray(details.contactUpdates)
+          && details.contactUpdates.length === 2
+          && details.contactUpdates.some((entry) => entry.registrationUpdated === true);
+      }),
+      'Team edit should audit golfer information changes'
+    );
+
+    const duplicate = await jsonRequest(baseUrl, `/admin/events/${event._id}/teams/${teamId}?code=2000`, {
+      method: 'PUT',
+      body: {
+        teamName: 'Edited Team Name',
+        memberUpdates: [{
+          memberId: partnerId,
+          name: 'Edited Guest',
+          email: 'edited-captain@example.com',
+          phone: '555-0488',
+          isGuest: true,
+          isClubMember: false,
+        }],
+      },
+    });
+    assert.strictEqual(duplicate.response.status, 400, 'Team edit should reject duplicate active golfer emails');
+  });
+}
+
 async function assertFeeManagementFlow() {
   const event = buildEvent({ entryFee: 90 });
   const teamId = '607f191e810c19729de861ba';
@@ -1655,6 +1777,7 @@ async function run() {
   await assertAuditChangeReport();
   await assertAdminEventUpdateAudit();
   await assertKegSponsorshipFlow();
+  await assertAdminTeamEditUpdatesGolferInformation();
   await assertActiveTeamDeleteRemovesRecords();
   await assertFeeManagementFlow();
   await assertCommunicationsAdminFlow();
